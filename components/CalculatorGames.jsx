@@ -176,77 +176,77 @@ const HealthCalculatorApp = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+    <div className="min-h-screen bg-white">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10">
         
         {/* Calculators Section */}
-        <section ref={sectionRef} id="games-section" className="mb-20">
-          <div className="flex items-center justify-between mb-10">
-            <div className="flex items-center gap-4">
-              <div className="bg-gradient-to-br from-blue-600 to-indigo-600 rounded-2xl p-3.5 shadow-lg">
-                <Activity className="text-white" size={32} strokeWidth={2} />
+        <section ref={sectionRef} id="games-section" className="mb-12 sm:mb-16">
+          <div className="flex items-center justify-between mb-6 sm:mb-8">
+            <div className="flex items-center gap-3">
+              <div className="bg-gray-800 rounded-xl p-2.5 shadow-sm">
+                <Activity className="text-white" size={24} strokeWidth={2} />
               </div>
               <div>
-                <h2 className="text-3xl font-bold text-slate-900 tracking-tight">Health Calculators</h2>
-                <p className="text-slate-600 mt-1.5 text-base">Professional tools to monitor your wellness journey</p>
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight">Health Calculators</h2>
+                <p className="text-gray-600 mt-0.5 text-xs sm:text-sm">Professional wellness tools</p>
               </div>
             </div>
             <Link 
               href="/calculator/allcalc#games-section" 
-              className="hidden md:flex items-center gap-2 text-sm font-semibold text-slate-700 hover:text-slate-900 transition-colors group"
+              className="hidden md:flex items-center gap-1.5 text-xs font-medium text-gray-700 hover:text-gray-900 transition-colors group"
             >
-              View All Calculators 
-              <ArrowRight size={18} className="text-gray-700 group-hover:translate-x-1 transition-transform" />
+              View All 
+              <ArrowRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
             </Link>
           </div>
 
           <div className="relative">
             <button 
               onClick={scrollLeft} 
-              className="hidden lg:flex absolute -left-6 top-1/2 -translate-y-1/2 z-20 bg-white shadow-xl rounded-full p-3.5 text-slate-700 hover:bg-slate-50 hover:shadow-2xl transition-all border border-slate-200"
+              className="hidden lg:flex absolute -left-4 top-1/2 -translate-y-1/2 z-20 bg-white shadow-md rounded-full p-2 text-gray-700 hover:bg-gray-50 hover:shadow-lg transition-all border border-gray-200"
               aria-label="Scroll left"
             >
-              <ChevronLeft size={24} strokeWidth={2.5} />
+              <ChevronLeft size={20} strokeWidth={2.5} />
             </button>
             <button 
               onClick={scrollRight} 
-              className="hidden lg:flex absolute -right-6 top-1/2 -translate-y-1/2 z-20 bg-white shadow-xl rounded-full p-3.5 text-slate-700 hover:bg-slate-50 hover:shadow-2xl transition-all border border-slate-200"
+              className="hidden lg:flex absolute -right-4 top-1/2 -translate-y-1/2 z-20 bg-white shadow-md rounded-full p-2 text-gray-700 hover:bg-gray-50 hover:shadow-lg transition-all border border-gray-200"
               aria-label="Scroll right"
             >
-              <ChevronRight size={24} strokeWidth={2.5} />
+              <ChevronRight size={20} strokeWidth={2.5} />
             </button>
 
             <div 
               ref={sliderRef} 
-              className="flex overflow-x-auto gap-6 pb-6 scroll-smooth snap-x snap-mandatory hide-scrollbar"
+              className="flex overflow-x-auto gap-4 pb-4 scroll-smooth snap-x snap-mandatory hide-scrollbar"
             >
               {calculators.map((calc) => {
                 const IconComponent = calc.icon;
                 return (
-                  <div key={calc.id} className="flex-shrink-0 w-[340px] snap-start">
-                    <div className="bg-gradient-to-br from-white to-blue-50/30 backdrop-blur-sm rounded-3xl shadow-md hover:shadow-2xl transition-all duration-300 border border-slate-200/60 p-8 h-full group">
+                  <div key={calc.id} className="flex-shrink-0 w-[280px] sm:w-[300px] snap-start">
+                    <div className="bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-200 border border-gray-200 p-5 h-full group hover:border-gray-300">
                       
                       {/* Icon and Category */}
-                      <div className="flex items-start justify-between mb-6">
-                        <div className={`${calc.bgColor} rounded-3xl p-5 shadow-lg group-hover:scale-105 transition-transform`}>
-                          <IconComponent className="text-white" size={36} strokeWidth={2} />
+                      <div className="flex items-start justify-between mb-4">
+                        <div className={`${calc.bgColor} rounded-lg p-3 shadow-sm group-hover:scale-105 transition-transform`}>
+                          <IconComponent className="text-white" size={24} strokeWidth={2} />
                         </div>
-                        <span className="text-sm font-semibold text-slate-700">{calc.category}</span>
+                        <span className="text-xs font-medium text-gray-600 uppercase tracking-wide">{calc.category}</span>
                       </div>
 
                       {/* Title */}
-                      <h3 className="font-bold text-blue-600 text-xl mb-4 leading-tight">{calc.title}</h3>
+                      <h3 className="font-bold text-gray-900 text-base mb-2 leading-tight line-clamp-2">{calc.title}</h3>
 
                       {/* Description */}
-                      <p className="text-slate-600 text-sm leading-relaxed mb-8">{calc.description}</p>
+                      <p className="text-gray-600 text-xs leading-relaxed mb-5 line-clamp-2">{calc.description}</p>
 
                       {/* Button */}
                       <Link 
                         href={`/calculator/${calc.id}#games-section`} 
-                        className="w-full inline-flex items-center justify-center bg-blue-100 text-blue-600 px-6 py-3.5 rounded-xl text-sm font-semibold hover:bg-blue-200 transition-all group/btn"
+                        className="w-full inline-flex items-center justify-center bg-gray-900 text-white px-4 py-2.5 rounded-lg text-xs font-medium hover:bg-gray-800 transition-all group/btn"
                       >
-                        Calculate Now 
-                        <ArrowRight size={18} className="ml-2 group-hover/btn:translate-x-1 transition-transform" />
+                        Calculate 
+                        <ArrowRight size={14} className="ml-1.5 group-hover/btn:translate-x-0.5 transition-transform" />
                       </Link>
                     </div>
                   </div>
@@ -255,84 +255,84 @@ const HealthCalculatorApp = () => {
             </div>
           </div>
 
-          <div className="text-center mt-8 md:hidden">
+          <div className="text-center mt-6 md:hidden">
             <Link 
               href="/calculator/allcalc#games-section" 
-              className="inline-flex items-center gap-2 text-sm font-semibold text-slate-700 hover:text-slate-900 transition-colors"
+              className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-700 hover:text-gray-900 transition-colors"
             >
               View All Calculators 
-              <ArrowRight size={16} className="text-gray-700" />
+              <ArrowRight size={14} />
             </Link>
           </div>
         </section>
 
         {/* Games Section */}
-        <section className="mb-20">
-          <div className="flex items-center justify-between mb-10">
-            <div className="flex items-center gap-4">
-              <div className="bg-gradient-to-br from-pink-600 to-rose-600 rounded-2xl p-3.5 shadow-lg">
-                <Gamepad2 className="text-white" size={32} strokeWidth={2} />
+        <section className="mb-12 sm:mb-16">
+          <div className="flex items-center justify-between mb-6 sm:mb-8">
+            <div className="flex items-center gap-3">
+              <div className="bg-gray-800 rounded-xl p-2.5 shadow-sm">
+                <Gamepad2 className="text-white" size={24} strokeWidth={2} />
               </div>
               <div>
-                <h2 className="text-3xl font-bold text-slate-900 tracking-tight">Health & Wellness Games</h2>
-                <p className="text-slate-600 mt-1.5 text-base">Play engaging games while learning about health and fitness</p>
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight">Health Games</h2>
+                <p className="text-gray-600 mt-0.5 text-xs sm:text-sm">Learn through interactive play</p>
               </div>
             </div>
             <Link 
               href="/games/allgames#games-section" 
-              className="hidden md:flex items-center gap-2 text-sm font-semibold text-slate-700 hover:text-slate-900 transition-colors group"
+              className="hidden md:flex items-center gap-1.5 text-xs font-medium text-gray-700 hover:text-gray-900 transition-colors group"
             >
-              View All Games 
-              <ArrowRight size={18} className="text-gray-700 group-hover:translate-x-1 transition-transform" />
+              View All 
+              <ArrowRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
             </Link>
           </div>
 
           <div className="relative">
             <button 
               onClick={scrollGamesLeft} 
-              className="hidden lg:flex absolute -left-6 top-1/2 -translate-y-1/2 z-20 bg-white shadow-xl rounded-full p-3.5 text-slate-700 hover:bg-slate-50 hover:shadow-2xl transition-all border border-slate-200"
+              className="hidden lg:flex absolute -left-4 top-1/2 -translate-y-1/2 z-20 bg-white shadow-md rounded-full p-2 text-gray-700 hover:bg-gray-50 hover:shadow-lg transition-all border border-gray-200"
               aria-label="Scroll games left"
             >
-              <ChevronLeft size={24} strokeWidth={2.5} />
+              <ChevronLeft size={20} strokeWidth={2.5} />
             </button>
             <button 
               onClick={scrollGamesRight} 
-              className="hidden lg:flex absolute -right-6 top-1/2 -translate-y-1/2 z-20 bg-white shadow-xl rounded-full p-3.5 text-slate-700 hover:bg-slate-50 hover:shadow-2xl transition-all border border-slate-200"
+              className="hidden lg:flex absolute -right-4 top-1/2 -translate-y-1/2 z-20 bg-white shadow-md rounded-full p-2 text-gray-700 hover:bg-gray-50 hover:shadow-lg transition-all border border-gray-200"
               aria-label="Scroll games right"
             >
-              <ChevronRight size={24} strokeWidth={2.5} />
+              <ChevronRight size={20} strokeWidth={2.5} />
             </button>
 
             <div 
               ref={gamesSliderRef} 
-              className="flex overflow-x-auto gap-6 pb-6 scroll-smooth snap-x snap-mandatory hide-scrollbar"
+              className="flex overflow-x-auto gap-4 pb-4 scroll-smooth snap-x snap-mandatory hide-scrollbar"
             >
               {games.map((game) => {
                 const IconComponent = game.icon;
                 return (
-                  <div key={game.id} className="flex-shrink-0 w-[340px] snap-start">
-                    <div className="bg-gradient-to-br from-white to-blue-50/30 backdrop-blur-sm rounded-3xl shadow-md hover:shadow-2xl transition-all duration-300 border border-slate-200/60 p-8 h-full group">
+                  <div key={game.id} className="flex-shrink-0 w-[280px] sm:w-[300px] snap-start">
+                    <div className="bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-200 border border-gray-200 p-5 h-full group hover:border-gray-300">
                       
                       {/* Icon and Category */}
-                      <div className="flex items-start justify-between mb-6">
-                        <div className={`${game.bgColor} rounded-3xl p-5 shadow-lg group-hover:scale-105 transition-transform`}>
-                          <IconComponent className="text-white" size={36} strokeWidth={2} />
+                      <div className="flex items-start justify-between mb-4">
+                        <div className={`${game.bgColor} rounded-lg p-3 shadow-sm group-hover:scale-105 transition-transform`}>
+                          <IconComponent className="text-white" size={24} strokeWidth={2} />
                         </div>
-                        <span className="text-sm font-semibold text-slate-700">{game.category}</span>
+                        <span className="text-xs font-medium text-gray-600 uppercase tracking-wide">{game.category}</span>
                       </div>
 
                       {/* Title */}
-                      <h3 className="font-bold text-blue-600 text-xl mb-4 leading-tight">{game.title}</h3>
+                      <h3 className="font-bold text-gray-900 text-base mb-2 leading-tight line-clamp-2">{game.title}</h3>
 
                       {/* Description */}
-                      <p className="text-slate-600 text-sm leading-relaxed mb-8">{game.description}</p>
+                      <p className="text-gray-600 text-xs leading-relaxed mb-5 line-clamp-2">{game.description}</p>
 
                       {/* Button */}
                       <Link 
                         href={`/games/${game.id}#games-section`} 
-                        className="w-full inline-flex items-center justify-center bg-blue-100 text-blue-600 px-6 py-3.5 rounded-xl text-sm font-semibold hover:bg-blue-200 transition-all group/btn"
+                        className="w-full inline-flex items-center justify-center bg-gray-900 text-white px-4 py-2.5 rounded-lg text-xs font-medium hover:bg-gray-800 transition-all group/btn"
                       >
-                        <Gamepad2 size={18} className="mr-2" /> 
+                        <Gamepad2 size={14} className="mr-1.5" /> 
                         Play Now
                       </Link>
                     </div>
@@ -342,13 +342,13 @@ const HealthCalculatorApp = () => {
             </div>
           </div>
 
-          <div className="text-center mt-8 md:hidden">
+          <div className="text-center mt-6 md:hidden">
             <Link 
               href="/games/allgames#games-section" 
-              className="inline-flex items-center gap-2 text-sm font-semibold text-slate-700 hover:text-slate-900 transition-colors"
+              className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-700 hover:text-gray-900 transition-colors"
             >
               View All Games 
-              <ArrowRight size={16} className="text-gray-700" />
+              <ArrowRight size={14} />
             </Link>
           </div>
         </section>

@@ -1569,10 +1569,11 @@ export default function FindDoctor() {
                     );
                   })}
                 </div>
-              </div>
+              )}
             </div>
+          </div>
           ) : (doctors.length === 0 && !loading && (selectedService || query.trim())) ? (
-            <div className="bg-white rounded-2xl border border-[#e2e8f0] shadow-sm p-6 sm:p-8">
+          <div className="bg-white rounded-2xl border border-[#e2e8f0] shadow-sm p-6 sm:p-8">
               <div className="text-center mb-6">
                 <div className="w-16 h-16 rounded-full bg-[#f0f7ff] flex items-center justify-center mx-auto mb-3">
                   <Search className="w-8 h-8 text-[#0284c7]" />
@@ -1796,6 +1797,7 @@ export default function FindDoctor() {
           )}
         </div>
       </div>
+    </div>
     </div>
   );
 }
