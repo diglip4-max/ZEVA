@@ -108,7 +108,7 @@ export default function Home() {
         }
     };
 
-    // Add available times array
+   //hey
     const availableTimes = [
         'Early Morning (4 AM - 6 AM)',
         'Morning (6 AM - 12 PM)',
@@ -1452,13 +1452,12 @@ export default function Home() {
                                                                     className="flex items-center justify-center px-2.5 py-1.5 bg-[#0284c7] text-white rounded-lg hover:bg-[#0369a1] transition-all text-xs shadow-sm hover:shadow"
                                                                     title="Get Directions"
                                                                 >
-                                                                    <Navigation className="w-3.5 h-3.5 mr-1" />
-                                                                    <span className="hidden sm:inline">Directions</span>
+                                                                    <Navigation className="w-3.5 h-3.5" />
                                                                 </a>
                                                             )}
                                                             <a
                                                                 href={`/clinics/${clinic._id}`}
-                                                                className="px-3 py-1.5 text-xs text-white bg-gradient-to-r from-[#0284c7] to-[#0ea5e9] hover:from-[#0369a1] hover:to-[#0284c7] rounded-lg font-medium transition-all shadow-sm hover:shadow"
+                                                                className="px-2.5 py-1 text-xs text-white bg-gradient-to-r from-[#0284c7] to-[#0ea5e9] hover:from-[#0369a1] hover:to-[#0284c7] rounded-lg font-medium transition-all shadow-sm hover:shadow whitespace-nowrap"
                                                             >
                                                                 View Details
                                                             </a>

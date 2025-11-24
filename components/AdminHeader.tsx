@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 
 interface AdminHeaderProps {
   handleToggleDesktop?: () => void;
@@ -22,38 +22,9 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
   sidebarItems = [],
   onSearch,
 }) => {
-  const [currentTime, setCurrentTime] = useState(new Date());
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Array<{ label: string; path?: string }>>([]);
   const [showSearchResults, setShowSearchResults] = useState(false);
-
-  // Update time every second
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, []);
-
-  // Format date and time
-  const formatDate = (date: Date) => {
-    return date.toLocaleDateString('en-US', {
-      weekday: 'short',
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
-  };
-
-  const formatTime = (date: Date) => {
-    return date.toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: true,
-    });
-  };
 
   const toggleDesktop = () => {
     if (handleToggleDesktop) handleToggleDesktop();
@@ -129,51 +100,49 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
   return (
     <header className="w-full bg-white border-b border-gray-200 shadow-sm sticky top-0 z-20">
       <div className="px-4 py-3 sm:px-6">
-        <div className="flex items-center justify-between gap-3 sm:gap-4">
-          {/* Left: Hamburger + Search Bar */}
-          <div className="flex items-center flex-1 min-w-0">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          {/* Left: Hamburger buttons */}
+          <div className="flex items-center gap-3 flex-shrink-0">
             {/* Mobile Hamburger - Only show when sidebar is closed */}
             {handleToggleMobile && !isMobileOpen && (
-              <div className="flex-shrink-0 mr-3 sm:mr-4">
-                <button
-                  onClick={toggleMobile}
-                  className="p-2 rounded-lg hover:bg-gray-100 transition-colors duration-200 lg:hidden"
-                  aria-label="Toggle sidebar"
+              <button
+                onClick={toggleMobile}
+                className="p-2 rounded-lg hover:bg-gray-100 transition-colors duration-200 lg:hidden"
+                aria-label="Toggle sidebar"
+              >
+                <svg
+                  className="w-5 h-5 text-gray-700 transition-transform duration-300"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
                 >
-                  <svg
-                    className="w-5 h-5 text-gray-700 transition-transform duration-300"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                  </svg>
-                </button>
-              </div>
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              </button>
             )}
 
             {/* Desktop Hamburger - Only show when sidebar is hidden */}
             {handleToggleDesktop && isDesktopHidden && (
-              <div className="hidden lg:block flex-shrink-0 mr-3 sm:mr-4">
-                <button
-                  onClick={toggleDesktop}
-                  className="p-2 rounded-lg hover:bg-gray-100 transition-colors duration-200"
-                  aria-label="Toggle sidebar"
+              <button
+                onClick={toggleDesktop}
+                className="hidden lg:inline-flex p-2 rounded-lg hover:bg-gray-100 transition-colors duration-200"
+                aria-label="Toggle sidebar"
+              >
+                <svg
+                  className="w-5 h-5 text-gray-700 transition-transform duration-300"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
                 >
-                  <svg
-                    className="w-5 h-5 text-gray-700 transition-transform duration-300"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                  </svg>
-                </button>
-              </div>
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              </button>
             )}
+          </div>
 
-            {/* Search Bar - Always on left */}
-            <div className="relative flex-1 min-w-0 max-w-full sm:max-w-md">
+          {/* Right: Search + Profile */}
+          <div className="flex items-center gap-4 flex-1 justify-end flex-wrap">
+            <div className="relative w-full max-w-xs sm:max-w-sm lg:max-w-md">
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <svg
@@ -196,67 +165,57 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                   onChange={handleSearchChange}
                   onFocus={() => searchResults.length > 0 && setShowSearchResults(true)}
                   placeholder="Search sidebar options..."
-                  className="block w-full min-w-0 pl-10 pr-3 py-2 border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-700 focus:outline-none focus:placeholder-gray-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-sm placeholder:text-xs sm:placeholder:text-sm"
+                  className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-700 focus:outline-none focus:placeholder-gray-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-sm placeholder:text-xs sm:placeholder:text-sm"
                 />
               </div>
 
-            {/* Search Results Dropdown */}
-            {showSearchResults && searchResults.length > 0 && (
-              <div className="absolute z-50 mt-1 w-full bg-white rounded-lg shadow-lg border border-gray-200 max-h-60 overflow-auto">
-                {searchResults.map((result, index) => (
-                  <button
-                    key={index}
-                    onClick={() => handleSearchResultClick(result.path)}
-                    className="w-full text-left px-4 py-2 hover:bg-gray-50 transition-colors duration-150 text-sm text-gray-700 border-b border-gray-100 last:border-b-0"
-                  >
-                    <div className="font-medium">{result.label}</div>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-          </div>
-
-          {/* Center: Date and Time */}
-          <div className="hidden lg:flex flex-col items-end text-right flex-shrink-0 ml-2">
-            <div className="text-sm font-medium text-gray-900">
-              {formatTime(currentTime)}
-            </div>
-            <div className="text-xs text-gray-700">
-              {formatDate(currentTime)}
-            </div>
-          </div>
-
-          {/* Right: User Profile */}
-          <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
-            <div className="hidden sm:block text-right">
-              <div className="text-sm font-medium text-gray-900">
-                {storedUser?.name || 'Admin'}
-              </div>
-              <div className="text-xs text-gray-700 truncate max-w-[120px]">
-                {email || ''}
-              </div>
-            </div>
-            
-            <div className="flex items-center gap-2">
-              <div className="w-9 h-9 bg-gray-700 rounded-full flex items-center justify-center">
-                <span className="text-white font-medium text-sm">
-                  {storedUser?.name ? getInitials(storedUser.name) : 'A'}
-                </span>
-              </div>
-              
-              <button
-                onClick={handleLogout}
-                className="px-3 py-1.5 text-sm font-medium text-gray-700 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-red-200"
-                aria-label="Logout"
-              >
-                <div className="flex items-center gap-2">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                  </svg>
-                  <span className="hidden sm:inline">Logout</span>
+              {/* Search Results Dropdown */}
+              {showSearchResults && searchResults.length > 0 && (
+                <div className="absolute z-50 mt-1 w-full bg-white rounded-lg shadow-lg border border-gray-200 max-h-60 overflow-auto">
+                  {searchResults.map((result, index) => (
+                    <button
+                      key={index}
+                      onClick={() => handleSearchResultClick(result.path)}
+                      className="w-full text-left px-4 py-2 hover:bg-gray-50 transition-colors duration-150 text-sm text-gray-700 border-b border-gray-100 last:border-b-0"
+                    >
+                      <div className="font-medium">{result.label}</div>
+                    </button>
+                  ))}
                 </div>
-              </button>
+              )}
+            </div>
+
+            {/* Right: User Profile */}
+            <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+              <div className="hidden sm:block text-right">
+                <div className="text-sm font-medium text-gray-900">
+                  {storedUser?.name || 'Admin'}
+                </div>
+                <div className="text-xs text-gray-700 truncate max-w-[120px]">
+                  {email || ''}
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <div className="w-9 h-9 bg-gray-700 rounded-full flex items-center justify-center">
+                  <span className="text-white font-medium text-sm">
+                    {storedUser?.name ? getInitials(storedUser.name) : 'A'}
+                  </span>
+                </div>
+
+                <button
+                  onClick={handleLogout}
+                  className="px-3 py-1.5 text-sm font-medium text-gray-700 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-red-200"
+                  aria-label="Logout"
+                >
+                  <div className="flex items-center gap-2">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                    </svg>
+                    <span className="hidden sm:inline">Logout</span>
+                  </div>
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -265,4 +224,4 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
   );
 };
 
-export default AdminHeader;
+export default AdminHeader;             

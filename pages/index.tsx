@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import axios from "axios";
 import React from "react";
+import Head from "next/head";
 import AuthModal from "../components/AuthModal";
 import Index1 from "../components/Index1";
 import Blog from "../components/blog";
@@ -78,6 +79,27 @@ export default function Home(): React.ReactElement {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <Head>
+        <title>Zeva Ayurveda | Find Ayurvedic Doctors, Clinics & Holistic Care</title>
+        <meta
+          name="description"
+          content="Discover board-certified Ayurvedic doctors, verified wellness clinics, and guided care journeys with Zeva’s integrated health, career, and lifestyle ecosystem."
+        />
+        <meta
+          name="keywords"
+          content="Ayurvedic doctors, Ayurveda clinic Dubai, holistic wellness platform, telehealth Ayurveda, Panchakarma booking, Zeva health platform"
+        />
+        <meta property="og:title" content="Zeva Ayurveda | Integrated Wellness Platform" />
+        <meta
+          property="og:description"
+          content="Search doctors, book Panchakarma treatments, and manage your lifestyle goals with Zeva’s connected digital health suite."
+        />
+        <meta property="og:type" content="website" />
+        <meta property="og:url" content="https://zevahealth.com/" />
+        <meta property="og:image" content="https://zevahealth.com/meta/zeva-og-image.png" />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="robots" content="index, follow" />
+      </Head>
       <AuthModal
         isOpen={showAuthModal}
         onClose={handleAuthModalClose}
