@@ -8,6 +8,7 @@ const DoctorTreatmentSchema = new mongoose.Schema(
     treatmentId: { type: mongoose.Schema.Types.ObjectId, ref: "Treatment", required: true },
     subcategoryIds: [{ type: String }], // or ObjectId if subcategories are stored as separate docs
     price: { type: Number }, // override price if doctor wants custom price
+    department: { type: mongoose.Schema.Types.ObjectId, ref: "Department", default: null },
   },
   { timestamps: true }
 );

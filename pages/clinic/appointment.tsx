@@ -13,6 +13,19 @@ interface DoctorStaff {
   email: string;
 }
 
+interface DoctorTreatmentSummary {
+  _id: string;
+  treatmentName: string;
+  departmentName?: string | null;
+  subcategories?: { name: string; slug?: string; price?: number | null }[];
+}
+
+interface DoctorDepartmentSummary {
+  _id: string;
+  name: string;
+  clinicDepartmentId?: string | null;
+}
+
 interface Room {
   _id: string;
   name: string;
@@ -193,6 +206,17 @@ function AppointmentPage() {
     bookedFrom: "doctor",
   });
   const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split("T")[0]);
+  const [doctorTreatmentsMap, setDoctorTreatmentsMap] = useState<Record<string, DoctorTreatmentSummary[]>>({});
+  const [doctorTreatmentsLoading, setDoctorTreatmentsLoading] = useState<Record<string, boolean>>({});
+  const [doctorTreatmentsError, setDoctorTreatmentsError] = useState<Record<string, string>>({});
+  const [doctorDepartmentsMap, setDoctorDepartmentsMap] = useState<Record<string, DoctorDepartmentSummary[]>>({});
+  const [doctorDepartmentsLoading, setDoctorDepartmentsLoading] = useState<Record<string, boolean>>({});
+  const [doctorDepartmentsError, setDoctorDepartmentsError] = useState<Record<string, string>>({});
+  const [activeDoctorTooltip, setActiveDoctorTooltip] = useState<{
+    doctorId: string;
+    doctorName: string;
+    position: { top: number; left: number };
+  } | null>(null);
 
   function getAuthHeaders(): Record<string, string> {
     if (typeof window === "undefined") return {};
@@ -200,6 +224,80 @@ function AppointmentPage() {
     if (!token) return {};
     return { Authorization: `Bearer ${token}` };
   }
+
+  const fetchDoctorTreatments = async (doctorId: string) => {
+    setDoctorTreatmentsLoading((prev) => ({ ...prev, [doctorId]: true }));
+    setDoctorTreatmentsError((prev) => ({ ...prev, [doctorId]: "" }));
+    try {
+      const res = await axios.get(`/api/clinic/doctor-treatments?doctorStaffId=${doctorId}`, {
+        headers: getAuthHeaders(),
+      });
+      if (res.data.success) {
+        setDoctorTreatmentsMap((prev) => ({ ...prev, [doctorId]: res.data.treatments || [] }));
+      } else {
+        setDoctorTreatmentsError((prev) => ({
+          ...prev,
+          [doctorId]: res.data.message || "Failed to load doctor details",
+        }));
+      }
+    } catch (err: any) {
+      console.error("Error loading doctor treatments", err);
+      setDoctorTreatmentsError((prev) => ({
+        ...prev,
+        [doctorId]: err.response?.data?.message || "Failed to load doctor details",
+      }));
+    } finally {
+      setDoctorTreatmentsLoading((prev) => ({ ...prev, [doctorId]: false }));
+    }
+  };
+
+  const fetchDoctorDepartments = async (doctorId: string) => {
+    setDoctorDepartmentsLoading((prev) => ({ ...prev, [doctorId]: true }));
+    setDoctorDepartmentsError((prev) => ({ ...prev, [doctorId]: "" }));
+    try {
+      const res = await axios.get(`/api/clinic/doctor-departments?doctorStaffId=${doctorId}`, {
+        headers: getAuthHeaders(),
+      });
+      if (res.data.success) {
+        setDoctorDepartmentsMap((prev) => ({ ...prev, [doctorId]: res.data.departments || [] }));
+      } else {
+        setDoctorDepartmentsError((prev) => ({
+          ...prev,
+          [doctorId]: res.data.message || "Unable to load departments",
+        }));
+      }
+    } catch (err: any) {
+      console.error("Error loading doctor departments", err);
+      setDoctorDepartmentsError((prev) => ({
+        ...prev,
+        [doctorId]: err.response?.data?.message || "Unable to load departments",
+      }));
+    } finally {
+      setDoctorDepartmentsLoading((prev) => ({ ...prev, [doctorId]: false }));
+    }
+  };
+
+  const handleDoctorMouseEnter = (doctor: DoctorStaff, event: React.MouseEvent<HTMLDivElement>) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    setActiveDoctorTooltip({
+      doctorId: doctor._id,
+      doctorName: doctor.name,
+      position: {
+        top: rect.bottom + window.scrollY + 8,
+        left: rect.left + window.scrollX + rect.width / 2,
+      },
+    });
+    if (!doctorTreatmentsMap[doctor._id] && !doctorTreatmentsLoading[doctor._id]) {
+      fetchDoctorTreatments(doctor._id);
+    }
+    if (!doctorDepartmentsMap[doctor._id] && !doctorDepartmentsLoading[doctor._id]) {
+      fetchDoctorDepartments(doctor._id);
+    }
+  };
+
+  const handleDoctorMouseLeave = () => {
+    setActiveDoctorTooltip(null);
+  };
 
   useEffect(() => {
     const loadAppointmentData = async () => {
@@ -331,6 +429,21 @@ function AppointmentPage() {
   })();
   const lastBookableMinutes =
     closingMinutes !== null ? closingMinutes - SLOT_INTERVAL_MINUTES : null;
+  const tooltipDoctor = activeDoctorTooltip
+    ? doctorStaff.find((doc) => doc._id === activeDoctorTooltip.doctorId)
+    : null;
+  const tooltipTreatments =
+    (activeDoctorTooltip && doctorTreatmentsMap[activeDoctorTooltip.doctorId]) || [];
+  const tooltipLoading =
+    activeDoctorTooltip && doctorTreatmentsLoading[activeDoctorTooltip.doctorId];
+  const tooltipError =
+    activeDoctorTooltip && doctorTreatmentsError[activeDoctorTooltip.doctorId];
+  const tooltipDeptList =
+    (activeDoctorTooltip && doctorDepartmentsMap[activeDoctorTooltip.doctorId]) || [];
+  const tooltipDeptLoading =
+    activeDoctorTooltip && doctorDepartmentsLoading[activeDoctorTooltip.doctorId];
+  const tooltipDeptError =
+    activeDoctorTooltip && doctorDepartmentsError[activeDoctorTooltip.doctorId];
 
   const handleBookingSuccess = () => {
     // Reload appointments
@@ -455,7 +568,9 @@ function AppointmentPage() {
               {doctorStaff.map((doctor) => (
                 <div
                   key={doctor._id}
-                  className="flex-1 min-w-[180px] border-r border-gray-200 p-3"
+                  className="flex-1 min-w-[180px] border-r border-gray-200 p-3 relative"
+                  onMouseEnter={(e) => handleDoctorMouseEnter(doctor, e)}
+                  onMouseLeave={handleDoctorMouseLeave}
                 >
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-semibold text-sm flex-shrink-0">
@@ -778,6 +893,108 @@ function AppointmentPage() {
         doctorStaff={doctorStaff}
         getAuthHeaders={getAuthHeaders}
       />
+
+      {activeDoctorTooltip && (
+        <div
+          className="fixed z-[80] w-[260px] max-w-[85vw] -translate-x-1/2"
+          style={{
+            top: activeDoctorTooltip.position.top,
+            left: activeDoctorTooltip.position.left,
+          }}
+        >
+          <div className="rounded-xl bg-white shadow-2xl border border-purple-100 overflow-hidden">
+            <div className="bg-purple-600 text-white text-xs font-semibold px-3 py-2 flex items-center gap-2 tracking-wide">
+              Doctor Information
+            </div>
+            <div className="p-3 space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center text-purple-700 font-semibold text-base">
+                  {getInitials(activeDoctorTooltip.doctorName)}
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">
+                    {activeDoctorTooltip.doctorName}
+                  </p>
+                  <p className="text-xs text-slate-500">{tooltipDoctor?.email || "No email available"}</p>
+                </div>
+              </div>
+
+              <div className="space-y-1 text-xs text-slate-600">
+                <p className="font-semibold text-slate-900 text-[11px] uppercase tracking-[0.2em]">
+                  Departments
+                </p>
+                {tooltipDeptLoading ? (
+                  <div className="flex items-center gap-2 text-slate-500">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    Loading...
+                  </div>
+                ) : tooltipDeptError ? (
+                  <p className="text-xs text-red-500">{tooltipDeptError}</p>
+                ) : tooltipDeptList && tooltipDeptList.length > 0 ? (
+                  <div className="flex flex-wrap gap-1.5">
+                    {tooltipDeptList.map((dept) => (
+                      <span
+                        key={dept._id}
+                        className="px-2 py-0.5 rounded-full bg-white border border-slate-200 text-[11px] text-slate-600"
+                      >
+                        {dept.name}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-slate-500">Not assigned</p>
+                )}
+              </div>
+
+              <div>
+                <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-[0.2em] mb-1.5">
+                  Treatments
+                </p>
+                {tooltipLoading ? (
+                  <div className="flex items-center gap-2 text-sm text-slate-500">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Loading treatments...
+                  </div>
+                ) : tooltipError ? (
+                  <p className="text-xs text-red-500">{tooltipError}</p>
+                ) : tooltipTreatments && tooltipTreatments.length > 0 ? (
+                  <div className="space-y-2.5 max-h-56 overflow-y-auto pr-1">
+                    {tooltipTreatments.map((treatment) => (
+                      <div
+                        key={treatment._id}
+                        className="rounded-lg border border-slate-100 bg-slate-50/60 p-2.5"
+                      >
+                        <p className="text-sm font-semibold text-slate-900 truncate">
+                          {treatment.treatmentName}
+                        </p>
+                        {treatment.departmentName && (
+                          <p className="text-xs text-slate-500 mt-0.5">
+                            Department: <span className="font-medium">{treatment.departmentName}</span>
+                          </p>
+                        )}
+                        {treatment.subcategories && treatment.subcategories.length > 0 && (
+                          <div className="mt-2 flex flex-wrap gap-1.5">
+                            {treatment.subcategories.map((sub, idx) => (
+                              <span
+                                key={sub.slug || `${treatment._id}-${idx}`}
+                                className="px-2 py-0.5 rounded-full bg-white border border-slate-200 text-[11px] text-slate-600"
+                              >
+                                {sub.name}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-slate-500">No treatments assigned yet.</p>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

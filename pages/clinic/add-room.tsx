@@ -14,6 +14,13 @@ interface Room {
   updatedAt: string;
 }
 
+interface Department {
+  _id: string;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 const MessageBanner = ({ type, text }: { type: "success" | "error" | "info"; text: string }) => {
   if (!text) return null;
 
@@ -42,9 +49,12 @@ function getAuthHeaders() {
 
 function AddRoomPage() {
   const [rooms, setRooms] = useState<Room[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
   const [roomName, setRoomName] = useState("");
+  const [departmentName, setDepartmentName] = useState("");
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [submittingDept, setSubmittingDept] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error" | "info"; text: string }>({
     type: "info",
     text: "",
@@ -52,7 +62,6 @@ function AddRoomPage() {
 
   const loadRooms = async () => {
     try {
-      setLoading(true);
       const res = await axios.get("/api/clinic/rooms", {
         headers: getAuthHeaders(),
       });
@@ -66,13 +75,32 @@ function AddRoomPage() {
       console.error("Error loading rooms", error);
       const errorMessage = error.response?.data?.message || "Failed to load rooms";
       setMessage({ type: "error", text: errorMessage });
-    } finally {
-      setLoading(false);
+    }
+  };
+
+  const loadDepartments = async () => {
+    try {
+      const res = await axios.get("/api/clinic/departments", {
+        headers: getAuthHeaders(),
+      });
+
+      if (res.data.success) {
+        setDepartments(res.data.departments || []);
+      } else {
+        console.error("Error loading departments:", res.data.message);
+      }
+    } catch (error: any) {
+      console.error("Error loading departments", error);
     }
   };
 
   useEffect(() => {
-    loadRooms();
+    const loadData = async () => {
+      setLoading(true);
+      await Promise.all([loadRooms(), loadDepartments()]);
+      setLoading(false);
+    };
+    loadData();
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -130,6 +158,65 @@ function AddRoomPage() {
     } catch (error: any) {
       console.error("Error deleting room", error);
       const errorMessage = error.response?.data?.message || "Failed to delete room";
+      setMessage({ type: "error", text: errorMessage });
+    }
+  };
+
+  const handleDepartmentSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!departmentName.trim()) {
+      setMessage({ type: "error", text: "Please enter a department name" });
+      return;
+    }
+
+    setSubmittingDept(true);
+    setMessage({ type: "info", text: "" });
+
+    try {
+      const res = await axios.post(
+        "/api/clinic/departments",
+        { name: departmentName.trim() },
+        {
+          headers: getAuthHeaders(),
+        }
+      );
+
+      if (res.data.success) {
+        setMessage({ type: "success", text: res.data.message || "Department created successfully" });
+        setDepartmentName("");
+        await loadDepartments(); // Reload departments list
+      } else {
+        setMessage({ type: "error", text: res.data.message || "Failed to create department" });
+      }
+    } catch (error: any) {
+      console.error("Error creating department", error);
+      const errorMessage = error.response?.data?.message || "Failed to create department";
+      setMessage({ type: "error", text: errorMessage });
+    } finally {
+      setSubmittingDept(false);
+    }
+  };
+
+  const handleDeleteDepartment = async (departmentId: string) => {
+    if (!confirm("Are you sure you want to delete this department?")) {
+      return;
+    }
+
+    try {
+      const res = await axios.delete(`/api/clinic/departments?departmentId=${departmentId}`, {
+        headers: getAuthHeaders(),
+      });
+
+      if (res.data.success) {
+        setMessage({ type: "success", text: res.data.message || "Department deleted successfully" });
+        await loadDepartments(); // Reload departments list
+      } else {
+        setMessage({ type: "error", text: res.data.message || "Failed to delete department" });
+      }
+    } catch (error: any) {
+      console.error("Error deleting department", error);
+      const errorMessage = error.response?.data?.message || "Failed to delete department";
       setMessage({ type: "error", text: errorMessage });
     }
   };
@@ -208,6 +295,86 @@ function AddRoomPage() {
                   onClick={() => handleDelete(room._id)}
                   className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                   title="Delete room"
+                >
+                  <Trash2 className="w-5 h-5" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Departments Section */}
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+        <div className="flex flex-col gap-1 mb-6">
+          <h1 className="text-2xl font-semibold text-gray-900">Manage Departments</h1>
+          <p className="text-sm text-gray-500">Create and manage departments for your clinic.</p>
+        </div>
+
+        <form onSubmit={handleDepartmentSubmit} className="mt-6 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Department Name <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              value={departmentName}
+              onChange={(e) => setDepartmentName(e.target.value)}
+              placeholder="e.g., Cardiology, Dermatology"
+              className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              required
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={submittingDept}
+            className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-green-600 text-white rounded-xl font-medium shadow hover:bg-green-700 disabled:opacity-60"
+          >
+            {submittingDept && <Loader2 className="w-4 h-4 animate-spin" />}
+            {submittingDept ? "Creating..." : "Create Department"}
+          </button>
+        </form>
+      </div>
+
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900">All Departments</h2>
+            <p className="text-sm text-gray-500">List of all departments in your clinic.</p>
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="flex items-center justify-center py-16 text-gray-500">
+            <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+            Loading departments...
+          </div>
+        ) : departments.length === 0 ? (
+          <div className="text-center py-16">
+            <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 text-xl">
+              🏢
+            </div>
+            <p className="text-gray-600">No departments created yet.</p>
+            <p className="text-sm text-gray-500 mt-2">Use the form above to create your first department.</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {departments.map((dept) => (
+              <div
+                key={dept._id}
+                className="border border-gray-200 rounded-xl p-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
+              >
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">{dept.name}</h3>
+                  <p className="text-sm text-gray-500">
+                    Created {new Date(dept.createdAt).toLocaleDateString()}
+                  </p>
+                </div>
+                <button
+                  onClick={() => handleDeleteDepartment(dept._id)}
+                  className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                  title="Delete department"
                 >
                   <Trash2 className="w-5 h-5" />
                 </button>

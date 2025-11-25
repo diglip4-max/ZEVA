@@ -32,13 +32,21 @@ const DoctorTreatmentModal = ({ isOpen, onClose, doctorStaffId, doctorStaffName,
   const [fetching, setFetching] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState({ type: "info", text: "" });
-  const [activeTab, setActiveTab] = useState("existing"); // "existing" or "custom"
+  const [activeTab, setActiveTab] = useState("existing"); // "existing", "custom", or "department"
   const [customTreatmentName, setCustomTreatmentName] = useState("");
   const [customPrice, setCustomPrice] = useState("");
   const [customSubTreatments, setCustomSubTreatments] = useState([
     { id: Date.now(), name: "", price: "" },
   ]);
   const [customSubmitting, setCustomSubmitting] = useState(false);
+  const [doctorDepartments, setDoctorDepartments] = useState([]);
+  const [doctorDepartmentsLoading, setDoctorDepartmentsLoading] = useState(false);
+  const [clinicDepartments, setClinicDepartments] = useState([]);
+  const [clinicDepartmentsLoading, setClinicDepartmentsLoading] = useState(false);
+  const [selectedDepartmentId, setSelectedDepartmentId] = useState("");
+  const [customDepartmentId, setCustomDepartmentId] = useState("");
+  const [selectedClinicDepartmentId, setSelectedClinicDepartmentId] = useState("");
+  const [addingDepartment, setAddingDepartment] = useState(false);
 
   const selectedTreatment = useMemo(
     () => baseTreatments.find((t) => t._id === selectedTreatmentId),
@@ -65,6 +73,7 @@ const DoctorTreatmentModal = ({ isOpen, onClose, doctorStaffId, doctorStaffName,
       setMessage({ type: "error", text: "Unable to load treatments" });
     }
   };
+
 
   const loadDoctorTreatments = async () => {
     if (!doctorStaffId) return;
@@ -103,12 +112,14 @@ const DoctorTreatmentModal = ({ isOpen, onClose, doctorStaffId, doctorStaffName,
     setSelectedTreatmentId("");
     setSelectedSubcategories([]);
     setPrice("");
+    setSelectedDepartmentId("");
   };
 
   const resetCustomForm = () => {
     setCustomTreatmentName("");
     setCustomPrice("");
     setCustomSubTreatments([{ id: Date.now(), name: "", price: "" }]);
+    setCustomDepartmentId("");
   };
 
   const handleSubmit = async (e) => {
@@ -127,6 +138,7 @@ const DoctorTreatmentModal = ({ isOpen, onClose, doctorStaffId, doctorStaffName,
         treatmentId: selectedTreatmentId,
         subcategoryIds: selectedSubcategories,
         price: price === "" ? null : price,
+        department: selectedDepartmentId || null,
       };
 
       const res = await axios.post("/api/clinic/doctor-treatments", payload, {
@@ -187,6 +199,7 @@ const DoctorTreatmentModal = ({ isOpen, onClose, doctorStaffId, doctorStaffName,
         treatmentName: customTreatmentName.trim(),
         price: parsedCustomPrice,
         subTreatments: preparedSubTreatments,
+        department: customDepartmentId || null,
       };
 
       const res = await axios.post("/api/clinic/doctor-treatments", payload, {
@@ -222,6 +235,123 @@ const DoctorTreatmentModal = ({ isOpen, onClose, doctorStaffId, doctorStaffName,
     setCustomSubTreatments(
       customSubTreatments.map((sub) => (sub.id === id ? { ...sub, [field]: value } : sub))
     );
+  };
+
+  const loadDoctorDepartments = async () => {
+    if (!doctorStaffId) return;
+    try {
+      setDoctorDepartmentsLoading(true);
+      const res = await axios.get(`/api/clinic/doctor-departments?doctorStaffId=${doctorStaffId}`, {
+        headers: getAuthHeaders(),
+      });
+      if (res.data.success) {
+        setDoctorDepartments(res.data.departments || []);
+      } else {
+        console.error("Error loading doctor departments:", res.data.message);
+      }
+    } catch (error) {
+      console.error("Error loading doctor departments", error);
+    } finally {
+      setDoctorDepartmentsLoading(false);
+    }
+  };
+
+  const loadClinicDepartments = async () => {
+    try {
+      setClinicDepartmentsLoading(true);
+      const res = await axios.get("/api/clinic/departments", {
+        headers: getAuthHeaders(),
+      });
+      if (res.data.success) {
+        setClinicDepartments(res.data.departments || []);
+      } else {
+        console.error("Error loading clinic departments:", res.data.message);
+      }
+    } catch (error) {
+      console.error("Error loading clinic departments", error);
+    } finally {
+      setClinicDepartmentsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isOpen && doctorStaffId) {
+      loadDoctorDepartments();
+    }
+  }, [isOpen, doctorStaffId]);
+
+  useEffect(() => {
+    if (isOpen && doctorStaffId && activeTab === "department") {
+      loadClinicDepartments();
+    }
+  }, [isOpen, doctorStaffId, activeTab]);
+
+  const handleAddDepartment = async (e) => {
+    e.preventDefault();
+    if (!selectedClinicDepartmentId) {
+      setMessage({ type: "error", text: "Please select a department" });
+      return;
+    }
+
+    const selectedDepartment = clinicDepartments.find((dept) => dept._id === selectedClinicDepartmentId);
+    if (!selectedDepartment) {
+      setMessage({ type: "error", text: "Selected department not found" });
+      return;
+    }
+
+    setAddingDepartment(true);
+    setMessage({ type: "info", text: "" });
+
+    try {
+      const res = await axios.post(
+        "/api/clinic/doctor-departments",
+        {
+          doctorStaffId,
+          clinicDepartmentId: selectedClinicDepartmentId,
+          name: selectedDepartment.name,
+        },
+        {
+          headers: getAuthHeaders(),
+        }
+      );
+
+      if (res.data.success) {
+        setMessage({ type: "success", text: res.data.message || "Department added successfully" });
+        setSelectedClinicDepartmentId("");
+        await loadDoctorDepartments();
+      } else {
+        setMessage({ type: "error", text: res.data.message || "Failed to add department" });
+      }
+    } catch (error) {
+      console.error("Error adding department", error);
+      const errorMessage = error.response?.data?.message || "Failed to add department";
+      setMessage({ type: "error", text: errorMessage });
+    } finally {
+      setAddingDepartment(false);
+    }
+  };
+
+  const handleDeleteDepartment = async (departmentId) => {
+    if (!confirm("Are you sure you want to delete this department?")) {
+      return;
+    }
+
+    try {
+      const res = await axios.delete(`/api/clinic/doctor-departments?departmentId=${departmentId}`, {
+        headers: getAuthHeaders(),
+      });
+
+      if (res.data.success) {
+        setMessage({ type: "success", text: res.data.message || "Department deleted successfully" });
+        await loadDoctorDepartments();
+      } else {
+        setMessage({ type: "error", text: res.data.message || "Failed to delete department" });
+      }
+    } catch (error) {
+      console.error("Error deleting department", error);
+      const errorMessage = error.response?.data?.message || "Failed to delete department";
+      setMessage({ type: "error", text: errorMessage });
+    }
   };
 
   if (!isOpen) return null;
@@ -266,6 +396,16 @@ const DoctorTreatmentModal = ({ isOpen, onClose, doctorStaffId, doctorStaffName,
               }`}
             >
               Create Custom Treatment
+            </button>
+            <button
+              onClick={() => setActiveTab("department")}
+              className={`px-4 py-2 text-sm font-medium transition-colors ${
+                activeTab === "department"
+                  ? "border-b-2 border-blue-600 text-blue-600"
+                  : "text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              Department
             </button>
           </div>
 
@@ -343,6 +483,37 @@ const DoctorTreatmentModal = ({ isOpen, onClose, doctorStaffId, doctorStaffName,
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Department (optional)
+                </label>
+                {doctorDepartmentsLoading ? (
+                  <div className="flex items-center gap-2 text-sm text-gray-500">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Loading departments...
+                  </div>
+                ) : doctorDepartments.length === 0 ? (
+                  <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                    No departments added yet. Use the Department tab to add departments for this doctor.
+                  </p>
+                ) : (
+                  <select
+                    value={selectedDepartmentId}
+                    onChange={(e) => setSelectedDepartmentId(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="">No Department</option>
+                    {doctorDepartments
+                      .filter((dept) => dept.clinicDepartmentId)
+                      .map((dept) => (
+                        <option key={dept._id} value={dept.clinicDepartmentId}>
+                          {dept.name}
+                        </option>
+                      ))}
+                  </select>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
                   Custom price (optional)
                 </label>
                 <div className="relative">
@@ -410,6 +581,37 @@ const DoctorTreatmentModal = ({ isOpen, onClose, doctorStaffId, doctorStaffName,
               </div>
 
               <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Department (optional)
+                </label>
+                {doctorDepartmentsLoading ? (
+                  <div className="flex items-center gap-2 text-sm text-gray-500">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Loading departments...
+                  </div>
+                ) : doctorDepartments.length === 0 ? (
+                  <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                    No departments added yet. Use the Department tab to add departments for this doctor.
+                  </p>
+                ) : (
+                  <select
+                    value={customDepartmentId}
+                    onChange={(e) => setCustomDepartmentId(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="">No Department</option>
+                    {doctorDepartments
+                      .filter((dept) => dept.clinicDepartmentId)
+                      .map((dept) => (
+                        <option key={dept._id} value={dept.clinicDepartmentId}>
+                          {dept.name}
+                        </option>
+                      ))}
+                  </select>
+                )}
+              </div>
+
+              <div>
                 <div className="flex items-center justify-between mb-3">
                   <label className="block text-sm font-medium text-gray-700">
                     Sub Treatments (optional)
@@ -474,6 +676,99 @@ const DoctorTreatmentModal = ({ isOpen, onClose, doctorStaffId, doctorStaffName,
             </form>
           )}
 
+          {/* Department Tab */}
+          {activeTab === "department" && (
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Manage Departments</h3>
+                <p className="text-sm text-gray-500">
+                  Add departments for this doctor. Departments will be available for all treatments.
+                </p>
+              </div>
+
+              {/* Add Department Form */}
+              <form onSubmit={handleAddDepartment} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Select Department <span className="text-red-500">*</span>
+                  </label>
+                  {clinicDepartmentsLoading ? (
+                    <div className="flex items-center gap-2 text-sm text-gray-500">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Loading departments...
+                    </div>
+                  ) : clinicDepartments.length === 0 ? (
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+                      No clinic departments found. Please create departments from the clinic settings page first.
+                    </div>
+                  ) : (
+                    <select
+                      value={selectedClinicDepartmentId}
+                      onChange={(e) => setSelectedClinicDepartmentId(e.target.value)}
+                      className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      required
+                    >
+                      <option value="">Choose a department</option>
+                      {clinicDepartments.map((dept) => (
+                        <option key={dept._id} value={dept._id}>
+                          {dept.name}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={addingDepartment || clinicDepartments.length === 0 || clinicDepartmentsLoading}
+                  className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl font-medium shadow hover:bg-blue-700 disabled:opacity-60"
+                >
+                  {addingDepartment && <Loader2 className="w-4 h-4 animate-spin" />}
+                  {addingDepartment ? "Adding..." : "Add Department"}
+                </button>
+              </form>
+
+              {/* All Departments List */}
+              <div className="border-t border-gray-200 pt-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">All Departments</h3>
+                {doctorDepartmentsLoading ? (
+                  <div className="flex items-center justify-center py-8 text-gray-500">
+                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                    Loading departments...
+                  </div>
+                ) : doctorDepartments.length === 0 ? (
+                  <div className="text-center py-8">
+                    <p className="text-gray-600">No departments added yet.</p>
+                    <p className="text-sm text-gray-500 mt-2">Use the form above to add your first department.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {doctorDepartments.map((dept) => (
+                      <div
+                        key={dept._id}
+                        className="border border-gray-200 rounded-xl p-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
+                      >
+                        <div>
+                          <h4 className="text-base font-semibold text-gray-900">{dept.name}</h4>
+                          <p className="text-sm text-gray-500">
+                            Added {new Date(dept.createdAt).toLocaleDateString()}
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => handleDeleteDepartment(dept._id)}
+                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          title="Delete department"
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Existing Treatments List */}
           <div className="border-t border-gray-200 pt-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Current Treatments</h3>
@@ -496,6 +791,11 @@ const DoctorTreatmentModal = ({ isOpen, onClose, doctorStaffId, doctorStaffName,
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                       <div>
                         <h4 className="text-base font-semibold text-gray-900">{item.treatmentName}</h4>
+                        {item.departmentName && (
+                          <p className="text-sm text-gray-600 font-medium">
+                            Department: {item.departmentName}
+                          </p>
+                        )}
                         {item.price && (
                           <p className="text-sm text-gray-600 font-medium">
                             Custom Treatment Price: ₹{item.price}

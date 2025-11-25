@@ -1,6 +1,7 @@
 import dbConnect from "../../../lib/database";
 import Appointment from "../../../models/Appointment";
 import Clinic from "../../../models/Clinic";
+import PatientRegistration from "../../../models/PatientRegistration";
 import { getUserFromReq } from "../lead-ms/auth";
 
 export default async function handler(req, res) {
