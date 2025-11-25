@@ -51,7 +51,7 @@ export default async function handler(req, res) {
       }
 
       const appointments = await Appointment.find(query)
-        .populate("patientId", "firstName lastName mobileNumber email")
+        .populate("patientId", "firstName lastName mobileNumber email invoiceNumber emrNumber gender")
         .populate("doctorId", "name email")
         .populate("roomId", "name")
         .sort({ startDate: 1, fromTime: 1 })
@@ -84,6 +84,11 @@ export default async function handler(req, res) {
           referral: apt.referral,
           emergency: apt.emergency,
           notes: apt.notes,
+          patientInvoiceNumber: apt.patientId?.invoiceNumber || null,
+          patientEmrNumber: apt.patientId?.emrNumber || null,
+          patientGender: apt.patientId?.gender || null,
+          patientEmail: apt.patientId?.email || null,
+          patientMobileNumber: apt.patientId?.mobileNumber || null,
           bookedFrom: (apt.bookedFrom === "room" || apt.bookedFrom === "doctor") 
             ? apt.bookedFrom 
             : (apt.bookedFrom ? apt.bookedFrom : "doctor"), // Include booking source, default to "doctor" for old appointments without this field
@@ -266,7 +271,7 @@ export default async function handler(req, res) {
       }
 
       const populatedAppointment = await Appointment.findById(appointment._id)
-        .populate("patientId", "firstName lastName mobileNumber email")
+        .populate("patientId", "firstName lastName mobileNumber email invoiceNumber emrNumber gender")
         .populate("doctorId", "name email")
         .populate("roomId", "name")
         .lean();
@@ -298,6 +303,11 @@ export default async function handler(req, res) {
           bookedFrom: (populatedAppointment.bookedFrom === "room" || populatedAppointment.bookedFrom === "doctor") 
             ? populatedAppointment.bookedFrom 
             : validBookedFrom, // Use value from database, fallback to validated value
+          patientInvoiceNumber: populatedAppointment.patientId?.invoiceNumber || null,
+          patientEmrNumber: populatedAppointment.patientId?.emrNumber || null,
+          patientGender: populatedAppointment.patientId?.gender || null,
+          patientEmail: populatedAppointment.patientId?.email || null,
+          patientMobileNumber: populatedAppointment.patientId?.mobileNumber || null,
         },
       });
     }

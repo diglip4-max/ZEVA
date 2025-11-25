@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import axios from "axios";
 import withClinicAuth from "../../components/withClinicAuth";
 import ClinicLayout from "../../components/ClinicLayout";
@@ -72,6 +72,11 @@ interface Appointment {
   _id: string;
   patientId: string;
   patientName: string;
+  patientInvoiceNumber?: string | null;
+  patientEmrNumber?: string | null;
+  patientGender?: string | null;
+  patientEmail?: string | null;
+  patientMobileNumber?: string | null;
   doctorId: string;
   doctorName: string;
   roomId: string;
@@ -217,6 +222,14 @@ function AppointmentPage() {
     doctorName: string;
     position: { top: number; left: number };
   } | null>(null);
+  const [visibleDoctorIds, setVisibleDoctorIds] = useState<string[]>([]);
+  const [visibleRoomIds, setVisibleRoomIds] = useState<string[]>([]);
+  const [doctorFilterOpen, setDoctorFilterOpen] = useState(false);
+  const [roomFilterOpen, setRoomFilterOpen] = useState(false);
+  const doctorFilterTouchedRef = useRef(false);
+  const roomFilterTouchedRef = useRef(false);
+  const doctorFilterRef = useRef<HTMLDivElement | null>(null);
+  const roomFilterRef = useRef<HTMLDivElement | null>(null);
 
   function getAuthHeaders(): Record<string, string> {
     if (typeof window === "undefined") return {};
@@ -342,6 +355,43 @@ function AppointmentPage() {
     loadAppointmentData();
   }, []);
 
+  useEffect(() => {
+    setVisibleDoctorIds((prev) => {
+      if (doctorStaff.length === 0) return [];
+      if (!doctorFilterTouchedRef.current || prev.length === 0) {
+        return doctorStaff.map((doc) => doc._id);
+      }
+      const doctorIdSet = new Set(doctorStaff.map((doc) => doc._id));
+      return prev.filter((id) => doctorIdSet.has(id));
+    });
+  }, [doctorStaff]);
+
+  useEffect(() => {
+    setVisibleRoomIds((prev) => {
+      if (rooms.length === 0) return [];
+      if (!roomFilterTouchedRef.current || prev.length === 0) {
+        return rooms.map((room) => room._id);
+      }
+      const roomIdSet = new Set(rooms.map((room) => room._id));
+      return prev.filter((id) => roomIdSet.has(id));
+    });
+  }, [rooms]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (doctorFilterRef.current && !doctorFilterRef.current.contains(event.target as Node)) {
+        setDoctorFilterOpen(false);
+      }
+      if (roomFilterRef.current && !roomFilterRef.current.contains(event.target as Node)) {
+        setRoomFilterOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
   // Fetch appointments when date changes
   useEffect(() => {
     const loadAppointments = async () => {
@@ -371,6 +421,46 @@ function AppointmentPage() {
       .join("")
       .toUpperCase()
       .slice(0, 2);
+  };
+
+  const handleToggleDoctorVisibility = (doctorId: string) => {
+    doctorFilterTouchedRef.current = true;
+    setVisibleDoctorIds((prev) => {
+      if (prev.includes(doctorId)) {
+        return prev.filter((id) => id !== doctorId);
+      }
+      return [...prev, doctorId];
+    });
+  };
+
+  const handleToggleRoomVisibility = (roomId: string) => {
+    roomFilterTouchedRef.current = true;
+    setVisibleRoomIds((prev) => {
+      if (prev.includes(roomId)) {
+        return prev.filter((id) => id !== roomId);
+      }
+      return [...prev, roomId];
+    });
+  };
+
+  const handleSelectAllDoctors = () => {
+    doctorFilterTouchedRef.current = true;
+    setVisibleDoctorIds(doctorStaff.map((doc) => doc._id));
+  };
+
+  const handleClearDoctors = () => {
+    doctorFilterTouchedRef.current = true;
+    setVisibleDoctorIds([]);
+  };
+
+  const handleSelectAllRooms = () => {
+    roomFilterTouchedRef.current = true;
+    setVisibleRoomIds(rooms.map((room) => room._id));
+  };
+
+  const handleClearRooms = () => {
+    roomFilterTouchedRef.current = true;
+    setVisibleRoomIds([]);
   };
 
   // Get appointments for a specific doctor and row
@@ -444,6 +534,8 @@ function AppointmentPage() {
     activeDoctorTooltip && doctorDepartmentsLoading[activeDoctorTooltip.doctorId];
   const tooltipDeptError =
     activeDoctorTooltip && doctorDepartmentsError[activeDoctorTooltip.doctorId];
+  const visibleDoctors = doctorStaff.filter((doc) => visibleDoctorIds.includes(doc._id));
+  const visibleRooms = rooms.filter((room) => visibleRoomIds.includes(room._id));
 
   const handleBookingSuccess = () => {
     // Reload appointments
@@ -493,7 +585,7 @@ function AppointmentPage() {
   return (
     <div className="space-y-6">
       <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
-        <div className="flex flex-col gap-1 mb-6">
+        <div className="flex flex-col gap-4 mb-6">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
             <div>
               <h1 className="text-2xl font-semibold text-gray-900">Appointment Schedule</h1>
@@ -544,6 +636,110 @@ function AppointmentPage() {
               </div>
             </div>
           </div>
+          {(doctorStaff.length > 0 || rooms.length > 0) && (
+            <div className="flex flex-wrap gap-3">
+              {doctorStaff.length > 0 && (
+                <div className="relative" ref={doctorFilterRef}>
+                  <button
+                    type="button"
+                    onClick={() => setDoctorFilterOpen((prev) => !prev)}
+                    className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    Doctors
+                    <span className="text-xs text-gray-500">
+                      ({visibleDoctorIds.length}/{doctorStaff.length})
+                    </span>
+                  </button>
+                  {doctorFilterOpen && (
+                    <div className="absolute z-40 mt-2 w-64 rounded-xl border border-gray-200 bg-white p-3 shadow-lg">
+                      <div className="mb-2 flex items-center justify-between text-xs text-gray-500">
+                        <span>Show Doctors</span>
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            className="text-blue-600 hover:text-blue-800"
+                            onClick={handleSelectAllDoctors}
+                          >
+                            Select all
+                          </button>
+                          <button
+                            type="button"
+                            className="text-blue-600 hover:text-blue-800"
+                            onClick={handleClearDoctors}
+                          >
+                            Clear
+                          </button>
+                        </div>
+                      </div>
+                      <div className="max-h-60 space-y-2 overflow-y-auto pr-1">
+                        {doctorStaff.map((doctor) => (
+                          <label key={doctor._id} className="flex items-center gap-2 text-sm text-gray-700">
+                            <input
+                              type="checkbox"
+                              className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                              checked={visibleDoctorIds.includes(doctor._id)}
+                              onChange={() => handleToggleDoctorVisibility(doctor._id)}
+                            />
+                            <span className="truncate">{doctor.name}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+              {rooms.length > 0 && (
+                <div className="relative" ref={roomFilterRef}>
+                  <button
+                    type="button"
+                    onClick={() => setRoomFilterOpen((prev) => !prev)}
+                    className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    Rooms
+                    <span className="text-xs text-gray-500">
+                      ({visibleRoomIds.length}/{rooms.length})
+                    </span>
+                  </button>
+                  {roomFilterOpen && (
+                    <div className="absolute z-40 mt-2 w-64 rounded-xl border border-gray-200 bg-white p-3 shadow-lg">
+                      <div className="mb-2 flex items-center justify-between text-xs text-gray-500">
+                        <span>Show Rooms</span>
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            className="text-blue-600 hover:text-blue-800"
+                            onClick={handleSelectAllRooms}
+                          >
+                            Select all
+                          </button>
+                          <button
+                            type="button"
+                            className="text-blue-600 hover:text-blue-800"
+                            onClick={handleClearRooms}
+                          >
+                            Clear
+                          </button>
+                        </div>
+                      </div>
+                      <div className="max-h-60 space-y-2 overflow-y-auto pr-1">
+                        {rooms.map((room) => (
+                          <label key={room._id} className="flex items-center gap-2 text-sm text-gray-700">
+                            <input
+                              type="checkbox"
+                              className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                              checked={visibleRoomIds.includes(room._id)}
+                              onChange={() => handleToggleRoomVisibility(room._id)}
+                            />
+                            <span className="truncate">{room.name}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {doctorStaff.length === 0 && rooms.length === 0 ? (
@@ -565,7 +761,7 @@ function AppointmentPage() {
                 </div>
               </div>
               {/* Doctor columns */}
-              {doctorStaff.map((doctor) => (
+              {visibleDoctors.map((doctor) => (
                 <div
                   key={doctor._id}
                   className="flex-1 min-w-[180px] border-r border-gray-200 p-3 relative"
@@ -583,7 +779,7 @@ function AppointmentPage() {
                 </div>
               ))}
               {/* Room columns */}
-              {rooms.map((room) => (
+              {visibleRooms.map((room) => (
                 <div
                   key={room._id}
                   className="flex-1 min-w-[180px] border-r border-gray-200 last:border-r-0 p-3"
@@ -615,8 +811,8 @@ function AppointmentPage() {
                       <div className="absolute left-0 right-0 top-1/2 border-t border-blue-100" />
                     </div>
 
-                    {/* Doctor columns */}
-                    {doctorStaff.map((doctor) => {
+                          {/* Doctor columns */}
+                          {visibleDoctors.map((doctor) => {
                       const rowAppointments = getAppointmentsForRow(doctor._id, slot.time);
 
                       return (
@@ -689,6 +885,11 @@ function AppointmentPage() {
                             ? rowAppointments.map((apt) => {
                                 const tooltip = [
                                   `Patient: ${apt.patientName}`,
+                                  `Invoice #: ${apt.patientInvoiceNumber || "N/A"}`,
+                                  `EMR #: ${apt.patientEmrNumber || "N/A"}`,
+                                  `Gender: ${apt.patientGender || "N/A"}`,
+                                  `Email: ${apt.patientEmail || "N/A"}`,
+                                  `Mobile: ${apt.patientMobileNumber || "N/A"}`,
                                   `Doctor: ${apt.doctorName}`,
                                   `Room: ${apt.roomName}`,
                                   `Status: ${apt.status}`,
@@ -742,8 +943,8 @@ function AppointmentPage() {
                       );
                     })}
 
-                    {/* Room columns */}
-                    {rooms.map((room) => {
+                          {/* Room columns */}
+                          {visibleRooms.map((room) => {
                       const roomAppointments = getRoomAppointmentsForRow(room._id, slot.time);
 
                       return (
@@ -816,6 +1017,11 @@ function AppointmentPage() {
                             ? roomAppointments.map((apt) => {
                                 const tooltip = [
                                   `Patient: ${apt.patientName}`,
+                                  `Invoice #: ${apt.patientInvoiceNumber || "N/A"}`,
+                                  `EMR #: ${apt.patientEmrNumber || "N/A"}`,
+                                  `Gender: ${apt.patientGender || "N/A"}`,
+                                  `Email: ${apt.patientEmail || "N/A"}`,
+                                  `Mobile: ${apt.patientMobileNumber || "N/A"}`,
                                   `Doctor: ${apt.doctorName}`,
                                   `Room: ${apt.roomName}`,
                                   `Status: ${apt.status}`,
@@ -873,6 +1079,11 @@ function AppointmentPage() {
                 );
               })}
             </div>
+          </div>
+        )}
+        {visibleDoctors.length === 0 && visibleRooms.length === 0 && (doctorStaff.length > 0 || rooms.length > 0) && (
+          <div className="mt-4 rounded-lg border border-dashed border-gray-300 bg-gray-50 p-4 text-center text-sm text-gray-500">
+            No doctor or room columns selected. Use the filters above to choose which schedules to display.
           </div>
         )}
       </div>
