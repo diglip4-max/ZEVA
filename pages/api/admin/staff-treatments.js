@@ -13,6 +13,11 @@ export default async function handler(req, res) {
     if (!me) {
       return res.status(401).json({ success: false, message: "Unauthorized: Missing or invalid token" });
     }
+
+    const allowedRoles = ["admin", "agent", "doctor", "doctorStaff", "clinic", "staff"];
+    if (!allowedRoles.includes(me.role)) {
+      return res.status(403).json({ success: false, message: "Access denied. Insufficient role" });
+    }
     
     // -------------------------------
     // GET → Fetch all staff treatments
@@ -27,8 +32,8 @@ export default async function handler(req, res) {
             message: "Permission denied: You do not have read permission for Create Services submodule" 
           });
         }
-      } else if (me.role !== 'admin') {
-        return res.status(403).json({ success: false, message: "Access denied. Admin or agent role required" });
+      } else if (!["admin", "doctor", "clinic", "staff"].includes(me.role)) {
+        return res.status(403).json({ success: false, message: "Access denied. You do not have permission to view treatments" });
       }
       
       const treatments = await StaffTreatment.find().sort({ createdAt: -1 });
@@ -48,8 +53,8 @@ export default async function handler(req, res) {
             message: "Permission denied: You do not have create permission for Create Services submodule" 
           });
         }
-      } else if (me.role !== 'admin') {
-        return res.status(403).json({ success: false, message: "Access denied. Admin or agent role required" });
+      } else if (!["admin", "doctor", "clinic", "staff"].includes(me.role)) {
+        return res.status(403).json({ success: false, message: "Access denied. You do not have permission to add treatments" });
       }
       const { package: pkg, treatment, packagePrice, treatmentPrice, packageUnits } = req.body;
 
@@ -100,8 +105,8 @@ export default async function handler(req, res) {
             message: "Permission denied: You do not have update permission for Create Services submodule" 
           });
         }
-      } else if (me.role !== 'admin') {
-        return res.status(403).json({ success: false, message: "Access denied. Admin or agent role required" });
+      } else if (!["admin", "doctor", "clinic", "staff"].includes(me.role)) {
+        return res.status(403).json({ success: false, message: "Access denied. You do not have permission to update treatments" });
       }
       
       const { id, package: pkg, treatment, packagePrice, treatmentPrice, packageUnits } = req.body;
@@ -164,8 +169,8 @@ export default async function handler(req, res) {
             message: "Permission denied: You do not have delete permission for Create Services submodule" 
           });
         }
-      } else if (me.role !== 'admin') {
-        return res.status(403).json({ success: false, message: "Access denied. Admin or agent role required" });
+      } else if (!["admin", "doctor", "clinic", "staff"].includes(me.role)) {
+        return res.status(403).json({ success: false, message: "Access denied. You do not have permission to delete treatments" });
       }
       
       const { id } = req.query;

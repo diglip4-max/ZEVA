@@ -4,6 +4,31 @@ import StaffLayout from "../../components/staffLayout";
 import withStaffAuth from "../../components/withStaffAuth";
 import { Plus, Edit2, Trash2, Package, Activity, X, Check, CheckCircle, XCircle, AlertCircle, Info, Search, ChevronLeft, ChevronRight } from "lucide-react";
 
+const TOKEN_PRIORITY = [
+  "clinicToken",
+  "doctorToken",
+  "agentToken",
+  "staffToken",
+  "userToken",
+  "adminToken",
+];
+
+const getStoredToken = () => {
+  if (typeof window === "undefined") return null;
+  for (const key of TOKEN_PRIORITY) {
+    const value =
+      localStorage.getItem(key) ||
+      sessionStorage.getItem(key);
+    if (value) return value;
+  }
+  return null;
+};
+
+const getAuthHeaders = () => {
+  const token = getStoredToken();
+  return token ? { Authorization: `Bearer ${token}` } : null;
+};
+
 function Toast({ message, type, onClose }) {
   useEffect(() => {
     const timer = setTimeout(onClose, 4000);
@@ -145,10 +170,24 @@ function StaffAddServicePage() {
     });
   });
 
+  const resolveAuthHeaders = (actionLabel = "perform this action") => {
+    const headers = getAuthHeaders();
+    if (!headers) {
+      showToast(`Authentication required. Please login again to ${actionLabel}.`, "error");
+      return null;
+    }
+    return headers;
+  };
+
   const fetchTreatments = async () => {
     try {
       setFetching(true);
-      const res = await axios.get("/api/admin/staff-treatments");
+      const headers = resolveAuthHeaders("view treatments");
+      if (!headers) {
+        setFetching(false);
+        return;
+      }
+      const res = await axios.get("/api/admin/staff-treatments", { headers });
       if (res.data.success) {
         setTreatments(res.data.data);
       } else {
@@ -182,7 +221,12 @@ function StaffAddServicePage() {
       if (formData.treatment.trim()) payload.treatment = formData.treatment.trim();
       if (formData.packagePrice !== "") payload.packagePrice = Number(formData.packagePrice);
       if (formData.treatmentPrice !== "") payload.treatmentPrice = Number(formData.treatmentPrice);
-      const res = await axios.post("/api/admin/staff-treatments", payload);
+      const headers = resolveAuthHeaders("add a service");
+      if (!headers) {
+        setLoading(false);
+        return;
+      }
+      const res = await axios.post("/api/admin/staff-treatments", payload, { headers });
       if (res.data.success) {
         showToast("Record added successfully", "success");
         setFormData({ package: "", treatment: "", packagePrice: "", treatmentPrice: "" });
@@ -220,7 +264,12 @@ function StaffAddServicePage() {
       payload.treatment = formData.treatment.trim() || "";
       if (formData.packagePrice !== "") payload.packagePrice = Number(formData.packagePrice);
       if (formData.treatmentPrice !== "") payload.treatmentPrice = Number(formData.treatmentPrice);
-      const res = await axios.put("/api/admin/staff-treatments", payload);
+      const headers = resolveAuthHeaders("update a service");
+      if (!headers) {
+        setLoading(false);
+        return;
+      }
+      const res = await axios.put("/api/admin/staff-treatments", payload, { headers });
       if (res.data.success) {
         showToast("Record updated successfully", "success");
         setEditingId(null);
@@ -240,7 +289,12 @@ function StaffAddServicePage() {
     if (!confirmed) return;
     try {
       setLoading(true);
-      const res = await axios.delete(`/api/admin/staff-treatments?id=${id}`);
+      const headers = resolveAuthHeaders("delete a service");
+      if (!headers) {
+        setLoading(false);
+        return;
+      }
+      const res = await axios.delete(`/api/admin/staff-treatments?id=${id}`, { headers });
       if (res.data.success) {
         showToast("Record deleted successfully", "success");
         fetchTreatments();

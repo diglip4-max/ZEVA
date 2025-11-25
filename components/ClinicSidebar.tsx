@@ -83,7 +83,27 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({ className }) => {
   useEffect(() => {
     const fetchNavigationAndPermissions = async () => {
       try {
-        const token = typeof window !== 'undefined' ? localStorage.getItem('clinicToken') : null;
+        // Use token priority: clinicToken, doctorToken, agentToken, staffToken, userToken, adminToken
+        const TOKEN_PRIORITY = [
+          "clinicToken",
+          "doctorToken",
+          "agentToken",
+          "staffToken",
+          "userToken",
+          "adminToken",
+        ];
+        
+        let token: string | null = null;
+        if (typeof window !== 'undefined') {
+          for (const key of TOKEN_PRIORITY) {
+            const value = localStorage.getItem(key) || sessionStorage.getItem(key);
+            if (value) {
+              token = value;
+              break;
+            }
+          }
+        }
+        
         if (!token) {
           setItems([]);
           setIsLoading(false);
@@ -96,9 +116,15 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({ className }) => {
             headers: { Authorization: `Bearer ${token}` },
           });
         } catch (error: any) {
-          // Handle 401 and other errors gracefully
+          // Handle 401, 404, and other errors gracefully
           if (error.response?.status === 401) {
-            console.log("ClinicSidebar: Unauthorized - clinic token may be invalid or expired");
+            console.log("ClinicSidebar: Unauthorized - token may be invalid or expired");
+            setItems([]);
+            setIsLoading(false);
+            return;
+          }
+          if (error.response?.status === 404) {
+            console.log("ClinicSidebar: API endpoint not found - this may be normal for agent routes");
             setItems([]);
             setIsLoading(false);
             return;
@@ -163,8 +189,8 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({ className }) => {
           setItems([]);
         }
       } catch (err: any) {
-        // Only log non-401 errors to avoid console spam
-        if (err.response?.status !== 401) {
+        // Only log non-401/404 errors to avoid console spam
+        if (err.response?.status !== 401 && err.response?.status !== 404) {
           console.error("Error fetching navigation items and permissions:", err);
         }
         setItems([]);

@@ -1,24 +1,10 @@
 import dbConnect from "../../../lib/database";
-import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
 import User from "../../../models/Users";
 import Membership from "../../../models/Membership";
 import PatientRegistration from "../../../models/PatientRegistration";
 import PettyCash from "../../../models/PettyCash";
-
-async function getUserFromToken(req) {
-  const authHeader = req.headers.authorization || "";
-  const token = authHeader.split(" ")[1];
-  if (!token) throw { status: 401, message: "No token provided" };
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await User.findById(decoded.userId).select("-password");
-    if (!user) throw { status: 401, message: "User not found" };
-    return user;
-  } catch {
-    throw { status: 401, message: "Invalid or expired token" };
-  }
-}
+import { getAuthorizedStaffUser } from "../../../server/staff/authHelpers";
 
 // Helper function to add treatment amounts to PettyCash when payment method is Cash
 async function addTreatmentToPettyCashIfCash(user, membership, treatments) {
@@ -81,9 +67,11 @@ export default async function handler(req, res) {
   await dbConnect();
   let user;
   try {
-    user = await getUserFromToken(req);
+    user = await getAuthorizedStaffUser(req, {
+      allowedRoles: ["staff", "doctorStaff", "doctor", "clinic", "agent", "admin"],
+    });
   } catch (err) {
-    return res.status(err.status || 401).json({ success: false, message: err.message });
+    return res.status(err.status || 401).json({ success: false, message: err.message || "Authentication error" });
   }
 
   if (req.method === "POST") {

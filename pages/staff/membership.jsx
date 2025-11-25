@@ -2,6 +2,34 @@ import React, { useEffect, useMemo, useState, useCallback, useRef } from "react"
 import ClinicLayout from "../../components/staffLayout";
 import withClinicAuth from "../../components/withStaffAuth";
 
+const TOKEN_PRIORITY = [
+  "clinicToken",
+  "doctorToken",
+  "agentToken",
+  "staffToken",
+  "userToken",
+  "adminToken",
+];
+
+const getStoredToken = () => {
+  if (typeof window === "undefined") return null;
+  for (const key of TOKEN_PRIORITY) {
+    const value =
+      localStorage.getItem(key) ||
+      sessionStorage.getItem(key);
+    if (value) return value;
+  }
+  return null;
+};
+
+const getAuthHeaders = () => {
+  const token = getStoredToken();
+  if (!token) {
+    return null;
+  }
+  return { Authorization: `Bearer ${token}` };
+};
+
 const MembershipModal = ({ isOpen, onClose }) => {
   const [emrNumber, setEmrNumber] = useState("");
   const [fetching, setFetching] = useState(false);
@@ -31,7 +59,7 @@ const MembershipModal = ({ isOpen, onClose }) => {
   const [paymentMethod, setPaymentMethod] = useState("");
   const [paidAmount, setPaidAmount] = useState("");
 
-  const token = typeof window !== "undefined" ? localStorage.getItem("userToken") : null;
+  const token = getStoredToken();
 
   // Reset modal state each time it opens so EMR field shows again
   useEffect(() => {
@@ -74,8 +102,13 @@ const MembershipModal = ({ isOpen, onClose }) => {
     if (!emrToFetch) return;
     try {
       setFetching(true);
+      const headers = getAuthHeaders();
+      if (!headers) {
+        alert("Authentication required. Please login again.");
+        return;
+      }
       const res = await fetch(`/api/staff/patient-registration/${emrToFetch}`, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers
       });
       const data = await res.json();
       if (res.ok && data.success) {
@@ -125,8 +158,13 @@ const MembershipModal = ({ isOpen, onClose }) => {
     setEmrSuggesting(true);
     handle = setTimeout(async () => {
       try {
+        const headers = getAuthHeaders();
+        if (!headers) {
+          setEmrSuggestions([]);
+          return;
+        }
         const res = await fetch(`/api/staff/emr-search?q=${encodeURIComponent(q)}`, {
-          headers: { Authorization: `Bearer ${token}` }
+          headers
         });
         const json = await res.json();
         if (res.ok && json.success) {
@@ -207,9 +245,14 @@ const MembershipModal = ({ isOpen, onClose }) => {
       return;
     }
     try {
+      const headers = getAuthHeaders();
+      if (!headers) {
+        alert("Authentication required. Please login again.");
+        return;
+      }
       const res = await fetch('/api/staff/members', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json', ...headers },
         body: JSON.stringify({
           emrNumber: patient.emrNumber,
           patientId: patient._id,
@@ -498,12 +541,16 @@ function MembershipPage() {
   const [transferItem, setTransferItem] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
 
-  const token = typeof window !== "undefined" ? localStorage.getItem("userToken") : null;
+  const token = getStoredToken();
 
   const fetchMemberships = useCallback(async () => {
     try {
+      const headers = getAuthHeaders();
+      if (!headers) {
+        return;
+      }
       const res = await fetch('/api/staff/members', {
-        headers: { Authorization: `Bearer ${token}` }
+        headers
       });
       const json = await res.json();
       if (res.ok && json.success) setList(json.data || []);
@@ -797,9 +844,14 @@ function UpdateMembershipBody({ item, onClose }) {
   const saveUpdate = async () => {
     if (rows.length === 0) { onClose(); return; }
     try {
+      const headers = getAuthHeaders();
+      if (!headers) {
+        alert("Authentication required. Please login again.");
+        return;
+      }
       const res = await fetch('/api/staff/members', {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json', ...headers },
         body: JSON.stringify({
           membershipId: item._id,
           treatments: rows.map(r => ({ treatmentName: r.treatmentName, unitCount: r.unitCount, unitPrice: r.unitPrice })),
@@ -1056,9 +1108,14 @@ function TransferMembershipBody({ item, onClose }) {
       return;
     }
     try {
+      const headers = getAuthHeaders();
+      if (!headers) {
+        alert("Authentication required. Please login again.");
+        return;
+      }
       const res = await fetch('/api/staff/members', {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json', ...headers },
         body: JSON.stringify({
           membershipId: item._id,
           toEmrNumber: toEmr,
