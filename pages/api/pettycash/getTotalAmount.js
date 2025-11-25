@@ -1,19 +1,27 @@
 // pages/api/pettycash/getTotalAmount.js
 import dbConnect from "../../../lib/database"; // adjust path if needed
 import PettyCash from "../../../models/PettyCash";
-import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
+import { getAuthorizedStaffUser } from "../../../server/staff/authHelpers";
 
 export default async function handler(req, res) {
   await dbConnect();
 
   try {
     // Require auth and derive staffId
-    const token = req.headers.authorization?.split(" ")[1];
-    if (!token) return res.status(401).json({ success: false, message: "Token missing" });
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const staffId = decoded.userId;
-    if (!staffId) return res.status(401).json({ success: false, message: "Invalid token" });
+    const user = await getAuthorizedStaffUser(req, {
+      allowedRoles: ["staff", "doctorStaff", "doctor", "clinic", "agent", "admin"],
+    });
+    
+    if (!user || !user._id) {
+      return res.status(401).json({ success: false, message: "Invalid user" });
+    }
+    
+    const staffId = user._id.toString ? user._id.toString() : String(user._id);
+    
+    if (!staffId || !mongoose.Types.ObjectId.isValid(staffId)) {
+      return res.status(401).json({ success: false, message: "Invalid user ID format" });
+    }
 
     // Accept date as YYYY-MM-DD (client will pass this). If not provided, default to today's date.
     const { date } = req.query;
@@ -29,9 +37,17 @@ export default async function handler(req, res) {
     const cumulativeEnd = new Date(end);
 
     // Get cumulative balance up to the current day
+    let staffObjectId;
+    try {
+      staffObjectId = new mongoose.Types.ObjectId(staffId);
+    } catch (idError) {
+      console.error("Invalid staffId format:", staffId, idError);
+      return res.status(400).json({ success: false, message: "Invalid staff ID format" });
+    }
+
     const cumulativePipeline = [
       {
-        $match: { staffId: new mongoose.Types.ObjectId(staffId) },
+        $match: { staffId: staffObjectId },
       },
       {
         $project: {
@@ -93,7 +109,7 @@ export default async function handler(req, res) {
     const pipeline = [
       // Only include petty cash documents for this staff user
       {
-        $match: { staffId: new mongoose.Types.ObjectId(staffId) },
+        $match: { staffId: staffObjectId },
       },
       {
         $project: {
@@ -178,13 +194,12 @@ export default async function handler(req, res) {
           },
         },
       },
-      // Project nice shape with cumulative balance
+      // Project nice shape (without cumulative balance - we'll add it later)
       {
         $project: {
           _id: 0,
           globalAllocated: 1,
           globalSpent: 1,
-          globalRemaining: cumulativeBalance, // Use cumulative balance instead of day-specific calculation
           patients: 1,
         },
       },
@@ -254,31 +269,43 @@ export default async function handler(req, res) {
     ];
 
     const globalAgg = await PettyCash.aggregate(globalCumulativePipeline);
-    const globalResult = globalAgg[0] || { globalAllocated: 0, globalSpent: 0, globalRemaining: 0 };
+    const globalResult = (globalAgg && globalAgg[0]) ? globalAgg[0] : { globalAllocated: 0, globalSpent: 0, globalRemaining: 0 };
 
     // if no entries for that date, return zeros and empty patient list
-    if (!agg || agg.length === 0) {
+    if (!agg || !Array.isArray(agg) || agg.length === 0) {
       return res.status(200).json({
         success: true,
         date: start.toISOString(),
         globalAllocated: 0, // Day-wise allocated (0 for this day)
         globalSpent: 0, // Day-wise spent (0 for this day)
-        globalRemaining: globalResult.globalRemaining, // Cumulative remaining balance
+        globalRemaining: globalResult.globalRemaining || 0, // Cumulative remaining balance
         patients: [],
       });
     }
 
     const result = agg[0];
+    // Use the cumulative balance calculated earlier
+    const finalRemaining = cumulativeBalance;
+    
     return res.status(200).json({
       success: true,
       date: start.toISOString(),
-      globalAllocated: result.globalAllocated, // Day-wise allocated
-      globalSpent: result.globalSpent, // Day-wise spent
-      globalRemaining: globalResult.globalRemaining, // Cumulative remaining balance
-      patients: result.patients,
+      globalAllocated: result.globalAllocated || 0, // Day-wise allocated
+      globalSpent: result.globalSpent || 0, // Day-wise spent
+      globalRemaining: finalRemaining, // Cumulative remaining balance
+      patients: result.patients || [],
     });
   } catch (err) {
     console.error("global-total error:", err);
-    return res.status(500).json({ success: false, message: "Server error" });
+    console.error("Error stack:", err.stack);
+    // Handle errors from getAuthorizedStaffUser which have a status property
+    if (err.status) {
+      return res.status(err.status).json({ success: false, message: err.message || "Authentication error" });
+    }
+    return res.status(500).json({ 
+      success: false, 
+      message: err.message || "Server error",
+      error: process.env.NODE_ENV === 'development' ? err.stack : undefined
+    });
   }
 }

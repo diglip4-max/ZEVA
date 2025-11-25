@@ -1,37 +1,84 @@
 'use client';
+
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { toast, Toaster } from 'react-hot-toast';
+import { jwtDecode } from 'jwt-decode';
 
-export default function withDoctorAuth(WrappedComponent) {
-  return function WithDoctorAuth(props) {
+const TOKEN_KEYS = [
+  'userToken',
+  'staffToken',
+  'clinicToken',
+  'doctorToken',
+  'agentToken',
+  'adminToken',
+];
+
+const getStoredToken = () => {
+  if (typeof window === 'undefined') return null;
+  for (const key of TOKEN_KEYS) {
+    const value =
+      localStorage.getItem(key) ||
+      sessionStorage.getItem(key);
+    if (value) return value;
+  }
+  return null;
+};
+
+const clearStoredTokens = () => {
+  TOKEN_KEYS.forEach((key) => {
+    try { localStorage.removeItem(key); } catch {}
+    try { sessionStorage.removeItem(key); } catch {}
+  });
+};
+
+const getVerifyEndpoint = (role) => {
+  switch (role) {
+    case 'clinic':
+      return '/api/clinics/verify-token';
+    case 'doctor':
+    case 'doctorStaff':
+      return '/api/doctor/verify-token';
+    case 'agent':
+      return '/api/agent/verify-token';
+    case 'staff':
+      return '/api/staff/verify-token';
+    case 'admin':
+      return '/api/admin/verify-token';
+    default:
+      return '/api/doctor/verify-token';
+  }
+};
+
+export default function withStaffAuth(WrappedComponent) {
+  return function WithStaffAuth(props) {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const router = useRouter();
 
     useEffect(() => {
-      const clearStorage = () => {
-        const keys = ['userToken'];
-        keys.forEach((k) => {
-          try { localStorage.removeItem(k); } catch {}
-          try { sessionStorage.removeItem(k); } catch {}
-        });
-      };
-
       const checkAuth = async () => {
-        const token = typeof window !== 'undefined'
-          ? (localStorage.getItem('userToken') || sessionStorage.getItem('staffToken') || localStorage.getItem('staffToken') || sessionStorage.getItem('token'))
-          : null;
+        const token = getStoredToken();
 
         if (!token) {
           toast.error('Please login to continue');
-          clearStorage();
-          setTimeout(() => router.replace('/staff'), 4000);
+          clearStoredTokens();
+          setTimeout(() => router.replace('/staff'), 3000);
           return;
         }
 
+        let role = null;
         try {
-          const response = await fetch('/api/doctor/verify-token', {
+          const decoded = jwtDecode(token);
+          role = decoded?.role || null;
+        } catch (err) {
+          console.warn('Unable to decode staff token:', err);
+        }
+
+        const endpoint = getVerifyEndpoint(role);
+
+        try {
+          const response = await fetch(endpoint, {
             headers: {
               Authorization: `Bearer ${token}`,
             },
@@ -42,19 +89,19 @@ export default function withDoctorAuth(WrappedComponent) {
           if (response.ok && data.valid) {
             setIsAuthenticated(true);
           } else {
-            if (data.message === 'Token expired') {
-              toast.error('Session expired. Logging out in 4 seconds…');
-            } else {
-              toast.error('Authentication failed. Logging out in 4 seconds…');
-            }
-            clearStorage();
-            setTimeout(() => router.replace('/staff'), 4000);
+            const message =
+              data?.message === 'Token expired'
+                ? 'Session expired. Logging out…'
+                : data?.message || 'Authentication failed. Logging out…';
+            toast.error(message);
+            clearStoredTokens();
+            setTimeout(() => router.replace('/staff'), 3000);
           }
         } catch (error) {
-          console.error('Doctor token verification failed:', error);
-          toast.error('Something went wrong. Logging out in 4 seconds…');
-          clearStorage();
-          setTimeout(() => router.replace('/staff'), 4000);
+          console.error('Staff token verification failed:', error);
+          toast.error('Something went wrong. Logging out…');
+          clearStoredTokens();
+          setTimeout(() => router.replace('/staff'), 3000);
         } finally {
           setIsLoading(false);
         }

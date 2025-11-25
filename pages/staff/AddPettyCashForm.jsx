@@ -4,6 +4,31 @@ import axios from "axios";
 import ClinicLayout from '../../components/staffLayout';
 import withClinicAuth from '../../components/withStaffAuth';
 
+const TOKEN_PRIORITY = [
+  "clinicToken",
+  "doctorToken",
+  "agentToken",
+  "staffToken",
+  "userToken",
+  "adminToken",
+];
+
+const getStoredToken = () => {
+  if (typeof window === "undefined") return null;
+  for (const key of TOKEN_PRIORITY) {
+    const value =
+      localStorage.getItem(key) ||
+      sessionStorage.getItem(key);
+    if (value) return value;
+  }
+  return null;
+};
+
+const getAuthHeaders = () => {
+  const token = getStoredToken();
+  return token ? { Authorization: `Bearer ${token}` } : null;
+};
+
 function PettyCashAndExpense() {
   // ---------- STATE ----------
   const [form, setForm] = useState({
@@ -83,15 +108,17 @@ function PettyCashAndExpense() {
 
   const [filteredExpenses, setFilteredExpenses] = useState([]);
 
-  const staffToken =
-    typeof window !== "undefined" ? localStorage.getItem("userToken") : null;
-
   // ---------- FETCH FUNCTIONS ----------
   const fetchPettyCash = async (query = "") => {
+    const headers = getAuthHeaders();
+    if (!headers) {
+      console.error("Authentication required");
+      return;
+    }
     try {
       const res = await axios.get(
         `/api/pettycash/getpettyCash${query ? `?search=${query}` : ""}`,
-        { headers: { Authorization: `Bearer ${staffToken}` } }
+        { headers }
       );
       setPettyCashList(res.data.pettyCashList);
       filterExpensesByDate(res.data.pettyCashList, selectedDate);
@@ -101,10 +128,13 @@ function PettyCashAndExpense() {
   };
 
   const fetchVendors = async () => {
+    const headers = getAuthHeaders();
+    if (!headers) {
+      console.error("Authentication required");
+      return;
+    }
     try {
-      const res = await axios.get("/api/vendor/get-vendors", {
-        headers: { Authorization: `Bearer ${staffToken}` }
-      });
+      const res = await axios.get("/api/vendor/get-vendors", { headers });
       if (res.data.success) {
         setVendors(res.data.data || []);
       }
@@ -136,10 +166,15 @@ function PettyCashAndExpense() {
   };
 
   const fetchGlobalTotals = async (dateStr) => {
+    const headers = getAuthHeaders();
+    if (!headers) {
+      console.error("Authentication required");
+      return;
+    }
     try {
       const res = await axios.get(
         `/api/pettycash/getTotalAmount${dateStr ? `?date=${dateStr}` : ""}`,
-        { headers: { Authorization: `Bearer ${staffToken}` } }
+        { headers }
       );
       if (res.data.success) {
         setGlobalData({
@@ -155,10 +190,13 @@ function PettyCashAndExpense() {
   };
 
   const fetchAdminGlobalTotals = async () => {
+    const headers = getAuthHeaders();
+    if (!headers) {
+      console.error("Authentication required");
+      return;
+    }
     try {
-      const res = await axios.get("/api/global-pettycash", {
-        headers: { Authorization: `Bearer ${staffToken}` }
-      });
+      const res = await axios.get("/api/global-pettycash", { headers });
       if (res.data.success) {
         setAdminGlobalData(res.data.data);
       }
@@ -168,10 +206,13 @@ function PettyCashAndExpense() {
   };
 
   const fetchCurrentUser = async () => {
+    const headers = getAuthHeaders();
+    if (!headers) {
+      console.error("Authentication required");
+      return;
+    }
     try {
-      const res = await axios.get("/api/staff/patient-registration", {
-        headers: { Authorization: `Bearer ${staffToken}` }
-      });
+      const res = await axios.get("/api/staff/patient-registration", { headers });
       if (res.data.success) {
         setCurrentUser(res.data.data);
       }
@@ -318,6 +359,12 @@ function PettyCashAndExpense() {
           receiptsForUpdate = form.receipts; // assume they are urls
         }
 
+        const headers = getAuthHeaders();
+        if (!headers) {
+          alert("Authentication required. Please login again.");
+          setIsSubmittingPetty(false);
+          return;
+        }
         await axios.put(
           "/api/pettycash/update",
           {
@@ -329,13 +376,19 @@ function PettyCashAndExpense() {
               note: form.note,
             },
           },
-          { headers: { Authorization: `Bearer ${staffToken}` } }
+          { headers }
         );
       } else {
         // Add new via multipart
+        const headers = getAuthHeaders();
+        if (!headers) {
+          alert("Authentication required. Please login again.");
+          setIsSubmittingPetty(false);
+          return;
+        }
         await axios.post("/api/pettycash/add", formData, {
           headers: {
-            Authorization: `Bearer ${staffToken}`,
+            ...headers,
             "Content-Type": "multipart/form-data",
           },
         });
@@ -382,9 +435,15 @@ function PettyCashAndExpense() {
         manualPettyCashForm.receipts.forEach((file) => formData.append("receipts", file));
       }
 
+      const headers = getAuthHeaders();
+      if (!headers) {
+        alert("Authentication required. Please login again.");
+        setIsSubmittingManualPetty(false);
+        return;
+      }
       await axios.post("/api/pettycash/add-manual", formData, {
         headers: {
-          Authorization: `Bearer ${staffToken}`,
+          ...headers,
           "Content-Type": "multipart/form-data",
         },
       });
@@ -426,6 +485,12 @@ function PettyCashAndExpense() {
           receiptsForUpdate = expenseForm.receipts;
         }
 
+        const headers = getAuthHeaders();
+        if (!headers) {
+          alert("Authentication required. Please login again.");
+          setIsSubmittingExpense(false);
+          return;
+        }
         await axios.put(
           "/api/pettycash/update",
           {
@@ -438,7 +503,7 @@ function PettyCashAndExpense() {
               receipts: receiptsForUpdate,
             },
           },
-          { headers: { Authorization: `Bearer ${staffToken}` } }
+          { headers }
         );
       } else {
         // Build multipart form-data for API (no pettyCashId; backend will use general record)
@@ -455,9 +520,15 @@ function PettyCashAndExpense() {
           }
         }
 
+        const headers = getAuthHeaders();
+        if (!headers) {
+          alert("Authentication required. Please login again.");
+          setIsSubmittingExpense(false);
+          return;
+        }
         await axios.post("/api/pettycash/add-expense", formData, {
           headers: {
-            Authorization: `Bearer ${staffToken}`,
+            ...headers,
             "Content-Type": "multipart/form-data",
           },
         });
@@ -512,9 +583,14 @@ function PettyCashAndExpense() {
   // ---------- DELETE ----------
   const handleDeletePatient = async (pettyCashId) => {
     if (!confirm("Are you sure you want to delete this patient record?")) return;
+    const headers = getAuthHeaders();
+    if (!headers) {
+      alert("Authentication required. Please login again.");
+      return;
+    }
     try {
       await axios.delete("/api/pettycash/delete-pattycash", {
-        headers: { Authorization: `Bearer ${staffToken}` },
+        headers,
         data: { type: "patient", pettyCashId },
       });
       fetchPettyCash();
@@ -533,9 +609,14 @@ function PettyCashAndExpense() {
     const pettyCashId = pettyCashList[0]._id;
     if (!confirm("Delete this expense?")) return;
 
+    const headers = getAuthHeaders();
+    if (!headers) {
+      alert("Authentication required. Please login again.");
+      return;
+    }
     try {
       await axios.delete("/api/pettycash/delete-pattycash", {
-        headers: { Authorization: `Bearer ${staffToken}` },
+        headers,
         data: { type: "expense", pettyCashId, expenseId },
       });
       fetchPettyCash();

@@ -5,6 +5,31 @@ import ClinicLayout from '../../components/staffLayout';
 import withClinicAuth from '../../components/withStaffAuth';
 import { Toaster, toast } from 'react-hot-toast';
 
+const TOKEN_PRIORITY = [
+  "clinicToken",
+  "doctorToken",
+  "agentToken",
+  "staffToken",
+  "userToken",
+  "adminToken",
+];
+
+const getStoredToken = () => {
+  if (typeof window === "undefined") return null;
+  for (const key of TOKEN_PRIORITY) {
+    const value =
+      localStorage.getItem(key) ||
+      sessionStorage.getItem(key);
+    if (value) return value;
+  }
+  return null;
+};
+
+const getAuthHeaders = () => {
+  const token = getStoredToken();
+  return token ? { Authorization: `Bearer ${token}` } : null;
+};
+
 const EodNotePad = () => {
   const [note, setNote] = useState("");
   const [notes, setNotes] = useState([]);
@@ -12,11 +37,18 @@ const EodNotePad = () => {
   const [expandedNotes, setExpandedNotes] = useState({});
   const [activeTab, setActiveTab] = useState("add");
 
-  const token = localStorage.getItem("userToken");
-
   const handleAddNote = async () => {
     if (!note.trim()) {
       toast.error("Please enter a note", {
+        duration: 3000,
+        position: 'top-right',
+      });
+      return;
+    }
+
+    const headers = getAuthHeaders();
+    if (!headers) {
+      toast.error("Authentication required. Please login again.", {
         duration: 3000,
         position: 'top-right',
       });
@@ -31,9 +63,7 @@ const EodNotePad = () => {
       const res = await axios.post(
         "/api/staff/addEodNote",
         { note },
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
+        { headers }
       );
       setNotes(res.data.eodNotes);
       setNote("");
@@ -53,9 +83,18 @@ const EodNotePad = () => {
   };
 
   const fetchNotes = async (date = "") => {
+    const headers = getAuthHeaders();
+    if (!headers) {
+      toast.error("Authentication required. Please login again.", {
+        duration: 3000,
+        position: 'top-right',
+      });
+      return;
+    }
+
     try {
       const res = await axios.get(`/api/staff/getEodNotes${date ? `?date=${date}` : ""}`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers,
       });
       setNotes(res.data.eodNotes || []);
       setExpandedNotes({});

@@ -8,14 +8,10 @@ export default async function handler(req, res) {
     return res.status(405).json({ message: "Method Not Allowed" });
   }
 
-  let user;
   try {
-    user = await getAuthorizedStaffUser(req, {
+    const user = await getAuthorizedStaffUser(req, {
       allowedRoles: ["staff", "doctorStaff", "doctor", "clinic", "agent"],
     });
-  } catch (error) {
-    return res.status(error.status || 401).json({ message: error.message });
-  }
 
     // ✅ Date filter (optional)
     const { date } = req.query;
@@ -44,6 +40,9 @@ export default async function handler(req, res) {
     });
   } catch (error) {
     console.error("Get EOD Notes Error:", error);
+    if (error.status) {
+      return res.status(error.status).json({ message: error.message });
+    }
     return res.status(500).json({ message: "Internal Server Error" });
   }
 }

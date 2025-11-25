@@ -2,7 +2,32 @@ import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { Calendar, User, DollarSign, FileText, AlertCircle, Search, CheckCircle, XCircle, AlertTriangle, X } from "lucide-react";
 import ClinicLayout from '../../components/staffLayout';
 import withClinicAuth from '../../components/withStaffAuth';
-import { useRouter } from "next/router";   
+import { useRouter } from "next/router";
+
+const TOKEN_PRIORITY = [
+  "clinicToken",
+  "doctorToken",
+  "agentToken",
+  "staffToken",
+  "userToken",
+  "adminToken",
+];
+
+const getStoredToken = () => {
+  if (typeof window === "undefined") return null;
+  for (const key of TOKEN_PRIORITY) {
+    const value =
+      localStorage.getItem(key) ||
+      sessionStorage.getItem(key);
+    if (value) return value;
+  }
+  return null;
+};
+
+const getAuthHeaders = () => {
+  const token = getStoredToken();
+  return token ? { Authorization: `Bearer ${token}` } : null;
+};   
 // Toast Component
 const Toast = ({ message, type, onClose }) => {
   const icons = {
@@ -117,18 +142,20 @@ const InvoiceManagementSystem = () => {
 
   // Fetch data
   useEffect(() => {
-    fetch("/api/admin/get-all-doctor-staff")
+    const headers = getAuthHeaders();
+    if (!headers) return;
+    fetch("/api/admin/get-all-doctor-staff", { headers })
       .then(res => res.json())
       .then(data => data.success && setDoctorList(data.data))
       .catch(() => showToast("Failed to fetch doctors", "error"));
   }, [showToast]);
 
   useEffect(() => {
-    const token = localStorage.getItem("userToken");
+    const token = getStoredToken();
     if (!token) return;
-    fetch("/api/staff/patient-registration", {
-      headers: { Authorization: `Bearer ${token}` }
-    })
+    const headers = getAuthHeaders();
+    if (!headers) return;
+    fetch("/api/staff/patient-registration", { headers })
       .then(res => res.json())
       .then(data => {
         if (data.success) {
@@ -140,7 +167,12 @@ const InvoiceManagementSystem = () => {
   }, [showToast]);
 
   useEffect(() => {
-    fetch("/api/admin/staff-treatments")
+    const headers = getAuthHeaders();
+    if (!headers) {
+      showToast("Authentication required. Please login again.", "error");
+      return;
+    }
+    fetch("/api/admin/staff-treatments", { headers })
       .then(res => res.json())
       .then(data => {
         if (data.success) {
@@ -284,10 +316,13 @@ const InvoiceManagementSystem = () => {
 
     try {
       setFetching(true);
-      const token = localStorage.getItem("userToken");
-      const res = await fetch(`/api/staff/patient-registration/${formData.emrNumber}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const headers = getAuthHeaders();
+      if (!headers) {
+        showToast("Authentication required. Please login again.", "error");
+        setFetching(false);
+        return;
+      }
+      const res = await fetch(`/api/staff/patient-registration/${formData.emrNumber}`, { headers });
       const data = await res.json();
 
         if (res.ok && data.success && data.data) {
@@ -371,12 +406,17 @@ const handleSubmit = useCallback(async () => {
     type: "info",
     action: async () => {
       try {
-        const token = localStorage.getItem("userToken");
+        const headers = getAuthHeaders();
+        if (!headers) {
+          showToast("Authentication required. Please login again.", "error");
+          setConfirmModal({ isOpen: false, action: null });
+          return;
+        }
         const res = await fetch("/api/staff/patient-registration", {
           method: "POST",
           headers: { 
             "Content-Type": "application/json", 
-            Authorization: `Bearer ${token}` 
+            ...headers
           },
           body: JSON.stringify({ ...formData, ...autoFields, userId: currentUser._id, calculatedFields })
         });
