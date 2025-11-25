@@ -341,7 +341,7 @@ const ManageAgentsPage = () => {
                                       setMenuAgentId(null);
                                     }}
                                   >
-                                    Add Treatment
+                                    Add Treatment/Department
                                   </button>
                                 )}
                               </div>

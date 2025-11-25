@@ -15,7 +15,7 @@ interface AppointmentBookingModalProps {
   defaultRoomId?: string;
   bookedFrom?: "doctor" | "room"; // Track which column the appointment is being booked from
   rooms: Array<{ _id: string; name: string }>;
-  doctorStaff: Array<{ _id: string; name: string }>;
+  doctorStaff: Array<{ _id: string; name: string; email?: string }>;
   getAuthHeaders: () => Record<string, string>;
 }
 
@@ -39,6 +39,11 @@ interface AddPatientForm {
   mobileNumber: string;
   referredBy: string;
   patientType: string;
+}
+
+interface DoctorDepartment {
+  _id: string;
+  name: string;
 }
 
 export default function AppointmentBookingModal({
@@ -123,6 +128,9 @@ export default function AppointmentBookingModal({
   const [addingPatient, setAddingPatient] = useState(false);
   const [error, setError] = useState<string>("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [doctorDepartments, setDoctorDepartments] = useState<DoctorDepartment[]>([]);
+  const [doctorDeptLoading, setDoctorDeptLoading] = useState(false);
+  const [doctorDeptError, setDoctorDeptError] = useState("");
 
   // Whenever the selected slot changes (or modal reopens), sync the times
   useEffect(() => {
@@ -227,6 +235,38 @@ export default function AppointmentBookingModal({
       setAddingPatient(false);
     }
   };
+
+  const fetchDoctorDepartments = async (targetDoctorId: string) => {
+    if (!targetDoctorId) {
+      setDoctorDepartments([]);
+      return;
+    }
+    try {
+      setDoctorDeptLoading(true);
+      setDoctorDeptError("");
+      const res = await axios.get(`/api/clinic/doctor-departments?doctorStaffId=${targetDoctorId}`, {
+        headers: getAuthHeaders(),
+      });
+      if (res.data.success) {
+        setDoctorDepartments(res.data.departments || []);
+      } else {
+        setDoctorDeptError(res.data.message || "Failed to load departments");
+        setDoctorDepartments([]);
+      }
+    } catch (err: any) {
+      console.error("Error loading doctor departments", err);
+      setDoctorDeptError(err.response?.data?.message || "Failed to load departments");
+      setDoctorDepartments([]);
+    } finally {
+      setDoctorDeptLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isOpen && selectedDoctorId) {
+      fetchDoctorDepartments(selectedDoctorId);
+    }
+  }, [isOpen, selectedDoctorId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -395,6 +435,9 @@ export default function AppointmentBookingModal({
   };
 
   if (!isOpen) return null;
+  const selectedDoctor = doctorStaff.find((doc) => doc._id === selectedDoctorId);
+  const departmentNames =
+    doctorDepartments.length > 0 ? doctorDepartments.map((dept) => dept.name).filter(Boolean) : [];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
@@ -418,6 +461,46 @@ export default function AppointmentBookingModal({
               <p className="text-sm">{error}</p>
             </div>
           )}
+
+          <div className="rounded-2xl border border-gray-200 bg-gray-50/60 p-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-[0.3em] mb-1">
+                  Doctor
+                </p>
+                <p className="text-base font-semibold text-gray-900">
+                  {selectedDoctor?.name || doctorName || "Select a doctor"}
+                </p>
+                {selectedDoctor?.email && (
+                  <p className="text-xs text-gray-500">{selectedDoctor.email}</p>
+                )}
+              </div>
+              <div className="text-xs text-gray-600">
+                <p className="font-semibold text-gray-900 mb-1">Departments</p>
+                {doctorDeptLoading ? (
+                  <div className="flex items-center gap-2 text-gray-500">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Loading departments...
+                  </div>
+                ) : doctorDeptError ? (
+                  <p className="text-red-500">{doctorDeptError}</p>
+                ) : departmentNames.length > 0 ? (
+                  <div className="flex flex-wrap gap-1.5">
+                    {departmentNames.map((name, idx) => (
+                      <span
+                        key={`${name}-${idx}`}
+                        className="px-2 py-0.5 rounded-full bg-white border border-gray-200 text-[11px] text-gray-700"
+                      >
+                        {name}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-gray-500">No departments assigned</p>
+                )}
+              </div>
+            </div>
+          </div>
 
           {/* Room Field */}
           <div>

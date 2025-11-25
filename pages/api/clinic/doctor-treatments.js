@@ -63,7 +63,7 @@ export default async function handler(req, res) {
   }
 
   if (req.method === "POST") {
-    const { doctorStaffId: bodyDoctorStaffId, treatmentId, treatmentName, subTreatments, subcategoryIds, price } = req.body;
+    const { doctorStaffId: bodyDoctorStaffId, treatmentId, treatmentName, subTreatments, subcategoryIds, price, department } = req.body;
     const targetDoctorStaffId = doctorStaffId || bodyDoctorStaffId;
 
     if (!targetDoctorStaffId) {
@@ -143,6 +143,25 @@ export default async function handler(req, res) {
           return res.status(400).json({ success: false, message: "Price must be a positive number" });
         }
         payload.price = parsedPrice;
+      }
+
+      // Handle department if provided
+      if (department) {
+        const Department = (await import("../../../models/Department")).default;
+        // Verify department belongs to clinic
+        if (clinicAdmin.role === "clinic") {
+          const clinic = await Clinic.findOne({ owner: clinicAdmin._id }).select("_id");
+          if (clinic) {
+            const dept = await Department.findOne({ _id: department, clinicId: clinic._id });
+            if (!dept) {
+              return res.status(400).json({
+                success: false,
+                message: "Department not found or does not belong to this clinic",
+              });
+            }
+          }
+        }
+        payload.department = department;
       }
 
       await DoctorTreatment.findOneAndUpdate(
