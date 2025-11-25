@@ -26,6 +26,35 @@ import Image from "next/image";
 import { Toaster, toast } from "react-hot-toast";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip, Legend, LineChart, Line, PieChart, Pie, Cell } from "recharts";
 
+const TOKEN_PRIORITY = [
+  "clinicToken",
+  "doctorToken",
+  "agentToken",
+  "staffToken",
+  "userToken",
+  "adminToken",
+];
+
+const getStoredToken = () => {
+  if (typeof window === "undefined") return null;
+  for (const key of TOKEN_PRIORITY) {
+    try {
+      const value =
+        window.localStorage.getItem(key) ||
+        window.sessionStorage.getItem(key);
+      if (value) return value;
+    } catch (error) {
+      console.warn(`Unable to read ${key} from storage`, error);
+    }
+  }
+  return null;
+};
+
+const getAuthHeaders = () => {
+  const token = getStoredToken();
+  return token ? { Authorization: `Bearer ${token}` } : null;
+};
+
 interface Clinic {
   _id: string;
   name: string;
@@ -295,7 +324,11 @@ const TreatmentManager = ({
 
       // Try to save to database
       try {
-        const token = localStorage.getItem("clinicToken");
+        const authHeaders = getAuthHeaders();
+        if (!authHeaders) {
+          toast.error("You are not authenticated");
+          return;
+        }
         await axios.post(
           "/api/doctor/add-custom-treatment",
           {
@@ -303,13 +336,13 @@ const TreatmentManager = ({
             subTreatments: [newSubTreatment],
           },
           {
-            headers: { Authorization: `Bearer ${token}` },
+            headers: authHeaders,
           }
         );
 
         // Refresh available treatments
         const treatmentsResponse = await axios.get("/api/doctor/getTreatment", {
-          headers: { Authorization: `Bearer ${token}` },
+          headers: authHeaders,
         });
         setAvailableTreatments(treatmentsResponse.data.treatments || []);
         toast.success("Sub-treatment added to database");
@@ -978,8 +1011,8 @@ function ClinicManagementDashboard() {
   useEffect(() => {
     const fetchPermissions = async () => {
       try {
-        const token = localStorage.getItem("clinicToken");
-        if (!token) {
+        const authHeaders = getAuthHeaders();
+        if (!authHeaders) {
           setPermissions({
             canRead: false,
             canUpdate: false,
@@ -990,7 +1023,7 @@ function ClinicManagementDashboard() {
         }
 
         const res = await axios.get("/api/clinic/permissions", {
-          headers: { Authorization: `Bearer ${token}` },
+          headers: authHeaders,
         });
 
         const data = res.data;
@@ -1065,15 +1098,15 @@ function ClinicManagementDashboard() {
       }
 
       try {
-        const token = localStorage.getItem("clinicToken");
-        if (!token) {
+        const authHeaders = getAuthHeaders();
+        if (!authHeaders) {
           setLoading(false);
           return;
         }
 
         // Use axios with error handling that prevents Next.js error overlay
         const res = await axios.get("/api/clinics/myallClinic", {
-          headers: { Authorization: `Bearer ${token}` },
+          headers: authHeaders,
           // Suppress error overlay for 403 errors
           validateStatus: (status) => status === 200 || status === 403,
         });
@@ -1107,9 +1140,10 @@ function ClinicManagementDashboard() {
 
     const fetchTreatments = async () => {
       try {
-        const token = localStorage.getItem("clinicToken");
+        const authHeaders = getAuthHeaders();
+        if (!authHeaders) return;
         const res = await axios.get("/api/doctor/getTreatment", {
-          headers: { Authorization: `Bearer ${token}` },
+          headers: authHeaders,
         });
         setAvailableTreatments(res.data.treatments || []);
       } catch (err) {
@@ -1130,15 +1164,15 @@ function ClinicManagementDashboard() {
       }
 
       try {
-        const token = localStorage.getItem("clinicToken");
-        if (!token) {
+        const authHeaders = getAuthHeaders();
+        if (!authHeaders) {
           setStatsLoading(false);
           return;
         }
 
         // Fetch dashboard stats
         const statsRes = await axios.get("/api/clinics/dashboardStats", {
-          headers: { Authorization: `Bearer ${token}` },
+          headers: authHeaders,
         });
 
         if (statsRes.data.success) {
@@ -1157,7 +1191,7 @@ function ClinicManagementDashboard() {
           let averageRating = 0;
           try {
             const reviewsRes = await axios.get(`/api/clinics/reviews/${currentClinic?._id}`, {
-              headers: { Authorization: `Bearer ${token}` },
+              headers: authHeaders,
             });
             if (reviewsRes.data.success && reviewsRes.data.data) {
               averageRating = reviewsRes.data.data.averageRating || 0;
@@ -1266,8 +1300,11 @@ function ClinicManagementDashboard() {
       !editForm.treatments?.some((t) => t.mainTreatment === trimmed)
     ) {
       try {
-        // Add to database if it's a custom treatment
-        const token = localStorage.getItem("clinicToken");
+        const authHeaders = getAuthHeaders();
+        if (!authHeaders) {
+          toast.error("You are not authenticated");
+          return;
+        }
         const response = await axios.post(
           "/api/doctor/add-custom-treatment",
           {
@@ -1275,18 +1312,15 @@ function ClinicManagementDashboard() {
             subTreatments: [],
           },
           {
-            headers: { Authorization: `Bearer ${token}` },
+            headers: authHeaders,
           }
         );
 
         if (response.data.success) {
           // Refresh available treatments
-          const treatmentsResponse = await axios.get(
-            "/api/doctor/getTreatment",
-            {
-              headers: { Authorization: `Bearer ${token}` },
-            }
-          );
+          const treatmentsResponse = await axios.get("/api/doctor/getTreatment", {
+            headers: authHeaders,
+          });
           setAvailableTreatments(treatmentsResponse.data.treatments || []);
         }
       } catch (error) {
@@ -1390,7 +1424,11 @@ function ClinicManagementDashboard() {
 
     setUpdating(true);
     try {
-      const token = localStorage.getItem("clinicToken");
+      const authHeaders = getAuthHeaders();
+      if (!authHeaders) {
+        toast.error("You are not authenticated");
+        return;
+      }
       const formData = new FormData();
 
       // Debug: Log the editForm data
@@ -1416,16 +1454,12 @@ function ClinicManagementDashboard() {
         console.log(`FormData ${key}:`, value);
       }
 
-      const response = await axios.put(
-        `/api/clinics/${editingClinicId}`,
-        formData,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "multipart/form-data",
-          },
-        }
-      );
+      const response = await axios.put(`/api/clinics/${editingClinicId}`, formData, {
+        headers: {
+          ...authHeaders,
+          "Content-Type": "multipart/form-data",
+        },
+      });
 
       if (response.data.success) {
         setClinics((prev) =>
