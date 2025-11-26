@@ -656,6 +656,9 @@ function OffersPage() {
 // Wrap in layout
 OffersPage.getLayout = (page) => <ClinicLayout>{page}</ClinicLayout>;
 
+// Export unwrapped base component for reuse (agent portal)
+export const CreateOfferPageBase = OffersPage;
+
 // Protect page and preserve layout
 const ProtectedOffersPage = withClinicAuth(OffersPage);
 ProtectedOffersPage.getLayout = OffersPage.getLayout;

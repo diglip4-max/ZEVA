@@ -481,6 +481,8 @@ function LeadsPage() {
 // Wrap page in ClinicLayout
 LeadsPage.getLayout = (page) => <ClinicLayout>{page}</ClinicLayout>;
 
+export const CreateLeadPageBase = LeadsPage;
+
 // Preserve layout on wrapped component
 const ProtectedLeadsPage = withClinicAuth(LeadsPage);
 ProtectedLeadsPage.getLayout = LeadsPage.getLayout;

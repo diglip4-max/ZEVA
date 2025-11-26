@@ -13,22 +13,32 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Verify clinic authentication
-    const clinicUser = await getUserFromReq(req);
-    if (!clinicUser) {
+    const authUser = await getUserFromReq(req);
+    if (!authUser) {
       return res.status(401).json({ success: false, message: "Unauthorized" });
     }
-    if (clinicUser.role !== "clinic") {
-      return res.status(403).json({ success: false, message: "Access denied. Clinic role required." });
-    }
 
-    // Find the clinic associated with this user
-    const clinic = await Clinic.findOne({ owner: clinicUser._id }).lean();
-    if (!clinic) {
-      return res.status(404).json({ success: false, message: "Clinic not found" });
-    }
+    let clinicId = null;
+    let clinic = null;
 
-    const clinicId = clinic._id;
+    if (authUser.role === "clinic") {
+      clinic = await Clinic.findOne({ owner: authUser._id }).lean();
+      if (!clinic) {
+        return res.status(404).json({ success: false, message: "Clinic not found" });
+      }
+      clinicId = clinic._id;
+    } else if (["agent", "doctor", "doctorStaff"].includes(authUser.role)) {
+      clinicId = authUser.clinicId;
+      if (!clinicId) {
+        return res.status(403).json({ success: false, message: "Access denied. User not linked to a clinic." });
+      }
+      clinic = await Clinic.findById(clinicId).lean();
+      if (!clinic) {
+        return res.status(404).json({ success: false, message: "Clinic not found" });
+      }
+    } else {
+      return res.status(403).json({ success: false, message: "Access denied." });
+    }
 
     // Fetch all doctorStaff for this clinic
     const doctorStaff = await User.find({

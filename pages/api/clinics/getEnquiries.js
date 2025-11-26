@@ -1,6 +1,7 @@
 import dbConnect from '../../../lib/database';
 import Enquiry from '../../../models/Enquiry';
-import Clinic from '../../../models/Clinic'; // Import Clinic model
+import Clinic from '../../../models/Clinic';
+import User from '../../../models/Users';
 import jwt from 'jsonwebtoken';
 
 export default async function handler(req, res) {
@@ -17,19 +18,25 @@ export default async function handler(req, res) {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     console.log('Decoded JWT:', decoded);
 
-    if (decoded.role !== 'clinic') {
-      return res.status(403).json({ message: 'Access denied: not a clinic' });
+    let clinicIdToUse = null;
+
+    if (decoded.role === 'clinic') {
+      const clinic = await Clinic.findOne({ owner: decoded.userId });
+      if (!clinic) {
+        return res.status(404).json({ message: 'Clinic not found' });
+      }
+      clinicIdToUse = clinic._id;
+    } else if (decoded.role === 'agent' || decoded.role === 'doctor' || decoded.role === 'doctorStaff') {
+      const user = await User.findById(decoded.userId).select('clinicId');
+      if (!user?.clinicId) {
+        return res.status(403).json({ message: 'Access denied: user not linked to any clinic' });
+      }
+      clinicIdToUse = user.clinicId;
+    } else {
+      return res.status(403).json({ message: 'Access denied: unsupported role' });
     }
 
-    // Step 1: Find the clinic associated with the user
-    const clinic = await Clinic.findOne({ owner: decoded.userId });
-
-    if (!clinic) {
-      return res.status(404).json({ message: 'Clinic not found' });
-    }
-
-    // Step 2: Fetch all enquiries by clinic._id
-    const enquiries = await Enquiry.find({ clinicId: clinic._id }).sort({ createdAt: -1 });
+    const enquiries = await Enquiry.find({ clinicId: clinicIdToUse }).sort({ createdAt: -1 });
 
     return res.status(200).json({ success: true, enquiries });
   } catch (err) {

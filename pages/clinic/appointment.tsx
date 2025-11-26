@@ -181,7 +181,10 @@ function formatTime(time24: string): string {
   return `${hour12}:${String(min).padStart(2, "0")} ${period}`;
 }
 
-function AppointmentPage() {
+function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic" | "agent" }) {
+  const [routeContext, setRouteContext] = useState<"clinic" | "agent">(
+    contextOverride || "clinic"
+  );
   const [clinic, setClinic] = useState<ClinicData | null>(null);
   const [doctorStaff, setDoctorStaff] = useState<DoctorStaff[]>([]);
   const [rooms, setRooms] = useState<Room[]>([]);
@@ -238,10 +241,27 @@ function AppointmentPage() {
 
   function getAuthHeaders(): Record<string, string> {
     if (typeof window === "undefined") return {};
-    const token = localStorage.getItem("clinicToken") || sessionStorage.getItem("clinicToken");
+    const token =
+      routeContext === "agent"
+        ? localStorage.getItem("agentToken") || sessionStorage.getItem("agentToken")
+        : localStorage.getItem("clinicToken") || sessionStorage.getItem("clinicToken");
     if (!token) return {};
     return { Authorization: `Bearer ${token}` };
   }
+
+  useEffect(() => {
+    if (contextOverride) {
+      setRouteContext(contextOverride);
+      return;
+    }
+    if (typeof window === "undefined") return;
+    const currentPath = window.location.pathname || "";
+    if (currentPath.startsWith("/agent/")) {
+      setRouteContext("agent");
+    } else {
+      setRouteContext("clinic");
+    }
+  }, [contextOverride]);
 
   const fetchDoctorTreatments = async (doctorId: string) => {
     setDoctorTreatmentsLoading((prev) => ({ ...prev, [doctorId]: true }));
@@ -359,7 +379,7 @@ function AppointmentPage() {
     };
 
     loadAppointmentData();
-  }, []);
+  }, [routeContext]);
 
   useEffect(() => {
     setVisibleDoctorIds((prev) => {
@@ -1513,6 +1533,8 @@ function AppointmentPage() {
 AppointmentPage.getLayout = function PageLayout(page: React.ReactNode) {
   return <ClinicLayout>{page}</ClinicLayout>;
 };
+
+export const AppointmentPageBase = AppointmentPage;
 
 const ProtectedAppointmentPage: NextPageWithLayout = withClinicAuth(AppointmentPage);
 ProtectedAppointmentPage.getLayout = AppointmentPage.getLayout;

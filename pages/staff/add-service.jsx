@@ -1,5 +1,6 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import axios from "axios";
+import { useRouter } from "next/router";
 import StaffLayout from "../../components/staffLayout";
 import withStaffAuth from "../../components/withStaffAuth";
 import { Plus, Edit2, Trash2, Package, Activity, X, Check, CheckCircle, XCircle, AlertCircle, Info, Search, ChevronLeft, ChevronRight } from "lucide-react";
@@ -133,7 +134,17 @@ function Pagination({ currentPage, totalPages, onPageChange }) {
   );
 }
 
-function StaffAddServicePage() {
+function StaffAddServicePage({ contextOverride = null }) {
+  const router = useRouter();
+  const [routeContext, setRouteContext] = useState(contextOverride || "unknown");
+  const [permissions, setPermissions] = useState({
+    canCreate: false,
+    canRead: false,
+    canUpdate: false,
+    canDelete: false,
+  });
+  const [permissionsLoaded, setPermissionsLoaded] = useState(false);
+  const isClinicContext = routeContext === "clinic";
   const [formData, setFormData] = useState({ package: "", treatment: "", packagePrice: "", treatmentPrice: "" });
   const [treatments, setTreatments] = useState([]);
   const [editingId, setEditingId] = useState(null);
@@ -147,10 +158,191 @@ function StaffAddServicePage() {
   const formRef = useRef(null);
   const ITEMS_PER_PAGE = 7;
 
-  const showToast = (message, type = "info") => {
+  useEffect(() => {
+    if (contextOverride) {
+      setRouteContext(contextOverride);
+      return;
+    }
+    if (typeof window === "undefined") return;
+    const currentPath = router?.pathname || window.location.pathname || "";
+    if (currentPath.startsWith("/clinic/")) {
+      setRouteContext("clinic");
+    } else if (currentPath.startsWith("/doctor/")) {
+      setRouteContext("doctor");
+    } else if (currentPath.startsWith("/agent/")) {
+      setRouteContext("agent");
+    } else if (currentPath.startsWith("/admin/")) {
+      setRouteContext("admin");
+    } else {
+      setRouteContext("default");
+    }
+  }, [contextOverride, router?.pathname]);
+
+  const interpretBoolean = (value) => {
+    if (value === true || value === "true" || value === 1) return true;
+    if (value === false || value === "false" || value === 0) return false;
+    if (typeof value === "string") {
+      const normalized = value.toLowerCase();
+      if (normalized === "true") return true;
+      if (normalized === "false") return false;
+    }
+    return undefined;
+  };
+
+  const normalizeModuleName = (moduleName = "") =>
+    moduleName.replace(/^(clinic|admin|doctor|agent)_/, "");
+
+  const extractSubModuleActions = (subModule) => {
+    if (!subModule || !subModule.actions) return {};
+    if (Array.isArray(subModule.actions)) {
+      return subModule.actions.reduce((acc, item) => {
+        if (item && typeof item === "object") {
+          return { ...acc, ...item };
+        }
+        return acc;
+      }, {});
+    }
+    if (typeof subModule.actions === "object") {
+      return subModule.actions;
+    }
+    return {};
+  };
+
+  const evaluatePermission = (
+    subModule,
+    subModuleActions,
+    actionName,
+    moduleAction,
+    moduleAll
+  ) => {
+    if (moduleAll === true) return true;
+    const moduleActionAllowed = interpretBoolean(moduleAction);
+
+    if (subModule) {
+      const subModuleAll = interpretBoolean(subModuleActions.all);
+      if (subModuleAll === true) return true;
+
+      const actionExists =
+        Object.prototype.hasOwnProperty.call(subModuleActions, actionName) ||
+        subModuleActions[actionName] !== undefined;
+
+      if (actionExists) {
+        const actionValue = interpretBoolean(subModuleActions[actionName]);
+        if (actionValue === true) return true;
+        if (actionValue === false) return false;
+      }
+    }
+
+    return moduleActionAllowed === true;
+  };
+
+  const applyClinicPermissionFallback = useCallback(() => {
+    setPermissions({
+      canCreate: false,
+      canRead: false,
+      canUpdate: false,
+      canDelete: false,
+    });
+  }, []);
+
+  const fetchClinicPermissions = useCallback(async () => {
+    try {
+      setPermissionsLoaded(false);
+      const token =
+        typeof window !== "undefined" ? localStorage.getItem("clinicToken") : null;
+      if (!token) {
+        applyClinicPermissionFallback();
+        setPermissionsLoaded(true);
+        return;
+      }
+
+      const res = await axios.get("/api/clinic/permissions", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const data = res.data;
+      if (data.success && data.data) {
+        const modulePermission = data.data.permissions?.find(
+          (p) => normalizeModuleName(p.module) === "staff_management"
+        );
+
+        if (!modulePermission) {
+          applyClinicPermissionFallback();
+          return;
+        }
+
+        const actions = modulePermission.actions || {};
+        const moduleAll = interpretBoolean(actions.all) === true;
+
+        const addServiceSubModule = modulePermission.subModules?.find(
+          (sm) => sm.name === "Add Service"
+        );
+        const addServiceActions = extractSubModuleActions(addServiceSubModule);
+
+        const finalCanCreate = evaluatePermission(
+          addServiceSubModule,
+          addServiceActions,
+          "create",
+          actions.create,
+          moduleAll
+        );
+        const finalCanRead = evaluatePermission(
+          addServiceSubModule,
+          addServiceActions,
+          "read",
+          actions.read,
+          moduleAll
+        );
+        const finalCanUpdate = evaluatePermission(
+          addServiceSubModule,
+          addServiceActions,
+          "update",
+          actions.update,
+          moduleAll
+        );
+        const finalCanDelete = evaluatePermission(
+          addServiceSubModule,
+          addServiceActions,
+          "delete",
+          actions.delete,
+          moduleAll
+        );
+
+        setPermissions({
+          canCreate: finalCanCreate,
+          canRead: finalCanRead,
+          canUpdate: finalCanUpdate,
+          canDelete: finalCanDelete,
+        });
+      } else {
+        applyClinicPermissionFallback();
+      }
+    } catch (error) {
+      console.error("Error fetching clinic permissions for add-service:", error);
+      applyClinicPermissionFallback();
+    } finally {
+      setPermissionsLoaded(true);
+    }
+  }, [applyClinicPermissionFallback]);
+
+  useEffect(() => {
+    if (routeContext === "clinic") {
+      fetchClinicPermissions();
+    } else if (routeContext !== "unknown") {
+      setPermissions({
+        canCreate: true,
+        canRead: true,
+        canUpdate: true,
+        canDelete: true,
+      });
+      setPermissionsLoaded(true);
+    }
+  }, [routeContext, fetchClinicPermissions]);
+
+  const showToast = useCallback((message, type = "info") => {
     const id = Date.now();
     setToasts(prev => [...prev, { id, message, type }]);
-  };
+  }, []);
 
   const removeToast = (id) => setToasts(prev => prev.filter(t => t.id !== id));
 
@@ -170,16 +362,27 @@ function StaffAddServicePage() {
     });
   });
 
-  const resolveAuthHeaders = (actionLabel = "perform this action") => {
+  const resolveAuthHeaders = useCallback((actionLabel = "perform this action") => {
     const headers = getAuthHeaders();
     if (!headers) {
       showToast(`Authentication required. Please login again to ${actionLabel}.`, "error");
       return null;
     }
     return headers;
-  };
+  }, [showToast]);
 
-  const fetchTreatments = async () => {
+  const fetchTreatments = useCallback(async () => {
+    if (routeContext === "clinic") {
+      if (!permissionsLoaded) {
+        return;
+      }
+      if (!permissions.canRead) {
+        setFetching(false);
+        setTreatments([]);
+        return;
+      }
+    }
+
     try {
       setFetching(true);
       const headers = resolveAuthHeaders("view treatments");
@@ -199,9 +402,11 @@ function StaffAddServicePage() {
     } finally {
       setFetching(false);
     }
-  };
+  }, [permissions.canRead, permissionsLoaded, resolveAuthHeaders, routeContext]);
 
-  useEffect(() => { fetchTreatments(); }, []);
+  useEffect(() => {
+    fetchTreatments();
+  }, [fetchTreatments]);
   useEffect(() => { setCurrentPage(1); }, [activeTab, searchQuery]);
 
   const handleChange = (e) => {
@@ -210,6 +415,10 @@ function StaffAddServicePage() {
   };
 
   const handleAdd = async () => {
+    if (isClinicContext && !permissions.canCreate) {
+      showToast("You do not have permission to create services", "error");
+      return;
+    }
     if (!formData.package.trim() && !formData.treatment.trim()) {
       showToast("Please enter at least a package or a treatment", "warning");
       return;
@@ -241,6 +450,10 @@ function StaffAddServicePage() {
   };
 
   const handleEdit = (item) => {
+    if (isClinicContext && !permissions.canUpdate) {
+      showToast("You do not have permission to update services", "error");
+      return;
+    }
     setFormData({
       package: item.package || "",
       treatment: item.treatment || "",
@@ -256,6 +469,10 @@ function StaffAddServicePage() {
   };
 
   const handleUpdate = async () => {
+    if (isClinicContext && !permissions.canUpdate) {
+      showToast("You do not have permission to update services", "error");
+      return;
+    }
     if (!editingId) return;
     try {
       setLoading(true);
@@ -285,6 +502,10 @@ function StaffAddServicePage() {
   };
 
   const handleDelete = async (id) => {
+    if (isClinicContext && !permissions.canDelete) {
+      showToast("You do not have permission to delete services", "error");
+      return;
+    }
     const confirmed = await showConfirm("Delete Record", "Are you sure you want to delete this item? This action cannot be undone.");
     if (!confirmed) return;
     try {
@@ -323,6 +544,33 @@ function StaffAddServicePage() {
   const allCount = treatments.filter(t => (t.package && t.package.trim()) || (t.treatment && t.treatment.trim())).length;
   const packagesCount = treatments.filter(t => t.package && t.package.trim()).length;
   const treatmentsCount = treatments.filter(t => t.treatment && t.treatment.trim()).length;
+
+  if (isClinicContext && !permissionsLoaded) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block w-10 h-10 sm:w-12 sm:h-12 border-4 border-slate-200 border-t-indigo-600 rounded-full animate-spin"></div>
+          <p className="mt-4 text-sm sm:text-base text-slate-500">Checking your permissions...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (isClinicContext && permissionsLoaded && !permissions.canRead) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="text-center max-w-md mx-auto bg-white border border-red-100 rounded-2xl p-8 shadow-sm">
+          <div className="bg-red-50 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4 text-red-600 text-2xl">
+            !
+          </div>
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Access Denied</h2>
+          <p className="text-gray-600 mb-4">
+            You do not have permission to view or manage services. Please contact your administrator if you believe this is incorrect.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-3 sm:p-4 md:p-6 lg:p-8">
@@ -399,17 +647,35 @@ function StaffAddServicePage() {
 
           <div className="flex flex-col sm:flex-row flex-wrap gap-2 sm:gap-3">
             {!editingId ? (
-              <button onClick={handleAdd} disabled={loading} className="flex items-center justify-center gap-2 px-4 sm:px-6 py-2.5 sm:py-3 text-sm sm:text-base bg-emerald-600 text-white rounded-lg sm:rounded-xl font-medium hover:bg-emerald-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed">
-                <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
-                {loading ? "Adding..." : "Add Record"}
-              </button>
+              (!isClinicContext || permissions.canCreate) && (
+                <button
+                  onClick={handleAdd}
+                  disabled={loading}
+                  className="flex items-center justify-center gap-2 px-4 sm:px-6 py-2.5 sm:py-3 text-sm sm:text-base bg-emerald-600 text-white rounded-lg sm:rounded-xl font-medium hover:bg-emerald-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
+                  {loading ? "Adding..." : "Add Record"}
+                </button>
+              )
             ) : (
               <>
-                <button onClick={handleUpdate} disabled={loading} className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 sm:px-6 py-2.5 sm:py-3 text-sm sm:text-base bg-blue-600 text-white rounded-lg sm:rounded-xl font-medium hover:bg-blue-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed">
-                  <Check className="w-4 h-4 sm:w-5 sm:h-5" />
-                  {loading ? "Updating..." : "Update Record"}
-                </button>
-                <button onClick={() => { setEditingId(null); setFormData({ package: "", treatment: "", packagePrice: "", treatmentPrice: "" }); }} className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 sm:px-6 py-2.5 sm:py-3 text-sm sm:text-base bg-slate-200 text-slate-700 rounded-lg sm:rounded-xl font-medium hover:bg-slate-300 transition-colors">
+                {(!isClinicContext || permissions.canUpdate) && (
+                  <button
+                    onClick={handleUpdate}
+                    disabled={loading}
+                    className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 sm:px-6 py-2.5 sm:py-3 text-sm sm:text-base bg-blue-600 text-white rounded-lg sm:rounded-xl font-medium hover:bg-blue-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Check className="w-4 h-4 sm:w-5 sm:h-5" />
+                    {loading ? "Updating..." : "Update Record"}
+                  </button>
+                )}
+                <button
+                  onClick={() => {
+                    setEditingId(null);
+                    setFormData({ package: "", treatment: "", packagePrice: "", treatmentPrice: "" });
+                  }}
+                  className="flex-1 sm:flex-initial flex items-center justify-center gap-2 px-4 sm:px-6 py-2.5 sm:py-3 text-sm sm:text-base bg-slate-200 text-slate-700 rounded-lg sm:rounded-xl font-medium hover:bg-slate-300 transition-colors"
+                >
                   <X className="w-4 h-4 sm:w-5 sm:h-5" />
                   Cancel
                 </button>
@@ -507,14 +773,27 @@ function StaffAddServicePage() {
                         )}
                       </div>
                       <div className="flex gap-2 pt-3 sm:pt-4 border-t border-slate-100">
-                        <button onClick={() => handleEdit(item)} className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors font-medium text-xs sm:text-sm">
-                          <Edit2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                          <span>Edit</span>
-                        </button>
-                        <button onClick={() => handleDelete(item._id)} className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 bg-rose-50 text-rose-600 rounded-lg hover:bg-rose-100 transition-colors font-medium text-xs sm:text-sm">
-                          <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                          <span>Delete</span>
-                        </button>
+                        {(!isClinicContext || permissions.canUpdate) && (
+                          <button
+                            onClick={() => handleEdit(item)}
+                            className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors font-medium text-xs sm:text-sm"
+                          >
+                            <Edit2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                            <span>Edit</span>
+                          </button>
+                        )}
+                        {(!isClinicContext || permissions.canDelete) && (
+                          <button
+                            onClick={() => handleDelete(item._id)}
+                            className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 bg-rose-50 text-rose-600 rounded-lg hover:bg-rose-100 transition-colors font-medium text-xs sm:text-sm"
+                          >
+                            <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                            <span>Delete</span>
+                          </button>
+                        )}
+                        {isClinicContext && !(permissions.canUpdate || permissions.canDelete) && (
+                          <span className="text-xs text-slate-400">No actions available</span>
+                        )}
                       </div>
                     </div>
                   </div>

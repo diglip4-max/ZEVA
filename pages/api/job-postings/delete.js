@@ -49,18 +49,38 @@ export default async function handler(req, res) {
     // ✅ Check permission for deleting jobs (only for clinic, admin bypasses)
     if (me.role !== "admin" && clinicId) {
       const { checkClinicPermission } = await import("../lead-ms/permissions-helper");
-      const { hasPermission, error } = await checkClinicPermission(
+      
+      // Check "Job Posting" submodule permission first (most specific)
+      const { hasPermission: hasSubModulePermission, error: subModuleError } = await checkClinicPermission(
         clinicId,
         "jobs",
         "delete",
-        "See All Jobs" // Check "See All Jobs" submodule permission for delete
+        "Job Posting" // Check "Job Posting" submodule
       );
 
-      if (!hasPermission) {
-        return res.status(403).json({
-          success: false,
-          message: error || "You do not have permission to delete jobs"
-        });
+      // If submodule permission check fails, also check "See All Jobs" submodule and module-level as fallback
+      if (!hasSubModulePermission) {
+        const { hasPermission: hasSeeAllJobsPermission, error: seeAllJobsError } = await checkClinicPermission(
+          clinicId,
+          "jobs",
+          "delete",
+          "See All Jobs" // Check "See All Jobs" submodule permission for delete
+        );
+
+        if (!hasSeeAllJobsPermission) {
+          const { hasPermission: hasModulePermission, error: moduleError } = await checkClinicPermission(
+            clinicId,
+            "jobs",
+            "delete"
+          );
+
+          if (!hasModulePermission) {
+            return res.status(403).json({
+              success: false,
+              message: subModuleError || seeAllJobsError || moduleError || "You do not have permission to delete jobs"
+            });
+          }
+        }
       }
     }
 

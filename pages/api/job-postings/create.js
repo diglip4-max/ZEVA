@@ -39,17 +39,28 @@ export default async function handler(req, res) {
     }
 
     if (!isAdmin && resolvedClinicId) {
-      const { hasPermission, error: permError } = await checkClinicPermission(
+      // Check "Job Posting" submodule permission first (most specific)
+      const { hasPermission: hasSubModulePermission, error: subModuleError } = await checkClinicPermission(
         resolvedClinicId,
         "jobs",
-        "create"
+        "create",
+        "Job Posting" // Check "Job Posting" submodule
       );
 
-      if (!hasPermission) {
-        return res.status(403).json({
-          success: false,
-          message: permError || "You do not have permission to create jobs"
-        });
+      // If submodule permission check fails, also check module-level permission as fallback
+      if (!hasSubModulePermission) {
+        const { hasPermission: hasModulePermission, error: moduleError } = await checkClinicPermission(
+          resolvedClinicId,
+          "jobs",
+          "create"
+        );
+
+        if (!hasModulePermission) {
+          return res.status(403).json({
+            success: false,
+            message: subModuleError || moduleError || "You do not have permission to create jobs"
+          });
+        }
       }
     }
 

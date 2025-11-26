@@ -29,11 +29,18 @@ export const useTokenContext = () => useContext(TokenContext);
 
 // Helper to determine route type and required token
 const getRouteInfo = (slug: string) => {
-  if (slug.startsWith('clinic-') || slug.startsWith('clinic-staff-')) {
+  if (
+    slug.startsWith('clinic-') ||
+    slug.startsWith('clinic-staff-') ||
+    slug.startsWith('lead-')
+  ) {
     return { type: 'clinic', tokenKey: 'clinicToken' };
   }
   if (slug.startsWith('doctor-') || slug.startsWith('doctor-staff-')) {
     return { type: 'doctor', tokenKey: 'doctorToken' };
+  }
+  if (slug.startsWith('lead-')) {
+    return { type: 'agent', tokenKey: 'agentToken' };
   }
   if (slug.startsWith('admin-') || ['AdminClinicApproval', 'approve-doctors', 'add-treatment', 'all-blogs', 'analytics', 'get-in-touch', 'job-manage', 'manage-clinic-permissions', 'create-agent', 'create-staff', 'admin-add-service', 'admin-create-vendor', 'getAllEodNotes', 'patient-report', 'track-expenses', 'contracters', 'dashboard-admin', 'seed-navigation', 'all-clinic', 'register-clinic'].includes(slug)) {
     return { type: 'admin', tokenKey: 'adminToken' };
@@ -74,6 +81,13 @@ const routeMap: { [key: string]: () => Promise<any> } = {
   'clinic-my-jobs': () => import('../clinic/my-jobs'),
   'clinic-job-applicants': () => import('../clinic/job-applicants'),
   'clinic-getAuthorCommentsAndLikes': () => import('../clinic/getAuthorCommentsAndLikes'),
+  'clinic-add-room': () => import('./clinic-add-room'),
+  'clinic-assigned-leads': () => import('./clinic-assigned-leads'),
+  'clinic-get-Enquiry': () => import('./clinic-get-Enquiry'),
+  'clinic-appointment': () => import('./clinic-appointment'),
+  'clinic-job-posting': () => import('./clinic-job-posting'),
+  'clinic-all-appointment': () => import('./clinic-all-appointment'),
+  'lead-create-lead': () => import('./lead-create-lead'),
   'getAllReview': () => import('../clinic/getAllReview'),
   'get-Enquiry': () => import('../clinic/get-Enquiry'),
   'enquiry-form': () => import('../clinic/enquiry-form'),

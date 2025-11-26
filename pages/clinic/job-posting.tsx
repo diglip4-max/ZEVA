@@ -10,8 +10,29 @@ import axios from 'axios';
 import { PlusCircle } from 'lucide-react';
 
 type TabType = 'jobs' | 'applicants';
+type RouteContext = "clinic" | "agent";
 
-function ClinicJobPostingPage() {
+function ClinicJobPostingPage({ contextOverride = null }: { contextOverride?: RouteContext | null }) {
+  const [routeContext, setRouteContext] = useState<RouteContext>(contextOverride || "clinic");
+  useEffect(() => {
+    if (contextOverride) {
+      setRouteContext(contextOverride);
+      return;
+    }
+    if (typeof window === "undefined") return;
+    const isAgentRoute = window.location.pathname?.startsWith("/agent/") ?? false;
+    setRouteContext(isAgentRoute ? "agent" : "clinic");
+  }, [contextOverride]);
+  const tokenKey = routeContext === "agent" ? "agentToken" : "clinicToken";
+
+  const getToken = () => {
+    if (typeof window === "undefined") return null;
+    return (
+      localStorage.getItem(tokenKey) ||
+      sessionStorage.getItem(tokenKey) ||
+      null
+    );
+  };
   const [activeTab, setActiveTab] = useState<TabType>('jobs');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -32,7 +53,7 @@ function ClinicJobPostingPage() {
   useEffect(() => {
     const fetchPermissions = async () => {
       try {
-        const token = localStorage.getItem("clinicToken");
+        const token = getToken();
         if (!token) {
           setPermissions({
             canCreate: false,
@@ -52,10 +73,30 @@ function ClinicJobPostingPage() {
         });
 
         const data = res.data;
+        console.log('[Job Posting] Permissions API response:', JSON.stringify(data, null, 2));
+        
         if (data.success && data.data) {
-          const modulePermission = data.data.permissions?.find(
-            (p: any) => p.module === "jobs"
-          );
+          // Look for both "jobs" and "jobPosting" (or "clinic_jobPosting") module names
+          const modulePermission = data.data.permissions?.find((p: any) => {
+            if (!p?.module) return false;
+            // Normalize module name (remove clinic_ or admin_ prefix)
+            const normalized = p.module.startsWith("clinic_")
+              ? p.module.slice(7)
+              : p.module.startsWith("admin_")
+              ? p.module.slice(6)
+              : p.module;
+            // Check for both "jobs" and "jobPosting" module names
+            return normalized === "jobs" || normalized === "jobPosting";
+          });
+          
+          console.log('[Job Posting] Found module permission:', modulePermission ? {
+            module: modulePermission.module,
+            actions: modulePermission.actions,
+            subModules: modulePermission.subModules?.map((sm: any) => ({
+              name: sm.name,
+              actions: sm.actions
+            }))
+          } : 'Not found');
 
           if (modulePermission) {
             const actions = modulePermission.actions || {};
@@ -71,38 +112,161 @@ function ClinicJobPostingPage() {
             const jobPostingSubModule = modulePermission.subModules?.find(
               (sm: any) => sm.name === "Job Posting"
             );
-            const jobPostingAll = jobPostingSubModule?.actions?.all === true;
-            const jobPostingCreate = jobPostingSubModule?.actions?.create === true;
+            
+            // Properly extract actions object - handle both object and array cases
+            let jobPostingActions = {};
+            if (jobPostingSubModule) {
+              if (Array.isArray(jobPostingSubModule.actions)) {
+                // If actions is an array, convert to object
+                jobPostingActions = jobPostingSubModule.actions.reduce((acc: any, item: any) => {
+                  if (typeof item === 'object' && item !== null) {
+                    return { ...acc, ...item };
+                  }
+                  return acc;
+                }, {});
+              } else if (typeof jobPostingSubModule.actions === 'object' && jobPostingSubModule.actions !== null) {
+                // If actions is already an object, use it directly
+                jobPostingActions = jobPostingSubModule.actions;
+              }
+            }
+            
+            const jobPostingAll = jobPostingActions.all === true || jobPostingActions.all === "true";
+            
+            console.log('[Job Posting] Submodule check:', {
+              found: !!jobPostingSubModule,
+              subModuleName: jobPostingSubModule?.name,
+              rawActions: jobPostingSubModule?.actions,
+              actionsType: Array.isArray(jobPostingSubModule?.actions) ? 'array' : typeof jobPostingSubModule?.actions,
+              processedActions: jobPostingActions,
+              create: jobPostingActions.create,
+              createType: typeof jobPostingActions.create,
+              createValue: jobPostingActions.create,
+              hasCreate: 'create' in jobPostingActions || jobPostingActions.hasOwnProperty?.('create')
+            });
 
             // Check for "See All Jobs" submodule
             const seeAllJobsSubModule = modulePermission.subModules?.find(
               (sm: any) => sm.name === "See All Jobs"
             );
-            const seeAllJobsAll = seeAllJobsSubModule?.actions?.all === true;
-            const seeAllJobsRead = seeAllJobsSubModule?.actions?.read === true;
-            const seeAllJobsUpdate = seeAllJobsSubModule?.actions?.update === true;
-            const seeAllJobsDelete = seeAllJobsSubModule?.actions?.delete === true;
+            const seeAllJobsActions = seeAllJobsSubModule?.actions || {};
+            const seeAllJobsAll = seeAllJobsActions.all === true;
+            const seeAllJobsRead = seeAllJobsActions.read === true;
+            const seeAllJobsUpdate = seeAllJobsActions.update === true;
+            const seeAllJobsDelete = seeAllJobsActions.delete === true;
 
             // Check for "See Job Applicants" submodule
             const seeJobApplicantsSubModule = modulePermission.subModules?.find(
               (sm: any) => sm.name === "See Job Applicants"
             );
-            const seeJobApplicantsAll = seeJobApplicantsSubModule?.actions?.all === true;
-            const seeJobApplicantsRead = seeJobApplicantsSubModule?.actions?.read === true;
-            const seeJobApplicantsUpdate = seeJobApplicantsSubModule?.actions?.update === true;
-            const seeJobApplicantsDelete = seeJobApplicantsSubModule?.actions?.delete === true;
+            const seeJobApplicantsActions = seeJobApplicantsSubModule?.actions || {};
+            const seeJobApplicantsAll = seeJobApplicantsActions.all === true;
+            const seeJobApplicantsRead = seeJobApplicantsActions.read === true;
+            const seeJobApplicantsUpdate = seeJobApplicantsActions.update === true;
+            const seeJobApplicantsDelete = seeJobApplicantsActions.delete === true;
 
-            // ✅ When module-level "all" is true, it should grant ALL permissions for ALL submodules
-            // This means module-level "all" acts as a global override for all submodule permissions
+            // Permission logic: 
+            // Priority order:
+            // 1. Module-level "all" = true → grant everything (overrides all)
+            // 2. "Job Posting" submodule exists:
+            //    a. If submodule "all" = true → grant for this submodule
+            //    b. If submodule permission is explicitly false → deny (respect false)
+            //    c. If submodule permission is explicitly true → allow
+            //    d. If submodule permission is undefined → fall back to module-level
+            // 3. If "Job Posting" submodule doesn't exist → use module-level permissions
+            
+            const hasJobPostingSubModule = !!jobPostingSubModule;
+            
+            // Helper function to determine permission for "Job Posting" submodule
+            // This function takes the action name and checks permissions in priority order
+            const getJobPostingPermission = (actionName: 'create' | 'update' | 'delete'): boolean => {
+              // Priority 1: Module-level "all" overrides everything
+              if (moduleAll) {
+                console.log(`[Job Posting] ${actionName}: Module "all" is true, granting permission`);
+                return true;
+              }
+              
+              // Priority 2: If submodule exists
+              if (hasJobPostingSubModule && jobPostingSubModule) {
+                // Priority 2a: Submodule "all" grants permission
+                if (jobPostingAll) {
+                  console.log(`[Job Posting] ${actionName}: Submodule "all" is true, granting permission`);
+                  return true;
+                }
+                
+                // Priority 2b: Check if action is explicitly set in submodule
+                // Check if the property exists in the actions object
+                const actionExists = jobPostingActions.hasOwnProperty?.(actionName) ||
+                                    Object.prototype.hasOwnProperty.call(jobPostingActions, actionName) ||
+                                    actionName in jobPostingActions ||
+                                    jobPostingActions[actionName] !== undefined;
+                
+                if (actionExists) {
+                  const actionValue = jobPostingActions[actionName];
+                  console.log(`[Job Posting] ${actionName}: Found in submodule, value:`, actionValue, 'type:', typeof actionValue);
+                  
+                  // Explicitly false = deny (check for false, "false", 0, null, etc.)
+                  if (actionValue === false || 
+                      actionValue === "false" || 
+                      String(actionValue).toLowerCase() === "false" ||
+                      actionValue === 0) {
+                    console.log(`[Job Posting] ${actionName}: Explicitly denied in submodule (false)`);
+                    return false;
+                  }
+                  
+                  // Explicitly true = allow
+                  if (actionValue === true || 
+                      actionValue === "true" || 
+                      String(actionValue).toLowerCase() === "true" ||
+                      actionValue === 1) {
+                    console.log(`[Job Posting] ${actionName}: Explicitly allowed in submodule (true)`);
+                    return true;
+                  }
+                  
+                  // If value is null or undefined, fall through to module-level
+                  if (actionValue === null || actionValue === undefined) {
+                    console.log(`[Job Posting] ${actionName}: Value is null/undefined, falling back to module-level`);
+                  } else {
+                    // If value is neither true nor false (unexpected), deny
+                    console.warn(`[Job Posting] ${actionName}: Unexpected value in submodule:`, actionValue);
+                    return false;
+                  }
+                } else {
+                  console.log(`[Job Posting] ${actionName}: Not found in submodule actions, falling back to module-level`);
+                }
+              } else {
+                console.log(`[Job Posting] ${actionName}: Submodule not found, using module-level permission`);
+              }
+              
+              // Priority 3: Fall back to module-level permission
+              const moduleActionValue = actions[actionName];
+              const moduleHasAction = moduleActionValue === true || 
+                                     moduleActionValue === "true" || 
+                                     String(moduleActionValue).toLowerCase() === "true";
+              
+              console.log(`[Job Posting] ${actionName}: Final check - module-level:`, moduleActionValue, 'result:', moduleHasAction);
+              
+              return moduleHasAction;
+            };
+            
+            const finalCanCreate = getJobPostingPermission('create');
+            const finalCanUpdate = getJobPostingPermission('update');
+            const finalCanDelete = getJobPostingPermission('delete');
+            
+            console.log('[Job Posting] Final permissions:', {
+              canCreate: finalCanCreate,
+              canUpdate: finalCanUpdate,
+              canDelete: finalCanDelete,
+            });
+            
             setPermissions({
-              // Create: Module "all" grants all, OR module "create" grants create, OR submodule-specific permissions
-              canCreate: moduleAll || moduleCreate || jobPostingAll || jobPostingCreate,
+              // Create: Use submodule permission if exists, otherwise module-level
+              canCreate: finalCanCreate,
               // Read Jobs: Module "all" grants all, OR module "read" grants read, OR submodule-specific permissions
               canRead: moduleAll || moduleRead || seeAllJobsAll || seeAllJobsRead,
-              // Update Jobs: Module "all" grants all, OR module "update" grants update, OR submodule-specific permissions
-              canUpdate: moduleAll || moduleUpdate || seeAllJobsAll || seeAllJobsUpdate,
-              // Delete Jobs: Module "all" grants all, OR module "delete" grants delete, OR submodule-specific permissions
-              canDelete: moduleAll || moduleDelete || seeAllJobsAll || seeAllJobsDelete,
+              // Update: Use submodule permission if exists, otherwise module-level
+              canUpdate: finalCanUpdate,
+              // Delete: Use submodule permission if exists, otherwise module-level
+              canDelete: finalCanDelete,
               // Read Applicants: Module "all" grants all (including applicants), OR module "read" grants read, OR submodule-specific permissions
               canReadApplicants: moduleAll || moduleRead || seeJobApplicantsAll || seeJobApplicantsRead,
               // Update Applicants: Module "all" grants all (including applicants), OR module "update" grants update, OR submodule-specific permissions
@@ -111,7 +275,7 @@ function ClinicJobPostingPage() {
               canDeleteApplicants: moduleAll || moduleDelete || seeJobApplicantsAll || seeJobApplicantsDelete,
             });
           } else {
-            // No permissions found for this module
+            // No permissions found for this module - deny all access by default
             setPermissions({
               canCreate: false,
               canRead: false,
@@ -151,7 +315,7 @@ function ClinicJobPostingPage() {
     };
 
     fetchPermissions();
-  }, []);
+  }, [tokenKey]);
 
   const handleJobCreated = () => {
     setRefreshKey(prev => prev + 1);
@@ -167,15 +331,20 @@ function ClinicJobPostingPage() {
     setIsCreateModalOpen(true);
   };
 
+  const hideClinicChrome = routeContext === "agent";
+
   if (!permissionsLoaded) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#2D9AA5]"></div>
-      </div>
+      <ClinicLayout hideSidebar={hideClinicChrome} hideHeader={hideClinicChrome}>
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#2D9AA5]"></div>
+        </div>
+      </ClinicLayout>
     );
   }
 
   return (
+    <ClinicLayout hideSidebar={hideClinicChrome} hideHeader={hideClinicChrome}>
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <div className="bg-white border-b border-gray-200">
@@ -185,15 +354,18 @@ function ClinicJobPostingPage() {
               <h1 className="text-2xl font-bold text-gray-900">Job Management</h1>
               <p className="text-sm text-gray-600 mt-1">Manage your job postings and applications</p>
             </div>
-            {permissions.canCreate && (
-              <button
-                onClick={handleCreateJobClick}
-                className="inline-flex items-center justify-center gap-2 bg-[#2D9AA5] hover:bg-[#247a83] text-white px-4 py-2 rounded-lg shadow hover:shadow-md transition-all duration-200 text-sm font-medium"
-              >
-                <PlusCircle className="h-5 w-5" />
-                <span>Create New Job</span>
-              </button>
-            )}
+            {(() => {
+              console.log('[Job Posting] Button render check - canCreate:', permissions.canCreate, 'permissionsLoaded:', permissionsLoaded);
+              return permissions.canCreate && (
+                <button
+                  onClick={handleCreateJobClick}
+                  className="inline-flex items-center justify-center gap-2 bg-[#2D9AA5] hover:bg-[#247a83] text-white px-4 py-2 rounded-lg shadow hover:shadow-md transition-all duration-200 text-sm font-medium"
+                >
+                  <PlusCircle className="h-5 w-5" />
+                  <span>Create New Job</span>
+                </button>
+              );
+            })()}
           </div>
         </div>
       </div>
@@ -247,7 +419,7 @@ function ClinicJobPostingPage() {
                 config={{
                   title: 'My Job Postings',
                   subtitle: 'Manage and review all your job listings posted as a clinic',
-                  tokenKey: 'clinicToken',
+                  tokenKey,
                   primaryColor: '#2D9AA5',
                   emptyStateTitle: 'No Job Postings Yet',
                   emptyStateDescription: 'Start posting job opportunities to find new candidates.',
@@ -275,7 +447,7 @@ function ClinicJobPostingPage() {
               </div>
             ) : (
               <ApplicationsDashboard 
-                tokenKey="clinicToken"
+                tokenKey={tokenKey}
                 permissions={permissions}
               />
             )
@@ -291,12 +463,15 @@ function ClinicJobPostingPage() {
         canCreate={permissions.canCreate}
       />
     </div>
+    </ClinicLayout>
   );
 }
 
 ClinicJobPostingPage.getLayout = function PageLayout(page: React.ReactNode) {
   return <ClinicLayout>{page}</ClinicLayout>;
 };
+
+export const ClinicJobPostingPageBase = ClinicJobPostingPage;
 
 const ProtectedClinicJobPage: NextPageWithLayout = withClinicAuth(ClinicJobPostingPage);
 ProtectedClinicJobPage.getLayout = ClinicJobPostingPage.getLayout;

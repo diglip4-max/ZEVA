@@ -813,6 +813,9 @@ const ManageAgentsPage = () => {
 // Apply Layout
 ManageAgentsPage.getLayout = (page) => <ClinicLayout>{page}</ClinicLayout>;
 
+// Export base component for reuse (e.g., agent portal)
+export const CreateAgentPageBase = ManageAgentsPage;
+
 // Preserve layout on wrapped component
 const ProtectedManageAgentsPage = withClinicAuth(ManageAgentsPage);
 ProtectedManageAgentsPage.getLayout = ManageAgentsPage.getLayout;
