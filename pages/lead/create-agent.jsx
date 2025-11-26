@@ -451,24 +451,49 @@ const ManageAgentsPage = () => {
         </div>
 
         {/* Action Bar */}
-        <div className="flex items-center justify-between bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900">
-              {activeView === 'agents' ? 'Agents' : 'Doctor Staff'}
-            </h2>
-            <p className="text-sm text-gray-700 mt-0.5">
-              {currentList.length} {activeView === 'agents' ? 'agents' : 'doctors'} total
-            </p>
+        <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">Team Members</h2>
+                <p className="text-sm text-gray-700 mt-0.5">
+                  {currentList.length} {activeView === 'agents' ? 'agents' : 'doctors'} total
+                </p>
+              </div>
+              {/* View Toggle */}
+              <div className="flex items-center gap-2 bg-gray-100 rounded-lg p-1">
+                <button
+                  onClick={() => setActiveView('agents')}
+                  className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                    activeView === 'agents'
+                      ? 'bg-white text-gray-900 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  Agents ({agents.length})
+                </button>
+                <button
+                  onClick={() => setActiveView('doctorStaff')}
+                  className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                    activeView === 'doctorStaff'
+                      ? 'bg-white text-gray-900 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  Doctors ({doctorStaff.length})
+                </button>
+              </div>
+            </div>
+            {canCreate && (
+              <button
+                onClick={handleCreateClick}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-lg transition-colors shadow-sm w-full sm:w-auto justify-center"
+              >
+                <UserPlus className="w-4 h-4" />
+                Add {activeView === 'agents' ? 'Agent' : 'Doctor'}
+              </button>
+            )}
           </div>
-          {canCreate && (
-            <button
-              onClick={handleCreateClick}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-lg transition-colors shadow-sm"
-            >
-              <UserPlus className="w-4 h-4" />
-              Add {activeView === 'agents' ? 'Agent' : 'Doctor'}
-            </button>
-          )}
         </div>
 
         {/* Agents/Doctors Cards */}
