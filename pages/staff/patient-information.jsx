@@ -214,7 +214,15 @@ function PatientFilterUI() {
 
   useEffect(() => { fetchPatients(); }, []);
 
-  const handleUpdate = (id) => router.push(`/staff/update-patient-info/${id}`);
+  const handleUpdate = (id) => {
+    // Check if we're on a clinic route
+    const isClinicRoute = router.pathname?.startsWith('/clinic/') || window.location.pathname?.startsWith('/clinic/');
+    if (isClinicRoute) {
+      router.push(`/clinic/update-patient-info/${id}`);
+    } else {
+      router.push(`/staff/update-patient-info/${id}`);
+    }
+  };
 
   return (
     <>
