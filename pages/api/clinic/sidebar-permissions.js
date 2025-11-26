@@ -21,20 +21,18 @@ export default async function handler(req, res) {
       return res.status(401).json({ success: false, message: 'Unauthorized: Missing or invalid token' });
     }
 
-    // Verify user is a clinic or an agent/doctorStaff accessing clinic routes
-    // Agents can access clinic routes if they have appropriate permissions
-    if (me.role === 'clinic') {
-      // Clinic user - proceed normally
-    } else if (['agent', 'doctorStaff'].includes(me.role)) {
-      // Agent accessing clinic route - check if they have clinic permissions
-      // This is handled by the agent sidebar-permissions API, but we allow it here
-      // for direct API calls from agent routes
-    } else {
+    // Only clinic, agent, doctor, doctorStaff can fetch clinic navigation
+    if (!['clinic', 'agent', 'doctor', 'doctorStaff'].includes(me.role)) {
       return res.status(403).json({ success: false, message: 'Access denied. Clinic role or agent with clinic permissions required' });
     }
 
-    // Get clinic associated with this user
-    const clinic = await Clinic.findOne({ owner: me._id });
+    let clinic = null;
+    if (me.role === 'clinic') {
+      clinic = await Clinic.findOne({ owner: me._id });
+    } else if (me.clinicId) {
+      clinic = await Clinic.findById(me.clinicId);
+    }
+
     if (!clinic) {
       return res.status(404).json({ success: false, message: 'Clinic not found for this user' });
     }
@@ -183,4 +181,5 @@ export default async function handler(req, res) {
     });
   }
 }
+
 

@@ -4,7 +4,7 @@ import ClinicLayout from '../../components/ClinicLayout';
 import withClinicAuth from '../../components/withClinicAuth';
 
 function ClinicAddService() {
-  return <AddService />;
+  return <AddService contextOverride="clinic" />;
 }
 
 ClinicAddService.getLayout = function PageLayout(page) {

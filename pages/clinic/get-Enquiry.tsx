@@ -31,7 +31,7 @@ interface EnquiriesResponse {
   enquiries: Enquiry[];
 }
 
-function ClinicEnquiries() {
+function ClinicEnquiries({ contextOverride = null }: { contextOverride?: "clinic" | "agent" }) {
   const [enquiries, setEnquiries] = useState<Enquiry[]>([]);
   const [filteredEnquiries, setFilteredEnquiries] = useState<Enquiry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -41,17 +41,49 @@ function ClinicEnquiries() {
   );
   const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
 
+  const [routeContext, setRouteContext] = useState<"clinic" | "agent">(
+    contextOverride || "clinic"
+  );
+
+  useEffect(() => {
+    if (contextOverride) {
+      setRouteContext(contextOverride);
+      return;
+    }
+    if (typeof window === "undefined") return;
+    const currentPath = window.location.pathname || "";
+    if (currentPath.startsWith("/agent/")) {
+      setRouteContext("agent");
+    } else {
+      setRouteContext("clinic");
+    }
+  }, [contextOverride]);
+
   useEffect(() => {
     const fetchEnquiries = async () => {
       try {
-        const token = localStorage.getItem("clinicToken");
-        if (!token) return;
+        if (typeof window === "undefined") return;
+        const token =
+          routeContext === "agent"
+            ? localStorage.getItem("agentToken")
+            : localStorage.getItem("clinicToken");
+        if (!token) {
+          setEnquiries([]);
+          setFilteredEnquiries([]);
+          setLoading(false);
+          return;
+        }
 
-        const res = await axios.get<EnquiriesResponse>("/api/clinics/getEnquiries", {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
+        const res = await axios.get<EnquiriesResponse>(
+          routeContext === "agent"
+            ? "/api/clinics/getEnquiries?scope=clinic"
+            : "/api/clinics/getEnquiries",
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
 
         setEnquiries(res.data.enquiries || []);
         setFilteredEnquiries(res.data.enquiries || []);
@@ -63,7 +95,7 @@ function ClinicEnquiries() {
     };
 
     fetchEnquiries();
-  }, []);
+  }, [routeContext]);
 
   const isToday = (dateString: string) => {
     const date = new Date(dateString);
@@ -403,6 +435,8 @@ function ClinicEnquiries() {
 ClinicEnquiries.getLayout = function PageLayout(page: React.ReactNode) {
   return <ClinicLayout>{page}</ClinicLayout>;
 };
+
+export const ClinicEnquiriesBase = ClinicEnquiries;
 
 // ✅ Apply HOC and assign correct type
 const ProtectedDashboard: NextPageWithLayout = withClinicAuth(ClinicEnquiries);

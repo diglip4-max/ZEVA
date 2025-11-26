@@ -76,7 +76,24 @@ interface FilterState {
   emergency: string;
 }
 
-const AllAppointmentsPage: NextPageWithLayout = () => {
+const AllAppointmentsPage: NextPageWithLayout = ({
+  contextOverride = null,
+}: {
+  contextOverride?: "clinic" | "agent";
+}) => {
+  const [routeContext, setRouteContext] = useState<"clinic" | "agent">(
+    contextOverride || "clinic"
+  );
+  useEffect(() => {
+    if (contextOverride) {
+      setRouteContext(contextOverride);
+      return;
+    }
+    if (typeof window === "undefined") return;
+    const isAgentRoute =
+      window.location.pathname?.startsWith("/agent/") ?? false;
+    setRouteContext(isAgentRoute ? "agent" : "clinic");
+  }, [contextOverride]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [rooms, setRooms] = useState<Room[]>([]);
@@ -191,17 +208,23 @@ const AllAppointmentsPage: NextPageWithLayout = () => {
     };
   }, []);
 
-  function getAuthHeaders(): Record<string, string> {
+  const getAuthHeaders = useCallback((): Record<string, string> => {
     if (typeof window === "undefined") return {};
-    const token = localStorage.getItem("clinicToken") || sessionStorage.getItem("clinicToken");
+    const token =
+      routeContext === "agent"
+        ? localStorage.getItem("agentToken") ||
+          sessionStorage.getItem("agentToken")
+        : localStorage.getItem("clinicToken") ||
+          sessionStorage.getItem("clinicToken");
     if (!token) return {};
     return { Authorization: `Bearer ${token}` };
-  }
+  }, [routeContext]);
 
   // Fetch doctors and rooms for filter dropdowns
   const fetchFilterData = useCallback(async () => {
     try {
       const headers = getAuthHeaders();
+      if (!headers.Authorization) return;
       const response = await axios.get("/api/clinic/appointment-data", { headers });
       if (response.data.success) {
         setDoctors(response.data.doctorStaff || []);
@@ -210,7 +233,7 @@ const AllAppointmentsPage: NextPageWithLayout = () => {
     } catch (err) {
       console.error("Failed to fetch filter data:", err);
     }
-  }, []);
+  }, [getAuthHeaders]);
 
   // Fetch appointments with filters
   const fetchAppointments = useCallback(async () => {
@@ -218,6 +241,10 @@ const AllAppointmentsPage: NextPageWithLayout = () => {
     setError("");
     try {
       const headers = getAuthHeaders();
+      if (!headers.Authorization) {
+        setLoading(false);
+        return;
+      }
       const params: any = { page, limit: 50 };
       
       // Add filters to params
@@ -250,7 +277,7 @@ const AllAppointmentsPage: NextPageWithLayout = () => {
     } finally {
       setLoading(false);
     }
-  }, [filters, page]);
+  }, [filters, page, getAuthHeaders]);
 
   useEffect(() => {
     fetchFilterData();
@@ -321,9 +348,11 @@ const AllAppointmentsPage: NextPageWithLayout = () => {
     return dateStr;
   };
 
+  const hideClinicChrome = routeContext === "agent";
+
   return (
     <>
-    <ClinicLayout>
+    <ClinicLayout hideSidebar={hideClinicChrome} hideHeader={hideClinicChrome}>
       <div className="bg-gray-50 min-h-screen" style={{ width: '100%', padding: '0', margin: '0' }}>
         <div className="p-3 sm:p-4 md:p-6" style={{ width: '100%', minWidth: '100%' }}>
           <div className="w-full" style={{ width: '100%', overflowX: 'visible' }}>
@@ -911,6 +940,10 @@ const AllAppointmentsPage: NextPageWithLayout = () => {
 };
 
 AllAppointmentsPage.getLayout = (page: React.ReactElement) => page;
+export const ClinicAllAppointmentsPageBase = AllAppointmentsPage;
 
-export default withClinicAuth(AllAppointmentsPage);
+const ProtectedAppointmentsPage = withClinicAuth(AllAppointmentsPage);
+ProtectedAppointmentsPage.getLayout = AllAppointmentsPage.getLayout;
+
+export default ProtectedAppointmentsPage;
 

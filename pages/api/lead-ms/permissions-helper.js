@@ -215,29 +215,32 @@ export async function checkClinicPermission(clinicId, moduleKey, action, subModu
         return { hasPermission: true, error: null };
       }
 
-      // ✅ PRIORITY 2: Check module-level specific action - this also grants permission for submodules
-      // For example: module-level "update" should grant "Assign Lead" submodule permission
-      // Module-level "create" should grant "Create Lead" submodule permission
-      if (Boolean(modulePermission.actions?.[action])) {
-        return { hasPermission: true, error: null };
-      }
-
-      // ✅ PRIORITY 3: Check if submodule exists
+      // ✅ PRIORITY 2: Check if submodule exists
       const subModule = modulePermission.subModules.find(
         (sm) => sm.name === subModuleName
       );
 
-      // If submodule doesn't exist, deny (module-level permissions already checked above)
+      // If submodule doesn't exist, check module-level permissions
       if (!subModule) {
+        // Check module-level specific action as fallback
+        if (Boolean(modulePermission.actions?.[action])) {
+          return { hasPermission: true, error: null };
+        }
         return { hasPermission: false, error: `Submodule ${subModuleName} not found in permissions` };
       }
 
-      const subModuleActionKeys = Object.keys(subModule.actions || {});
-      const subModuleHasAny = subModuleActionKeys.some(
-        (key) => Boolean(subModule.actions?.[key])
-      );
-      if (!subModuleHasAny) {
-        return { hasPermission: true, error: null };
+      // ✅ PRIORITY 3: Check if submodule explicitly denies the action (respect false values)
+      // If submodule has the action property explicitly set to false, deny immediately
+      if (subModule.actions && subModule.actions.hasOwnProperty(action)) {
+        const actionValue = subModule.actions[action];
+        // Explicitly false (boolean false or string "false") = deny
+        if (actionValue === false || actionValue === "false" || String(actionValue).toLowerCase() === "false") {
+          return { hasPermission: false, error: `Permission denied: ${action} action is explicitly denied for submodule ${subModuleName}` };
+        }
+        // Explicitly true (boolean true or string "true") = allow
+        if (actionValue === true || actionValue === "true" || String(actionValue).toLowerCase() === "true") {
+          return { hasPermission: true, error: null };
+        }
       }
 
       // ✅ PRIORITY 4: Check submodule-level "all"
@@ -245,11 +248,13 @@ export async function checkClinicPermission(clinicId, moduleKey, action, subModu
         return { hasPermission: true, error: null };
       }
 
-      // ✅ PRIORITY 5: Check submodule-level specific action
-      if (Boolean(subModule.actions?.[action])) {
+      // ✅ PRIORITY 5: Check module-level specific action as fallback
+      // Only if submodule doesn't explicitly set the permission
+      if (Boolean(modulePermission.actions?.[action])) {
         return { hasPermission: true, error: null };
       }
 
+      // ✅ PRIORITY 6: If submodule has no explicit permission and module-level doesn't grant it, deny
       return { hasPermission: false, error: `Permission denied: ${action} action not allowed for submodule ${subModuleName}` };
     }
 

@@ -14,18 +14,29 @@ export default async function handler(req, res) {
 
   try {
     const user = await getUserFromReq(req);
-    if (!requireRole(user, ["clinic"])) {
+    if (!requireRole(user, ["clinic", "agent", "doctor", "doctorStaff"])) {
       return res.status(403).json({ message: "Access denied" });
     }
 
     // Get clinic for this user
-    const clinic = await Clinic.findOne({ owner: user._id });
+    let clinic = null;
+    if (user.role === "clinic") {
+      clinic = await Clinic.findOne({ owner: user._id });
+    } else if (user.clinicId) {
+      clinic = await Clinic.findById(user.clinicId);
+    }
     if (!clinic) {
       return res.status(404).json({ message: "Clinic not found" });
     }
 
+    const matchQuery = { clinicId: clinic._id };
+    const scope = req.query.scope;
+    if (scope === "agent" && user.role === "agent") {
+      matchQuery["assignedTo.user"] = user._id;
+    }
+
     // ✅ Fetch leads assigned to agents in this clinic
-    const leads = await Lead.find({ clinicId: clinic._id })
+    const leads = await Lead.find(matchQuery)
       .populate("treatments.treatment", "name")
       .populate("assignedTo.user", "name email role")
       .lean();

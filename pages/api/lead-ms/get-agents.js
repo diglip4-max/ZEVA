@@ -78,47 +78,18 @@ export default async function handler(req, res) {
         // Admin sees ONLY agents/doctorStaff they created
         query = { ...roleQuery, createdBy: me._id };
       } else if (me.role === 'clinic') {
-        // Clinic sees agents from their clinic OR agents they created
-        // For doctorStaff, they can ONLY see ones they created (strict filtering by createdBy)
+        // Clinics should only see members assigned to their clinic
         const clinic = await Clinic.findOne({ owner: me._id });
-        
-        // Debug: Log clinic lookup
-        console.log('Clinic lookup:', {
-          clinicFound: !!clinic,
-          clinicId: clinic?._id?.toString(),
-          ownerId: me._id.toString()
-        });
-        
-        if (roleFilter === 'agent') {
-          // Only agents - clinic sees agents from their clinic OR agents they created
-          if (clinic) {
-            query = {
-              role: 'agent',
-              $or: [
-                { clinicId: clinic._id },
-                { createdBy: me._id }
-              ]
-            };
-            console.log('Clinic agent query - clinicId:', clinic._id.toString(), 'createdBy:', me._id.toString());
-          } else {
-            query = { role: 'agent', createdBy: me._id };
-            console.log('Clinic agent query (no clinic found) - createdBy:', me._id.toString());
-          }
-        } else if (roleFilter === 'doctorStaff') {
-          // Only doctorStaff - STRICT: clinic can ONLY see ones they created
-          query = { role: 'doctorStaff', createdBy: me._id };
+
+        if (!clinic) {
+          query = { ...roleQuery, createdBy: me._id };
         } else {
-          // Default to agent if no role filter
-          if (clinic) {
-            query = {
-              role: 'agent',
-              $or: [
-                { clinicId: clinic._id },
-                { createdBy: me._id }
-              ]
-            };
+          if (roleFilter === 'doctorStaff') {
+            query = { role: 'doctorStaff', clinicId: clinic._id };
+          } else if (roleFilter === 'agent') {
+            query = { role: 'agent', clinicId: clinic._id };
           } else {
-            query = { role: 'agent', createdBy: me._id };
+            query = { role: 'agent', clinicId: clinic._id };
           }
         }
       } else if (me.role === 'doctor') {

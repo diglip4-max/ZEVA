@@ -38,43 +38,216 @@ function ClinicBlog() {
           headers: { Authorization: `Bearer ${token}` }
         });
         const data = res.data;
+        console.log('[Blog Form] Permissions API response:', JSON.stringify(data, null, 2));
+        
         if (data.success && data.data) {
-          const modulePermission = data.data.permissions?.find((p: any) => p.module === "blogs");
+          // Look for "blogs" module (also check for "clinic_blogs" or "admin_blogs")
+          const modulePermission = data.data.permissions?.find((p: any) => {
+            if (!p?.module) return false;
+            // Normalize module name (remove clinic_ or admin_ prefix)
+            const normalized = p.module.startsWith("clinic_")
+              ? p.module.slice(7)
+              : p.module.startsWith("admin_")
+              ? p.module.slice(6)
+              : p.module;
+            return normalized === "blogs";
+          });
+          
+          console.log('[Blog Form] Found module permission:', modulePermission ? {
+            module: modulePermission.module,
+            actions: modulePermission.actions,
+            subModules: modulePermission.subModules?.map((sm: any) => ({
+              name: sm.name,
+              actions: sm.actions
+            }))
+          } : 'Not found');
+          
           if (modulePermission) {
             const actions = modulePermission.actions || {};
-            const writeBlogSubModule = modulePermission.subModules?.find((sm: any) => sm.name === "Write Blog");
-            const publishedBlogsSubModule = modulePermission.subModules?.find((sm: any) => sm.name === "Published and Drafts Blogs");
-            const analyticsSubModule = modulePermission.subModules?.find((sm: any) => sm.name === "Analytics of blog");
-
+            
+            // Module-level permissions
             const moduleAll = actions.all === true;
             const moduleCreate = actions.create === true;
             const moduleRead = actions.read === true;
             const moduleUpdate = actions.update === true;
             const moduleDelete = actions.delete === true;
 
-            const writeBlogAll = writeBlogSubModule?.actions?.all === true;
-            const writeBlogCreate = writeBlogSubModule?.actions?.create === true;
+            // Helper function to extract actions from submodule (handle array or object)
+            const extractSubModuleActions = (subModule: any) => {
+              if (!subModule || !subModule.actions) return {};
+              
+              if (Array.isArray(subModule.actions)) {
+                return subModule.actions.reduce((acc: any, item: any) => {
+                  if (typeof item === 'object' && item !== null) {
+                    return { ...acc, ...item };
+                  }
+                  return acc;
+                }, {});
+              } else if (typeof subModule.actions === 'object' && subModule.actions !== null) {
+                return subModule.actions;
+              }
+              return {};
+            };
 
-            const publishedBlogsAll = publishedBlogsSubModule?.actions?.all === true;
-            const publishedBlogsRead = publishedBlogsSubModule?.actions?.read === true;
-            const publishedBlogsUpdate = publishedBlogsSubModule?.actions?.update === true;
-            const publishedBlogsDelete = publishedBlogsSubModule?.actions?.delete === true;
+            // Find submodules
+            const writeBlogSubModule = modulePermission.subModules?.find((sm: any) => sm.name === "Write Blog");
+            const publishedBlogsSubModule = modulePermission.subModules?.find((sm: any) => sm.name === "Published and Drafts Blogs");
+            const analyticsSubModule = modulePermission.subModules?.find((sm: any) => sm.name === "Analytics of blog");
 
-            const analyticsAll = analyticsSubModule?.actions?.all === true;
-            const analyticsRead = analyticsSubModule?.actions?.read === true;
-            const analyticsUpdate = analyticsSubModule?.actions?.update === true;
-            const analyticsDelete = analyticsSubModule?.actions?.delete === true;
+            // Extract actions from submodules
+            const writeBlogActions = extractSubModuleActions(writeBlogSubModule);
+            const publishedBlogsActions = extractSubModuleActions(publishedBlogsSubModule);
+            const analyticsActions = extractSubModuleActions(analyticsSubModule);
+
+            // Helper function to determine permission for a submodule
+            const getSubModulePermission = (
+              subModule: any,
+              subModuleActions: any,
+              actionName: 'create' | 'read' | 'update' | 'delete',
+              moduleAction: boolean
+            ): boolean => {
+              // Priority 1: Module-level "all" overrides everything
+              if (moduleAll) return true;
+              
+              // Priority 2: If submodule exists
+              if (subModule) {
+                // Priority 2a: Submodule "all" grants permission
+                const subModuleAll = subModuleActions.all === true || subModuleActions.all === "true";
+                if (subModuleAll) return true;
+                
+                // Priority 2b: Check if action is explicitly set in submodule
+                const actionExists = subModuleActions.hasOwnProperty?.(actionName) ||
+                                    Object.prototype.hasOwnProperty.call(subModuleActions, actionName) ||
+                                    actionName in subModuleActions ||
+                                    subModuleActions[actionName] !== undefined;
+                
+                if (actionExists) {
+                  const actionValue = subModuleActions[actionName];
+                  
+                  // Explicitly false = deny
+                  if (actionValue === false || 
+                      actionValue === "false" || 
+                      String(actionValue).toLowerCase() === "false" ||
+                      actionValue === 0) {
+                    console.log(`[Blog Form] ${actionName} is explicitly denied in submodule:`, subModule.name);
+                    return false;
+                  }
+                  
+                  // Explicitly true = allow
+                  if (actionValue === true || 
+                      actionValue === "true" || 
+                      String(actionValue).toLowerCase() === "true" ||
+                      actionValue === 1) {
+                    return true;
+                  }
+                  
+                  // If value is null or undefined, fall through to module-level
+                  if (actionValue === null || actionValue === undefined) {
+                    // Fall through
+                  } else {
+                    // Unexpected value, deny
+                    console.warn(`[Blog Form] Unexpected ${actionName} value in submodule ${subModule.name}:`, actionValue);
+                    return false;
+                  }
+                }
+              }
+              
+              // Priority 3: Fall back to module-level permission
+              return moduleAction;
+            };
+
+            // Calculate permissions
+            const finalCanCreate = getSubModulePermission(
+              writeBlogSubModule,
+              writeBlogActions,
+              'create',
+              moduleCreate
+            );
+
+            const finalCanReadPublished = getSubModulePermission(
+              publishedBlogsSubModule,
+              publishedBlogsActions,
+              'read',
+              moduleRead
+            );
+
+            const finalCanUpdatePublished = getSubModulePermission(
+              publishedBlogsSubModule,
+              publishedBlogsActions,
+              'update',
+              moduleUpdate
+            );
+
+            const finalCanDeletePublished = getSubModulePermission(
+              publishedBlogsSubModule,
+              publishedBlogsActions,
+              'delete',
+              moduleDelete
+            );
+
+            const finalCanReadAnalytics = getSubModulePermission(
+              analyticsSubModule,
+              analyticsActions,
+              'read',
+              moduleRead
+            );
+
+            const finalCanUpdateAnalytics = getSubModulePermission(
+              analyticsSubModule,
+              analyticsActions,
+              'update',
+              moduleUpdate
+            );
+
+            const finalCanDeleteAnalytics = getSubModulePermission(
+              analyticsSubModule,
+              analyticsActions,
+              'delete',
+              moduleDelete
+            );
+
+            console.log('[Blog Form] Final permissions:', {
+              canCreate: finalCanCreate,
+              canReadPublished: finalCanReadPublished,
+              canUpdatePublished: finalCanUpdatePublished,
+              canDeletePublished: finalCanDeletePublished,
+              canReadAnalytics: finalCanReadAnalytics,
+              canUpdateAnalytics: finalCanUpdateAnalytics,
+              canDeleteAnalytics: finalCanDeleteAnalytics,
+            });
 
             setPermissions({
-              canCreate: moduleAll || moduleCreate || writeBlogAll || writeBlogCreate,
-              canReadPublished: moduleAll || moduleRead || publishedBlogsAll || publishedBlogsRead,
-              canUpdatePublished: moduleAll || moduleUpdate || publishedBlogsAll || publishedBlogsUpdate,
-              canDeletePublished: moduleAll || moduleDelete || publishedBlogsAll || publishedBlogsDelete,
-              canReadAnalytics: moduleAll || moduleRead || analyticsAll || analyticsRead,
-              canUpdateAnalytics: moduleAll || moduleUpdate || analyticsAll || analyticsUpdate,
-              canDeleteAnalytics: moduleAll || moduleDelete || analyticsAll || analyticsDelete,
+              canCreate: finalCanCreate,
+              canReadPublished: finalCanReadPublished,
+              canUpdatePublished: finalCanUpdatePublished,
+              canDeletePublished: finalCanDeletePublished,
+              canReadAnalytics: finalCanReadAnalytics,
+              canUpdateAnalytics: finalCanUpdateAnalytics,
+              canDeleteAnalytics: finalCanDeleteAnalytics,
+            });
+          } else {
+            // No permissions found for this module - deny all access by default
+            setPermissions({
+              canCreate: false,
+              canReadPublished: false,
+              canUpdatePublished: false,
+              canDeletePublished: false,
+              canReadAnalytics: false,
+              canUpdateAnalytics: false,
+              canDeleteAnalytics: false,
             });
           }
+        } else {
+          // API failed or no permissions data
+          setPermissions({
+            canCreate: false,
+            canReadPublished: false,
+            canUpdatePublished: false,
+            canDeletePublished: false,
+            canReadAnalytics: false,
+            canUpdateAnalytics: false,
+            canDeleteAnalytics: false,
+          });
         }
         setPermissionsLoaded(true);
       } catch (err: any) {

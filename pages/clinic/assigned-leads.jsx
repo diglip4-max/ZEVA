@@ -1,11 +1,41 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import axios from "axios";
 import ClinicLayout from "../../components/ClinicLayout";
 import withClinicAuth from "../../components/withClinicAuth";
 import FilterAssignedLead from "../../components/Filter-assigned-lead";
 import WhatsAppChat from "../../components/WhatsAppChat";
 
-const AssignedLeadsPage = () => {
+const TOKEN_SOURCES = {
+  clinic: ["clinicToken"],
+  agent: ["agentToken", "clinicToken"],
+};
+
+const AssignedLeadsPage = ({ contextOverride = null }) => {
+  const [routeContext, setRouteContext] = useState(contextOverride || "clinic");
+  useEffect(() => {
+    if (contextOverride) {
+      setRouteContext(contextOverride);
+      return;
+    }
+    if (typeof window === "undefined") return;
+    const isAgentRoute = window.location.pathname?.startsWith("/agent/") ?? false;
+    setRouteContext(isAgentRoute ? "agent" : "clinic");
+  }, [contextOverride]);
+
+  const tokenSources = useMemo(
+    () => TOKEN_SOURCES[routeContext] || TOKEN_SOURCES.clinic,
+    [routeContext]
+  );
+
+  const resolveToken = () => {
+    if (typeof window === "undefined") return null;
+    for (const key of tokenSources) {
+      const stored = localStorage.getItem(key) || sessionStorage.getItem(key);
+      if (stored) return stored;
+    }
+    return null;
+  };
+
   const [loading, setLoading] = useState(true);
   const [leads, setLeads] = useState([]);
   const [totalAssigned, setTotalAssigned] = useState(0);
@@ -25,13 +55,19 @@ const AssignedLeadsPage = () => {
   const [permissionsLoaded, setPermissionsLoaded] = useState(false);
 
   useEffect(() => {
-    const t = localStorage.getItem("clinicToken");
-    if (t) setToken(t);
-    else {
-      setError("Unauthorized: No token found");
-      setLoading(false);
-    }
-  }, []);
+    const syncToken = () => {
+      const t = resolveToken();
+      if (t) {
+        setToken(t);
+      } else {
+        setError("Unauthorized: No token found");
+        setLoading(false);
+      }
+    };
+    syncToken();
+    window.addEventListener("storage", syncToken);
+    return () => window.removeEventListener("storage", syncToken);
+  }, [tokenSources]);
 
   // Fetch permissions
   useEffect(() => {
@@ -82,7 +118,8 @@ const AssignedLeadsPage = () => {
 
     const fetchLeads = async () => {
       try {
-        const res = await axios.get("/api/clinic/get-assignedLead", {
+        const scope = routeContext === "agent" ? "agent" : "clinic";
+        const res = await axios.get(`/api/clinic/get-assignedLead?scope=${scope}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
 
@@ -101,7 +138,7 @@ const AssignedLeadsPage = () => {
     };
 
     fetchLeads();
-  }, [token]);
+  }, [token, routeContext]);
 
   const handleFollowUpdateChange = (leadId, value) => {
     setFollowUpsdate((prev) => ({ ...prev, [leadId]: value }));
@@ -635,6 +672,8 @@ const AssignedLeadsPage = () => {
 AssignedLeadsPage.getLayout = function PageLayout(page) {
   return <ClinicLayout>{page}</ClinicLayout>;
 };
+
+export const AssignedLeadsPageBase = AssignedLeadsPage;
 
 const ProtectedAssignedLeadsPage = withClinicAuth(AssignedLeadsPage);
 ProtectedAssignedLeadsPage.getLayout = AssignedLeadsPage.getLayout;

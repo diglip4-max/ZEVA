@@ -71,7 +71,9 @@ const MessageBanner = ({ type, text }: { type: "success" | "error" | "info"; tex
   );
 };
 
-function AddRoomPage() {
+type RouteContext = "clinic" | "agent";
+
+function AddRoomPage({ contextOverride = null }: { contextOverride?: RouteContext | null }) {
   const router = useRouter();
   const [rooms, setRooms] = useState<Room[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
@@ -92,8 +94,8 @@ function AddRoomPage() {
   });
   const [permissionsLoaded, setPermissionsLoaded] = useState(false);
   const [token, setToken] = useState("");
-  const [hasAgentToken, setHasAgentToken] = useState(false);
-  const [isAgentRoute, setIsAgentRoute] = useState(false);
+  const [hasAgentToken, setHasAgentToken] = useState(contextOverride === "agent");
+  const [isAgentRoute, setIsAgentRoute] = useState(contextOverride === "agent");
   const [editingRoomId, setEditingRoomId] = useState<string | null>(null);
   const [editingRoomName, setEditingRoomName] = useState("");
   const [roomUpdateLoading, setRoomUpdateLoading] = useState(false);
@@ -106,20 +108,27 @@ function AddRoomPage() {
     const syncTokens = () => {
       const storedToken = getStoredToken();
       setToken(storedToken || "");
-      setHasAgentToken(Boolean(localStorage.getItem("agentToken")));
+      const hasAgent =
+        Boolean(localStorage.getItem("agentToken")) ||
+        Boolean(sessionStorage.getItem("agentToken"));
+      setHasAgentToken(contextOverride === "agent" ? true : hasAgent);
     };
     syncTokens();
     window.addEventListener("storage", syncTokens);
     return () => window.removeEventListener("storage", syncTokens);
-  }, []);
+  }, [contextOverride]);
 
   useEffect(() => {
+    if (contextOverride) {
+      setIsAgentRoute(contextOverride === "agent");
+      return;
+    }
     if (typeof window === "undefined") return;
     const agentPath =
       router?.pathname?.startsWith("/agent/") ||
       window.location.pathname?.startsWith("/agent/");
     setIsAgentRoute(Boolean(agentPath && hasAgentToken));
-  }, [router.pathname, hasAgentToken]);
+  }, [contextOverride, router.pathname, hasAgentToken]);
 
   const { permissions: agentPermissions, loading: agentPermissionsLoading } = useAgentPermissions(
     isAgentRoute ? MODULE_KEY : null
@@ -128,11 +137,13 @@ function AddRoomPage() {
   useEffect(() => {
     if (!isAgentRoute) return;
     if (agentPermissionsLoading) return;
+    // Properly handle false values - if all is false, check individual permissions
+    // If a permission is explicitly false, it should be false
     setPermissions({
-      canCreate: agentPermissions.canAll || agentPermissions.canCreate,
-      canRead: agentPermissions.canAll || agentPermissions.canRead,
-      canUpdate: agentPermissions.canAll || agentPermissions.canUpdate,
-      canDelete: agentPermissions.canAll || agentPermissions.canDelete,
+      canCreate: agentPermissions.canAll ? true : (agentPermissions.canCreate === true),
+      canRead: agentPermissions.canAll ? true : (agentPermissions.canRead === true),
+      canUpdate: agentPermissions.canAll ? true : (agentPermissions.canUpdate === true),
+      canDelete: agentPermissions.canAll ? true : (agentPermissions.canDelete === true),
     });
     setPermissionsLoaded(true);
   }, [isAgentRoute, agentPermissions, agentPermissionsLoading]);
@@ -166,25 +177,28 @@ function AddRoomPage() {
               : p.module.startsWith("admin_")
               ? p.module.slice(6)
               : p.module;
-            return normalized === MODULE_KEY;
+            // Check for both room_management and addRoom (clinic_addRoom)
+            return normalized === MODULE_KEY || normalized === "addRoom";
           });
 
           if (modulePermission) {
             const actions = modulePermission.actions || {};
             const moduleAll = actions.all === true;
+            // Properly handle false values - if all is false, check individual permissions
+            // If a permission is explicitly false, it should be false
             setPermissions({
-              canCreate: moduleAll || actions.create === true,
-              canRead: moduleAll || actions.read === true,
-              canUpdate: moduleAll || actions.update === true,
-              canDelete: moduleAll || actions.delete === true,
+              canCreate: moduleAll ? true : (actions.create === true),
+              canRead: moduleAll ? true : (actions.read === true),
+              canUpdate: moduleAll ? true : (actions.update === true),
+              canDelete: moduleAll ? true : (actions.delete === true),
             });
           } else {
-            // If no permission entry exists for this module, keep previous behavior (full access)
+            // If no permission entry exists for this module, deny all access by default
             setPermissions({
-              canCreate: true,
-              canRead: true,
-              canUpdate: true,
-              canDelete: true,
+              canCreate: false,
+              canRead: false,
+              canUpdate: false,
+              canDelete: false,
             });
           }
         } else {
@@ -542,36 +556,32 @@ function AddRoomPage() {
 
             <MessageBanner type={message.type} text={message.text} />
 
-            <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Room Name <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={roomName}
-                  onChange={(e) => setRoomName(e.target.value)}
-                  placeholder="e.g., Consultation Room 1, Operation Theater A"
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
-                  disabled={!permissions.canCreate}
-                  required
-                />
-                {!permissions.canCreate && (
-                  <p className="mt-2 text-xs text-gray-500">
-                    You do not have permission to create new rooms.
-                  </p>
-                )}
-              </div>
+            {permissions.canCreate && (
+              <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Room Name <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={roomName}
+                    onChange={(e) => setRoomName(e.target.value)}
+                    placeholder="e.g., Consultation Room 1, Operation Theater A"
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
+                    required
+                  />
+                </div>
 
-              <button
-                type="submit"
-                disabled={roomCreateDisabled}
-                className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl font-medium shadow hover:bg-blue-700 disabled:opacity-60"
-              >
-                {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
-                {submitting ? "Creating..." : "Create Room"}
-              </button>
-            </form>
+                <button
+                  type="submit"
+                  disabled={roomCreateDisabled}
+                  className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl font-medium shadow hover:bg-blue-700 disabled:opacity-60"
+                >
+                  {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
+                  {submitting ? "Creating..." : "Create Room"}
+                </button>
+              </form>
+            )}
           </div>
 
           <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
@@ -683,36 +693,32 @@ function AddRoomPage() {
               <p className="text-sm text-gray-500">Create and manage departments for your clinic.</p>
             </div>
 
-            <form onSubmit={handleDepartmentSubmit} className="mt-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Department Name <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={departmentName}
-                  onChange={(e) => setDepartmentName(e.target.value)}
-                  placeholder="e.g., Cardiology, Dermatology"
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
-                  disabled={!permissions.canCreate}
-                  required
-                />
-                {!permissions.canCreate && (
-                  <p className="mt-2 text-xs text-gray-500">
-                    You do not have permission to create new departments.
-                  </p>
-                )}
-              </div>
+            {permissions.canCreate && (
+              <form onSubmit={handleDepartmentSubmit} className="mt-6 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Department Name <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={departmentName}
+                    onChange={(e) => setDepartmentName(e.target.value)}
+                    placeholder="e.g., Cardiology, Dermatology"
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
+                    required
+                  />
+                </div>
 
-              <button
-                type="submit"
-                disabled={deptCreateDisabled}
-                className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-green-600 text-white rounded-xl font-medium shadow hover:bg-green-700 disabled:opacity-60"
-              >
-                {submittingDept && <Loader2 className="w-4 h-4 animate-spin" />}
-                {submittingDept ? "Creating..." : "Create Department"}
-              </button>
-            </form>
+                <button
+                  type="submit"
+                  disabled={deptCreateDisabled}
+                  className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-green-600 text-white rounded-xl font-medium shadow hover:bg-green-700 disabled:opacity-60"
+                >
+                  {submittingDept && <Loader2 className="w-4 h-4 animate-spin" />}
+                  {submittingDept ? "Creating..." : "Create Department"}
+                </button>
+              </form>
+            )}
           </div>
 
           <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
@@ -827,6 +833,8 @@ function AddRoomPage() {
 AddRoomPage.getLayout = function PageLayout(page: React.ReactNode) {
   return <ClinicLayout>{page}</ClinicLayout>;
 };
+
+export const AddRoomPageBase = AddRoomPage;
 
 const ProtectedAddRoomPage: NextPageWithLayout = withClinicAuth(AddRoomPage);
 ProtectedAddRoomPage.getLayout = AddRoomPage.getLayout;

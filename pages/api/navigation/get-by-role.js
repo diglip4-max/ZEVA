@@ -1,6 +1,7 @@
 // pages/api/navigation/get-by-role.js
 import dbConnect from "../../../lib/database";
 import ClinicNavigationItem from "../../../models/ClinicNavigationItem";
+import User from "../../../models/Users";
 import { getUserFromReq, requireRole } from "../lead-ms/auth";
 
 export default async function handler(req, res) {
@@ -15,35 +16,67 @@ export default async function handler(req, res) {
     return res.status(401).json({ success: false, message: 'Unauthorized: Missing or invalid token' });
   }
 
-  // Allow admin, clinic, and doctor roles
-  if (!requireRole(me, ['admin', 'clinic', 'doctor'])) {
+  // Allow admin, clinic, doctor, and agent roles
+  if (!requireRole(me, ['admin', 'clinic', 'doctor', 'agent'])) {
     return res.status(403).json({ success: false, message: 'Access denied' });
   }
 
   try {
     const { role } = req.query;
 
-    // Validate role
+    // Validate desired navigation role (only admin/clinic/doctor supported)
     if (!role || !['admin', 'clinic', 'doctor'].includes(role)) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Invalid role. Must be admin, clinic, or doctor' 
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid role. Must be admin, clinic, or doctor'
       });
     }
 
     // Verify user has permission to view this role's navigation
-    // Admin can view any role, clinic can only view clinic, doctor can only view doctor
+    // Admin can view any role, clinic can only view clinic, doctor only doctor, agent only clinic (if linked)
     if (me.role === 'clinic' && role !== 'clinic') {
-      return res.status(403).json({ 
-        success: false, 
-        message: 'Clinic users can only view clinic navigation items' 
+      return res.status(403).json({
+        success: false,
+        message: 'Clinic users can only view clinic navigation items'
       });
     }
     if (me.role === 'doctor' && role !== 'doctor') {
-      return res.status(403).json({ 
-        success: false, 
-        message: 'Doctor users can only view doctor navigation items' 
+      return res.status(403).json({
+        success:false,
+        message:'Doctor users can only view doctor navigation items'
       });
+    }
+    if (me.role === 'agent') {
+      if (role !== 'clinic') {
+        return res.status(403).json({
+          success:false,
+          message:'Agent users can only view clinic navigation items'
+        });
+      }
+      if (!me.clinicId) {
+        const agent = await User.findById(me._id).select('clinicId');
+        if (!agent?.clinicId) {
+          return res.status(403).json({
+            success:false,
+            message:'Agent is not linked to any clinic'
+          });
+        }
+      }
+    }
+    if (me.role === 'agent') {
+      if (role !== 'clinic') {
+        return res.status(403).json({
+          success: false,
+          message: 'Agent users can only view clinic navigation items'
+        });
+      }
+      const agentUser = await User.findById(me._id).select('clinicId');
+      if (!agentUser?.clinicId) {
+        return res.status(403).json({
+          success: false,
+          message: 'Agent is not linked to any clinic'
+        });
+      }
     }
 
     // Fetch navigation items for this role
