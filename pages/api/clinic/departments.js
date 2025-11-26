@@ -32,6 +32,23 @@ export default async function handler(req, res) {
   // GET: Fetch all departments for this clinic
   if (req.method === "GET") {
     try {
+      // Check read permission
+      const { checkClinicPermission } = await import("../lead-ms/permissions-helper");
+      const { hasPermission, error } = await checkClinicPermission(
+        clinicId,
+        "room_management",
+        "read",
+        null,
+        clinicUser.role
+      );
+
+      if (!hasPermission) {
+        return res.status(403).json({
+          success: false,
+          message: error || "You do not have permission to view departments",
+        });
+      }
+
       const departments = await Department.find({ clinicId })
         .sort({ createdAt: -1 })
         .lean();
@@ -54,6 +71,23 @@ export default async function handler(req, res) {
   // POST: Create a new department
   if (req.method === "POST") {
     try {
+      // Check create permission
+      const { checkClinicPermission } = await import("../lead-ms/permissions-helper");
+      const { hasPermission, error } = await checkClinicPermission(
+        clinicId,
+        "room_management",
+        "create",
+        null,
+        clinicUser.role
+      );
+
+      if (!hasPermission) {
+        return res.status(403).json({
+          success: false,
+          message: error || "You do not have permission to create departments",
+        });
+      }
+
       const { name } = req.body;
 
       if (!name || !name.trim()) {
@@ -101,9 +135,93 @@ export default async function handler(req, res) {
     }
   }
 
+  // PUT: Update an existing department
+  if (req.method === "PUT") {
+    try {
+      // Check update permission
+      const { checkClinicPermission } = await import("../lead-ms/permissions-helper");
+      const { hasPermission, error } = await checkClinicPermission(
+        clinicId,
+        "room_management",
+        "update",
+        null,
+        clinicUser.role
+      );
+
+      if (!hasPermission) {
+        return res.status(403).json({
+          success: false,
+          message: error || "You do not have permission to update departments",
+        });
+      }
+
+      const { departmentId, name } = req.body;
+
+      if (!departmentId || !name || !name.trim()) {
+        return res.status(400).json({
+          success: false,
+          message: "Department ID and new name are required",
+        });
+      }
+
+      const department = await Department.findOne({ _id: departmentId, clinicId });
+      if (!department) {
+        return res.status(404).json({ success: false, message: "Department not found" });
+      }
+
+      const normalizedName = name.trim();
+      const duplicateDepartment = await Department.findOne({
+        clinicId,
+        name: normalizedName,
+        _id: { $ne: departmentId },
+      });
+
+      if (duplicateDepartment) {
+        return res.status(400).json({
+          success: false,
+          message: "Another department with this name already exists",
+        });
+      }
+
+      department.name = normalizedName;
+      await department.save();
+
+      return res.status(200).json({
+        success: true,
+        message: "Department updated successfully",
+        department: {
+          _id: department._id.toString(),
+          name: department.name,
+          createdAt: department.createdAt,
+          updatedAt: department.updatedAt,
+        },
+      });
+    } catch (error) {
+      console.error("Error updating department:", error);
+      return res.status(500).json({ success: false, message: "Failed to update department" });
+    }
+  }
+
   // DELETE: Delete a department
   if (req.method === "DELETE") {
     try {
+      // Check delete permission
+      const { checkClinicPermission } = await import("../lead-ms/permissions-helper");
+      const { hasPermission, error } = await checkClinicPermission(
+        clinicId,
+        "room_management",
+        "delete",
+        null,
+        clinicUser.role
+      );
+
+      if (!hasPermission) {
+        return res.status(403).json({
+          success: false,
+          message: error || "You do not have permission to delete departments",
+        });
+      }
+
       const { departmentId } = req.query;
 
       if (!departmentId) {
@@ -128,7 +246,7 @@ export default async function handler(req, res) {
     }
   }
 
-  res.setHeader("Allow", ["GET", "POST", "DELETE"]);
+  res.setHeader("Allow", ["GET", "POST", "PUT", "DELETE"]);
   return res.status(405).json({ success: false, message: "Method not allowed" });
 }
 
