@@ -20,7 +20,7 @@ function LeadsPage() {
     endDate: "",
   });
   const [selectedLead, setSelectedLead] = useState(null);
-  const [selectedAgents, setSelectedAgents] = useState([]);
+  const [selectedAgent, setSelectedAgent] = useState("");
   const [followUpDate, setFollowUpDate] = useState("");
   const [viewLead, setViewLead] = useState(null);
   const [permissions, setPermissions] = useState({
@@ -209,7 +209,10 @@ function LeadsPage() {
   }, [permissionsLoaded, permissions.canRead, filters]);
 
   const assignLead = async () => {
-    if (!selectedLead || selectedAgents.length === 0) return;
+    if (!selectedLead || !selectedAgent) {
+      alert("Please select an agent");
+      return;
+    }
     
     // Check permission
     if (!permissions.canAssign) {
@@ -222,7 +225,7 @@ function LeadsPage() {
         "/api/lead-ms/reassign-lead",
         {
           leadId: selectedLead,
-          agentIds: selectedAgents,
+          agentIds: [selectedAgent],
           followUpDate: followUpDate
             ? new Date(followUpDate).toISOString()
             : null,
@@ -231,7 +234,7 @@ function LeadsPage() {
       );
       alert("Lead assigned!");
       setSelectedLead(null);
-      setSelectedAgents([]);
+      setSelectedAgent("");
       setFollowUpDate("");
       fetchLeads();
     } catch (err) {
@@ -413,62 +416,98 @@ function LeadsPage() {
 
         {/* Assign Modal */}
         {selectedLead && (
-          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex justify-center items-center z-50 p-4">
-            <div className="bg-white/95 border border-gray-200 rounded-2xl shadow-xl w-full max-w-md">
-              <div className="px-5 py-4 border-b border-gray-200">
-                <h2 className="text-lg font-semibold text-gray-900">Assign Lead</h2>
-                <p className="text-xs text-gray-500">Choose agent(s) and optional follow-up time</p>
-          </div>
-              <div className="p-5">
-                <div className="mb-3">
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Select Agent(s)</label>
-            <select
-                    multiple
-                    value={selectedAgents}
-                    onChange={(e) =>
-                      setSelectedAgents(
-                        Array.from(e.target.selectedOptions, (o) => o.value)
-                      )
-                    }
-                    className="w-full h-36 rounded-lg border border-gray-300 bg-white p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
-                  >
-                    {agents.map((a) => (
-                      <option key={a._id} value={a._id}>
-                        {a.name}
-                      </option>
-              ))}
-            </select>
-          </div>
-                <div className="mb-3">
-                  <label className="block text-xs font-medium text-gray-600 mb-1">Follow-up Date & Time</label>
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md transform transition-all">
+              <div className="px-6 py-5 border-b border-gray-200 bg-gradient-to-r from-teal-50 to-emerald-50">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-r from-teal-500 to-emerald-500 flex items-center justify-center">
+                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-semibold text-gray-900">Reassign Lead</h2>
+                    <p className="text-xs text-gray-600 mt-0.5">Select an agent and set follow-up time</p>
+                  </div>
+                </div>
+              </div>
+              <div className="p-6 space-y-5">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                    <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                    Select Agent
+                    <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <select
+                      value={selectedAgent}
+                      onChange={(e) => setSelectedAgent(e.target.value)}
+                      className="w-full appearance-none rounded-xl border-2 border-gray-200 bg-white px-4 py-3.5 pr-10 text-sm font-medium text-gray-900 transition-all duration-200 focus:border-teal-500 focus:outline-none focus:ring-4 focus:ring-teal-100 hover:border-gray-300 cursor-pointer"
+                    >
+                      <option value="" disabled className="text-gray-400">Choose an agent...</option>
+                      {agents.map((a) => (
+                        <option key={a._id} value={a._id} className="py-2">
+                          {a.name}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
+                      <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </div>
+                  </div>
+                  {selectedAgent && (
+                    <p className="mt-2 text-xs text-teal-600 flex items-center gap-1">
+                      <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                      Agent selected: {agents.find(a => a._id === selectedAgent)?.name}
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                    <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    Follow-up Date & Time
+                    <span className="text-xs text-gray-500 font-normal">(Optional)</span>
+                  </label>
                   <input
                     type="datetime-local"
                     value={followUpDate}
                     onChange={(e) => setFollowUpDate(e.target.value)}
-                    className="w-full rounded-lg border border-gray-300 bg-white p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+                    className="w-full rounded-xl border-2 border-gray-200 bg-white px-4 py-3.5 text-sm font-medium text-gray-900 transition-all duration-200 focus:border-teal-500 focus:outline-none focus:ring-4 focus:ring-teal-100 hover:border-gray-300"
                   />
                 </div>
-                <div className="flex justify-end gap-2 mt-4">
+                <div className="flex justify-end gap-3 pt-2 border-t border-gray-100">
                   <button
                     onClick={() => {
                       setSelectedLead(null);
-                      setSelectedAgents([]);
+                      setSelectedAgent("");
                       setFollowUpDate("");
                     }}
-                    className="px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200"
+                    className="px-5 py-2.5 rounded-xl text-sm font-semibold bg-gray-100 text-gray-700 hover:bg-gray-200 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-gray-300"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={assignLead}
-                    className="px-4 py-2 rounded-lg text-sm font-medium bg-gradient-to-r from-teal-600 to-teal-700 text-white shadow hover:from-teal-700 hover:to-teal-800"
+                    disabled={!selectedAgent}
+                    className="px-5 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-r from-teal-600 to-emerald-600 text-white shadow-lg shadow-teal-500/30 hover:from-teal-700 hover:to-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 focus:outline-none focus:ring-4 focus:ring-teal-100 flex items-center gap-2"
                   >
-                    ReAssign
-            </button>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    ReAssign Lead
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
-          </div>
-        </div>
         )}
         {viewLead && (
           <LeadViewModal lead={viewLead} onClose={() => setViewLead(null)} />
