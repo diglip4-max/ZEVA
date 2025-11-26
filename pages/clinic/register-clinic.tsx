@@ -530,8 +530,8 @@ const RegisterClinic: React.FC & {
   };
 
   return (
-    <div className="h-screen bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 flex flex-col overflow-hidden">
-      <div className="max-w-7xl mx-auto w-full h-full flex flex-col py-3 px-4">
+    <div className="min-h-screen bg-gradient-to-b from-white via-slate-50 to-white py-6 px-4">
+      <div className="max-w-7xl mx-auto w-full min-h-[calc(100vh-3rem)] flex flex-col gap-6">
         <Toast
           message={toast.message}
           type={toast.type}
@@ -540,42 +540,45 @@ const RegisterClinic: React.FC & {
         />
 
         {/* Header */}
-        <div className="text-center mb-3">
-          <h1 className="text-xl lg:text-2xl font-bold text-gray-800 mb-1">
+        <div className="text-center mb-5">
+          <p className="text-xs uppercase tracking-[0.3em] text-sky-700/80 font-semibold mb-2">
+            ZEVA for Providers
+          </p>
+          <h1 className="text-2xl lg:text-3xl font-bold text-slate-900 mb-2">
             Healthcare Center Registration
           </h1>
-          <p className="text-gray-600 text-xs lg:text-sm">
-            Join our network and connect with patients
+          <p className="text-slate-600 text-sm lg:text-base max-w-2xl mx-auto">
+            Modern onboarding designed to help your clinic shine from day one. Complete the steps below to join our curated care network.
           </p>
         </div>
 
         {/* Progress Indicator */}
-        <div className="bg-white rounded-xl shadow-md p-2 lg:p-3 border border-gray-100 mb-3">
+        <div className="bg-white/95 backdrop-blur-sm rounded-2xl border border-slate-100 shadow-xl p-3 lg:p-4 mb-6">
           <div className="flex items-center justify-between max-w-2xl mx-auto">
             <div className="flex items-center gap-2">
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs transition-all ${currentStep >= 1 ? 'bg-[#00b480] text-white' : 'bg-gray-200 text-gray-600'
+              <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs transition-all ${currentStep >= 1 ? 'bg-sky-500 text-white shadow-sky-500/30 shadow-lg' : 'bg-slate-100 text-slate-400'
                 }`}>
                 {currentStep > 1 ? '✓' : '1'}
               </div>
-              <span className="text-xs font-medium text-gray-700 hidden sm:inline">Account</span>
+              <span className="text-xs font-semibold text-slate-600 tracking-wide hidden sm:inline">Account</span>
             </div>
-            <div className={`flex-1 h-1 mx-2 rounded transition-all duration-500 ${currentStep >= 2 ? 'bg-[#00b480]' : 'bg-gray-200'
+            <div className={`flex-1 h-1 mx-2 rounded-full transition-all duration-500 ${currentStep >= 2 ? 'bg-gradient-to-r from-sky-500 to-blue-600' : 'bg-slate-200'
               }`}></div>
             <div className="flex items-center gap-2">
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs transition-all ${currentStep >= 2 ? 'bg-[#00b480] text-white' : 'bg-gray-200 text-gray-600'
+              <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs transition-all ${currentStep >= 2 ? 'bg-sky-500 text-white shadow-sky-500/30 shadow-lg' : 'bg-slate-100 text-slate-400'
                 }`}>
                 {currentStep > 2 ? '✓' : '2'}
               </div>
-              <span className="text-xs font-medium text-gray-700 hidden sm:inline">Details</span>
+              <span className="text-xs font-semibold text-slate-600 tracking-wide hidden sm:inline">Details</span>
             </div>
-            <div className={`flex-1 h-1 mx-2 rounded transition-all duration-500 ${currentStep >= 3 ? 'bg-[#00b480]' : 'bg-gray-200'
+            <div className={`flex-1 h-1 mx-2 rounded-full transition-all duration-500 ${currentStep >= 3 ? 'bg-gradient-to-r from-sky-500 to-blue-600' : 'bg-slate-200'
               }`}></div>
             <div className="flex items-center gap-2">
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs transition-all ${currentStep >= 3 ? 'bg-[#00b480] text-white' : 'bg-gray-200 text-gray-600'
+              <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs transition-all ${currentStep >= 3 ? 'bg-sky-500 text-white shadow-sky-500/30 shadow-lg' : 'bg-slate-100 text-slate-400'
                 }`}>
                 3
               </div>
-              <span className="text-xs font-medium text-gray-700 hidden sm:inline">Contact</span>
+              <span className="text-xs font-semibold text-slate-600 tracking-wide hidden sm:inline">Contact</span>
             </div>
           </div>
         </div>
@@ -589,14 +592,14 @@ const RegisterClinic: React.FC & {
             {/* Step 1: Account Setup */}
             <div className="w-full flex-shrink-0 flex items-center justify-center px-2">
               <div className="w-full max-w-xl">
-                <div className="bg-white rounded-xl shadow-md p-4 lg:p-6 border border-gray-100">
+                <div className="bg-white/95 backdrop-blur rounded-2xl shadow-2xl p-5 lg:p-7 border border-slate-100">
                   <div className="flex items-center gap-3 mb-4 pb-3 border-b border-gray-100">
-                    <div className="w-10 h-10 bg-gradient-to-br from-[#00b480] to-[#008f66] rounded-xl flex items-center justify-center">
+                    <div className="w-12 h-12 bg-gradient-to-br from-sky-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-sky-500/40">
                       <Mail className="w-5 h-5 text-white" />
                     </div>
                     <div>
-                      <h2 className="text-lg lg:text-xl font-bold text-gray-800">Account Setup</h2>
-                      <p className="text-xs text-gray-500">Create your credentials</p>
+                      <h2 className="text-lg lg:text-xl font-bold text-slate-900">Account Setup</h2>
+                      <p className="text-xs text-slate-500">Create your credentials</p>
                     </div>
                   </div>
 

@@ -6,8 +6,9 @@ import { useRouter } from "next/router";
 import withClinicAuth from "../../components/withClinicAuth";
 import ClinicLayout from "../../components/ClinicLayout";
 import type { NextPageWithLayout } from "../_app";
-import { Loader2, Trash2, AlertCircle, CheckCircle } from "lucide-react";
+import { Loader2, Trash2, AlertCircle, CheckCircle, X } from "lucide-react";
 import { useAgentPermissions } from "../../hooks/useAgentPermissions";
+import { Toaster, toast } from "react-hot-toast";
 
 interface Room {
   _id: string;
@@ -56,17 +57,17 @@ const MessageBanner = ({ type, text }: { type: "success" | "error" | "info"; tex
   if (!text) return null;
 
   const styles = {
-    success: "bg-emerald-50 text-emerald-700 border-emerald-200",
-    error: "bg-rose-50 text-rose-700 border-rose-200",
-    info: "bg-sky-50 text-sky-700 border-sky-200",
+    success: "bg-emerald-50 text-emerald-800 border-emerald-200",
+    error: "bg-rose-50 text-rose-800 border-rose-200",
+    info: "bg-sky-50 text-sky-800 border-sky-200",
   };
 
   const Icon = type === "error" ? AlertCircle : CheckCircle;
 
   return (
-    <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${styles[type]}`}>
-      <Icon className="w-5 h-5" />
-      <p className="text-sm font-medium">{text}</p>
+    <div className={`flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 sm:py-3 rounded-lg border ${styles[type]}`} role="alert">
+      <Icon className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
+      <p className="text-xs sm:text-sm font-medium">{text}</p>
     </div>
   );
 };
@@ -102,6 +103,19 @@ function AddRoomPage({ contextOverride = null }: { contextOverride?: RouteContex
   const [editingDeptId, setEditingDeptId] = useState<string | null>(null);
   const [editingDeptName, setEditingDeptName] = useState("");
   const [deptUpdateLoading, setDeptUpdateLoading] = useState(false);
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    type: "room" | "department";
+  }>({
+    isOpen: false,
+    title: "",
+    message: "",
+    onConfirm: () => {},
+    type: "room",
+  });
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -251,13 +265,17 @@ function AddRoomPage({ contextOverride = null }: { contextOverride?: RouteContex
       const res = await axios.get("/api/clinic/rooms", { headers });
       if (res.data.success) {
         setRooms(res.data.rooms || []);
+        toast.success(`Loaded ${res.data.rooms?.length || 0} room(s)`, { duration: 2000 });
       } else {
-        setMessage({ type: "error", text: res.data.message || "Failed to load rooms" });
+        const errorMsg = res.data.message || "Failed to load rooms";
+        setMessage({ type: "error", text: errorMsg });
+        toast.error(errorMsg, { duration: 3000 });
       }
     } catch (error: any) {
       console.error("Error loading rooms", error);
       const errorMessage = error.response?.data?.message || "Failed to load rooms";
       setMessage({ type: "error", text: errorMessage });
+      toast.error(errorMessage, { duration: 3000 });
     }
   };
 
@@ -268,13 +286,17 @@ function AddRoomPage({ contextOverride = null }: { contextOverride?: RouteContex
       const res = await axios.get("/api/clinic/departments", { headers });
       if (res.data.success) {
         setDepartments(res.data.departments || []);
+        toast.success(`Loaded ${res.data.departments?.length || 0} department(s)`, { duration: 2000 });
       } else {
-        setMessage({ type: "error", text: res.data.message || "Failed to load departments" });
+        const errorMsg = res.data.message || "Failed to load departments";
+        setMessage({ type: "error", text: errorMsg });
+        toast.error(errorMsg, { duration: 3000 });
       }
     } catch (error: any) {
       console.error("Error loading departments", error);
       const errorMessage = error.response?.data?.message || "Failed to load departments";
       setMessage({ type: "error", text: errorMessage });
+      toast.error(errorMessage, { duration: 3000 });
     }
   };
 
@@ -326,16 +348,21 @@ function AddRoomPage({ contextOverride = null }: { contextOverride?: RouteContex
         { headers }
       );
       if (res.data.success) {
-        setMessage({ type: "success", text: res.data.message || "Room created successfully" });
+        const successMsg = res.data.message || "Room created successfully";
+        setMessage({ type: "success", text: successMsg });
+        toast.success(successMsg, { duration: 3000 });
         setRoomName("");
         await loadRooms();
       } else {
-        setMessage({ type: "error", text: res.data.message || "Failed to create room" });
+        const errorMsg = res.data.message || "Failed to create room";
+        setMessage({ type: "error", text: errorMsg });
+        toast.error(errorMsg, { duration: 3000 });
       }
     } catch (error: any) {
       console.error("Error creating room", error);
       const errorMessage = error.response?.data?.message || "Failed to create room";
       setMessage({ type: "error", text: errorMessage });
+      toast.error(errorMessage, { duration: 3000 });
     } finally {
       setSubmitting(false);
     }
@@ -363,17 +390,22 @@ function AddRoomPage({ contextOverride = null }: { contextOverride?: RouteContex
         { headers }
       );
       if (res.data.success) {
-        setMessage({ type: "success", text: res.data.message || "Room updated successfully" });
+        const successMsg = res.data.message || "Room updated successfully";
+        setMessage({ type: "success", text: successMsg });
+        toast.success(successMsg, { duration: 3000 });
         setEditingRoomId(null);
         setEditingRoomName("");
         await loadRooms();
       } else {
-        setMessage({ type: "error", text: res.data.message || "Failed to update room" });
+        const errorMsg = res.data.message || "Failed to update room";
+        setMessage({ type: "error", text: errorMsg });
+        toast.error(errorMsg, { duration: 3000 });
       }
     } catch (error: any) {
       console.error("Error updating room", error);
       const errorMessage = error.response?.data?.message || "Failed to update room";
       setMessage({ type: "error", text: errorMessage });
+      toast.error(errorMessage, { duration: 3000 });
     } finally {
       setRoomUpdateLoading(false);
     }
@@ -381,32 +413,46 @@ function AddRoomPage({ contextOverride = null }: { contextOverride?: RouteContex
 
   const handleDelete = async (roomId: string) => {
     if (!permissions.canDelete) {
-      setMessage({ type: "error", text: "You do not have permission to delete rooms" });
+      const errorMsg = "You do not have permission to delete rooms";
+      setMessage({ type: "error", text: errorMsg });
+      toast.error(errorMsg, { duration: 3000 });
       return;
     }
-    if (!confirm("Are you sure you want to delete this room?")) {
-      return;
-    }
-    const headers = getHeadersOrNotify();
-    if (!headers) return;
+    const room = rooms.find((r) => r._id === roomId);
+    setConfirmModal({
+      isOpen: true,
+      title: "Delete Room",
+      message: `Are you sure you want to delete "${room?.name || "this room"}"? This action cannot be undone.`,
+      onConfirm: async () => {
+        const headers = getHeadersOrNotify();
+        if (!headers) return;
 
-    try {
-      const res = await axios.delete(`/api/clinic/rooms?roomId=${roomId}`, { headers });
-      if (res.data.success) {
-        setMessage({ type: "success", text: res.data.message || "Room deleted successfully" });
-        if (editingRoomId === roomId) {
-          setEditingRoomId(null);
-          setEditingRoomName("");
+        try {
+          const res = await axios.delete(`/api/clinic/rooms?roomId=${roomId}`, { headers });
+          if (res.data.success) {
+            const successMsg = res.data.message || "Room deleted successfully";
+            setMessage({ type: "success", text: successMsg });
+            toast.success(successMsg, { duration: 3000 });
+            if (editingRoomId === roomId) {
+              setEditingRoomId(null);
+              setEditingRoomName("");
+            }
+            await loadRooms();
+          } else {
+            const errorMsg = res.data.message || "Failed to delete room";
+            setMessage({ type: "error", text: errorMsg });
+            toast.error(errorMsg, { duration: 3000 });
+          }
+        } catch (error: any) {
+          console.error("Error deleting room", error);
+          const errorMessage = error.response?.data?.message || "Failed to delete room";
+          setMessage({ type: "error", text: errorMessage });
+          toast.error(errorMessage, { duration: 3000 });
         }
-        await loadRooms();
-      } else {
-        setMessage({ type: "error", text: res.data.message || "Failed to delete room" });
-      }
-    } catch (error: any) {
-      console.error("Error deleting room", error);
-      const errorMessage = error.response?.data?.message || "Failed to delete room";
-      setMessage({ type: "error", text: errorMessage });
-    }
+        setConfirmModal({ ...confirmModal, isOpen: false });
+      },
+      type: "room",
+    });
   };
 
   const handleDepartmentSubmit = async (e: React.FormEvent) => {
@@ -432,19 +478,21 @@ function AddRoomPage({ contextOverride = null }: { contextOverride?: RouteContex
         { headers }
       );
       if (res.data.success) {
-        setMessage({
-          type: "success",
-          text: res.data.message || "Department created successfully",
-        });
+        const successMsg = res.data.message || "Department created successfully";
+        setMessage({ type: "success", text: successMsg });
+        toast.success(successMsg, { duration: 3000 });
         setDepartmentName("");
         await loadDepartments();
       } else {
-        setMessage({ type: "error", text: res.data.message || "Failed to create department" });
+        const errorMsg = res.data.message || "Failed to create department";
+        setMessage({ type: "error", text: errorMsg });
+        toast.error(errorMsg, { duration: 3000 });
       }
     } catch (error: any) {
       console.error("Error creating department", error);
       const errorMessage = error.response?.data?.message || "Failed to create department";
       setMessage({ type: "error", text: errorMessage });
+      toast.error(errorMessage, { duration: 3000 });
     } finally {
       setSubmittingDept(false);
     }
@@ -471,20 +519,22 @@ function AddRoomPage({ contextOverride = null }: { contextOverride?: RouteContex
         { headers }
       );
       if (res.data.success) {
-        setMessage({
-          type: "success",
-          text: res.data.message || "Department updated successfully",
-        });
+        const successMsg = res.data.message || "Department updated successfully";
+        setMessage({ type: "success", text: successMsg });
+        toast.success(successMsg, { duration: 3000 });
         setEditingDeptId(null);
         setEditingDeptName("");
         await loadDepartments();
       } else {
-        setMessage({ type: "error", text: res.data.message || "Failed to update department" });
+        const errorMsg = res.data.message || "Failed to update department";
+        setMessage({ type: "error", text: errorMsg });
+        toast.error(errorMsg, { duration: 3000 });
       }
     } catch (error: any) {
       console.error("Error updating department", error);
       const errorMessage = error.response?.data?.message || "Failed to update department";
       setMessage({ type: "error", text: errorMessage });
+      toast.error(errorMessage, { duration: 3000 });
     } finally {
       setDeptUpdateLoading(false);
     }
@@ -492,70 +542,135 @@ function AddRoomPage({ contextOverride = null }: { contextOverride?: RouteContex
 
   const handleDeleteDepartment = async (departmentId: string) => {
     if (!permissions.canDelete) {
-      setMessage({ type: "error", text: "You do not have permission to delete departments" });
+      const errorMsg = "You do not have permission to delete departments";
+      setMessage({ type: "error", text: errorMsg });
+      toast.error(errorMsg, { duration: 3000 });
       return;
     }
-    if (!confirm("Are you sure you want to delete this department?")) {
-      return;
-    }
-    const headers = getHeadersOrNotify();
-    if (!headers) return;
+    const dept = departments.find((d) => d._id === departmentId);
+    setConfirmModal({
+      isOpen: true,
+      title: "Delete Department",
+      message: `Are you sure you want to delete "${dept?.name || "this department"}"? This action cannot be undone.`,
+      onConfirm: async () => {
+        const headers = getHeadersOrNotify();
+        if (!headers) return;
 
-    try {
-      const res = await axios.delete(`/api/clinic/departments?departmentId=${departmentId}`, {
-        headers,
-      });
-      if (res.data.success) {
-        setMessage({
-          type: "success",
-          text: res.data.message || "Department deleted successfully",
-        });
-        if (editingDeptId === departmentId) {
-          setEditingDeptId(null);
-          setEditingDeptName("");
+        try {
+          const res = await axios.delete(`/api/clinic/departments?departmentId=${departmentId}`, {
+            headers,
+          });
+          if (res.data.success) {
+            const successMsg = res.data.message || "Department deleted successfully";
+            setMessage({ type: "success", text: successMsg });
+            toast.success(successMsg, { duration: 3000 });
+            if (editingDeptId === departmentId) {
+              setEditingDeptId(null);
+              setEditingDeptName("");
+            }
+            await loadDepartments();
+          } else {
+            const errorMsg = res.data.message || "Failed to delete department";
+            setMessage({ type: "error", text: errorMsg });
+            toast.error(errorMsg, { duration: 3000 });
+          }
+        } catch (error: any) {
+          console.error("Error deleting department", error);
+          const errorMessage = error.response?.data?.message || "Failed to delete department";
+          setMessage({ type: "error", text: errorMessage });
+          toast.error(errorMessage, { duration: 3000 });
         }
-        await loadDepartments();
-      } else {
-        setMessage({ type: "error", text: res.data.message || "Failed to delete department" });
-      }
-    } catch (error: any) {
-      console.error("Error deleting department", error);
-      const errorMessage = error.response?.data?.message || "Failed to delete department";
-      setMessage({ type: "error", text: errorMessage });
-    }
+        setConfirmModal({ ...confirmModal, isOpen: false });
+      },
+      type: "department",
+    });
   };
 
   const roomCreateDisabled = submitting || !permissions.canCreate;
   const deptCreateDisabled = submittingDept || !permissions.canCreate;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-2 sm:space-y-4">
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          duration: 3000,
+          style: {
+            background: "#1f2937",
+            color: "#f9fafb",
+            fontSize: "12px",
+            padding: "8px 12px",
+            borderRadius: "6px",
+          },
+          success: {
+            iconTheme: {
+              primary: "#10b981",
+              secondary: "#fff",
+            },
+            style: {
+              background: "#10b981",
+              color: "#fff",
+            },
+          },
+          error: {
+            iconTheme: {
+              primary: "#ef4444",
+              secondary: "#fff",
+            },
+            style: {
+              background: "#ef4444",
+              color: "#fff",
+            },
+          },
+          warning: {
+            iconTheme: {
+              primary: "#f59e0b",
+              secondary: "#fff",
+            },
+            style: {
+              background: "#f59e0b",
+              color: "#fff",
+            },
+          },
+          info: {
+            iconTheme: {
+              primary: "#3b82f6",
+              secondary: "#fff",
+            },
+            style: {
+              background: "#3b82f6",
+              color: "#fff",
+            },
+          },
+        }}
+      />
       {!permissionsLoaded ? (
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-8 text-center text-gray-600">
-          <Loader2 className="w-5 h-5 mx-auto mb-3 animate-spin" />
-          Checking your permissions...
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 text-center text-gray-700">
+          <Loader2 className="w-5 h-5 mx-auto mb-2 animate-spin" />
+          <p className="text-xs sm:text-sm">Checking your permissions...</p>
         </div>
       ) : !permissions.canRead ? (
-        <div className="bg-white rounded-2xl border border-red-200 shadow-sm p-8 text-center space-y-3">
-          <div className="inline-flex w-16 h-16 items-center justify-center rounded-full bg-red-50 text-red-500 text-3xl">
+        <div className="bg-white rounded-lg border border-red-200 shadow-sm p-6 text-center space-y-2">
+          <div className="inline-flex w-12 h-12 items-center justify-center rounded-full bg-red-50 text-red-600 text-2xl">
             !
           </div>
-          <h2 className="text-xl font-semibold text-gray-900">Access denied</h2>
-          <p className="text-sm text-gray-600">
+          <h2 className="text-base sm:text-lg font-semibold text-gray-900">Access denied</h2>
+          <p className="text-xs sm:text-sm text-gray-700">
             You do not have permission to view or manage rooms and departments. Please contact your
             administrator if you believe this is incorrect.
           </p>
         </div>
       ) : (
         <>
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
-            <div className="flex flex-col gap-1 mb-6">
-              <h1 className="text-2xl font-semibold text-gray-900">Manage Rooms</h1>
-              <p className="text-sm text-gray-500">Create and manage rooms for your clinic.</p>
+          <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-3 sm:p-4">
+            <div className="flex flex-col gap-1 mb-3 sm:mb-4">
+              <h1 className="text-base sm:text-lg font-semibold text-gray-900">Manage Rooms</h1>
+              <p className="text-xs sm:text-sm text-gray-700">Create and manage rooms for your clinic.</p>
             </div>
 
             <MessageBanner type={message.type} text={message.text} />
 
+<<<<<<< HEAD
             {permissions.canCreate && (
               <form onSubmit={handleSubmit} className="mt-6 space-y-4">
                 <div>
@@ -582,63 +697,98 @@ function AddRoomPage({ contextOverride = null }: { contextOverride?: RouteContex
                 </button>
               </form>
             )}
+=======
+            <form onSubmit={handleSubmit} className="mt-3 sm:mt-4 space-y-3">
+              <div>
+                <label htmlFor="room-name" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1.5">
+                  Room Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  id="room-name"
+                  type="text"
+                  value={roomName}
+                  onChange={(e) => setRoomName(e.target.value)}
+                  placeholder="e.g., Consultation Room 1, Operation Theater A"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-gray-900 focus:border-gray-900 disabled:bg-gray-100 disabled:text-gray-500 transition-all"
+                  disabled={!permissions.canCreate}
+                  required
+                  aria-invalid={false}
+                />
+                {!permissions.canCreate && (
+                  <p className="mt-1.5 text-xs text-gray-700">
+                    You do not have permission to create new rooms.
+                  </p>
+                )}
+              </div>
+
+              <button
+                type="submit"
+                disabled={roomCreateDisabled}
+                className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800 disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-2 transition-colors"
+              >
+                {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
+                {submitting ? "Creating..." : "Create Room"}
+              </button>
+            </form>
+>>>>>>> e3a52fce90834b798015905c191767e892a3c7d2
           </div>
 
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
-            <div className="flex items-center justify-between mb-6">
+          <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-3 sm:p-4">
+            <div className="flex items-center justify-between mb-3 sm:mb-4">
               <div>
-                <h2 className="text-xl font-semibold text-gray-900">All Rooms</h2>
-                <p className="text-sm text-gray-500">List of all rooms in your clinic.</p>
+                <h2 className="text-base sm:text-lg font-semibold text-gray-900">All Rooms</h2>
+                <p className="text-xs sm:text-sm text-gray-700">List of all rooms in your clinic.</p>
               </div>
             </div>
 
             {loading ? (
-              <div className="flex items-center justify-center py-16 text-gray-500">
-                <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                Loading rooms...
+              <div className="flex items-center justify-center py-8 text-gray-700">
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                <span className="text-xs sm:text-sm">Loading rooms...</span>
               </div>
             ) : rooms.length === 0 ? (
-              <div className="text-center py-16">
-                <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 text-xl">
+              <div className="text-center py-8">
+                <div className="w-8 h-8 mx-auto mb-2 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 text-sm">
                   🏥
                 </div>
-                <p className="text-gray-600">No rooms created yet.</p>
-                <p className="text-sm text-gray-500 mt-2">Use the form above to create your first room.</p>
+                <p className="text-xs sm:text-sm text-gray-700">No rooms created yet.</p>
+                <p className="text-[10px] sm:text-xs text-gray-700 mt-1">Use the form above to create your first room.</p>
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-2">
                 {rooms.map((room) => (
                   <div
                     key={room._id}
-                    className="border border-gray-200 rounded-xl p-4 flex flex-col gap-4 md:flex-row md:items-center md:justify-between hover:bg-gray-50 transition-colors"
+                    className="border border-gray-200 rounded-lg p-2 sm:p-3 flex flex-col gap-2 sm:gap-3 md:flex-row md:items-center md:justify-between hover:bg-gray-50 transition-colors"
                   >
-                    <div className="flex-1">
+                    <div className="flex-1 min-w-0">
                       {editingRoomId === room._id ? (
                         <>
                           <input
                             type="text"
                             value={editingRoomName}
                             onChange={(e) => setEditingRoomName(e.target.value)}
-                            className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-gray-900 focus:border-gray-900 transition-all"
+                            aria-label="Edit room name"
                           />
-                          <p className="text-xs text-gray-500 mt-2">Editing room name</p>
+                          <p className="text-[10px] sm:text-xs text-gray-700 mt-1">Editing room name</p>
                         </>
                       ) : (
                         <>
-                          <h3 className="text-lg font-semibold text-gray-900">{room.name}</h3>
-                          <p className="text-sm text-gray-500">
+                          <h3 className="text-sm sm:text-base font-semibold text-gray-900 truncate">{room.name}</h3>
+                          <p className="text-xs text-gray-700">
                             Created {new Date(room.createdAt).toLocaleDateString()}
                           </p>
                         </>
                       )}
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5 sm:gap-2">
                       {editingRoomId === room._id ? (
                         <>
                           <button
                             onClick={handleRoomUpdate}
                             disabled={roomUpdateLoading}
-                            className="px-4 py-2 bg-emerald-600 text-white text-sm rounded-lg hover:bg-emerald-700 disabled:opacity-60"
+                            className="px-3 py-1.5 bg-gray-900 text-white text-xs rounded-lg hover:bg-gray-800 disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-gray-900 transition-colors"
                           >
                             {roomUpdateLoading ? "Saving..." : "Save"}
                           </button>
@@ -647,7 +797,7 @@ function AddRoomPage({ contextOverride = null }: { contextOverride?: RouteContex
                               setEditingRoomId(null);
                               setEditingRoomName("");
                             }}
-                            className="px-4 py-2 bg-gray-100 text-gray-700 text-sm rounded-lg hover:bg-gray-200"
+                            className="px-3 py-1.5 bg-gray-100 text-gray-700 text-xs rounded-lg hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-900 transition-colors"
                           >
                             Cancel
                           </button>
@@ -660,7 +810,7 @@ function AddRoomPage({ contextOverride = null }: { contextOverride?: RouteContex
                                 setEditingRoomId(room._id);
                                 setEditingRoomName(room.name);
                               }}
-                              className="px-4 py-2 bg-blue-50 text-blue-700 text-sm rounded-lg hover:bg-blue-100"
+                              className="px-3 py-1.5 bg-gray-100 text-gray-700 text-xs rounded-lg hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-900 transition-colors"
                             >
                               Edit
                             </button>
@@ -668,14 +818,15 @@ function AddRoomPage({ contextOverride = null }: { contextOverride?: RouteContex
                           {permissions.canDelete && (
                             <button
                               onClick={() => handleDelete(room._id)}
-                              className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                              className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-red-500"
                               title="Delete room"
+                              aria-label="Delete room"
                             >
-                              <Trash2 className="w-5 h-5" />
+                              <Trash2 className="w-4 h-4" />
                             </button>
                           )}
                           {!permissions.canUpdate && !permissions.canDelete && (
-                            <span className="text-xs text-gray-400">No actions available</span>
+                            <span className="text-[10px] text-gray-700">No actions available</span>
                           )}
                         </>
                       )}
@@ -687,12 +838,13 @@ function AddRoomPage({ contextOverride = null }: { contextOverride?: RouteContex
           </div>
 
           {/* Departments Section */}
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
-            <div className="flex flex-col gap-1 mb-6">
-              <h1 className="text-2xl font-semibold text-gray-900">Manage Departments</h1>
-              <p className="text-sm text-gray-500">Create and manage departments for your clinic.</p>
+          <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-3 sm:p-4">
+            <div className="flex flex-col gap-1 mb-3 sm:mb-4">
+              <h1 className="text-base sm:text-lg font-semibold text-gray-900">Manage Departments</h1>
+              <p className="text-xs sm:text-sm text-gray-700">Create and manage departments for your clinic.</p>
             </div>
 
+<<<<<<< HEAD
             {permissions.canCreate && (
               <form onSubmit={handleDepartmentSubmit} className="mt-6 space-y-4">
                 <div>
@@ -719,65 +871,100 @@ function AddRoomPage({ contextOverride = null }: { contextOverride?: RouteContex
                 </button>
               </form>
             )}
+=======
+            <form onSubmit={handleDepartmentSubmit} className="mt-3 sm:mt-4 space-y-3">
+              <div>
+                <label htmlFor="department-name" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1.5">
+                  Department Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  id="department-name"
+                  type="text"
+                  value={departmentName}
+                  onChange={(e) => setDepartmentName(e.target.value)}
+                  placeholder="e.g., Cardiology, Dermatology"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-gray-900 focus:border-gray-900 disabled:bg-gray-100 disabled:text-gray-500 transition-all"
+                  disabled={!permissions.canCreate}
+                  required
+                  aria-invalid={false}
+                />
+                {!permissions.canCreate && (
+                  <p className="mt-1.5 text-xs text-gray-700">
+                    You do not have permission to create new departments.
+                  </p>
+                )}
+              </div>
+
+              <button
+                type="submit"
+                disabled={deptCreateDisabled}
+                className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800 disabled:opacity-60 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-2 transition-colors"
+              >
+                {submittingDept && <Loader2 className="w-4 h-4 animate-spin" />}
+                {submittingDept ? "Creating..." : "Create Department"}
+              </button>
+            </form>
+>>>>>>> e3a52fce90834b798015905c191767e892a3c7d2
           </div>
 
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
-            <div className="flex items-center justify-between mb-6">
+          <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-3 sm:p-4">
+            <div className="flex items-center justify-between mb-3 sm:mb-4">
               <div>
-                <h2 className="text-xl font-semibold text-gray-900">All Departments</h2>
-                <p className="text-sm text-gray-500">List of all departments in your clinic.</p>
+                <h2 className="text-base sm:text-lg font-semibold text-gray-900">All Departments</h2>
+                <p className="text-xs sm:text-sm text-gray-700">List of all departments in your clinic.</p>
               </div>
             </div>
 
             {loading ? (
-              <div className="flex items-center justify-center py-16 text-gray-500">
-                <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                Loading departments...
+              <div className="flex items-center justify-center py-8 text-gray-700">
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                <span className="text-xs sm:text-sm">Loading departments...</span>
               </div>
             ) : departments.length === 0 ? (
-              <div className="text-center py-16">
-                <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 text-xl">
+              <div className="text-center py-8">
+                <div className="w-8 h-8 mx-auto mb-2 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 text-sm">
                   🏢
                 </div>
-                <p className="text-gray-600">No departments created yet.</p>
-                <p className="text-sm text-gray-500 mt-2">
+                <p className="text-xs sm:text-sm text-gray-700">No departments created yet.</p>
+                <p className="text-[10px] sm:text-xs text-gray-700 mt-1">
                   Use the form above to create your first department.
                 </p>
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-2">
                 {departments.map((dept) => (
                   <div
                     key={dept._id}
-                    className="border border-gray-200 rounded-xl p-4 flex flex-col gap-4 md:flex-row md:items-center md:justify-between hover:bg-gray-50 transition-colors"
+                    className="border border-gray-200 rounded-lg p-2 sm:p-3 flex flex-col gap-2 sm:gap-3 md:flex-row md:items-center md:justify-between hover:bg-gray-50 transition-colors"
                   >
-                    <div className="flex-1">
+                    <div className="flex-1 min-w-0">
                       {editingDeptId === dept._id ? (
                         <>
                           <input
                             type="text"
                             value={editingDeptName}
                             onChange={(e) => setEditingDeptName(e.target.value)}
-                            className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-gray-900 focus:border-gray-900 transition-all"
+                            aria-label="Edit department name"
                           />
-                          <p className="text-xs text-gray-500 mt-2">Editing department name</p>
+                          <p className="text-[10px] sm:text-xs text-gray-700 mt-1">Editing department name</p>
                         </>
                       ) : (
                         <>
-                          <h3 className="text-lg font-semibold text-gray-900">{dept.name}</h3>
-                          <p className="text-sm text-gray-500">
+                          <h3 className="text-sm sm:text-base font-semibold text-gray-900 truncate">{dept.name}</h3>
+                          <p className="text-xs text-gray-700">
                             Created {new Date(dept.createdAt).toLocaleDateString()}
                           </p>
                         </>
                       )}
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5 sm:gap-2">
                       {editingDeptId === dept._id ? (
                         <>
                           <button
                             onClick={handleDepartmentUpdate}
                             disabled={deptUpdateLoading}
-                            className="px-4 py-2 bg-emerald-600 text-white text-sm rounded-lg hover:bg-emerald-700 disabled:opacity-60"
+                            className="px-3 py-1.5 bg-gray-900 text-white text-xs rounded-lg hover:bg-gray-800 disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-gray-900 transition-colors"
                           >
                             {deptUpdateLoading ? "Saving..." : "Save"}
                           </button>
@@ -786,7 +973,7 @@ function AddRoomPage({ contextOverride = null }: { contextOverride?: RouteContex
                               setEditingDeptId(null);
                               setEditingDeptName("");
                             }}
-                            className="px-4 py-2 bg-gray-100 text-gray-700 text-sm rounded-lg hover:bg-gray-200"
+                            className="px-3 py-1.5 bg-gray-100 text-gray-700 text-xs rounded-lg hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-900 transition-colors"
                           >
                             Cancel
                           </button>
@@ -799,7 +986,7 @@ function AddRoomPage({ contextOverride = null }: { contextOverride?: RouteContex
                                 setEditingDeptId(dept._id);
                                 setEditingDeptName(dept.name);
                               }}
-                              className="px-4 py-2 bg-blue-50 text-blue-700 text-sm rounded-lg hover:bg-blue-100"
+                              className="px-3 py-1.5 bg-gray-100 text-gray-700 text-xs rounded-lg hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-900 transition-colors"
                             >
                               Edit
                             </button>
@@ -807,14 +994,15 @@ function AddRoomPage({ contextOverride = null }: { contextOverride?: RouteContex
                           {permissions.canDelete && (
                             <button
                               onClick={() => handleDeleteDepartment(dept._id)}
-                              className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                              className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-red-500"
                               title="Delete department"
+                              aria-label="Delete department"
                             >
-                              <Trash2 className="w-5 h-5" />
+                              <Trash2 className="w-4 h-4" />
                             </button>
                           )}
                           {!permissions.canUpdate && !permissions.canDelete && (
-                            <span className="text-xs text-gray-400">No actions available</span>
+                            <span className="text-[10px] text-gray-700">No actions available</span>
                           )}
                         </>
                       )}
@@ -825,6 +1013,77 @@ function AddRoomPage({ contextOverride = null }: { contextOverride?: RouteContex
             )}
           </div>
         </>
+      )}
+
+      {/* Confirmation Modal */}
+      {confirmModal.isOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm transition-opacity"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setConfirmModal({ ...confirmModal, isOpen: false });
+              toast("Deletion cancelled", { duration: 2000, icon: "ℹ️" });
+            }
+          }}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="confirm-modal-title"
+        >
+          <div
+            className="bg-white rounded-lg shadow-2xl max-w-md w-full overflow-hidden flex flex-col transform transition-all duration-200 scale-100 opacity-100"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="bg-red-50 border-b border-red-200 px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
+                  <AlertCircle className="w-5 h-5 text-red-600" />
+                </div>
+                <h2 id="confirm-modal-title" className="text-base sm:text-lg font-semibold text-gray-900">
+                  {confirmModal.title}
+                </h2>
+              </div>
+              <button
+                onClick={() => {
+                  setConfirmModal({ ...confirmModal, isOpen: false });
+                  toast("Deletion cancelled", { duration: 2000, icon: "ℹ️" });
+                }}
+                className="p-1.5 hover:bg-red-100 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-red-500"
+                aria-label="Close modal"
+              >
+                <X className="w-5 h-5 text-gray-700" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-4 sm:p-6">
+              <p className="text-sm sm:text-base text-gray-700 leading-relaxed">
+                {confirmModal.message}
+              </p>
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-2 sm:gap-3 px-4 sm:px-6 pb-4 sm:pb-6">
+              <button
+                onClick={() => {
+                  setConfirmModal({ ...confirmModal, isOpen: false });
+                  toast("Deletion cancelled", { duration: 2000, icon: "ℹ️" });
+                }}
+                className="flex-1 px-3 sm:px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-900 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  confirmModal.onConfirm();
+                }}
+                className="flex-1 px-3 sm:px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -101,6 +101,8 @@ const ClinicDashboard: NextPageWithLayout = () => {
   const [clinicInfo, setClinicInfo] = useState<ClinicInfo>({});
   const [permissions, setPermissions] = useState<SidebarResponse['permissions']>([]);
   const [statsLoading, setStatsLoading] = useState<boolean>(true);
+  const [accessDenied, setAccessDenied] = useState(false);
+  const [accessMessage, setAccessMessage] = useState('You do not have permission to view this dashboard.');
 
   // Icon mapping
   const iconMap: { [key: string]: React.ReactNode } = {
@@ -138,7 +140,6 @@ const ClinicDashboard: NextPageWithLayout = () => {
         const token = localStorage.getItem('clinicToken') || sessionStorage.getItem('clinicToken');
         if (!token) return;
 
-        // Fetch clinic data
         const clinicRes = await axios.get('/api/clinics/myallClinic', {
           headers: { Authorization: `Bearer ${token}` },
         });
@@ -150,19 +151,22 @@ const ClinicDashboard: NextPageWithLayout = () => {
             ownerName: clinicUser?.name || '',
           });
         } else {
-          // If no clinic found, use user name as owner
           setClinicInfo({
             name: '',
             ownerName: clinicUser?.name || '',
           });
         }
-      } catch (error) {
-        console.error('Error fetching clinic info:', error);
-        // Fallback to user name
-        setClinicInfo({
-          name: '',
-          ownerName: clinicUser?.name || '',
-        });
+      } catch (error: any) {
+        if (axios.isAxiosError(error) && error.response?.status === 403) {
+          setAccessDenied(true);
+          setAccessMessage('Your clinic account does not have permission to view this dashboard.');
+        } else {
+          console.error('Error fetching clinic info:', error);
+          setClinicInfo({
+            name: '',
+            ownerName: clinicUser?.name || '',
+          });
+        }
       }
     };
 
@@ -188,8 +192,13 @@ const ClinicDashboard: NextPageWithLayout = () => {
             setPermissions(res.data.permissions);
           }
         }
-      } catch (error) {
-        console.error('Error fetching navigation items:', error);
+      } catch (error: any) {
+        if (axios.isAxiosError(error) && error.response?.status === 403) {
+          setAccessDenied(true);
+          setAccessMessage('You do not have permission to view the dashboard modules.');
+        } else {
+          console.error('Error fetching navigation items:', error);
+        }
       }
     };
 
@@ -203,7 +212,6 @@ const ClinicDashboard: NextPageWithLayout = () => {
         const token = localStorage.getItem('clinicToken') || sessionStorage.getItem('clinicToken');
         if (!token) return;
 
-        // Fetch all navigation items for clinic role (without permission filtering)
         const res = await axios.get<{ success: boolean; data: NavigationItem[] }>('/api/navigation/get-by-role?role=clinic', {
           headers: { Authorization: `Bearer ${token}` },
         });
@@ -211,8 +219,13 @@ const ClinicDashboard: NextPageWithLayout = () => {
         if (res.data.success && res.data.data) {
           setAllModules(res.data.data);
         }
-      } catch (error) {
-        console.error('Error fetching all modules:', error);
+      } catch (error: any) {
+        if (axios.isAxiosError(error) && error.response?.status === 403) {
+          setAccessDenied(true);
+          setAccessMessage('Access to module information is restricted for your account.');
+        } else {
+          console.error('Error fetching all modules:', error);
+        }
       }
     };
 
@@ -367,9 +380,13 @@ const ClinicDashboard: NextPageWithLayout = () => {
         const data: DashboardStatsResponse = await res.json();
         if (data.success) {
           setStats(data.stats);
+        } else if (res.status === 403) {
+          setStats({ totalReviews: 0, totalEnquiries: 0, totalClinics: 0 });
         }
-      } catch {
-        // Error handling
+      } catch (error: any) {
+        if (error?.response?.status === 403) {
+          setStats({ totalReviews: 0, totalEnquiries: 0, totalClinics: 0 });
+        }
       } finally {
         setLoading(false);
       }
@@ -525,6 +542,20 @@ const ClinicDashboard: NextPageWithLayout = () => {
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
           <p className="text-sm text-gray-600">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (accessDenied) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+        <div className="bg-white border border-gray-200 rounded-2xl shadow-sm max-w-md w-full p-8 text-center space-y-4">
+          <div className="mx-auto w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center">
+            <Lock className="w-5 h-5 text-gray-600" />
+          </div>
+          <h2 className="text-lg font-semibold text-gray-900">Access Restricted</h2>
+          <p className="text-sm text-gray-600">{accessMessage}</p>
         </div>
       </div>
     );

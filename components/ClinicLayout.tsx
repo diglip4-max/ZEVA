@@ -50,7 +50,7 @@ const ClinicLayout = ({ children, hideSidebar = false, hideHeader = false }: Cli
 
         {/* Page Content */}
         <main 
-          className={`flex-1 ${hideSidebar && hideHeader ? '' : 'p-4 sm:p-6 md:p-8'}`} 
+          className={`flex-1 ${hideSidebar && hideHeader ? '' : ''}`} 
           role="main" 
           style={{ 
             overflowY: 'auto', 

@@ -80,7 +80,6 @@ export default function Home(): React.ReactElement {
   return (
     <div className="min-h-screen bg-gray-50">
       <Head>
-        <title>Zeva Ayurveda | Find Ayurvedic Doctors, Clinics & Holistic Care</title>
         <meta
           name="description"
           content="Discover board-certified Ayurvedic doctors, verified wellness clinics, and guided care journeys with Zeva’s integrated health, career, and lifestyle ecosystem."

@@ -1,9 +1,13 @@
+<<<<<<< HEAD
 import { useEffect, useState, useMemo } from "react";
+=======
+import { useEffect, useMemo, useState } from "react";
+>>>>>>> e3a52fce90834b798015905c191767e892a3c7d2
 import axios from "axios";
 import ClinicLayout from "../../components/ClinicLayout";
 import withClinicAuth from "../../components/withClinicAuth";
-import FilterAssignedLead from "../../components/Filter-assigned-lead";
 import WhatsAppChat from "../../components/WhatsAppChat";
+import { Toaster, toast } from "react-hot-toast";
 
 const TOKEN_SOURCES = {
   clinic: ["clinicToken"],
@@ -46,6 +50,22 @@ const AssignedLeadsPage = ({ contextOverride = null }) => {
   const [chatOpen, setChatOpen] = useState(false);
   const [activeLead, setActiveLead] = useState(null);
   const [filterOpen, setFilterOpen] = useState(false);
+  const [confirmModal, setConfirmModal] = useState({
+    isOpen: false,
+    leadId: null,
+    leadName: "",
+  });
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filters, setFilters] = useState({
+    status: "",
+    source: "",
+  });
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 9;
+  const [detailsModal, setDetailsModal] = useState({
+    isOpen: false,
+    lead: null,
+  });
   const [permissions, setPermissions] = useState({
     canUpdate: false,
     canDelete: false,
@@ -146,17 +166,17 @@ const AssignedLeadsPage = ({ contextOverride = null }) => {
 
   const saveFollowUp = async (leadId) => {
     if (!token) {
-      alert("Unauthorized");
+      toast.error("Unauthorized. Please log in again.");
       return;
     }
 
     if (!permissions.canUpdate && !permissions.canAll) {
-      alert("You do not have permission to update leads");
+      toast.error("You do not have permission to update leads");
       return;
     }
 
     if (!followUpsdate[leadId]) {
-      alert("Please select a follow-up date before saving.");
+      toast("Please select a follow-up date before saving.", { icon: "ℹ️" });
       return;
     }
 
@@ -173,7 +193,7 @@ const AssignedLeadsPage = ({ contextOverride = null }) => {
       });
 
       if (res.data.success) {
-        alert("Follow-up date updated ✅");
+        toast.success("Follow-up date updated");
 
         setLeads((prevLeads) =>
           prevLeads.map((lead) => {
@@ -190,46 +210,62 @@ const AssignedLeadsPage = ({ contextOverride = null }) => {
 
         setFollowUpsdate((prev) => ({ ...prev, [leadId]: "" }));
       } else {
-        alert(res.data.message || "Failed to update follow-up date");
+        toast.error(res.data.message || "Failed to update follow-up date");
       }
     } catch (err) {
       console.error(err);
-      alert("Server error while saving follow-up date");
+      toast.error("Server error while saving follow-up date");
     } finally {
       setSaving((prev) => ({ ...prev, [leadId]: false }));
     }
   };
 
-  const deleteLead = async (leadId) => {
+  const requestDeleteLead = (lead) => {
     if (!permissions.canDelete && !permissions.canAll) {
-      alert("You do not have permission to delete leads");
+      toast.error("You do not have permission to delete leads");
       return;
     }
+    setConfirmModal({
+      isOpen: true,
+      leadId: lead._id,
+      leadName: lead.name || "this lead",
+    });
+  };
 
-    if (!window.confirm("Are you sure you want to delete this lead?")) return;
-    
+  const deleteLead = async () => {
+    if (!confirmModal.leadId) return;
     try {
       const res = await axios.delete("/api/lead-ms/lead-delete", {
         headers: { Authorization: `Bearer ${token}` },
-        data: { leadId },
+        data: { leadId: confirmModal.leadId },
       });
       
       if (res.data.success) {
-        alert("Lead deleted successfully");
-        setLeads((prevLeads) => prevLeads.filter((lead) => lead._id !== leadId));
+        toast.success("Lead deleted successfully");
+        setLeads((prevLeads) => prevLeads.filter((lead) => lead._id !== confirmModal.leadId));
         setTotalAssigned((prev) => Math.max(0, prev - 1));
       } else {
-        alert(res.data.message || "Failed to delete lead");
+        if (res.status === 403) {
+          toast("You don't have access to delete this lead.", { icon: "🔒" });
+        } else {
+          toast.error(res.data.message || "Failed to delete lead");
+        }
       }
     } catch (err) {
       console.error(err);
-      alert(err.response?.data?.message || "Error deleting lead");
+      if (err.response?.status === 403) {
+        toast("You don't have permission to delete this lead.", { icon: "🔒" });
+      } else {
+        toast.error(err.response?.data?.message || "Error deleting lead");
+      }
+    } finally {
+      setConfirmModal({ isOpen: false, leadId: null, leadName: "" });
     }
   };
 
   const approveLead = async (leadId) => {
     if (!permissions.canApprove && !permissions.canAll) {
-      alert("You do not have permission to approve leads");
+      toast.error("You do not have permission to approve leads");
       return;
     }
 
@@ -241,18 +277,18 @@ const AssignedLeadsPage = ({ contextOverride = null }) => {
       );
       
       if (res.data.success) {
-        alert("Lead approved successfully");
+        toast.success("Lead approved successfully");
         setLeads((prevLeads) =>
           prevLeads.map((lead) =>
             lead._id === leadId ? { ...lead, status: "Approved" } : lead
           )
         );
       } else {
-        alert(res.data.message || "Failed to approve lead");
+        toast.error(res.data.message || "Failed to approve lead");
       }
     } catch (err) {
       console.error(err);
-      alert(err.response?.data?.message || "Error approving lead");
+      toast.error(err.response?.data?.message || "Error approving lead");
     }
   };
 
@@ -299,102 +335,239 @@ const AssignedLeadsPage = ({ contextOverride = null }) => {
     return `+91${trimmed}`;
   };
 
-  return (
-    <div className="min-h-screen bg-[#f4f6fb] py-10">
-      <div className="mx-auto max-w-6xl px-4 lg:px-6 space-y-6">
-        <section className="relative overflow-hidden rounded-2xl border border-sky-100 bg-gradient-to-br from-sky-600 via-cyan-500 to-blue-600 text-white shadow-[0_24px_45px_rgba(14,165,233,0.25)]">
-          <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-30 mix-blend-overlay" />
-          <div className="relative px-6 py-8 sm:px-8 sm:py-10">
-            <div className="flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
-              <div className="max-w-xl">
-                <div className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.3em] backdrop-blur">
-                  <span className="h-2 w-2 rounded-full bg-emerald-300" />
-                  Active pipeline overview
-                </div>
-                <h1 className="mt-4 text-3xl font-semibold leading-tight sm:text-4xl">
-                  Assigned Leads
-                </h1>
-                <p className="mt-3 text-sm text-white/80 sm:text-base">
-                  A focused workspace that brings every assignment, follow-up and conversation into one elegant timeline—stay ahead with clarity and confidence.
-                </p>
-                <div className="mt-6 flex flex-wrap gap-3 text-xs sm:text-sm">
-                  <span className="rounded-full bg-white/20 px-4 py-1.5 backdrop-blur">
-                    Real-time sync
-                  </span>
-                  <span className="rounded-full bg-white/20 px-4 py-1.5 backdrop-blur">
-                    Smart follow-ups
-                  </span>
-                  <span className="rounded-full bg-white/20 px-4 py-1.5 backdrop-blur">
-                    Effortless collaboration
-                  </span>
-                </div>
-              </div>
+  const statusOptions = ["New", "Contacted", "Qualified", "Converted", "Lost", "Booked", "Approved"];
 
-              <div className="grid w-full max-w-sm grid-cols-2 gap-4 text-sm sm:text-base">
-                <div className="rounded-xl bg-white/15 p-5 shadow-sm backdrop-blur">
-                  <p className="text-xs uppercase tracking-[0.25em] text-white/70">
-                    Total assigned
-                  </p>
-                  <p className="mt-3 text-3xl font-semibold tracking-tight">
-                    {totalAssigned}
-                  </p>
-                  <p className="mt-2 text-xs text-white/70">
-                    Updated just now
-                  </p>
-                </div>
-                <div className="rounded-xl bg-white/15 p-5 shadow-sm backdrop-blur">
-                  <p className="text-xs uppercase tracking-[0.25em] text-white/70">
-                    Filter mode
-                  </p>
-                  <p className="mt-3 text-3xl font-semibold tracking-tight">
-                    {filterOpen ? "Custom" : "Default"}
-                  </p>
-                  <button
-                    onClick={() => setFilterOpen(!filterOpen)}
-                    className="mt-4 flex items-center gap-2 rounded-full bg-white/90 px-4 py-1.5 text-xs font-medium text-sky-700 transition hover:bg-white"
-                  >
-                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V21l-4-4v-3.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-                    </svg>
-                    {filterOpen ? "Close filters" : "Open filters"}
-                  </button>
-                </div>
+  const sourceOptions = useMemo(() => {
+    const set = new Set();
+    leads.forEach((lead) => {
+      if (lead.source) {
+        set.add(lead.source);
+      }
+    });
+    return Array.from(set);
+  }, [leads]);
+
+  const filteredLeads = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    return leads.filter((lead) => {
+      const matchesQuery =
+        !query ||
+        [lead.name, lead.phone, lead.offerTag, lead.status]
+          .filter(Boolean)
+          .some((field) => String(field).toLowerCase().includes(query));
+
+      const matchesStatus =
+        !filters.status ||
+        (lead.status || "").toLowerCase() === filters.status.toLowerCase();
+
+      const matchesSource =
+        !filters.source ||
+        (lead.source || "").toLowerCase() === filters.source.toLowerCase();
+
+      return matchesQuery && matchesStatus && matchesSource;
+    });
+  }, [leads, searchQuery, filters]);
+
+  const totalFiltered = filteredLeads.length;
+  const totalPages = Math.max(1, Math.ceil(totalFiltered / pageSize));
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [totalPages, currentPage]);
+
+  const startIndex = (currentPage - 1) * pageSize;
+  const paginatedLeads = useMemo(() => {
+    return filteredLeads.slice(startIndex, startIndex + pageSize);
+  }, [filteredLeads, startIndex, pageSize]);
+
+  const showingFrom = totalFiltered === 0 ? 0 : startIndex + 1;
+  const showingTo = Math.min(startIndex + pageSize, totalFiltered);
+
+  const handleSearchChange = (value) => {
+    setSearchQuery(value);
+    setCurrentPage(1);
+  };
+
+  const handleFilterChange = (field, value) => {
+    setFilters((prev) => ({ ...prev, [field]: value }));
+    setCurrentPage(1);
+  };
+
+  const handleResetFilters = () => {
+    setFilters({ status: "", source: "" });
+    setCurrentPage(1);
+    toast("Filters cleared", { icon: "♻️" });
+  };
+
+  const openDetailsModal = (lead) => {
+    setDetailsModal({ isOpen: true, lead });
+  };
+
+  const closeDetailsModal = () => {
+    setDetailsModal({ isOpen: false, lead: null });
+  };
+
+  const totalCount = leads.length;
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 text-center">
+          <div className="text-gray-700">Loading leads...</div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          duration: 3000,
+          style: {
+            background: "#1f2937",
+            color: "#f9fafb",
+            fontSize: "12px",
+            padding: "8px 12px",
+            borderRadius: "8px",
+          },
+        }}
+      />
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-gray-50 to-white py-6">
+        <div className="mx-auto max-w-6xl px-4 lg:px-6 space-y-5">
+        <section className="rounded-xl border border-gray-200 bg-white shadow-sm p-4 sm:p-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-gray-500">
+                Lead pipeline
+              </p>
+              <h1 className="text-2xl font-semibold text-gray-900">Assigned Leads</h1>
+              <p className="text-sm text-gray-700 mt-1">
+                Track assignments, follow-ups, and approvals in one compact overview.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+              <div className="rounded-lg border border-gray-200 px-3 py-2 text-xs text-gray-700">
+                Total leads
+                <p className="text-xl font-semibold text-gray-900">{totalCount}</p>
               </div>
+              <button
+                onClick={() => setFilterOpen(!filterOpen)}
+                className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-xs font-semibold text-gray-800 hover:bg-gray-50 transition"
+              >
+                {filterOpen ? "Close filters" : "Open filters"}
+              </button>
             </div>
           </div>
         </section>
 
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="relative w-full sm:max-w-xs">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              placeholder="Search by name, phone, or status"
+              className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm text-gray-800 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
+            />
+            <svg
+              className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35m0 0A7.5 7.5 0 104.5 4.5a7.5 7.5 0 0012.15 12.15z" />
+            </svg>
+          </div>
+          <p className="text-xs text-gray-600">
+            Showing {totalFiltered} lead{totalFiltered === 1 ? "" : "s"}
+          </p>
+        </div>
+
         {filterOpen && (
-          <section className="rounded-2xl border border-slate-200 bg-white/90 p-6 shadow-[0_14px_32px_rgba(15,23,42,0.05)] backdrop-blur">
-            <div className="mb-5 flex items-center justify-between gap-3">
+          <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+            <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <h2 className="text-sm font-semibold text-slate-900 sm:text-base">
+                <h2 className="text-sm font-semibold text-gray-900 sm:text-base">
                   Refine your list
                 </h2>
-                <p className="text-xs text-slate-500 sm:text-sm">
+                <p className="text-xs text-gray-700 sm:text-sm">
                   Combine filters to surface the leads that matter right now.
                 </p>
               </div>
-              <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.25em] text-slate-400">
+              <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.25em] text-gray-500">
                 Precision mode
                 <span className="inline-flex h-2 w-2 rounded-full bg-sky-500" />
               </div>
             </div>
-            <FilterAssignedLead
-              onResults={(filteredLeads) => {
-                setLeads(filteredLeads);
-                setTotalAssigned(filteredLeads.length);
-              }}
-            />
+
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-semibold text-gray-700 uppercase tracking-wide">
+                  Lead status
+                </label>
+                <select
+                  value={filters.status}
+                  onChange={(e) => handleFilterChange("status", e.target.value)}
+                  className="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-800 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
+                >
+                  <option value="">All statuses</option>
+                  {statusOptions.map((status) => (
+                    <option key={status} value={status.toLowerCase()}>
+                      {status}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-semibold text-gray-700 uppercase tracking-wide">
+                  Source
+                </label>
+                <select
+                  value={filters.source}
+                  onChange={(e) => handleFilterChange("source", e.target.value)}
+                  className="rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-800 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
+                >
+                  <option value="">All sources</option>
+                  {sourceOptions.map((source) => (
+                    <option key={source} value={source}>
+                      {source}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-semibold text-gray-700 uppercase tracking-wide">
+                  Quick actions
+                </label>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleResetFilters}
+                    className="inline-flex flex-1 items-center justify-center rounded-lg border border-gray-300 px-3 py-2 text-xs font-semibold text-gray-800 hover:bg-gray-50 transition"
+                  >
+                    Reset filters
+                  </button>
+                </div>
+                <p className="text-[11px] text-gray-500 mt-1">
+                  Filters apply automatically as you change them.
+                </p>
+              </div>
+            </div>
           </section>
         )}
 
         {/* Loading State */}
         {loading && (
-          <div className="flex flex-col items-center justify-center min-h-[320px] bg-white border border-slate-200 rounded-xl shadow-sm mt-6">
-            <div className="w-12 h-12 border-4 border-slate-200 border-t-sky-500 rounded-full animate-spin" />
-            <p className="mt-4 text-slate-700 font-medium">Loading leads...</p>
-            <p className="text-xs text-slate-500 mt-1">Please wait while we fetch your data.</p>
+          <div className="flex flex-col items-center justify-center min-h-[320px] bg-white border border-gray-200 rounded-xl shadow-sm mt-6">
+            <div className="w-12 h-12 border-4 border-gray-200 border-t-sky-500 rounded-full animate-spin" />
+            <p className="mt-4 text-gray-700 font-medium">Loading leads...</p>
+            <p className="text-xs text-gray-700 mt-1">Please wait while we fetch your data.</p>
           </div>
         )}
 
@@ -423,236 +596,146 @@ const AssignedLeadsPage = ({ contextOverride = null }) => {
 
         {/* Empty State */}
         {!loading && !error && leads.length === 0 && (
-          <div className="bg-white border border-slate-200 rounded-xl shadow-sm px-6 py-12 mt-6 text-center">
-            <div className="mx-auto w-14 h-14 rounded-lg bg-slate-100 text-slate-500 flex items-center justify-center mb-4">
+          <div className="bg-white border border-gray-200 rounded-xl shadow-sm px-6 py-12 mt-6 text-center">
+            <div className="mx-auto w-14 h-14 rounded-lg bg-gray-100 text-gray-500 flex items-center justify-center mb-4">
               <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
               </svg>
             </div>
-            <h3 className="text-lg font-semibold text-slate-900">No leads assigned yet</h3>
-            <p className="mt-2 text-sm text-slate-500">
+            <h3 className="text-lg font-semibold text-gray-900">No leads assigned yet</h3>
+            <p className="mt-2 text-sm text-gray-700">
               Once a lead is assigned to your clinic, it will appear in this list with its details.
             </p>
           </div>
         )}
 
-        {/* Leads Cards */}
-        {!loading && !error && leads.length > 0 && (
-          <div className="mt-6 space-y-6">
-            {leads.map((lead) => {
-              const statusConfig = getStatusConfig(lead.status);
-              const latestFollowUp =
-                lead.nextFollowUps?.length > 0
-                  ? new Date(lead.nextFollowUps[lead.nextFollowUps.length - 1].date).toLocaleString()
-                  : "Not Set";
+        {!loading && !error && leads.length > 0 && filteredLeads.length === 0 && (
+          <div className="bg-white border border-gray-200 rounded-xl shadow-sm px-6 py-8 mt-6 text-center">
+            <h3 className="text-sm font-semibold text-gray-900">No leads match your filters</h3>
+            <p className="mt-2 text-sm text-gray-700">
+              Try adjusting your search or filter criteria to find the lead you need.
+            </p>
+          </div>
+        )}
 
-              const cardBorderClass =
-                lead.followUpStatus === "past"
-                  ? "border-l-4 border-l-red-500 shadow-red-100"
-                  : lead.followUpStatus === "today"
-                  ? "border-l-4 border-l-emerald-500 shadow-emerald-100"
-                  : "border-l-4 border-l-slate-200";
-
-              return (
-                <div
-                  key={lead._id}
-                  className={`rounded-2xl border border-slate-200 bg-white/95 backdrop-blur shadow-[0_20px_48px_rgba(15,23,42,0.08)] transition hover:-translate-y-1 hover:border-sky-200 hover:shadow-[0_24px_54px_rgba(14,165,233,0.18)] overflow-hidden ${cardBorderClass}`}
-                >
-                  <div className="grid grid-cols-1 gap-6 px-6 py-5 xl:grid-cols-12">
-                    <div className="xl:col-span-3">
-                      <div className="flex items-start gap-4">
-                        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-500 via-blue-600 to-indigo-600 text-lg font-semibold text-white shadow-lg ring-4 ring-sky-100">
-                          {lead.name.charAt(0).toUpperCase()}
-                        </div>
-                        <div className="min-w-0 flex-1 space-y-2">
-                          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                            <h3 className="truncate text-base font-semibold text-slate-900">{lead.name}</h3>
-                            <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600">
-                              <span className="h-2 w-2 rounded-full bg-emerald-400" />
-                              Assigned
-                            </span>
-                          </div>
-                          <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
-                            <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1">
-                              <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
-                              {lead.gender}
-                            </span>
-                            {lead.age && (
-                              <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1">
-                                <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
-                                {lead.age} yrs
-                              </span>
-                            )}
-                            {lead.offerTag && (
-                              <span className="inline-flex items-center gap-1 rounded-full bg-sky-50 px-2.5 py-1 text-sky-600">
-                                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 7l6 6m0 0l8 8 4-4-8-8-3.5.5L3 7z" />
-                                </svg>
-                                {lead.offerTag}
-                              </span>
-                            )}
-                          </div>
-                        </div>
+        {!loading && !error && paginatedLeads.length > 0 && (
+          <>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {paginatedLeads.map((lead) => {
+                const statusConfig = getStatusConfig(lead.status);
+                const cardBorderClass =
+                  lead.followUpStatus === "past"
+                    ? "border-l-4 border-l-red-500 shadow-red-100"
+                    : lead.followUpStatus === "today"
+                    ? "border-l-4 border-l-emerald-500 shadow-emerald-100"
+                    : "border-l-4 border-l-gray-200";
+                return (
+                  <div
+                    key={lead._id}
+                    className={`rounded-xl border border-gray-200 bg-white p-4 shadow-sm hover:shadow-md transition ${cardBorderClass}`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold text-gray-900">{lead.name}</p>
+                        <p className="text-xs text-gray-500">ID: {lead._id.slice(-6)}</p>
                       </div>
+                      <span
+                        className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-semibold ${statusConfig.bg} ${statusConfig.text} ${statusConfig.border}`}
+                      >
+                        <span className={`h-1.5 w-1.5 rounded-full ${statusConfig.dot}`} />
+                        {lead.status || "N/A"}
+                      </span>
                     </div>
-
-                    <div className="space-y-3 xl:col-span-3">
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
-                          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                          </svg>
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium text-slate-800">{lead.phone}</p>
-                          <p className="text-xs text-slate-500">
-                            {lead.assignedTo?.map((a) => a.user?.name).join(", ") || "Not Assigned"}
-                          </p>
-                        </div>
+                    <div className="mt-4 space-y-2 text-sm text-gray-700">
+                      <div className="flex items-center gap-2">
+                        <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                        </svg>
+                        <span>{lead.phone || "No phone"}</span>
                       </div>
-                      <div className="flex items-center gap-2 text-xs text-slate-500">
+                      <div className="flex items-center gap-2">
+                        <svg className="h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 14l9-5-9-5-9 5 9 5zm0 0v7" />
+                        </svg>
+                        <span className="capitalize">{lead.gender || "Gender N/A"}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs text-gray-500">
                         <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
                         </svg>
-                        <span>{lead.source}</span>
-                      </div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span
-                          className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${statusConfig.bg} ${statusConfig.text} ${statusConfig.border}`}
-                        >
-                          <span className={`h-2 w-2 rounded-full ${statusConfig.dot}`} />
-                          {lead.status.toUpperCase()}
-                        </span>
-                        {getFollowUpBadge(lead.followUpStatus)}
+                        <span>{lead.source || "No source"}</span>
                       </div>
                     </div>
-
-                    <div className="space-y-3 xl:col-span-3">
-                      <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                        </svg>
-                        Treatments
-                      </div>
-                      {lead.treatments && lead.treatments.length > 0 ? (
-                        <div className="flex flex-wrap gap-2">
-                          {lead.treatments.map((t, idx) => (
-                            <div
-                              key={idx}
-                              className="rounded-xl border border-slate-200/70 bg-slate-50 px-3 py-2 shadow-inner"
-                            >
-                              <div className="text-sm font-semibold text-slate-800">
-                                {t.treatment?.name || "Treatment"}
-                              </div>
-                              {t.subTreatment && (
-                                <div className="text-xs text-slate-500">{t.subTreatment}</div>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <span className="text-sm text-slate-500 italic">No treatments recorded</span>
-                      )}
-                    </div>
-
-                    <div className="space-y-3 xl:col-span-2">
-                      <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4 shadow-inner">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                            </svg>
-                            Latest follow-up
-                          </div>
-                          <span className="text-xs text-slate-500">UTC</span>
-                        </div>
-                        <p className="mt-2 text-sm font-medium text-slate-800">{latestFollowUp}</p>
-                      </div>
-                      <input
-                        type="datetime-local"
-                        value={followUpsdate[lead._id] || ""}
-                        onChange={(e) => handleFollowUpdateChange(lead._id, e.target.value)}
-                        className="w-full rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm shadow-sm transition focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
-                      />
+                    <div className="mt-4 flex flex-wrap gap-2">
                       <button
-                        onClick={() => saveFollowUp(lead._id)}
-                        disabled={saving[lead._id] || !followUpsdate[lead._id] || (!permissions.canUpdate && !permissions.canAll)}
-                        className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-sky-200 transition hover:from-sky-600 hover:to-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
-                        title={(!permissions.canUpdate && !permissions.canAll) ? "You don't have permission to update leads" : "Schedule follow-up"}
+                        onClick={() => openDetailsModal(lead)}
+                        className="flex-1 rounded-lg border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-800 hover:bg-gray-50 transition"
                       >
-                        {saving[lead._id] ? (
-                          <>
-                            <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                            </svg>
-                            Updating...
-                          </>
-                        ) : (
-                          <>
-                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                            </svg>
-                            Schedule follow-up
-                          </>
-                        )}
+                        View details
                       </button>
-                    </div>
-
-                    <div className="flex flex-col items-end gap-3 xl:col-span-1 min-w-0">
                       <button
                         onClick={() => {
                           setActiveLead(lead);
                           setChatOpen(true);
                         }}
-                        className="group relative inline-flex items-center justify-center gap-1.5 rounded-lg bg-gradient-to-br from-emerald-500 via-emerald-600 to-green-600 px-3 py-2 text-[10px] font-medium text-white shadow-[0_2px_8px_rgba(16,185,129,0.3)] backdrop-blur-sm transition-all duration-200 hover:from-emerald-600 hover:via-emerald-700 hover:to-green-700 hover:shadow-[0_4px_12px_rgba(16,185,129,0.4)] hover:-translate-y-0.5 active:translate-y-0 whitespace-nowrap w-full xl:w-full max-w-full border border-emerald-400/20"
+                        className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:border-emerald-300 transition"
                       >
-                        <div className="absolute inset-0 rounded-lg bg-gradient-to-br from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} className="h-3.5 w-3.5 flex-shrink-0 relative z-10">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <span className="whitespace-nowrap relative z-10 tracking-wide">Quick chat</span>
+                        Chat
                       </button>
-                      
-                      {/* Action buttons based on permissions */}
-                      <div className="flex flex-wrap gap-2 justify-end w-full">
-                        {(permissions.canApprove || permissions.canAll) && (
-                          <button
-                            onClick={() => approveLead(lead._id)}
-                            disabled={lead.status === "Approved"}
-                            className={`inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-white shadow transition ${
-                              lead.status === "Approved"
-                                ? "bg-gray-400 cursor-not-allowed"
-                                : "bg-green-500 hover:bg-green-600"
-                            }`}
-                            title={lead.status === "Approved" ? "Already approved" : "Approve lead"}
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                            </svg>
-                            Approve
-                          </button>
-                        )}
-                        
-                        {(permissions.canDelete || permissions.canAll) && (
-                          <button
-                            onClick={() => deleteLead(lead._id)}
-                            className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-red-500 px-3 py-1.5 text-xs font-semibold text-white shadow transition hover:bg-red-600"
-                            title="Delete lead"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
-                            Delete
-                          </button>
-                        )}
-                      </div>
+                      {(permissions.canApprove || permissions.canAll) && (
+                        <button
+                          onClick={() => approveLead(lead._id)}
+                          disabled={lead.status === "Approved"}
+                          className={`rounded-lg px-3 py-1.5 text-xs font-semibold text-white transition ${
+                            lead.status === "Approved"
+                              ? "bg-gray-400 cursor-not-allowed"
+                              : "bg-green-500 hover:bg-green-600"
+                          }`}
+                        >
+                          Approve
+                        </button>
+                      )}
+                      {(permissions.canDelete || permissions.canAll) && (
+                        <button
+                          onClick={() => requestDeleteLead(lead)}
+                          className="rounded-lg bg-red-500 px-3 py-1.5 text-xs font-semibold text-white shadow hover:bg-red-600 transition"
+                        >
+                          Delete
+                        </button>
+                      )}
                     </div>
                   </div>
+                );
+              })}
+            </div>
+
+            {totalFiltered > pageSize && (
+              <div className="mt-4 flex flex-col gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-700 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+                <p>
+                  Showing {showingFrom}-{showingTo} of {totalFiltered} lead{totalFiltered === 1 ? "" : "s"}
+                </p>
+                <div className="flex items-center gap-2 text-xs">
+                  <button
+                    onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                    disabled={currentPage === 1}
+                    className="rounded-lg border border-gray-300 px-3 py-1.5 font-semibold text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Previous
+                  </button>
+                  <span className="text-gray-600">
+                    Page {currentPage} of {totalPages}
+                  </span>
+                  <button
+                    onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                    disabled={currentPage === totalPages}
+                    className="rounded-lg border border-gray-300 px-3 py-1.5 font-semibold text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Next
+                  </button>
                 </div>
-              );
-            })}
-          </div>
+              </div>
+            )}
+          </>
         )}
 
         {/* WhatsApp Chat Modal */}
@@ -664,8 +747,232 @@ const AssignedLeadsPage = ({ contextOverride = null }) => {
             phoneNumber={formatPhoneNumber(activeLead.phone)}
           />
         )}
+        </div>
       </div>
-    </div>
+
+      {detailsModal.isOpen && detailsModal.lead && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              closeDetailsModal();
+            }
+          }}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex items-start justify-between border-b border-gray-200 px-6 py-4">
+              <div>
+                <p className="text-xs uppercase tracking-[0.3em] text-gray-500">Lead overview</p>
+                <h3 className="text-lg font-semibold text-gray-900">{detailsModal.lead.name}</h3>
+                <p className="text-sm text-gray-600">
+                  ID: {detailsModal.lead._id.slice(-8)} &bull; Source: {detailsModal.lead.source || "N/A"}
+                </p>
+              </div>
+              <span
+                className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${getStatusConfig(detailsModal.lead.status).bg} ${getStatusConfig(detailsModal.lead.status).text}`}
+              >
+                <span className={`h-1.5 w-1.5 rounded-full ${getStatusConfig(detailsModal.lead.status).dot}`} />
+                {detailsModal.lead.status}
+              </span>
+            </div>
+
+            <div className="px-6 py-5 space-y-6">
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 text-sm text-gray-800">
+                <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Phone</p>
+                  <p className="mt-1">{detailsModal.lead.phone || "No phone"}</p>
+                </div>
+                <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Email</p>
+                  <p className="mt-1">{detailsModal.lead.email || "Not provided"}</p>
+                </div>
+                <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Gender</p>
+                  <p className="mt-1 capitalize">{detailsModal.lead.gender || "Not specified"}</p>
+                </div>
+                <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Assigned to</p>
+                  <p className="mt-1 text-xs text-gray-600">
+                    {detailsModal.lead.assignedTo?.map((a) => a.user?.name).join(", ") || "Not assigned"}
+                  </p>
+                </div>
+                <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 col-span-full">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Treatments</p>
+                  {detailsModal.lead.treatments && detailsModal.lead.treatments.length > 0 ? (
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {detailsModal.lead.treatments.map((treatment, idx) => (
+                        <span key={idx} className="rounded-full border border-gray-200 bg-white px-3 py-1 text-xs">
+                          {treatment.treatment?.name}
+                          {treatment.subTreatment ? ` • ${treatment.subTreatment}` : ""}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="mt-2 text-sm text-gray-600">No treatments recorded.</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="grid gap-4 lg:grid-cols-2">
+                <div className="rounded-xl border border-gray-200 bg-white p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">
+                    Follow-up history
+                  </p>
+                  {detailsModal.lead.nextFollowUps && detailsModal.lead.nextFollowUps.length > 0 ? (
+                    <ul className="space-y-2 text-sm text-gray-700 max-h-48 overflow-y-auto">
+                      {detailsModal.lead.nextFollowUps.map((follow, index) => (
+                        <li key={index} className="flex items-center justify-between rounded-lg border border-gray-100 px-3 py-2">
+                          <span>{new Date(follow.date).toLocaleString()}</span>
+                          <span className="text-xs text-gray-500">{follow.status || "Scheduled"}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-sm text-gray-600">No follow-up entries found.</p>
+                  )}
+                </div>
+
+                <div className="rounded-xl border border-gray-200 bg-white p-4 space-y-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    Schedule next follow-up
+                  </p>
+                  <input
+                    type="datetime-local"
+                    value={followUpsdate[detailsModal.lead._id] || ""}
+                    onChange={(e) => handleFollowUpdateChange(detailsModal.lead._id, e.target.value)}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-800 focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
+                  />
+                  <button
+                    onClick={() => saveFollowUp(detailsModal.lead._id)}
+                    disabled={
+                      saving[detailsModal.lead._id] ||
+                      !followUpsdate[detailsModal.lead._id] ||
+                      (!permissions.canUpdate && !permissions.canAll)
+                    }
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-sky-500 to-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-sky-200 transition hover:from-sky-600 hover:to-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {saving[detailsModal.lead._id] ? (
+                      <>
+                        <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Updating...
+                      </>
+                    ) : (
+                      <>
+                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                        </svg>
+                        Schedule follow-up
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => {
+                    setActiveLead(detailsModal.lead);
+                    setChatOpen(true);
+                  }}
+                  className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-semibold text-emerald-700 hover:border-emerald-300 transition"
+                >
+                  Open WhatsApp chat
+                </button>
+                {(permissions.canApprove || permissions.canAll) && (
+                  <button
+                    onClick={() => approveLead(detailsModal.lead._id)}
+                    disabled={detailsModal.lead.status === "Approved"}
+                    className={`rounded-lg px-4 py-2 text-xs font-semibold text-white ${
+                      detailsModal.lead.status === "Approved"
+                        ? "bg-gray-400 cursor-not-allowed"
+                        : "bg-green-500 hover:bg-green-600"
+                    }`}
+                  >
+                    Approve lead
+                  </button>
+                )}
+                {(permissions.canDelete || permissions.canAll) && (
+                  <button
+                    onClick={() => requestDeleteLead(detailsModal.lead)}
+                    className="rounded-lg bg-red-500 px-4 py-2 text-xs font-semibold text-white shadow hover:bg-red-600 transition"
+                  >
+                    Delete lead
+                  </button>
+                )}
+                <button
+                  onClick={closeDetailsModal}
+                  className="rounded-lg border border-gray-300 px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50 transition ml-auto"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {confirmModal.isOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setConfirmModal({ isOpen: false, leadId: null, leadName: "" });
+              toast("Deletion cancelled", { duration: 2000, icon: "ℹ️" });
+            }
+          }}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div
+            className="bg-white rounded-lg shadow-2xl max-w-md w-full overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-5 py-4 border-b border-gray-200 flex items-center justify-between bg-red-50">
+              <div>
+                <p className="text-sm font-semibold text-gray-900">Delete Lead</p>
+                <p className="text-xs text-gray-700">"{confirmModal.leadName}"</p>
+              </div>
+              <button
+                onClick={() => {
+                  setConfirmModal({ isOpen: false, leadId: null, leadName: "" });
+                  toast("Deletion cancelled", { duration: 2000, icon: "ℹ️" });
+                }}
+                className="text-gray-500 hover:text-gray-900 text-lg leading-none px-2"
+                aria-label="Close confirmation dialog"
+              >
+                ×
+              </button>
+            </div>
+            <div className="p-5 text-sm text-gray-700 space-y-2">
+              <p>Are you sure you want to delete this lead? This action cannot be undone.</p>
+              <p className="text-xs text-gray-600">All follow-up history will be permanently removed.</p>
+            </div>
+            <div className="flex gap-2 px-5 pb-5">
+              <button
+                onClick={() => {
+                  setConfirmModal({ isOpen: false, leadId: null, leadName: "" });
+                  toast("Deletion cancelled", { duration: 2000, icon: "ℹ️" });
+                }}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={deleteLead}
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-semibold hover:bg-red-700 transition-colors"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 };
 

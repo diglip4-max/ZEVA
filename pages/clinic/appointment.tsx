@@ -1,11 +1,12 @@
 "use client";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import axios from "axios";
 import withClinicAuth from "../../components/withClinicAuth";
 import ClinicLayout from "../../components/ClinicLayout";
 import type { NextPageWithLayout } from "../_app";
-import { Loader2, Calendar, Clock } from "lucide-react";
+import { Loader2, Calendar, Clock, User } from "lucide-react";
 import AppointmentBookingModal from "../../components/AppointmentBookingModal";
+import { Toaster, toast } from "react-hot-toast";
 
 interface DoctorStaff {
   _id: string;
@@ -44,7 +45,7 @@ interface TimeSlot {
 
 const ROW_INTERVAL_MINUTES = 30;
 const SLOT_INTERVAL_MINUTES = 15;
-const ROW_HEIGHT_PX = 64;
+const ROW_HEIGHT_PX = 48;
 const SUB_SLOT_HEIGHT_PX = ROW_HEIGHT_PX / 2;
 
 function timeStringToMinutes(time24: string): number {
@@ -72,6 +73,11 @@ interface Appointment {
   _id: string;
   patientId: string;
   patientName: string;
+  patientInvoiceNumber?: string | null;
+  patientEmrNumber?: string | null;
+  patientGender?: string | null;
+  patientEmail?: string | null;
+  patientMobileNumber?: string | null;
   doctorId: string;
   doctorName: string;
   roomId: string;
@@ -220,6 +226,18 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
     doctorName: string;
     position: { top: number; left: number };
   } | null>(null);
+  const [visibleDoctorIds, setVisibleDoctorIds] = useState<string[]>([]);
+  const [visibleRoomIds, setVisibleRoomIds] = useState<string[]>([]);
+  const [doctorFilterOpen, setDoctorFilterOpen] = useState(false);
+  const [roomFilterOpen, setRoomFilterOpen] = useState(false);
+  const doctorFilterTouchedRef = useRef(false);
+  const roomFilterTouchedRef = useRef(false);
+  const doctorFilterRef = useRef<HTMLDivElement | null>(null);
+  const roomFilterRef = useRef<HTMLDivElement | null>(null);
+  const [hoveredAppointment, setHoveredAppointment] = useState<{
+    appointment: Appointment;
+    position: { top: number; left: number };
+  } | null>(null);
 
   function getAuthHeaders(): Record<string, string> {
     if (typeof window === "undefined") return {};
@@ -255,17 +273,15 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
       if (res.data.success) {
         setDoctorTreatmentsMap((prev) => ({ ...prev, [doctorId]: res.data.treatments || [] }));
       } else {
-        setDoctorTreatmentsError((prev) => ({
-          ...prev,
-          [doctorId]: res.data.message || "Failed to load doctor details",
-        }));
+        const errorMsg = res.data.message || "Failed to load doctor details";
+        setDoctorTreatmentsError((prev) => ({ ...prev, [doctorId]: errorMsg }));
+        toast.error(errorMsg, { duration: 3000 });
       }
     } catch (err: any) {
       console.error("Error loading doctor treatments", err);
-      setDoctorTreatmentsError((prev) => ({
-        ...prev,
-        [doctorId]: err.response?.data?.message || "Failed to load doctor details",
-      }));
+      const errorMsg = err.response?.data?.message || "Failed to load doctor details";
+      setDoctorTreatmentsError((prev) => ({ ...prev, [doctorId]: errorMsg }));
+      toast.error(errorMsg, { duration: 3000 });
     } finally {
       setDoctorTreatmentsLoading((prev) => ({ ...prev, [doctorId]: false }));
     }
@@ -281,17 +297,15 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
       if (res.data.success) {
         setDoctorDepartmentsMap((prev) => ({ ...prev, [doctorId]: res.data.departments || [] }));
       } else {
-        setDoctorDepartmentsError((prev) => ({
-          ...prev,
-          [doctorId]: res.data.message || "Unable to load departments",
-        }));
+        const errorMsg = res.data.message || "Unable to load departments";
+        setDoctorDepartmentsError((prev) => ({ ...prev, [doctorId]: errorMsg }));
+        toast.error(errorMsg, { duration: 3000 });
       }
     } catch (err: any) {
       console.error("Error loading doctor departments", err);
-      setDoctorDepartmentsError((prev) => ({
-        ...prev,
-        [doctorId]: err.response?.data?.message || "Unable to load departments",
-      }));
+      const errorMsg = err.response?.data?.message || "Unable to load departments";
+      setDoctorDepartmentsError((prev) => ({ ...prev, [doctorId]: errorMsg }));
+      toast.error(errorMsg, { duration: 3000 });
     } finally {
       setDoctorDepartmentsLoading((prev) => ({ ...prev, [doctorId]: false }));
     }
@@ -348,12 +362,17 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
             setTimeSlots(slots);
             setClosingMinutes(timeStringToMinutes(defaultEnd));
           }
+          toast.success("Appointment schedule loaded successfully", { duration: 2000 });
         } else {
-          setError(res.data.message || "Failed to load appointment data");
+          const errorMsg = res.data.message || "Failed to load appointment data";
+          setError(errorMsg);
+          toast.error(errorMsg, { duration: 4000 });
         }
       } catch (err: any) {
         console.error("Error loading appointment data", err);
-        setError(err.response?.data?.message || "Failed to load appointment data");
+        const errorMsg = err.response?.data?.message || "Failed to load appointment data";
+        setError(errorMsg);
+        toast.error(errorMsg, { duration: 4000 });
       } finally {
         setLoading(false);
       }
@@ -361,6 +380,43 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
 
     loadAppointmentData();
   }, [routeContext]);
+
+  useEffect(() => {
+    setVisibleDoctorIds((prev) => {
+      if (doctorStaff.length === 0) return [];
+      if (!doctorFilterTouchedRef.current || prev.length === 0) {
+        return doctorStaff.map((doc) => doc._id);
+      }
+      const doctorIdSet = new Set(doctorStaff.map((doc) => doc._id));
+      return prev.filter((id) => doctorIdSet.has(id));
+    });
+  }, [doctorStaff]);
+
+  useEffect(() => {
+    setVisibleRoomIds((prev) => {
+      if (rooms.length === 0) return [];
+      if (!roomFilterTouchedRef.current || prev.length === 0) {
+        return rooms.map((room) => room._id);
+      }
+      const roomIdSet = new Set(rooms.map((room) => room._id));
+      return prev.filter((id) => roomIdSet.has(id));
+    });
+  }, [rooms]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (doctorFilterRef.current && !doctorFilterRef.current.contains(event.target as Node)) {
+        setDoctorFilterOpen(false);
+      }
+      if (roomFilterRef.current && !roomFilterRef.current.contains(event.target as Node)) {
+        setRoomFilterOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
 
   // Fetch appointments when date changes
   useEffect(() => {
@@ -371,10 +427,18 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
         });
 
         if (res.data.success) {
-          setAppointments(res.data.appointments || []);
+          const appointmentsData = res.data.appointments || [];
+          setAppointments(appointmentsData);
+          if (appointmentsData.length > 0) {
+            toast.success(`Loaded ${appointmentsData.length} appointment(s)`, { duration: 2000 });
+          }
+        } else {
+          toast.error(res.data.message || "Failed to load appointments", { duration: 3000 });
         }
       } catch (err: any) {
         console.error("Error loading appointments", err);
+        const errorMsg = err.response?.data?.message || "Failed to load appointments";
+        toast.error(errorMsg, { duration: 3000 });
       }
     };
 
@@ -391,6 +455,46 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
       .join("")
       .toUpperCase()
       .slice(0, 2);
+  };
+
+  const handleToggleDoctorVisibility = (doctorId: string) => {
+    doctorFilterTouchedRef.current = true;
+    setVisibleDoctorIds((prev) => {
+      if (prev.includes(doctorId)) {
+        return prev.filter((id) => id !== doctorId);
+      }
+      return [...prev, doctorId];
+    });
+  };
+
+  const handleToggleRoomVisibility = (roomId: string) => {
+    roomFilterTouchedRef.current = true;
+    setVisibleRoomIds((prev) => {
+      if (prev.includes(roomId)) {
+        return prev.filter((id) => id !== roomId);
+      }
+      return [...prev, roomId];
+    });
+  };
+
+  const handleSelectAllDoctors = () => {
+    doctorFilterTouchedRef.current = true;
+    setVisibleDoctorIds(doctorStaff.map((doc) => doc._id));
+  };
+
+  const handleClearDoctors = () => {
+    doctorFilterTouchedRef.current = true;
+    setVisibleDoctorIds([]);
+  };
+
+  const handleSelectAllRooms = () => {
+    roomFilterTouchedRef.current = true;
+    setVisibleRoomIds(rooms.map((room) => room._id));
+  };
+
+  const handleClearRooms = () => {
+    roomFilterTouchedRef.current = true;
+    setVisibleRoomIds([]);
   };
 
   // Get appointments for a specific doctor and row
@@ -464,6 +568,8 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
     activeDoctorTooltip && doctorDepartmentsLoading[activeDoctorTooltip.doctorId];
   const tooltipDeptError =
     activeDoctorTooltip && doctorDepartmentsError[activeDoctorTooltip.doctorId];
+  const visibleDoctors = doctorStaff.filter((doc) => visibleDoctorIds.includes(doc._id));
+  const visibleRooms = rooms.filter((room) => visibleRoomIds.includes(room._id));
 
   const handleBookingSuccess = () => {
     // Reload appointments
@@ -474,17 +580,15 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
       .then((res) => {
         if (res.data.success) {
           const appointmentsData = res.data.appointments || [];
-          // Debug: Log bookedFrom values after reload
-          console.log("=== RELOADED APPOINTMENTS AFTER BOOKING ===");
-          appointmentsData.forEach((apt: Appointment) => {
-            console.log(`Appointment ${apt._id}: bookedFrom="${apt.bookedFrom}", doctorId="${apt.doctorId}", roomId="${apt.roomId}"`);
-          });
-          console.log("============================================");
           setAppointments(appointmentsData);
+          toast.success("Appointment booked successfully!", { duration: 3000 });
+        } else {
+          toast.error(res.data.message || "Failed to reload appointments", { duration: 3000 });
         }
       })
       .catch((err) => {
         console.error("Error reloading appointments", err);
+        toast.error(err.response?.data?.message || "Failed to reload appointments", { duration: 3000 });
       });
   };
 
@@ -493,7 +597,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="flex flex-col items-center gap-3">
           <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-          <p className="text-gray-600">Loading appointment schedule...</p>
+          <p className="text-gray-700">Loading appointment schedule...</p>
         </div>
       </div>
     );
@@ -510,33 +614,120 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
     );
   }
 
+  // Get status color for appointments
+  const getStatusColor = (status: string): { bg: string; text: string; border: string } => {
+    const statusLower = status.toLowerCase();
+    switch (statusLower) {
+      case "booked":
+        return { bg: "bg-blue-500", text: "text-white", border: "border-blue-600" };
+      case "enquiry":
+        return { bg: "bg-amber-500", text: "text-white", border: "border-amber-600" };
+      case "discharge":
+        return { bg: "bg-green-500", text: "text-white", border: "border-green-600" };
+      case "arrived":
+        return { bg: "bg-purple-500", text: "text-white", border: "border-purple-600" };
+      case "consultation":
+        return { bg: "bg-indigo-500", text: "text-white", border: "border-indigo-600" };
+      case "cancelled":
+        return { bg: "bg-red-500", text: "text-white", border: "border-red-600" };
+      case "approved":
+        return { bg: "bg-emerald-500", text: "text-white", border: "border-emerald-600" };
+      case "rescheduled":
+        return { bg: "bg-orange-500", text: "text-white", border: "border-orange-600" };
+      case "waiting":
+        return { bg: "bg-yellow-500", text: "text-white", border: "border-yellow-600" };
+      case "rejected":
+        return { bg: "bg-rose-500", text: "text-white", border: "border-rose-600" };
+      case "completed":
+        return { bg: "bg-teal-500", text: "text-white", border: "border-teal-600" };
+      default:
+        return { bg: "bg-gray-500", text: "text-white", border: "border-gray-600" };
+    }
+  };
+
   return (
-    <div className="space-y-6">
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
-        <div className="flex flex-col gap-1 mb-6">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+    <div className="space-y-2">
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          duration: 3000,
+          style: {
+            background: "#1f2937",
+            color: "#f9fafb",
+            fontSize: "12px",
+            padding: "8px 12px",
+            borderRadius: "6px",
+          },
+          success: {
+            iconTheme: {
+              primary: "#10b981",
+              secondary: "#fff",
+            },
+            style: {
+              background: "#10b981",
+              color: "#fff",
+            },
+          },
+          error: {
+            iconTheme: {
+              primary: "#ef4444",
+              secondary: "#fff",
+            },
+            style: {
+              background: "#ef4444",
+              color: "#fff",
+            },
+          },
+          warning: {
+            iconTheme: {
+              primary: "#f59e0b",
+              secondary: "#fff",
+            },
+            style: {
+              background: "#f59e0b",
+              color: "#fff",
+            },
+          },
+          info: {
+            iconTheme: {
+              primary: "#3b82f6",
+              secondary: "#fff",
+            },
+            style: {
+              background: "#3b82f6",
+              color: "#fff",
+            },
+          },
+        }}
+      />
+      <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-2 sm:p-3">
+        <div className="flex flex-col gap-2 mb-2">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2">
             <div>
-              <h1 className="text-2xl font-semibold text-gray-900">Appointment Schedule</h1>
-              <p className="text-sm text-gray-500">
+              <h1 className="text-base sm:text-lg font-semibold text-gray-900">Appointment Schedule</h1>
+              <p className="text-xs text-gray-700">
                 {clinic?.name} • {clinic?.timings || "No timings set"}
               </p>
             </div>
-            <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-              <div className="flex items-center gap-2">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+              <div className="flex items-center gap-1.5">
                 <button
                   onClick={() => {
                     const current = new Date(selectedDate);
                     current.setDate(current.getDate() - 1);
                     setSelectedDate(current.toISOString().split("T")[0]);
                   }}
-                  className="px-3 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50"
+                  className="px-2 py-1 rounded border border-gray-300 text-xs font-medium text-gray-700 hover:bg-gray-50 transition-colors"
                   type="button"
                 >
-                  Previous
+                  Prev
                 </button>
                 <button
-                  onClick={() => setSelectedDate(new Date().toISOString().split("T")[0])}
-                  className="px-3 py-2 rounded-lg border border-blue-600 text-blue-600 hover:bg-blue-50"
+                  onClick={() => {
+                    setSelectedDate(new Date().toISOString().split("T")[0]);
+                    toast.success("Switched to today", { duration: 2000 });
+                  }}
+                  className="px-2 py-1 rounded border border-gray-900 bg-gray-900 text-xs font-medium text-white hover:bg-gray-800 transition-colors"
                   type="button"
                 >
                   Today
@@ -547,105 +738,217 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                     current.setDate(current.getDate() + 1);
                     setSelectedDate(current.toISOString().split("T")[0]);
                   }}
-                  className="px-3 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50"
+                  className="px-2 py-1 rounded border border-gray-300 text-xs font-medium text-gray-700 hover:bg-gray-50 transition-colors"
                   type="button"
                 >
                   Next
                 </button>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Select Date</label>
+                <label className="block text-xs font-medium text-gray-700 mb-0.5">Date</label>
                 <input
                   type="date"
                   value={selectedDate}
-                  onChange={(e) => setSelectedDate(e.target.value)}
-                  className="border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  onChange={(e) => {
+                    setSelectedDate(e.target.value);
+                    toast(`Viewing appointments for ${new Date(e.target.value).toLocaleDateString()}`, {
+                      duration: 2000,
+                      icon: "ℹ️",
+                    });
+                  }}
+                  className="border border-gray-300 rounded px-2 py-1 text-xs focus:ring-1 focus:ring-gray-900 focus:border-gray-900 transition-all"
                 />
               </div>
             </div>
           </div>
+          {(doctorStaff.length > 0 || rooms.length > 0) && (
+            <div className="flex flex-wrap gap-1.5">
+              {doctorStaff.length > 0 && (
+                <div className="relative" ref={doctorFilterRef}>
+                  <button
+                    type="button"
+                    onClick={() => setDoctorFilterOpen((prev) => !prev)}
+                    className="inline-flex items-center gap-1 rounded border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-gray-900"
+                  >
+                    Doctors
+                    <span className="text-[10px] text-gray-600">
+                      ({visibleDoctorIds.length}/{doctorStaff.length})
+                    </span>
+                  </button>
+                  {doctorFilterOpen && (
+                    <div className="absolute z-40 mt-1 w-48 rounded border border-gray-200 bg-white p-2 shadow-lg">
+                      <div className="mb-1 flex items-center justify-between text-[10px] text-gray-700">
+                        <span>Doctors</span>
+                        <div className="flex gap-1.5">
+                          <button
+                            type="button"
+                            className="text-blue-600 hover:text-blue-800 text-[10px]"
+                            onClick={handleSelectAllDoctors}
+                          >
+                            All
+                          </button>
+                          <button
+                            type="button"
+                            className="text-blue-600 hover:text-blue-800 text-[10px]"
+                            onClick={handleClearDoctors}
+                          >
+                            Clear
+                          </button>
+                        </div>
+                      </div>
+                      <div className="max-h-48 space-y-1 overflow-y-auto pr-0.5">
+                        {doctorStaff.map((doctor) => (
+                          <label key={doctor._id} className="flex items-center gap-1.5 text-xs text-gray-700">
+                            <input
+                              type="checkbox"
+                              className="h-3 w-3 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                              checked={visibleDoctorIds.includes(doctor._id)}
+                              onChange={() => handleToggleDoctorVisibility(doctor._id)}
+                            />
+                            <span className="truncate">{doctor.name}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+              {rooms.length > 0 && (
+                <div className="relative" ref={roomFilterRef}>
+                  <button
+                    type="button"
+                    onClick={() => setRoomFilterOpen((prev) => !prev)}
+                    className="inline-flex items-center gap-1 rounded border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-gray-900"
+                  >
+                    Rooms
+                    <span className="text-[10px] text-gray-600">
+                      ({visibleRoomIds.length}/{rooms.length})
+                    </span>
+                  </button>
+                  {roomFilterOpen && (
+                    <div className="absolute z-40 mt-1 w-48 rounded border border-gray-200 bg-white p-2 shadow-lg">
+                      <div className="mb-1 flex items-center justify-between text-[10px] text-gray-700">
+                        <span>Rooms</span>
+                        <div className="flex gap-1.5">
+                          <button
+                            type="button"
+                            className="text-blue-600 hover:text-blue-800 text-[10px]"
+                            onClick={handleSelectAllRooms}
+                          >
+                            All
+                          </button>
+                          <button
+                            type="button"
+                            className="text-blue-600 hover:text-blue-800 text-[10px]"
+                            onClick={handleClearRooms}
+                          >
+                            Clear
+                          </button>
+                        </div>
+                      </div>
+                      <div className="max-h-48 space-y-1 overflow-y-auto pr-0.5">
+                        {rooms.map((room) => (
+                          <label key={room._id} className="flex items-center gap-1.5 text-xs text-gray-700">
+                            <input
+                              type="checkbox"
+                              className="h-3 w-3 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                              checked={visibleRoomIds.includes(room._id)}
+                              onChange={() => handleToggleRoomVisibility(room._id)}
+                            />
+                            <span className="truncate">{room.name}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {doctorStaff.length === 0 && rooms.length === 0 ? (
-          <div className="text-center py-16">
-            <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 text-xl">
+          <div className="text-center py-8">
+            <div className="w-8 h-8 mx-auto mb-2 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 text-sm">
               👨‍⚕️
             </div>
-            <p className="text-gray-600">No doctor staff or rooms available.</p>
-            <p className="text-sm text-gray-500 mt-2">Add doctor staff and rooms to view their schedules.</p>
+            <p className="text-xs text-gray-700">No doctor staff or rooms available.</p>
+            <p className="text-[10px] text-gray-700 mt-1">Add doctor staff and rooms to view their schedules.</p>
           </div>
         ) : (
-          <div className="border border-gray-200 rounded-xl overflow-hidden">
-            {/* Header with doctor names and rooms */}
-            <div className="flex bg-gray-50 border-b border-gray-200">
-              <div className="w-32 flex-shrink-0 border-r border-gray-200 p-3">
-                <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
-                  <Clock className="w-4 h-4" />
-                  <span>Time</span>
+          <div className="border border-gray-200 rounded overflow-hidden bg-white">
+            {/* Scrollable container */}
+            <div className="overflow-x-auto max-h-[75vh] overflow-y-auto">
+              {/* Header with doctor names and rooms */}
+              <div className="flex bg-gray-50 border-b border-gray-200 sticky top-0 z-20 min-w-max">
+                <div className="w-20 sm:w-24 flex-shrink-0 border-r border-gray-200 p-1 sm:p-1.5 bg-white sticky left-0 z-30">
+                  <div className="flex items-center gap-1 text-[10px] sm:text-xs font-semibold text-gray-900">
+                    <Clock className="w-3 h-3" />
+                    <span>Time</span>
+                  </div>
                 </div>
+                {/* Doctor columns */}
+                {visibleDoctors.map((doctor) => (
+                  <div
+                    key={doctor._id}
+                    className="flex-1 min-w-[120px] sm:min-w-[140px] border-r border-gray-200 p-1 sm:p-1.5 relative bg-white"
+                    onMouseEnter={(e) => handleDoctorMouseEnter(doctor, e)}
+                    onMouseLeave={handleDoctorMouseLeave}
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-700 font-semibold text-[10px] sm:text-xs flex-shrink-0">
+                        {getInitials(doctor.name)}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[10px] sm:text-xs font-semibold text-gray-900 truncate">{doctor.name}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                {/* Room columns */}
+                {visibleRooms.map((room) => (
+                  <div
+                    key={room._id}
+                    className="flex-1 min-w-[120px] sm:min-w-[140px] border-r border-gray-200 last:border-r-0 p-1 sm:p-1.5 bg-white"
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-700 font-semibold text-[10px] sm:text-xs flex-shrink-0">
+                        🏥
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[10px] sm:text-xs font-semibold text-gray-900 truncate">{room.name}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
-              {/* Doctor columns */}
-              {doctorStaff.map((doctor) => (
-                <div
-                  key={doctor._id}
-                  className="flex-1 min-w-[180px] border-r border-gray-200 p-3 relative"
-                  onMouseEnter={(e) => handleDoctorMouseEnter(doctor, e)}
-                  onMouseLeave={handleDoctorMouseLeave}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-semibold text-sm flex-shrink-0">
-                      {getInitials(doctor.name)}
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-gray-900 truncate">{doctor.name}</p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-              {/* Room columns */}
-              {rooms.map((room) => (
-                <div
-                  key={room._id}
-                  className="flex-1 min-w-[180px] border-r border-gray-200 last:border-r-0 p-3"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-green-700 font-semibold text-sm flex-shrink-0">
-                      🏥
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-gray-900 truncate">{room.name}</p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
 
-            {/* Time slots grid */}
-            <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
+              {/* Time slots grid */}
+              <div className="min-w-max">
               {timeSlots.map((slot) => {
                 const rowStartMinutes = timeStringToMinutes(slot.time);
                 return (
-                  <div key={slot.time} className="flex border-b border-gray-100">
+                  <div key={slot.time} className="flex border-b border-gray-100 hover:bg-gray-50/50 transition-colors min-w-max">
                     {/* Time column */}
                     <div
-                      className="w-32 flex-shrink-0 border-r border-gray-200 p-3 bg-gray-50 relative"
+                      className="w-20 sm:w-24 flex-shrink-0 border-r border-gray-200 p-1 sm:p-1.5 bg-white relative sticky left-0 z-10"
                       style={{ height: ROW_HEIGHT_PX }}
                     >
-                      <p className="text-sm font-medium text-gray-700">{slot.displayTime}</p>
-                      <div className="absolute left-0 right-0 top-1/2 border-t border-blue-100" />
+                      <p className="text-[10px] sm:text-xs font-semibold text-gray-900">{slot.displayTime}</p>
+                      <div className="absolute left-0 right-0 top-1/2 border-t border-gray-200" />
                     </div>
 
-                    {/* Doctor columns */}
-                    {doctorStaff.map((doctor) => {
+                          {/* Doctor columns */}
+                          {visibleDoctors.map((doctor) => {
                       const rowAppointments = getAppointmentsForRow(doctor._id, slot.time);
 
                       return (
                         <div
                           key={`${slot.time}-${doctor._id}`}
-                          className="flex-1 min-w-[180px] border-r border-gray-200 relative"
+                          className="flex-1 min-w-[120px] sm:min-w-[140px] border-r border-gray-200 relative bg-white"
                           style={{ height: ROW_HEIGHT_PX }}
                         >
-                          <div className="absolute left-0 right-0 top-1/2 border-t border-blue-100 pointer-events-none" />
+                          <div className="absolute left-0 right-0 top-1/2 border-t border-gray-200 pointer-events-none" />
                           <div className="flex flex-col h-full">
                             {[0, SLOT_INTERVAL_MINUTES].map((offset) => {
                               const subSlotTime = addMinutesToTime(slot.time, offset);
@@ -668,17 +971,17 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                               return (
                                 <div
                                   key={`${slot.time}-${doctor._id}-${offset}`}
-                                  className={`flex-1 transition-colors ${
+                                  className={`flex-1 transition-all ${
                                     canBookSlot
-                                      ? "cursor-pointer hover:bg-blue-50"
+                                      ? "cursor-pointer hover:bg-blue-50 border-l-2 border-transparent hover:border-blue-400"
                                       : isSubSlotOccupied
-                                      ? "bg-purple-50 text-purple-400 cursor-not-allowed"
-                                      : "bg-gray-100 text-gray-400 cursor-not-allowed"
+                                      ? "bg-gray-50 cursor-not-allowed"
+                                      : "bg-gray-50 cursor-not-allowed"
                                   }`}
                                   style={{ height: SUB_SLOT_HEIGHT_PX }}
                                   title={
                                     canBookSlot
-                                      ? undefined
+                                      ? `Click to book appointment at ${minutesToDisplay(subStartMinutes)}`
                                       : isPastDay
                                       ? "Cannot book appointments for past dates"
                                       : slotWithinClosing
@@ -696,7 +999,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                                         slotTime: subSlotTime,
                                         slotDisplayTime: minutesToDisplay(subStartMinutes),
                                         selectedDate,
-                                        bookedFrom: "doctor", // Mark as booked from doctor column
+                                        bookedFrom: "doctor",
                                       });
                                     }
                                   }}
@@ -707,19 +1010,6 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
 
                           {rowAppointments.length > 0
                             ? rowAppointments.map((apt) => {
-                                const tooltip = [
-                                  `Patient: ${apt.patientName}`,
-                                  `Doctor: ${apt.doctorName}`,
-                                  `Room: ${apt.roomName}`,
-                                  `Status: ${apt.status}`,
-                                  `Follow: ${apt.followType}`,
-                                  `Time: ${formatTime(apt.fromTime)} - ${formatTime(apt.toTime)}`,
-                                  apt.referral ? `Referral: ${apt.referral}` : "",
-                                  apt.emergency ? `Emergency: ${apt.emergency}` : "",
-                                  apt.notes ? `Notes: ${apt.notes}` : "",
-                                ]
-                                  .filter(Boolean)
-                                  .join("\n");
                                 const fromTotal = timeStringToMinutes(apt.fromTime);
                                 const toTotal = timeStringToMinutes(apt.toTime);
                                 const visibleStart = Math.max(fromTotal, rowStartMinutes);
@@ -731,29 +1021,82 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                                   16,
                                   ((visibleEnd - visibleStart) / ROW_INTERVAL_MINUTES) * ROW_HEIGHT_PX
                                 );
-                                const statusColors = {
-                                  booked: "bg-purple-500",
-                                  enquiry: "bg-yellow-500",
-                                  discharge: "bg-green-500",
-                                };
+                                const statusColor = getStatusColor(apt.status);
+                                const isShortAppointment = heightPx < 32;
                                 return (
                                   <div
                                     key={apt._id}
-                                    className={`absolute left-1 right-1 rounded px-2 py-1 text-white text-xs font-medium ${
-                                      statusColors[apt.status as keyof typeof statusColors] ||
-                                      "bg-purple-500"
-                                    }`}
+                                    className={`absolute left-0.5 right-0.5 rounded shadow-sm border ${statusColor.bg} ${statusColor.text} ${statusColor.border} overflow-hidden transition-all hover:shadow-md hover:scale-[1.01] cursor-pointer`}
                                     style={{
-                                      top: `${topOffset + 4}px`,
-                                      height: `${heightPx - 8}px`,
+                                      top: `${topOffset + 1}px`,
+                                      height: `${heightPx - 2}px`,
                                       zIndex: 10,
                                     }}
-                                    title={tooltip}
+                                    onMouseEnter={(e) => {
+                                      const rect = e.currentTarget.getBoundingClientRect();
+                                      const tooltipWidth = 200;
+                                      const tooltipHeight = 300;
+                                      const spacing = 8;
+                                      
+                                      // Calculate position relative to viewport
+                                      let left = rect.right + spacing;
+                                      let top = rect.top;
+                                      
+                                      // Check if tooltip would go off right edge
+                                      if (left + tooltipWidth > window.innerWidth) {
+                                        // Position to the left of the appointment
+                                        left = rect.left - tooltipWidth - spacing;
+                                      }
+                                      
+                                      // Check if tooltip would go off bottom edge
+                                      if (top + tooltipHeight > window.innerHeight) {
+                                        top = window.innerHeight - tooltipHeight - 10;
+                                      }
+                                      
+                                      // Check if tooltip would go off top edge
+                                      if (top < 10) {
+                                        top = 10;
+                                      }
+                                      
+                                      // Check if tooltip would go off left edge
+                                      if (left < 10) {
+                                        left = 10;
+                                      }
+                                      
+                                      setHoveredAppointment({
+                                        appointment: apt,
+                                        position: {
+                                          top,
+                                          left,
+                                        },
+                                      });
+                                    }}
+                                    onMouseLeave={() => {
+                                      setHoveredAppointment(null);
+                                    }}
                                     onClick={(e) => {
                                       e.stopPropagation();
                                     }}
                                   >
-                                    <p className="truncate font-semibold">{apt.patientName}</p>
+                                    <div className="h-full flex flex-col justify-between p-1">
+                                      <div className="flex items-start gap-1 min-w-0">
+                                        <div className="flex-shrink-0 mt-0.5">
+                                          <div className={`w-1 h-1 rounded-full ${statusColor.bg} ${statusColor.border} border`} />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                          <p className="truncate font-bold text-[10px] sm:text-xs leading-tight">{apt.patientName}</p>
+                                          {!isShortAppointment && apt.patientEmrNumber && (
+                                            <p className="truncate text-[9px] opacity-85 mt-0.5 font-medium">EMR: {apt.patientEmrNumber}</p>
+                                          )}
+                                        </div>
+                                      </div>
+                                      <div className="flex items-center gap-0.5 mt-auto">
+                                        <Clock className="w-2 h-2 opacity-90 flex-shrink-0" />
+                                        <p className="truncate text-[9px] font-semibold opacity-95 leading-tight">
+                                          {formatTime(apt.fromTime)} - {formatTime(apt.toTime)}
+                                        </p>
+                                      </div>
+                                    </div>
                                   </div>
                                 );
                               })
@@ -762,17 +1105,17 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                       );
                     })}
 
-                    {/* Room columns */}
-                    {rooms.map((room) => {
+                          {/* Room columns */}
+                          {visibleRooms.map((room) => {
                       const roomAppointments = getRoomAppointmentsForRow(room._id, slot.time);
 
                       return (
                         <div
                           key={`${slot.time}-${room._id}`}
-                          className="flex-1 min-w-[180px] border-r border-gray-200 relative"
+                          className="flex-1 min-w-[120px] sm:min-w-[140px] border-r border-gray-200 relative bg-white"
                           style={{ height: ROW_HEIGHT_PX }}
                         >
-                          <div className="absolute left-0 right-0 top-1/2 border-t border-blue-100 pointer-events-none" />
+                          <div className="absolute left-0 right-0 top-1/2 border-t border-gray-200 pointer-events-none" />
                           <div className="flex flex-col h-full">
                             {[0, SLOT_INTERVAL_MINUTES].map((offset) => {
                               const subSlotTime = addMinutesToTime(slot.time, offset);
@@ -795,17 +1138,17 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                               return (
                                 <div
                                   key={`${slot.time}-${room._id}-${offset}`}
-                                  className={`flex-1 transition-colors ${
+                                  className={`flex-1 transition-all ${
                                     canBookSlot
-                                      ? "cursor-pointer hover:bg-green-50"
+                                      ? "cursor-pointer hover:bg-emerald-50 border-l-2 border-transparent hover:border-emerald-400"
                                       : isSubSlotOccupied
-                                      ? "bg-purple-50 text-purple-400 cursor-not-allowed"
-                                      : "bg-gray-100 text-gray-400 cursor-not-allowed"
+                                      ? "bg-gray-50 cursor-not-allowed"
+                                      : "bg-gray-50 cursor-not-allowed"
                                   }`}
                                   style={{ height: SUB_SLOT_HEIGHT_PX }}
                                   title={
                                     canBookSlot
-                                      ? undefined
+                                      ? `Click to book appointment at ${minutesToDisplay(subStartMinutes)}`
                                       : isPastDay
                                       ? "Cannot book appointments for past dates"
                                       : slotWithinClosing
@@ -823,7 +1166,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                                         slotTime: subSlotTime,
                                         slotDisplayTime: minutesToDisplay(subStartMinutes),
                                         selectedDate,
-                                        bookedFrom: "room", // Mark as booked from room column
+                                        bookedFrom: "room",
                                       });
                                     }
                                   }}
@@ -834,19 +1177,6 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
 
                           {roomAppointments.length > 0
                             ? roomAppointments.map((apt) => {
-                                const tooltip = [
-                                  `Patient: ${apt.patientName}`,
-                                  `Doctor: ${apt.doctorName}`,
-                                  `Room: ${apt.roomName}`,
-                                  `Status: ${apt.status}`,
-                                  `Follow: ${apt.followType}`,
-                                  `Time: ${formatTime(apt.fromTime)} - ${formatTime(apt.toTime)}`,
-                                  apt.referral ? `Referral: ${apt.referral}` : "",
-                                  apt.emergency ? `Emergency: ${apt.emergency}` : "",
-                                  apt.notes ? `Notes: ${apt.notes}` : "",
-                                ]
-                                  .filter(Boolean)
-                                  .join("\n");
                                 const fromTotal = timeStringToMinutes(apt.fromTime);
                                 const toTotal = timeStringToMinutes(apt.toTime);
                                 const visibleStart = Math.max(fromTotal, rowStartMinutes);
@@ -859,29 +1189,82 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                                   ((visibleEnd - visibleStart) / ROW_INTERVAL_MINUTES) *
                                     ROW_HEIGHT_PX
                                 );
-                                const statusColors = {
-                                  booked: "bg-purple-500",
-                                  enquiry: "bg-yellow-500",
-                                  discharge: "bg-green-500",
-                                };
+                                const statusColor = getStatusColor(apt.status);
+                                const isShortAppointment = heightPx < 32;
                                 return (
                                   <div
                                     key={apt._id}
-                                    className={`absolute left-1 right-1 rounded px-2 py-1 text-white text-xs font-medium ${
-                                      statusColors[apt.status as keyof typeof statusColors] ||
-                                      "bg-purple-500"
-                                    }`}
+                                    className={`absolute left-0.5 right-0.5 rounded shadow-sm border ${statusColor.bg} ${statusColor.text} ${statusColor.border} overflow-hidden transition-all hover:shadow-md hover:scale-[1.01] cursor-pointer`}
                                     style={{
-                                      top: `${topOffset + 4}px`,
-                                      height: `${heightPx - 8}px`,
+                                      top: `${topOffset + 1}px`,
+                                      height: `${heightPx - 2}px`,
                                       zIndex: 10,
                                     }}
-                                    title={tooltip}
+                                    onMouseEnter={(e) => {
+                                      const rect = e.currentTarget.getBoundingClientRect();
+                                      const tooltipWidth = 200;
+                                      const tooltipHeight = 300;
+                                      const spacing = 8;
+                                      
+                                      // Calculate position relative to viewport
+                                      let left = rect.right + spacing;
+                                      let top = rect.top;
+                                      
+                                      // Check if tooltip would go off right edge
+                                      if (left + tooltipWidth > window.innerWidth) {
+                                        // Position to the left of the appointment
+                                        left = rect.left - tooltipWidth - spacing;
+                                      }
+                                      
+                                      // Check if tooltip would go off bottom edge
+                                      if (top + tooltipHeight > window.innerHeight) {
+                                        top = window.innerHeight - tooltipHeight - 10;
+                                      }
+                                      
+                                      // Check if tooltip would go off top edge
+                                      if (top < 10) {
+                                        top = 10;
+                                      }
+                                      
+                                      // Check if tooltip would go off left edge
+                                      if (left < 10) {
+                                        left = 10;
+                                      }
+                                      
+                                      setHoveredAppointment({
+                                        appointment: apt,
+                                        position: {
+                                          top,
+                                          left,
+                                        },
+                                      });
+                                    }}
+                                    onMouseLeave={() => {
+                                      setHoveredAppointment(null);
+                                    }}
                                     onClick={(e) => {
                                       e.stopPropagation();
                                     }}
                                   >
-                                    <p className="truncate font-semibold">{apt.patientName}</p>
+                                    <div className="h-full flex flex-col justify-between p-1">
+                                      <div className="flex items-start gap-1 min-w-0">
+                                        <div className="flex-shrink-0 mt-0.5">
+                                          <div className={`w-1 h-1 rounded-full ${statusColor.bg} ${statusColor.border} border`} />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                          <p className="truncate font-bold text-[10px] sm:text-xs leading-tight">{apt.patientName}</p>
+                                          {!isShortAppointment && apt.patientEmrNumber && (
+                                            <p className="truncate text-[9px] opacity-85 mt-0.5 font-medium">EMR: {apt.patientEmrNumber}</p>
+                                          )}
+                                        </div>
+                                      </div>
+                                      <div className="flex items-center gap-0.5 mt-auto">
+                                        <Clock className="w-2 h-2 opacity-90 flex-shrink-0" />
+                                        <p className="truncate text-[9px] font-semibold opacity-95 leading-tight">
+                                          {formatTime(apt.fromTime)} - {formatTime(apt.toTime)}
+                                        </p>
+                                      </div>
+                                    </div>
                                   </div>
                                 );
                               })
@@ -892,7 +1275,13 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                   </div>
                 );
               })}
+              </div>
             </div>
+          </div>
+        )}
+        {visibleDoctors.length === 0 && visibleRooms.length === 0 && (doctorStaff.length > 0 || rooms.length > 0) && (
+          <div className="mt-2 rounded border border-dashed border-gray-300 bg-gray-50 p-2 text-center text-xs text-gray-700">
+            No doctor or room columns selected. Use the filters above to choose which schedules to display.
           </div>
         )}
       </div>
@@ -935,16 +1324,16 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                   <p className="text-sm font-semibold text-slate-900">
                     {activeDoctorTooltip.doctorName}
                   </p>
-                  <p className="text-xs text-slate-500">{tooltipDoctor?.email || "No email available"}</p>
+                  <p className="text-xs text-gray-700">{tooltipDoctor?.email || "No email available"}</p>
                 </div>
               </div>
 
-              <div className="space-y-1 text-xs text-slate-600">
-                <p className="font-semibold text-slate-900 text-[11px] uppercase tracking-[0.2em]">
+              <div className="space-y-1 text-xs text-gray-700">
+                <p className="font-semibold text-gray-900 text-[11px] uppercase tracking-[0.2em]">
                   Departments
                 </p>
                 {tooltipDeptLoading ? (
-                  <div className="flex items-center gap-2 text-slate-500">
+                  <div className="flex items-center gap-2 text-gray-700">
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
                     Loading...
                   </div>
@@ -955,23 +1344,23 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                     {tooltipDeptList.map((dept) => (
                       <span
                         key={dept._id}
-                        className="px-2 py-0.5 rounded-full bg-white border border-slate-200 text-[11px] text-slate-600"
+                        className="px-2 py-0.5 rounded-full bg-white border border-gray-200 text-[11px] text-gray-700"
                       >
                         {dept.name}
                       </span>
                     ))}
                   </div>
                 ) : (
-                  <p className="text-xs text-slate-500">Not assigned</p>
+                  <p className="text-xs text-gray-700">Not assigned</p>
                 )}
               </div>
 
               <div>
-                <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-[0.2em] mb-1.5">
+                <p className="text-[11px] font-semibold text-gray-700 uppercase tracking-[0.2em] mb-1.5">
                   Treatments
                 </p>
                 {tooltipLoading ? (
-                  <div className="flex items-center gap-2 text-sm text-slate-500">
+                  <div className="flex items-center gap-2 text-sm text-gray-700">
                     <Loader2 className="w-4 h-4 animate-spin" />
                     Loading treatments...
                   </div>
@@ -982,13 +1371,13 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                     {tooltipTreatments.map((treatment) => (
                       <div
                         key={treatment._id}
-                        className="rounded-lg border border-slate-100 bg-slate-50/60 p-2.5"
+                        className="rounded-lg border border-gray-100 bg-gray-50/60 p-2.5"
                       >
-                        <p className="text-sm font-semibold text-slate-900 truncate">
+                        <p className="text-sm font-semibold text-gray-900 truncate">
                           {treatment.treatmentName}
                         </p>
                         {treatment.departmentName && (
-                          <p className="text-xs text-slate-500 mt-0.5">
+                          <p className="text-xs text-gray-700 mt-0.5">
                             Department: <span className="font-medium">{treatment.departmentName}</span>
                           </p>
                         )}
@@ -997,7 +1386,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                             {treatment.subcategories.map((sub, idx) => (
                               <span
                                 key={sub.slug || `${treatment._id}-${idx}`}
-                                className="px-2 py-0.5 rounded-full bg-white border border-slate-200 text-[11px] text-slate-600"
+                                className="px-2 py-0.5 rounded-full bg-white border border-gray-200 text-[11px] text-gray-700"
                               >
                                 {sub.name}
                               </span>
@@ -1008,9 +1397,131 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                     ))}
                   </div>
                 ) : (
-                  <p className="text-xs text-slate-500">No treatments assigned yet.</p>
+                  <p className="text-xs text-gray-700">No treatments assigned yet.</p>
                 )}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Appointment Hover Tooltip */}
+      {hoveredAppointment && (
+        <div
+          className="fixed z-[90] w-[200px] max-w-[85vw] pointer-events-none"
+          style={{
+            top: hoveredAppointment.position.top,
+            left: hoveredAppointment.position.left,
+          }}
+        >
+          <div className="bg-white rounded-md shadow-xl border border-gray-200 overflow-hidden">
+            {/* Header */}
+            <div className={`px-2 py-1 ${getStatusColor(hoveredAppointment.appointment.status).bg} ${getStatusColor(hoveredAppointment.appointment.status).text}`}>
+              <div className="flex items-center justify-between gap-1">
+                <p className="text-[10px] font-bold truncate">{hoveredAppointment.appointment.patientName}</p>
+                <span className="text-[9px] font-semibold opacity-90 ml-1">{hoveredAppointment.appointment.status.toUpperCase()}</span>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="p-2 space-y-1 max-h-[300px] overflow-y-auto">
+              {/* Time */}
+              <div className="flex items-center gap-1.5">
+                <Clock className="w-2.5 h-2.5 text-gray-500 flex-shrink-0" />
+                <p className="text-[10px] text-gray-700 font-semibold">
+                  {formatTime(hoveredAppointment.appointment.fromTime)} - {formatTime(hoveredAppointment.appointment.toTime)}
+                </p>
+              </div>
+
+              {/* Patient Info */}
+              <div className="space-y-0.5 pt-0.5 border-t border-gray-100">
+                {hoveredAppointment.appointment.patientEmrNumber && (
+                  <div className="flex items-center gap-1">
+                    <span className="text-[9px] text-gray-600 font-medium">EMR:</span>
+                    <span className="text-[10px] text-gray-700 truncate">{hoveredAppointment.appointment.patientEmrNumber}</span>
+                  </div>
+                )}
+                {hoveredAppointment.appointment.patientInvoiceNumber && (
+                  <div className="flex items-center gap-1">
+                    <span className="text-[9px] text-gray-600 font-medium">Inv:</span>
+                    <span className="text-[10px] text-gray-700 truncate">{hoveredAppointment.appointment.patientInvoiceNumber}</span>
+                  </div>
+                )}
+                {hoveredAppointment.appointment.patientGender && (
+                  <div className="flex items-center gap-1">
+                    <span className="text-[9px] text-gray-600 font-medium">Gender:</span>
+                    <span className="text-[10px] text-gray-700">{hoveredAppointment.appointment.patientGender}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Contact Info */}
+              {(hoveredAppointment.appointment.patientEmail || hoveredAppointment.appointment.patientMobileNumber) && (
+                <div className="space-y-0.5 pt-0.5 border-t border-gray-100">
+                  {hoveredAppointment.appointment.patientMobileNumber && (
+                    <div className="flex items-center gap-1">
+                      <span className="text-[9px] text-gray-600 font-medium w-12 flex-shrink-0">Mobile:</span>
+                      <span className="text-[10px] text-gray-700 truncate">{hoveredAppointment.appointment.patientMobileNumber}</span>
+                    </div>
+                  )}
+                  {hoveredAppointment.appointment.patientEmail && (
+                    <div className="flex items-center gap-1">
+                      <span className="text-[9px] text-gray-600 font-medium w-12 flex-shrink-0">Email:</span>
+                      <span className="text-[10px] text-gray-700 truncate">{hoveredAppointment.appointment.patientEmail}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Doctor & Room */}
+              <div className="space-y-0.5 pt-0.5 border-t border-gray-100">
+                <div className="flex items-center gap-1">
+                  <span className="text-[9px] text-gray-600 font-medium w-12 flex-shrink-0">Dr:</span>
+                  <span className="text-[10px] text-gray-700 truncate">{hoveredAppointment.appointment.doctorName}</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="text-[9px] text-gray-600 font-medium w-12 flex-shrink-0">Room:</span>
+                  <span className="text-[10px] text-gray-700 truncate">{hoveredAppointment.appointment.roomName}</span>
+                </div>
+              </div>
+
+              {/* Follow Type */}
+              {hoveredAppointment.appointment.followType && (
+                <div className="pt-0.5 border-t border-gray-100">
+                  <div className="flex items-center gap-1">
+                    <span className="text-[9px] text-gray-600 font-medium w-12 flex-shrink-0">Follow:</span>
+                    <span className="text-[10px] text-gray-700">{hoveredAppointment.appointment.followType}</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Referral */}
+              {hoveredAppointment.appointment.referral && (
+                <div className="pt-0.5 border-t border-gray-100">
+                  <div className="flex items-start gap-1">
+                    <span className="text-[9px] text-gray-600 font-medium w-12 flex-shrink-0">Ref:</span>
+                    <span className="text-[10px] text-gray-700">{hoveredAppointment.appointment.referral}</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Emergency */}
+              {hoveredAppointment.appointment.emergency && (
+                <div className="pt-0.5 border-t border-gray-100">
+                  <div className="flex items-start gap-1">
+                    <span className="text-[9px] text-gray-600 font-medium w-12 flex-shrink-0">Emer:</span>
+                    <span className="text-[10px] text-red-600 font-semibold">{hoveredAppointment.appointment.emergency}</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Notes */}
+              {hoveredAppointment.appointment.notes && (
+                <div className="pt-0.5 border-t border-gray-100">
+                  <p className="text-[9px] font-semibold text-gray-600 uppercase mb-0.5">Notes</p>
+                  <p className="text-[10px] text-gray-700 leading-tight">{hoveredAppointment.appointment.notes}</p>
+                </div>
+              )}
             </div>
           </div>
         </div>
