@@ -264,6 +264,12 @@ const AssignedLeadsPage = () => {
     return configs[status?.toLowerCase()] || { bg: 'bg-gray-50', text: 'text-gray-700', border: 'border-gray-200', dot: 'bg-gray-500' };
   };
 
+  const formatPhoneNumber = (phone) => {
+    const trimmed = phone.replace(/\s+/g, "");
+    if (trimmed.startsWith("+")) return trimmed;
+    return `+91${trimmed}`;
+  };
+
   const getFollowUpBadge = (followUpStatus) => {
     if (followUpStatus === 'past') {
       return (
@@ -288,11 +294,6 @@ const AssignedLeadsPage = () => {
     return null;
   };
 
-  const formatPhoneNumber = (phone) => {
-    const trimmed = phone.replace(/\s+/g, "");
-    if (trimmed.startsWith("+")) return trimmed;
-    return `+91${trimmed}`;
-  };
 
   const statusOptions = ["New", "Contacted", "Qualified", "Converted", "Lost", "Booked", "Approved"];
 
@@ -641,27 +642,6 @@ const AssignedLeadsPage = () => {
                       >
                         Chat
                       </button>
-                      {(permissions.canApprove || permissions.canAll) && (
-                        <button
-                          onClick={() => approveLead(lead._id)}
-                          disabled={lead.status === "Approved"}
-                          className={`rounded-lg px-3 py-1.5 text-xs font-semibold text-white transition ${
-                            lead.status === "Approved"
-                              ? "bg-gray-400 cursor-not-allowed"
-                              : "bg-green-500 hover:bg-green-600"
-                          }`}
-                        >
-                          Approve
-                        </button>
-                      )}
-                      {(permissions.canDelete || permissions.canAll) && (
-                        <button
-                          onClick={() => requestDeleteLead(lead)}
-                          className="rounded-lg bg-red-500 px-3 py-1.5 text-xs font-semibold text-white shadow hover:bg-red-600 transition"
-                        >
-                          Delete
-                        </button>
-                      )}
                     </div>
                   </div>
                 );
@@ -697,17 +677,19 @@ const AssignedLeadsPage = () => {
           </>
         )}
 
+        </div>
+      </div>
+
         {/* WhatsApp Chat Modal */}
         {chatOpen && activeLead && (
           <WhatsAppChat
             isOpen={chatOpen}
             onClose={() => setChatOpen(false)}
-            leadName={activeLead.name}
+            leadName=""
             phoneNumber={formatPhoneNumber(activeLead.phone)}
+            hideNameAndNumber={true}
           />
         )}
-        </div>
-      </div>
 
       {detailsModal.isOpen && detailsModal.lead && (
         <div

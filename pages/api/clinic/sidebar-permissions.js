@@ -39,6 +39,22 @@ export default async function handler(req, res) {
       return res.status(404).json({ success: false, message: 'Clinic not found for this user' });
     }
 
+    // Check if clinic is approved
+    if (!clinic.isApproved) {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Clinic account not approved. Please wait for admin approval.' 
+      });
+    }
+
+    // Check if clinic is declined
+    if (clinic.declined) {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Clinic account has been declined' 
+      });
+    }
+
     // Get clinic permissions
     const clinicPermission = await ClinicPermission.findOne({ clinicId: clinic._id });
 

@@ -46,13 +46,17 @@ export default function withClinicAuth<P extends Record<string, unknown> = Recor
 
           if (!res.ok || !data.valid) {
             clearStorage();
+            const errorMessage = data.message || 'Authentication failed';
+            
             if (data.message === 'Token expired') {
               alert('Session expired. Please login again.');
               setTimeout(() => {
                 router.replace('/clinic/login-clinic');
               }, 4000);
             } else {
-              toast.error('Authentication failed.');
+              // Show the actual error message from the API
+              toast.error(errorMessage);
+              console.error('Clinic auth error:', errorMessage, data);
               router.replace('/clinic/login-clinic');
             }
             setLoading(false);
