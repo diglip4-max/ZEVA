@@ -26,6 +26,7 @@ import {
   EnvelopeIcon,
   FunnelIcon,
   ArrowPathIcon,
+  TrashIcon,
 } from '@heroicons/react/24/outline';
 
 interface Agent {
@@ -99,6 +100,7 @@ const ManageAgentsPage: NextPageWithLayout = () => {
   const [menuAgentId, setMenuAgentId] = useState<string | null>(null);
   const [passwordAgent, setPasswordAgent] = useState<Agent | null>(null);
   const [permissionAgent, setPermissionAgent] = useState<Agent | null>(null);
+  const [deleteAgent, setDeleteAgent] = useState<Agent | null>(null);
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -257,6 +259,50 @@ const ManageAgentsPage: NextPageWithLayout = () => {
     } catch (err: any) {
       console.error(err);
       showToast(err.response?.data?.message || `Failed to ${action} agent. Please try again.`, 'error');
+    }
+  }
+
+  async function handleDelete(agentId: string) {
+    if (!agentId) return;
+    
+    const adminTokenExists = typeof window !== 'undefined' ? !!localStorage.getItem('adminToken') : false;
+    const agentTokenExists = typeof window !== 'undefined' ? !!localStorage.getItem('agentToken') : false;
+    const isAgentRoute = router.pathname?.startsWith('/agent/') || (typeof window !== 'undefined' && window.location.pathname?.startsWith('/agent/'));
+    
+    if (!adminTokenExists && (isAgentRoute || isAgent) && agentTokenExists && agentPermissions) {
+      if (agentPermissions.canDelete !== true && agentPermissions.canAll !== true) {
+        showToast("You do not have permission to delete agents", 'error');
+        return;
+      }
+    }
+    
+    const token = adminToken || agentToken;
+    showToast('Deleting agent...', 'info');
+    try {
+      const { data } = await axios.delete(
+        '/api/lead-ms/delete-agent',
+        {
+          data: { agentId },
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+      if (data.success) {
+        // Remove from the appropriate list
+        if (data.deletedUser.role === 'doctorStaff') {
+          setDoctorStaff((prev) => prev.filter((a) => a._id !== agentId));
+        } else {
+          setAgents((prev) => prev.filter((a) => a._id !== agentId));
+        }
+        setDeleteAgent(null);
+        setMenuAgentId(null);
+        showToast(`${data.deletedUser.role === 'doctorStaff' ? 'Doctor staff' : 'Agent'} deleted successfully`, 'success');
+      } else {
+        showToast(data?.message || 'Failed to delete agent', 'error');
+      }
+    } catch (err: any) {
+      console.error(err);
+      showToast(err.response?.data?.message || 'Failed to delete agent. Please try again.', 'error');
+      setDeleteAgent(null);
     }
   }
 
@@ -455,38 +501,75 @@ const ManageAgentsPage: NextPageWithLayout = () => {
 
         {/* Tabs and Search */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          {/* Tabs */}
-          <div className="border-b border-gray-200 mb-6">
-            <nav className="flex space-x-6">
-              <button
-                onClick={() => {
-                  setActiveView('agents');
-                  setCurrentPage(1);
-                  showToast('Switched to Agents view', 'info');
-                }}
-                className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${
-                  activeView === 'agents'
-                    ? 'border-gray-800 text-gray-800'
-                    : 'border-transparent text-gray-700 hover:text-gray-900 hover:border-gray-300'
-                }`}
-              >
-                Agents ({totalAgents})
-              </button>
-              <button
-                onClick={() => {
-                  setActiveView('doctorStaff');
-                  setCurrentPage(1);
-                  showToast('Switched to Doctor Staff view', 'info');
-                }}
-                className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${
-                  activeView === 'doctorStaff'
-                    ? 'border-gray-800 text-gray-800'
-                    : 'border-transparent text-gray-700 hover:text-gray-900 hover:border-gray-300'
-                }`}
-              >
-                Doctor Staff ({totalDoctorStaff})
-              </button>
-            </nav>
+          {/* Tabs with Create Button */}
+          <div className="border-b border-gray-200 mb-6 pb-4">
+            <div className="flex items-center justify-between flex-nowrap gap-4">
+              <nav className="flex space-x-6 flex-shrink-0">
+                <button
+                  onClick={() => {
+                    setActiveView('agents');
+                    setCurrentPage(1);
+                    showToast('Switched to Agents view', 'info');
+                  }}
+                  className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200 whitespace-nowrap ${
+                    activeView === 'agents'
+                      ? 'border-gray-800 text-gray-800'
+                      : 'border-transparent text-gray-700 hover:text-gray-900 hover:border-gray-300'
+                  }`}
+                >
+                  Agents ({totalAgents})
+                </button>
+                <button
+                  onClick={() => {
+                    setActiveView('doctorStaff');
+                    setCurrentPage(1);
+                    showToast('Switched to Doctor Staff view', 'info');
+                  }}
+                  className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200 whitespace-nowrap ${
+                    activeView === 'doctorStaff'
+                      ? 'border-gray-800 text-gray-800'
+                      : 'border-transparent text-gray-700 hover:text-gray-900 hover:border-gray-300'
+                  }`}
+                >
+                  Doctor Staff ({totalDoctorStaff})
+                </button>
+              </nav>
+              
+              {/* Create Button */}
+              {(() => {
+                const adminTokenExists = typeof window !== 'undefined' ? !!localStorage.getItem('adminToken') : false;
+                const agentTokenExists = typeof window !== 'undefined' ? !!localStorage.getItem('agentToken') : false;
+                const isAgentRoute = router.pathname?.startsWith('/agent/') || (typeof window !== 'undefined' && window.location.pathname?.startsWith('/agent/'));
+                
+                const shouldShowAction = (action: 'create' | 'update' | 'approve') => {
+                  if (adminTokenExists) {
+                    return true;
+                  }
+                  
+                  if ((isAgentRoute || isAgent) && agentTokenExists && !adminTokenExists) {
+                    if (permissionsLoading || !agentPermissions) {
+                      return false;
+                    }
+                    
+                    if (action === 'create') {
+                      return agentPermissions.canCreate === true || agentPermissions.canAll === true;
+                    }
+                  }
+                  
+                  return false;
+                };
+                
+                return shouldShowAction('create') ? (
+                  <button 
+                    onClick={() => setIsCreateOpen(true)} 
+                    className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm flex-shrink-0 whitespace-nowrap"
+                  >
+                    <UserPlusIcon className="w-5 h-5" />
+                    Create Agent
+                  </button>
+                ) : null;
+              })()}
+            </div>
           </div>
 
           {/* Search Bar */}
@@ -532,43 +615,6 @@ const ManageAgentsPage: NextPageWithLayout = () => {
               Showing {filteredList.length} result(s) for "{searchTerm}"
             </div>
           )}
-
-          {/* Create Button */}
-          <div className="mb-6 flex justify-end">
-            {(() => {
-              const adminTokenExists = typeof window !== 'undefined' ? !!localStorage.getItem('adminToken') : false;
-              const agentTokenExists = typeof window !== 'undefined' ? !!localStorage.getItem('agentToken') : false;
-              const isAgentRoute = router.pathname?.startsWith('/agent/') || (typeof window !== 'undefined' && window.location.pathname?.startsWith('/agent/'));
-              
-              const shouldShowAction = (action: 'create' | 'update' | 'approve') => {
-                if (adminTokenExists) {
-                  return true;
-                }
-                
-                if ((isAgentRoute || isAgent) && agentTokenExists && !adminTokenExists) {
-                  if (permissionsLoading || !agentPermissions) {
-                    return false;
-                  }
-                  
-                  if (action === 'create') {
-                    return agentPermissions.canCreate === true || agentPermissions.canAll === true;
-                  }
-                }
-                
-                return false;
-              };
-              
-              return shouldShowAction('create') ? (
-                <button 
-                  onClick={() => setIsCreateOpen(true)} 
-                  className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm"
-                >
-                  <UserPlusIcon className="w-5 h-5" />
-                  Create Agent
-                </button>
-              ) : null;
-            })()}
-          </div>
         </div>
 
         {/* Agents Table */}
@@ -757,6 +803,39 @@ const ManageAgentsPage: NextPageWithLayout = () => {
                                       <ShieldCheckIcon className="w-4 h-4" />
                                       Manage Permissions
                                     </button>
+                                    {(() => {
+                                      const adminTokenExists = typeof window !== 'undefined' ? !!localStorage.getItem('adminToken') : false;
+                                      const agentTokenExists = typeof window !== 'undefined' ? !!localStorage.getItem('agentToken') : false;
+                                      const isAgentRoute = router.pathname?.startsWith('/agent/') || (typeof window !== 'undefined' && window.location.pathname?.startsWith('/agent/'));
+                                      
+                                      const shouldShowDelete = () => {
+                                        if (adminTokenExists) {
+                                          return true;
+                                        }
+                                        
+                                        if ((isAgentRoute || isAgent) && agentTokenExists && !adminTokenExists) {
+                                          if (permissionsLoading || !agentPermissions) {
+                                            return false;
+                                          }
+                                          return agentPermissions.canDelete === true || agentPermissions.canAll === true;
+                                        }
+                                        
+                                        return false;
+                                      };
+                                      
+                                      return shouldShowDelete() ? (
+                                        <button
+                                          className="w-full text-left px-4 py-2 text-sm text-red-700 hover:bg-red-50 transition-colors border-t border-gray-200 flex items-center gap-2"
+                                          onClick={() => {
+                                            setDeleteAgent(agent);
+                                            setMenuAgentId(null);
+                                          }}
+                                        >
+                                          <TrashIcon className="w-4 h-4" />
+                                          Delete Agent
+                                        </button>
+                                      ) : null;
+                                    })()}
                                   </div>
                                 </div>
                               )}
@@ -866,6 +945,79 @@ const ManageAgentsPage: NextPageWithLayout = () => {
           token={adminToken || null}
           userRole="admin"
         />
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteAgent && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+          onClick={() => {
+            setDeleteAgent(null);
+          }}
+        >
+          <div 
+            className="w-full max-w-md bg-white rounded-2xl shadow-2xl border border-gray-100" 
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-gray-200 bg-red-50 flex items-start justify-between">
+              <div className="flex-1 min-w-0 pr-2">
+                <h3 className="text-lg font-semibold text-red-900">Delete Agent</h3>
+                <p className="text-sm text-red-700 mt-1 break-words">
+                  Are you sure you want to delete this agent? This action cannot be undone.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setDeleteAgent(null);
+                }}
+                className="flex-shrink-0 p-1 rounded-lg hover:bg-red-100 transition-colors text-red-700 hover:text-red-900"
+                aria-label="Close"
+              >
+                <XMarkIcon className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-6">
+              <div className="mb-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                <p className="text-sm font-medium text-gray-900 mb-1">Agent Details:</p>
+                <p className="text-sm text-gray-700">{deleteAgent.name}</p>
+                <p className="text-sm text-gray-700">{deleteAgent.email}</p>
+                <p className="text-xs text-gray-500 mt-1 capitalize">{deleteAgent.role}</p>
+              </div>
+              <div className="flex items-center gap-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg mb-4">
+                <ExclamationTriangleIcon className="w-5 h-5 text-yellow-600 flex-shrink-0" />
+                <p className="text-sm text-yellow-800">
+                  This will permanently delete the agent account and all associated data.
+                </p>
+              </div>
+
+              {/* Buttons */}
+              <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDeleteAgent(null);
+                  }}
+                  className="w-full sm:w-auto px-4 py-2.5 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleDelete(deleteAgent._id);
+                  }}
+                  className="w-full sm:w-auto px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm"
+                >
+                  Delete Agent
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Change Password Modal */}
