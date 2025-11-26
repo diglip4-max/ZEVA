@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-import { useEffect, useState, useMemo } from "react";
-=======
 import { useEffect, useMemo, useState } from "react";
->>>>>>> e3a52fce90834b798015905c191767e892a3c7d2
 import axios from "axios";
 import ClinicLayout from "../../components/ClinicLayout";
 import withClinicAuth from "../../components/withClinicAuth";
