@@ -153,6 +153,12 @@ const Sidebar = () => {
         description: "View & Manage Patients" 
       },
       { 
+        label: "Booked Appointments", 
+        path: "/staff/booked-appointments", 
+        icon: "🧑‍⚕️", 
+        description: "View & Manage Appointments" 
+      },
+      { 
         label: "Add Treatment", 
         path: "/staff/add-treatment", 
         icon: "➕", 

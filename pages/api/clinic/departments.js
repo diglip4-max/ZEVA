@@ -101,6 +101,56 @@ export default async function handler(req, res) {
     }
   }
 
+  // PUT: Update an existing department
+  if (req.method === "PUT") {
+    try {
+      const { departmentId, name } = req.body;
+
+      if (!departmentId || !name || !name.trim()) {
+        return res.status(400).json({
+          success: false,
+          message: "Department ID and new name are required",
+        });
+      }
+
+      const department = await Department.findOne({ _id: departmentId, clinicId });
+      if (!department) {
+        return res.status(404).json({ success: false, message: "Department not found" });
+      }
+
+      const normalizedName = name.trim();
+      const duplicateDepartment = await Department.findOne({
+        clinicId,
+        name: normalizedName,
+        _id: { $ne: departmentId },
+      });
+
+      if (duplicateDepartment) {
+        return res.status(400).json({
+          success: false,
+          message: "Another department with this name already exists",
+        });
+      }
+
+      department.name = normalizedName;
+      await department.save();
+
+      return res.status(200).json({
+        success: true,
+        message: "Department updated successfully",
+        department: {
+          _id: department._id.toString(),
+          name: department.name,
+          createdAt: department.createdAt,
+          updatedAt: department.updatedAt,
+        },
+      });
+    } catch (error) {
+      console.error("Error updating department:", error);
+      return res.status(500).json({ success: false, message: "Failed to update department" });
+    }
+  }
+
   // DELETE: Delete a department
   if (req.method === "DELETE") {
     try {
@@ -128,7 +178,7 @@ export default async function handler(req, res) {
     }
   }
 
-  res.setHeader("Allow", ["GET", "POST", "DELETE"]);
+  res.setHeader("Allow", ["GET", "POST", "PUT", "DELETE"]);
   return res.status(405).json({ success: false, message: "Method not allowed" });
 }
 

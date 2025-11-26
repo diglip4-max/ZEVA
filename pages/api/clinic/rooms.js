@@ -32,6 +32,23 @@ export default async function handler(req, res) {
   // GET: Fetch all rooms for this clinic
   if (req.method === "GET") {
     try {
+      // Check read permission
+      const { checkClinicPermission } = await import("../lead-ms/permissions-helper");
+      const { hasPermission, error } = await checkClinicPermission(
+        clinicId,
+        "room_management",
+        "read",
+        null,
+        clinicUser.role
+      );
+
+      if (!hasPermission) {
+        return res.status(403).json({
+          success: false,
+          message: error || "You do not have permission to view rooms",
+        });
+      }
+
       const rooms = await Room.find({ clinicId })
         .sort({ createdAt: -1 })
         .lean();
@@ -54,6 +71,23 @@ export default async function handler(req, res) {
   // POST: Create a new room
   if (req.method === "POST") {
     try {
+      // Check create permission
+      const { checkClinicPermission } = await import("../lead-ms/permissions-helper");
+      const { hasPermission, error } = await checkClinicPermission(
+        clinicId,
+        "room_management",
+        "create",
+        null,
+        clinicUser.role
+      );
+
+      if (!hasPermission) {
+        return res.status(403).json({
+          success: false,
+          message: error || "You do not have permission to create rooms",
+        });
+      }
+
       const { name } = req.body;
 
       if (!name || !name.trim()) {
@@ -101,9 +135,93 @@ export default async function handler(req, res) {
     }
   }
 
+  // PUT: Update an existing room
+  if (req.method === "PUT") {
+    try {
+      // Check update permission
+      const { checkClinicPermission } = await import("../lead-ms/permissions-helper");
+      const { hasPermission, error } = await checkClinicPermission(
+        clinicId,
+        "room_management",
+        "update",
+        null,
+        clinicUser.role
+      );
+
+      if (!hasPermission) {
+        return res.status(403).json({
+          success: false,
+          message: error || "You do not have permission to update rooms",
+        });
+      }
+
+      const { roomId, name } = req.body;
+
+      if (!roomId || !name || !name.trim()) {
+        return res.status(400).json({
+          success: false,
+          message: "Room ID and new name are required",
+        });
+      }
+
+      const room = await Room.findOne({ _id: roomId, clinicId });
+      if (!room) {
+        return res.status(404).json({ success: false, message: "Room not found" });
+      }
+
+      const normalizedName = name.trim();
+      const duplicateRoom = await Room.findOne({
+        clinicId,
+        name: normalizedName,
+        _id: { $ne: roomId },
+      });
+
+      if (duplicateRoom) {
+        return res.status(400).json({
+          success: false,
+          message: "Another room with this name already exists",
+        });
+      }
+
+      room.name = normalizedName;
+      await room.save();
+
+      return res.status(200).json({
+        success: true,
+        message: "Room updated successfully",
+        room: {
+          _id: room._id.toString(),
+          name: room.name,
+          createdAt: room.createdAt,
+          updatedAt: room.updatedAt,
+        },
+      });
+    } catch (error) {
+      console.error("Error updating room:", error);
+      return res.status(500).json({ success: false, message: "Failed to update room" });
+    }
+  }
+
   // DELETE: Delete a room
   if (req.method === "DELETE") {
     try {
+      // Check delete permission
+      const { checkClinicPermission } = await import("../lead-ms/permissions-helper");
+      const { hasPermission, error } = await checkClinicPermission(
+        clinicId,
+        "room_management",
+        "delete",
+        null,
+        clinicUser.role
+      );
+
+      if (!hasPermission) {
+        return res.status(403).json({
+          success: false,
+          message: error || "You do not have permission to delete rooms",
+        });
+      }
+
       const { roomId } = req.query;
 
       if (!roomId) {
@@ -128,7 +246,7 @@ export default async function handler(req, res) {
     }
   }
 
-  res.setHeader("Allow", ["GET", "POST", "DELETE"]);
+  res.setHeader("Allow", ["GET", "POST", "PUT", "DELETE"]);
   return res.status(405).json({ success: false, message: "Method not allowed" });
 }
 
