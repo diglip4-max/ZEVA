@@ -9,8 +9,8 @@ import {
   Package,
   TrendingUp,
   Calendar,
-  DollarSign,
 } from "lucide-react";
+import { Toaster, toast } from "react-hot-toast";
 import CreateOfferModal from "../../components/CreateOfferModal";
 import ClinicLayout from "../../components/ClinicLayout";
 import withClinicAuth from "../../components/withClinicAuth";
@@ -57,6 +57,11 @@ function OffersPage() {
   const [token, setToken] = useState("");
   const [hasAgentToken, setHasAgentToken] = useState(false);
   const [isAgentRoute, setIsAgentRoute] = useState(false);
+  const [confirmModal, setConfirmModal] = useState({
+    isOpen: false,
+    offerId: null,
+    offerTitle: "",
+  });
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -238,9 +243,12 @@ function OffersPage() {
 
   const openEditModal = async (offerId) => {
     const storedToken = getStoredToken();
-    if (!storedToken) return alert("Not authorized!");
+    if (!storedToken) {
+      toast.error("Not authorized!");
+      return;
+    }
     if (!permissions.canUpdate) {
-      alert("You do not have permission to update offers");
+      toast.error("You do not have permission to update offers");
       return;
     }
     setEditingOfferId(offerId);
@@ -254,11 +262,12 @@ function OffersPage() {
       if (data.success) {
         setEditingOfferData(data.offer);
       } else {
-        alert(data.message || "Failed to fetch offer");
+        toast.error(data.message || "Failed to fetch offer");
         setModalOpen(false);
       }
     } catch (err) {
       console.error(err);
+      toast.error("Unable to load offer details");
       setModalOpen(false);
     }
   };
@@ -271,29 +280,43 @@ function OffersPage() {
     }
   };
 
-  const handleDelete = async (id) => {
+  const requestDeleteOffer = (offer) => {
     if (!permissions.canDelete) {
-      alert("You do not have permission to delete offers");
+      toast.error("You do not have permission to delete offers");
       return;
     }
-    if (!confirm("Are you sure you want to delete this offer?")) return;
+    setConfirmModal({
+      isOpen: true,
+      offerId: offer._id,
+      offerTitle: offer.title || "this offer",
+    });
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!confirmModal.offerId) return;
     const storedToken = getStoredToken();
-    if (!storedToken) return alert("Not authorized!");
+    if (!storedToken) {
+      toast.error("Not authorized!");
+      return;
+    }
 
     try {
-      const res = await fetch(`/api/lead-ms/delete-create-offer?id=${id}`, {
+      const res = await fetch(`/api/lead-ms/delete-create-offer?id=${confirmModal.offerId}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${storedToken}` },
       });
       const data = await res.json();
       if (data.success) {
-        setOffers((prev) => prev.filter((o) => o._id !== id));
+        setOffers((prev) => prev.filter((o) => o._id !== confirmModal.offerId));
+        toast.success("Offer deleted successfully");
       } else {
-        alert(data.message || "Failed to delete offer");
+        toast.error(data.message || "Failed to delete offer");
       }
     } catch (err) {
       console.error("Error deleting offer:", err);
-      alert("Server error");
+      toast.error("Server error while deleting offer");
+    } finally {
+      setConfirmModal({ isOpen: false, offerId: null, offerTitle: "" });
     }
   };
 
@@ -306,11 +329,25 @@ function OffersPage() {
   const modalToken = token || getStoredToken() || "";
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-3">
+    <>
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          duration: 3000,
+          style: {
+            background: "#1f2937",
+            color: "#f9fafb",
+            fontSize: "12px",
+            padding: "8px 12px",
+            borderRadius: "8px",
+          },
+        }}
+      />
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-slate-50 to-white p-3 sm:p-4">
       <div className="max-w-7xl mx-auto space-y-4">
         {!permissionsLoaded ? (
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 text-center">
-            <p className="text-sm text-gray-600 font-medium">Loading permissions...</p>
+            <p className="text-sm text-gray-700 font-medium">Loading permissions...</p>
           </div>
         ) : permissions.canRead === false ? (
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center space-y-3">
@@ -318,7 +355,7 @@ function OffersPage() {
               <Package className="w-8 h-8 text-red-500" />
             </div>
             <h2 className="text-lg font-semibold text-gray-900">Access denied</h2>
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-gray-700">
               You do not have permission to view or manage offers. Please contact your administrator if you
               believe this is an error.
             </p>
@@ -330,7 +367,7 @@ function OffersPage() {
               <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2.5">
                 <div>
                   <h1 className="text-xl font-semibold text-gray-900 mb-0.5">Offers Management</h1>
-                  <p className="text-gray-600 text-xs">Create and manage promotional offers for your clinic</p>
+                  <p className="text-gray-700 text-xs">Create and manage promotional offers for your clinic</p>
                 </div>
                 {permissions.canCreate && (
                   <button
@@ -353,7 +390,7 @@ function OffersPage() {
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-[11px] font-medium text-gray-600 mb-0.5">Total Offers</p>
+                    <p className="text-[11px] font-medium text-gray-700 mb-0.5">Total Offers</p>
                     <p className="text-xl font-bold text-gray-900">{offers.length}</p>
                   </div>
                   <div className="bg-blue-100 p-2 rounded-md">
@@ -365,7 +402,7 @@ function OffersPage() {
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-[11px] font-medium text-gray-600 mb-0.5">Active Offers</p>
+                    <p className="text-[11px] font-medium text-gray-700 mb-0.5">Active Offers</p>
                     <p className="text-xl font-bold text-green-600">{activeOffers}</p>
                   </div>
                   <div className="bg-green-100 p-2 rounded-md">
@@ -377,11 +414,11 @@ function OffersPage() {
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-[11px] font-medium text-gray-600 mb-0.5">Total Discount Value</p>
-                    <p className="text-xl font-bold text-teal-600">₹{totalValue.toLocaleString()}</p>
+                    <p className="text-[11px] font-medium text-gray-700 mb-0.5">Total Discount Value</p>
+                    <p className="text-xl font-bold text-teal-600">AED {totalValue.toLocaleString()}</p>
                   </div>
                   <div className="bg-teal-100 p-2 rounded-md">
-                    <DollarSign className="h-5 w-5 text-teal-600" />
+                    <span className="text-[10px] font-bold text-teal-600 tracking-wide">AED</span>
                   </div>
                 </div>
               </div>
@@ -400,10 +437,10 @@ function OffersPage() {
                 {offers.length === 0 ? (
                   <div className="text-center py-10">
                     <div className="inline-flex items-center justify-center w-12 h-12 bg-gray-100 rounded-full mb-2.5">
-                      <Package className="h-6 w-6 text-gray-400" />
+                      <Package className="h-6 w-6 text-gray-500" />
                     </div>
                     <h3 className="text-sm font-medium text-gray-900 mb-1">No offers yet</h3>
-                    <p className="text-gray-500 text-xs mb-4">Get started by creating your first promotional offer</p>
+                    <p className="text-gray-700 text-xs mb-4">Get started by creating your first promotional offer</p>
                     {permissions.canCreate && (
                       <button
                         onClick={() => {
@@ -426,22 +463,22 @@ function OffersPage() {
                     <table className="w-full">
                       <thead>
                         <tr className="border-b border-gray-200">
-                          <th className="px-3 py-3 text-left text-[10px] font-semibold text-gray-600 uppercase tracking-wider">
+                          <th className="px-3 py-3 text-left text-[10px] font-semibold text-gray-700 uppercase tracking-wider">
                             Offer Details
                           </th>
-                          <th className="px-3 py-3 text-left text-[10px] font-semibold text-gray-600 uppercase tracking-wider">
+                          <th className="px-3 py-3 text-left text-[10px] font-semibold text-gray-700 uppercase tracking-wider">
                             Type
                           </th>
-                          <th className="px-3 py-3 text-left text-[10px] font-semibold text-gray-600 uppercase tracking-wider">
+                          <th className="px-3 py-3 text-left text-[10px] font-semibold text-gray-700 uppercase tracking-wider">
                             Value
                           </th>
-                          <th className="px-3 py-3 text-left text-[10px] font-semibold text-gray-600 uppercase tracking-wider">
+                          <th className="px-3 py-3 text-left text-[10px] font-semibold text-gray-700 uppercase tracking-wider">
                             Validity
                           </th>
-                          <th className="px-3 py-3 text-left text-[10px] font-semibold text-gray-600 uppercase tracking-wider">
+                          <th className="px-3 py-3 text-left text-[10px] font-semibold text-gray-700 uppercase tracking-wider">
                             Status
                           </th>
-                          <th className="px-3 py-3 text-right text-[10px] font-semibold text-gray-600 uppercase tracking-wider">
+                          <th className="px-3 py-3 text-right text-[10px] font-semibold text-gray-700 uppercase tracking-wider">
                             Actions
                           </th>
                         </tr>
@@ -456,7 +493,7 @@ function OffersPage() {
                                 </div>
                                 <div>
                                   <p className="font-semibold text-gray-900 text-xs">{offer.title}</p>
-                                  <p className="text-[11px] text-gray-500">ID: {offer._id.slice(-8)}</p>
+                                  <p className="text-[11px] text-gray-700">ID: {offer._id.slice(-8)}</p>
                                 </div>
                               </div>
                             </td>
@@ -467,7 +504,7 @@ function OffersPage() {
                             </td>
                             <td className="px-3 py-3">
                               <span className="text-sm font-bold text-teal-600">
-                                {offer.type === "percentage" ? `${offer.value}%` : `₹${offer.value}`}
+                                {offer.type === "percentage" ? `${offer.value}%` : `AED ${offer.value}`}
                               </span>
                             </td>
                             <td className="px-3 py-3">
@@ -513,7 +550,7 @@ function OffersPage() {
                                 )}
                                 {permissions.canDelete && (
                                   <button
-                                    onClick={() => handleDelete(offer._id)}
+                                    onClick={() => requestDeleteOffer(offer)}
                                     className="inline-flex items-center justify-center w-7 h-7 rounded bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
                                     title="Delete offer"
                                   >
@@ -551,6 +588,68 @@ function OffersPage() {
         mode={editingOfferId ? "update" : "create"}
       />
     </div>
+      {confirmModal.isOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setConfirmModal({ isOpen: false, offerId: null, offerTitle: "" });
+              toast("Deletion cancelled", { duration: 2000, icon: "ℹ️" });
+            }
+          }}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div
+            className="bg-white rounded-lg shadow-2xl max-w-md w-full overflow-hidden animate-[fadeIn_0.2s_ease-out]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-5 py-4 border-b border-gray-200 flex items-center justify-between bg-red-50/60">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
+                  <Trash2 className="w-5 h-5 text-red-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-gray-900">Delete Offer</p>
+                  <p className="text-xs text-gray-700">"{confirmModal.offerTitle}"</p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setConfirmModal({ isOpen: false, offerId: null, offerTitle: "" });
+                  toast("Deletion cancelled", { duration: 2000, icon: "ℹ️" });
+                }}
+                className="p-1.5 rounded-lg hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-500"
+                aria-label="Close confirmation dialog"
+              >
+                ×
+              </button>
+            </div>
+            <div className="p-5 text-sm text-gray-700 space-y-2">
+              <p>Are you sure you want to delete this offer? This action cannot be undone.</p>
+              <p className="text-xs text-gray-700">All references to this offer will be removed.</p>
+            </div>
+            <div className="flex gap-2 px-5 pb-5">
+              <button
+                onClick={() => {
+                  setConfirmModal({ isOpen: false, offerId: null, offerTitle: "" });
+                  toast("Deletion cancelled", { duration: 2000, icon: "ℹ️" });
+                }}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmDelete}
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-semibold hover:bg-red-700 transition-colors"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 

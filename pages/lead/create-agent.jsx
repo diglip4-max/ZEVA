@@ -8,27 +8,11 @@ import {
   CheckCircle,
   XCircle,
   Clock,
-  TrendingUp,
   UserPlus,
   RefreshCw,
   Trash2,
 } from 'lucide-react';
 import { Toaster, toast } from 'react-hot-toast';
-import {
-  BarChart,
-  Bar,
-  PieChart,
-  Pie,
-  Cell,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  CartesianGrid,
-  LineChart,
-  Line,
-  Legend,
-} from 'recharts';
 import CreateAgentModal from '../../components/CreateAgentModal';
 import AgentPermissionModal from '../../components/AgentPermissionModal';
 import DoctorTreatmentModal from '../../components/DoctorTreatmentModal';
@@ -350,50 +334,7 @@ const ManageAgentsPage = () => {
   const totalPending = pendingAgents + pendingDoctorStaff;
   const approvalRate = totalTeam > 0 ? Math.round((totalApproved / totalTeam) * 100) : 0;
 
-  // Status breakdown for current view
-  const statusBreakdown = useMemo(() => {
-    const list = currentList;
-    const approved = list.filter((a) => a.isApproved).length;
-    const declined = list.filter((a) => a.declined).length;
-    const pending = list.filter((a) => !a.isApproved && !a.declined).length;
-    return [
-      { name: 'Approved', value: approved, color: '#10b981' },
-      { name: 'Pending', value: pending, color: '#f59e0b' },
-      { name: 'Declined', value: declined, color: '#ef4444' },
-    ];
-  }, [currentList]);
-
-  // Team composition data
-  const teamComposition = useMemo(() => {
-    return [
-      { name: 'Agents', value: totalAgents, color: '#3b82f6' },
-      { name: 'Doctors', value: totalDoctorStaff, color: '#8b5cf6' },
-    ];
-  }, [totalAgents, totalDoctorStaff]);
-
-  // Weekly trend data (last 7 days)
-  const weeklyTrend = useMemo(() => {
-    const days = [];
-    const now = new Date();
-    for (let i = 6; i >= 0; i--) {
-      const date = new Date(now);
-      date.setDate(date.getDate() - i);
-      const dateStr = date.toISOString().split('T')[0];
-      const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
-      
-      const allMembers = [...agents, ...doctorStaff];
-      const count = allMembers.filter((m) => {
-        if (!m.createdAt) return false;
-        const memberDate = new Date(m.createdAt).toISOString().split('T')[0];
-        return memberDate === dateStr;
-      }).length;
-
-      days.push({ day: dayName, members: count });
-    }
-    return days;
-  }, [agents, doctorStaff]);
-
-  const COLORS = ['#10b981', '#f59e0b', '#ef4444'];
+  // Status and trend visualizations removed per request
 
   const handleCreateClick = () => {
     if (!canCreate) {
@@ -504,138 +445,6 @@ const ManageAgentsPage = () => {
               </div>
               <div className="h-12 w-12 rounded-lg bg-red-50 flex items-center justify-center">
                 <XCircle className="w-6 h-6 text-red-600" />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Graphs Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Status Breakdown Line Chart */}
-          <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900">Status Breakdown</h3>
-                <p className="text-sm text-gray-700 mt-1">{currentList.length} {activeView === 'agents' ? 'agents' : 'doctors'}</p>
-              </div>
-              <div className="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-1">
-                <button
-                  onClick={() => setActiveView('agents')}
-                  className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
-                    activeView === 'agents'
-                      ? 'bg-white text-gray-900 shadow-sm'
-                      : 'text-gray-700 hover:text-gray-900'
-                  }`}
-                >
-                  Agents
-                </button>
-                <button
-                  onClick={() => setActiveView('doctorStaff')}
-                  className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
-                    activeView === 'doctorStaff'
-                      ? 'bg-white text-gray-900 shadow-sm'
-                      : 'text-gray-700 hover:text-gray-900'
-                  }`}
-                >
-                  Doctors
-                </button>
-              </div>
-            </div>
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={statusBreakdown}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                  <XAxis 
-                    dataKey="name" 
-                    stroke="#6b7280" 
-                    fontSize={12}
-                    tick={{ fill: '#6b7280' }}
-                  />
-                  <YAxis 
-                    stroke="#6b7280" 
-                    fontSize={12}
-                    tick={{ fill: '#6b7280' }}
-                  />
-                  <Tooltip />
-                  <Line
-                    type="monotone"
-                    dataKey="value"
-                    stroke="#3b82f6"
-                    strokeWidth={3}
-                    dot={{ fill: '#3b82f6', r: 5, strokeWidth: 2, stroke: '#fff' }}
-                    activeDot={{ r: 7, strokeWidth: 2, stroke: '#3b82f6' }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="mt-4 space-y-2">
-              {statusBreakdown.map((item, index) => (
-                <div key={item.name} className="flex items-center justify-between text-sm">
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
-                    <span className="text-gray-700">{item.name}</span>
-                  </div>
-                  <span className="font-semibold text-gray-900">{item.value}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Team Composition & Weekly Trend */}
-          <div className="space-y-6">
-            {/* Team Composition */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Team Composition</h3>
-              <div className="h-48">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={teamComposition}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                    <XAxis dataKey="name" stroke="#6b7280" fontSize={12} />
-                    <YAxis stroke="#6b7280" fontSize={12} />
-                    <Tooltip />
-                    <Bar dataKey="value" radius={[8, 8, 0, 0]}>
-                      {teamComposition.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="mt-4 grid grid-cols-2 gap-4">
-                <div className="text-center p-3 bg-blue-50 rounded-lg">
-                  <p className="text-2xl font-bold text-blue-600">{totalAgents}</p>
-                  <p className="text-xs text-gray-700 mt-1">Agents</p>
-                </div>
-                <div className="text-center p-3 bg-purple-50 rounded-lg">
-                  <p className="text-2xl font-bold text-purple-600">{totalDoctorStaff}</p>
-                  <p className="text-xs text-gray-700 mt-1">Doctors</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Weekly Trend */}
-            <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-900">Weekly Activity</h3>
-                <TrendingUp className="w-5 h-5 text-gray-700" />
-              </div>
-              <div className="h-48">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={weeklyTrend}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                    <XAxis dataKey="day" stroke="#6b7280" fontSize={12} />
-                    <YAxis stroke="#6b7280" fontSize={12} />
-                    <Tooltip />
-                    <Line
-                      type="monotone"
-                      dataKey="members"
-                      stroke="#3b82f6"
-                      strokeWidth={2}
-                      dot={{ fill: '#3b82f6', r: 4 }}
-                      activeDot={{ r: 6 }}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
               </div>
             </div>
           </div>

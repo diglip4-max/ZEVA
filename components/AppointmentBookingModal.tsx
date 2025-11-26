@@ -440,63 +440,77 @@ export default function AppointmentBookingModal({
     doctorDepartments.length > 0 ? doctorDepartments.map((dept) => dept.name).filter(Boolean) : [];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
-      <div className="bg-white rounded-xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm transition-opacity"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          onClose();
+        }
+      }}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="modal-title"
+    >
+      <div 
+        className="bg-white rounded-xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col transform transition-all duration-200 scale-100 opacity-100"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
-        <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-          <h2 className="text-xl font-semibold text-gray-900">Book Appointment</h2>
+        <div className="sticky top-0 bg-white border-b border-gray-200 px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between z-10">
+          <h2 id="modal-title" className="text-lg sm:text-xl font-semibold text-gray-900">Book Appointment</h2>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            className="p-1.5 sm:p-2 hover:bg-gray-100 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-gray-900"
+            aria-label="Close modal"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+        <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-4 sm:space-y-6 overflow-y-auto flex-1">
           {error && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-center gap-2 text-red-700">
-              <AlertCircle className="w-5 h-5" />
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-start gap-2 text-red-700" role="alert">
+              <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
               <p className="text-sm">{error}</p>
             </div>
           )}
 
-          <div className="rounded-2xl border border-gray-200 bg-gray-50/60 p-4">
+          <div className="rounded-lg border border-gray-200 bg-gradient-to-br from-blue-50/50 to-indigo-50/30 p-3 sm:p-4">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              <div>
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-[0.3em] mb-1">
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] sm:text-xs font-semibold text-gray-600 uppercase tracking-wide mb-1">
                   Doctor
                 </p>
-                <p className="text-base font-semibold text-gray-900">
+                <p className="text-sm sm:text-base font-semibold text-gray-900 truncate">
                   {selectedDoctor?.name || doctorName || "Select a doctor"}
                 </p>
                 {selectedDoctor?.email && (
-                  <p className="text-xs text-gray-500">{selectedDoctor.email}</p>
+                  <p className="text-xs text-gray-600 truncate">{selectedDoctor.email}</p>
                 )}
               </div>
-              <div className="text-xs text-gray-600">
-                <p className="font-semibold text-gray-900 mb-1">Departments</p>
+              <div className="text-xs text-gray-700">
+                <p className="font-semibold text-gray-900 mb-1.5">Departments</p>
                 {doctorDeptLoading ? (
-                  <div className="flex items-center gap-2 text-gray-500">
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Loading departments...
+                  <div className="flex items-center gap-2 text-gray-600">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span className="text-[11px]">Loading...</span>
                   </div>
                 ) : doctorDeptError ? (
-                  <p className="text-red-500">{doctorDeptError}</p>
+                  <p className="text-red-600 text-[11px]">{doctorDeptError}</p>
                 ) : departmentNames.length > 0 ? (
-                  <div className="flex flex-wrap gap-1.5">
+                  <div className="flex flex-wrap gap-1">
                     {departmentNames.map((name, idx) => (
                       <span
                         key={`${name}-${idx}`}
-                        className="px-2 py-0.5 rounded-full bg-white border border-gray-200 text-[11px] text-gray-700"
+                        className="px-1.5 py-0.5 rounded bg-white border border-gray-200 text-[10px] text-gray-700"
                       >
                         {name}
                       </span>
                     ))}
                   </div>
                 ) : (
-                  <p className="text-gray-500">No departments assigned</p>
+                  <p className="text-gray-600 text-[11px]">No departments</p>
                 )}
               </div>
             </div>
@@ -504,10 +518,11 @@ export default function AppointmentBookingModal({
 
           {/* Room Field */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="room-select" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1.5">
               Room <span className="text-red-500">*</span>
             </label>
             <select
+              id="room-select"
               value={roomId}
               onChange={(e) => {
                 setRoomId(e.target.value);
@@ -515,10 +530,12 @@ export default function AppointmentBookingModal({
                   setFieldErrors({ ...fieldErrors, roomId: "" });
                 }
               }}
-              className={`w-full border rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+              className={`w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-gray-900 focus:border-gray-900 transition-all ${
                 fieldErrors.roomId ? "border-red-500" : "border-gray-300"
               }`}
               required
+              aria-invalid={!!fieldErrors.roomId}
+              aria-describedby={fieldErrors.roomId ? "room-error" : undefined}
             >
               <option value="">Select a room</option>
               {rooms.map((room) => (
@@ -528,16 +545,17 @@ export default function AppointmentBookingModal({
               ))}
             </select>
             {fieldErrors.roomId && (
-              <p className="mt-1 text-sm text-red-600">{fieldErrors.roomId}</p>
+              <p id="room-error" className="mt-1 text-xs text-red-600" role="alert">{fieldErrors.roomId}</p>
             )}
           </div>
 
           {/* Doctor Field */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="doctor-select" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1.5">
               Doctor <span className="text-red-500">*</span>
             </label>
             <select
+              id="doctor-select"
               value={selectedDoctorId}
               onChange={(e) => {
                 setSelectedDoctorId(e.target.value);
@@ -545,10 +563,12 @@ export default function AppointmentBookingModal({
                   setFieldErrors({ ...fieldErrors, doctorId: "" });
                 }
               }}
-              className={`w-full border rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+              className={`w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-gray-900 focus:border-gray-900 transition-all ${
                 fieldErrors.doctorId ? "border-red-500" : "border-gray-300"
               }`}
               required
+              aria-invalid={!!fieldErrors.doctorId}
+              aria-describedby={fieldErrors.doctorId ? "doctor-error" : undefined}
             >
               {doctorStaff.map((doctor) => (
                 <option key={doctor._id} value={doctor._id}>
@@ -557,16 +577,17 @@ export default function AppointmentBookingModal({
               ))}
             </select>
             {fieldErrors.doctorId && (
-              <p className="mt-1 text-sm text-red-600">{fieldErrors.doctorId}</p>
+              <p id="doctor-error" className="mt-1 text-xs text-red-600" role="alert">{fieldErrors.doctorId}</p>
             )}
           </div>
 
           {/* Status Field */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="status-select" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1.5">
               Status <span className="text-red-500">*</span>
             </label>
             <select
+              id="status-select"
               value={status}
               onChange={(e) => {
                 setStatus(e.target.value);
@@ -574,28 +595,31 @@ export default function AppointmentBookingModal({
                   setFieldErrors({ ...fieldErrors, status: "" });
                 }
               }}
-              className={`w-full border rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+              className={`w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-gray-900 focus:border-gray-900 transition-all ${
                 fieldErrors.status ? "border-red-500" : "border-gray-300"
               }`}
               required
+              aria-invalid={!!fieldErrors.status}
+              aria-describedby={fieldErrors.status ? "status-error" : undefined}
             >
               <option value="booked">Booked</option>
               <option value="enquiry">Enquiry</option>
               <option value="discharge">Discharge</option>
             </select>
             {fieldErrors.status && (
-              <p className="mt-1 text-sm text-red-600">{fieldErrors.status}</p>
+              <p id="status-error" className="mt-1 text-xs text-red-600" role="alert">{fieldErrors.status}</p>
             )}
           </div>
 
           {/* Search Patient */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="patient-search" className="block text-xs sm:text-sm font-medium text-gray-700 mb-1.5">
               Search Patient <span className="text-red-500">*</span>
             </label>
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input
+                id="patient-search"
                 type="text"
                 value={patientSearch}
                 onChange={(e) => {
@@ -605,16 +629,18 @@ export default function AppointmentBookingModal({
                   }
                 }}
                 placeholder="Search by name, mobile, email, or EMR number..."
-                className={`w-full border rounded-lg pl-10 pr-10 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                className={`w-full border rounded-lg pl-9 pr-9 py-2 text-sm focus:ring-2 focus:ring-gray-900 focus:border-gray-900 transition-all ${
                   fieldErrors.patientId ? "border-red-500" : "border-gray-300"
                 }`}
+                aria-invalid={!!fieldErrors.patientId}
+                aria-describedby={fieldErrors.patientId ? "patient-error" : undefined}
               />
               {searching && (
-                <Loader2 className="absolute right-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 animate-spin" />
+                <Loader2 className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 animate-spin" />
               )}
             </div>
             {fieldErrors.patientId && (
-              <p className="mt-1 text-sm text-red-600">{fieldErrors.patientId}</p>
+              <p id="patient-error" className="mt-1 text-xs text-red-600" role="alert">{fieldErrors.patientId}</p>
             )}
 
             {/* Search Results */}
@@ -891,18 +917,18 @@ export default function AppointmentBookingModal({
           </div>
 
           {/* Actions */}
-          <div className="flex gap-3 pt-4 border-t border-gray-200">
+          <div className="flex gap-2 sm:gap-3 pt-3 sm:pt-4 border-t border-gray-200 sticky bottom-0 bg-white -mx-4 sm:-mx-6 px-4 sm:px-6 pb-2 sm:pb-0">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-gray-50"
+              className="flex-1 px-3 sm:px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-900 transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={loading || !selectedPatient || !roomId}
-              className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2"
+              className="flex-1 px-3 sm:px-4 py-2 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-2 transition-colors"
             >
               {loading && <Loader2 className="w-4 h-4 animate-spin" />}
               {loading ? "Booking..." : "Book Appointment"}

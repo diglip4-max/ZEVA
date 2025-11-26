@@ -8,17 +8,17 @@ const MessageBanner = ({ type = "success", text }) => {
   if (!text) return null;
 
   const styles = {
-    success: "bg-emerald-50 text-emerald-700 border-emerald-200",
-    error: "bg-rose-50 text-rose-700 border-rose-200",
-    info: "bg-sky-50 text-sky-700 border-sky-200",
+    success: "bg-green-50 text-green-800 border-green-200",
+    error: "bg-red-50 text-red-800 border-red-200",
+    info: "bg-blue-50 text-blue-800 border-blue-200",
   };
 
   const Icon = type === "error" ? AlertCircle : CheckCircle;
 
   return (
-    <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${styles[type]}`}>
-      <Icon className="w-5 h-5" />
-      <p className="text-sm font-medium">{text}</p>
+    <div className={`flex items-center gap-3 px-4 py-3 rounded-lg border ${styles[type]}`}>
+      <Icon className="w-5 h-5 flex-shrink-0" />
+      <p className="text-sm font-medium flex-1">{text}</p>
     </div>
   );
 };
@@ -43,7 +43,6 @@ const DoctorTreatmentModal = ({ isOpen, onClose, doctorStaffId, doctorStaffName,
   const [doctorDepartmentsLoading, setDoctorDepartmentsLoading] = useState(false);
   const [clinicDepartments, setClinicDepartments] = useState([]);
   const [clinicDepartmentsLoading, setClinicDepartmentsLoading] = useState(false);
-  const [selectedDepartmentId, setSelectedDepartmentId] = useState("");
   const [customDepartmentId, setCustomDepartmentId] = useState("");
   const [selectedClinicDepartmentId, setSelectedClinicDepartmentId] = useState("");
   const [addingDepartment, setAddingDepartment] = useState(false);
@@ -112,7 +111,6 @@ const DoctorTreatmentModal = ({ isOpen, onClose, doctorStaffId, doctorStaffName,
     setSelectedTreatmentId("");
     setSelectedSubcategories([]);
     setPrice("");
-    setSelectedDepartmentId("");
   };
 
   const resetCustomForm = () => {
@@ -138,7 +136,7 @@ const DoctorTreatmentModal = ({ isOpen, onClose, doctorStaffId, doctorStaffName,
         treatmentId: selectedTreatmentId,
         subcategoryIds: selectedSubcategories,
         price: price === "" ? null : price,
-        department: selectedDepartmentId || null,
+        department: null,
       };
 
       const res = await axios.post("/api/clinic/doctor-treatments", payload, {
@@ -357,70 +355,75 @@ const DoctorTreatmentModal = ({ isOpen, onClose, doctorStaffId, doctorStaffName,
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-        <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center rounded-t-2xl z-10">
-          <div>
-            <h2 className="text-xl font-semibold text-gray-900">Manage Treatments</h2>
-            <p className="text-sm text-gray-500 mt-1">For: {doctorStaffName}</p>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-3 sm:p-4 backdrop-blur-sm">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-4xl max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col">
+        {/* Clean Header */}
+        <div className="sticky top-0 bg-white border-b border-gray-200 px-5 sm:px-6 py-4 flex justify-between items-center z-10">
+          <div className="flex-1 min-w-0 pr-2">
+            <h2 className="text-lg sm:text-xl font-semibold text-gray-900">Manage Treatments</h2>
+            <p className="text-sm text-gray-500 mt-0.5 truncate">For: {doctorStaffName}</p>
           </div>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-2 rounded-lg transition-all"
+            className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-2 rounded-lg transition-colors flex-shrink-0"
+            aria-label="Close modal"
           >
-            <X className="w-6 h-6" />
+            <X className="w-5 h-5" />
           </button>
         </div>
 
-        <div className="p-6 space-y-6">
-          <MessageBanner type={message.type} text={message.text} />
+        <div className="flex-1 overflow-y-auto">
+          <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
+            <MessageBanner type={message.type} text={message.text} />
 
-          {/* Tabs */}
-          <div className="flex space-x-1 border-b border-gray-200">
-            <button
-              onClick={() => setActiveTab("existing")}
-              className={`px-4 py-2 text-sm font-medium transition-colors ${
-                activeTab === "existing"
-                  ? "border-b-2 border-blue-600 text-blue-600"
-                  : "text-gray-500 hover:text-gray-700"
-              }`}
-            >
-              Assign Existing Treatment
-            </button>
-            <button
-              onClick={() => setActiveTab("custom")}
-              className={`px-4 py-2 text-sm font-medium transition-colors ${
-                activeTab === "custom"
-                  ? "border-b-2 border-blue-600 text-blue-600"
-                  : "text-gray-500 hover:text-gray-700"
-              }`}
-            >
-              Create Custom Treatment
-            </button>
-            <button
-              onClick={() => setActiveTab("department")}
-              className={`px-4 py-2 text-sm font-medium transition-colors ${
-                activeTab === "department"
-                  ? "border-b-2 border-blue-600 text-blue-600"
-                  : "text-gray-500 hover:text-gray-700"
-              }`}
-            >
-              Department
-            </button>
-          </div>
+            {/* Clean Tabs */}
+            <div className="flex gap-1 border-b border-gray-200 overflow-x-auto">
+              <button
+                onClick={() => setActiveTab("existing")}
+                className={`px-4 py-3 text-sm font-medium transition-colors whitespace-nowrap ${
+                  activeTab === "existing"
+                    ? "text-gray-900 border-b-2 border-gray-900"
+                    : "text-gray-600 hover:text-gray-900"
+                }`}
+              >
+                Assign Existing Treatment
+              </button>
+              <button
+                onClick={() => setActiveTab("custom")}
+                className={`px-4 py-3 text-sm font-medium transition-colors whitespace-nowrap ${
+                  activeTab === "custom"
+                    ? "text-gray-900 border-b-2 border-gray-900"
+                    : "text-gray-600 hover:text-gray-900"
+                }`}
+              >
+                Create Custom Treatment
+              </button>
+              <button
+                onClick={() => setActiveTab("department")}
+                className={`px-4 py-3 text-sm font-medium transition-colors whitespace-nowrap ${
+                  activeTab === "department"
+                    ? "text-gray-900 border-b-2 border-gray-900"
+                    : "text-gray-600 hover:text-gray-900"
+                }`}
+              >
+                Department
+              </button>
+            </div>
 
           {/* Existing Treatments Tab */}
           {activeTab === "existing" && (
-            <form onSubmit={handleSubmit} className="space-y-6">
+            <form onSubmit={handleSubmit} className="space-y-5">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Treatment</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Treatment <span className="text-red-500">*</span>
+                </label>
                 <select
                   value={selectedTreatmentId}
                   onChange={(e) => {
                     setSelectedTreatmentId(e.target.value);
                     setSelectedSubcategories([]);
                   }}
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-gray-900 focus:border-gray-900 transition-all bg-white"
                   required
                 >
                   <option value="">Select a treatment</option>
@@ -436,11 +439,11 @@ const DoctorTreatmentModal = ({ isOpen, onClose, doctorStaffId, doctorStaffName,
                 <div>
                   <div className="flex items-center justify-between mb-3">
                     <label className="block text-sm font-medium text-gray-700">
-                      Sub Treatments (optional)
+                      Sub Treatments <span className="text-gray-500 font-normal">(optional)</span>
                     </label>
                     <button
                       type="button"
-                      className="text-xs text-blue-600 hover:underline"
+                      className="text-sm text-gray-600 hover:text-gray-900 font-medium transition-colors"
                       onClick={() =>
                         setSelectedSubcategories(
                           selectedTreatment.subcategories.map((sub) => sub.slug || sub.name)
@@ -450,28 +453,28 @@ const DoctorTreatmentModal = ({ isOpen, onClose, doctorStaffId, doctorStaffName,
                       Select all
                     </button>
                   </div>
-                  <div className="grid gap-2 sm:grid-cols-2">
+                  <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                     {selectedTreatment.subcategories.map((sub) => {
                       const value = sub.slug || sub.name;
                       return (
                         <label
                           key={value}
-                          className={`flex items-center gap-3 border rounded-xl px-4 py-3 cursor-pointer transition ${
+                          className={`flex items-center gap-3 border rounded-lg px-3 py-2.5 cursor-pointer transition-colors ${
                             selectedSubcategories.includes(value)
-                              ? "border-blue-500 bg-blue-50"
-                              : "border-gray-200"
+                              ? "border-gray-900 bg-gray-50"
+                              : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
                           }`}
                         >
                           <input
                             type="checkbox"
-                            className="form-checkbox h-4 w-4 text-blue-600"
+                            className="form-checkbox h-4 w-4 text-gray-900 rounded focus:ring-2 focus:ring-gray-900 flex-shrink-0"
                             checked={selectedSubcategories.includes(value)}
                             onChange={() => toggleSubcategory(value)}
                           />
-                          <div>
-                            <p className="text-sm font-medium text-gray-900">{sub.name}</p>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-gray-900 truncate">{sub.name}</p>
                             {sub.price ? (
-                              <p className="text-xs text-gray-500">Default ₹{sub.price}</p>
+                              <p className="text-xs text-gray-500 mt-0.5">Default ₹{sub.price}</p>
                             ) : null}
                           </div>
                         </label>
@@ -483,38 +486,7 @@ const DoctorTreatmentModal = ({ isOpen, onClose, doctorStaffId, doctorStaffName,
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Department (optional)
-                </label>
-                {doctorDepartmentsLoading ? (
-                  <div className="flex items-center gap-2 text-sm text-gray-500">
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Loading departments...
-                  </div>
-                ) : doctorDepartments.length === 0 ? (
-                  <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                    No departments added yet. Use the Department tab to add departments for this doctor.
-                  </p>
-                ) : (
-                  <select
-                    value={selectedDepartmentId}
-                    onChange={(e) => setSelectedDepartmentId(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    <option value="">No Department</option>
-                    {doctorDepartments
-                      .filter((dept) => dept.clinicDepartmentId)
-                      .map((dept) => (
-                        <option key={dept._id} value={dept.clinicDepartmentId}>
-                          {dept.name}
-                        </option>
-                      ))}
-                  </select>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Custom price (optional)
+                  Custom Price <span className="text-gray-500 font-normal">(optional)</span>
                 </label>
                 <div className="relative">
                   <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-500 text-sm">
@@ -527,25 +499,30 @@ const DoctorTreatmentModal = ({ isOpen, onClose, doctorStaffId, doctorStaffName,
                     placeholder="Enter price override"
                     value={price}
                     onChange={(e) => setPrice(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg pl-8 pr-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full border border-gray-300 rounded-lg pl-8 pr-4 py-2.5 text-sm focus:ring-2 focus:ring-gray-900 focus:border-gray-900 transition-all bg-white"
                   />
                 </div>
+                <p className="text-xs text-gray-500 mt-1.5">
+                  Leave empty to use default clinic pricing
+                </p>
               </div>
 
-              <button
-                type="submit"
-                disabled={submitting}
-                className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl font-medium shadow hover:bg-blue-700 disabled:opacity-60"
-              >
-                {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
-                {submitting ? "Assigning..." : "Assign Treatment"}
-              </button>
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-gray-900 text-white rounded-lg font-medium hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm"
+                >
+                  {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
+                  {submitting ? "Assigning..." : "Assign Treatment"}
+                </button>
+              </div>
             </form>
           )}
 
           {/* Custom Treatment Tab */}
           {activeTab === "custom" && (
-            <form onSubmit={handleCreateCustomTreatment} className="space-y-6">
+            <form onSubmit={handleCreateCustomTreatment} className="space-y-5">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Treatment Name <span className="text-red-500">*</span>
@@ -555,14 +532,14 @@ const DoctorTreatmentModal = ({ isOpen, onClose, doctorStaffId, doctorStaffName,
                   value={customTreatmentName}
                   onChange={(e) => setCustomTreatmentName(e.target.value)}
                   placeholder="Enter treatment name"
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-gray-900 focus:border-gray-900 transition-all bg-white"
                   required
                 />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Default Price (optional)
+                  Default Price <span className="text-gray-500 font-normal">(optional)</span>
                 </label>
                 <div className="relative">
                   <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-500 text-sm">
@@ -575,14 +552,14 @@ const DoctorTreatmentModal = ({ isOpen, onClose, doctorStaffId, doctorStaffName,
                     placeholder="Enter default price"
                     value={customPrice}
                     onChange={(e) => setCustomPrice(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg pl-8 pr-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full border border-gray-300 rounded-lg pl-8 pr-4 py-2.5 text-sm focus:ring-2 focus:ring-gray-900 focus:border-gray-900 transition-all bg-white"
                   />
                 </div>
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Department (optional)
+                  Department <span className="text-gray-500 font-normal">(optional)</span>
                 </label>
                 {doctorDepartmentsLoading ? (
                   <div className="flex items-center gap-2 text-sm text-gray-500">
@@ -590,14 +567,14 @@ const DoctorTreatmentModal = ({ isOpen, onClose, doctorStaffId, doctorStaffName,
                     Loading departments...
                   </div>
                 ) : doctorDepartments.length === 0 ? (
-                  <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                  <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
                     No departments added yet. Use the Department tab to add departments for this doctor.
                   </p>
                 ) : (
                   <select
                     value={customDepartmentId}
                     onChange={(e) => setCustomDepartmentId(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-gray-900 focus:border-gray-900 transition-all bg-white"
                   >
                     <option value="">No Department</option>
                     {doctorDepartments
@@ -614,30 +591,30 @@ const DoctorTreatmentModal = ({ isOpen, onClose, doctorStaffId, doctorStaffName,
               <div>
                 <div className="flex items-center justify-between mb-3">
                   <label className="block text-sm font-medium text-gray-700">
-                    Sub Treatments (optional)
+                    Sub Treatments <span className="text-gray-500 font-normal">(optional)</span>
                   </label>
                   <button
                     type="button"
                     onClick={addSubTreatmentRow}
-                    className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline"
+                    className="inline-flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900 font-medium transition-colors"
                   >
-                    <Plus className="w-3 h-3" />
+                    <Plus className="w-4 h-4" />
                     Add Sub Treatment
                   </button>
                 </div>
                 <div className="space-y-3">
                   {customSubTreatments.map((sub) => (
-                    <div key={sub.id} className="flex gap-3 items-start">
-                      <div className="flex-1 grid grid-cols-2 gap-3">
+                    <div key={sub.id} className="flex gap-3 items-start bg-gray-50 rounded-lg p-3 border border-gray-200">
+                      <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <input
                           type="text"
                           value={sub.name}
                           onChange={(e) => updateSubTreatment(sub.id, "name", e.target.value)}
                           placeholder="Sub treatment name"
-                          className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-gray-900 focus:border-gray-900 transition-all bg-white"
                         />
                         <div className="relative">
-                          <span className="absolute inset-y-0 left-0 pl-2 flex items-center text-gray-500 text-xs">
+                          <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-500 text-sm">
                             ₹
                           </span>
                           <input
@@ -647,7 +624,7 @@ const DoctorTreatmentModal = ({ isOpen, onClose, doctorStaffId, doctorStaffName,
                             value={sub.price}
                             onChange={(e) => updateSubTreatment(sub.id, "price", e.target.value)}
                             placeholder="Price"
-                            className="w-full border border-gray-300 rounded-lg pl-6 pr-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            className="w-full border border-gray-300 rounded-lg pl-8 pr-3 py-2 text-sm focus:ring-2 focus:ring-gray-900 focus:border-gray-900 transition-all bg-white"
                           />
                         </div>
                       </div>
@@ -655,7 +632,7 @@ const DoctorTreatmentModal = ({ isOpen, onClose, doctorStaffId, doctorStaffName,
                         <button
                           type="button"
                           onClick={() => removeSubTreatmentRow(sub.id)}
-                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors flex-shrink-0"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -665,23 +642,25 @@ const DoctorTreatmentModal = ({ isOpen, onClose, doctorStaffId, doctorStaffName,
                 </div>
               </div>
 
-              <button
-                type="submit"
-                disabled={customSubmitting}
-                className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl font-medium shadow hover:bg-blue-700 disabled:opacity-60"
-              >
-                {customSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
-                {customSubmitting ? "Creating..." : "Create & Assign Treatment"}
-              </button>
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  disabled={customSubmitting}
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-gray-900 text-white rounded-lg font-medium hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm"
+                >
+                  {customSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
+                  {customSubmitting ? "Creating..." : "Create & Assign Treatment"}
+                </button>
+              </div>
             </form>
           )}
 
           {/* Department Tab */}
           {activeTab === "department" && (
-            <div className="space-y-6">
+            <div className="space-y-5">
               <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">Manage Departments</h3>
-                <p className="text-sm text-gray-500">
+                <h3 className="text-lg font-semibold text-gray-900 mb-1">Manage Departments</h3>
+                <p className="text-sm text-gray-600">
                   Add departments for this doctor. Departments will be available for all treatments.
                 </p>
               </div>
@@ -705,7 +684,7 @@ const DoctorTreatmentModal = ({ isOpen, onClose, doctorStaffId, doctorStaffName,
                     <select
                       value={selectedClinicDepartmentId}
                       onChange={(e) => setSelectedClinicDepartmentId(e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-gray-900 focus:border-gray-900 transition-all bg-white"
                       required
                     >
                       <option value="">Choose a department</option>
@@ -721,7 +700,7 @@ const DoctorTreatmentModal = ({ isOpen, onClose, doctorStaffId, doctorStaffName,
                 <button
                   type="submit"
                   disabled={addingDepartment || clinicDepartments.length === 0 || clinicDepartmentsLoading}
-                  className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl font-medium shadow hover:bg-blue-700 disabled:opacity-60"
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-gray-900 text-white rounded-lg font-medium hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm"
                 >
                   {addingDepartment && <Loader2 className="w-4 h-4 animate-spin" />}
                   {addingDepartment ? "Adding..." : "Add Department"}
@@ -729,37 +708,44 @@ const DoctorTreatmentModal = ({ isOpen, onClose, doctorStaffId, doctorStaffName,
               </form>
 
               {/* All Departments List */}
-              <div className="border-t border-gray-200 pt-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">All Departments</h3>
+              <div className="border-t border-gray-200 pt-5">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-base font-semibold text-gray-900">All Departments</h3>
+                  {doctorDepartments.length > 0 && (
+                    <span className="text-xs text-gray-500 bg-gray-100 px-2.5 py-1 rounded-full">
+                      {doctorDepartments.length} {doctorDepartments.length === 1 ? 'department' : 'departments'}
+                    </span>
+                  )}
+                </div>
                 {doctorDepartmentsLoading ? (
                   <div className="flex items-center justify-center py-8 text-gray-500">
                     <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                    Loading departments...
+                    <span className="text-sm">Loading departments...</span>
                   </div>
                 ) : doctorDepartments.length === 0 ? (
-                  <div className="text-center py-8">
-                    <p className="text-gray-600">No departments added yet.</p>
-                    <p className="text-sm text-gray-500 mt-2">Use the form above to add your first department.</p>
+                  <div className="text-center py-8 bg-gray-50 rounded-lg border border-gray-200">
+                    <p className="text-sm text-gray-600">No departments added yet.</p>
+                    <p className="text-xs text-gray-500 mt-1">Use the form above to add your first department.</p>
                   </div>
                 ) : (
-                  <div className="space-y-3">
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                     {doctorDepartments.map((dept) => (
                       <div
                         key={dept._id}
-                        className="border border-gray-200 rounded-xl p-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
+                        className="border border-gray-200 rounded-lg p-4 flex items-center justify-between hover:border-gray-300 hover:bg-gray-50 transition-colors bg-white"
                       >
-                        <div>
-                          <h4 className="text-base font-semibold text-gray-900">{dept.name}</h4>
-                          <p className="text-sm text-gray-500">
+                        <div className="flex-1 min-w-0">
+                          <h4 className="text-sm font-medium text-gray-900 truncate">{dept.name}</h4>
+                          <p className="text-xs text-gray-500 mt-0.5">
                             Added {new Date(dept.createdAt).toLocaleDateString()}
                           </p>
                         </div>
                         <button
                           onClick={() => handleDeleteDepartment(dept._id)}
-                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors flex-shrink-0"
                           title="Delete department"
                         >
-                          <Trash2 className="w-5 h-5" />
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
                     ))}
@@ -769,74 +755,77 @@ const DoctorTreatmentModal = ({ isOpen, onClose, doctorStaffId, doctorStaffName,
             </div>
           )}
 
-          {/* Existing Treatments List */}
-          <div className="border-t border-gray-200 pt-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Current Treatments</h3>
-            {fetching ? (
-              <div className="flex items-center justify-center py-8 text-gray-500">
-                <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                Loading treatments...
-              </div>
-            ) : doctorTreatments.length === 0 ? (
-              <div className="text-center py-8">
-                <p className="text-gray-600">No treatments assigned yet.</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {doctorTreatments.map((item) => (
-                  <div
-                    key={item._id}
-                    className="border border-gray-200 rounded-xl p-4 flex flex-col gap-3"
-                  >
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                      <div>
-                        <h4 className="text-base font-semibold text-gray-900">{item.treatmentName}</h4>
-                        {item.departmentName && (
-                          <p className="text-sm text-gray-600 font-medium">
-                            Department: {item.departmentName}
-                          </p>
-                        )}
-                        {item.price && (
-                          <p className="text-sm text-gray-600 font-medium">
-                            Custom Treatment Price: ₹{item.price}
-                          </p>
-                        )}
-                        {!item.price && (
-                          <p className="text-sm text-gray-500">Using default clinic pricing</p>
-                        )}
-                      </div>
-                    </div>
-                    {item.subcategories && item.subcategories.length > 0 && (
-                      <div className="mt-2 border-t border-gray-100 pt-3">
-                        <p className="text-xs font-medium text-gray-700 mb-2">Sub Treatments:</p>
-                        <div className="space-y-2">
-                          {item.subcategories.map((sub, idx) => (
-                            <div
-                              key={idx}
-                              className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2"
-                            >
-                              <span className="text-sm text-gray-900 font-medium">{sub.name}</span>
-                              {sub.price !== null && sub.price !== undefined ? (
-                                <span className="text-sm font-semibold text-blue-600">
-                                  ₹{sub.price}
-                                </span>
-                              ) : item.price ? (
-                                <span className="text-sm text-gray-500">Uses treatment price</span>
-                              ) : (
-                                <span className="text-sm text-gray-500">Default pricing</span>
-                              )}
-                            </div>
-                          ))}
+          {/* Existing Treatments List - Only show when NOT on Department tab */}
+          {activeTab !== "department" && (
+            <div className="border-t border-gray-200 pt-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Current Treatments</h3>
+              {fetching ? (
+                <div className="flex items-center justify-center py-8 text-gray-500">
+                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                  Loading treatments...
+                </div>
+              ) : doctorTreatments.length === 0 ? (
+                <div className="text-center py-8">
+                  <p className="text-gray-600">No treatments assigned yet.</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {doctorTreatments.map((item) => (
+                    <div
+                      key={item._id}
+                      className="border border-gray-200 rounded-xl p-4 flex flex-col gap-3"
+                    >
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                        <div>
+                          <h4 className="text-base font-semibold text-gray-900">{item.treatmentName}</h4>
+                          {item.departmentName && (
+                            <p className="text-sm text-gray-600 font-medium">
+                              Department: {item.departmentName}
+                            </p>
+                          )}
+                          {item.price && (
+                            <p className="text-sm text-gray-600 font-medium">
+                              Custom Treatment Price: ₹{item.price}
+                            </p>
+                          )}
+                          {!item.price && (
+                            <p className="text-sm text-gray-500">Using default clinic pricing</p>
+                          )}
                         </div>
                       </div>
-                    )}
-                    {(!item.subcategories || item.subcategories.length === 0) && (
-                      <p className="text-xs text-gray-500 italic">No sub-treatments selected</p>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
+                      {item.subcategories && item.subcategories.length > 0 && (
+                        <div className="mt-2 border-t border-gray-100 pt-3">
+                          <p className="text-xs font-medium text-gray-700 mb-2">Sub Treatments:</p>
+                          <div className="space-y-2">
+                            {item.subcategories.map((sub, idx) => (
+                              <div
+                                key={idx}
+                                className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2"
+                              >
+                                <span className="text-sm text-gray-900 font-medium">{sub.name}</span>
+                                {sub.price !== null && sub.price !== undefined ? (
+                                  <span className="text-sm font-semibold text-blue-600">
+                                    ₹{sub.price}
+                                  </span>
+                                ) : item.price ? (
+                                  <span className="text-sm text-gray-500">Uses treatment price</span>
+                                ) : (
+                                  <span className="text-sm text-gray-500">Default pricing</span>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {(!item.subcategories || item.subcategories.length === 0) && (
+                        <p className="text-xs text-gray-500 italic">No sub-treatments selected</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
           </div>
         </div>
       </div>
