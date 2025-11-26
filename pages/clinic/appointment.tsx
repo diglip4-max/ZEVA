@@ -231,6 +231,10 @@ function AppointmentPage() {
   const roomFilterTouchedRef = useRef(false);
   const doctorFilterRef = useRef<HTMLDivElement | null>(null);
   const roomFilterRef = useRef<HTMLDivElement | null>(null);
+  const [hoveredAppointment, setHoveredAppointment] = useState<{
+    appointment: Appointment;
+    position: { top: number; left: number };
+  } | null>(null);
 
   function getAuthHeaders(): Record<string, string> {
     if (typeof window === "undefined") return {};
@@ -986,24 +990,6 @@ function AppointmentPage() {
 
                           {rowAppointments.length > 0
                             ? rowAppointments.map((apt) => {
-                                const tooltip = [
-                                  `Patient: ${apt.patientName}`,
-                                  `Invoice #: ${apt.patientInvoiceNumber || "N/A"}`,
-                                  `EMR #: ${apt.patientEmrNumber || "N/A"}`,
-                                  `Gender: ${apt.patientGender || "N/A"}`,
-                                  `Email: ${apt.patientEmail || "N/A"}`,
-                                  `Mobile: ${apt.patientMobileNumber || "N/A"}`,
-                                  `Doctor: ${apt.doctorName}`,
-                                  `Room: ${apt.roomName}`,
-                                  `Status: ${apt.status}`,
-                                  `Follow: ${apt.followType}`,
-                                  `Time: ${formatTime(apt.fromTime)} - ${formatTime(apt.toTime)}`,
-                                  apt.referral ? `Referral: ${apt.referral}` : "",
-                                  apt.emergency ? `Emergency: ${apt.emergency}` : "",
-                                  apt.notes ? `Notes: ${apt.notes}` : "",
-                                ]
-                                  .filter(Boolean)
-                                  .join("\n");
                                 const fromTotal = timeStringToMinutes(apt.fromTime);
                                 const toTotal = timeStringToMinutes(apt.toTime);
                                 const visibleStart = Math.max(fromTotal, rowStartMinutes);
@@ -1026,7 +1012,48 @@ function AppointmentPage() {
                                       height: `${heightPx - 2}px`,
                                       zIndex: 10,
                                     }}
-                                    title={tooltip}
+                                    onMouseEnter={(e) => {
+                                      const rect = e.currentTarget.getBoundingClientRect();
+                                      const tooltipWidth = 200;
+                                      const tooltipHeight = 300;
+                                      const spacing = 8;
+                                      
+                                      // Calculate position relative to viewport
+                                      let left = rect.right + spacing;
+                                      let top = rect.top;
+                                      
+                                      // Check if tooltip would go off right edge
+                                      if (left + tooltipWidth > window.innerWidth) {
+                                        // Position to the left of the appointment
+                                        left = rect.left - tooltipWidth - spacing;
+                                      }
+                                      
+                                      // Check if tooltip would go off bottom edge
+                                      if (top + tooltipHeight > window.innerHeight) {
+                                        top = window.innerHeight - tooltipHeight - 10;
+                                      }
+                                      
+                                      // Check if tooltip would go off top edge
+                                      if (top < 10) {
+                                        top = 10;
+                                      }
+                                      
+                                      // Check if tooltip would go off left edge
+                                      if (left < 10) {
+                                        left = 10;
+                                      }
+                                      
+                                      setHoveredAppointment({
+                                        appointment: apt,
+                                        position: {
+                                          top,
+                                          left,
+                                        },
+                                      });
+                                    }}
+                                    onMouseLeave={() => {
+                                      setHoveredAppointment(null);
+                                    }}
                                     onClick={(e) => {
                                       e.stopPropagation();
                                     }}
@@ -1130,24 +1157,6 @@ function AppointmentPage() {
 
                           {roomAppointments.length > 0
                             ? roomAppointments.map((apt) => {
-                                const tooltip = [
-                                  `Patient: ${apt.patientName}`,
-                                  `Invoice #: ${apt.patientInvoiceNumber || "N/A"}`,
-                                  `EMR #: ${apt.patientEmrNumber || "N/A"}`,
-                                  `Gender: ${apt.patientGender || "N/A"}`,
-                                  `Email: ${apt.patientEmail || "N/A"}`,
-                                  `Mobile: ${apt.patientMobileNumber || "N/A"}`,
-                                  `Doctor: ${apt.doctorName}`,
-                                  `Room: ${apt.roomName}`,
-                                  `Status: ${apt.status}`,
-                                  `Follow: ${apt.followType}`,
-                                  `Time: ${formatTime(apt.fromTime)} - ${formatTime(apt.toTime)}`,
-                                  apt.referral ? `Referral: ${apt.referral}` : "",
-                                  apt.emergency ? `Emergency: ${apt.emergency}` : "",
-                                  apt.notes ? `Notes: ${apt.notes}` : "",
-                                ]
-                                  .filter(Boolean)
-                                  .join("\n");
                                 const fromTotal = timeStringToMinutes(apt.fromTime);
                                 const toTotal = timeStringToMinutes(apt.toTime);
                                 const visibleStart = Math.max(fromTotal, rowStartMinutes);
@@ -1171,7 +1180,48 @@ function AppointmentPage() {
                                       height: `${heightPx - 2}px`,
                                       zIndex: 10,
                                     }}
-                                    title={tooltip}
+                                    onMouseEnter={(e) => {
+                                      const rect = e.currentTarget.getBoundingClientRect();
+                                      const tooltipWidth = 200;
+                                      const tooltipHeight = 300;
+                                      const spacing = 8;
+                                      
+                                      // Calculate position relative to viewport
+                                      let left = rect.right + spacing;
+                                      let top = rect.top;
+                                      
+                                      // Check if tooltip would go off right edge
+                                      if (left + tooltipWidth > window.innerWidth) {
+                                        // Position to the left of the appointment
+                                        left = rect.left - tooltipWidth - spacing;
+                                      }
+                                      
+                                      // Check if tooltip would go off bottom edge
+                                      if (top + tooltipHeight > window.innerHeight) {
+                                        top = window.innerHeight - tooltipHeight - 10;
+                                      }
+                                      
+                                      // Check if tooltip would go off top edge
+                                      if (top < 10) {
+                                        top = 10;
+                                      }
+                                      
+                                      // Check if tooltip would go off left edge
+                                      if (left < 10) {
+                                        left = 10;
+                                      }
+                                      
+                                      setHoveredAppointment({
+                                        appointment: apt,
+                                        position: {
+                                          top,
+                                          left,
+                                        },
+                                      });
+                                    }}
+                                    onMouseLeave={() => {
+                                      setHoveredAppointment(null);
+                                    }}
                                     onClick={(e) => {
                                       e.stopPropagation();
                                     }}
@@ -1330,6 +1380,128 @@ function AppointmentPage() {
                   <p className="text-xs text-gray-700">No treatments assigned yet.</p>
                 )}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Appointment Hover Tooltip */}
+      {hoveredAppointment && (
+        <div
+          className="fixed z-[90] w-[200px] max-w-[85vw] pointer-events-none"
+          style={{
+            top: hoveredAppointment.position.top,
+            left: hoveredAppointment.position.left,
+          }}
+        >
+          <div className="bg-white rounded-md shadow-xl border border-gray-200 overflow-hidden">
+            {/* Header */}
+            <div className={`px-2 py-1 ${getStatusColor(hoveredAppointment.appointment.status).bg} ${getStatusColor(hoveredAppointment.appointment.status).text}`}>
+              <div className="flex items-center justify-between gap-1">
+                <p className="text-[10px] font-bold truncate">{hoveredAppointment.appointment.patientName}</p>
+                <span className="text-[9px] font-semibold opacity-90 ml-1">{hoveredAppointment.appointment.status.toUpperCase()}</span>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="p-2 space-y-1 max-h-[300px] overflow-y-auto">
+              {/* Time */}
+              <div className="flex items-center gap-1.5">
+                <Clock className="w-2.5 h-2.5 text-gray-500 flex-shrink-0" />
+                <p className="text-[10px] text-gray-700 font-semibold">
+                  {formatTime(hoveredAppointment.appointment.fromTime)} - {formatTime(hoveredAppointment.appointment.toTime)}
+                </p>
+              </div>
+
+              {/* Patient Info */}
+              <div className="space-y-0.5 pt-0.5 border-t border-gray-100">
+                {hoveredAppointment.appointment.patientEmrNumber && (
+                  <div className="flex items-center gap-1">
+                    <span className="text-[9px] text-gray-600 font-medium">EMR:</span>
+                    <span className="text-[10px] text-gray-700 truncate">{hoveredAppointment.appointment.patientEmrNumber}</span>
+                  </div>
+                )}
+                {hoveredAppointment.appointment.patientInvoiceNumber && (
+                  <div className="flex items-center gap-1">
+                    <span className="text-[9px] text-gray-600 font-medium">Inv:</span>
+                    <span className="text-[10px] text-gray-700 truncate">{hoveredAppointment.appointment.patientInvoiceNumber}</span>
+                  </div>
+                )}
+                {hoveredAppointment.appointment.patientGender && (
+                  <div className="flex items-center gap-1">
+                    <span className="text-[9px] text-gray-600 font-medium">Gender:</span>
+                    <span className="text-[10px] text-gray-700">{hoveredAppointment.appointment.patientGender}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Contact Info */}
+              {(hoveredAppointment.appointment.patientEmail || hoveredAppointment.appointment.patientMobileNumber) && (
+                <div className="space-y-0.5 pt-0.5 border-t border-gray-100">
+                  {hoveredAppointment.appointment.patientMobileNumber && (
+                    <div className="flex items-center gap-1">
+                      <span className="text-[9px] text-gray-600 font-medium w-12 flex-shrink-0">Mobile:</span>
+                      <span className="text-[10px] text-gray-700 truncate">{hoveredAppointment.appointment.patientMobileNumber}</span>
+                    </div>
+                  )}
+                  {hoveredAppointment.appointment.patientEmail && (
+                    <div className="flex items-center gap-1">
+                      <span className="text-[9px] text-gray-600 font-medium w-12 flex-shrink-0">Email:</span>
+                      <span className="text-[10px] text-gray-700 truncate">{hoveredAppointment.appointment.patientEmail}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Doctor & Room */}
+              <div className="space-y-0.5 pt-0.5 border-t border-gray-100">
+                <div className="flex items-center gap-1">
+                  <span className="text-[9px] text-gray-600 font-medium w-12 flex-shrink-0">Dr:</span>
+                  <span className="text-[10px] text-gray-700 truncate">{hoveredAppointment.appointment.doctorName}</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="text-[9px] text-gray-600 font-medium w-12 flex-shrink-0">Room:</span>
+                  <span className="text-[10px] text-gray-700 truncate">{hoveredAppointment.appointment.roomName}</span>
+                </div>
+              </div>
+
+              {/* Follow Type */}
+              {hoveredAppointment.appointment.followType && (
+                <div className="pt-0.5 border-t border-gray-100">
+                  <div className="flex items-center gap-1">
+                    <span className="text-[9px] text-gray-600 font-medium w-12 flex-shrink-0">Follow:</span>
+                    <span className="text-[10px] text-gray-700">{hoveredAppointment.appointment.followType}</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Referral */}
+              {hoveredAppointment.appointment.referral && (
+                <div className="pt-0.5 border-t border-gray-100">
+                  <div className="flex items-start gap-1">
+                    <span className="text-[9px] text-gray-600 font-medium w-12 flex-shrink-0">Ref:</span>
+                    <span className="text-[10px] text-gray-700">{hoveredAppointment.appointment.referral}</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Emergency */}
+              {hoveredAppointment.appointment.emergency && (
+                <div className="pt-0.5 border-t border-gray-100">
+                  <div className="flex items-start gap-1">
+                    <span className="text-[9px] text-gray-600 font-medium w-12 flex-shrink-0">Emer:</span>
+                    <span className="text-[10px] text-red-600 font-semibold">{hoveredAppointment.appointment.emergency}</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Notes */}
+              {hoveredAppointment.appointment.notes && (
+                <div className="pt-0.5 border-t border-gray-100">
+                  <p className="text-[9px] font-semibold text-gray-600 uppercase mb-0.5">Notes</p>
+                  <p className="text-[10px] text-gray-700 leading-tight">{hoveredAppointment.appointment.notes}</p>
+                </div>
+              )}
             </div>
           </div>
         </div>

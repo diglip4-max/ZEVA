@@ -370,7 +370,7 @@ const ManageAgentsPage = () => {
   }
 
   return (
-    <div className="w-full">
+    <div className="w-full min-h-screen bg-gray-50 py-6 px-4 sm:px-6 lg:px-8">
       <Toaster
         position="top-right"
         toastOptions={{
@@ -378,7 +378,7 @@ const ManageAgentsPage = () => {
           style: { background: '#1f2937', color: '#f8fafc' },
         }}
       />
-      <div className="w-full space-y-4 sm:space-y-6">
+      <div className="w-full max-w-7xl mx-auto space-y-4 sm:space-y-6">
         {/* Header Section */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>

@@ -204,11 +204,19 @@ const AssignedLeadsPage = () => {
         setLeads((prevLeads) => prevLeads.filter((lead) => lead._id !== confirmModal.leadId));
         setTotalAssigned((prev) => Math.max(0, prev - 1));
       } else {
-        toast.error(res.data.message || "Failed to delete lead");
+        if (res.status === 403) {
+          toast("You don't have access to delete this lead.", { icon: "🔒" });
+        } else {
+          toast.error(res.data.message || "Failed to delete lead");
+        }
       }
     } catch (err) {
       console.error(err);
-      toast.error(err.response?.data?.message || "Error deleting lead");
+      if (err.response?.status === 403) {
+        toast("You don't have permission to delete this lead.", { icon: "🔒" });
+      } else {
+        toast.error(err.response?.data?.message || "Error deleting lead");
+      }
     } finally {
       setConfirmModal({ isOpen: false, leadId: null, leadName: "" });
     }
@@ -361,6 +369,16 @@ const AssignedLeadsPage = () => {
   };
 
   const totalCount = leads.length;
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6 text-center">
+          <div className="text-gray-700">Loading leads...</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>
