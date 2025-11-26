@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import EditAppointmentModal from "../../components/EditAppointmentModal";
 import AppointmentHistoryModal from "../../components/AppointmentHistoryModal";
+import AppointmentReportModal from "../../components/AppointmentReportModal";
 
 interface Appointment {
   _id: string;
@@ -119,9 +120,11 @@ const AllAppointmentsPage: NextPageWithLayout = ({
   const [openActionMenu, setOpenActionMenu] = useState<string | null>(null);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [historyModalOpen, setHistoryModalOpen] = useState(false);
+  const [reportModalOpen, setReportModalOpen] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [selectedPatientId, setSelectedPatientId] = useState<string>("");
   const [selectedPatientName, setSelectedPatientName] = useState<string>("");
+  const [reportAppointment, setReportAppointment] = useState<Appointment | null>(null);
   const appointmentRef = useRef<Appointment | null>(null);
 
   // Debug: Log modal state changes
@@ -858,6 +861,26 @@ const AllAppointmentsPage: NextPageWithLayout = ({
                                       <History className="w-4 h-4" />
                                       Appointment History
                                     </button>
+                                    {apt.status?.toLowerCase() === "arrived" && (
+                                      <button
+                                        type="button"
+                                        onMouseDown={(e) => {
+                                          e.preventDefault();
+                                          e.stopPropagation();
+                                          setOpenActionMenu(null);
+                                          setReportAppointment(apt);
+                                          setReportModalOpen(true);
+                                        }}
+                                        onClick={(e) => {
+                                          e.preventDefault();
+                                          e.stopPropagation();
+                                        }}
+                                        className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2 transition cursor-pointer"
+                                      >
+                                        <FileText className="w-4 h-4" />
+                                        Report
+                                      </button>
+                                    )}
                                   </div>
                                 </div>
                               </>
@@ -934,6 +957,19 @@ const AllAppointmentsPage: NextPageWithLayout = ({
         patientId={selectedPatientId}
         patientName={selectedPatientName}
         getAuthHeaders={getAuthHeaders}
+      />
+
+      <AppointmentReportModal
+        isOpen={reportModalOpen}
+        appointment={reportAppointment}
+        onClose={() => {
+          setReportModalOpen(false);
+          setReportAppointment(null);
+        }}
+        getAuthHeaders={getAuthHeaders}
+        onSuccess={() => {
+          fetchAppointments();
+        }}
       />
     </>
   );
