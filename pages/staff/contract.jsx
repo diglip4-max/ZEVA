@@ -5,6 +5,34 @@ import { Search, Filter, Calendar, DollarSign, FileText, Eye, X } from "lucide-r
 import ClinicLayout from "../../components/staffLayout";
 import withClinicAuth from "../../components/withStaffAuth";
 
+const TOKEN_PRIORITY = [
+  "clinicToken",
+  "doctorToken",
+  "agentToken",
+  "staffToken",
+  "userToken",
+  "adminToken",
+];
+
+const getStoredToken = () => {
+  if (typeof window === "undefined") return null;
+  for (const key of TOKEN_PRIORITY) {
+    const value =
+      localStorage.getItem(key) ||
+      sessionStorage.getItem(key);
+    if (value) return value;
+  }
+  return null;
+};
+
+const getAuthHeaders = () => {
+  const token = getStoredToken();
+  if (!token) {
+    return null;
+  }
+  return { Authorization: `Bearer ${token}` };
+};
+
 function StaffContracts() {
   const [contracts, setContracts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -19,15 +47,15 @@ function StaffContracts() {
 
   const fetchStaffContracts = async () => {
     try {
-      const staffToken = localStorage.getItem("userToken");
-      if (!staffToken) {
-        alert("Please log in as staff to view contracts.");
+      const headers = getAuthHeaders();
+      if (!headers) {
+        alert("Authentication required. Please login again.");
         return;
       }
 
       console.log("Fetching staff contracts...");
       const res = await axios.get("/api/contracts/getByStaff", {
-        headers: { Authorization: `Bearer ${staffToken}` },
+        headers,
       });
 
       console.log("Staff contracts response:", res.data);

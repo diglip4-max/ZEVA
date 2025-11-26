@@ -1,8 +1,7 @@
 //api/pettycash/getpettyCash.js
-import jwt from "jsonwebtoken";
 import dbConnect from "../../../lib/database";
 import PettyCash from "../../../models/PettyCash";
-import User from "../../../models/Users";
+import { getAuthorizedStaffUser } from "../../../server/staff/authHelpers";
 
 export default async function handler(req, res) {
   await dbConnect();
@@ -12,18 +11,10 @@ export default async function handler(req, res) {
   }
 
   try {
-    const token = req.headers.authorization?.split(" ")[1];
-    if (!token) {
-      return res.status(401).json({ message: "Token missing" });
-    }
-
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const staffId = decoded.userId;
-
-    const staffUser = await User.findById(staffId);
-    if (!staffUser || staffUser.role !== "staff") {
-      return res.status(403).json({ message: "Access denied" });
-    }
+    const user = await getAuthorizedStaffUser(req, {
+      allowedRoles: ["staff", "doctorStaff", "doctor", "clinic", "agent", "admin"],
+    });
+    const staffId = user._id.toString();
 
     const search = req.query.search ? req.query.search.trim() : "";
 

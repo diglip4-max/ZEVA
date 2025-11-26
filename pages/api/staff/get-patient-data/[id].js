@@ -2,6 +2,7 @@
 import dbConnect from "../../../../lib/database";
 import PatientRegistration from "../../../../models/PatientRegistration";
 import PettyCash from "../../../../models/PettyCash";
+import User from "../../../../models/Users";
 import mongoose from "mongoose";
 import { getAuthorizedStaffUser } from "../../../../server/staff/authHelpers";
 
@@ -45,21 +46,34 @@ export default async function handler(req, res) {
     // GET: Fetch Invoice + Patient Info
     // -------------------------------
     if (req.method === "GET") {
-      const invoice = await PatientRegistration.findById(id)
-        .populate({
-          path: "doctor",
-          model: "User",
-          select: "name role",
-          match: { role: "doctorStaff" }, // ✅ only populate if doctorStaff
-        })
-        .lean();
+      const invoice = await PatientRegistration.findById(id).lean();
 
       if (!invoice) return res.status(404).json({ message: "Invoice not found" });
 
-      // 🔹 Replace doctor ID with doctor name
+      // 🔹 Handle doctor field - it might be a string (name) or ObjectId
+      let doctorName = "-";
+      if (invoice.doctor) {
+        if (typeof invoice.doctor === "string") {
+          // If it's already a string (name), use it directly
+          doctorName = invoice.doctor;
+        } else if (mongoose.Types.ObjectId.isValid(invoice.doctor)) {
+          // If it's an ObjectId, try to populate
+          try {
+            const doctor = await User.findById(invoice.doctor).select("name role").lean();
+            if (doctor && doctor.role === "doctorStaff") {
+              doctorName = doctor.name || "-";
+            }
+          } catch (populateError) {
+            // If populate fails, just use the string value or default
+            console.error("Error populating doctor:", populateError);
+            doctorName = "-";
+          }
+        }
+      }
+
       const invoiceWithDoctor = {
         ...invoice,
-        doctor: invoice.doctor ? invoice.doctor.name : "-", // doctor name or placeholder
+        doctor: doctorName,
         _id: invoice._id.toString(),
         userId: invoice.userId?.toString(),
         invoicedDate: invoice.invoicedDate?.toISOString(),

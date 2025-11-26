@@ -5,6 +5,31 @@ import axios from "axios";
 import { CheckCircle, AlertCircle, Trash2, Edit3, Plus, X, Search, Mail, Phone, MapPin, Hash, Info, AlertTriangle } from "lucide-react";
 import { useAgentPermissions } from "../hooks/useAgentPermissions";
 
+const TOKEN_PRIORITY = [
+  "clinicToken",
+  "doctorToken",
+  "agentToken",
+  "staffToken",
+  "userToken",
+  "adminToken",
+];
+
+const getStoredToken = () => {
+  if (typeof window === "undefined") return null;
+  for (const key of TOKEN_PRIORITY) {
+    const value =
+      localStorage.getItem(key) ||
+      sessionStorage.getItem(key);
+    if (value) return value;
+  }
+  return null;
+};
+
+const getAuthHeaders = () => {
+  const token = getStoredToken();
+  return token ? { Authorization: `Bearer ${token}` } : null;
+};
+
 // Toast Component
 const Toast = ({ message, type, onClose }) => {
   useEffect(() => {
@@ -117,29 +142,41 @@ export default function VendorForm() {
   
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const adminToken = !!localStorage.getItem('adminToken');
-      const agentToken = !!localStorage.getItem('agentToken');
-      const isAgentRoute = router.pathname?.startsWith('/agent/') || window.location.pathname?.startsWith('/agent/');
-      
-      console.log('VendorForm - Initial Token Check:', { 
-        adminToken, 
-        agentToken, 
-        isAgentRoute,
-        pathname: router.pathname,
-        locationPath: window.location.pathname
-      });
-      
-      // CRITICAL: If on agent route, prioritize agentToken over adminToken
-      if (isAgentRoute && agentToken) {
+      const token = getStoredToken();
+      if (!token) {
         setIsAdmin(false);
-        setIsAgent(true);
-      } else if (adminToken) {
-        setIsAdmin(true);
         setIsAgent(false);
-      } else if (agentToken) {
-        setIsAdmin(false);
-        setIsAgent(true);
-      } else {
+        return;
+      }
+      
+      // Decode token to check role
+      try {
+        const jwt = require('jwt-decode');
+        const decoded = jwt.jwtDecode(token);
+        const role = decoded?.role;
+        const isAgentRoute = router.pathname?.startsWith('/agent/') || window.location.pathname?.startsWith('/agent/');
+        
+        // Check if user is admin
+        if (role === 'admin' || role === 'super admin') {
+          setIsAdmin(true);
+          setIsAgent(false);
+        } 
+        // Check if user is agent (and on agent route or has agentToken)
+        else if (role === 'agent' || (isAgentRoute && (role === 'agent' || !!localStorage.getItem('agentToken')))) {
+          setIsAdmin(false);
+          setIsAgent(true);
+        } 
+        // For clinic/doctor/staff accessing via agent route, treat as agent for permission checks
+        else if (isAgentRoute && (role === 'clinic' || role === 'doctor' || role === 'doctorStaff' || role === 'staff')) {
+          setIsAdmin(false);
+          setIsAgent(true);
+        }
+        else {
+          setIsAdmin(false);
+          setIsAgent(false);
+        }
+      } catch (err) {
+        console.error('Error decoding token:', err);
         setIsAdmin(false);
         setIsAgent(false);
       }
@@ -191,14 +228,13 @@ export default function VendorForm() {
     }
 
     try {
-      // Get token - check for adminToken first, then agentToken (for agents accessing via /agent route)
-      const adminToken = typeof window !== 'undefined' ? localStorage.getItem('adminToken') : null;
-      const agentToken = typeof window !== 'undefined' ? localStorage.getItem('agentToken') : null;
-      const token = adminToken || agentToken;
+      const headers = getAuthHeaders();
+      if (!headers) {
+        showToast("Authentication required. Please login again.", "error");
+        return;
+      }
       
-      const res = await axios.get("/api/admin/get-vendors", {
-        headers: token ? { Authorization: `Bearer ${token}` } : {}
-      });
+      const res = await axios.get("/api/admin/get-vendors", { headers });
       if (res.data.success) {
         setVendors(res.data.data);
         setFilteredVendors(res.data.data);
@@ -245,16 +281,13 @@ export default function VendorForm() {
     }
     
     try {
-      // Get token - check for adminToken first, then agentToken (for agents accessing via /agent route)
-      const adminToken = typeof window !== 'undefined' ? localStorage.getItem('adminToken') : null;
-      const agentToken = typeof window !== 'undefined' ? localStorage.getItem('agentToken') : null;
-      const token = adminToken || agentToken;
+      const headers = getAuthHeaders();
+      if (!headers) {
+        showToast("Authentication required. Please login again.", "error");
+        return;
+      }
       
-      const config = {
-        headers: {
-          Authorization: token ? `Bearer ${token}` : "",
-        },
-      };
+      const config = { headers };
 
       if (editId) {
         const res = await axios.put(
@@ -335,14 +368,13 @@ export default function VendorForm() {
     }
     
     try {
-      // Get token - check for adminToken first, then agentToken (for agents accessing via /agent route)
-      const adminToken = typeof window !== 'undefined' ? localStorage.getItem('adminToken') : null;
-      const agentToken = typeof window !== 'undefined' ? localStorage.getItem('agentToken') : null;
-      const token = adminToken || agentToken;
+      const headers = getAuthHeaders();
+      if (!headers) {
+        showToast("Authentication required. Please login again.", "error");
+        return;
+      }
       
-      const res = await axios.delete(`/api/admin/delete-vendor?id=${id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const res = await axios.delete(`/api/admin/delete-vendor?id=${id}`, { headers });
       
       if (res.data.success) {
         showToast("Vendor deleted successfully!", "success");

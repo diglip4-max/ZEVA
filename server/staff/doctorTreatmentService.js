@@ -12,6 +12,7 @@ export async function getStaffUser(req, options = {}) {
 export async function formatDoctorTreatments(doctorId) {
   const docs = await DoctorTreatment.find({ doctorId })
     .populate("treatmentId", "name subcategories")
+    .populate("department", "name")
     .sort({ createdAt: -1 })
     .lean();
 
@@ -35,6 +36,8 @@ export async function formatDoctorTreatments(doctorId) {
         price: sub.price || null,
       })),
       price: doc.price ?? null,
+      department: doc.department?._id?.toString() || null,
+      departmentName: doc.department?.name || null,
       createdAt: doc.createdAt,
       updatedAt: doc.updatedAt,
     };

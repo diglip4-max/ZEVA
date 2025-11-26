@@ -1,5 +1,5 @@
 import dbConnect from "../../../lib/database";
-import Room from "../../../models/Room";
+import Department from "../../../models/Department";
 import Clinic from "../../../models/Clinic";
 import User from "../../../models/Users";
 import { getUserFromReq } from "../lead-ms/auth";
@@ -29,7 +29,7 @@ export default async function handler(req, res) {
 
   const clinicId = clinic._id;
 
-  // GET: Fetch all rooms for this clinic
+  // GET: Fetch all departments for this clinic
   if (req.method === "GET") {
     try {
       // Check read permission
@@ -45,30 +45,30 @@ export default async function handler(req, res) {
       if (!hasPermission) {
         return res.status(403).json({
           success: false,
-          message: error || "You do not have permission to view rooms",
+          message: error || "You do not have permission to view departments",
         });
       }
 
-      const rooms = await Room.find({ clinicId })
+      const departments = await Department.find({ clinicId })
         .sort({ createdAt: -1 })
         .lean();
 
       return res.status(200).json({
         success: true,
-        rooms: rooms.map((room) => ({
-          _id: room._id.toString(),
-          name: room.name,
-          createdAt: room.createdAt,
-          updatedAt: room.updatedAt,
+        departments: departments.map((dept) => ({
+          _id: dept._id.toString(),
+          name: dept.name,
+          createdAt: dept.createdAt,
+          updatedAt: dept.updatedAt,
         })),
       });
     } catch (error) {
-      console.error("Error fetching rooms:", error);
-      return res.status(500).json({ success: false, message: "Failed to fetch rooms" });
+      console.error("Error fetching departments:", error);
+      return res.status(500).json({ success: false, message: "Failed to fetch departments" });
     }
   }
 
-  // POST: Create a new room
+  // POST: Create a new department
   if (req.method === "POST") {
     try {
       // Check create permission
@@ -84,30 +84,30 @@ export default async function handler(req, res) {
       if (!hasPermission) {
         return res.status(403).json({
           success: false,
-          message: error || "You do not have permission to create rooms",
+          message: error || "You do not have permission to create departments",
         });
       }
 
       const { name } = req.body;
 
       if (!name || !name.trim()) {
-        return res.status(400).json({ success: false, message: "Room name is required" });
+        return res.status(400).json({ success: false, message: "Department name is required" });
       }
 
-      // Check if room with same name already exists for this clinic
-      const existingRoom = await Room.findOne({
+      // Check if department with same name already exists for this clinic
+      const existingDepartment = await Department.findOne({
         clinicId,
         name: name.trim(),
       });
 
-      if (existingRoom) {
+      if (existingDepartment) {
         return res.status(400).json({
           success: false,
-          message: "A room with this name already exists",
+          message: "A department with this name already exists",
         });
       }
 
-      const newRoom = await Room.create({
+      const newDepartment = await Department.create({
         clinicId,
         name: name.trim(),
         createdBy: clinicUser._id,
@@ -115,27 +115,27 @@ export default async function handler(req, res) {
 
       return res.status(201).json({
         success: true,
-        message: "Room created successfully",
-        room: {
-          _id: newRoom._id.toString(),
-          name: newRoom.name,
-          createdAt: newRoom.createdAt,
-          updatedAt: newRoom.updatedAt,
+        message: "Department created successfully",
+        department: {
+          _id: newDepartment._id.toString(),
+          name: newDepartment.name,
+          createdAt: newDepartment.createdAt,
+          updatedAt: newDepartment.updatedAt,
         },
       });
     } catch (error) {
-      console.error("Error creating room:", error);
+      console.error("Error creating department:", error);
       if (error.code === 11000) {
         return res.status(400).json({
           success: false,
-          message: "A room with this name already exists",
+          message: "A department with this name already exists",
         });
       }
-      return res.status(500).json({ success: false, message: "Failed to create room" });
+      return res.status(500).json({ success: false, message: "Failed to create department" });
     }
   }
 
-  // PUT: Update an existing room
+  // PUT: Update an existing department
   if (req.method === "PUT") {
     try {
       // Check update permission
@@ -151,58 +151,58 @@ export default async function handler(req, res) {
       if (!hasPermission) {
         return res.status(403).json({
           success: false,
-          message: error || "You do not have permission to update rooms",
+          message: error || "You do not have permission to update departments",
         });
       }
 
-      const { roomId, name } = req.body;
+      const { departmentId, name } = req.body;
 
-      if (!roomId || !name || !name.trim()) {
+      if (!departmentId || !name || !name.trim()) {
         return res.status(400).json({
           success: false,
-          message: "Room ID and new name are required",
+          message: "Department ID and new name are required",
         });
       }
 
-      const room = await Room.findOne({ _id: roomId, clinicId });
-      if (!room) {
-        return res.status(404).json({ success: false, message: "Room not found" });
+      const department = await Department.findOne({ _id: departmentId, clinicId });
+      if (!department) {
+        return res.status(404).json({ success: false, message: "Department not found" });
       }
 
       const normalizedName = name.trim();
-      const duplicateRoom = await Room.findOne({
+      const duplicateDepartment = await Department.findOne({
         clinicId,
         name: normalizedName,
-        _id: { $ne: roomId },
+        _id: { $ne: departmentId },
       });
 
-      if (duplicateRoom) {
+      if (duplicateDepartment) {
         return res.status(400).json({
           success: false,
-          message: "Another room with this name already exists",
+          message: "Another department with this name already exists",
         });
       }
 
-      room.name = normalizedName;
-      await room.save();
+      department.name = normalizedName;
+      await department.save();
 
       return res.status(200).json({
         success: true,
-        message: "Room updated successfully",
-        room: {
-          _id: room._id.toString(),
-          name: room.name,
-          createdAt: room.createdAt,
-          updatedAt: room.updatedAt,
+        message: "Department updated successfully",
+        department: {
+          _id: department._id.toString(),
+          name: department.name,
+          createdAt: department.createdAt,
+          updatedAt: department.updatedAt,
         },
       });
     } catch (error) {
-      console.error("Error updating room:", error);
-      return res.status(500).json({ success: false, message: "Failed to update room" });
+      console.error("Error updating department:", error);
+      return res.status(500).json({ success: false, message: "Failed to update department" });
     }
   }
 
-  // DELETE: Delete a room
+  // DELETE: Delete a department
   if (req.method === "DELETE") {
     try {
       // Check delete permission
@@ -218,31 +218,31 @@ export default async function handler(req, res) {
       if (!hasPermission) {
         return res.status(403).json({
           success: false,
-          message: error || "You do not have permission to delete rooms",
+          message: error || "You do not have permission to delete departments",
         });
       }
 
-      const { roomId } = req.query;
+      const { departmentId } = req.query;
 
-      if (!roomId) {
-        return res.status(400).json({ success: false, message: "Room ID is required" });
+      if (!departmentId) {
+        return res.status(400).json({ success: false, message: "Department ID is required" });
       }
 
-      // Verify the room belongs to this clinic
-      const room = await Room.findOne({ _id: roomId, clinicId });
-      if (!room) {
-        return res.status(404).json({ success: false, message: "Room not found" });
+      // Verify the department belongs to this clinic
+      const department = await Department.findOne({ _id: departmentId, clinicId });
+      if (!department) {
+        return res.status(404).json({ success: false, message: "Department not found" });
       }
 
-      await Room.findByIdAndDelete(roomId);
+      await Department.findByIdAndDelete(departmentId);
 
       return res.status(200).json({
         success: true,
-        message: "Room deleted successfully",
+        message: "Department deleted successfully",
       });
     } catch (error) {
-      console.error("Error deleting room:", error);
-      return res.status(500).json({ success: false, message: "Failed to delete room" });
+      console.error("Error deleting department:", error);
+      return res.status(500).json({ success: false, message: "Failed to delete department" });
     }
   }
 

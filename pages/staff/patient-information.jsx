@@ -5,6 +5,31 @@ import { useRouter } from "next/router";
 import ClinicLayout from '../../components/staffLayout';
 import withClinicAuth from '../../components/withStaffAuth';
 
+const TOKEN_PRIORITY = [
+  "clinicToken",
+  "doctorToken",
+  "agentToken",
+  "staffToken",
+  "userToken",
+  "adminToken",
+];
+
+const getStoredToken = () => {
+  if (typeof window === "undefined") return null;
+  for (const key of TOKEN_PRIORITY) {
+    const value =
+      localStorage.getItem(key) ||
+      sessionStorage.getItem(key);
+    if (value) return value;
+  }
+  return null;
+};
+
+const getAuthHeaders = () => {
+  const token = getStoredToken();
+  return token ? { Authorization: `Bearer ${token}` } : null;
+};
+
 const Toast = ({ message, type, onClose }) => {
   useEffect(() => { const timer = setTimeout(onClose, 3500); return () => clearTimeout(timer); }, [onClose]);
   const styles = { success: "bg-emerald-500", error: "bg-rose-500", info: "bg-blue-500" };
@@ -161,17 +186,20 @@ function PatientFilterUI() {
 
   const addToast = (message, type = "info") => setToasts(prev => [...prev, { id: Date.now(), message, type }]);
   const removeToast = (id) => setToasts(prev => prev.filter(t => t.id !== id));
-  const token = typeof window !== "undefined" ? localStorage.getItem("userToken") : null;
 
   const filteredPatients = patients.filter(item => search.trim() === "" || `${item.firstName} ${item.lastName} ${item.emrNumber} ${item.invoiceNumber} ${item.mobileNumber}`.toLowerCase().includes(search.trim().toLowerCase()));
   const totalPages = Math.ceil(filteredPatients.length / pageSize);
   const displayedPatients = filteredPatients.slice((page - 1) * pageSize, page * pageSize);
 
   const fetchPatients = async () => {
-    if (!token) return addToast("Session expired. Please login again.", "error");
+    const headers = getAuthHeaders();
+    if (!headers) {
+      addToast("Authentication required. Please login again.", "error");
+      return;
+    }
     setLoading(true);
     try {
-      const { data } = await axios.get("/api/staff/get-patient-registrations", { params: filters, headers: { Authorization: `Bearer ${token}` } });
+      const { data } = await axios.get("/api/staff/get-patient-registrations", { params: filters, headers });
       setPatients(data.success ? data.data : []);
       setPage(1);
       addToast("Data loaded successfully", "success");
@@ -186,7 +214,15 @@ function PatientFilterUI() {
 
   useEffect(() => { fetchPatients(); }, []);
 
-  const handleUpdate = (id) => router.push(`/staff/update-patient-info/${id}`);
+  const handleUpdate = (id) => {
+    // Check if we're on a clinic route
+    const isClinicRoute = router.pathname?.startsWith('/clinic/') || window.location.pathname?.startsWith('/clinic/');
+    if (isClinicRoute) {
+      router.push(`/clinic/update-patient-info/${id}`);
+    } else {
+      router.push(`/staff/update-patient-info/${id}`);
+    }
+  };
 
   return (
     <>

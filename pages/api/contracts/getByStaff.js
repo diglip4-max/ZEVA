@@ -1,6 +1,6 @@
 import dbConnect from "../../../lib/database";
 import Contract from "../../../models/Contract";
-import jwt from "jsonwebtoken";
+import { getAuthorizedStaffUser } from "../../../server/staff/authHelpers";
 import { checkAgentPermission } from "../../../lib/checkAgentPermission";
 
 export default async function handler(req, res) {
@@ -11,33 +11,22 @@ export default async function handler(req, res) {
   }
 
   try {
-    const token = req.headers.authorization?.split(" ")[1];
-    if (!token) {
-      return res.status(401).json({ success: false, message: "Token missing" });
-    }
-
-    // Verify token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    console.log(decoded);
-    
-    // Allow multiple roles: staff, agent, clinic, doctor
-    const allowedRoles = ["staff", "agent", "clinic", "doctor", "doctorStaff"];
-    if (!decoded || !allowedRoles.includes(decoded.role)) {
-      return res.status(403).json({ success: false, message: "Access denied. Invalid role." });
-    }
+    const user = await getAuthorizedStaffUser(req, {
+      allowedRoles: ["staff", "doctorStaff", "doctor", "clinic", "agent", "admin"],
+    });
 
     // Check agent permissions for reading contracts
     // All Contracts is a submodule under staff_management
-    if (decoded.role === 'agent' || decoded.role === 'doctorStaff') {
-      console.log(`Checking read permission for user ${decoded.userId} on contracts submodule`);
+    if (user.role === 'agent' || user.role === 'doctorStaff') {
+      console.log(`Checking read permission for user ${user._id} on contracts submodule`);
       const hasPermission = await checkAgentPermission(
-        decoded.userId, 
+        user._id, 
         'staff_management', 
         'read',
         'All Contracts'
-      ) || await checkAgentPermission(decoded.userId, 'staff_management', 'all', 'All Contracts')
-      || await checkAgentPermission(decoded.userId, 'clinic_staff_management', 'read', 'All Contracts')
-      || await checkAgentPermission(decoded.userId, 'clinic_staff_management', 'all', 'All Contracts');
+      ) || await checkAgentPermission(user._id, 'staff_management', 'all', 'All Contracts')
+      || await checkAgentPermission(user._id, 'clinic_staff_management', 'read', 'All Contracts')
+      || await checkAgentPermission(user._id, 'clinic_staff_management', 'all', 'All Contracts');
       
       console.log(`Read permission result for contracts:`, hasPermission);
       
@@ -50,9 +39,9 @@ export default async function handler(req, res) {
     }
 
     // Fetch contracts assigned to this user
-    console.log("Looking for contracts with responsiblePerson:", decoded.userId);
+    console.log("Looking for contracts with responsiblePerson:", user._id);
     const contracts = await Contract.find({
-      responsiblePerson: decoded.userId,
+      responsiblePerson: user._id,
     })
       .populate("responsiblePerson", "name email")
       .sort({ createdAt: -1 })

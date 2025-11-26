@@ -1,21 +1,6 @@
 import dbConnect from "../../../lib/database";
-import jwt from "jsonwebtoken";
-import User from "../../../models/Users";
 import PatientRegistration from "../../../models/PatientRegistration";
-
-async function getUserFromToken(req) {
-  const authHeader = req.headers.authorization || "";
-  const token = authHeader.split(" ")[1];
-  if (!token) throw { status: 401, message: "No token provided" };
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await User.findById(decoded.userId).select("-password");
-    if (!user) throw { status: 401, message: "User not found" };
-    return user;
-  } catch {
-    throw { status: 401, message: "Invalid or expired token" };
-  }
-}
+import { getAuthorizedStaffUser } from "../../../server/staff/authHelpers";
 
 function escapeRegex(str) {
   return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -24,9 +9,11 @@ function escapeRegex(str) {
 export default async function handler(req, res) {
   await dbConnect();
   try {
-    await getUserFromToken(req);
+    await getAuthorizedStaffUser(req, {
+      allowedRoles: ["staff", "doctorStaff", "doctor", "clinic", "agent", "admin"],
+    });
   } catch (err) {
-    return res.status(err.status || 401).json({ success: false, message: err.message });
+    return res.status(err.status || 401).json({ success: false, message: err.message || "Authentication error" });
   }
 
   if (req.method !== "GET") {
