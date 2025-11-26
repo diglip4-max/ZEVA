@@ -1,5 +1,6 @@
 import DoctorTreatment from "../../models/DoctorTreatment";
 import Treatment from "../../models/Treatment";
+import Department from "../../models/Department";
 import { getAuthorizedStaffUser } from "./authHelpers";
 
 export async function getStaffUser(req, options = {}) {
