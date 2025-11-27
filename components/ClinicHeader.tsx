@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/router';
 import axios from 'axios';
-import { Search, X, ChevronRight, BarChart3, Users, FileText, Briefcase, MessageSquare, Calendar, CreditCard, Star, Mail, Settings, TrendingUp, Lock } from 'lucide-react';
+import { Search, X } from 'lucide-react';
 
 interface NavigationItem {
   _id: string;
@@ -19,11 +19,8 @@ interface NavigationItem {
 }
 
 interface SearchResult {
-  type: 'module' | 'submodule';
   label: string;
   path: string;
-  icon: string;
-  moduleLabel?: string;
 }
 
 interface ClinicHeaderProps {
@@ -46,22 +43,6 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
   const [isSearchOpen, setIsSearchOpen] = useState<boolean>(false);
   const searchRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-
-  // Icon mapping (matching clinic-dashboard.tsx)
-  const iconMap: { [key: string]: React.ReactNode } = {
-    '📊': <BarChart3 className="w-4 h-4" />,
-    '👥': <Users className="w-4 h-4" />,
-    '📝': <FileText className="w-4 h-4" />,
-    '💼': <Briefcase className="w-4 h-4" />,
-    '💬': <MessageSquare className="w-4 h-4" />,
-    '📅': <Calendar className="w-4 h-4" />,
-    '💳': <CreditCard className="w-4 h-4" />,
-    '⭐': <Star className="w-4 h-4" />,
-    '📧': <Mail className="w-4 h-4" />,
-    '⚙️': <Settings className="w-4 h-4" />,
-    '📈': <TrendingUp className="w-4 h-4" />,
-    '🔒': <Lock className="w-4 h-4" />,
-  };
 
   // Fetch navigation items for search
   useEffect(() => {
@@ -100,10 +81,8 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
       if (item.label.toLowerCase().includes(lowerQuery)) {
         if (item.path) {
           results.push({
-            type: 'module',
             label: item.label,
             path: item.path,
-            icon: item.icon,
           });
         }
       }
@@ -114,11 +93,8 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
           if (subModule.name.toLowerCase().includes(lowerQuery)) {
             if (subModule.path) {
               results.push({
-                type: 'submodule',
                 label: subModule.name,
                 path: subModule.path,
-                icon: subModule.icon,
-                moduleLabel: item.label,
               });
             }
           }
@@ -216,31 +192,31 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
   };
 
   return (
-  <header className="w-full bg-white border-b border-gray-200 shadow-sm">
-    <div className="px-4 py-4 sm:px-6">
-      <div className="flex items-center justify-between">
-        {/* Left: Brand */}
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-4">
-           
-          </div>
+  <header className="w-full bg-white border-b border-gray-200 shadow-sm sticky top-0 z-20">
+    <div className="px-4 py-3 sm:px-6">
+      <div className="flex items-center justify-between gap-4">
+        {/* Left: Empty space for sidebar toggle */}
+        <div className="flex items-center gap-3 flex-shrink-0">
+          <div className="w-64 hidden lg:block"></div>
         </div>
 
-        {/* Right: Search, Date/Time, Clinic, Support, Profile */}
-        <div className="flex items-center gap-3">
+        {/* Right: Search + Profile */}
+        <div className="flex items-center gap-4 flex-1 justify-end min-w-0">
           {/* Search */}
-          <div className="hidden md:block relative" ref={searchRef}>
+          <div className="relative w-full max-w-xs sm:max-w-sm lg:max-w-md min-w-[200px] flex-shrink" ref={searchRef}>
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <Search className="h-5 w-5 text-gray-700" />
+              </div>
               <input
                 ref={inputRef}
                 type="text"
-                placeholder="Search modules..."
+                placeholder="Search sidebar options..."
                 value={searchQuery}
                 onChange={handleSearchChange}
                 onKeyDown={handleKeyDown}
                 onFocus={() => searchQuery && setIsSearchOpen(true)}
-                className="w-56 lg:w-72 pl-10 pr-10 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-700 focus:outline-none focus:placeholder-gray-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-sm placeholder:text-xs sm:placeholder:text-sm"
               />
               {searchQuery && (
                 <button
@@ -250,7 +226,7 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
                     setIsSearchOpen(false);
                     inputRef.current?.focus();
                   }}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -259,113 +235,51 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
 
             {/* Search Results Dropdown */}
             {isSearchOpen && searchResults.length > 0 && (
-              <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-300 rounded-lg shadow-xl z-50 max-h-96 overflow-y-auto">
-                <div className="p-2">
-                  <div className="text-xs font-semibold text-gray-500 px-3 py-2 uppercase">
-                    Search Results ({searchResults.length})
-                  </div>
-                  {searchResults.map((result, index) => (
-                    <button
-                      key={index}
-                      onClick={() => handleNavigate(result.path)}
-                      className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-gray-50 rounded-lg transition-colors text-left group"
-                    >
-                      <div className="flex-shrink-0 w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center group-hover:bg-blue-50 transition-colors">
-                        {iconMap[result.icon] || (
-                          <span className="text-base">{result.icon || '📄'}</span>
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium text-gray-900">{result.label}</span>
-                          <span className="px-1.5 py-0.5 text-xs font-medium rounded bg-blue-100 text-blue-700">
-                            {result.type === 'module' ? 'Module' : 'Feature'}
-                          </span>
-                        </div>
-                        {result.moduleLabel && result.type === 'submodule' && (
-                          <p className="text-xs text-gray-500 mt-0.5">{result.moduleLabel}</p>
-                        )}
-                      </div>
-                      <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-blue-600 transition-colors flex-shrink-0" />
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* No Results */}
-            {isSearchOpen && searchQuery && searchResults.length === 0 && (
-              <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-300 rounded-lg shadow-xl z-50 p-4">
-                <div className="text-center py-4">
-                  <Search className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                  <p className="text-sm text-gray-600">No modules found</p>
-                  <p className="text-xs text-gray-500 mt-1">Try a different search term</p>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Date & Time */}
-          <div className="hidden sm:flex text-xs text-gray-600 px-2 py-1 rounded-lg bg-gray-50 border border-gray-200">
-            {now}
-          </div>
-
-          {/* Clinic name */}
-          {clinicName && (
-            <div className="hidden sm:flex items-center text-sm font-medium text-gray-800 px-2 py-1 rounded-lg bg-gray-50 border border-gray-200">
-              {clinicName}
-            </div>
-          )}
-
-          {/* Support */}
-          <a
-            href="#"
-            className="hidden sm:inline-flex items-center text-sm text-gray-700 hover:text-gray-900 px-2 py-1 rounded-lg hover:bg-gray-100"
-          >
-            Support
-          </a>
-          
-          {/* Profile dropdown */}
-          <div className="relative">
-            <details className="group">
-              <summary className="list-none flex items-center gap-2 cursor-pointer select-none">
-                <div className="w-9 h-9 bg-[#2D9AA5] rounded-full flex items-center justify-center">
-                  <span className="text-white font-medium text-sm">
-                    {clinicUser ? getInitials(clinicUser.name) : 'A'}
-                  </span>
-                </div>
-                <svg className="w-4 h-4 text-gray-600 group-open:rotate-180 transition-transform" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z" clipRule="evenodd" />
-                </svg>
-              </summary>
-              <div className="absolute right-0 mt-2 w-64 bg-white border border-gray-200 rounded-lg shadow-lg p-3 z-50">
-                <div className="flex items-center gap-3 p-2 border-b border-gray-100">
-                  <div className="w-9 h-9 bg-[#2D9AA5] rounded-full flex items-center justify-center text-white text-sm font-medium">
-                    {clinicUser ? getInitials(clinicUser.name) : 'A'}
-                  </div>
-                  <div className="min-w-0">
-                    <div className="text-sm font-medium text-gray-900 truncate">{clinicUser?.name || 'User'}</div>
-                    <div className="text-xs text-gray-500 truncate">{clinicUser?.email || ''}</div>
-                  </div>
-                </div>
-                <div className="py-2 text-sm">
-                 
-                  <a href="/clinic/myallClinic" className="block px-3 py-2 hover:bg-gray-50 rounded">Profile</a>
-  
-                </div>
-                <div className="border-t border-gray-100 pt-2">
+              <div className="absolute z-50 mt-1 w-full bg-white rounded-lg shadow-lg border border-gray-200 max-h-60 overflow-auto">
+                {searchResults.map((result, index) => (
                   <button
-                    onClick={handleLogout}
-                    className="w-full inline-flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                    key={index}
+                    onClick={() => handleNavigate(result.path)}
+                    className="w-full text-left px-4 py-2 hover:bg-gray-50 transition-colors duration-150 text-sm text-gray-700 border-b border-gray-100 last:border-b-0"
                   >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                    </svg>
-                    Logout
+                    <div className="font-medium">{result.label}</div>
                   </button>
-                </div>
+                ))}
               </div>
-            </details>
+            )}
+          </div>
+
+          {/* Right: User Profile */}
+          <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0 whitespace-nowrap">
+            <div className="hidden lg:block text-right">
+              <div className="text-sm font-medium text-gray-900 truncate max-w-[150px]">
+                {clinicUser?.name || clinicName || 'Clinic User'}
+              </div>
+              <div className="text-xs text-gray-700 truncate max-w-[150px]">
+                {clinicUser?.email || ''}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <div className="w-9 h-9 bg-gray-700 rounded-full flex items-center justify-center flex-shrink-0">
+                <span className="text-white font-medium text-sm">
+                  {clinicUser ? getInitials(clinicUser.name) : 'A'}
+                </span>
+              </div>
+
+              <button
+                onClick={handleLogout}
+                className="px-3 py-1.5 text-sm font-medium text-gray-700 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-red-200 whitespace-nowrap flex-shrink-0"
+                aria-label="Logout"
+              >
+                <div className="flex items-center gap-2">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                  </svg>
+                  <span className="hidden sm:inline">Logout</span>
+                </div>
+              </button>
+            </div>
           </div>
         </div>
       </div>

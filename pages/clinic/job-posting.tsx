@@ -204,29 +204,29 @@ function ClinicJobPostingPage({ contextOverride = null }: { contextOverride?: Ro
   if (!permissionsLoaded) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#2D9AA5]"></div>
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-gray-800"></div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div className="min-h-screen bg-gray-50 p-3 sm:p-4">
+      {/* Compact Header */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-3">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 py-3">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Job Management</h1>
-              <p className="text-sm text-gray-600 mt-1">Manage your job postings and applications</p>
+              <h1 className="text-lg sm:text-xl font-bold text-gray-900">Job Management</h1>
+              <p className="text-xs sm:text-sm text-gray-600 mt-0.5">Manage your job postings and applications</p>
             </div>
             {(() => {
               console.log('[Job Posting] Button render check - canCreate:', permissions.canCreate, 'permissionsLoaded:', permissionsLoaded);
               return permissions.canCreate && (
                 <button
                   onClick={handleCreateJobClick}
-                  className="inline-flex items-center justify-center gap-2 bg-[#2D9AA5] hover:bg-[#247a83] text-white px-4 py-2 rounded-lg shadow hover:shadow-md transition-all duration-200 text-sm font-medium"
+                  className="inline-flex items-center justify-center gap-1.5 bg-gray-800 hover:bg-gray-900 text-white px-3 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs sm:text-sm font-medium"
                 >
-                  <PlusCircle className="h-5 w-5" />
+                  <PlusCircle className="h-4 w-4" />
                   <span>Create New Job</span>
                 </button>
               );
@@ -235,14 +235,14 @@ function ClinicJobPostingPage({ contextOverride = null }: { contextOverride?: Ro
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-        <div className="bg-white rounded-lg border border-gray-200 p-1 mb-6 inline-flex">
+      {/* Compact Tabs */}
+      <div className="max-w-7xl mx-auto">
+        <div className="bg-white rounded-lg border border-gray-200 p-1 mb-3 inline-flex">
           <button
             onClick={() => setActiveTab('jobs')}
-            className={`px-6 py-2 rounded-md text-sm font-medium transition-colors ${
+            className={`px-4 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors ${
               activeTab === 'jobs'
-                ? 'bg-[#2D9AA5] text-white'
+                ? 'bg-gray-800 text-white'
                 : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
             }`}
           >
@@ -250,9 +250,9 @@ function ClinicJobPostingPage({ contextOverride = null }: { contextOverride?: Ro
           </button>
           <button
             onClick={() => setActiveTab('applicants')}
-            className={`px-6 py-2 rounded-md text-sm font-medium transition-colors ${
+            className={`px-4 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors ${
               activeTab === 'applicants'
-                ? 'bg-[#2D9AA5] text-white'
+                ? 'bg-gray-800 text-white'
                 : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
             }`}
           >
@@ -260,38 +260,38 @@ function ClinicJobPostingPage({ contextOverride = null }: { contextOverride?: Ro
           </button>
         </div>
 
-        {/* Tab Content */}
-        <div className="mt-6">
+        {/* Compact Tab Content */}
+        <div className="mt-3">
           {activeTab === 'jobs' ? (
             !permissions.canRead ? (
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 sm:p-8 text-center">
                 {permissions.canCreate ? (
                   <>
-                    <div className="w-16 h-16 bg-yellow-100 rounded-xl flex items-center justify-center mx-auto mb-4">
-                      <svg className="w-8 h-8 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center mx-auto mb-3">
+                      <svg className="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                       </svg>
                     </div>
-                    <h3 className="text-xl font-semibold text-gray-900 mb-2">Read Permission Required</h3>
-                    <p className="text-gray-600 mb-4">
+                    <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2">Read Permission Required</h3>
+                    <p className="text-xs sm:text-sm text-gray-600 mb-3">
                       You only have permission to create job postings. You cannot view, update, or delete job postings.
                     </p>
-                    <p className="text-sm text-gray-500">
+                    <p className="text-[10px] sm:text-xs text-gray-500">
                       Contact your administrator to request read permissions for the Job Posting module.
                     </p>
                   </>
                 ) : (
                   <>
-                    <div className="w-16 h-16 bg-red-100 rounded-xl flex items-center justify-center mx-auto mb-4">
-                      <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center mx-auto mb-3">
+                      <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2-2v2m8 0V6a2 2 0 012 2v6M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m-8 0V6a2 2 0 00-2 2v6.001" />
                       </svg>
                     </div>
-                    <h3 className="text-xl font-semibold text-gray-900 mb-2">Access Denied</h3>
-                    <p className="text-gray-600 mb-4">
+                    <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2">Access Denied</h3>
+                    <p className="text-xs sm:text-sm text-gray-600 mb-3">
                       You do not have permission to view job postings.
                     </p>
-                    <p className="text-sm text-gray-500">
+                    <p className="text-[10px] sm:text-xs text-gray-500">
                       Please contact your administrator to request access to the Jobs module.
                     </p>
                   </>
@@ -304,7 +304,7 @@ function ClinicJobPostingPage({ contextOverride = null }: { contextOverride?: Ro
                   title: 'My Job Postings',
                   subtitle: 'Manage and review all your job listings posted as a clinic',
                   tokenKey,
-                  primaryColor: '#2D9AA5',
+                  primaryColor: '#1f2937',
                   emptyStateTitle: 'No Job Postings Yet',
                   emptyStateDescription: 'Start posting job opportunities to find new candidates.',
                   emptyStateButtonText: 'Post a New Job'
@@ -315,34 +315,34 @@ function ClinicJobPostingPage({ contextOverride = null }: { contextOverride?: Ro
             )
           ) : (
             !permissions.canReadApplicants ? (
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 sm:p-8 text-center">
                 {permissions.canCreate ? (
                   <>
-                    <div className="w-16 h-16 bg-yellow-100 rounded-xl flex items-center justify-center mx-auto mb-4">
-                      <svg className="w-8 h-8 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center mx-auto mb-3">
+                      <svg className="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                       </svg>
                     </div>
-                    <h3 className="text-xl font-semibold text-gray-900 mb-2">Read Permission Required</h3>
-                    <p className="text-gray-600 mb-4">
+                    <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2">Read Permission Required</h3>
+                    <p className="text-xs sm:text-sm text-gray-600 mb-3">
                       You only have permission to create job postings. You cannot view job applicants.
                     </p>
-                    <p className="text-sm text-gray-500">
+                    <p className="text-[10px] sm:text-xs text-gray-500">
                       Contact your administrator to request read permissions for the Job Posting module.
                     </p>
                   </>
                 ) : (
                   <>
-                    <div className="w-16 h-16 bg-red-100 rounded-xl flex items-center justify-center mx-auto mb-4">
-                      <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center mx-auto mb-3">
+                      <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                       </svg>
                     </div>
-                    <h3 className="text-xl font-semibold text-gray-900 mb-2">Access Denied</h3>
-                    <p className="text-gray-600 mb-4">
+                    <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2">Access Denied</h3>
+                    <p className="text-xs sm:text-sm text-gray-600 mb-3">
                       You do not have permission to view job applicants.
                     </p>
-                    <p className="text-sm text-gray-500">
+                    <p className="text-[10px] sm:text-xs text-gray-500">
                       Please contact your administrator to request access to the Job Applicants module.
                     </p>
                   </>

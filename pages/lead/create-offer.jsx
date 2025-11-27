@@ -320,12 +320,28 @@ function OffersPage() {
     }
   };
 
-  // Calculate stats
+  // Calculate enhanced stats
   const activeOffers = offers.filter((o) => o.status === "active").length;
+  const inactiveOffers = offers.filter((o) => o.status !== "active").length;
   const totalValue = offers.reduce((sum, o) => {
     if (o.type === "fixed") return sum + (o.value || 0);
     return sum;
   }, 0);
+  const percentageOffers = offers.filter((o) => o.type === "percentage").length;
+  const fixedOffers = offers.filter((o) => o.type === "fixed").length;
+  const averageDiscount = offers.length > 0 
+    ? offers.reduce((sum, o) => sum + (o.value || 0), 0) / offers.length 
+    : 0;
+  
+  // Calculate expiring soon (next 7 days)
+  const now = new Date();
+  const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+  const expiringSoon = offers.filter((o) => {
+    if (!o.endsAt || o.status !== "active") return false;
+    const endDate = new Date(o.endsAt);
+    return endDate >= now && endDate <= sevenDaysFromNow;
+  }).length;
+  
   const modalToken = token || getStoredToken() || "";
 
   return (
@@ -343,31 +359,31 @@ function OffersPage() {
           },
         }}
       />
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-slate-50 to-white p-3 sm:p-4">
-      <div className="max-w-7xl mx-auto space-y-4">
+    <div className="min-h-screen bg-gray-50 p-3 sm:p-4">
+      <div className="max-w-7xl mx-auto space-y-3">
         {!permissionsLoaded ? (
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 text-center">
-            <p className="text-sm text-gray-700 font-medium">Loading permissions...</p>
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 text-center">
+            <p className="text-xs sm:text-sm text-gray-700 font-medium">Loading permissions...</p>
           </div>
         ) : permissions.canRead === false ? (
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center space-y-3">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-red-50 rounded-full">
-              <Package className="w-8 h-8 text-red-500" />
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 sm:p-8 text-center space-y-2">
+            <div className="inline-flex items-center justify-center w-12 h-12 bg-red-50 rounded-lg">
+              <Package className="w-6 h-6 text-red-600" />
             </div>
-            <h2 className="text-lg font-semibold text-gray-900">Access denied</h2>
-            <p className="text-sm text-gray-700">
+            <h2 className="text-base sm:text-lg font-bold text-gray-900">Access denied</h2>
+            <p className="text-xs sm:text-sm text-gray-700">
               You do not have permission to view or manage offers. Please contact your administrator if you
               believe this is an error.
             </p>
           </div>
         ) : (
           <>
-            {/* Header Section */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
-              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2.5">
+            {/* Compact Header Section */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 sm:p-4">
+              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2">
                 <div>
-                  <h1 className="text-xl font-semibold text-gray-900 mb-0.5">Offers Management</h1>
-                  <p className="text-gray-700 text-xs">Create and manage promotional offers for your clinic</p>
+                  <h1 className="text-lg sm:text-xl font-bold text-gray-900 mb-0.5">Offers Management</h1>
+                  <p className="text-[10px] sm:text-xs text-gray-600">Create and manage promotional offers for your clinic</p>
                 </div>
                 {permissions.canCreate && (
                   <button
@@ -376,7 +392,7 @@ function OffersPage() {
                       setEditingOfferData(null);
                       setModalOpen(true);
                     }}
-                    className="inline-flex items-center justify-center gap-1.5 bg-gradient-to-r from-teal-600 to-teal-700 hover:from-teal-700 hover:to-teal-800 text-white px-4 py-2 rounded-md shadow hover:shadow-md transition-all duration-200 text-xs font-medium"
+                    className="inline-flex items-center justify-center gap-1.5 bg-gray-800 hover:bg-gray-900 text-white px-3 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs sm:text-sm font-medium"
                   >
                     <PlusCircle className="h-3.5 w-3.5" />
                     <span>Create New Offer</span>
@@ -385,62 +401,99 @@ function OffersPage() {
               </div>
             </div>
 
-            {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-[11px] font-medium text-gray-700 mb-0.5">Total Offers</p>
-                    <p className="text-xl font-bold text-gray-900">{offers.length}</p>
+            {/* Enhanced Stats Cards - Compact */}
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-2 sm:gap-3">
+              <div className="bg-white rounded-lg shadow-sm border-l-4 border-gray-800 p-2.5 sm:p-3">
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="w-6 h-6 bg-gray-800 rounded-lg flex items-center justify-center">
+                    <Package className="h-3.5 w-3.5 text-white" />
                   </div>
-                  <div className="bg-blue-100 p-2 rounded-md">
-                    <Package className="h-5 w-5 text-blue-600" />
-                  </div>
+                  <p className="text-[10px] font-semibold text-gray-600 uppercase">Total</p>
                 </div>
+                <p className="text-lg sm:text-xl font-bold text-gray-900">{offers.length}</p>
               </div>
 
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-[11px] font-medium text-gray-700 mb-0.5">Active Offers</p>
-                    <p className="text-xl font-bold text-green-600">{activeOffers}</p>
+              <div className="bg-white rounded-lg shadow-sm border-l-4 border-green-600 p-2.5 sm:p-3">
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="w-6 h-6 bg-green-600 rounded-lg flex items-center justify-center">
+                    <TrendingUp className="h-3.5 w-3.5 text-white" />
                   </div>
-                  <div className="bg-green-100 p-2 rounded-md">
-                    <TrendingUp className="h-5 w-5 text-green-600" />
-                  </div>
+                  <p className="text-[10px] font-semibold text-gray-600 uppercase">Active</p>
                 </div>
+                <p className="text-lg sm:text-xl font-bold text-green-600">{activeOffers}</p>
               </div>
 
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-[11px] font-medium text-gray-700 mb-0.5">Total Discount Value</p>
-                    <p className="text-xl font-bold text-teal-600">AED {totalValue.toLocaleString()}</p>
+              <div className="bg-white rounded-lg shadow-sm border-l-4 border-gray-500 p-2.5 sm:p-3">
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="w-6 h-6 bg-gray-500 rounded-lg flex items-center justify-center">
+                    <Package className="h-3.5 w-3.5 text-white" />
                   </div>
-                  <div className="bg-teal-100 p-2 rounded-md">
-                    <span className="text-[10px] font-bold text-teal-600 tracking-wide">AED</span>
-                  </div>
+                  <p className="text-[10px] font-semibold text-gray-600 uppercase">Inactive</p>
                 </div>
+                <p className="text-lg sm:text-xl font-bold text-gray-700">{inactiveOffers}</p>
+              </div>
+
+              <div className="bg-white rounded-lg shadow-sm border-l-4 border-blue-600 p-2.5 sm:p-3">
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="w-6 h-6 bg-blue-600 rounded-lg flex items-center justify-center">
+                    <span className="text-[10px] font-bold text-white">%</span>
+                  </div>
+                  <p className="text-[10px] font-semibold text-gray-600 uppercase">Percent</p>
+                </div>
+                <p className="text-lg sm:text-xl font-bold text-blue-600">{percentageOffers}</p>
+              </div>
+
+              <div className="bg-white rounded-lg shadow-sm border-l-4 border-purple-600 p-2.5 sm:p-3">
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="w-6 h-6 bg-purple-600 rounded-lg flex items-center justify-center">
+                    <span className="text-[8px] font-bold text-white">د.إ</span>
+                  </div>
+                  <p className="text-[10px] font-semibold text-gray-600 uppercase">Fixed</p>
+                </div>
+                <p className="text-lg sm:text-xl font-bold text-purple-600">{fixedOffers}</p>
+              </div>
+
+              <div className="bg-white rounded-lg shadow-sm border-l-4 border-amber-600 p-2.5 sm:p-3">
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="w-6 h-6 bg-amber-600 rounded-lg flex items-center justify-center">
+                    <Calendar className="h-3.5 w-3.5 text-white" />
+                  </div>
+                  <p className="text-[10px] font-semibold text-gray-600 uppercase">Expiring</p>
+                </div>
+                <p className="text-lg sm:text-xl font-bold text-amber-600">{expiringSoon}</p>
+              </div>
+
+              <div className="bg-white rounded-lg shadow-sm border-l-4 border-indigo-600 p-2.5 sm:p-3">
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="w-6 h-6 bg-indigo-600 rounded-lg flex items-center justify-center">
+                    <span className="text-[8px] font-bold text-white">د.إ</span>
+                  </div>
+                  <p className="text-[10px] font-semibold text-gray-600 uppercase">Avg Value</p>
+                </div>
+                <p className="text-base sm:text-lg font-bold text-indigo-600">د.إ{Math.round(averageDiscount)}</p>
               </div>
             </div>
 
-            {/* Offers Table */}
+            {/* Compact Offers Table */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-              <div className="px-4 py-3 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
-                <div className="flex items-center gap-3">
-                  <Package className="h-4 w-4 text-teal-600" />
-                  <h2 className="text-base font-semibold text-gray-900">All Offers</h2>
+              <div className="px-3 py-2.5 border-b border-gray-200 bg-gray-50">
+                <div className="flex items-center gap-2">
+                  <Package className="h-4 w-4 text-gray-800" />
+                  <h2 className="text-sm sm:text-base font-bold text-gray-900">All Offers</h2>
+                  <span className="ml-auto text-[10px] text-gray-600 bg-gray-100 px-2 py-0.5 rounded-md">
+                    {offers.length} {offers.length === 1 ? 'offer' : 'offers'}
+                  </span>
                 </div>
               </div>
 
-              <div className="p-3">
+              <div className="p-2.5 sm:p-3">
                 {offers.length === 0 ? (
-                  <div className="text-center py-10">
-                    <div className="inline-flex items-center justify-center w-12 h-12 bg-gray-100 rounded-full mb-2.5">
-                      <Package className="h-6 w-6 text-gray-500" />
+                  <div className="text-center py-8">
+                    <div className="inline-flex items-center justify-center w-10 h-10 bg-gray-100 rounded-lg mb-2">
+                      <Package className="h-5 w-5 text-gray-800" />
                     </div>
-                    <h3 className="text-sm font-medium text-gray-900 mb-1">No offers yet</h3>
-                    <p className="text-gray-700 text-xs mb-4">Get started by creating your first promotional offer</p>
+                    <h3 className="text-sm font-bold text-gray-900 mb-1">No offers yet</h3>
+                    <p className="text-gray-600 text-xs mb-3">Get started by creating your first promotional offer</p>
                     {permissions.canCreate && (
                       <button
                         onClick={() => {
@@ -448,7 +501,7 @@ function OffersPage() {
                           setEditingOfferData(null);
                           setModalOpen(true);
                         }}
-                        className="inline-flex items-center gap-1.5 bg-teal-600 hover:bg-teal-700 text-white px-4 py-1.5 rounded text-xs transition-colors"
+                        className="inline-flex items-center gap-1.5 bg-gray-800 hover:bg-gray-900 text-white px-3 py-1.5 rounded-lg text-xs transition-colors font-medium"
                       >
                         <PlusCircle className="h-3.5 w-3.5" />
                         <span>Create Your First Offer</span>
@@ -463,107 +516,118 @@ function OffersPage() {
                     <table className="w-full">
                       <thead>
                         <tr className="border-b border-gray-200">
-                          <th className="px-3 py-3 text-left text-[10px] font-semibold text-gray-700 uppercase tracking-wider">
+                          <th className="px-2 py-2 text-left text-[10px] font-semibold text-gray-700 uppercase tracking-wider">
                             Offer Details
                           </th>
-                          <th className="px-3 py-3 text-left text-[10px] font-semibold text-gray-700 uppercase tracking-wider">
+                          <th className="px-2 py-2 text-left text-[10px] font-semibold text-gray-700 uppercase tracking-wider">
                             Type
                           </th>
-                          <th className="px-3 py-3 text-left text-[10px] font-semibold text-gray-700 uppercase tracking-wider">
+                          <th className="px-2 py-2 text-left text-[10px] font-semibold text-gray-700 uppercase tracking-wider">
                             Value
                           </th>
-                          <th className="px-3 py-3 text-left text-[10px] font-semibold text-gray-700 uppercase tracking-wider">
+                          <th className="px-2 py-2 text-left text-[10px] font-semibold text-gray-700 uppercase tracking-wider">
                             Validity
                           </th>
-                          <th className="px-3 py-3 text-left text-[10px] font-semibold text-gray-700 uppercase tracking-wider">
+                          <th className="px-2 py-2 text-left text-[10px] font-semibold text-gray-700 uppercase tracking-wider">
                             Status
                           </th>
-                          <th className="px-3 py-3 text-right text-[10px] font-semibold text-gray-700 uppercase tracking-wider">
+                          <th className="px-2 py-2 text-right text-[10px] font-semibold text-gray-700 uppercase tracking-wider">
                             Actions
                           </th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-gray-200">
-                        {offers.map((offer) => (
-                          <tr key={offer._id} className="hover:bg-gray-50 transition-colors">
-                            <td className="px-3 py-3">
-                              <div className="flex items-center gap-3">
-                                <div className="w-7 h-7 bg-gradient-to-br from-teal-500 to-teal-600 rounded flex items-center justify-center flex-shrink-0">
-                                  <Package className="h-3.5 w-3.5 text-white" />
+                      <tbody className="divide-y divide-gray-100">
+                        {offers.map((offer) => {
+                          const isExpiringSoon = offer.endsAt && offer.status === "active" && 
+                            new Date(offer.endsAt) <= new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) &&
+                            new Date(offer.endsAt) >= new Date();
+                          
+                          return (
+                            <tr key={offer._id} className="hover:bg-gray-50 transition-colors">
+                              <td className="px-2 py-2">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-6 h-6 bg-gray-800 rounded-lg flex items-center justify-center flex-shrink-0">
+                                    <Package className="h-3 w-3 text-white" />
+                                  </div>
+                                  <div className="min-w-0">
+                                    <p className="font-bold text-gray-900 text-xs truncate">{offer.title}</p>
+                                    <p className="text-[10px] text-gray-500">ID: {offer._id.slice(-6)}</p>
+                                  </div>
                                 </div>
-                                <div>
-                                  <p className="font-semibold text-gray-900 text-xs">{offer.title}</p>
-                                  <p className="text-[11px] text-gray-700">ID: {offer._id.slice(-8)}</p>
-                                </div>
-                              </div>
-                            </td>
-                            <td className="px-3 py-3">
-                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-purple-100 text-purple-700 capitalize">
-                                {offer.type}
-                              </span>
-                            </td>
-                            <td className="px-3 py-3">
-                              <span className="text-sm font-bold text-teal-600">
-                                {offer.type === "percentage" ? `${offer.value}%` : `AED ${offer.value}`}
-                              </span>
-                            </td>
-                            <td className="px-3 py-3">
-                              <div className="flex items-center gap-1 text-gray-700">
-                                <Calendar className="h-3 w-3 text-gray-400" />
-                                <span className="text-[11px]">
-                                  {offer.endsAt
-                                    ? new Date(offer.endsAt).toLocaleDateString("en-IN", {
-                                        day: "numeric",
-                                        month: "short",
-                                        year: "numeric",
-                                      })
-                                    : "No expiry"}
+                              </td>
+                              <td className="px-2 py-2">
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-gray-100 text-gray-800 capitalize">
+                                  {offer.type}
                                 </span>
-                              </div>
-                            </td>
-                            <td className="px-3 py-3">
-                              <span
-                                className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                                  offer.status === "active"
-                                    ? "bg-green-100 text-green-700"
-                                    : "bg-gray-200 text-gray-700"
-                                }`}
-                              >
+                              </td>
+                              <td className="px-2 py-2">
+                                <span className="text-xs sm:text-sm font-bold text-gray-900">
+                                  {offer.type === "percentage" ? `${offer.value}%` : `د.إ${offer.value}`}
+                                </span>
+                              </td>
+                              <td className="px-2 py-2">
+                                <div className="flex items-center gap-1 text-gray-700">
+                                  <Calendar className="h-3 w-3 text-gray-400 flex-shrink-0" />
+                                  <span className="text-[10px] sm:text-xs">
+                                    {offer.endsAt
+                                      ? new Date(offer.endsAt).toLocaleDateString("en-US", {
+                                          day: "numeric",
+                                          month: "short",
+                                          year: "numeric",
+                                        })
+                                      : "No expiry"}
+                                  </span>
+                                  {isExpiringSoon && (
+                                    <span className="ml-1 px-1 py-0.5 bg-amber-100 text-amber-700 text-[9px] font-semibold rounded">
+                                      Soon
+                                    </span>
+                                  )}
+                                </div>
+                              </td>
+                              <td className="px-2 py-2">
                                 <span
-                                  className={`w-1.5 h-1.5 rounded-full mr-1 ${
-                                    offer.status === "active" ? "bg-green-500" : "bg-gray-500"
+                                  className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold ${
+                                    offer.status === "active"
+                                      ? "bg-green-100 text-green-700"
+                                      : "bg-gray-200 text-gray-700"
                                   }`}
-                                ></span>
-                                {offer.status}
-                              </span>
-                            </td>
-                            <td className="px-3 py-3">
-                              <div className="flex items-center justify-end gap-1.5">
-                                {permissions.canUpdate && (
-                                  <button
-                                    onClick={() => openEditModal(offer._id)}
-                                    className="inline-flex items-center justify-center w-7 h-7 rounded bg-blue-50 text-blue-600 hover:bg-blue-100 transition-colors"
-                                    title="Edit offer"
-                                  >
-                                    <Edit className="h-3 w-3" />
-                                  </button>
-                                )}
-                                {permissions.canDelete && (
-                                  <button
-                                    onClick={() => requestDeleteOffer(offer)}
-                                    className="inline-flex items-center justify-center w-7 h-7 rounded bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
-                                    title="Delete offer"
-                                  >
-                                    <Trash2 className="h-3 w-3" />
-                                  </button>
-                                )}
-                                {!permissions.canUpdate && !permissions.canDelete && (
-                                  <span className="text-xs text-gray-400">No actions available</span>
-                                )}
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
+                                >
+                                  <span
+                                    className={`w-1.5 h-1.5 rounded-full mr-1 ${
+                                      offer.status === "active" ? "bg-green-500" : "bg-gray-500"
+                                    }`}
+                                  ></span>
+                                  {offer.status}
+                                </span>
+                              </td>
+                              <td className="px-2 py-2">
+                                <div className="flex items-center justify-end gap-1">
+                                  {permissions.canUpdate && (
+                                    <button
+                                      onClick={() => openEditModal(offer._id)}
+                                      className="inline-flex items-center justify-center w-6 h-6 rounded bg-gray-100 text-gray-800 hover:bg-gray-200 transition-colors"
+                                      title="Edit offer"
+                                    >
+                                      <Edit className="h-3 w-3" />
+                                    </button>
+                                  )}
+                                  {permissions.canDelete && (
+                                    <button
+                                      onClick={() => requestDeleteOffer(offer)}
+                                      className="inline-flex items-center justify-center w-6 h-6 rounded bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
+                                      title="Delete offer"
+                                    >
+                                      <Trash2 className="h-3 w-3" />
+                                    </button>
+                                  )}
+                                  {!permissions.canUpdate && !permissions.canDelete && (
+                                    <span className="text-[10px] text-gray-400">—</span>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -588,9 +652,10 @@ function OffersPage() {
         mode={editingOfferId ? "update" : "create"}
       />
     </div>
+      {/* Compact Delete Confirmation Modal */}
       {confirmModal.isOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/30 backdrop-blur-sm"
           onClick={(e) => {
             if (e.target === e.currentTarget) {
               setConfirmModal({ isOpen: false, offerId: null, offerTitle: "" });
@@ -601,17 +666,17 @@ function OffersPage() {
           aria-modal="true"
         >
           <div
-            className="bg-white rounded-lg shadow-2xl max-w-md w-full overflow-hidden animate-[fadeIn_0.2s_ease-out]"
+            className="bg-white rounded-lg shadow-xl max-w-md w-full overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-5 py-4 border-b border-gray-200 flex items-center justify-between bg-red-50/60">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
-                  <Trash2 className="w-5 h-5 text-red-600" />
+            <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between bg-red-50">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-red-100 flex items-center justify-center">
+                  <Trash2 className="w-4 h-4 text-red-600" />
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-gray-900">Delete Offer</p>
-                  <p className="text-xs text-gray-700">"{confirmModal.offerTitle}"</p>
+                  <p className="text-sm font-bold text-gray-900">Delete Offer</p>
+                  <p className="text-[10px] text-gray-700 truncate max-w-[200px]">"{confirmModal.offerTitle}"</p>
                 </div>
               </div>
               <button
@@ -619,29 +684,29 @@ function OffersPage() {
                   setConfirmModal({ isOpen: false, offerId: null, offerTitle: "" });
                   toast("Deletion cancelled", { duration: 2000, icon: "ℹ️" });
                 }}
-                className="p-1.5 rounded-lg hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-500"
+                className="p-1 rounded-lg hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-500 text-gray-500 hover:text-gray-700"
                 aria-label="Close confirmation dialog"
               >
                 ×
               </button>
             </div>
-            <div className="p-5 text-sm text-gray-700 space-y-2">
+            <div className="p-4 text-xs sm:text-sm text-gray-700 space-y-1.5">
               <p>Are you sure you want to delete this offer? This action cannot be undone.</p>
-              <p className="text-xs text-gray-700">All references to this offer will be removed.</p>
+              <p className="text-[10px] text-gray-600">All references to this offer will be removed.</p>
             </div>
-            <div className="flex gap-2 px-5 pb-5">
+            <div className="flex gap-2 px-4 pb-4">
               <button
                 onClick={() => {
                   setConfirmModal({ isOpen: false, offerId: null, offerTitle: "" });
                   toast("Deletion cancelled", { duration: 2000, icon: "ℹ️" });
                 }}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
+                className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-xs sm:text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={handleConfirmDelete}
-                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-semibold hover:bg-red-700 transition-colors"
+                className="flex-1 px-3 py-2 bg-red-600 text-white rounded-lg text-xs sm:text-sm font-medium hover:bg-red-700 transition-colors"
               >
                 Delete
               </button>

@@ -287,222 +287,231 @@ const SmsSender = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#f5f7fb] py-2 px-1">
-      <div className="mx-auto max-w-7xl space-y-2">
-        {/* Header */}
-        <section className="bg-white rounded-lg shadow-sm border border-slate-200 p-2.5">
-          <div className="flex flex-col gap-1.5 md:flex-row md:items-center md:justify-between">
+    <div className="min-h-screen bg-gray-50 p-3 sm:p-4">
+      <div className="mx-auto max-w-7xl space-y-3">
+        {/* Compact Header */}
+        <section className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 sm:p-4">
+          <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
             <div>
-              <p className="text-[8px] font-semibold uppercase tracking-[0.15em] text-slate-500">Send SMS</p>
-              <h1 className="text-base font-bold text-slate-900 mt-0.5">Assigned Leads Broadcast</h1>
-              <p className="text-[10px] text-slate-500 mt-0.5">Share updates, offers or alerts with your customers in seconds.</p>
+              <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-wide text-gray-600">Send SMS</p>
+              <h1 className="text-lg sm:text-xl font-bold text-gray-900 mt-0.5">Assigned Leads Broadcast</h1>
+              <p className="text-xs sm:text-sm text-gray-600 mt-0.5">Share updates, offers or alerts with your customers in seconds.</p>
             </div>
-            <div className="flex items-center gap-1.5 text-[10px] text-slate-500">
-              <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 border border-blue-200 px-2 py-1">
-                <span className="h-1 w-1 rounded-full bg-emerald-500" />
-                Messaging IO Active
+            <div className="flex items-center gap-2 text-xs text-gray-600">
+              <span className="inline-flex items-center gap-1.5 rounded-lg bg-green-50 border border-green-200 px-2.5 py-1.5">
+                <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
+                <span className="font-medium">Messaging IO Active</span>
               </span>
             </div>
           </div>
         </section>
 
-        {/* Quick Action Boxes */}
-        <section className="grid grid-cols-1 md:grid-cols-3 gap-2">
+        {/* Compact Quick Action Boxes */}
+        <section className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <button
             onClick={() => setShowRoiModal(true)}
-            className="group bg-white rounded-lg shadow-sm border border-slate-200 p-2.5 hover:shadow-md hover:border-blue-300 transition-all duration-200 text-left"
+            className="group bg-white rounded-lg shadow-sm border border-gray-200 p-3 hover:shadow-md hover:border-gray-800 transition-all duration-200 text-left"
           >
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-md flex items-center justify-center group-hover:scale-105 transition-transform">
-                <TrendingUp className="w-4 h-4 text-white" />
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gray-800 rounded-lg flex items-center justify-center group-hover:scale-105 transition-transform flex-shrink-0">
+                <TrendingUp className="w-5 h-5 text-white" />
               </div>
-              <div className="flex-1">
-                <p className="text-[9px] font-semibold text-slate-500 uppercase tracking-wide mb-0.5">ROI Analytics</p>
-                <p className="text-xs font-bold text-slate-900">View Performance</p>
-                <p className="text-[9px] text-slate-500 mt-0.5">Track your SMS campaign ROI</p>
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] font-semibold text-gray-600 uppercase tracking-wide mb-0.5">ROI Analytics</p>
+                <p className="text-sm font-bold text-gray-900">View Performance</p>
+                <p className="text-xs text-gray-600 mt-0.5">Track your SMS campaign ROI</p>
               </div>
             </div>
           </button>
 
           <button
             onClick={() => setShowDltModal(true)}
-            className="group bg-white rounded-lg shadow-sm border border-slate-200 p-2.5 hover:shadow-md hover:border-red-300 transition-all duration-200 text-left"
+            className="group bg-white rounded-lg shadow-sm border border-gray-200 p-3 hover:shadow-md hover:border-gray-800 transition-all duration-200 text-left"
           >
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-gradient-to-br from-red-500 to-red-600 rounded-md flex items-center justify-center group-hover:scale-105 transition-transform">
-                <FileCheck className="w-4 h-4 text-white" />
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gray-800 rounded-lg flex items-center justify-center group-hover:scale-105 transition-transform flex-shrink-0">
+                <FileCheck className="w-5 h-5 text-white" />
               </div>
-              <div className="flex-1">
-                <p className="text-[9px] font-semibold text-slate-500 uppercase tracking-wide mb-0.5">DLT Verification</p>
-                <p className="text-xs font-bold text-slate-900">Registration</p>
-                <p className="text-[9px] text-slate-500 mt-0.5">Complete DLT verification</p>
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] font-semibold text-gray-600 uppercase tracking-wide mb-0.5">DLT Verification</p>
+                <p className="text-sm font-bold text-gray-900">Registration</p>
+                <p className="text-xs text-gray-600 mt-0.5">Complete DLT verification</p>
               </div>
             </div>
           </button>
 
           <button
             onClick={() => setShowTopupModal(true)}
-            className="group bg-white rounded-lg shadow-sm border border-slate-200 p-2.5 hover:shadow-md hover:border-blue-300 transition-all duration-200 text-left"
+            className="group bg-white rounded-lg shadow-sm border border-gray-200 p-3 hover:shadow-md hover:border-gray-800 transition-all duration-200 text-left"
           >
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-md flex items-center justify-center group-hover:scale-105 transition-transform">
-                <Wallet className="w-4 h-4 text-white" />
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gray-800 rounded-lg flex items-center justify-center group-hover:scale-105 transition-transform flex-shrink-0">
+                <Wallet className="w-5 h-5 text-white" />
               </div>
-              <div className="flex-1">
-                <p className="text-[9px] font-semibold text-slate-500 uppercase tracking-wide mb-0.5">SMS Wallet</p>
-                <p className="text-xs font-bold text-slate-900">Top-up Credits</p>
-                <p className="text-[9px] text-slate-500 mt-0.5">Manage your SMS balance</p>
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] font-semibold text-gray-600 uppercase tracking-wide mb-0.5">SMS Wallet</p>
+                <p className="text-sm font-bold text-gray-900">Top-up Credits</p>
+                <p className="text-xs text-gray-600 mt-0.5">Manage your SMS balance</p>
               </div>
             </div>
           </button>
         </section>
 
-        {/* Form */}
-        <section className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
+        {/* Compact Form */}
+        <section className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
           {/* Add numbers */}
-          <div className="border-b border-slate-200 px-2.5 py-2 space-y-2">
-            <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-              <div>
-                <p className="text-[9px] font-semibold text-slate-500 uppercase tracking-[0.15em] mb-1.5">Add numbers via</p>
+          <div className="border-b border-gray-200 px-3 sm:px-4 py-3 space-y-3">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] sm:text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">Add numbers via</p>
                 <div className="flex flex-wrap gap-2">
                   {ADD_METHODS.map(({ id, label, disabled }) => (
                     <button
                       key={id}
                       disabled={disabled}
                       onClick={() => setAddMethod(id)}
-                      className={`px-3 py-1.5 rounded-full text-xs border ${
-                        addMethod === id ? "bg-blue-600 text-white border-blue-600 shadow-md" : "bg-white text-slate-600 border-slate-200"
-                      } ${disabled ? "opacity-50 cursor-not-allowed" : "hover:border-blue-300"}`}
+                      className={`px-3 py-2 rounded-lg text-xs sm:text-sm font-medium border transition-colors ${
+                        addMethod === id 
+                          ? "bg-gray-800 text-white border-gray-800 shadow-sm" 
+                          : "bg-white text-gray-700 border-gray-200 hover:border-gray-800"
+                      } ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
                     >
                       {label}
                     </button>
                   ))}
                 </div>
               </div>
-              <div className={`flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs font-semibold ${creditBadgeClass}`}>
-                <span className="uppercase tracking-[0.2em]">Credits Left</span>
-                <span className="text-base font-bold">
+              <div className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs sm:text-sm font-semibold flex-shrink-0 ${creditBadgeClass}`}>
+                <span className="uppercase tracking-wide whitespace-nowrap">Credits Left</span>
+                <span className="text-base sm:text-lg font-bold">
                   {walletLoading ? "Loading..." : wallet ? wallet.balance.toLocaleString() : "N/A"}
                 </span>
                 {wallet && (
-                  <span className="text-[10px] font-medium text-slate-500">
+                  <span className="text-[10px] font-medium text-gray-600 whitespace-nowrap">
                     Threshold {lowBalanceThreshold.toLocaleString()}
                   </span>
                 )}
-                {isWalletLow && <span className="text-[10px] font-semibold">Low balance</span>}
+                {isWalletLow && <span className="text-[10px] font-semibold whitespace-nowrap">Low balance</span>}
               </div>
             </div>
-            <div>
-              <label className="text-[9px] font-semibold text-slate-600 uppercase tracking-wide">
+            <div className="w-full">
+              <label className="block text-[10px] sm:text-xs font-semibold text-gray-700 uppercase tracking-wide mb-1.5">
                 {addMethod === "csv" ? "Upload CSV File" : "Enter Mobile Numbers"}
               </label>
               {addMethod === "csv" ? (
                 <div className="mt-2 space-y-3">
-                  <label className="flex flex-col items-center justify-center w-full border-2 border-dashed border-slate-300 rounded-lg py-3 text-center cursor-pointer hover:border-blue-400 transition">
+                  <label className="flex flex-col items-center justify-center w-full border-2 border-dashed border-gray-300 rounded-lg py-4 text-center cursor-pointer hover:border-gray-800 transition">
                     <input
                       type="file"
                       accept=".csv,text/csv"
                       className="hidden"
                       onChange={(e) => handleCsvUpload(e.target.files?.[0] || null)}
                     />
-                    <svg className="w-6 h-6 text-blue-500 mb-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-6 h-6 text-gray-800 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M4 12l4 4m0 0l4-4m-4 4V4" />
                     </svg>
-                    <span className="text-xs font-semibold text-slate-700">Click to upload CSV</span>
-                    <span className="text-[10px] text-slate-500 mt-0.5">Each row should contain one mobile number</span>
+                    <span className="text-xs sm:text-sm font-semibold text-gray-900">Click to upload CSV</span>
+                    <span className="text-[10px] sm:text-xs text-gray-600 mt-1">Each row should contain one mobile number</span>
                   </label>
                   {csvMeta.fileName && (
-                    <div className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs text-slate-600">
-                      <p className="font-semibold text-slate-800">{csvMeta.fileName}</p>
+                    <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs sm:text-sm text-gray-700">
+                      <p className="font-semibold text-gray-900">{csvMeta.fileName}</p>
                       <p>{csvMeta.rows} numbers detected</p>
-                      {csvMeta.error && <p className="text-rose-500 text-xs mt-1">{csvMeta.error}</p>}
+                      {csvMeta.error && <p className="text-red-600 text-xs mt-1">{csvMeta.error}</p>}
                     </div>
                   )}
                 </div>
               ) : (
                 <>
                   <textarea
-                    rows={2}
+                    rows={3}
                     placeholder="Enter mobile numbers here 91123XXXXXX, 90182XXXXXX, 98102XXXXXX"
                     value={numbersInput}
                     onChange={(e) => setNumbersInput(e.target.value)}
-                    className="mt-1.5 w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs focus:ring-2 focus:ring-blue-500 transition"
+                    className="mt-1.5 w-full rounded-lg border border-gray-200 px-3 py-2 text-xs sm:text-sm focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition"
                   />
-                  <p className="text-[10px] text-rose-500 mt-0.5">Mobile numbers are required.</p>
+                  {recipientsPreview.length === 0 && numbersInput.trim() && (
+                    <p className="text-xs text-red-600 mt-1">Mobile numbers are required.</p>
+                  )}
+                  {recipientsPreview.length > 0 && (
+                    <p className="text-xs text-gray-600 mt-1">{recipientsPreview.length} valid number(s) detected</p>
+                  )}
                 </>
               )}
             </div>
           </div>
 
-          <div className="px-2.5 py-2 space-y-2.5">
-            {/* Message composer */}
-            <section className="grid gap-2.5 lg:grid-cols-[180px,1fr]">
-              <div>
-                <p className="text-[9px] font-semibold text-slate-500 uppercase tracking-[0.15em] mb-1.5">Message Mode</p>
+          <div className="px-3 sm:px-4 py-3 space-y-4">
+            {/* Compact Message composer */}
+            <section className="grid gap-4 lg:grid-cols-[200px,1fr]">
+              <div className="lg:sticky lg:top-4 lg:self-start">
+                <p className="text-[10px] sm:text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">Message Mode</p>
                 <div className="space-y-2">
                   {MESSAGE_MODES.map(({ id, label, disabled }) => (
                     <button
                       key={id}
                       disabled={disabled}
                       onClick={() => setMessageMode(id)}
-                      className={`w-full text-left px-3 py-1.5 rounded-md border text-xs ${
-                        messageMode === id ? "border-blue-500 bg-blue-50 text-blue-700" : "border-slate-200 text-slate-600"
-                      } ${disabled ? "opacity-50 cursor-not-allowed" : "hover:border-blue-300"}`}
+                      className={`w-full text-left px-3 py-2 rounded-lg border text-xs sm:text-sm font-medium transition-colors ${
+                        messageMode === id 
+                          ? "border-gray-800 bg-gray-800 text-white" 
+                          : "border-gray-200 text-gray-700 hover:border-gray-800"
+                      } ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
                     >
                       {label}
                     </button>
                   ))}
                 </div>
               </div>
-              <div className="space-y-2">
+              <div className="space-y-3 min-w-0">
                 <div>
-                  <label className="block text-[9px] font-semibold uppercase text-slate-500 tracking-wide mb-1">DLT Template ID</label>
+                  <label className="block text-[10px] sm:text-xs font-semibold uppercase text-gray-700 tracking-wide mb-1.5">DLT Template ID</label>
                   <input
                     type="text"
                     value={templateId}
                     onChange={(e) => setTemplateId(e.target.value)}
                     placeholder="Enter template ID that is approved on DLT platform"
-                    className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs focus:ring-2 focus:ring-blue-500 transition"
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-xs sm:text-sm focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition"
                   />
                 </div>
                 <div>
-                  <label className="block text-[9px] font-semibold uppercase text-slate-500 tracking-wide mb-1">Message Content</label>
+                  <label className="block text-[10px] sm:text-xs font-semibold uppercase text-gray-700 tracking-wide mb-1.5">Message Content</label>
                   <textarea
-                    rows={4}
+                    rows={5}
                     value={messageBody}
                     onChange={(e) => setMessageBody(e.target.value)}
                     placeholder="Enter message here..."
-                    className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs focus:ring-2 focus:ring-blue-500 transition resize-none"
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-xs sm:text-sm focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition resize-none"
                   />
-          <div className="flex flex-col gap-0.5 text-[10px] text-slate-500 mt-0.5 sm:flex-row sm:items-center sm:justify-between">
-            <span>{charCount} characters</span>
-            <div className="text-right space-y-0.5 sm:space-y-0">
-              <span className="block">
-                {creditsPerRecipient} SMS credits per recipient
-              </span>
-              {recipientsPreview.length > 0 && (
-                <span className="block">
-                  Total cost: {totalCreditsPreview.toLocaleString()}{" "}
-                  {wallet
-                    ? `• Projected remaining: ${Math.max(wallet.balance - totalCreditsPreview, 0).toLocaleString()}`
-                    : ""}
-                </span>
-              )}
-            </div>
-          </div>
+                  <div className="flex flex-col gap-1 text-xs text-gray-600 mt-2 sm:flex-row sm:items-center sm:justify-between">
+                    <span className="font-medium">{charCount} characters</span>
+                    <div className="text-right space-y-0.5 sm:space-y-0">
+                      <span className="block">
+                        {creditsPerRecipient} SMS credits per recipient
+                      </span>
+                      {recipientsPreview.length > 0 && (
+                        <span className="block font-medium">
+                          Total cost: {totalCreditsPreview.toLocaleString()}{" "}
+                          {wallet
+                            ? `• Projected remaining: ${Math.max(wallet.balance - totalCreditsPreview, 0).toLocaleString()}`
+                            : ""}
+                        </span>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
             </section>
 
-            {/* Meta settings */}
-            <section className="grid gap-2.5 md:grid-cols-2">
-              <div className="space-y-2">
+            {/* Compact Meta settings */}
+            <section className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-3">
                 <div>
-                  <label className="block text-[9px] font-semibold uppercase text-slate-500 tracking-wide mb-1">Language</label>
+                  <label className="block text-[10px] sm:text-xs font-semibold uppercase text-gray-700 tracking-wide mb-1.5">Language</label>
                   <select
                     value={language}
                     onChange={(e) => setLanguage(e.target.value)}
-                    className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs focus:ring-2 focus:ring-blue-500 transition"
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-xs sm:text-sm focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition"
                   >
                     <option value="english">English</option>
                     <option value="hindi">Hindi</option>
@@ -510,41 +519,41 @@ const SmsSender = () => {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-[9px] font-semibold uppercase text-slate-500 tracking-wide mb-1">From</label>
+                  <label className="block text-[10px] sm:text-xs font-semibold uppercase text-gray-700 tracking-wide mb-1.5">From</label>
                   <input
                     type="text"
                     value={senderId}
                     onChange={(e) => setSenderId(e.target.value)}
-                    className="w-full rounded-lg border border-slate-300 px-2.5 py-2 text-xs focus:ring-2 focus:ring-blue-500 transition"
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-xs sm:text-sm focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition"
                   />
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <label className="flex items-center gap-3 rounded-xl border border-slate-200 px-4 py-3 cursor-pointer select-none">
+              <div className="space-y-3">
+                <label className="flex items-start gap-3 rounded-lg border border-gray-200 px-3 py-3 cursor-pointer select-none hover:border-gray-800 transition-colors">
                   <input
                     type="checkbox"
                     checked={shortUrlEnabled}
                     onChange={(e) => setShortUrlEnabled(e.target.checked)}
-                    className="h-4 w-4"
+                    className="h-4 w-4 mt-0.5 text-gray-800 focus:ring-gray-800"
                   />
-                  <div>
-                    <p className="text-sm font-semibold text-slate-700">Enable URL Shortener</p>
-                    <p className="text-xs text-slate-500">Shorten the URLs present in your SMS to reduce character count.</p>
+                  <div className="flex-1">
+                    <p className="text-xs sm:text-sm font-semibold text-gray-900">Enable URL Shortener</p>
+                    <p className="text-xs text-gray-600 mt-0.5">Shorten the URLs present in your SMS to reduce character count.</p>
                   </div>
                 </label>
 
-                <div className="rounded-xl border border-slate-200 px-4 py-3">
-                  <label className="flex items-center gap-3 cursor-pointer select-none">
+                <div className="rounded-lg border border-gray-200 px-3 py-3">
+                  <label className="flex items-start gap-3 cursor-pointer select-none">
                     <input
                       type="checkbox"
                       checked={scheduleEnabled}
                       onChange={(e) => setScheduleEnabled(e.target.checked)}
-                      className="h-4 w-4"
+                      className="h-4 w-4 mt-0.5 text-gray-800 focus:ring-gray-800"
                     />
-                    <div>
-                      <p className="text-sm font-semibold text-slate-700">Schedule</p>
-                      <p className="text-xs text-slate-500">Plan delivery of this message for the future.</p>
+                    <div className="flex-1">
+                      <p className="text-xs sm:text-sm font-semibold text-gray-900">Schedule</p>
+                      <p className="text-xs text-gray-600 mt-0.5">Plan delivery of this message for the future.</p>
                     </div>
                   </label>
                   {scheduleEnabled && (
@@ -552,18 +561,18 @@ const SmsSender = () => {
                       type="datetime-local"
                       value={scheduleTime}
                       onChange={(e) => setScheduleTime(e.target.value)}
-                      className="mt-3 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+                      className="mt-3 w-full rounded-lg border border-gray-200 px-3 py-2 text-xs sm:text-sm focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
                     />
                   )}
                 </div>
               </div>
             </section>
 
-            {/* Actions */}
-            <section className="flex flex-col gap-3 sm:flex-row sm:justify-end">
+            {/* Compact Actions */}
+            <section className="flex flex-col gap-2 sm:flex-row sm:justify-end pt-2 border-t border-gray-200">
               <button
                 type="button"
-                className="w-full sm:w-auto px-3 py-1.5 rounded-full border border-slate-200 text-slate-700 text-xs font-semibold hover:bg-slate-50"
+                className="w-full sm:w-auto px-4 py-2 rounded-lg border border-gray-200 text-gray-700 text-xs sm:text-sm font-medium hover:bg-gray-50 transition-colors"
                 onClick={resetForm}
               >
                 Cancel
@@ -572,7 +581,7 @@ const SmsSender = () => {
                 type="button"
                 onClick={handleSubmit}
                 disabled={loading}
-                className="w-full sm:w-auto px-4 py-1.5 rounded-full bg-blue-600 text-white text-xs font-semibold shadow-sm hover:bg-blue-700 disabled:opacity-50"
+                className="w-full sm:w-auto px-4 py-2 rounded-lg bg-gray-800 text-white text-xs sm:text-sm font-medium shadow-sm hover:bg-gray-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 {loading ? "Sending..." : "Review & Send"}
               </button>
@@ -581,8 +590,10 @@ const SmsSender = () => {
             {/* Status & Results */}
             {status && (
               <div
-                className={`border rounded-lg px-2.5 py-2 text-xs ${
-                  status.includes("✅") ? "border-green-200 bg-green-50 text-green-800" : "border-rose-200 bg-rose-50 text-rose-700"
+                className={`border rounded-lg px-3 py-2.5 text-xs sm:text-sm ${
+                  status.includes("✅") 
+                    ? "border-green-200 bg-green-50 text-green-800" 
+                    : "border-red-200 bg-red-50 text-red-700"
                 }`}
               >
                 {status}
@@ -590,20 +601,24 @@ const SmsSender = () => {
             )}
 
             {results.length > 0 && (
-              <div className="rounded-lg border border-slate-200 bg-slate-50 p-2">
-                <p className="text-[10px] font-semibold text-slate-700 mb-1.5">Delivery Report</p>
-                <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+              <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                <p className="text-xs sm:text-sm font-semibold text-gray-900 mb-2">Delivery Report</p>
+                <div className="space-y-2 max-h-48 overflow-y-auto">
                   {results.map((item, idx) => (
-                    <div key={idx} className="bg-white border border-slate-200 rounded-md px-2 py-1.5 flex items-center justify-between text-xs">
-                      <span className="font-mono text-[10px]">{item.to}</span>
-                      <span
-                        className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${
-                          item.status === "success" || item.status === "queued" ? "bg-green-100 text-green-700" : "bg-rose-100 text-rose-700"
-                        }`}
-                      >
-                        {item.status}
-                      </span>
-                      {item.error && <span className="text-[11px] text-rose-500 ml-2">({item.error})</span>}
+                    <div key={idx} className="bg-white border border-gray-200 rounded-lg px-3 py-2 flex items-center justify-between text-xs sm:text-sm">
+                      <span className="font-mono text-xs">{item.to}</span>
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`text-xs font-semibold px-2 py-1 rounded-full ${
+                            item.status === "success" || item.status === "queued" 
+                              ? "bg-green-100 text-green-700" 
+                              : "bg-red-100 text-red-700"
+                          }`}
+                        >
+                          {item.status}
+                        </span>
+                        {item.error && <span className="text-xs text-red-600">({item.error})</span>}
+                      </div>
                     </div>
                   ))}
                 </div>

@@ -195,34 +195,34 @@ export default function CreateLeadModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-3">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[95vh]">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-teal-600 to-teal-700 px-6 py-4 flex justify-between items-center">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-3 sm:p-4">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[95vh]">
+        {/* Compact Header */}
+        <div className="bg-gray-800 px-4 py-3 flex justify-between items-center">
           <div>
-            <h2 className="text-xl font-semibold text-white">Create New Lead</h2>
-            <p className="text-teal-50 text-xs mt-0.5">Fill in the details to create a new lead</p>
+            <h2 className="text-base sm:text-lg font-bold text-white">Create New Lead</h2>
+            <p className="text-gray-300 text-[10px] sm:text-xs mt-0.5">Fill in the details to create a new lead</p>
           </div>
           <button
             onClick={onClose}
-            className="text-white hover:bg-white/20 rounded-full p-1.5 transition-colors"
+            className="text-white hover:bg-white/20 rounded-lg p-1.5 transition-colors"
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
 
-        {/* Form Content */}
+        {/* Compact Form Content */}
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto">
-          <div className="px-6 py-4 space-y-5">
+          <div className="px-4 py-3 space-y-4">
             {/* Basic Information */}
-            <div className="space-y-4">
-              <h3 className="text-base font-semibold text-gray-800 border-b pb-2">Basic Information</h3>
+            <div className="space-y-3">
+              <h3 className="text-sm font-bold text-gray-900 border-b border-gray-200 pb-1.5">Basic Information</h3>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1.5">
+                  <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">
                     Name <span className="text-red-500">*</span>
                   </label>
                   <input
@@ -230,13 +230,13 @@ export default function CreateLeadModal({
                     name="name"
                     value={formData.name}
                     onChange={handleChange}
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all text-sm"
+                    className="w-full border border-gray-200 rounded-lg px-2.5 py-2 focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all text-xs sm:text-sm"
                     placeholder="Enter full name"
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1.5">
+                  <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">
                     Phone <span className="text-red-500">*</span>
                   </label>
                   <input
@@ -244,21 +244,21 @@ export default function CreateLeadModal({
                     name="phone"
                     value={formData.phone}
                     onChange={handleChange}
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all text-sm"
+                    className="w-full border border-gray-200 rounded-lg px-2.5 py-2 focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all text-xs sm:text-sm"
                     placeholder="Enter phone number"
                     required
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1.5">Gender</label>
+                  <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">Gender</label>
                   <select
                     name="gender"
                     value={formData.gender}
                     onChange={handleChange}
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all text-sm"
+                    className="w-full border border-gray-200 rounded-lg px-2.5 py-2 focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all text-xs sm:text-sm"
                   >
                     <option>Male</option>
                     <option>Female</option>
@@ -266,53 +266,53 @@ export default function CreateLeadModal({
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1.5">Age</label>
+                  <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">Age</label>
                   <input
                     type="number"
                     name="age"
                     value={formData.age}
                     onChange={handleChange}
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all text-sm"
+                    className="w-full border border-gray-200 rounded-lg px-2.5 py-2 focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all text-xs sm:text-sm"
                     placeholder="e.g. 32"
                   />
                 </div>
               </div>
             </div>
 
-            {/* Treatments */}
-            <div className="space-y-3.5">
-              <h3 className="text-base font-semibold text-gray-800 border-b pb-2">Treatments</h3>
-              <div className="border border-gray-200 rounded-md p-3 bg-gray-50 max-h-64 overflow-y-auto">
+            {/* Compact Treatments */}
+            <div className="space-y-2.5">
+              <h3 className="text-sm font-bold text-gray-900 border-b border-gray-200 pb-1.5">Treatments</h3>
+              <div className="border border-gray-200 rounded-lg p-2.5 bg-gray-50 max-h-56 overflow-y-auto">
                 {treatments.length === 0 ? (
-                  <p className="text-gray-500 text-center py-3 text-sm">No treatments available</p>
+                  <p className="text-gray-500 text-center py-2 text-xs sm:text-sm">No treatments available</p>
                 ) : (
-                  <div className="space-y-3">
+                  <div className="space-y-2">
                     {treatments.map((t: any, i: number) => (
-                      <div key={i} className="bg-white rounded-md p-3 shadow-sm">
-                        <label className="flex items-center space-x-2.5 cursor-pointer">
+                      <div key={i} className="bg-white rounded-lg p-2.5 shadow-sm">
+                        <label className="flex items-center space-x-2 cursor-pointer">
                           <input
                             type="checkbox"
                             value={t.mainTreatment}
                             checked={formData.treatments.some((tr) => tr.treatment === t.mainTreatment && !tr.subTreatment)}
                             onChange={handleTreatmentChange}
-                            className="w-4 h-4 text-teal-600 rounded focus:ring-teal-500"
+                            className="w-3.5 h-3.5 text-gray-800 rounded focus:ring-gray-800"
                           />
-                          <span className="font-medium text-gray-800 text-sm">{t.mainTreatment}</span>
+                          <span className="font-medium text-gray-900 text-xs sm:text-sm">{t.mainTreatment}</span>
                         </label>
                         {t.subTreatments?.length > 0 && (
-                          <div className="ml-6 mt-2 space-y-1.5">
+                          <div className="ml-5 mt-1.5 space-y-1">
                             {t.subTreatments.map((sub: any, j: number) => {
                               const val = `${t.mainTreatment}::${sub.name}`;
                               return (
-                                <label key={j} className="flex items-center space-x-2.5 cursor-pointer">
+                                <label key={j} className="flex items-center space-x-2 cursor-pointer">
                                   <input
                                     type="checkbox"
                                     value={val}
                                     checked={formData.treatments.some(tr => tr.treatment === t.mainTreatment && tr.subTreatment === sub.name)}
                                     onChange={handleTreatmentChange}
-                                    className="w-3.5 h-3.5 text-teal-600 rounded focus:ring-teal-500"
+                                    className="w-3 h-3 text-gray-800 rounded focus:ring-gray-800"
                                   />
-                                  <span className="text-xs text-gray-600">{sub.name}</span>
+                                  <span className="text-[10px] sm:text-xs text-gray-600">{sub.name}</span>
                                 </label>
                               );
                             })}
@@ -325,18 +325,18 @@ export default function CreateLeadModal({
               </div>
             </div>
 
-            {/* Source and Status */}
-            <div className="space-y-4">
-              <h3 className="text-base font-semibold text-gray-800 border-b pb-2">Lead Details</h3>
+            {/* Compact Source and Status */}
+            <div className="space-y-3">
+              <h3 className="text-sm font-bold text-gray-900 border-b border-gray-200 pb-1.5">Lead Details</h3>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1.5">Source</label>
+                  <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">Source</label>
                   <select
                     name="source"
                     value={formData.source}
                     onChange={handleChange}
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all text-sm"
+                    className="w-full border border-gray-200 rounded-lg px-2.5 py-2 focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all text-xs sm:text-sm"
                   >
                     <option value="Instagram">Instagram</option>
                     <option value="Facebook">Facebook</option>
@@ -348,27 +348,27 @@ export default function CreateLeadModal({
                 </div>
                 {formData.source === "Other" && (
                   <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1.5">Custom Source</label>
+                    <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">Custom Source</label>
                     <input
                       type="text"
                       name="customSource"
                       value={formData.customSource}
                       onChange={handleChange}
-                      className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all text-sm"
+                      className="w-full border border-gray-200 rounded-lg px-2.5 py-2 focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all text-xs sm:text-sm"
                       placeholder="Enter source"
                     />
                   </div>
                 )}
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1.5">Status</label>
+                  <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">Status</label>
                   <select
                     name="status"
                     value={formData.status}
                     onChange={handleChange}
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all text-sm"
+                    className="w-full border border-gray-200 rounded-lg px-2.5 py-2 focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all text-xs sm:text-sm"
                   >
                     <option value="New">New</option>
                     <option value="Contacted">Contacted</option>
@@ -381,13 +381,13 @@ export default function CreateLeadModal({
                 </div>
                 {formData.status === "Other" && (
                   <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1.5">Custom Status</label>
+                    <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">Custom Status</label>
                     <input
                       type="text"
                       name="customStatus"
                       value={formData.customStatus}
                       onChange={handleChange}
-                      className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all text-sm"
+                      className="w-full border border-gray-200 rounded-lg px-2.5 py-2 focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all text-xs sm:text-sm"
                       placeholder="Enter status"
                     />
                   </div>
@@ -395,12 +395,12 @@ export default function CreateLeadModal({
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1.5">Offer Tag</label>
+                <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">Offer Tag</label>
                 <select
                   name="offerTag"
                   value={formData.offerTag}
                   onChange={handleChange}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all text-sm"
+                  className="w-full border border-gray-200 rounded-lg px-2.5 py-2 focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all text-xs sm:text-sm"
                 >
                   <option value="">No offer</option>
                   {activeOffers.map((o) => (
@@ -412,17 +412,17 @@ export default function CreateLeadModal({
               </div>
             </div>
 
-            {/* Notes and Follow-up */}
-            <div className="space-y-4">
-              <h3 className="text-base font-semibold text-gray-800 border-b pb-2">Additional Information</h3>
+            {/* Compact Notes and Follow-up */}
+            <div className="space-y-3">
+              <h3 className="text-sm font-bold text-gray-900 border-b border-gray-200 pb-1.5">Additional Information</h3>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1.5">Note</label>
+                  <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">Note</label>
                   <select
                     value={noteType}
                     onChange={(e) => setNoteType(e.target.value)}
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all text-sm"
+                    className="w-full border border-gray-200 rounded-lg px-2.5 py-2 focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all text-xs sm:text-sm"
                   >
                     <option value="">Select Note</option>
                     <option value="Interested">Interested</option>
@@ -433,12 +433,12 @@ export default function CreateLeadModal({
                 </div>
                 {noteType === "Custom" && (
                   <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1.5">Custom Note</label>
+                    <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">Custom Note</label>
                     <input
                       type="text"
                       value={customNote}
                       onChange={(e) => setCustomNote(e.target.value)}
-                      className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all text-sm"
+                      className="w-full border border-gray-200 rounded-lg px-2.5 py-2 focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all text-xs sm:text-sm"
                       placeholder="Type a note"
                     />
                   </div>
@@ -446,24 +446,24 @@ export default function CreateLeadModal({
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1.5">Follow-up Date</label>
+                <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">Follow-up Date</label>
                 <input
                   type="datetime-local"
                   value={followUpDate}
                   onChange={(e) => setFollowUpDate(e.target.value)}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all text-sm"
+                  className="w-full border border-gray-200 rounded-lg px-2.5 py-2 focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all text-xs sm:text-sm"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1.5">Assign To</label>
+                <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">Assign To</label>
                 <select
                   value={formData.assignedTo[0] || ""}
                   onChange={(e) => {
                     const selectedId = e.target.value;
                     setFormData(prev => ({ ...prev, assignedTo: selectedId ? [selectedId] : [] }));
                   }}
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all text-sm"
+                  className="w-full border border-gray-200 rounded-lg px-2.5 py-2 focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all text-xs sm:text-sm"
                 >
                   <option value="">Select agent</option>
                   {agents.map(agent => (
@@ -474,19 +474,19 @@ export default function CreateLeadModal({
             </div>
           </div>
 
-          {/* Footer Actions */}
-          <div className="border-t bg-gray-50 px-6 py-4 flex justify-end gap-2.5">
+          {/* Compact Footer Actions */}
+          <div className="border-t bg-gray-50 px-4 py-3 flex justify-end gap-2">
             <button
               type="button"
               onClick={onClose}
-              className="px-5 py-2 rounded-md border border-gray-300 text-gray-700 text-sm font-medium hover:bg-gray-100 transition-colors"
+              className="px-4 py-2 rounded-lg border border-gray-200 text-gray-700 text-xs sm:text-sm font-medium hover:bg-gray-100 transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={loading || !canCreate}
-              className="px-5 py-2 rounded-md bg-teal-600 text-white text-sm font-medium hover:bg-teal-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors shadow-sm"
+              className="px-4 py-2 rounded-lg bg-gray-800 text-white text-xs sm:text-sm font-medium hover:bg-gray-900 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors shadow-sm"
               title={!canCreate ? "You do not have permission to create leads" : ""}
             >
               {loading ? "Saving..." : "Create Lead"}

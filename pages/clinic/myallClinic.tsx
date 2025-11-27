@@ -128,23 +128,23 @@ const Header = ({
   canUpdate: boolean;
   clinicName?: string;
 }) => (
-  <div className="bg-white rounded-lg p-6 sm:p-8 border border-gray-300 shadow-sm">
-    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+  <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
       <div className="flex-1">
-        <div className="flex items-center gap-3 mb-3">
-          <Building2 className="w-6 h-6 text-gray-700" />
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
+        <div className="flex items-center gap-2 mb-2">
+          <Building2 className="w-5 h-5 text-gray-700" />
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
             {clinicName || 'Clinic Profile'}
           </h1>
         </div>
-        <p className="text-sm text-gray-600">
+        <p className="text-xs sm:text-sm text-gray-600">
           Manage your clinic information and settings
         </p>
       </div>
       {hasClinic && !isEditing && canUpdate && (
         <button
           onClick={onEditClick}
-          className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium shadow-sm hover:shadow-md"
+          className="flex items-center gap-2 px-3 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-900 transition-colors font-medium shadow-sm hover:shadow-md text-sm"
         >
           <Edit3 className="w-4 h-4" />
           <span>Edit Profile</span>
@@ -702,13 +702,13 @@ const ClinicCard = ({ clinic, onEdit, getImagePath, canUpdate, stats, statsLoadi
   ) || 0;
 
   return (
-  <div className="bg-white rounded-lg shadow-sm border border-gray-300 overflow-hidden">
-    {/* Profile Header Section with Image in Corner */}
-    <div className="p-4 sm:p-6 border-b border-gray-200">
-      <div className="flex flex-col sm:flex-row gap-4 sm:gap-6">
+  <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+    {/* Profile Header Section with Image in Corner - Compact */}
+    <div className="p-3 sm:p-4 border-b border-gray-200">
+      <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
         {/* Clinic Image - Top Left Corner */}
         <div className="relative flex-shrink-0">
-          <div className="relative w-24 h-24 sm:w-32 sm:h-32 lg:w-40 lg:h-40 rounded-lg overflow-hidden border-4 border-gray-200 shadow-md bg-gray-50">
+          <div className="relative w-20 h-20 sm:w-24 sm:h-24 lg:w-28 lg:h-28 rounded-lg overflow-hidden border-2 border-gray-200 shadow-sm bg-gray-50">
             {clinic.photos?.[0] ? (
               <Image
                 src={getImagePath(clinic.photos[0])}
@@ -732,23 +732,23 @@ const ClinicCard = ({ clinic, onEdit, getImagePath, canUpdate, stats, statsLoadi
           {canUpdate && (
             <button
               onClick={() => onEdit(clinic)}
-              className="absolute -bottom-2 -right-2 bg-blue-600 text-white p-2 rounded-full hover:bg-blue-700 shadow-lg hover:shadow-xl transition-all border-2 border-white"
+              className="absolute -bottom-1 -right-1 bg-gray-800 text-white p-1.5 rounded-full hover:bg-gray-900 shadow-md hover:shadow-lg transition-all border-2 border-white"
               title="Edit Profile"
             >
-              <Edit3 className="w-4 h-4" />
+              <Edit3 className="w-3.5 h-3.5" />
             </button>
           )}
         </div>
 
         {/* Clinic Info - Next to Image */}
         <div className="flex-1 min-w-0">
-          <div className="flex items-start justify-between gap-4 mb-3">
+          <div className="flex items-start justify-between gap-3 mb-2">
             <div className="flex-1 min-w-0">
-              <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 mb-2 break-words">
+              <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 mb-1.5 break-words">
                 {clinic.name}
               </h2>
-              <div className="flex items-start gap-2 text-gray-700 text-sm sm:text-base">
-                <MapPin className="w-4 h-4 sm:w-5 sm:h-5 mt-0.5 flex-shrink-0 text-gray-500" />
+              <div className="flex items-start gap-1.5 text-gray-700 text-xs sm:text-sm">
+                <MapPin className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 text-gray-500" />
                 <span className="break-words">{clinic.address}</span>
               </div>
             </div>
@@ -757,15 +757,15 @@ const ClinicCard = ({ clinic, onEdit, getImagePath, canUpdate, stats, statsLoadi
       </div>
     </div>
 
-    {/* Content */}
-    <div className="p-4 sm:p-6">
+    {/* Content - Compact */}
+    <div className="p-3 sm:p-4">
       {/* Statistics Section */}
-      <div className="mb-6">
-        <div className="flex items-center gap-2 mb-4">
-          <BarChart3 className="w-5 h-5 text-gray-700" />
-          <h3 className="text-lg font-bold text-gray-900">Statistics Overview</h3>
+      <div className="mb-4">
+        <div className="flex items-center gap-2 mb-3">
+          <BarChart3 className="w-4 h-4 text-gray-700" />
+          <h3 className="text-base sm:text-lg font-bold text-gray-900">Statistics Overview</h3>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
+        <div className="grid grid-cols-3 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3">
           <StatCard
             icon={<Star className="w-5 h-5" />}
             label="Reviews"
@@ -823,45 +823,45 @@ const ClinicCard = ({ clinic, onEdit, getImagePath, canUpdate, stats, statsLoadi
         </div>
       </div>
 
-      {/* Info Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-        <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg border border-gray-200">
-          <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center text-white text-sm font-bold">
+      {/* Info Cards - Compact */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 mb-3">
+        <div className="flex items-center gap-2 p-2.5 sm:p-3 bg-gray-50 rounded-lg border border-gray-200">
+          <div className="w-8 h-8 bg-gray-800 rounded-lg flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
             د.إ
           </div>
-          <div>
-            <div className="text-xs font-semibold text-gray-600 mb-1">Consultation Fee</div>
-            <div className="text-sm font-bold text-gray-900">
+          <div className="min-w-0 flex-1">
+            <div className="text-[10px] sm:text-xs font-semibold text-gray-600 mb-0.5">Consultation Fee</div>
+            <div className="text-xs sm:text-sm font-bold text-gray-900 truncate">
               {clinic.pricing || "Contact for pricing"}
             </div>
           </div>
         </div>
         
-        <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg border border-gray-200">
-          <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
-            <Clock className="w-5 h-5 text-white" />
+        <div className="flex items-center gap-2 p-2.5 sm:p-3 bg-gray-50 rounded-lg border border-gray-200">
+          <div className="w-8 h-8 bg-gray-800 rounded-lg flex items-center justify-center flex-shrink-0">
+            <Clock className="w-4 h-4 text-white" />
           </div>
-          <div>
-            <div className="text-xs font-semibold text-gray-600 mb-1">Timings</div>
-            <div className="text-sm font-bold text-gray-900">
+          <div className="min-w-0 flex-1">
+            <div className="text-[10px] sm:text-xs font-semibold text-gray-600 mb-0.5">Timings</div>
+            <div className="text-xs sm:text-sm font-bold text-gray-900 truncate">
               {clinic.timings || "Contact for timings"}
             </div>
           </div>
         </div>
       </div>
 
-      {/* Services */}
+      {/* Services - Compact */}
       {clinic.servicesName?.length > 0 && (
-        <div className="mb-4">
-          <h3 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
-            <Leaf className="w-4 h-4 text-green-600" />
+        <div className="mb-3">
+          <h3 className="text-xs font-semibold text-gray-700 mb-1.5 flex items-center gap-1.5">
+            <Leaf className="w-3.5 h-3.5 text-green-600" />
             Services
           </h3>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-1.5">
             {clinic.servicesName.map((service, idx) => (
               <span
                 key={idx}
-                className="px-3 py-1.5 bg-green-50 text-green-700 rounded-full text-xs font-medium border border-green-200"
+                className="px-2 py-1 bg-gray-100 text-gray-700 rounded-md text-[10px] sm:text-xs font-medium border border-gray-200"
               >
                 {service}
               </span>
@@ -870,26 +870,26 @@ const ClinicCard = ({ clinic, onEdit, getImagePath, canUpdate, stats, statsLoadi
         </div>
       )}
 
-      {/* Treatments */}
+      {/* Treatments - Compact */}
       {clinic.treatments?.length > 0 && (
-        <div className="mb-4">
-          <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-            <Heart className="w-4 h-4 text-rose-600" />
+        <div className="mb-3">
+          <h3 className="text-xs font-semibold text-gray-700 mb-2 flex items-center gap-1.5">
+            <Heart className="w-3.5 h-3.5 text-rose-600" />
             Treatments
           </h3>
-          <div className="space-y-3">
+          <div className="space-y-2">
             {clinic.treatments.map((treatment, idx) => (
-              <div key={idx} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-                <span className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-semibold inline-block mb-2">
+              <div key={idx} className="border border-gray-200 rounded-lg p-2.5 bg-gray-50">
+                <span className="px-2 py-1 bg-gray-800 text-white rounded-md text-[10px] sm:text-xs font-semibold inline-block mb-1.5">
                   {treatment.mainTreatment}
                 </span>
                 {treatment.subTreatments &&
                   treatment.subTreatments.length > 0 && (
-                    <div className="mt-3 flex flex-wrap gap-2">
+                    <div className="mt-2 flex flex-wrap gap-1.5">
                       {treatment.subTreatments.map((subTreatment, subIdx) => (
                         <span
                           key={subIdx}
-                          className="px-3 py-1.5 bg-white text-gray-700 rounded-lg text-xs font-medium border border-gray-200"
+                          className="px-2 py-1 bg-white text-gray-700 rounded-md text-[10px] sm:text-xs font-medium border border-gray-200"
                         >
                           {subTreatment.name}
                           {typeof subTreatment.price === "number" &&
@@ -897,7 +897,7 @@ const ClinicCard = ({ clinic, onEdit, getImagePath, canUpdate, stats, statsLoadi
                               <>
                                 {" "}
                                 -{" "}
-                                <span className="text-blue-600 font-bold">
+                                <span className="text-gray-800 font-bold">
                                   د.إ{subTreatment.price}
                                 </span>
                               </>
@@ -912,10 +912,10 @@ const ClinicCard = ({ clinic, onEdit, getImagePath, canUpdate, stats, statsLoadi
         </div>
       )}
 
-      {/* Footer */}
-      <div className="pt-4 border-t border-gray-200">
-        <div className="flex items-center gap-2 text-xs text-gray-600">
-          <Calendar className="w-4 h-4" />
+      {/* Footer - Compact */}
+      <div className="pt-2 border-t border-gray-200">
+        <div className="flex items-center gap-1.5 text-[10px] sm:text-xs text-gray-600">
+          <Calendar className="w-3 h-3" />
           <span className="font-medium">
             Established{" "}
             {new Date(clinic.createdAt).toLocaleDateString("en-US", {
@@ -942,18 +942,18 @@ interface StatCardProps {
 }
 
 const StatCard = ({ icon, label, value, color, bgColor, borderColor, loading }: StatCardProps) => (
-  <div className={`bg-white rounded-lg p-3 sm:p-4 border ${borderColor} ${bgColor} shadow-sm hover:shadow-md transition-all`}>
-    <div className={`flex items-center gap-2 mb-2 ${color}`}>
-      {icon}
-      <span className="text-xs font-semibold text-gray-700">{label}</span>
+  <div className={`bg-white rounded-lg p-2 sm:p-3 border ${borderColor} ${bgColor} shadow-sm hover:shadow-md transition-all`}>
+    <div className={`flex items-center gap-1.5 mb-1.5 ${color}`}>
+      <div className="w-3.5 h-3.5">{icon}</div>
+      <span className="text-[10px] sm:text-xs font-semibold text-gray-700 truncate">{label}</span>
     </div>
     {loading ? (
-      <div className="flex items-center gap-2">
-        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600"></div>
-        <span className="text-xs text-gray-500">Loading...</span>
+      <div className="flex items-center gap-1.5">
+        <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-gray-800"></div>
+        <span className="text-[10px] text-gray-500">Loading...</span>
       </div>
     ) : (
-      <p className="text-xl sm:text-2xl font-bold text-gray-900">{value}</p>
+      <p className="text-lg sm:text-xl font-bold text-gray-900">{value}</p>
     )}
   </div>
 );
@@ -1561,7 +1561,7 @@ function ClinicManagementDashboard() {
           },
         }}
       />
-      <div className="p-4 sm:p-6 lg:p-8 space-y-6 lg:space-y-8">
+      <div className="p-3 sm:p-4 lg:p-5 space-y-3 lg:space-y-4">
         <Header
           onEditClick={handleEditFromHeader}
           hasClinic={clinics.length > 0}
@@ -1572,33 +1572,33 @@ function ClinicManagementDashboard() {
 
         {isEditing ? (
           <div className="max-w-5xl mx-auto">
-            <div className="bg-white rounded-lg shadow-sm border border-gray-300 p-6 sm:p-8">
-              {/* Header */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <Edit3 className="w-5 h-5 text-white" />
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-5">
+              {/* Header - Compact */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 bg-gray-800 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <Edit3 className="w-4 h-4 text-white" />
                   </div>
                   <div>
-                    <h2 className="text-xl sm:text-2xl font-bold text-gray-900">
+                    <h2 className="text-lg sm:text-xl font-bold text-gray-900">
                       Edit Clinic Profile
                     </h2>
-                    <p className="text-gray-600 text-sm">
+                    <p className="text-gray-600 text-xs">
                       Update your clinic information
                     </p>
                   </div>
                 </div>
                 <button
                   onClick={handleCancel}
-                  className="self-end sm:self-auto p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-all"
+                  className="self-end sm:self-auto p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-all"
                 >
-                  <X className="w-5 h-5" />
+                  <X className="w-4 h-4" />
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-5">
                 {/* Left Column */}
-                <div className="space-y-4 sm:space-y-6">
+                <div className="space-y-3 sm:space-y-4">
                   <FormInput
                     label="Clinic Name"
                     icon={<Building2 className="w-4 h-4" />}
@@ -1666,7 +1666,7 @@ function ClinicManagementDashboard() {
                 </div>
 
                 {/* Right Column */}
-                <div className="space-y-4 sm:space-y-6">
+                <div className="space-y-3 sm:space-y-4">
                   <TagManager
                     label="Services"
                     icon={<Leaf className="w-4 h-4" />}
@@ -1758,16 +1758,16 @@ function ClinicManagementDashboard() {
                 </div>
               </div>
 
-              {/* Action Buttons */}
-              <div className="flex flex-col sm:flex-row gap-3 pt-6 mt-6 border-t border-gray-300">
+              {/* Action Buttons - Compact */}
+              <div className="flex flex-col sm:flex-row gap-2 pt-4 mt-4 border-t border-gray-200">
                 <button
                   onClick={handleUpdate}
                   disabled={updating}
-                  className="order-2 sm:order-1 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 font-semibold transition-colors shadow-sm hover:shadow-md"
+                  className="order-2 sm:order-1 px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-900 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 font-medium transition-colors shadow-sm hover:shadow-md text-sm"
                 >
                   {updating ? (
                     <>
-                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                      <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
                       <span>Updating...</span>
                     </>
                   ) : (
@@ -1776,7 +1776,7 @@ function ClinicManagementDashboard() {
                 </button>
                 <button
                   onClick={handleCancel}
-                  className="order-1 sm:order-2 px-6 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-semibold transition-colors"
+                  className="order-1 sm:order-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium transition-colors text-sm"
                 >
                   Cancel
                 </button>
@@ -1787,38 +1787,38 @@ function ClinicManagementDashboard() {
           <div className="w-full">
             {/* Show permission denied message if no read permission */}
             {!permissions.canRead ? (
-              <div className="bg-white rounded-lg p-8 sm:p-12 border border-gray-300 shadow-sm">
+              <div className="bg-white rounded-lg p-6 sm:p-8 border border-gray-200 shadow-sm">
                 <div className="text-center max-w-md mx-auto">
-                  <div className="w-16 h-16 bg-red-100 rounded-xl flex items-center justify-center mx-auto mb-4">
-                    <Building2 className="w-8 h-8 text-red-600" />
+                  <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center mx-auto mb-3">
+                    <Building2 className="w-6 h-6 text-red-600" />
                   </div>
-                  <h3 className="text-xl font-bold text-gray-900 mb-2">
+                  <h3 className="text-lg font-bold text-gray-900 mb-2">
                     Access Denied
                   </h3>
-                  <p className="text-gray-700 mb-4">
+                  <p className="text-sm text-gray-700 mb-3">
                     You do not have permission to view clinic information.
                   </p>
-                  <p className="text-sm text-gray-600">
+                  <p className="text-xs text-gray-600">
                     Please contact your administrator to request access to the Health Center Management module.
                   </p>
                 </div>
               </div>
             ) : clinics.length === 0 ? (
-              <div className="bg-white rounded-lg p-8 sm:p-12 border border-gray-300 shadow-sm">
+              <div className="bg-white rounded-lg p-6 sm:p-8 border border-gray-200 shadow-sm">
                 <div className="text-center max-w-md mx-auto">
-                  <div className="w-16 h-16 bg-blue-100 rounded-xl flex items-center justify-center mx-auto mb-4">
-                    <Building2 className="w-8 h-8 text-blue-600" />
+                  <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center mx-auto mb-3">
+                    <Building2 className="w-6 h-6 text-gray-800" />
                   </div>
-                  <h3 className="text-xl font-bold text-gray-900 mb-2">
+                  <h3 className="text-lg font-bold text-gray-900 mb-2">
                     No Clinics Found
                   </h3>
-                  <p className="text-gray-700">
+                  <p className="text-sm text-gray-700">
                     Start by adding your first clinic
                   </p>
                 </div>
               </div>
             ) : (
-              <div className="w-full space-y-6">
+              <div className="w-full space-y-3 sm:space-y-4">
                 {clinics.map((clinic) => (
                   <ClinicCard
                     key={clinic._id}
@@ -1831,67 +1831,67 @@ function ClinicManagementDashboard() {
                   />
                 ))}
                 
-                {/* Statistics Charts Section */}
+                {/* Statistics Charts Section - Compact */}
                 {clinics.length > 0 && (
-                  <div className="bg-white rounded-lg p-6 border border-gray-300 shadow-sm">
-                    <div className="flex items-center gap-3 mb-6">
-                      <TrendingUp className="w-6 h-6 text-gray-700" />
-                      <div>
-                        <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Analytics & Insights</h2>
-                        <p className="text-sm text-gray-600">Visual representation of your clinic performance</p>
-                      </div>
+                  <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                    <div className="flex items-center gap-2 mb-3">
+                      <TrendingUp className="w-5 h-5 text-gray-700" />
+                      <h2 className="text-lg sm:text-xl font-bold text-gray-900">Analytics & Insights</h2>
                     </div>
 
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
                       {/* Bar Chart - Reviews vs Enquiries */}
-                      <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                        <h3 className="text-sm font-semibold text-gray-700 mb-4">Reviews & Enquiries</h3>
-                        <ResponsiveContainer width="100%" height={250}>
+                      <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                        <h3 className="text-xs font-semibold text-gray-700 mb-2">Reviews & Enquiries</h3>
+                        <ResponsiveContainer width="100%" height={180}>
                           <BarChart data={[
                             { name: 'Reviews', value: clinicStats.totalReviews },
                             { name: 'Enquiries', value: clinicStats.totalEnquiries },
                           ]}>
                             <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                            <XAxis dataKey="name" stroke="#6b7280" fontSize={12} />
-                            <YAxis stroke="#6b7280" fontSize={12} />
+                            <XAxis dataKey="name" stroke="#6b7280" fontSize={11} />
+                            <YAxis stroke="#6b7280" fontSize={11} />
                             <Tooltip 
                               contentStyle={{ 
                                 backgroundColor: '#fff', 
                                 border: '1px solid #e5e7eb',
                                 borderRadius: '6px',
-                                fontSize: '12px'
+                                fontSize: '11px'
                               }}
                             />
                             <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-                              <Cell fill="#3b82f6" />
-                              <Cell fill="#10b981" />
+                              <Cell fill="#1f2937" />
+                              <Cell fill="#6b7280" />
                             </Bar>
                           </BarChart>
                         </ResponsiveContainer>
                       </div>
 
                       {/* Column Chart - Services Distribution */}
-                      <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                        <h3 className="text-sm font-semibold text-gray-700 mb-4">Services Distribution</h3>
-                        <ResponsiveContainer width="100%" height={250}>
+                      <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                        <h3 className="text-xs font-semibold text-gray-700 mb-2">Services Distribution</h3>
+                        <ResponsiveContainer width="100%" height={180}>
                           <BarChart
                             data={[
                               { name: 'Treatments', value: clinicStats.totalTreatments },
                               { name: 'Services', value: clinicStats.totalServices },
                               { name: 'Sub-Treatments', value: clinicStats.totalSubTreatments },
                             ]}
-                            margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                            margin={{ top: 10, right: 20, left: 10, bottom: 5 }}
                           >
                             <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                             <XAxis 
                               dataKey="name" 
                               stroke="#6b7280" 
-                              fontSize={12}
+                              fontSize={10}
                               tick={{ fill: '#6b7280' }}
+                              angle={-15}
+                              textAnchor="end"
+                              height={40}
                             />
                             <YAxis 
                               stroke="#6b7280" 
-                              fontSize={12}
+                              fontSize={11}
                               tick={{ fill: '#6b7280' }}
                             />
                             <Tooltip 
@@ -1899,43 +1899,43 @@ function ClinicManagementDashboard() {
                                 backgroundColor: '#fff', 
                                 border: '1px solid #e5e7eb',
                                 borderRadius: '6px',
-                                fontSize: '12px'
+                                fontSize: '11px'
                               }}
                             />
                             <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-                              <Cell fill="#3b82f6" />
-                              <Cell fill="#10b981" />
-                              <Cell fill="#8b5cf6" />
+                              <Cell fill="#1f2937" />
+                              <Cell fill="#6b7280" />
+                              <Cell fill="#9ca3af" />
                             </Bar>
                           </BarChart>
                         </ResponsiveContainer>
                       </div>
                     </div>
 
-                    {/* Summary Cards */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
+                    {/* Summary Cards - Compact */}
+                    <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 mt-3 sm:mt-4">
                       <SummaryCard
                         title="Total Engagement"
                         value={clinicStats.totalReviews + clinicStats.totalEnquiries}
-                        icon={<Users className="w-5 h-5" />}
+                        icon={<Users className="w-4 h-4" />}
                         color="blue"
                       />
                       <SummaryCard
                         title="Average Rating"
                         value={clinicStats.averageRating > 0 ? `${clinicStats.averageRating.toFixed(1)} ⭐` : "No ratings"}
-                        icon={<Star className="w-5 h-5" />}
+                        icon={<Star className="w-4 h-4" />}
                         color="yellow"
                       />
                       <SummaryCard
                         title="Total Offerings"
                         value={clinicStats.totalTreatments + clinicStats.totalServices}
-                        icon={<Heart className="w-5 h-5" />}
+                        icon={<Heart className="w-4 h-4" />}
                         color="rose"
                       />
                       <SummaryCard
                         title="Activity Score"
                         value={clinicStats.totalSubTreatments > 0 ? "Active" : "Setup"}
-                        icon={<Activity className="w-5 h-5" />}
+                        icon={<Activity className="w-4 h-4" />}
                         color="green"
                       />
                     </div>
@@ -1974,21 +1974,21 @@ interface SummaryCardProps {
 
 const SummaryCard = ({ title, value, icon, color }: SummaryCardProps) => {
   const colorClasses = {
-    blue: "bg-blue-50 border-blue-200 text-blue-600",
-    yellow: "bg-yellow-50 border-yellow-200 text-yellow-600",
-    rose: "bg-rose-50 border-rose-200 text-rose-600",
-    green: "bg-green-50 border-green-200 text-green-600",
+    blue: "bg-gray-50 border-gray-200 text-gray-800",
+    yellow: "bg-gray-50 border-gray-200 text-gray-800",
+    rose: "bg-gray-50 border-gray-200 text-gray-800",
+    green: "bg-gray-50 border-gray-200 text-gray-800",
   };
 
   const [bgColor, borderColor, textColor] = colorClasses[color].split(' ');
 
   return (
-    <div className={`bg-white rounded-lg p-4 border ${borderColor} shadow-sm`}>
-      <div className={`flex items-center gap-2 mb-2 ${textColor}`}>
+    <div className={`bg-white rounded-lg p-2.5 sm:p-3 border ${borderColor} shadow-sm`}>
+      <div className={`flex items-center gap-1.5 mb-1.5 ${textColor}`}>
         {icon}
-        <span className="text-xs font-semibold text-gray-700">{title}</span>
+        <span className="text-[10px] sm:text-xs font-semibold text-gray-700 truncate">{title}</span>
       </div>
-      <p className="text-lg font-bold text-gray-900">{value}</p>
+      <p className="text-base sm:text-lg font-bold text-gray-900">{value}</p>
     </div>
   );
 };

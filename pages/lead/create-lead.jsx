@@ -253,19 +253,19 @@ function LeadsPage() {
   };
 
   return (
-    <div className="min-h-screen p-5 bg-gradient-to-br from-gray-50 to-gray-100">
+    <div className="min-h-screen p-3 sm:p-4 bg-gray-50">
       <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-4 bg-white/90 backdrop-blur rounded-2xl shadow-lg border border-gray-200 p-4">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2.5">
+        {/* Compact Header */}
+        <div className="mb-3 bg-white rounded-lg shadow-sm border border-gray-200 p-3 sm:p-4">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2">
             <div>
-              <h1 className="text-2xl font-semibold text-gray-900">Leads Management</h1>
-              <p className="text-xs text-gray-500">Filter, review, and assign leads to your team</p>
+              <h1 className="text-lg sm:text-xl font-bold text-gray-900">Leads Management</h1>
+              <p className="text-[10px] sm:text-xs text-gray-500">Filter, review, and assign leads to your team</p>
             </div>
             {permissions.canCreate && (
               <button
                 onClick={() => setModalOpen(true)}
-                className="inline-flex items-center justify-center gap-1.5 bg-gradient-to-r from-teal-600 to-teal-700 hover:from-teal-700 hover:to-teal-800 text-white px-4 py-2 rounded-md shadow hover:shadow-md transition-all duration-200 text-xs font-medium"
+                className="inline-flex items-center justify-center gap-1.5 bg-gray-800 hover:bg-gray-900 text-white px-3 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs sm:text-sm font-medium"
               >
                 <PlusCircle className="h-3.5 w-3.5" />
                 <span>Create New Lead</span>
@@ -274,25 +274,25 @@ function LeadsPage() {
             </div>
           </div>
 
-        {/* Filters - Only show if user has read permission */}
+        {/* Compact Filters - Only show if user has read permission */}
         {permissions.canRead && (
-          <div className="bg-white/90 backdrop-blur rounded-2xl shadow-lg border border-gray-200 p-4 mb-6 grid grid-cols-1 md:grid-cols-4 gap-3">
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 sm:p-4 mb-3 grid grid-cols-1 md:grid-cols-4 gap-2 sm:gap-3">
           <input
             placeholder="Name"
             value={filters.name}
             onChange={(e) => setFilters({ ...filters, name: e.target.value })}
-            className="w-full rounded-lg border border-gray-300 bg-white p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+            className="w-full rounded-lg border border-gray-200 bg-white p-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
           />
           <input
             placeholder="Offer Tag"
             value={filters.offer}
             onChange={(e) => setFilters({ ...filters, offer: e.target.value })}
-            className="w-full rounded-lg border border-gray-300 bg-white p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+            className="w-full rounded-lg border border-gray-200 bg-white p-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
           />
           <select
             value={filters.source}
             onChange={(e) => setFilters({ ...filters, source: e.target.value })}
-            className="w-full rounded-lg border border-gray-300 bg-white p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+            className="w-full rounded-lg border border-gray-200 bg-white p-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
           >
             <option value="">All Sources</option>
             <option>Instagram</option>
@@ -305,7 +305,7 @@ function LeadsPage() {
           <select
             value={filters.status}
             onChange={(e) => setFilters({ ...filters, status: e.target.value })}
-            className="w-full rounded-lg border border-gray-300 bg-white p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+            className="w-full rounded-lg border border-gray-200 bg-white p-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
           >
             <option value="">All Status</option>
             <option>New</option>
@@ -317,61 +317,61 @@ function LeadsPage() {
             <option>Other</option>
             </select>
 
-                    <input
+          <input
             type="date"
             value={filters.startDate}
             onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
-            className="w-full rounded-lg border border-gray-300 bg-white p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+            className="w-full rounded-lg border border-gray-200 bg-white p-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
           />
-                            <input
+          <input
             type="date"
             value={filters.endDate}
             onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
-            className="w-full rounded-lg border border-gray-300 bg-white p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500"
+            className="w-full rounded-lg border border-gray-200 bg-white p-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
           />
           <button
             onClick={fetchLeads}
-            className="inline-flex items-center justify-center bg-gradient-to-r from-teal-600 to-teal-700 hover:from-teal-700 hover:to-teal-800 text-white px-4 py-2.5 rounded-lg text-sm font-medium shadow"
+            className="inline-flex items-center justify-center bg-gray-800 hover:bg-gray-900 text-white px-3 py-2 rounded-lg text-xs sm:text-sm font-medium shadow-sm hover:shadow-md transition-all"
           >
             Apply Filters
           </button>
           </div>
         )}
 
-        {/* Leads as Cards - Only show if user has read permission */}
+        {/* Compact Leads Cards - Only show if user has read permission */}
         {permissions.canRead ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3">
             {leads.length > 0 ? (
               leads.map((lead) => (
-                <div key={lead._id} className="bg-white/90 backdrop-blur rounded-xl shadow border border-gray-200 p-4 flex flex-col gap-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-semibold text-gray-900">{lead.name || 'Unnamed'}</p>
-                      <p className="text-xs text-gray-600">{lead.phone}</p>
+                <div key={lead._id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 flex flex-col gap-2.5">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-bold text-gray-900 truncate">{lead.name || 'Unnamed'}</p>
+                      <p className="text-xs text-gray-600 truncate">{lead.phone}</p>
                     </div>
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold ${lead.status === 'Booked' || lead.status === 'Visited' ? 'bg-green-100 text-green-700' : lead.status === 'Not Interested' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-700'}`}>{lead.status || '—'}</span>
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold flex-shrink-0 ${lead.status === 'Booked' || lead.status === 'Visited' ? 'bg-green-100 text-green-700' : lead.status === 'Not Interested' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-700'}`}>{lead.status || '—'}</span>
                   </div>
 
-                  <div className="text-[11px] text-gray-700 space-y-1">
+                  <div className="text-[10px] sm:text-xs text-gray-700 space-y-1">
                     <p className="truncate"><span className="text-gray-500">Treatment:</span> {lead.treatments?.map((t) => (t.subTreatment ? `${t.subTreatment} (${t.treatment?.name || 'Unknown'})` : t.treatment?.name)).join(', ') || '—'}</p>
-                    <p><span className="text-gray-500">Source:</span> <span className="inline-flex items-center px-2 py-0.5 rounded bg-blue-50 text-blue-700">{lead.source || '—'}</span></p>
+                    <p><span className="text-gray-500">Source:</span> <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-gray-100 text-gray-800 text-[10px]">{lead.source || '—'}</span></p>
                     <p className="truncate"><span className="text-gray-500">Offer:</span> {lead.offerTag || '—'}</p>
                     <p className="truncate"><span className="text-gray-500">Notes:</span> {lead.notes?.map((n) => n.text).join(', ') || 'No Notes'}</p>
                     <p className="truncate"><span className="text-gray-500">Assigned:</span> {lead.assignedTo?.map((a) => a.user?.name).join(', ') || 'Not Assigned'}</p>
                     <p className="truncate"><span className="text-gray-500">Follow-ups:</span> {lead.followUps?.map((f) => new Date(f.date).toLocaleString()).join(', ') || 'None'}</p>
                   </div>
 
-                  <div className="flex justify-end gap-2">
+                  <div className="flex justify-end gap-1.5 pt-1 border-t border-gray-100">
                     <button
                       onClick={() => setViewLead(lead)}
-                      className="inline-flex items-center justify-center bg-white border border-gray-300 text-gray-800 px-3 py-1.5 rounded-md text-xs font-medium shadow-sm hover:bg-gray-50"
+                      className="inline-flex items-center justify-center bg-white border border-gray-200 text-gray-800 px-2.5 py-1.5 rounded-md text-[10px] sm:text-xs font-medium shadow-sm hover:bg-gray-50 transition-all"
                     >
                       View
                     </button>
                     {permissions.canAssign && (
                       <button
                         onClick={() => setSelectedLead(lead._id)}
-                        className="inline-flex items-center justify-center bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-md text-xs font-medium shadow"
+                        className="inline-flex items-center justify-center bg-gray-800 hover:bg-gray-900 text-white px-2.5 py-1.5 rounded-md text-[10px] sm:text-xs font-medium shadow-sm hover:shadow-md transition-all"
                       >
                         ReAssign
                       </button>
@@ -379,7 +379,7 @@ function LeadsPage() {
                     {permissions.canDelete && (
                       <button
                         onClick={() => deleteLead(lead._id)}
-                        className="inline-flex items-center justify-center bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-md text-xs font-medium shadow"
+                        className="inline-flex items-center justify-center bg-red-600 hover:bg-red-700 text-white px-2.5 py-1.5 rounded-md text-[10px] sm:text-xs font-medium shadow-sm hover:shadow-md transition-all"
                       >
                         Delete
                       </button>
@@ -388,23 +388,28 @@ function LeadsPage() {
                 </div>
               ))
             ) : (
-              <div className="col-span-full bg-white/90 backdrop-blur rounded-xl border border-gray-200 p-6 text-center text-gray-500">
-                No leads found
+              <div className="col-span-full bg-white rounded-lg border border-gray-200 p-6 text-center">
+                <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-2">
+                  <svg className="w-5 h-5 text-gray-800" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                </div>
+                <p className="text-sm text-gray-600">No leads found</p>
               </div>
             )}
           </div>
         ) : (
-          <div className="bg-white/90 backdrop-blur rounded-xl border border-gray-200 p-12 text-center">
-            <div className="w-16 h-16 bg-yellow-100 rounded-xl flex items-center justify-center mx-auto mb-4">
-              <svg className="w-8 h-8 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="bg-white rounded-lg border border-gray-200 p-8 sm:p-12 text-center">
+            <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center mx-auto mb-3">
+              <svg className="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
               </svg>
             </div>
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">Read Permission Required</h3>
-            <p className="text-gray-600 mb-4">
+            <h3 className="text-lg font-bold text-gray-900 mb-2">Read Permission Required</h3>
+            <p className="text-sm text-gray-600 mb-3">
               You only have permission to create leads. You cannot view, update, or delete leads.
             </p>
-            <p className="text-sm text-gray-500">
+            <p className="text-xs text-gray-500">
               Contact your administrator to request read permissions for the Create Lead module.
             </p>
           </div>
@@ -421,27 +426,27 @@ function LeadsPage() {
           token={token || ""}
         />
 
-        {/* Assign Modal */}
+        {/* Compact Assign Modal */}
         {selectedLead && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-50 p-4">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md transform transition-all">
-              <div className="px-6 py-5 border-b border-gray-200 bg-gradient-to-r from-teal-50 to-emerald-50">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-r from-teal-500 to-emerald-500 flex items-center justify-center">
-                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center z-50 p-3 sm:p-4">
+            <div className="bg-white rounded-lg shadow-xl w-full max-w-md transform transition-all">
+              <div className="px-4 py-3 border-b border-gray-200 bg-gray-50">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-gray-800 flex items-center justify-center">
+                    <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                     </svg>
                   </div>
                   <div>
-                    <h2 className="text-lg font-semibold text-gray-900">Reassign Lead</h2>
-                    <p className="text-xs text-gray-600 mt-0.5">Select an agent and set follow-up time</p>
+                    <h2 className="text-base sm:text-lg font-bold text-gray-900">Reassign Lead</h2>
+                    <p className="text-[10px] sm:text-xs text-gray-600 mt-0.5">Select an agent and set follow-up time</p>
                   </div>
                 </div>
               </div>
-              <div className="p-6 space-y-5">
+              <div className="p-4 space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
-                    <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2 flex items-center gap-1.5">
+                    <svg className="w-3.5 h-3.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                     </svg>
                     Select Agent
@@ -451,7 +456,7 @@ function LeadsPage() {
                     <select
                       value={selectedAgent}
                       onChange={(e) => setSelectedAgent(e.target.value)}
-                      className="w-full appearance-none rounded-xl border-2 border-gray-200 bg-white px-4 py-3.5 pr-10 text-sm font-medium text-gray-900 transition-all duration-200 focus:border-teal-500 focus:outline-none focus:ring-4 focus:ring-teal-100 hover:border-gray-300 cursor-pointer"
+                      className="w-full appearance-none rounded-lg border-2 border-gray-200 bg-white px-3 py-2.5 pr-8 text-xs sm:text-sm font-medium text-gray-900 transition-all duration-200 focus:border-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-800/20 hover:border-gray-300 cursor-pointer"
                     >
                       <option value="" disabled className="text-gray-400">Choose an agent...</option>
                       {agents.map((a) => (
@@ -460,15 +465,15 @@ function LeadsPage() {
                         </option>
                       ))}
                     </select>
-                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
-                      <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2.5">
+                      <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                       </svg>
                     </div>
                   </div>
                   {selectedAgent && (
-                    <p className="mt-2 text-xs text-teal-600 flex items-center gap-1">
-                      <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                    <p className="mt-1.5 text-[10px] sm:text-xs text-gray-700 flex items-center gap-1">
+                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
                         <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                       </svg>
                       Agent selected: {agents.find(a => a._id === selectedAgent)?.name}
@@ -476,37 +481,37 @@ function LeadsPage() {
                   )}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
-                    <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2 flex items-center gap-1.5">
+                    <svg className="w-3.5 h-3.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                     </svg>
                     Follow-up Date & Time
-                    <span className="text-xs text-gray-500 font-normal">(Optional)</span>
+                    <span className="text-[10px] text-gray-500 font-normal">(Optional)</span>
                   </label>
                   <input
                     type="datetime-local"
                     value={followUpDate}
                     onChange={(e) => setFollowUpDate(e.target.value)}
-                    className="w-full rounded-xl border-2 border-gray-200 bg-white px-4 py-3.5 text-sm font-medium text-gray-900 transition-all duration-200 focus:border-teal-500 focus:outline-none focus:ring-4 focus:ring-teal-100 hover:border-gray-300"
+                    className="w-full rounded-lg border-2 border-gray-200 bg-white px-3 py-2.5 text-xs sm:text-sm font-medium text-gray-900 transition-all duration-200 focus:border-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-800/20 hover:border-gray-300"
                   />
                 </div>
-                <div className="flex justify-end gap-3 pt-2 border-t border-gray-100">
+                <div className="flex justify-end gap-2 pt-2 border-t border-gray-100">
                   <button
                     onClick={() => {
                       setSelectedLead(null);
                       setSelectedAgent("");
                       setFollowUpDate("");
                     }}
-                    className="px-5 py-2.5 rounded-xl text-sm font-semibold bg-gray-100 text-gray-700 hover:bg-gray-200 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-gray-300"
+                    className="px-4 py-2 rounded-lg text-xs sm:text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-gray-300"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={assignLead}
                     disabled={!selectedAgent}
-                    className="px-5 py-2.5 rounded-xl text-sm font-semibold bg-gradient-to-r from-teal-600 to-emerald-600 text-white shadow-lg shadow-teal-500/30 hover:from-teal-700 hover:to-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 focus:outline-none focus:ring-4 focus:ring-teal-100 flex items-center gap-2"
+                    className="px-4 py-2 rounded-lg text-xs sm:text-sm font-medium bg-gray-800 text-white shadow-sm hover:bg-gray-900 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-gray-800/20 flex items-center gap-1.5"
                   >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
                     ReAssign Lead

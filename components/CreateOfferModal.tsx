@@ -347,15 +347,15 @@ export default function CreateOfferModal({
   if (!isOpen) return null;
   
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-3">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[95vh]">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-teal-600 to-teal-700 px-6 py-4 flex justify-between items-center">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-3 sm:p-4">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[95vh]">
+        {/* Compact Header */}
+        <div className="bg-gray-800 px-4 py-3 flex justify-between items-center">
           <div>
-            <h2 className="text-xl font-semibold text-white">
+            <h2 className="text-base sm:text-lg font-bold text-white">
               {mode === "create" ? "Create New Offer" : "Update Offer"}
             </h2>
-            <p className="text-teal-50 text-xs mt-0.5">
+            <p className="text-gray-300 text-[10px] sm:text-xs mt-0.5">
               {mode === "create" 
                 ? "Fill in the details to create a promotional offer" 
                 : !offer ? "Loading offer..." : "Modify the offer details below"}
@@ -363,23 +363,23 @@ export default function CreateOfferModal({
           </div>
           <button
             onClick={onClose}
-            className="text-white hover:bg-white/20 rounded-full p-1.5 transition-colors"
+            className="text-white hover:bg-white/20 rounded-lg p-1.5 transition-colors"
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
 
-        {/* Form Content */}
+        {/* Compact Form Content */}
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto">
-          <div className="px-6 py-4 space-y-5">
+          <div className="px-4 py-3 space-y-4">
             {/* Basic Information Section */}
-            <div className="space-y-4">
-              <h3 className="text-base font-semibold text-gray-800 border-b pb-2">Basic Information</h3>
+            <div className="space-y-3">
+              <h3 className="text-sm font-bold text-gray-900 border-b border-gray-200 pb-1.5">Basic Information</h3>
               
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1.5">
+                <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">
                   Offer Title <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -387,34 +387,34 @@ export default function CreateOfferModal({
                   name="title"
                   value={form.title}
                   onChange={handleChange}
-                  className="text-gray-700 w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all text-sm"
+                  className="text-gray-900 w-full border border-gray-200 rounded-lg px-2.5 py-2 focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all text-xs sm:text-sm"
                   placeholder="e.g., Summer Special Discount"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1.5">Description</label>
+                <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">Description</label>
                 <textarea
                   name="description"
                   value={form.description}
                   onChange={handleChange}
                   rows={3}
-                  className="text-gray-700 w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all resize-none text-sm"
+                  className="text-gray-900 w-full border border-gray-200 rounded-lg px-2.5 py-2 focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all resize-none text-xs sm:text-sm"
                   placeholder="Describe the offer details..."
                 />
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1.5">
+                  <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">
                     Discount Type <span className="text-red-500">*</span>
                   </label>
                   <select
                     name="type"
                     value={form.type}
                     onChange={handleChange}
-                    className="text-gray-700 w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all text-sm"
+                    className="text-gray-900 w-full border border-gray-200 rounded-lg px-2.5 py-2 focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all text-xs sm:text-sm"
                     required
                   >
                     <option value="percentage">Percentage (%)</option>
@@ -423,142 +423,142 @@ export default function CreateOfferModal({
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1.5">
-                    {form.type === "percentage" ? "Discount (%)" : "Amount (₹)"}
+                  <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">
+                    {form.type === "percentage" ? "Discount (%)" : `Amount (د.إ)`}
                   </label>
                   <input
                     type="number"
                     name="value"
                     value={form.value}
                     onChange={handleChange}
-                    className="text-gray-700 w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all text-sm"
+                    className="text-gray-900 w-full border border-gray-200 rounded-lg px-2.5 py-2 focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all text-xs sm:text-sm"
                     placeholder="0"
                   />
                 </div>
               </div>
             </div>
 
-            {/* Schedule Section */}
-            <div className="space-y-4">
-              <h3 className="text-base font-semibold text-gray-800 border-b pb-2">Schedule & Limits</h3>
+            {/* Compact Schedule Section */}
+            <div className="space-y-3">
+              <h3 className="text-sm font-bold text-gray-900 border-b border-gray-200 pb-1.5">Schedule & Limits</h3>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1.5">Start Date & Time</label>
+                  <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">Start Date & Time</label>
                   <input
                     type="datetime-local"
                     name="startsAt"
                     value={form.startsAt}
                     onChange={handleChange}
-                    className="text-gray-700 w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all text-sm"
+                    className="text-gray-900 w-full border border-gray-200 rounded-lg px-2.5 py-2 focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all text-xs sm:text-sm"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1.5">End Date & Time</label>
+                  <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">End Date & Time</label>
                   <input
                     type="datetime-local"
                     name="endsAt"
                     value={form.endsAt}
                     onChange={handleChange}
-                    className="text-gray-700 w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all text-sm"
+                    className="text-gray-900 w-full border border-gray-200 rounded-lg px-2.5 py-2 focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all text-xs sm:text-sm"
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1.5">Maximum Total Uses</label>
+                  <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">Maximum Total Uses</label>
                   <input
                     type="number"
                     name="maxUses"
                     value={form.maxUses || ""}
                     onChange={handleChange}
-                    className="text-gray-700 w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all text-sm"
+                    className="text-gray-900 w-full border border-gray-200 rounded-lg px-2.5 py-2 focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all text-xs sm:text-sm"
                     placeholder="Unlimited"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1.5">Uses Per User</label>
+                  <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">Uses Per User</label>
                   <input
                     type="number"
                     name="perUserLimit"
                     value={form.perUserLimit}
                     onChange={handleChange}
-                    className="text-gray-700 w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all text-sm"
+                    className="text-gray-900 w-full border border-gray-200 rounded-lg px-2.5 py-2 focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all text-xs sm:text-sm"
                     placeholder="1"
                   />
                 </div>
               </div>
             </div>
 
-            {/* Distribution Channels */}
-            <div className="space-y-3.5">
-              <h3 className="text-base font-semibold text-gray-800 border-b pb-2">Distribution Channels</h3>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {/* Compact Distribution Channels */}
+            <div className="space-y-2.5">
+              <h3 className="text-sm font-bold text-gray-900 border-b border-gray-200 pb-1.5">Distribution Channels</h3>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                 {["email", "sms", "web", "affiliate"].map((c) => (
-                  <label key={c} className="flex items-center space-x-2.5 p-2.5 border border-gray-200 rounded-md hover:bg-gray-50 cursor-pointer transition-colors">
+                  <label key={c} className="flex items-center space-x-2 p-2 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors">
                     <input
                       type="checkbox"
                       name="channels"
                       value={c}
                       checked={form.channels.includes(c)}
                       onChange={handleChange}
-                      className="w-4 h-4 text-teal-600 rounded focus:ring-teal-500"
+                      className="w-3.5 h-3.5 text-gray-800 rounded focus:ring-gray-800"
                     />
-                    <span className="text-xs font-medium text-gray-700 capitalize">{c}</span>
+                    <span className="text-[10px] sm:text-xs font-medium text-gray-700 capitalize">{c}</span>
                   </label>
                 ))}
               </div>
             </div>
 
-            {/* UTM Parameters */}
-            <div className="space-y-3.5">
-              <h3 className="text-base font-semibold text-gray-800 border-b pb-2">Tracking (UTM Parameters)</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Compact UTM Parameters */}
+            <div className="space-y-2.5">
+              <h3 className="text-sm font-bold text-gray-900 border-b border-gray-200 pb-1.5">Tracking (UTM Parameters)</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1.5">UTM Source</label>
+                  <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">UTM Source</label>
                   <input
                     type="text"
                     name="utm.source"
                     value={form.utm.source}
                     onChange={handleChange}
-                    className="text-gray-700 w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all text-sm"
+                    className="text-gray-900 w-full border border-gray-200 rounded-lg px-2.5 py-2 focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all text-xs sm:text-sm"
                     placeholder="clinic"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1.5">UTM Medium</label>
+                  <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">UTM Medium</label>
                   <input
                     type="text"
                     name="utm.medium"
                     value={form.utm.medium}
                     onChange={handleChange}
-                    className="text-gray-700 w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all text-sm"
+                    className="text-gray-900 w-full border border-gray-200 rounded-lg px-2.5 py-2 focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all text-xs sm:text-sm"
                     placeholder="email"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1.5">UTM Campaign</label>
+                  <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">UTM Campaign</label>
                   <input
                     type="text"
                     name="utm.campaign"
                     value={form.utm.campaign}
                     onChange={handleChange}
-                    className="text-gray-700 w-full border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all text-sm"
+                    className="text-gray-900 w-full border border-gray-200 rounded-lg px-2.5 py-2 focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all text-xs sm:text-sm"
                     placeholder="summer-2024"
                   />
                 </div>
               </div>
             </div>
 
-            {/* Status */}
-            <div className="space-y-3.5">
-              <h3 className="text-base font-semibold text-gray-800 border-b pb-2">Status</h3>
+            {/* Compact Status */}
+            <div className="space-y-2.5">
+              <h3 className="text-sm font-bold text-gray-900 border-b border-gray-200 pb-1.5">Status</h3>
               <select
                 name="status"
                 value={form.status}
                 onChange={handleChange}
-                className="text-gray-700 w-full md:w-1/2 border border-gray-300 rounded-md px-3 py-2 focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all text-sm"
+                className="text-gray-900 w-full md:w-1/2 border border-gray-200 rounded-lg px-2.5 py-2 focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all text-xs sm:text-sm"
               >
                 {["draft", "active", "paused", "expired", "archived"].map((s) => (
                   <option key={s} value={s} className="capitalize">
@@ -568,41 +568,41 @@ export default function CreateOfferModal({
               </select>
             </div>
 
-            {/* Treatments Selection */}
-            <div className="space-y-3.5">
-              <h3 className="text-base font-semibold text-gray-800 border-b pb-2">Applicable Treatments</h3>
-              <div className="border border-gray-200 rounded-md p-3 bg-gray-50 max-h-64 overflow-y-auto">
+            {/* Compact Treatments Selection */}
+            <div className="space-y-2.5">
+              <h3 className="text-sm font-bold text-gray-900 border-b border-gray-200 pb-1.5">Applicable Treatments</h3>
+              <div className="border border-gray-200 rounded-lg p-2.5 bg-gray-50 max-h-56 overflow-y-auto">
                 {treatments.length === 0 ? (
-                  <p className="text-gray-500 text-center py-3 text-sm">No treatments available</p>
+                  <p className="text-gray-500 text-center py-2 text-xs sm:text-sm">No treatments available</p>
                 ) : (
-                  <div className="space-y-3">
+                  <div className="space-y-2">
                     {treatments.map((t: any, i: number) => (
-                      <div key={i} className="bg-white rounded-md p-3 shadow-sm">
-                        <label className="flex items-center space-x-2.5 cursor-pointer">
+                      <div key={i} className="bg-white rounded-lg p-2.5 shadow-sm">
+                        <label className="flex items-center space-x-2 cursor-pointer">
                           <input
                             type="checkbox"
                             checked={form.treatments.includes(t.mainTreatmentSlug)}
                             onChange={(e) =>
                               toggleTreatment(t.mainTreatmentSlug, e.target.checked)
                             }
-                            className="w-4 h-4 text-teal-600 rounded focus:ring-teal-500"
+                            className="w-3.5 h-3.5 text-gray-800 rounded focus:ring-gray-800"
                           />
-                          <span className="font-medium text-gray-800 text-sm">{t.mainTreatment}</span>
+                          <span className="font-medium text-gray-900 text-xs sm:text-sm">{t.mainTreatment}</span>
                         </label>
                         {t.subTreatments?.length > 0 && (
-                          <div className="ml-6 mt-2 space-y-1.5">
+                          <div className="ml-5 mt-1.5 space-y-1">
                             {t.subTreatments.map((sub: any, j: number) => (
-                              <label key={j} className="flex items-center space-x-2.5 cursor-pointer">
+                              <label key={j} className="flex items-center space-x-2 cursor-pointer">
                                 <input
                                   type="checkbox"
                                   checked={form.treatments.includes(sub.slug)}
                                   onChange={(e) =>
                                     toggleTreatment(sub.slug, e.target.checked)
                                   }
-                                  className="w-3.5 h-3.5 text-teal-600 rounded focus:ring-teal-500"
+                                  className="w-3 h-3 text-gray-800 rounded focus:ring-gray-800"
                                 />
-                                <span className="text-xs text-gray-600">
-                                  {sub.name} <span className="text-gray-400">— ₹{sub.price ?? 0}</span>
+                                <span className="text-[10px] sm:text-xs text-gray-600">
+                                  {sub.name} <span className="text-gray-400">— د.إ{sub.price ?? 0}</span>
                                 </span>
                               </label>
                             ))}
@@ -616,19 +616,19 @@ export default function CreateOfferModal({
             </div>
           </div>
 
-          {/* Footer Actions */}
-          <div className="border-t bg-gray-50 px-6 py-4 flex justify-end gap-2.5">
+          {/* Compact Footer Actions */}
+          <div className="border-t bg-gray-50 px-4 py-3 flex justify-end gap-2">
             <button
               type="button"
               onClick={onClose}
-              className="px-5 py-2 rounded-md border border-gray-300 text-gray-700 text-sm font-medium hover:bg-gray-100 transition-colors"
+              className="px-4 py-2 rounded-lg border border-gray-200 text-gray-700 text-xs sm:text-sm font-medium hover:bg-gray-100 transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={loading || (mode === "create" && !permissions.canCreate) || (mode === "update" && !permissions.canUpdate)}
-              className="px-5 py-2 rounded-md bg-teal-600 text-white text-sm font-medium hover:bg-teal-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors shadow-sm"
+              className="px-4 py-2 rounded-lg bg-gray-800 text-white text-xs sm:text-sm font-medium hover:bg-gray-900 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors shadow-sm"
               title={
                 mode === "create" && !permissions.canCreate
                   ? "You do not have permission to create offers"

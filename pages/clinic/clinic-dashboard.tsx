@@ -439,7 +439,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
   // Calculate subscription summary (must be before any conditional returns)
   const subscriptionSummary = useMemo(() => {
     const totalModules = allModules.length;
-    const subscribedModules = modulesWithPermission.length;
+    const subscribedModules = navigationItems.length; // Use navigationItems.length as they already have permissions
     const restrictedCount = restrictedModules.length;
     const subscriptionPercentage = totalModules > 0 ? Math.round((subscribedModules / totalModules) * 100) : 0;
     
@@ -449,12 +449,12 @@ const ClinicDashboard: NextPageWithLayout = () => {
       restrictedCount,
       subscriptionPercentage
     };
-  }, [allModules, modulesWithPermission, restrictedModules]);
+  }, [allModules, navigationItems, restrictedModules]);
 
   // Prepare chart data for graphical representation (must be before any conditional returns)
   const subscriptionChartData = useMemo(() => {
     return [
-      { name: 'Active', value: subscriptionSummary.subscribedModules, color: '#3b82f6' },
+      { name: 'Active', value: subscriptionSummary.subscribedModules, color: '#1f2937' }, // gray-800
       { name: 'Locked', value: subscriptionSummary.restrictedCount, color: '#6b7280' },
     ];
   }, [subscriptionSummary]);
@@ -466,7 +466,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
     ];
   }, [stats]);
 
-  // Render stat card component - Professional minimal design
+  // Render stat card component - Professional minimal design matching sidebar theme
   const renderStatCard = (
     label: string,
     value: number | string,
@@ -476,7 +476,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
   ) => {
     if (!hasPermission) {
       return (
-        <div className="bg-white rounded-lg p-5 border border-gray-300 shadow-sm hover:shadow-md transition-all duration-200 relative">
+        <div className="bg-white rounded-lg p-5 border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200 relative">
           <div className="absolute top-3 right-3 bg-gray-500 text-white px-2 py-1 text-xs font-semibold rounded">
             LOCKED
           </div>
@@ -506,21 +506,21 @@ const ClinicDashboard: NextPageWithLayout = () => {
     }
 
     return (
-      <div className="bg-white rounded-lg p-5 border border-gray-300 shadow-sm hover:shadow-md transition-all duration-200 group">
-        <div className="absolute top-3 right-3 bg-blue-600 text-white px-2 py-1 text-xs font-semibold rounded flex items-center gap-1">
+      <div className="bg-white rounded-lg p-5 border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200 group">
+        <div className="absolute top-3 right-3 bg-gray-800 text-white px-2 py-1 text-xs font-semibold rounded flex items-center gap-1">
           <CheckCircle2 className="w-3 h-3" />
           ACTIVE
         </div>
         <div className="pt-6">
           <div className="flex items-center gap-3 mb-4">
-            <div className="p-2.5 bg-blue-50 rounded-lg group-hover:bg-blue-100 transition-colors">
-              <div className="text-blue-600">{icon}</div>
+            <div className="p-2.5 bg-gray-100 rounded-lg group-hover:bg-gray-200 transition-colors">
+              <div className="text-gray-700">{icon}</div>
             </div>
           </div>
           <h3 className="text-xs font-medium text-gray-600 mb-2">{label}</h3>
           {statsLoading ? (
             <div className="flex items-center gap-2">
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-800"></div>
               <span className="text-sm text-gray-500">Loading...</span>
             </div>
           ) : (
@@ -564,20 +564,20 @@ const ClinicDashboard: NextPageWithLayout = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Main Content */}
-      <div className="p-4 sm:p-6 lg:p-8 space-y-6 lg:space-y-8">
-        {/* Professional Header */}
-        <div className="bg-white rounded-lg p-6 sm:p-8 border border-gray-300 shadow-sm">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+      <div className="p-3 sm:p-4 lg:p-5 space-y-3 lg:space-y-4">
+        {/* Professional Header - Compact */}
+        <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
             <div className="flex-1">
-              <div className="flex items-center gap-3 mb-3">
-                <Building2 className="w-6 h-6 text-gray-700" />
-                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
+              <div className="flex items-center gap-2 mb-2">
+                <Building2 className="w-5 h-5 text-gray-700" />
+                <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
                   {clinicInfo.name || 'Clinic Dashboard'}
                 </h1>
               </div>
-              <div className="flex items-center gap-4 text-sm text-gray-600">
-                <div className="flex items-center gap-2">
-                  <User className="w-4 h-4" />
+              <div className="flex items-center gap-3 text-xs sm:text-sm text-gray-600 flex-wrap">
+                <div className="flex items-center gap-1.5">
+                  <User className="w-3.5 h-3.5" />
                   <span className="font-medium">Owner:</span>
                   <span>{clinicInfo.ownerName || clinicUser?.name || 'N/A'}</span>
                 </div>
@@ -587,95 +587,87 @@ const ClinicDashboard: NextPageWithLayout = () => {
                 <span>{formatTime(currentTime)}</span>
               </div>
             </div>
-            <div className="bg-gray-50 rounded-lg px-4 py-3 border border-gray-200">
-              <p className="text-sm font-medium text-gray-700">{getGreeting()}</p>
+            <div className="bg-gray-50 rounded-lg px-3 py-2 border border-gray-200">
+              <p className="text-xs sm:text-sm font-medium text-gray-700">{getGreeting()}</p>
             </div>
           </div>
         </div>
 
-        {/* Subscription Status Summary - Professional Design */}
-        <div className="bg-white rounded-lg p-6 sm:p-8 border border-gray-300 shadow-sm">
-          <div className="flex items-center gap-3 mb-6">
-            <BarChart3 className="w-6 h-6 text-gray-700" />
-            <div>
-              <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Subscription Overview</h2>
-              <p className="text-sm text-gray-600">Module access and subscription status</p>
-            </div>
+        {/* Subscription Status Summary - Compact */}
+        <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+          <div className="flex items-center gap-2 mb-3">
+            <BarChart3 className="w-5 h-5 text-gray-700" />
+            <h2 className="text-lg sm:text-xl font-bold text-gray-900">Subscription Overview</h2>
           </div>
           
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Left: Stats Cards */}
-            <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-3 gap-4">
-              {/* Subscribed Modules */}
-              <div className="bg-white border border-gray-300 rounded-lg p-5 shadow-sm">
-                <div className="flex items-center gap-2 mb-3">
-                  <CheckCircle2 className="w-5 h-5 text-blue-600" />
-                  <span className="text-sm font-semibold text-gray-700">Active</span>
-                </div>
-                <p className="text-3xl font-bold text-gray-900 mb-1">
-                  {subscriptionSummary.subscribedModules}
-                </p>
-                <p className="text-xs text-gray-600">Subscribed modules</p>
-                <div className="mt-3 bg-gray-100 rounded-full h-2">
-                  <div 
-                    className="bg-blue-600 h-2 rounded-full transition-all duration-500"
-                    style={{ width: `${subscriptionSummary.subscriptionPercentage}%` }}
-                  ></div>
-                </div>
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-3">
+            {/* Stats Cards - More compact */}
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+              <div className="flex items-center gap-2 mb-2">
+                <CheckCircle2 className="w-4 h-4 text-gray-800" />
+                <span className="text-xs font-semibold text-gray-700">Active</span>
               </div>
-
-              {/* Restricted Modules */}
-              <div className="bg-white border border-gray-300 rounded-lg p-5 shadow-sm">
-                <div className="flex items-center gap-2 mb-3">
-                  <XCircle className="w-5 h-5 text-gray-500" />
-                  <span className="text-sm font-semibold text-gray-700">Locked</span>
-                </div>
-                <p className="text-3xl font-bold text-gray-900 mb-1">
-                  {subscriptionSummary.restrictedCount}
-                </p>
-                <p className="text-xs text-gray-600">Not subscribed</p>
-                <div className="mt-3 bg-gray-100 rounded-full h-2">
-                  <div 
-                    className="bg-gray-500 h-2 rounded-full transition-all duration-500"
-                    style={{ width: `${100 - subscriptionSummary.subscriptionPercentage}%` }}
-                  ></div>
-                </div>
-              </div>
-
-              {/* Total Modules */}
-              <div className="bg-white border border-gray-300 rounded-lg p-5 shadow-sm">
-                <div className="flex items-center gap-2 mb-3">
-                  <BarChart3 className="w-5 h-5 text-gray-700" />
-                  <span className="text-sm font-semibold text-gray-700">Total</span>
-                </div>
-                <p className="text-3xl font-bold text-gray-900 mb-1">
-                  {subscriptionSummary.totalModules}
-                </p>
-                <p className="text-xs text-gray-600">Available modules</p>
+              <p className="text-2xl font-bold text-gray-900 mb-1">
+                {navigationItems.length}
+              </p>
+              <p className="text-xs text-gray-600 mb-2">Active modules</p>
+              <div className="bg-gray-100 rounded-full h-1.5">
+                <div 
+                  className="bg-gray-800 h-1.5 rounded-full transition-all duration-500"
+                  style={{ width: `${subscriptionSummary.subscriptionPercentage}%` }}
+                ></div>
               </div>
             </div>
 
-            {/* Right: Bar Chart */}
-            <div className="bg-white border border-gray-300 rounded-lg p-5 shadow-sm">
-              <h3 className="text-sm font-semibold text-gray-700 mb-4">Distribution</h3>
-              <div className="h-48">
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+              <div className="flex items-center gap-2 mb-2">
+                <XCircle className="w-4 h-4 text-gray-500" />
+                <span className="text-xs font-semibold text-gray-700">Locked</span>
+              </div>
+              <p className="text-2xl font-bold text-gray-900 mb-1">
+                {subscriptionSummary.restrictedCount}
+              </p>
+              <p className="text-xs text-gray-600 mb-2">Not subscribed</p>
+              <div className="bg-gray-100 rounded-full h-1.5">
+                <div 
+                  className="bg-gray-500 h-1.5 rounded-full transition-all duration-500"
+                  style={{ width: `${100 - subscriptionSummary.subscriptionPercentage}%` }}
+                ></div>
+              </div>
+            </div>
+
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+              <div className="flex items-center gap-2 mb-2">
+                <BarChart3 className="w-4 h-4 text-gray-700" />
+                <span className="text-xs font-semibold text-gray-700">Total</span>
+              </div>
+              <p className="text-2xl font-bold text-gray-900 mb-1">
+                {subscriptionSummary.totalModules}
+              </p>
+              <p className="text-xs text-gray-600">Available modules</p>
+            </div>
+
+            {/* Compact Chart */}
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+              <h3 className="text-xs font-semibold text-gray-700 mb-2">Distribution</h3>
+              <div className="h-32">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={subscriptionChartData} layout="vertical">
                     <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                    <XAxis type="number" stroke="#6b7280" fontSize={12} />
+                    <XAxis type="number" stroke="#6b7280" fontSize={10} />
                     <YAxis 
                       type="category" 
                       dataKey="name" 
                       stroke="#6b7280" 
-                      fontSize={12}
-                      width={60}
+                      fontSize={10}
+                      width={50}
                     />
                     <Tooltip 
                       contentStyle={{ 
                         backgroundColor: '#fff', 
                         border: '1px solid #e5e7eb',
                         borderRadius: '6px',
-                        fontSize: '12px'
+                        fontSize: '11px'
                       }}
                     />
                     <Bar 
@@ -688,7 +680,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                       <LabelList 
                         dataKey="value" 
                         position="right" 
-                        style={{ fill: '#374151', fontSize: '12px', fontWeight: '500' }}
+                        style={{ fill: '#1f2937', fontSize: '11px', fontWeight: '500' }}
                       />
                     </Bar>
                   </BarChart>
@@ -698,102 +690,67 @@ const ClinicDashboard: NextPageWithLayout = () => {
           </div>
         </div>
 
-        {/* Subscribed Modules Section */}
+        {/* Key Statistics Section - Compact */}
         <div>
-          <div className="flex items-center justify-between mb-4 sm:mb-6">
-            <div className="flex items-center gap-3">
-              <CheckCircle2 className="w-5 h-5 text-blue-600" />
-              <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Active Modules</h2>
-              <span className="px-3 py-1 bg-blue-50 text-blue-700 text-xs font-semibold rounded border border-blue-200">
-                {subscriptionSummary.subscribedModules} Active
-              </span>
-            </div>
-            <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
-              <p className="text-xs text-blue-700">
-                <strong>Note:</strong> Stats show actual data counts. "0" means no records exist yet.
-              </p>
-            </div>
+          <div className="flex items-center gap-2 mb-3">
+            <BarChart3 className="w-5 h-5 text-gray-800" />
+            <h2 className="text-lg sm:text-xl font-bold text-gray-900">Key Statistics</h2>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
+          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {/* Reviews Stat */}
-            {(modulesWithPermission.includes('clinic_reviews') || modulesWithPermission.length === 0) && (
-              <div key="reviews">
-                {renderStatCard(
-                  'Total Reviews',
-                  stats.totalReviews,
-                  <Star className="w-5 h-5" />,
-                  true,
-                  'clinic_reviews'
-                )}
-              </div>
-            )}
+            <div>
+              {renderStatCard(
+                'Total Reviews',
+                stats.totalReviews,
+                <Star className="w-5 h-5" />,
+                true,
+                'reviews'
+              )}
+            </div>
 
             {/* Enquiries Stat */}
-            {(modulesWithPermission.includes('clinic_enquiries') || modulesWithPermission.length === 0) && (
-              <div key="enquiries">
-                {renderStatCard(
-                  'Total Enquiries',
-                  stats.totalEnquiries,
-                  <Mail className="w-5 h-5" />,
-                  true,
-                  'clinic_enquiries'
-                )}
-              </div>
-            )}
+            <div>
+              {renderStatCard(
+                'Total Enquiries',
+                stats.totalEnquiries,
+                <Mail className="w-5 h-5" />,
+                true,
+                'enquiries'
+              )}
+            </div>
 
-            {/* Dynamic stats from navigation items with permission */}
-            {navigationItems.map((item) => {
-              const stat = moduleStats[item.moduleKey];
-              const hasPermission = modulesWithPermission.includes(item.moduleKey) || modulesWithPermission.length === 0;
-              
-              // Only show modules that have stat data or are still loading
-              if (stat) {
-                // Show if it has data, is loading, or if we want to show all active modules
-                return (
-                  <div key={item._id}>
-                    {renderStatCard(
-                      stat.label,
-                      stat.value,
-                      stat.icon,
-                      hasPermission,
-                      item.moduleKey
-                    )}
-                  </div>
-                );
-              }
+            {/* Active Modules Count */}
+            <div>
+              {renderStatCard(
+                'Active Modules',
+                navigationItems.length,
+                <CheckCircle2 className="w-5 h-5" />,
+                true,
+                'modules'
+              )}
+            </div>
 
-              // If stats are still loading, show loading card
-              if (hasPermission && statsLoading) {
-                return (
-                  <div key={item._id}>
-                    {renderStatCard(
-                      item.label,
-                      '...',
-                      iconMap[item.icon] || <Activity className="w-5 h-5" />,
-                      true,
-                      item.moduleKey
-                    )}
-                  </div>
-                );
-              }
-
-              // Don't show modules with no stat data and no loading state
-              return null;
-            })}
+            {/* Subscription Status */}
+            <div>
+              {renderStatCard(
+                'Subscription',
+                `${subscriptionSummary.subscriptionPercentage}%`,
+                <Crown className="w-5 h-5" />,
+                true,
+                'subscription'
+              )}
+            </div>
           </div>
         </div>
 
-        {/* Detailed Feature Breakdown Section */}
-        <div className="bg-white rounded-lg p-6 border border-gray-300 shadow-sm">
-          <div className="flex items-center gap-3 mb-6">
-            <Settings className="w-6 h-6 text-gray-700" />
-            <div>
-              <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Feature Breakdown</h2>
-              <p className="text-sm text-gray-600">Detailed view of active and locked features for each module</p>
-            </div>
+        {/* Detailed Feature Breakdown Section - Compact */}
+        <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+          <div className="flex items-center gap-2 mb-3">
+            <Settings className="w-5 h-5 text-gray-700" />
+            <h2 className="text-lg sm:text-xl font-bold text-gray-900">Feature Breakdown</h2>
           </div>
 
-          <div className="space-y-6">
+          <div className="space-y-3">
             {/* Show modules with permissions */}
             {allModules.map((module) => {
               const modulePermission = permissions?.find(p => {
@@ -841,26 +798,28 @@ const ClinicDashboard: NextPageWithLayout = () => {
               });
 
               return (
-                <div key={module._id} className="border border-gray-200 rounded-lg p-5 hover:shadow-md transition-shadow">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-gray-100 rounded-lg">
-                        {iconMap[module.icon] || <Activity className="w-5 h-5 text-gray-600" />}
+                <div key={module._id} className="border border-gray-200 rounded-lg p-3 hover:shadow-md transition-shadow">
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <div className="p-1.5 bg-gray-100 rounded-lg flex-shrink-0">
+                        {iconMap[module.icon] || <Activity className="w-4 h-4 text-gray-600" />}
                       </div>
-                      <div>
-                        <h3 className="text-lg font-bold text-gray-900">{module.label}</h3>
-                        <p className="text-sm text-gray-600">{module.description || 'Module features'}</p>
+                      <div className="min-w-0 flex-1">
+                        <h3 className="text-sm font-bold text-gray-900 truncate">{module.label}</h3>
+                        {module.description && (
+                          <p className="text-xs text-gray-600 truncate">{module.description}</p>
+                        )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-shrink-0 ml-2">
                       {hasModulePermission ? (
-                        <span className="px-3 py-1 bg-blue-50 text-blue-700 text-xs font-semibold rounded border border-blue-200">
-                          <CheckCircle2 className="w-3 h-3 inline mr-1" />
+                        <span className="px-2 py-0.5 bg-gray-100 text-gray-800 text-[10px] font-semibold rounded border border-gray-300 whitespace-nowrap">
+                          <CheckCircle2 className="w-2.5 h-2.5 inline mr-1" />
                           Active
                         </span>
                       ) : (
-                        <span className="px-3 py-1 bg-gray-100 text-gray-700 text-xs font-semibold rounded border border-gray-300">
-                          <Lock className="w-3 h-3 inline mr-1" />
+                        <span className="px-2 py-0.5 bg-gray-100 text-gray-700 text-[10px] font-semibold rounded border border-gray-300 whitespace-nowrap">
+                          <Lock className="w-2.5 h-2.5 inline mr-1" />
                           Locked
                         </span>
                       )}
@@ -880,8 +839,8 @@ const ClinicDashboard: NextPageWithLayout = () => {
                           </div>
                           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                             {activeSubModules.map((subModule, idx) => (
-                              <div key={idx} className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg p-2">
-                                <CheckCircle2 className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                              <div key={idx} className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg p-2">
+                                <CheckCircle2 className="w-4 h-4 text-gray-800 flex-shrink-0" />
                                 <span className="text-sm text-gray-800">{subModule.name}</span>
                               </div>
                             ))}
@@ -911,8 +870,8 @@ const ClinicDashboard: NextPageWithLayout = () => {
 
                       {/* If no submodules but module is active */}
                       {allSubModules.length === 0 && hasModulePermission && (
-                        <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-lg p-3">
-                          <CheckCircle2 className="w-4 h-4 text-blue-600" />
+                        <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg p-3">
+                          <CheckCircle2 className="w-4 h-4 text-gray-800" />
                           <span className="text-sm text-gray-800">All features are active</span>
                         </div>
                       )}
@@ -936,17 +895,17 @@ const ClinicDashboard: NextPageWithLayout = () => {
           </div>
         </div>
 
-        {/* Restricted Modules Section */}
+        {/* Restricted Modules Section - Compact */}
         {restrictedModules.length > 0 && (
           <div>
-            <div className="flex items-center gap-3 mb-4 sm:mb-6">
+            <div className="flex items-center gap-2 mb-3">
               <XCircle className="w-5 h-5 text-gray-500" />
-              <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Locked Modules</h2>
-              <span className="px-3 py-1 bg-gray-100 text-gray-700 text-xs font-semibold rounded border border-gray-300">
+              <h2 className="text-lg sm:text-xl font-bold text-gray-900">Locked Modules</h2>
+              <span className="px-2 py-0.5 bg-gray-100 text-gray-700 text-xs font-semibold rounded border border-gray-300">
                 {subscriptionSummary.restrictedCount} Locked
               </span>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
+            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               {restrictedModules.map((item) => (
                 <div key={item._id}>
                   {renderStatCard(
@@ -962,33 +921,30 @@ const ClinicDashboard: NextPageWithLayout = () => {
           </div>
         )}
 
-        {/* Analytics Overview Chart - Professional Design */}
+        {/* Analytics Overview Chart - Compact */}
         {(stats.totalEnquiries > 0 || stats.totalReviews > 0) && (
-          <div className="bg-white rounded-lg p-6 border border-gray-300 shadow-sm">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
-              <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Analytics Overview</h2>
-              <span className="text-sm text-gray-500 mt-2 sm:mt-0">
-                Performance metrics visualization
-              </span>
+          <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-lg sm:text-xl font-bold text-gray-900">Analytics Overview</h2>
             </div>
             
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {/* Bar Chart */}
-              <div className="h-80">
+              <div className="h-48">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={statsChartData} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
+                  <BarChart data={statsChartData} margin={{ top: 10, right: 20, left: 10, bottom: 40 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                     <XAxis
                       dataKey="name"
-                      tick={{ fill: '#6b7280', fontSize: 12 }}
+                      tick={{ fill: '#6b7280', fontSize: 11 }}
                       axisLine={{ stroke: '#d1d5db' }}
                       tickLine={{ stroke: '#d1d5db' }}
                       angle={-45}
                       textAnchor="end"
-                      height={60}
+                      height={40}
                     />
                     <YAxis
-                      tick={{ fill: '#6b7280', fontSize: 12 }}
+                      tick={{ fill: '#6b7280', fontSize: 11 }}
                       axisLine={{ stroke: '#d1d5db' }}
                       tickLine={{ stroke: '#d1d5db' }}
                     />
@@ -996,15 +952,16 @@ const ClinicDashboard: NextPageWithLayout = () => {
                       contentStyle={{ 
                         backgroundColor: '#fff', 
                         border: '1px solid #e5e7eb',
-                        borderRadius: '8px'
+                        borderRadius: '6px',
+                        fontSize: '11px'
                       }}
                     />
-                    <Bar dataKey="value" radius={[8, 8, 0, 0]} fill="#3b82f6">
+                    <Bar dataKey="value" radius={[4, 4, 0, 0]} fill="#1f2937">
                       <LabelList
                         dataKey="value"
                         position="top"
-                        fill="#374151"
-                        fontSize={12}
+                        fill="#1f2937"
+                        fontSize={11}
                         fontWeight={500}
                       />
                     </Bar>
@@ -1013,18 +970,18 @@ const ClinicDashboard: NextPageWithLayout = () => {
               </div>
 
               {/* Line Chart */}
-              <div className="h-80">
+              <div className="h-48">
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={statsChartData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+                  <LineChart data={statsChartData} margin={{ top: 10, right: 20, left: 10, bottom: 10 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                     <XAxis
                       dataKey="name"
-                      tick={{ fill: '#6b7280', fontSize: 12 }}
+                      tick={{ fill: '#6b7280', fontSize: 11 }}
                       axisLine={{ stroke: '#d1d5db' }}
                       tickLine={{ stroke: '#d1d5db' }}
                     />
                     <YAxis
-                      tick={{ fill: '#6b7280', fontSize: 12 }}
+                      tick={{ fill: '#6b7280', fontSize: 11 }}
                       axisLine={{ stroke: '#d1d5db' }}
                       tickLine={{ stroke: '#d1d5db' }}
                     />
@@ -1032,44 +989,45 @@ const ClinicDashboard: NextPageWithLayout = () => {
                       contentStyle={{ 
                         backgroundColor: '#fff', 
                         border: '1px solid #e5e7eb',
-                        borderRadius: '8px'
+                        borderRadius: '6px',
+                        fontSize: '11px'
                       }}
                     />
                     <Line 
                       type="monotone" 
                       dataKey="value" 
-                      stroke="#3b82f6" 
-                      strokeWidth={3}
-                      dot={{ fill: '#3b82f6', r: 6 }}
-                      activeDot={{ r: 8 }}
+                      stroke="#1f2937" 
+                      strokeWidth={2}
+                      dot={{ fill: '#1f2937', r: 4 }}
+                      activeDot={{ r: 6 }}
                     />
                   </LineChart>
                 </ResponsiveContainer>
               </div>
             </div>
 
-            {/* Chart Summary Cards */}
-            <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="bg-gray-50 rounded-lg p-5 border border-gray-200">
+            {/* Chart Summary Cards - Compact */}
+            <div className="mt-4 grid grid-cols-2 gap-3">
+              <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
                 <div className="flex items-center justify-between">
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-gray-600 mb-1">Total Enquiries</p>
-                    <p className="text-2xl sm:text-3xl font-bold text-gray-900">{stats.totalEnquiries}</p>
+                    <p className="text-xs font-medium text-gray-600 mb-0.5">Total Enquiries</p>
+                    <p className="text-xl font-bold text-gray-900">{stats.totalEnquiries}</p>
                   </div>
-                  <div className="p-3 bg-white rounded-lg shadow-sm">
-                    <Mail className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
+                  <div className="p-2 bg-white rounded-lg shadow-sm">
+                    <Mail className="w-4 h-4 text-gray-800" />
                   </div>
                 </div>
               </div>
 
-              <div className="bg-gray-50 rounded-lg p-5 border border-gray-200">
+              <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
                 <div className="flex items-center justify-between">
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-gray-600 mb-1">Total Reviews</p>
-                    <p className="text-2xl sm:text-3xl font-bold text-gray-900">{stats.totalReviews}</p>
+                    <p className="text-xs font-medium text-gray-600 mb-0.5">Total Reviews</p>
+                    <p className="text-xl font-bold text-gray-900">{stats.totalReviews}</p>
                   </div>
-                  <div className="p-3 bg-white rounded-lg shadow-sm">
-                    <Star className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
+                  <div className="p-2 bg-white rounded-lg shadow-sm">
+                    <Star className="w-4 h-4 text-gray-800" />
                   </div>
                 </div>
               </div>

@@ -158,27 +158,27 @@ function ClinicBlog() {
   if (!permissionsLoaded) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#2D9AA5]"></div>
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-gray-800"></div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div className="min-h-screen bg-gray-50 p-3 sm:p-4">
+      {/* Compact Header */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-3">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 py-3">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Blog Management</h1>
-              <p className="text-sm text-gray-600 mt-1">Manage your blogs and analytics</p>
+              <h1 className="text-lg sm:text-xl font-bold text-gray-900">Blog Management</h1>
+              <p className="text-xs sm:text-sm text-gray-600 mt-0.5">Manage your blogs and analytics</p>
             </div>
             {permissions.canCreate && (
               <button
                 onClick={handleCreateBlogClick}
-                className="inline-flex items-center justify-center gap-2 bg-[#2D9AA5] hover:bg-[#247a83] text-white px-4 py-2 rounded-lg shadow hover:shadow-md transition-all duration-200 text-sm font-medium"
+                className="inline-flex items-center justify-center gap-1.5 bg-gray-800 hover:bg-gray-900 text-white px-3 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs sm:text-sm font-medium"
               >
-                <PlusCircle className="h-5 w-5" />
+                <PlusCircle className="h-4 w-4" />
                 <span>Create New Blog</span>
               </button>
             )}
@@ -186,146 +186,148 @@ function ClinicBlog() {
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-        <div className="bg-white rounded-lg border border-gray-200 p-1 mb-6 inline-flex">
+      {/* Compact Tabs */}
+      <div className="max-w-7xl mx-auto">
+        <div className="bg-white rounded-lg border border-gray-200 p-1 mb-3 inline-flex">
           <button
             onClick={() => setActiveTab('published')}
-            className={`px-6 py-2 rounded-md text-sm font-medium transition-colors ${
+            className={`px-4 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors ${
               activeTab === 'published'
-                ? 'bg-[#2D9AA5] text-white'
-                : 'text-gray-600 hover:text-gray-900'
+                ? 'bg-gray-800 text-white'
+                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
             }`}
           >
             Published Blogs
           </button>
           <button
             onClick={() => setActiveTab('analytics')}
-            className={`px-6 py-2 rounded-md text-sm font-medium transition-colors ${
+            className={`px-4 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors ${
               activeTab === 'analytics'
-                ? 'bg-[#2D9AA5] text-white'
-                : 'text-gray-600 hover:text-gray-900'
+                ? 'bg-gray-800 text-white'
+                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
             }`}
           >
             Comments & Likes
           </button>
         </div>
 
-        {/* Content based on active tab */}
-        {activeTab === 'published' && (
-          permissions.canReadPublished ? (
-            <PublishedBlogs
-              key={`published-${refreshKey}`}
-              tokenKey="clinicToken"
-              permissions={{
-                canRead: permissions.canReadPublished,
-                canUpdate: permissions.canUpdatePublished,
-                canDelete: permissions.canDeletePublished,
-              }}
-            />
-          ) : (
-            <div className="text-center py-12 sm:py-16 w-full">
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 sm:p-12 max-w-md mx-auto">
-                {permissions.canCreate ? (
-                  <>
-                    <div className="w-16 h-16 bg-yellow-100 rounded-xl flex items-center justify-center mx-auto mb-4">
-                      <svg className="w-8 h-8 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                      </svg>
-                    </div>
-                    <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                      Read Permission Required
-                    </h3>
-                    <p className="text-gray-600 mb-4">
-                      You only have permission to create blogs. You cannot view, update, or delete blogs.
-                    </p>
-                    <p className="text-sm text-gray-500">
-                      Contact your administrator to request read permissions for the Write Blog module.
-                    </p>
-                  </>
-                ) : (
-                  <>
-                    <div className="w-16 h-16 bg-red-100 rounded-xl flex items-center justify-center mx-auto mb-4">
-                      <PlusCircle className="w-8 h-8 text-red-600" />
-                    </div>
-                    <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                      Access Denied
-                    </h3>
-                    <p className="text-gray-600 mb-4">
-                      You do not have permission to view published blogs.
-                    </p>
-                    <p className="text-sm text-gray-500">
-                      Please contact your administrator to request access to the Write Blog module.
-                    </p>
-                  </>
-                )}
+        {/* Compact Content based on active tab */}
+        <div className="mt-3">
+          {activeTab === 'published' && (
+            permissions.canReadPublished ? (
+              <PublishedBlogs
+                key={`published-${refreshKey}`}
+                tokenKey="clinicToken"
+                permissions={{
+                  canRead: permissions.canReadPublished,
+                  canUpdate: permissions.canUpdatePublished,
+                  canDelete: permissions.canDeletePublished,
+                }}
+              />
+            ) : (
+              <div className="text-center py-8 sm:py-12 w-full">
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 sm:p-8 max-w-md mx-auto">
+                  {permissions.canCreate ? (
+                    <>
+                      <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center mx-auto mb-3">
+                        <svg className="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                        </svg>
+                      </div>
+                      <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2">
+                        Read Permission Required
+                      </h3>
+                      <p className="text-xs sm:text-sm text-gray-600 mb-3">
+                        You only have permission to create blogs. You cannot view, update, or delete blogs.
+                      </p>
+                      <p className="text-[10px] sm:text-xs text-gray-500">
+                        Contact your administrator to request read permissions for the Write Blog module.
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center mx-auto mb-3">
+                        <PlusCircle className="w-6 h-6 text-red-600" />
+                      </div>
+                      <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2">
+                        Access Denied
+                      </h3>
+                      <p className="text-xs sm:text-sm text-gray-600 mb-3">
+                        You do not have permission to view published blogs.
+                      </p>
+                      <p className="text-[10px] sm:text-xs text-gray-500">
+                        Please contact your administrator to request access to the Write Blog module.
+                      </p>
+                    </>
+                  )}
+                </div>
               </div>
-            </div>
-          )
-        )}
+            )
+          )}
 
-        {activeTab === 'analytics' && (
-          permissions.canReadAnalytics ? (
-            <GetAuthorCommentsAndLikes
-              key={`analytics-${refreshKey}`}
-              tokenKey="clinicToken"
-              permissions={{
-                canRead: permissions.canReadAnalytics,
-                canUpdate: permissions.canUpdateAnalytics,
-                canDelete: permissions.canDeleteAnalytics,
-              }}
-            />
-          ) : (
-            <div className="text-center py-12 sm:py-16 w-full">
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 sm:p-12 max-w-md mx-auto">
-                {permissions.canCreate ? (
-                  <>
-                    <div className="w-16 h-16 bg-yellow-100 rounded-xl flex items-center justify-center mx-auto mb-4">
-                      <svg className="w-8 h-8 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                      </svg>
-                    </div>
-                    <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                      Read Permission Required
-                    </h3>
-                    <p className="text-gray-600 mb-4">
-                      You only have permission to create blogs. You cannot view blog analytics.
-                    </p>
-                    <p className="text-sm text-gray-500">
-                      Contact your administrator to request read permissions for the Write Blog module.
-                    </p>
-                  </>
-                ) : (
-                  <>
-                    <div className="w-16 h-16 bg-red-100 rounded-xl flex items-center justify-center mx-auto mb-4">
-                      <PlusCircle className="w-8 h-8 text-red-600" />
-                    </div>
-                    <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                      Access Denied
-                    </h3>
-                    <p className="text-gray-600 mb-4">
-                      You do not have permission to view blog analytics.
-                    </p>
-                    <p className="text-sm text-gray-500">
-                      Please contact your administrator to request access to the Write Blog module.
-                    </p>
-                  </>
-                )}
+          {activeTab === 'analytics' && (
+            permissions.canReadAnalytics ? (
+              <GetAuthorCommentsAndLikes
+                key={`analytics-${refreshKey}`}
+                tokenKey="clinicToken"
+                permissions={{
+                  canRead: permissions.canReadAnalytics,
+                  canUpdate: permissions.canUpdateAnalytics,
+                  canDelete: permissions.canDeleteAnalytics,
+                }}
+              />
+            ) : (
+              <div className="text-center py-8 sm:py-12 w-full">
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 sm:p-8 max-w-md mx-auto">
+                  {permissions.canCreate ? (
+                    <>
+                      <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center mx-auto mb-3">
+                        <svg className="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                        </svg>
+                      </div>
+                      <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2">
+                        Read Permission Required
+                      </h3>
+                      <p className="text-xs sm:text-sm text-gray-600 mb-3">
+                        You only have permission to create blogs. You cannot view blog analytics.
+                      </p>
+                      <p className="text-[10px] sm:text-xs text-gray-500">
+                        Contact your administrator to request read permissions for the Write Blog module.
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center mx-auto mb-3">
+                        <PlusCircle className="w-6 h-6 text-red-600" />
+                      </div>
+                      <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2">
+                        Access Denied
+                      </h3>
+                      <p className="text-xs sm:text-sm text-gray-600 mb-3">
+                        You do not have permission to view blog analytics.
+                      </p>
+                      <p className="text-[10px] sm:text-xs text-gray-500">
+                        Please contact your administrator to request access to the Write Blog module.
+                      </p>
+                    </>
+                  )}
+                </div>
               </div>
-            </div>
-          )
-        )}
+            )
+          )}
+        </div>
       </div>
 
-      {/* Create Blog Modal */}
+      {/* Compact Create Blog Modal */}
       {isCreateModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="relative bg-white rounded-lg shadow-xl w-full h-full max-w-7xl mx-4 my-4 flex flex-col">
-            <div className="flex items-center justify-between p-4 border-b border-gray-200">
-              <h2 className="text-xl font-semibold text-gray-800">Create New Blog</h2>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-3 sm:p-4">
+          <div className="relative bg-white rounded-lg shadow-xl w-full h-full max-w-7xl flex flex-col">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-gray-50">
+              <h2 className="text-base sm:text-lg font-bold text-gray-900">Create New Blog</h2>
               <button
                 onClick={() => setIsCreateModalOpen(false)}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
+                className="text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-lg hover:bg-gray-100"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -348,7 +350,7 @@ function ClinicBlog() {
 }
 
 ClinicBlog.getLayout = function PageLayout(page: React.ReactNode) {
-  return <ClinicLayout hideSidebar={true} hideHeader={true}>{page}</ClinicLayout>;
+  return <ClinicLayout>{page}</ClinicLayout>;
 };
 
 const ProtectedClinicBlog: NextPageWithLayout = withClinicAuth(ClinicBlog);
