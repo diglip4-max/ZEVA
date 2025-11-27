@@ -946,87 +946,128 @@ function AdminDoctors() {
       {/* Detail Modal */}
       {detailDoctor && (
         <div className="fixed inset-0 backdrop-blur-sm bg-black/30 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-slate-100 p-5">
-              <div>
-                <p className="text-xs uppercase tracking-wide text-slate-500">
-                  Doctor profile
-                </p>
-                <h3 className="text-xl font-semibold text-slate-900">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden">
+            {/* Header */}
+            <div className="flex items-center justify-between p-4 border-b border-slate-200 bg-slate-50">
+              <div className="flex items-center gap-2">
+                <UserGroupIcon className="w-5 h-5 text-slate-600" />
+                <h3 className="text-lg font-semibold text-slate-900">
                   {detailDoctor.user.name}
                 </h3>
               </div>
               <button
                 onClick={() => setDetailDoctor(null)}
-                className="text-slate-500 hover:text-slate-900"
+                className="text-slate-500 hover:text-slate-900 p-1 rounded hover:bg-slate-200 transition-colors"
               >
-                <XCircleIcon className="w-6 h-6" />
+                <XCircleIcon className="w-5 h-5" />
               </button>
             </div>
-            <div className="p-5 space-y-4 text-sm text-slate-700">
-              <div className="grid gap-2">
-                <span className="font-medium text-slate-500">Degree</span>
-                <span>{detailDoctor.degree}</span>
-              </div>
-              <div className="grid gap-2">
-                <span className="font-medium text-slate-500">Contact</span>
-                <span>{detailDoctor.user.email}</span>
-                <span>{detailDoctor.user.phone}</span>
-              </div>
-              <div>
-                <span className="font-medium text-slate-500">Address</span>
-                <p className="mt-1">{detailDoctor.address}</p>
-              </div>
-              <div className="flex flex-wrap gap-6">
-                <div>
-                  <span className="font-medium text-slate-500 block">Experience</span>
-                  {detailDoctor.experience} years
+
+            {/* Compact Content */}
+            <div className="p-4 space-y-3">
+              {/* Degree */}
+              <div className="flex items-center gap-3 text-sm">
+                <BriefcaseIcon className="w-4 h-4 text-indigo-600 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="text-slate-700 font-medium">{detailDoctor.degree}</div>
                 </div>
-                <div>
-                  <span className="font-medium text-slate-500 block">Resume</span>
-                  {detailDoctor.resumeUrl ? (
-                    <button
-                      onClick={() => {
-                        let safeUrl = detailDoctor.resumeUrl;
-                        if (safeUrl.includes("uploads/clinic/")) {
-                          const filenameMatch = safeUrl.match(/uploads\/clinic\/[^\/]+$/);
-                          if (filenameMatch) {
-                            const baseUrl =
-                              process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3001";
-                            safeUrl = `${baseUrl}/${filenameMatch[0]}`;
-                          }
-                        }
-                        window.open(safeUrl, "_blank");
-                      }}
-                      className="text-slate-700 underline-offset-4 hover:underline"
-                    >
-                      Open resume
-                    </button>
-                  ) : (
-                    "Not uploaded"
+              </div>
+
+              {/* Contact */}
+              <div className="flex items-start gap-3 text-sm">
+                <EnvelopeIcon className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="text-slate-700">{detailDoctor.user.email}</div>
+                  {detailDoctor.user.phone && (
+                    <div className="flex items-center gap-1.5 text-xs text-slate-600 mt-1">
+                      <PhoneIcon className="w-3 h-3" />
+                      {detailDoctor.user.phone}
+                    </div>
                   )}
                 </div>
               </div>
-              <div>
-                <span className="font-medium text-slate-500">
-                  Treatments ({detailDoctor.treatments.length})
-                </span>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {detailDoctor.treatments.map((treat) => (
-                    <span
-                      key={treat.mainTreatmentSlug}
-                      className="rounded-full border border-slate-200 px-3 py-1 text-xs text-slate-600"
-                    >
-                      {treat.mainTreatment}
-                    </span>
-                  ))}
+
+              {/* Address */}
+              <div className="flex items-start gap-3 text-sm">
+                <MapPinIcon className="w-4 h-4 text-emerald-600 mt-0.5 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-slate-700">{detailDoctor.address}</p>
+                  <button
+                    onClick={() => handleAddressClick(detailDoctor.address)}
+                    className="text-xs text-blue-600 hover:text-blue-800 font-medium mt-1"
+                  >
+                    View on map →
+                  </button>
+                </div>
+              </div>
+
+              {/* Experience & Resume - Side by side */}
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div className="flex items-center gap-2">
+                  <ClockIcon className="w-4 h-4 text-purple-600 flex-shrink-0" />
+                  <div>
+                    <span className="text-xs text-slate-500">Experience</span>
+                    <div className="text-slate-700 font-medium">{detailDoctor.experience} years</div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <DocumentTextIcon className="w-4 h-4 text-amber-600 flex-shrink-0" />
+                  <div>
+                    <span className="text-xs text-slate-500">Resume</span>
+                    {detailDoctor.resumeUrl ? (
+                      <button
+                        onClick={() => {
+                          let safeUrl = detailDoctor.resumeUrl;
+                          if (safeUrl.includes("uploads/clinic/")) {
+                            const filenameMatch = safeUrl.match(/uploads\/clinic\/[^\/]+$/);
+                            if (filenameMatch) {
+                              const baseUrl =
+                                process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3001";
+                              safeUrl = `${baseUrl}/${filenameMatch[0]}`;
+                            }
+                          }
+                          window.open(safeUrl, "_blank");
+                        }}
+                        className="text-xs text-blue-600 hover:text-blue-800 font-medium block"
+                      >
+                        Open resume →
+                      </button>
+                    ) : (
+                      <span className="text-xs text-slate-500">Not uploaded</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Treatments */}
+              <div className="flex items-start gap-3 text-sm">
+                <BeakerIcon className="w-4 h-4 text-indigo-600 mt-0.5 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs text-slate-500 mb-1.5">Treatments ({detailDoctor.treatments.length})</div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {detailDoctor.treatments.length > 0 ? (
+                      detailDoctor.treatments.map((treat) => (
+                        <span
+                          key={treat.mainTreatmentSlug}
+                          className="inline-flex items-center gap-1 rounded border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs text-slate-700"
+                        >
+                          <BeakerIcon className="w-3 h-3 text-indigo-500" />
+                          {treat.mainTreatment}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-xs text-slate-500">No treatments</span>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
-            <div className="border-t border-slate-100 p-5 flex justify-end">
+
+            {/* Footer */}
+            <div className="border-t border-slate-200 p-3 bg-slate-50 flex justify-end">
               <button
                 onClick={() => setDetailDoctor(null)}
-                className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:border-slate-300"
+                className="rounded-lg bg-slate-800 hover:bg-slate-700 text-white px-4 py-1.5 text-xs font-medium transition-colors"
               >
                 Close
               </button>

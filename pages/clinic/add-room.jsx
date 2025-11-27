@@ -5,24 +5,9 @@ import axios from "axios";
 import { useRouter } from "next/router";
 import withClinicAuth from "../../components/withClinicAuth";
 import ClinicLayout from "../../components/ClinicLayout";
-import type { NextPageWithLayout } from "../_app";
 import { Loader2, Trash2, AlertCircle, CheckCircle, X } from "lucide-react";
 import { useAgentPermissions } from "../../hooks/useAgentPermissions";
 import { Toaster, toast } from "react-hot-toast";
-
-interface Room {
-  _id: string;
-  name: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-interface Department {
-  _id: string;
-  name: string;
-  createdAt: string;
-  updatedAt: string;
-}
 
 const MODULE_KEY = "room_management";
 
@@ -53,7 +38,7 @@ function getAuthHeaders() {
   return token ? { Authorization: `Bearer ${token}` } : null;
 }
 
-const MessageBanner = ({ type, text }: { type: "success" | "error" | "info"; text: string }) => {
+const MessageBanner = ({ type, text }) => {
   if (!text) return null;
 
   const styles = {
@@ -72,18 +57,16 @@ const MessageBanner = ({ type, text }: { type: "success" | "error" | "info"; tex
   );
 };
 
-type RouteContext = "clinic" | "agent";
-
-function AddRoomPage({ contextOverride = null }: { contextOverride?: RouteContext | null }) {
+function AddRoomPage({ contextOverride = null }) {
   const router = useRouter();
-  const [rooms, setRooms] = useState<Room[]>([]);
-  const [departments, setDepartments] = useState<Department[]>([]);
+  const [rooms, setRooms] = useState([]);
+  const [departments, setDepartments] = useState([]);
   const [roomName, setRoomName] = useState("");
   const [departmentName, setDepartmentName] = useState("");
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [submittingDept, setSubmittingDept] = useState(false);
-  const [message, setMessage] = useState<{ type: "success" | "error" | "info"; text: string }>({
+  const [message, setMessage] = useState({
     type: "info",
     text: "",
   });
@@ -97,19 +80,13 @@ function AddRoomPage({ contextOverride = null }: { contextOverride?: RouteContex
   const [token, setToken] = useState("");
   const [hasAgentToken, setHasAgentToken] = useState(contextOverride === "agent");
   const [isAgentRoute, setIsAgentRoute] = useState(contextOverride === "agent");
-  const [editingRoomId, setEditingRoomId] = useState<string | null>(null);
+  const [editingRoomId, setEditingRoomId] = useState(null);
   const [editingRoomName, setEditingRoomName] = useState("");
   const [roomUpdateLoading, setRoomUpdateLoading] = useState(false);
-  const [editingDeptId, setEditingDeptId] = useState<string | null>(null);
+  const [editingDeptId, setEditingDeptId] = useState(null);
   const [editingDeptName, setEditingDeptName] = useState("");
   const [deptUpdateLoading, setDeptUpdateLoading] = useState(false);
-  const [confirmModal, setConfirmModal] = useState<{
-    isOpen: boolean;
-    title: string;
-    message: string;
-    onConfirm: () => void;
-    type: "room" | "department";
-  }>({
+  const [confirmModal, setConfirmModal] = useState({
     isOpen: false,
     title: "",
     message: "",
@@ -184,7 +161,7 @@ function AddRoomPage({ contextOverride = null }: { contextOverride?: RouteContex
         if (cancelled) return;
 
         if (data.success && data.data) {
-          const modulePermission = data.data.permissions?.find((p: any) => {
+          const modulePermission = data.data.permissions?.find((p) => {
             if (!p?.module) return false;
             const normalized = p.module.startsWith("clinic_")
               ? p.module.slice(7)
@@ -271,7 +248,7 @@ function AddRoomPage({ contextOverride = null }: { contextOverride?: RouteContex
         setMessage({ type: "error", text: errorMsg });
         toast.error(errorMsg, { duration: 3000 });
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error loading rooms", error);
       const errorMessage = error.response?.data?.message || "Failed to load rooms";
       setMessage({ type: "error", text: errorMessage });
@@ -292,7 +269,7 @@ function AddRoomPage({ contextOverride = null }: { contextOverride?: RouteContex
         setMessage({ type: "error", text: errorMsg });
         toast.error(errorMsg, { duration: 3000 });
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error loading departments", error);
       const errorMessage = error.response?.data?.message || "Failed to load departments";
       setMessage({ type: "error", text: errorMessage });
@@ -325,7 +302,7 @@ function AddRoomPage({ contextOverride = null }: { contextOverride?: RouteContex
     };
   }, [permissionsLoaded, permissions.canRead]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!permissions.canCreate) {
       setMessage({ type: "error", text: "You do not have permission to create rooms" });
@@ -358,7 +335,7 @@ function AddRoomPage({ contextOverride = null }: { contextOverride?: RouteContex
         setMessage({ type: "error", text: errorMsg });
         toast.error(errorMsg, { duration: 3000 });
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error creating room", error);
       const errorMessage = error.response?.data?.message || "Failed to create room";
       setMessage({ type: "error", text: errorMessage });
@@ -401,7 +378,7 @@ function AddRoomPage({ contextOverride = null }: { contextOverride?: RouteContex
         setMessage({ type: "error", text: errorMsg });
         toast.error(errorMsg, { duration: 3000 });
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error updating room", error);
       const errorMessage = error.response?.data?.message || "Failed to update room";
       setMessage({ type: "error", text: errorMessage });
@@ -411,7 +388,7 @@ function AddRoomPage({ contextOverride = null }: { contextOverride?: RouteContex
     }
   };
 
-  const handleDelete = async (roomId: string) => {
+  const handleDelete = async (roomId) => {
     if (!permissions.canDelete) {
       const errorMsg = "You do not have permission to delete rooms";
       setMessage({ type: "error", text: errorMsg });
@@ -443,7 +420,7 @@ function AddRoomPage({ contextOverride = null }: { contextOverride?: RouteContex
             setMessage({ type: "error", text: errorMsg });
             toast.error(errorMsg, { duration: 3000 });
           }
-        } catch (error: any) {
+        } catch (error) {
           console.error("Error deleting room", error);
           const errorMessage = error.response?.data?.message || "Failed to delete room";
           setMessage({ type: "error", text: errorMessage });
@@ -455,7 +432,7 @@ function AddRoomPage({ contextOverride = null }: { contextOverride?: RouteContex
     });
   };
 
-  const handleDepartmentSubmit = async (e: React.FormEvent) => {
+  const handleDepartmentSubmit = async (e) => {
     e.preventDefault();
     if (!permissions.canCreate) {
       setMessage({ type: "error", text: "You do not have permission to create departments" });
@@ -488,7 +465,7 @@ function AddRoomPage({ contextOverride = null }: { contextOverride?: RouteContex
         setMessage({ type: "error", text: errorMsg });
         toast.error(errorMsg, { duration: 3000 });
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error creating department", error);
       const errorMessage = error.response?.data?.message || "Failed to create department";
       setMessage({ type: "error", text: errorMessage });
@@ -530,7 +507,7 @@ function AddRoomPage({ contextOverride = null }: { contextOverride?: RouteContex
         setMessage({ type: "error", text: errorMsg });
         toast.error(errorMsg, { duration: 3000 });
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error updating department", error);
       const errorMessage = error.response?.data?.message || "Failed to update department";
       setMessage({ type: "error", text: errorMessage });
@@ -540,7 +517,7 @@ function AddRoomPage({ contextOverride = null }: { contextOverride?: RouteContex
     }
   };
 
-  const handleDeleteDepartment = async (departmentId: string) => {
+  const handleDeleteDepartment = async (departmentId) => {
     if (!permissions.canDelete) {
       const errorMsg = "You do not have permission to delete departments";
       setMessage({ type: "error", text: errorMsg });
@@ -574,7 +551,7 @@ function AddRoomPage({ contextOverride = null }: { contextOverride?: RouteContex
             setMessage({ type: "error", text: errorMsg });
             toast.error(errorMsg, { duration: 3000 });
           }
-        } catch (error: any) {
+        } catch (error) {
           console.error("Error deleting department", error);
           const errorMessage = error.response?.data?.message || "Failed to delete department";
           setMessage({ type: "error", text: errorMessage });
@@ -1031,13 +1008,13 @@ function AddRoomPage({ contextOverride = null }: { contextOverride?: RouteContex
   );
 }
 
-AddRoomPage.getLayout = function PageLayout(page: React.ReactNode) {
+AddRoomPage.getLayout = function PageLayout(page) {
   return <ClinicLayout>{page}</ClinicLayout>;
 };
 
 export const AddRoomPageBase = AddRoomPage;
 
-const ProtectedAddRoomPage: NextPageWithLayout = withClinicAuth(AddRoomPage);
+const ProtectedAddRoomPage = withClinicAuth(AddRoomPage);
 ProtectedAddRoomPage.getLayout = AddRoomPage.getLayout;
 
 export default ProtectedAddRoomPage;

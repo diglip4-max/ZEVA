@@ -833,68 +833,106 @@ function AdminClinicApproval() {
       {/* Detail Modal */}
       {detailClinic && (
         <div className="fixed inset-0 backdrop-blur-sm bg-black/30 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-slate-100 p-5">
-              <div>
-                <p className="text-xs uppercase tracking-wide text-slate-500">
-                  Clinic profile
-                </p>
-                <h3 className="text-xl font-semibold text-slate-900">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden">
+            {/* Header */}
+            <div className="flex items-center justify-between p-4 border-b border-slate-200 bg-slate-50">
+              <div className="flex items-center gap-2">
+                <HomeIcon className="w-5 h-5 text-slate-600" />
+                <h3 className="text-lg font-semibold text-slate-900">
                   {detailClinic.name}
                 </h3>
               </div>
               <button
                 onClick={() => setDetailClinic(null)}
-                className="text-slate-500 hover:text-slate-900"
+                className="text-slate-500 hover:text-slate-900 p-1 rounded hover:bg-slate-200 transition-colors"
               >
-                <XCircleIcon className="w-6 h-6" />
+                <XCircleIcon className="w-5 h-5" />
               </button>
             </div>
-            <div className="p-5 space-y-4 text-sm text-slate-700">
-              <div className="grid gap-2">
-                <span className="font-medium text-slate-500">Owner</span>
-                <span>{detailClinic.owner?.name || "N/A"}</span>
-                <span>{detailClinic.owner?.email || "—"}</span>
-                <span>{detailClinic.owner?.phone || "—"}</span>
-              </div>
-              <div>
-                <span className="font-medium text-slate-500">Address</span>
-                <p className="mt-1">{detailClinic.address}</p>
-              </div>
-              <div className="flex flex-wrap gap-6 text-sm">
-                <div>
-                  <span className="font-medium text-slate-500 block">
-                    Pricing
-                  </span>
-                  AED {detailClinic.pricing}
-                </div>
-                <div>
-                  <span className="font-medium text-slate-500 block">
-                    Timings
-                  </span>
-                  {detailClinic.timings}
+
+            {/* Compact Content */}
+            <div className="p-4 space-y-3">
+              {/* Owner */}
+              <div className="flex items-start gap-3 text-sm">
+                <UserGroupIcon className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="text-slate-700 font-medium">{detailClinic.owner?.name || "N/A"}</div>
+                  {detailClinic.owner?.email && (
+                    <div className="flex items-center gap-1.5 text-xs text-slate-600 mt-0.5">
+                      <EnvelopeIcon className="w-3 h-3" />
+                      {detailClinic.owner.email}
+                    </div>
+                  )}
+                  {detailClinic.owner?.phone && (
+                    <div className="flex items-center gap-1.5 text-xs text-slate-600 mt-0.5">
+                      <PhoneIcon className="w-3 h-3" />
+                      {detailClinic.owner.phone}
+                    </div>
+                  )}
                 </div>
               </div>
-              <div>
-                <span className="font-medium text-slate-500">
-                  Treatments ({detailClinic.treatments.length})
-                </span>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {detailClinic.treatments.map((treat) => (
-                    <span
-                      key={treat.mainTreatmentSlug}
-                      className="rounded-full border border-slate-200 px-3 py-1 text-xs text-slate-600"
-                    >
-                      {treat.mainTreatment}
-                    </span>
-                  ))}
+
+              {/* Address */}
+              <div className="flex items-start gap-3 text-sm">
+                <MapPinIcon className="w-4 h-4 text-emerald-600 mt-0.5 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-slate-700">{detailClinic.address}</p>
+                  <button
+                    onClick={() => handleAddressClick(detailClinic.address)}
+                    className="text-xs text-blue-600 hover:text-blue-800 font-medium mt-1"
+                  >
+                    View on map →
+                  </button>
+                </div>
+              </div>
+
+              {/* Pricing & Timings - Side by side */}
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div className="flex items-center gap-2">
+                  <svg className="w-4 h-4 text-amber-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <div className="flex items-center gap-1">
+                    <span className="text-base font-semibold text-slate-900">د.إ</span>
+                    <span className="font-semibold text-slate-900">{detailClinic.pricing}</span>
+                    <span className="text-xs text-slate-500">AED</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <ClockIcon className="w-4 h-4 text-purple-600 flex-shrink-0" />
+                  <span className="text-slate-700">{detailClinic.timings}</span>
+                </div>
+              </div>
+
+              {/* Treatments */}
+              <div className="flex items-start gap-3 text-sm">
+                <BeakerIcon className="w-4 h-4 text-indigo-600 mt-0.5 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs text-slate-500 mb-1.5">Treatments ({detailClinic.treatments.length})</div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {detailClinic.treatments.length > 0 ? (
+                      detailClinic.treatments.map((treat) => (
+                        <span
+                          key={treat.mainTreatmentSlug}
+                          className="inline-flex items-center gap-1 rounded border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs text-slate-700"
+                        >
+                          <BeakerIcon className="w-3 h-3 text-indigo-500" />
+                          {treat.mainTreatment}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-xs text-slate-500">No treatments</span>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
-            <div className="border-t border-slate-100 p-5 flex justify-end">
+
+            {/* Footer */}
+            <div className="border-t border-slate-200 p-3 bg-slate-50 flex justify-end">
               <button
                 onClick={() => setDetailClinic(null)}
-                className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:border-slate-300"
+                className="rounded-lg bg-slate-800 hover:bg-slate-700 text-white px-4 py-1.5 text-xs font-medium transition-colors"
               >
                 Close
               </button>

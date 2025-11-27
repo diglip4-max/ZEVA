@@ -298,7 +298,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
         setDoctorDepartmentsMap((prev) => ({ ...prev, [doctorId]: res.data.departments || [] }));
       } else {
         const errorMsg = res.data.message || "Unable to load departments";
-        setDoctorDepartmentsError((prev) => ({ ...prev, [doctorId]: errorMsg }));
+        setDoctorTreatmentsError((prev) => ({ ...prev, [doctorId]: errorMsg }));
         toast.error(errorMsg, { duration: 3000 });
       }
     } catch (err: any) {

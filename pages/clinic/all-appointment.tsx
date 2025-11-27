@@ -79,10 +79,10 @@ interface FilterState {
 const AllAppointmentsPage: NextPageWithLayout = ({
   contextOverride = null,
 }: {
-  contextOverride?: "clinic" | "agent";
+  contextOverride?: "clinic" | "agent" | null;
 }) => {
   const [routeContext, setRouteContext] = useState<"clinic" | "agent">(
-    contextOverride || "clinic"
+    (contextOverride || "clinic") as "clinic" | "agent"
   );
   useEffect(() => {
     if (contextOverride) {
@@ -942,7 +942,7 @@ const AllAppointmentsPage: NextPageWithLayout = ({
 AllAppointmentsPage.getLayout = (page: React.ReactElement) => page;
 export const ClinicAllAppointmentsPageBase = AllAppointmentsPage;
 
-const ProtectedAppointmentsPage = withClinicAuth(AllAppointmentsPage);
+const ProtectedAppointmentsPage = withClinicAuth(AllAppointmentsPage) as NextPageWithLayout;
 ProtectedAppointmentsPage.getLayout = AllAppointmentsPage.getLayout;
 
 export default ProtectedAppointmentsPage;

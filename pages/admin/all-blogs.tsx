@@ -6,6 +6,7 @@ import withAdminAuth from "../../components/withAdminAuth";
 import AdminLayout from "../../components/AdminLayout";
 import type { NextPageWithLayout } from "../_app";
 import { useAgentPermissions } from "../../hooks/useAgentPermissions";
+import { Toaster, toast } from "react-hot-toast";
 import {
   DocumentTextIcon,
   TrashIcon,
@@ -61,61 +62,9 @@ interface Blog {
   youtubeUrl?: string;
 }
 
-interface Toast {
-  id: string;
-  message: string;
-  type: 'success' | 'error' | 'info' | 'warning';
-}
-
-// Toast Component
-const Toast = ({ toast, onClose }: { toast: Toast; onClose: () => void }) => {
-  useEffect(() => {
-    const timer = setTimeout(onClose, 3000);
-    return () => clearTimeout(timer);
-  }, [onClose]);
-
-  const icons = {
-    success: <CheckCircleIcon className="w-4 h-4" />,
-    error: <XCircleIcon className="w-4 h-4" />,
-    info: <InformationCircleIcon className="w-4 h-4" />,
-    warning: <ExclamationTriangleIcon className="w-4 h-4" />,
-  };
-
-  const colors = {
-    success: 'bg-green-500',
-    error: 'bg-red-500',
-    info: 'bg-blue-500',
-    warning: 'bg-yellow-500',
-  };
-
-  return (
-    <div
-      className={`${colors[toast.type]} text-white px-3 py-2 rounded-lg shadow-lg flex items-center gap-2 text-xs animate-slide-in`}
-    >
-      {icons[toast.type]}
-      <span className="flex-1 font-medium">{toast.message}</span>
-      <button
-        onClick={onClose}
-        className="hover:bg-white/20 rounded p-0.5 transition-colors"
-      >
-        <XMarkIcon className="w-3 h-3" />
-      </button>
-    </div>
-  );
-};
-
-// Toast Container
-const ToastContainer = ({ toasts, removeToast }: { toasts: Toast[]; removeToast: (id: string) => void }) => (
-  <div className="fixed top-4 right-4 z-50 space-y-2">
-    {toasts.map((toast) => (
-      <Toast key={toast.id} toast={toast} onClose={() => removeToast(toast.id)} />
-    ))}
-  </div>
-);
 
 const AdminBlogs = () => {
   const router = useRouter();
-  const [toasts, setToasts] = useState<Toast[]>([]);
   const [blogs, setBlogs] = useState<Blog[]>([]);
   const [filteredBlogs, setFilteredBlogs] = useState<Blog[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -126,14 +75,21 @@ const AdminBlogs = () => {
   const [loading, setLoading] = useState(true);
   const blogsPerPage = 20;
 
-  // Toast helper functions
-  const showToast = useCallback((message: string, type: Toast['type'] = 'info') => {
-    const id = Math.random().toString(36).substr(2, 9);
-    setToasts((prev) => [...prev, { id, message, type }]);
-  }, []);
-
-  const removeToast = useCallback((id: string) => {
-    setToasts((prev) => prev.filter((toast) => toast.id !== id));
+  // Toast helper function using react-hot-toast
+  const showToast = useCallback((message: string, type: 'success' | 'error' | 'info' | 'warning' = 'info') => {
+    switch (type) {
+      case 'success':
+        toast.success(message);
+        break;
+      case 'error':
+        toast.error(message);
+        break;
+      case 'warning':
+        toast(message, { icon: '⚠️' });
+        break;
+      default:
+        toast(message);
+    }
   }, []);
 
   // Check if user is an admin or agent
@@ -333,7 +289,39 @@ const AdminBlogs = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 sm:p-6">
-      <ToastContainer toasts={toasts} removeToast={removeToast} />
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          duration: 3000,
+          style: {
+            background: "#1f2937",
+            color: "#f9fafb",
+            fontSize: "12px",
+            padding: "8px 12px",
+            borderRadius: "6px",
+          },
+          success: {
+            iconTheme: {
+              primary: "#10b981",
+              secondary: "#fff",
+            },
+            style: {
+              background: "#10b981",
+              color: "#fff",
+            },
+          },
+          error: {
+            iconTheme: {
+              primary: "#ef4444",
+              secondary: "#fff",
+            },
+            style: {
+              background: "#ef4444",
+              color: "#fff",
+            },
+          },
+        }}
+      />
       
       <div className="max-w-7xl mx-auto space-y-4">
         {/* Header */}
