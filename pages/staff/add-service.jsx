@@ -284,7 +284,7 @@ function StaffAddServicePage({ contextOverride = null }) {
           // Fall back to module-level permission
           return actions[actionName] === true;
         };
-        
+
         setPermissions({
           canCreate: checkPermission('create'),
           canRead: checkPermission('read'),

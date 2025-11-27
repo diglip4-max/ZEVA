@@ -45,20 +45,20 @@ export default async function handler(req, res) {
   // ✅ Check permission for reading leads (only for clinic, agent, and doctor; admin bypasses)
   if (me.role !== "admin" && clinic._id) {
     try {
-      // First check if clinic has read permission
+      // First check if clinic has read permission for "create_lead" module
       const { checkClinicPermission } = await import("./permissions-helper");
       console.log('[leadFilter] Checking permission for', {
         role: me.role,
         clinicId: clinic._id?.toString(),
-        moduleKey: "lead",
+        moduleKey: "create_lead",
         action: "read"
       });
       // Pass the user's role to check role-specific permissions (doctor uses 'doctor' role, clinic uses 'clinic' role)
       const { hasPermission: clinicHasPermission, error: clinicError } = await checkClinicPermission(
         clinic._id,
-        "lead",
+        "create_lead", // Check "create_lead" module permission
         "read",
-        null, // subModuleName
+        null, // No submodule - this is a module-level check
         me.role === "doctor" ? "doctor" : me.role === "clinic" ? "clinic" : null
       );
 
@@ -87,8 +87,9 @@ export default async function handler(req, res) {
     if (me.role === "agent") {
       const { hasPermission: agentHasPermission, error: agentError } = await checkAgentPermission(
         me._id,
-        "lead",
-        "read"
+        "create_lead", // Check "create_lead" module permission
+        "read",
+        null // No submodule
       );
 
       if (!agentHasPermission) {

@@ -70,13 +70,13 @@ export default async function handler(req, res) {
 
     // ✅ Check permission for deleting leads (only for clinic, agent, and doctor; admin bypasses)
     if (me.role !== "admin") {
-      // First check if clinic has delete permission
+      // First check if clinic has delete permission for "create_lead" module
       const { checkClinicPermission } = await import("./permissions-helper");
       const { hasPermission: clinicHasPermission, error: clinicError } = await checkClinicPermission(
         clinic._id,
-        "lead",
+        "create_lead", // Check "create_lead" module permission
         "delete",
-        null, // subModuleName
+        null, // No submodule - this is a module-level check
         me.role === "doctor" ? "doctor" : me.role === "clinic" ? "clinic" : null
       );
 
@@ -91,8 +91,9 @@ export default async function handler(req, res) {
       if (me.role === "agent") {
         const { hasPermission: agentHasPermission, error: agentError } = await checkAgentPermission(
           me._id,
-          "lead",
-          "delete"
+          "create_lead", // Check "create_lead" module permission
+          "delete",
+          null // No submodule
         );
 
         if (!agentHasPermission) {

@@ -7,14 +7,6 @@ import { clinicNavigationItems } from "../../../data/clinicNavigationItems";
 // Admin sidebar items (from AdminSidebar.tsx)
 const adminNavigationItems = [
   {
-    label: 'Dashboard',
-    path: '/admin/dashboard-admin',
-    icon: '🏠',
-    description: 'Overview & analytics',
-    moduleKey: 'dashboard',
-    order: 1,
-  },
-  {
     label: 'SMS Management',
     icon: '💬',
     description: 'Manage SMS wallets and top-ups',
@@ -105,12 +97,6 @@ const adminNavigationItems = [
         order: 1,
       },
       {
-        label: "Create Services",
-        path: "/admin/admin-add-service",
-        icon: "🛠️",
-        order: 2,
-      },
-      {
         label: "Create Vendor",
         path: "/admin/admin-create-vendor",
         icon: "🏢",
@@ -171,49 +157,12 @@ const agentNavigationItems = [
     order: 2,
   },
   {
-    label: "Lead",
-    icon: "🧑‍💼",
-    description: "Lead Management",
-    moduleKey: "lead",
+    label: "Create Lead",
+    path: "/agent/lead/create-lead",
+    icon: "👤",
+    description: "Create Lead",
+    moduleKey: "create_lead",
     order: 3,
-    children: [
-      {
-        label: "Dashboard",
-        path: "/agent/lead/dashboard",
-        icon: "🏠",
-        order: 1,
-      },
-      {
-        label: "Create Lead",
-        path: "/agent/lead/create-lead",
-        icon: "👤",
-        order: 2,
-      },
-      {
-        label: "Assign Lead",
-        path: "/agent/lead/assign-lead",
-        icon: "👨‍⚕️",
-        order: 3,
-      },
-      {
-        label: "Create Offer",
-        path: "/agent/lead/create-offer",
-        icon: "🤑",
-        order: 4,
-      },
-      {
-        label: "Create Agent",
-        path: "/agent/lead/create-agent",
-        icon: "👤",
-        order: 5,
-      },
-      {
-        label: "Permission",
-        path: "/agent/lead/permission",
-        icon: "🔒",
-        order: 6,
-      },
-    ],
   },
   {
     label: "Marketing",
@@ -249,8 +198,6 @@ const agentNavigationItems = [
     moduleKey: "staff_management",
     order: 5,
     children: [
-      { label: "Dashboard", path: "/agent/staff-dashboard", icon: "🏠", order: 1 },
-      { label: "Add Service", path: "/agent/add-service", icon: "➕", order: 2 },
       { label: "Patient Registration", path: "/agent/patient-registration", icon: "🧍‍♂️", order: 3 },
       { label: "Patient Information", path: "/agent/patient-information", icon: "📋", order: 4 },
       { label: "Add EOD Task", path: "/agent/eodNotes", icon: "✅", order: 5 },
@@ -264,14 +211,6 @@ const agentNavigationItems = [
 
 // Doctor sidebar items (from DoctorSidebar.tsx)
 const doctorNavigationItems = [
-  {
-    label: "Dashboard",
-    path: "/doctor/doctor-dashboard",
-    icon: "🏠",
-    description: "Overview & metrics",
-    moduleKey: "dashboard",
-    order: 1,
-  },
   {
     label: "Assigned Leads",
     path: "/doctor/assigned-leads",
@@ -297,16 +236,12 @@ const doctorNavigationItems = [
     order: 4,
   },
   {
-    label: "Blogs",
-    icon: "📄",
+    label: "Write Article",
+    path: "/doctor/BlogForm",
+    icon: "📝",
     description: "Blog Management",
-    moduleKey: "blogs",
+    moduleKey: "write_article",
     order: 5,
-    children: [
-      { label: "Write Article", path: "/doctor/BlogForm", icon: "📝", order: 1 },
-      { label: "Published Blogs", path: "/doctor/published-blogs", icon: "📄", order: 2 },
-      { label: "Blog Analytics", path: "/doctor/getAuthorCommentsAndLikes", icon: "📊", order: 3 },
-    ],
   },
   {
     label: "Staff Management",
@@ -315,8 +250,6 @@ const doctorNavigationItems = [
     moduleKey: "staff_management",
     order: 6,
     children: [
-      { label: "Dashboard", path: "/clinic/staff-dashboard", icon: "🏠", order: 1 },
-      { label: "Add Service", path: "/clinic/add-service", icon: "➕", order: 2 },
       { label: "Patient Registration", path: "/clinic/patient-registration", icon: "🧍‍♂️", order: 3 },
       { label: "Patient Information", path: "/clinic/patient-information", icon: "📋", order: 4 },
       { label: "Add EOD Task", path: "/clinic/eodNotes", icon: "✅", order: 5 },
@@ -327,16 +260,12 @@ const doctorNavigationItems = [
     ],
   },
   {
-    label: "Jobs",
-    icon: "💼",
+    label: "Post Job",
+    path: "/doctor/create-job",
+    icon: "📢",
     description: "Job Management",
-    moduleKey: "jobs",
+    moduleKey: "post_job",
     order: 7,
-    children: [
-      { label: "Post Job", path: "/doctor/create-job", icon: "📢", order: 1 },
-      { label: "See Jobs", path: "/doctor/my-jobs", icon: "💼", order: 2 },
-      { label: "Job Applicants", path: "/doctor/job-applicants", icon: "👥", order: 3 },
-    ],
   },
   {
     label: "Prescription Requests",
@@ -355,49 +284,12 @@ const doctorNavigationItems = [
     order: 9,
   },
   {
-    label: "Lead",
-    icon: "🧑‍💼",
-    description: "Lead Management",
-    moduleKey: "lead",
+    label: "Create Lead",
+    path: "/doctor/lead/create-lead",
+    icon: "👤",
+    description: "Create Lead",
+    moduleKey: "create_lead",
     order: 10,
-    children: [
-      {
-        label: "Dashboard",
-        path: "/doctor/lead/dashboard",
-        icon: "🏠",
-        order: 1,
-      },
-      {
-        label: "Create Lead",
-        path: "/doctor/lead/create-lead",
-        icon: "👤",
-        order: 2,
-      },
-      {
-        label: "Assign Lead",
-        path: "/doctor/lead/assign-lead",
-        icon: "👨‍⚕️",
-        order: 3,
-      },
-      {
-        label: "Create Offer",
-        path: "/doctor/lead/create-offer",
-        icon: "🤑",
-        order: 4,
-      },
-      {
-        label: "Create Agent",
-        path: "/doctor/lead/create-agent",
-        icon: "👤",
-        order: 5,
-      },
-      {
-        label: "Permission",
-        path: "/doctor/lead/permission",
-        icon: "🔒",
-        order: 6,
-      },
-    ],
   },
   {
     label: "Marketing",
@@ -510,6 +402,7 @@ export default async function handler(req, res) {
 
     const insertedItems = [];
     const updatedItems = [];
+    const moduleKeysInSeed = new Set(itemsToInsert.map(item => item.moduleKey));
 
     for (const item of itemsToInsert) {
       const filter = { role: item.role, moduleKey: item.moduleKey };
@@ -551,11 +444,24 @@ export default async function handler(req, res) {
       }
     }
 
+    // Deactivate modules that are no longer in the seed data
+    const deactivatedItems = await ClinicNavigationItem.updateMany(
+      { 
+        role: role,
+        moduleKey: { $nin: Array.from(moduleKeysInSeed) },
+        isActive: true
+      },
+      { 
+        isActive: false 
+      }
+    );
+
     return res.status(200).json({ 
       success: true, 
       message: `${role} navigation items seeded successfully`,
       inserted: insertedItems.length,
       updated: updatedItems.length,
+      deactivated: deactivatedItems.modifiedCount,
       totalTemplates: itemsToInsert.length
     });
   } catch (error) {
