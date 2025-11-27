@@ -28,9 +28,9 @@ export default async function handler(req, res) {
     if (!isAdmin && clinicId) {
       const { hasPermission, error: permError } = await checkClinicPermission(
         clinicId,
-        "jobs",
+        "job_posting", // Check "job_posting" module permission
         "read",
-        null, // subModuleName
+        null, // No submodule - this is a module-level check
         me.role === "doctor" ? "doctor" : me.role === "clinic" ? "clinic" : null
       );
 

@@ -63,9 +63,9 @@ export default async function handler(req, res) {
         const { checkClinicPermission } = await import("./permissions-helper");
         const { hasPermission, error } = await checkClinicPermission(
           clinic._id,
-          "lead",
+          "create_lead", // Check "create_lead" module permission
           "update", // Assigning is an update operation
-          "Assign Lead" // Check "Assign Lead" submodule permission
+          null // No submodule - this is a module-level check
         );
 
         if (!hasPermission) {

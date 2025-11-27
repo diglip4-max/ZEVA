@@ -41,200 +41,84 @@ function ClinicBlog() {
         console.log('[Blog Form] Permissions API response:', JSON.stringify(data, null, 2));
         
         if (data.success && data.data) {
-          // Look for "blogs" module (also check for "clinic_blogs" or "admin_blogs")
+          // Find "write_blog" module permission (not submodule)
           const modulePermission = data.data.permissions?.find((p: any) => {
             if (!p?.module) return false;
-            // Normalize module name (remove clinic_ or admin_ prefix)
-            const normalized = p.module.startsWith("clinic_")
-              ? p.module.slice(7)
-              : p.module.startsWith("admin_")
-              ? p.module.slice(6)
-              : p.module;
-            return normalized === "blogs";
+            const moduleKey = p.module || "";
+            // Check for "write_blog" module (with or without prefix)
+            const normalizedModule = moduleKey.replace(/^(admin|clinic|doctor|agent)_/, "");
+            return normalizedModule === "write_blog" || moduleKey === "write_blog" || 
+                   moduleKey === "clinic_write_blog" || moduleKey === "doctor_write_blog" ||
+                   normalizedModule === "blogs" || moduleKey === "blogs" || moduleKey === "clinic_blogs";
           });
           
           console.log('[Blog Form] Found module permission:', modulePermission ? {
             module: modulePermission.module,
             actions: modulePermission.actions,
-            subModules: modulePermission.subModules?.map((sm: any) => ({
-              name: sm.name,
-              actions: sm.actions
-            }))
           } : 'Not found');
           
           if (modulePermission) {
             const actions = modulePermission.actions || {};
             
-            // Module-level permissions
-            const moduleAll = actions.all === true;
-            const moduleCreate = actions.create === true;
-            const moduleRead = actions.read === true;
-            const moduleUpdate = actions.update === true;
-            const moduleDelete = actions.delete === true;
-
-            // Helper function to extract actions from submodule (handle array or object)
-            const extractSubModuleActions = (subModule: any) => {
-              if (!subModule || !subModule.actions) return {};
-              
-              if (Array.isArray(subModule.actions)) {
-                return subModule.actions.reduce((acc: any, item: any) => {
-                  if (typeof item === 'object' && item !== null) {
-                    return { ...acc, ...item };
-                  }
-                  return acc;
-                }, {});
-              } else if (typeof subModule.actions === 'object' && subModule.actions !== null) {
-                return subModule.actions;
-              }
-              return {};
+            // Helper function to check if a permission value is true (handles boolean and string)
+            const isTrue = (value: any) => {
+              if (value === true) return true;
+              if (value === "true") return true;
+              if (String(value).toLowerCase() === "true") return true;
+              return false;
             };
 
-            // Find submodules
-            const writeBlogSubModule = modulePermission.subModules?.find((sm: any) => sm.name === "Write Blog");
-            const publishedBlogsSubModule = modulePermission.subModules?.find((sm: any) => sm.name === "Published and Drafts Blogs");
-            const analyticsSubModule = modulePermission.subModules?.find((sm: any) => sm.name === "Analytics of blog");
-
-            // Extract actions from submodules
-            const writeBlogActions = extractSubModuleActions(writeBlogSubModule);
-            const publishedBlogsActions = extractSubModuleActions(publishedBlogsSubModule);
-            const analyticsActions = extractSubModuleActions(analyticsSubModule);
-
-            // Helper function to determine permission for a submodule
-            const getSubModulePermission = (
-              subModule: any,
-              subModuleActions: any,
-              actionName: 'create' | 'read' | 'update' | 'delete',
-              moduleAction: boolean
-            ): boolean => {
-              // Priority 1: Module-level "all" overrides everything
-              if (moduleAll) return true;
-              
-              // Priority 2: If submodule exists
-              if (subModule) {
-                // Priority 2a: Submodule "all" grants permission
-                const subModuleAll = subModuleActions.all === true || subModuleActions.all === "true";
-                if (subModuleAll) return true;
-                
-                // Priority 2b: Check if action is explicitly set in submodule
-                const actionExists = subModuleActions.hasOwnProperty?.(actionName) ||
-                                    Object.prototype.hasOwnProperty.call(subModuleActions, actionName) ||
-                                    actionName in subModuleActions ||
-                                    subModuleActions[actionName] !== undefined;
-                
-                if (actionExists) {
-                  const actionValue = subModuleActions[actionName];
-                  
-                  // Explicitly false = deny
-                  if (actionValue === false || 
-                      actionValue === "false" || 
-                      String(actionValue).toLowerCase() === "false" ||
-                      actionValue === 0) {
-                    console.log(`[Blog Form] ${actionName} is explicitly denied in submodule:`, subModule.name);
-                    return false;
-                  }
-                  
-                  // Explicitly true = allow
-                  if (actionValue === true || 
-                      actionValue === "true" || 
-                      String(actionValue).toLowerCase() === "true" ||
-                      actionValue === 1) {
-                    return true;
-                  }
-                  
-                  // If value is null or undefined, fall through to module-level
-                  if (actionValue === null || actionValue === undefined) {
-                    // Fall through
-                  } else {
-                    // Unexpected value, deny
-                    console.warn(`[Blog Form] Unexpected ${actionName} value in submodule ${subModule.name}:`, actionValue);
-                    return false;
-                  }
-                }
-              }
-              
-              // Priority 3: Fall back to module-level permission
-              return moduleAction;
-            };
-
-            // Calculate permissions
-            const finalCanCreate = getSubModulePermission(
-              writeBlogSubModule,
-              writeBlogActions,
-              'create',
-              moduleCreate
-            );
-
-            const finalCanReadPublished = getSubModulePermission(
-              publishedBlogsSubModule,
-              publishedBlogsActions,
-              'read',
-              moduleRead
-            );
-
-            const finalCanUpdatePublished = getSubModulePermission(
-              publishedBlogsSubModule,
-              publishedBlogsActions,
-              'update',
-              moduleUpdate
-            );
-
-            const finalCanDeletePublished = getSubModulePermission(
-              publishedBlogsSubModule,
-              publishedBlogsActions,
-              'delete',
+            // Module-level permissions - check each action independently
+            // If user only has "create", they can ONLY create, not read/update/delete
+            const moduleAll = isTrue(actions.all);
+            const moduleCreate = isTrue(actions.create);
+            const moduleRead = isTrue(actions.read);
+            const moduleUpdate = isTrue(actions.update);
+            const moduleDelete = isTrue(actions.delete);
+            
+            console.log('[Blog Form] Permission checks:', {
+              moduleAll,
+              moduleRead,
+              moduleCreate,
+              moduleUpdate,
               moduleDelete
-            );
-
-            const finalCanReadAnalytics = getSubModulePermission(
-              analyticsSubModule,
-              analyticsActions,
-              'read',
-              moduleRead
-            );
-
-            const finalCanUpdateAnalytics = getSubModulePermission(
-              analyticsSubModule,
-              analyticsActions,
-              'update',
-              moduleUpdate
-            );
-
-            const finalCanDeleteAnalytics = getSubModulePermission(
-              analyticsSubModule,
-              analyticsActions,
-              'delete',
-              moduleDelete
-            );
-
-            console.log('[Blog Form] Final permissions:', {
-              canCreate: finalCanCreate,
-              canReadPublished: finalCanReadPublished,
-              canUpdatePublished: finalCanUpdatePublished,
-              canDeletePublished: finalCanDeletePublished,
-              canReadAnalytics: finalCanReadAnalytics,
-              canUpdateAnalytics: finalCanUpdateAnalytics,
-              canDeleteAnalytics: finalCanDeleteAnalytics,
             });
-
+            
+            // CRUD permissions based on module-level actions
+            // If "all" is true, grant everything
+            // Otherwise, check each action independently
             setPermissions({
-              canCreate: finalCanCreate,
-              canReadPublished: finalCanReadPublished,
-              canUpdatePublished: finalCanUpdatePublished,
-              canDeletePublished: finalCanDeletePublished,
-              canReadAnalytics: finalCanReadAnalytics,
-              canUpdateAnalytics: finalCanUpdateAnalytics,
-              canDeleteAnalytics: finalCanDeleteAnalytics,
+              // Create: Module "all" OR module "create"
+              canCreate: moduleAll || moduleCreate,
+              // Read Published: Module "all" OR module "read" (independent of create)
+              canReadPublished: moduleAll || moduleRead,
+              // Update Published: Module "all" OR module "update" (independent of create)
+              canUpdatePublished: moduleAll || moduleUpdate,
+              // Delete Published: Module "all" OR module "delete" (independent of create)
+              canDeletePublished: moduleAll || moduleDelete,
+              // Read Analytics: Module "all" OR module "read" (same as read published)
+              canReadAnalytics: moduleAll || moduleRead,
+              // Update Analytics: Module "all" OR module "update" (same as update published)
+              canUpdateAnalytics: moduleAll || moduleUpdate,
+              // Delete Analytics: Module "all" OR module "delete" (same as delete published)
+              canDeleteAnalytics: moduleAll || moduleDelete,
             });
           } else {
-            // No permissions found for this module - deny all access by default
+            // No permissions found for write_blog module
+            console.log('[Blog Form] No write_blog module permission found. Available modules:', 
+              data.data.permissions?.map((p: any) => p.module) || []
+            );
+            // If no permissions are set up at all, allow access (backward compatibility)
+            // Otherwise, deny access
+            const hasAnyPermissions = data.data.permissions && data.data.permissions.length > 0;
             setPermissions({
-              canCreate: false,
-              canReadPublished: false,
-              canUpdatePublished: false,
-              canDeletePublished: false,
-              canReadAnalytics: false,
-              canUpdateAnalytics: false,
-              canDeleteAnalytics: false,
+              canCreate: !hasAnyPermissions,
+              canReadPublished: !hasAnyPermissions,
+              canUpdatePublished: !hasAnyPermissions,
+              canDeletePublished: !hasAnyPermissions,
+              canReadAnalytics: !hasAnyPermissions,
+              canUpdateAnalytics: !hasAnyPermissions,
+              canDeleteAnalytics: !hasAnyPermissions,
             });
           }
         } else {
@@ -342,18 +226,39 @@ function ClinicBlog() {
           ) : (
             <div className="text-center py-12 sm:py-16 w-full">
               <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 sm:p-12 max-w-md mx-auto">
-                <div className="w-16 h-16 bg-red-100 rounded-xl flex items-center justify-center mx-auto mb-4">
-                  <PlusCircle className="w-8 h-8 text-red-600" />
-                </div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                  Access Denied
-                </h3>
-                <p className="text-gray-600 mb-4">
-                  You do not have permission to view published blogs.
-                </p>
-                <p className="text-sm text-gray-500">
-                  Please contact your administrator to request access to the "Published and Drafts Blogs" submodule.
-                </p>
+                {permissions.canCreate ? (
+                  <>
+                    <div className="w-16 h-16 bg-yellow-100 rounded-xl flex items-center justify-center mx-auto mb-4">
+                      <svg className="w-8 h-8 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                      </svg>
+                    </div>
+                    <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                      Read Permission Required
+                    </h3>
+                    <p className="text-gray-600 mb-4">
+                      You only have permission to create blogs. You cannot view, update, or delete blogs.
+                    </p>
+                    <p className="text-sm text-gray-500">
+                      Contact your administrator to request read permissions for the Write Blog module.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <div className="w-16 h-16 bg-red-100 rounded-xl flex items-center justify-center mx-auto mb-4">
+                      <PlusCircle className="w-8 h-8 text-red-600" />
+                    </div>
+                    <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                      Access Denied
+                    </h3>
+                    <p className="text-gray-600 mb-4">
+                      You do not have permission to view published blogs.
+                    </p>
+                    <p className="text-sm text-gray-500">
+                      Please contact your administrator to request access to the Write Blog module.
+                    </p>
+                  </>
+                )}
               </div>
             </div>
           )
@@ -373,18 +278,39 @@ function ClinicBlog() {
           ) : (
             <div className="text-center py-12 sm:py-16 w-full">
               <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 sm:p-12 max-w-md mx-auto">
-                <div className="w-16 h-16 bg-red-100 rounded-xl flex items-center justify-center mx-auto mb-4">
-                  <PlusCircle className="w-8 h-8 text-red-600" />
-                </div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                  Access Denied
-                </h3>
-                <p className="text-gray-600 mb-4">
-                  You do not have permission to view blog analytics.
-                </p>
-                <p className="text-sm text-gray-500">
-                  Please contact your administrator to request access to the "Analytics of blog" submodule.
-                </p>
+                {permissions.canCreate ? (
+                  <>
+                    <div className="w-16 h-16 bg-yellow-100 rounded-xl flex items-center justify-center mx-auto mb-4">
+                      <svg className="w-8 h-8 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                      </svg>
+                    </div>
+                    <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                      Read Permission Required
+                    </h3>
+                    <p className="text-gray-600 mb-4">
+                      You only have permission to create blogs. You cannot view blog analytics.
+                    </p>
+                    <p className="text-sm text-gray-500">
+                      Contact your administrator to request read permissions for the Write Blog module.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <div className="w-16 h-16 bg-red-100 rounded-xl flex items-center justify-center mx-auto mb-4">
+                      <PlusCircle className="w-8 h-8 text-red-600" />
+                    </div>
+                    <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                      Access Denied
+                    </h3>
+                    <p className="text-gray-600 mb-4">
+                      You do not have permission to view blog analytics.
+                    </p>
+                    <p className="text-sm text-gray-500">
+                      Please contact your administrator to request access to the Write Blog module.
+                    </p>
+                  </>
+                )}
               </div>
             </div>
           )

@@ -5,7 +5,7 @@ import { getClinicIdFromUser, checkClinicPermission } from "../lead-ms/permissio
 export default async function handler(req, res) {
   await dbConnect();
 
-  if (req.method !== "POST") {
+  if (req.method !== "PUT") {
     return res.status(405).json({ message: "Method Not Allowed" });
   }
 
@@ -31,13 +31,13 @@ export default async function handler(req, res) {
       const { hasPermission, error: permError } = await checkClinicPermission(
         clinicId,
         "staff_management",
-        "create",
+        "update",
         "Add EOD Task"
       );
 
       if (!hasPermission) {
         return res.status(403).json({
-          message: permError || "You do not have permission to create EOD notes"
+          message: permError || "You do not have permission to update EOD notes"
         });
       }
     } catch (permErr) {
@@ -47,20 +47,36 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { note } = req.body;
+    const { noteId, note } = req.body;
+    
+    if (!noteId) {
+      return res.status(400).json({ message: "Note ID is required" });
+    }
+    
     if (!note || note.trim() === "") {
       return res.status(400).json({ message: "Note cannot be empty" });
     }
 
-    user.eodNotes.push({ note });
+    // Find the note in the user's eodNotes array
+    const noteIndex = user.eodNotes.findIndex(
+      (n) => n._id.toString() === noteId.toString()
+    );
+
+    if (noteIndex === -1) {
+      return res.status(404).json({ message: "EOD note not found" });
+    }
+
+    // Update the note
+    user.eodNotes[noteIndex].note = note.trim();
     await user.save();
 
     return res.status(200).json({
-      message: "EOD note added successfully",
+      message: "EOD note updated successfully",
       eodNotes: user.eodNotes,
     });
   } catch (error) {
-    console.error("EOD Error:", error);
+    console.error("Update EOD Note Error:", error);
     return res.status(500).json({ message: "Internal Server Error" });
   }
 }
+

@@ -36,30 +36,13 @@ export const agentNavigationItems = [
     permissionKey: "permission:manage",
   },
   {
-    label: "Lead",
-    icon: "🧑‍💼",
-    description: "Lead Management",
-    moduleKey: "agent_lead",
+    label: "Create Lead",
+    path: "/agent/create-lead",
+    icon: "👤",
+    description: "Create new leads",
+    moduleKey: "agent_create_lead",
     order: 5,
-    permissionKey: "lead:menu",
-    children: [
-      {
-        label: "Create Lead",
-        path: "/agent/create-lead",
-        icon: "👤",
-        description: "Create new leads",
-        order: 1,
-        permissionKey: "lead:create",
-      },
-      {
-        label: "Assign Lead",
-        path: "/agent/assign-lead",
-        icon: "👨‍⚕️",
-        description: "Reassign or delegate leads",
-        order: 2,
-        permissionKey: "lead:assign",
-      },
-    ],
+    permissionKey: "lead:create",
   },
   {
     label: "Create offers",
@@ -86,20 +69,6 @@ export const agentNavigationItems = [
     moduleKey: "staff_management",
     order: 9,
     children: [
-      {
-        label: "Dashboard",
-        path: "/clinic/staff-dashboard",
-        icon: "🏠",
-        description: "Overview & analytics",
-        order: 1,
-      },
-      {
-        label: "Add Service",
-        path: "/clinic/add-service",
-        icon: "➕",
-        description: "Add package/treatment",
-        order: 2,
-      },
       {
         label: "Patient Registration",
         path: "/clinic/patient-registration",
