@@ -1,9 +1,11 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import axios from "axios";
+import { useRouter } from "next/router";
 import ClinicLayout from '../../components/staffLayout';
 import withClinicAuth from '../../components/withStaffAuth';
 import { Toaster, toast } from 'react-hot-toast';
+import { Edit2, Trash2, X, Check, Loader2 } from 'lucide-react';
 
 const TOKEN_PRIORITY = [
   "clinicToken",
@@ -31,13 +33,160 @@ const getAuthHeaders = () => {
 };
 
 const EodNotePad = () => {
+  const router = useRouter();
   const [note, setNote] = useState("");
   const [notes, setNotes] = useState([]);
   const [selectedDate, setSelectedDate] = useState("");
   const [expandedNotes, setExpandedNotes] = useState({});
   const [activeTab, setActiveTab] = useState("add");
+  const [editingNoteId, setEditingNoteId] = useState(null);
+  const [editingNoteText, setEditingNoteText] = useState("");
+  const [deleteConfirmId, setDeleteConfirmId] = useState(null);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [permissions, setPermissions] = useState({
+    canCreate: true,
+    canRead: true,
+    canUpdate: true,
+    canDelete: true,
+  });
+  const [permissionsLoaded, setPermissionsLoaded] = useState(false);
+  const [isClinicContext, setIsClinicContext] = useState(false);
+
+  // Determine API base path based on route
+  const getApiBase = () => {
+    if (typeof window !== "undefined") {
+      const path = window.location.pathname;
+      if (path.startsWith("/clinic/")) {
+        return "/api/clinic";
+      }
+    }
+    if (router?.pathname?.startsWith("/clinic/")) {
+      return "/api/clinic";
+    }
+    return "/api/staff";
+  };
+
+  // Check if we're in clinic context
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const path = window.location.pathname;
+      setIsClinicContext(path.startsWith("/clinic/"));
+    } else if (router?.pathname) {
+      setIsClinicContext(router.pathname.startsWith("/clinic/"));
+    }
+  }, [router?.pathname]);
+
+  // Fetch permissions for clinic context
+  const fetchClinicPermissions = useCallback(async () => {
+    if (!isClinicContext) {
+      setPermissionsLoaded(true);
+      return;
+    }
+
+    try {
+      setPermissionsLoaded(false);
+      const token = getStoredToken();
+      if (!token) {
+        setPermissions({
+          canCreate: false,
+          canRead: false,
+          canUpdate: false,
+          canDelete: false,
+        });
+        setPermissionsLoaded(true);
+        return;
+      }
+
+      const res = await axios.get("/api/clinic/permissions", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const data = res.data;
+      if (data.success && data.data) {
+        // Find staff_management module
+        const modulePermission = data.data.permissions?.find((p) => {
+          if (!p?.module) return false;
+          const normalized = p.module.startsWith("clinic_")
+            ? p.module.slice(7)
+            : p.module.startsWith("admin_")
+            ? p.module.slice(6)
+            : p.module;
+          return normalized === "staff_management";
+        });
+
+        if (modulePermission) {
+          const actions = modulePermission.actions || {};
+          const moduleAll = actions.all === true;
+
+          // Find "Add EOD Task" submodule
+          const eodTaskSubModule = modulePermission.subModules?.find(
+            (sm) => sm.name === "Add EOD Task" || sm.name === "Add EOD Notes"
+          );
+          const subModuleActions = eodTaskSubModule?.actions || {};
+          const subModuleAll = subModuleActions.all === true;
+
+          // Helper to check permission: submodule explicit > submodule all > module explicit > module all
+          const checkPermission = (actionName) => {
+            if (moduleAll) return true;
+            if (subModuleAll) return true;
+            // Check if submodule has explicit permission
+            if (subModuleActions && subModuleActions.hasOwnProperty(actionName)) {
+              return subModuleActions[actionName] === true;
+            }
+            // Fall back to module-level permission
+            return actions[actionName] === true;
+          };
+
+          setPermissions({
+            canCreate: checkPermission("create"),
+            canRead: checkPermission("read"),
+            canUpdate: checkPermission("update"),
+            canDelete: checkPermission("delete"),
+          });
+        } else {
+          // If no permission entry exists, deny all access by default
+          setPermissions({
+            canCreate: false,
+            canRead: false,
+            canUpdate: false,
+            canDelete: false,
+          });
+        }
+      } else {
+        setPermissions({
+          canCreate: false,
+          canRead: false,
+          canUpdate: false,
+          canDelete: false,
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching clinic permissions for EOD Notes:", error);
+      setPermissions({
+        canCreate: false,
+        canRead: false,
+        canUpdate: false,
+        canDelete: false,
+      });
+    } finally {
+      setPermissionsLoaded(true);
+    }
+  }, [isClinicContext]);
+
+  useEffect(() => {
+    fetchClinicPermissions();
+  }, [fetchClinicPermissions]);
 
   const handleAddNote = async () => {
+    if (isClinicContext && !permissions.canCreate) {
+      toast.error("You do not have permission to create EOD notes", {
+        duration: 3000,
+        position: 'top-right',
+      });
+      return;
+    }
+
     if (!note.trim()) {
       toast.error("Please enter a note", {
         duration: 3000,
@@ -61,7 +210,7 @@ const EodNotePad = () => {
 
     try {
       const res = await axios.post(
-        "/api/staff/addEodNote",
+        `${getApiBase()}/addEodNote`,
         { note },
         { headers }
       );
@@ -83,6 +232,15 @@ const EodNotePad = () => {
   };
 
   const fetchNotes = async (date = "") => {
+    if (isClinicContext && !permissionsLoaded) {
+      return;
+    }
+
+    if (isClinicContext && !permissions.canRead) {
+      setNotes([]);
+      return;
+    }
+
     const headers = getAuthHeaders();
     if (!headers) {
       toast.error("Authentication required. Please login again.", {
@@ -93,7 +251,7 @@ const EodNotePad = () => {
     }
 
     try {
-      const res = await axios.get(`/api/staff/getEodNotes${date ? `?date=${date}` : ""}`, {
+      const res = await axios.get(`${getApiBase()}/getEodNotes${date ? `?date=${date}` : ""}`, {
         headers,
       });
       setNotes(res.data.eodNotes || []);
@@ -115,6 +273,13 @@ const EodNotePad = () => {
   };
 
   useEffect(() => {
+    if (isClinicContext && !permissionsLoaded) {
+      return;
+    }
+    if (isClinicContext && !permissions.canRead) {
+      setNotes([]);
+      return;
+    }
     const loadNotes = async () => {
       try {
         await fetchNotes();
@@ -130,7 +295,8 @@ const EodNotePad = () => {
       }
     };
     loadNotes();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [permissionsLoaded, permissions.canRead, isClinicContext]);
 
   const handleDateChange = (e) => {
     const newDate = e.target.value;
@@ -170,6 +336,146 @@ const EodNotePad = () => {
     const lines = text.split('\n');
     return lines.slice(0, 4).join('\n');
   };
+
+  const handleEditNote = (noteId, noteText) => {
+    setEditingNoteId(noteId);
+    setEditingNoteText(noteText);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingNoteId(null);
+    setEditingNoteText("");
+  };
+
+  const handleUpdateNote = async () => {
+    if (isClinicContext && !permissions.canUpdate) {
+      toast.error("You do not have permission to update EOD notes", {
+        duration: 3000,
+        position: 'top-right',
+      });
+      return;
+    }
+
+    if (!editingNoteText.trim()) {
+      toast.error("Note cannot be empty", {
+        duration: 3000,
+        position: 'top-right',
+      });
+      return;
+    }
+
+    const headers = getAuthHeaders();
+    if (!headers) {
+      toast.error("Authentication required. Please login again.", {
+        duration: 3000,
+        position: 'top-right',
+      });
+      return;
+    }
+
+    setIsUpdating(true);
+    const loadingToast = toast.loading("Updating note...", {
+      position: 'top-right',
+    });
+
+    try {
+      const res = await axios.put(
+        `${getApiBase()}/updateEodNote`,
+        { noteId: editingNoteId, note: editingNoteText },
+        { headers }
+      );
+      setNotes(res.data.eodNotes);
+      setEditingNoteId(null);
+      setEditingNoteText("");
+      toast.success("Note updated successfully!", {
+        duration: 3000,
+        position: 'top-right',
+      });
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Failed to update note. Please try again.", {
+        duration: 4000,
+        position: 'top-right',
+      });
+    } finally {
+      setIsUpdating(false);
+      toast.dismiss(loadingToast);
+    }
+  };
+
+  const handleDeleteNote = async (noteId) => {
+    if (isClinicContext && !permissions.canDelete) {
+      toast.error("You do not have permission to delete EOD notes", {
+        duration: 3000,
+        position: 'top-right',
+      });
+      setDeleteConfirmId(null);
+      return;
+    }
+
+    const headers = getAuthHeaders();
+    if (!headers) {
+      toast.error("Authentication required. Please login again.", {
+        duration: 3000,
+        position: 'top-right',
+      });
+      return;
+    }
+
+    setIsDeleting(true);
+    const loadingToast = toast.loading("Deleting note...", {
+      position: 'top-right',
+    });
+
+    try {
+      const res = await axios.delete(
+        `${getApiBase()}/deleteEodNote?noteId=${noteId}`,
+        { headers }
+      );
+      setNotes(res.data.eodNotes);
+      setDeleteConfirmId(null);
+      toast.success("Note deleted successfully!", {
+        duration: 3000,
+        position: 'top-right',
+      });
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Failed to delete note. Please try again.", {
+        duration: 4000,
+        position: 'top-right',
+      });
+    } finally {
+      setIsDeleting(false);
+      toast.dismiss(loadingToast);
+    }
+  };
+
+  // Show loading state while checking permissions
+  if (isClinicContext && !permissionsLoaded) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 mx-auto mb-4 animate-spin text-blue-600" />
+          <p className="text-sm text-gray-700">Checking your permissions...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show access denied if no read permission
+  if (isClinicContext && permissionsLoaded && !permissions.canRead) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-lg shadow-sm border border-red-200 p-8 max-w-md w-full text-center">
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4 text-red-600 text-2xl">
+            !
+          </div>
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Access Denied</h2>
+          <p className="text-gray-600 mb-4">
+            You do not have permission to view or manage EOD notes. Please contact your administrator if you believe this is incorrect.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -248,36 +554,50 @@ const EodNotePad = () => {
         {/* Add Note Section */}
         {activeTab === "add" && (
           <div className="max-w-3xl">
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 sm:p-8">
-              <h2 className="text-lg font-medium text-gray-900 mb-4">
-                Create New Note
-              </h2>
-              
-              <div className="space-y-4">
-                <div>
-                  <label htmlFor="note" className="block text-sm font-medium text-gray-700 mb-2">
-                    Note Content
-                  </label>
-                  <textarea
-                    id="note"
-                    rows="10"
-                    value={note}
-                    onChange={(e) => setNote(e.target.value)}
-                    placeholder="Enter your end-of-day notes here..."
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-gray-900 placeholder-gray-400 transition-shadow"
-                  />
-                </div>
+            {(!isClinicContext || permissions.canCreate) ? (
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 sm:p-8">
+                <h2 className="text-lg font-medium text-gray-900 mb-4">
+                  Create New Note
+                </h2>
+                
+                <div className="space-y-4">
+                  <div>
+                    <label htmlFor="note" className="block text-sm font-medium text-gray-700 mb-2">
+                      Note Content
+                    </label>
+                    <textarea
+                      id="note"
+                      rows="10"
+                      value={note}
+                      onChange={(e) => setNote(e.target.value)}
+                      placeholder="Enter your end-of-day notes here..."
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-gray-900 placeholder-gray-400 transition-shadow"
+                    />
+                  </div>
 
-                <div className="flex justify-end">
-                  <button
-                    onClick={handleAddNote}
-                    className="px-6 py-2.5 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
-                  >
-                    Save Note
-                  </button>
+                  <div className="flex justify-end">
+                    <button
+                      onClick={handleAddNote}
+                      className="px-6 py-2.5 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+                    >
+                      Save Note
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
+            ) : (
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 sm:p-8 text-center">
+                <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">Permission Denied</h3>
+                <p className="text-sm text-gray-600">
+                  You do not have permission to create EOD notes. Please contact your administrator.
+                </p>
+              </div>
+            )}
           </div>
         )}
 
@@ -323,10 +643,11 @@ const EodNotePad = () => {
                   const displayText = needsTruncation && !isExpanded 
                     ? getTruncatedText(n.note) 
                     : n.note;
+                  const isEditing = editingNoteId === n._id.toString();
 
                   return (
                     <div 
-                      key={i} 
+                      key={n._id || i} 
                       className="bg-white rounded-lg shadow-sm border border-gray-200 p-6"
                     >
                       <div className="flex items-start justify-between mb-3">
@@ -346,19 +667,76 @@ const EodNotePad = () => {
                             })}
                           </p>
                         </div>
+                        {!isEditing && (
+                          <div className="flex items-center gap-2 ml-4">
+                            {(!isClinicContext || permissions.canUpdate) && (
+                              <button
+                                onClick={() => handleEditNote(n._id.toString(), n.note)}
+                                className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                title="Edit note"
+                              >
+                                <Edit2 className="w-4 h-4" />
+                              </button>
+                            )}
+                            {(!isClinicContext || permissions.canDelete) && (
+                              <button
+                                onClick={() => setDeleteConfirmId(n._id.toString())}
+                                className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                title="Delete note"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            )}
+                            {isClinicContext && !permissions.canUpdate && !permissions.canDelete && (
+                              <span className="text-xs text-gray-400">No actions available</span>
+                            )}
+                          </div>
+                        )}
                       </div>
                       
-                      <p className="text-gray-700 whitespace-pre-wrap leading-relaxed">
-                        {displayText}
-                      </p>
+                      {isEditing ? (
+                        <div className="space-y-3">
+                          <textarea
+                            value={editingNoteText}
+                            onChange={(e) => setEditingNoteText(e.target.value)}
+                            rows="8"
+                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-gray-900 placeholder-gray-400 transition-shadow"
+                            placeholder="Enter your note here..."
+                          />
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={handleUpdateNote}
+                              disabled={isUpdating}
+                              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            >
+                              <Check className="w-4 h-4" />
+                              {isUpdating ? "Updating..." : "Save"}
+                            </button>
+                            <button
+                              onClick={handleCancelEdit}
+                              disabled={isUpdating}
+                              className="flex items-center gap-2 px-4 py-2 bg-gray-200 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                            >
+                              <X className="w-4 h-4" />
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <p className="text-gray-700 whitespace-pre-wrap leading-relaxed">
+                            {displayText}
+                          </p>
 
-                      {needsTruncation && (
-                        <button
-                          onClick={() => toggleExpand(i)}
-                          className="mt-3 text-sm font-medium text-blue-600 hover:text-blue-800 transition-colors"
-                        >
-                          {isExpanded ? "Show less" : "Show more"}
-                        </button>
+                          {needsTruncation && (
+                            <button
+                              onClick={() => toggleExpand(i)}
+                              className="mt-3 text-sm font-medium text-blue-600 hover:text-blue-800 transition-colors"
+                            >
+                              {isExpanded ? "Show less" : "Show more"}
+                            </button>
+                          )}
+                        </>
                       )}
                     </div>
                   );
@@ -401,6 +779,36 @@ const EodNotePad = () => {
           </div>
         )}
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {deleteConfirmId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              Delete Note
+            </h3>
+            <p className="text-sm text-gray-600 mb-6">
+              Are you sure you want to delete this note? This action cannot be undone.
+            </p>
+            <div className="flex items-center gap-3 justify-end">
+              <button
+                onClick={() => setDeleteConfirmId(null)}
+                disabled={isDeleting}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleDeleteNote(deleteConfirmId)}
+                disabled={isDeleting}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {isDeleting ? "Deleting..." : "Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

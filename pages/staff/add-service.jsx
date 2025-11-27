@@ -178,19 +178,36 @@ function StaffAddServicePage({ contextOverride = null }) {
     }
   }, [contextOverride, router?.pathname]);
 
-  const interpretBoolean = (value) => {
-    if (value === true || value === "true" || value === 1) return true;
-    if (value === false || value === "false" || value === 0) return false;
-    if (typeof value === "string") {
-      const normalized = value.toLowerCase();
-      if (normalized === "true") return true;
-      if (normalized === "false") return false;
-    }
-    return undefined;
-  };
-
   const normalizeModuleName = (moduleName = "") =>
     moduleName.replace(/^(clinic|admin|doctor|agent)_/, "");
+
+  const stripModulePrefix = (moduleName = "") =>
+    moduleName.replace(/^(clinic|admin|doctor|agent)_/, "");
+
+  const selectModulePermission = (permissions = [], targetModule = "") => {
+    const normalizedTarget = stripModulePrefix(targetModule);
+    const candidates = permissions.filter(
+      (perm) => stripModulePrefix(perm?.module || "") === normalizedTarget
+    );
+    if (!candidates.length) return null;
+
+    const priorityChecks = [
+      (perm) => (perm?.module || "").startsWith("clinic_"),
+      (perm) => !/^(clinic|admin|doctor|agent)_/.test(perm?.module || ""),
+      (perm) => (perm?.module || "").startsWith("doctor_"),
+      (perm) => (perm?.module || "").startsWith("agent_"),
+      (perm) => (perm?.module || "").startsWith("admin_"),
+    ];
+
+    for (const matcher of priorityChecks) {
+      const match = candidates.find(matcher);
+      if (match) return match;
+    }
+    return candidates[0];
+  };
+
+  const namesMatch = (left = "", right = "") =>
+    left.trim().toLowerCase() === right.trim().toLowerCase();
 
   const extractSubModuleActions = (subModule) => {
     if (!subModule || !subModule.actions) return {};
@@ -206,34 +223,6 @@ function StaffAddServicePage({ contextOverride = null }) {
       return subModule.actions;
     }
     return {};
-  };
-
-  const evaluatePermission = (
-    subModule,
-    subModuleActions,
-    actionName,
-    moduleAction,
-    moduleAll
-  ) => {
-    if (moduleAll === true) return true;
-    const moduleActionAllowed = interpretBoolean(moduleAction);
-
-    if (subModule) {
-      const subModuleAll = interpretBoolean(subModuleActions.all);
-      if (subModuleAll === true) return true;
-
-      const actionExists =
-        Object.prototype.hasOwnProperty.call(subModuleActions, actionName) ||
-        subModuleActions[actionName] !== undefined;
-
-      if (actionExists) {
-        const actionValue = interpretBoolean(subModuleActions[actionName]);
-        if (actionValue === true) return true;
-        if (actionValue === false) return false;
-      }
-    }
-
-    return moduleActionAllowed === true;
   };
 
   const applyClinicPermissionFallback = useCallback(() => {
@@ -262,8 +251,9 @@ function StaffAddServicePage({ contextOverride = null }) {
 
       const data = res.data;
       if (data.success && data.data) {
-        const modulePermission = data.data.permissions?.find(
-          (p) => normalizeModuleName(p.module) === "staff_management"
+        const modulePermission = selectModulePermission(
+          data.data.permissions || [],
+          "staff_management"
         );
 
         if (!modulePermission) {
@@ -272,47 +262,34 @@ function StaffAddServicePage({ contextOverride = null }) {
         }
 
         const actions = modulePermission.actions || {};
-        const moduleAll = interpretBoolean(actions.all) === true;
+        const moduleAll = actions.all === true;
 
         const addServiceSubModule = modulePermission.subModules?.find(
-          (sm) => sm.name === "Add Service"
+          (sm) => namesMatch(sm?.name, "Add Service")
         );
         const addServiceActions = extractSubModuleActions(addServiceSubModule);
 
-        const finalCanCreate = evaluatePermission(
-          addServiceSubModule,
-          addServiceActions,
-          "create",
-          actions.create,
-          moduleAll
-        );
-        const finalCanRead = evaluatePermission(
-          addServiceSubModule,
-          addServiceActions,
-          "read",
-          actions.read,
-          moduleAll
-        );
-        const finalCanUpdate = evaluatePermission(
-          addServiceSubModule,
-          addServiceActions,
-          "update",
-          actions.update,
-          moduleAll
-        );
-        const finalCanDelete = evaluatePermission(
-          addServiceSubModule,
-          addServiceActions,
-          "delete",
-          actions.delete,
-          moduleAll
-        );
-
+        // Pattern matches add-room.tsx: moduleAll ? true : (action === true)
+        // But for submodules: check submodule first, then fall back to module
+        const subModuleAll = addServiceActions?.all === true;
+        
+        // Helper to check permission: submodule explicit > submodule all > module explicit > module all
+        const checkPermission = (actionName) => {
+          if (moduleAll) return true;
+          if (subModuleAll) return true;
+          // Check if submodule has explicit permission
+          if (addServiceActions && addServiceActions.hasOwnProperty(actionName)) {
+            return addServiceActions[actionName] === true;
+          }
+          // Fall back to module-level permission
+          return actions[actionName] === true;
+        };
+        
         setPermissions({
-          canCreate: finalCanCreate,
-          canRead: finalCanRead,
-          canUpdate: finalCanUpdate,
-          canDelete: finalCanDelete,
+          canCreate: checkPermission('create'),
+          canRead: checkPermission('read'),
+          canUpdate: checkPermission('update'),
+          canDelete: checkPermission('delete'),
         });
       } else {
         applyClinicPermissionFallback();
@@ -594,6 +571,7 @@ function StaffAddServicePage({ contextOverride = null }) {
           <p className="text-sm sm:text-base text-slate-600">Create packages and treatments</p>
         </div>
 
+        {(!isClinicContext || (permissionsLoaded && (permissions.canCreate || (editingId && permissions.canUpdate)))) && (
         <div ref={formRef} className="bg-white rounded-xl sm:rounded-2xl shadow-sm border border-slate-200 p-4 sm:p-6 md:p-8 mb-6 sm:mb-8 scroll-mt-4">
           <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
             {editingId ? (
@@ -647,7 +625,7 @@ function StaffAddServicePage({ contextOverride = null }) {
 
           <div className="flex flex-col sm:flex-row flex-wrap gap-2 sm:gap-3">
             {!editingId ? (
-              (!isClinicContext || permissions.canCreate) && (
+              (!isClinicContext || (permissionsLoaded && permissions.canCreate)) && (
                 <button
                   onClick={handleAdd}
                   disabled={loading}
@@ -659,7 +637,7 @@ function StaffAddServicePage({ contextOverride = null }) {
               )
             ) : (
               <>
-                {(!isClinicContext || permissions.canUpdate) && (
+                {(!isClinicContext || (permissionsLoaded && permissions.canUpdate)) && (
                   <button
                     onClick={handleUpdate}
                     disabled={loading}
@@ -683,6 +661,7 @@ function StaffAddServicePage({ contextOverride = null }) {
             )}
           </div>
         </div>
+        )}
 
         <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4 mb-6 sm:mb-8">
           <div className="bg-white border border-slate-200 rounded-xl p-4 sm:p-6 shadow-sm hover:shadow-md transition-shadow">
@@ -773,7 +752,7 @@ function StaffAddServicePage({ contextOverride = null }) {
                         )}
                       </div>
                       <div className="flex gap-2 pt-3 sm:pt-4 border-t border-slate-100">
-                        {(!isClinicContext || permissions.canUpdate) && (
+                        {(!isClinicContext || (permissionsLoaded && permissions.canUpdate)) && (
                           <button
                             onClick={() => handleEdit(item)}
                             className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors font-medium text-xs sm:text-sm"
@@ -782,7 +761,7 @@ function StaffAddServicePage({ contextOverride = null }) {
                             <span>Edit</span>
                           </button>
                         )}
-                        {(!isClinicContext || permissions.canDelete) && (
+                        {(!isClinicContext || (permissionsLoaded && permissions.canDelete)) && (
                           <button
                             onClick={() => handleDelete(item._id)}
                             className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 bg-rose-50 text-rose-600 rounded-lg hover:bg-rose-100 transition-colors font-medium text-xs sm:text-sm"
@@ -791,7 +770,7 @@ function StaffAddServicePage({ contextOverride = null }) {
                             <span>Delete</span>
                           </button>
                         )}
-                        {isClinicContext && !(permissions.canUpdate || permissions.canDelete) && (
+                        {isClinicContext && permissionsLoaded && !(permissions.canUpdate || permissions.canDelete) && (
                           <span className="text-xs text-slate-400">No actions available</span>
                         )}
                       </div>
