@@ -81,18 +81,6 @@ const Sidebar = () => {
   if (role === "staff") {
     navItems = [
       { 
-        label: "Dashboard", 
-        path: "/staff/staff-dashboard", 
-        icon: "🏠", 
-        description: "Overview & analytics" 
-      },
-      { 
-        label: "Add Service", 
-        path: "/staff/add-service", 
-        icon: "➕", 
-        description: "Add package/treatment" 
-      },
-      { 
         label: "Patient Registration", 
         path: "/staff/patient-registration", 
         icon: "🧍‍♂️", 
@@ -140,12 +128,6 @@ const Sidebar = () => {
 
   if (role === "doctorStaff") {
     navItems = [
-      { 
-        label: "Dashboard", 
-        path: "/staff/staff-dashboard", 
-        icon: "🏠", 
-        description: "Doctor Overview & Appointments" 
-      },
       { 
         label: "Pending Claims", 
         path: "/staff/pending-claims", 

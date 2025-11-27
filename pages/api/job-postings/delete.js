@@ -50,37 +50,20 @@ export default async function handler(req, res) {
     if (me.role !== "admin" && clinicId) {
       const { checkClinicPermission } = await import("../lead-ms/permissions-helper");
       
-      // Check "Job Posting" submodule permission first (most specific)
-      const { hasPermission: hasSubModulePermission, error: subModuleError } = await checkClinicPermission(
+      // Check "job_posting" module permission (not submodule)
+      const { hasPermission, error } = await checkClinicPermission(
         clinicId,
-        "jobs",
+        "job_posting", // Check "job_posting" module permission
         "delete",
-        "Job Posting" // Check "Job Posting" submodule
+        null, // No submodule - this is a module-level check
+        me.role === "doctor" ? "doctor" : me.role === "clinic" ? "clinic" : null
       );
 
-      // If submodule permission check fails, also check "See All Jobs" submodule and module-level as fallback
-      if (!hasSubModulePermission) {
-        const { hasPermission: hasSeeAllJobsPermission, error: seeAllJobsError } = await checkClinicPermission(
-          clinicId,
-          "jobs",
-          "delete",
-          "See All Jobs" // Check "See All Jobs" submodule permission for delete
-        );
-
-        if (!hasSeeAllJobsPermission) {
-          const { hasPermission: hasModulePermission, error: moduleError } = await checkClinicPermission(
-            clinicId,
-            "jobs",
-            "delete"
-          );
-
-          if (!hasModulePermission) {
-            return res.status(403).json({
-              success: false,
-              message: subModuleError || seeAllJobsError || moduleError || "You do not have permission to delete jobs"
-            });
-          }
-        }
+      if (!hasPermission) {
+        return res.status(403).json({
+          success: false,
+          message: error || "You do not have permission to delete jobs"
+        });
       }
     }
 

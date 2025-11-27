@@ -42,12 +42,6 @@ interface DoctorSidebarProps {
 
 const navigationItems: NavItem[] = [
   {
-    label: "Dashboard",
-    path: "/doctor/doctor-dashboard",
-    icon: "🏠",
-    description: "Overview & metrics",
-  },
-  {
     label: "Manage Profile",
     path: "/doctor/manageDoctor",
     icon: "👤",
@@ -60,24 +54,16 @@ const navigationItems: NavItem[] = [
     description: "See All Users Reviews",
   },
   {
-    label: "Blogs",
-    icon: "📄",
+    label: "Write Article",
+    path: "/doctor/BlogForm",
+    icon: "📝",
     description: "Blog Management",
-    children: [
-      { label: "Write Article", path: "/doctor/BlogForm", icon: "📝" },
-      { label: "Published Blogs", path: "/doctor/published-blogs", icon: "📄" },
-      { label: "Blog Analytics", path: "/doctor/getAuthorCommentsAndLikes", icon: "📊" },
-    ],
   },
   {
-    label: "Jobs",
-    icon: "💼",
+    label: "Post Job",
+    path: "/doctor/create-job",
+    icon: "📢",
     description: "Job Management",
-    children: [
-      { label: "Post Job", path: "/doctor/create-job", icon: "📢" },
-      { label: "See Jobs", path: "/doctor/my-jobs", icon: "💼" },
-      { label: "Job Applicants", path: "/doctor/job-applicants", icon: "👥" },
-    ],
   },
   {
     label: "Prescription Requests",

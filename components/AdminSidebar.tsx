@@ -58,13 +58,6 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   {
-    label: 'Dashboard',
-    path: '/admin/dashboard-admin',
-    icon: HomeIcon,
-    iconSolid: HomeIconSolid,
-    description: 'Overview & analytics'
-  },
-  {
     label: 'Approval Clinic',
     path: '/admin/AdminClinicApproval ',
     icon: CheckCircleIcon,
@@ -131,12 +124,6 @@ const navItems: NavItem[] = [
         path: "/admin/create-staff",
         icon: UserPlusIcon,
         iconSolid: UserPlusIconSolid,
-      },
-      {
-        label: "Create Services",
-        path: "/admin/admin-add-service",
-        icon: WrenchScrewdriverIcon,
-        iconSolid: WrenchScrewdriverIconSolid,
       },
       {
         label: "Create Vendor",

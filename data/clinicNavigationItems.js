@@ -40,28 +40,12 @@ export const clinicNavigationItems = [
     order: 5,
   },
   {
-    label: "Lead",
-    icon: "🧑‍💼",
-    description: "Lead Management",
-    moduleKey: "lead",
+    label: "Create Lead",
+    path: "/lead/create-lead",
+    icon: "👤",
+    description: "Create Lead",
+    moduleKey: "create_lead",
     order: 6,
-    children: [
-      {
-        label: "Create Lead",
-        path: "/lead/create-lead",
-        icon: "👤",
-        description: "Create Lead",
-        order: 1,
-      },
-      // Commented out - merged into create-lead page
-      // {
-      //   label: "Assign Lead",
-      //   path: "/lead/assign-lead",
-      //   icon: "👨‍⚕️",
-      //   description: "All Patient Enquiries",
-      //   order: 2,
-      // },
-    ],
   },
   {
     label: "Assigned Leads",
@@ -78,20 +62,6 @@ export const clinicNavigationItems = [
     moduleKey: "staff_management",
     order: 9,
     children: [
-      {
-        label: "Dashboard",
-        path: "/clinic/staff-dashboard",
-        icon: "🏠",
-        description: "Overview & analytics",
-        order: 1,
-      },
-      {
-        label: "Add Service",
-        path: "/clinic/add-service",
-        icon: "➕",
-        description: "Add package/treatment",
-        order: 2,
-      },
       {
         label: "Patient Registration",
         path: "/clinic/patient-registration",
@@ -182,60 +152,20 @@ export const clinicNavigationItems = [
     ],
   },
   {
-    label: "Jobs",
-    icon: "💼",
+    label: "Job Posting",
+    path: "/clinic/job-posting",
+    icon: "📢",
     description: "Manage job postings",
-    moduleKey: "jobs",
+    moduleKey: "job_posting",
     order: 11,
-    children: [
-      {
-        label: "Job Posting",
-        path: "/clinic/job-posting",
-        icon: "📢",
-        order: 1,
-      },
-      // Commented out - merged into job-posting page
-      // {
-      //   label: "See All Jobs",
-      //   path: "/clinic/my-jobs",
-      //   icon: "💼",
-      //   order: 2,
-      // },
-      // {
-      //   label: "See Job Applicants",
-      //   path: "/clinic/job-applicants",
-      //   icon: "👥",
-      //   order: 3,
-      // },
-    ],
   },
   {
-    label: "Blogs",
-    icon: "📄",
+    label: "Write Blog",
+    path: "/clinic/BlogForm",
+    icon: "📝",
     description: "Manage Blogs",
-    moduleKey: "blogs",
+    moduleKey: "write_blog",
     order: 12,
-    children: [
-      {
-        label: "Write Blog",
-        path: "/clinic/BlogForm",
-        icon: "📝",
-        order: 1,
-      },
-      // Commented out - merged into BlogForm page
-      // {
-      //   label: "Published and Drafts Blogs",
-      //   path: "/clinic/published-blogs",
-      //   icon: "📄",
-      //   order: 2,
-      // },
-      // {
-      //   label: "Analytics of blog",
-      //   path: "/clinic/getAuthorCommentsAndLikes",
-      //   icon: "📊",
-      //   order: 3,
-      // },
-    ],
   },
 ];
 

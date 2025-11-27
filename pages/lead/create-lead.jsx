@@ -43,31 +43,23 @@ function LeadsPage() {
         });
       const data = res.data;
       if (data.success && data.data) {
-        // Find module permission - try multiple variations of module key
+        // Find "create_lead" module permission (not submodule)
         const modulePermission = data.data.permissions?.find(
           (p) => {
             const moduleKey = p.module || "";
-            return moduleKey === "lead" || 
-                   moduleKey === "clinic_lead" || 
-                   moduleKey.replace(/^(admin|clinic|doctor)_/, "") === "lead";
+            // Check for "create_lead" module (with or without prefix)
+            const normalizedModule = moduleKey.replace(/^(admin|clinic|doctor|agent)_/, "");
+            return normalizedModule === "create_lead" || moduleKey === "create_lead" || 
+                   moduleKey === "clinic_create_lead" || moduleKey === "doctor_create_lead";
           }
         );
+        
         if (modulePermission) {
           const actions = modulePermission.actions || {};
           console.log('[create-lead] Module permission found:', {
             module: modulePermission.module,
             actions: actions,
-            subModules: modulePermission.subModules?.map(sm => sm.name)
           });
-          
-          // Check for "Create Lead" submodule
-          const createLeadSubModule = modulePermission.subModules?.find(
-            (sm) => sm.name === "Create Lead"
-          );
-          // Check for "Assign Lead" submodule
-          const assignLeadSubModule = modulePermission.subModules?.find(
-            (sm) => sm.name === "Assign Lead"
-          );
 
           // Helper function to check if a permission value is true (handles boolean and string)
           const isTrue = (value) => {
@@ -77,7 +69,8 @@ function LeadsPage() {
             return false;
           };
 
-          // Module-level "all" grants all permissions including submodules
+          // Module-level permissions - check each action independently
+          // If user only has "create", they can ONLY create, not read/update/delete
           const moduleAll = isTrue(actions.all);
           const moduleCreate = isTrue(actions.create);
           const moduleUpdate = isTrue(actions.update);
@@ -92,29 +85,24 @@ function LeadsPage() {
             moduleDelete
           });
 
-          // Submodule permissions (only checked if module-level doesn't grant)
-          const createLeadAll = isTrue(createLeadSubModule?.actions?.all);
-          const createLeadCreate = isTrue(createLeadSubModule?.actions?.create);
-          const assignLeadAll = isTrue(assignLeadSubModule?.actions?.all);
-          const assignLeadUpdate = isTrue(assignLeadSubModule?.actions?.update);
-          const assignLeadCreate = isTrue(assignLeadSubModule?.actions?.create);
-
+          // CRUD permissions based on module-level actions
+          // If "all" is true, grant everything
+          // Otherwise, check each action independently
           setPermissions({
-            // Create: Module "all" OR module "create" OR submodule "all" OR submodule "create"
-            canCreate: moduleAll || moduleCreate || createLeadAll || createLeadCreate,
-            // Update: Module "all" OR module "update" OR submodule "all" OR submodule "update"
-            canUpdate: moduleAll || moduleUpdate || assignLeadAll || assignLeadUpdate,
-            // Delete: Module "all" OR module "delete"
+            // Create: Module "all" OR module "create"
+            canCreate: moduleAll || moduleCreate,
+            // Update: Module "all" OR module "update" (independent of create)
+            canUpdate: moduleAll || moduleUpdate,
+            // Delete: Module "all" OR module "delete" (independent of create)
             canDelete: moduleAll || moduleDelete,
-            // Read: Module "all" OR module "read"
+            // Read: Module "all" OR module "read" (independent of create)
             canRead: moduleAll || moduleRead,
-            // Assign: Module "all" OR module "update" OR submodule "all" OR submodule "update" OR submodule "create"
-            // When module-level "all" is true, it should grant assign permission
-            canAssign: moduleAll || moduleUpdate || assignLeadAll || assignLeadUpdate || assignLeadCreate,
+            // Assign: Module "all" OR module "update" (assigning is an update operation)
+            canAssign: moduleAll || moduleUpdate,
           });
         } else {
-          // No permissions found for lead module
-          console.log('[create-lead] No lead module permission found. Available modules:', 
+          // No permissions found for create_lead module
+          console.log('[create-lead] No create_lead module permission found. Available modules:', 
             data.data.permissions?.map(p => p.module) || []
           );
           // If no permissions are set up at all, allow access (backward compatibility)
@@ -286,8 +274,9 @@ function LeadsPage() {
             </div>
           </div>
 
-        {/* Filters */}
-        <div className="bg-white/90 backdrop-blur rounded-2xl shadow-lg border border-gray-200 p-4 mb-6 grid grid-cols-1 md:grid-cols-4 gap-3">
+        {/* Filters - Only show if user has read permission */}
+        {permissions.canRead && (
+          <div className="bg-white/90 backdrop-blur rounded-2xl shadow-lg border border-gray-200 p-4 mb-6 grid grid-cols-1 md:grid-cols-4 gap-3">
           <input
             placeholder="Name"
             value={filters.name}
@@ -347,61 +336,79 @@ function LeadsPage() {
             Apply Filters
           </button>
           </div>
+        )}
 
-        {/* Leads as Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {leads.length > 0 ? (
-            leads.map((lead) => (
-              <div key={lead._id} className="bg-white/90 backdrop-blur rounded-xl shadow border border-gray-200 p-4 flex flex-col gap-3">
-                <div className="flex items-start justify-between gap-3">
-            <div>
-                    <p className="text-sm font-semibold text-gray-900">{lead.name || 'Unnamed'}</p>
-                    <p className="text-xs text-gray-600">{lead.phone}</p>
-            </div>
-                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold ${lead.status === 'Booked' || lead.status === 'Visited' ? 'bg-green-100 text-green-700' : lead.status === 'Not Interested' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-700'}`}>{lead.status || '—'}</span>
-          </div>
+        {/* Leads as Cards - Only show if user has read permission */}
+        {permissions.canRead ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {leads.length > 0 ? (
+              leads.map((lead) => (
+                <div key={lead._id} className="bg-white/90 backdrop-blur rounded-xl shadow border border-gray-200 p-4 flex flex-col gap-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-gray-900">{lead.name || 'Unnamed'}</p>
+                      <p className="text-xs text-gray-600">{lead.phone}</p>
+                    </div>
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold ${lead.status === 'Booked' || lead.status === 'Visited' ? 'bg-green-100 text-green-700' : lead.status === 'Not Interested' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-700'}`}>{lead.status || '—'}</span>
+                  </div>
 
-                <div className="text-[11px] text-gray-700 space-y-1">
-                  <p className="truncate"><span className="text-gray-500">Treatment:</span> {lead.treatments?.map((t) => (t.subTreatment ? `${t.subTreatment} (${t.treatment?.name || 'Unknown'})` : t.treatment?.name)).join(', ') || '—'}</p>
-                  <p><span className="text-gray-500">Source:</span> <span className="inline-flex items-center px-2 py-0.5 rounded bg-blue-50 text-blue-700">{lead.source || '—'}</span></p>
-                  <p className="truncate"><span className="text-gray-500">Offer:</span> {lead.offerTag || '—'}</p>
-                  <p className="truncate"><span className="text-gray-500">Notes:</span> {lead.notes?.map((n) => n.text).join(', ') || 'No Notes'}</p>
-                  <p className="truncate"><span className="text-gray-500">Assigned:</span> {lead.assignedTo?.map((a) => a.user?.name).join(', ') || 'Not Assigned'}</p>
-                  <p className="truncate"><span className="text-gray-500">Follow-ups:</span> {lead.followUps?.map((f) => new Date(f.date).toLocaleString()).join(', ') || 'None'}</p>
-          </div>
+                  <div className="text-[11px] text-gray-700 space-y-1">
+                    <p className="truncate"><span className="text-gray-500">Treatment:</span> {lead.treatments?.map((t) => (t.subTreatment ? `${t.subTreatment} (${t.treatment?.name || 'Unknown'})` : t.treatment?.name)).join(', ') || '—'}</p>
+                    <p><span className="text-gray-500">Source:</span> <span className="inline-flex items-center px-2 py-0.5 rounded bg-blue-50 text-blue-700">{lead.source || '—'}</span></p>
+                    <p className="truncate"><span className="text-gray-500">Offer:</span> {lead.offerTag || '—'}</p>
+                    <p className="truncate"><span className="text-gray-500">Notes:</span> {lead.notes?.map((n) => n.text).join(', ') || 'No Notes'}</p>
+                    <p className="truncate"><span className="text-gray-500">Assigned:</span> {lead.assignedTo?.map((a) => a.user?.name).join(', ') || 'Not Assigned'}</p>
+                    <p className="truncate"><span className="text-gray-500">Follow-ups:</span> {lead.followUps?.map((f) => new Date(f.date).toLocaleString()).join(', ') || 'None'}</p>
+                  </div>
 
-                <div className="flex justify-end gap-2">
-                  <button
-                    onClick={() => setViewLead(lead)}
-                    className="inline-flex items-center justify-center bg-white border border-gray-300 text-gray-800 px-3 py-1.5 rounded-md text-xs font-medium shadow-sm hover:bg-gray-50"
-                  >
-                    View
-                  </button>
-                  {permissions.canAssign && (
+                  <div className="flex justify-end gap-2">
                     <button
-                      onClick={() => setSelectedLead(lead._id)}
-                      className="inline-flex items-center justify-center bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-md text-xs font-medium shadow"
+                      onClick={() => setViewLead(lead)}
+                      className="inline-flex items-center justify-center bg-white border border-gray-300 text-gray-800 px-3 py-1.5 rounded-md text-xs font-medium shadow-sm hover:bg-gray-50"
                     >
-                      ReAssign
+                      View
                     </button>
-                  )}
-                  {permissions.canDelete && (
-                    <button
-                      onClick={() => deleteLead(lead._id)}
-                      className="inline-flex items-center justify-center bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-md text-xs font-medium shadow"
-                    >
-                      Delete
-                    </button>
-            )}
-          </div>
-            </div>
-            ))
-          ) : (
-            <div className="col-span-full bg-white/90 backdrop-blur rounded-xl border border-gray-200 p-6 text-center text-gray-500">
-              {permissions.canRead === false ? "You do not have permission to view leads" : "No leads found"}
+                    {permissions.canAssign && (
+                      <button
+                        onClick={() => setSelectedLead(lead._id)}
+                        className="inline-flex items-center justify-center bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-md text-xs font-medium shadow"
+                      >
+                        ReAssign
+                      </button>
+                    )}
+                    {permissions.canDelete && (
+                      <button
+                        onClick={() => deleteLead(lead._id)}
+                        className="inline-flex items-center justify-center bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-md text-xs font-medium shadow"
+                      >
+                        Delete
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="col-span-full bg-white/90 backdrop-blur rounded-xl border border-gray-200 p-6 text-center text-gray-500">
+                No leads found
               </div>
             )}
           </div>
+        ) : (
+          <div className="bg-white/90 backdrop-blur rounded-xl border border-gray-200 p-12 text-center">
+            <div className="w-16 h-16 bg-yellow-100 rounded-xl flex items-center justify-center mx-auto mb-4">
+              <svg className="w-8 h-8 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+              </svg>
+            </div>
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">Read Permission Required</h3>
+            <p className="text-gray-600 mb-4">
+              You only have permission to create leads. You cannot view, update, or delete leads.
+            </p>
+            <p className="text-sm text-gray-500">
+              Contact your administrator to request read permissions for the Create Lead module.
+            </p>
+          </div>
+        )}
 
         {/* Create Lead Modal */}
         <CreateLeadModal

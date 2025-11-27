@@ -28,9 +28,9 @@ export default async function handler(req, res) {
           if (!isAdmin && !isDoctor && clinicId) {
             const { hasPermission, error: permError } = await checkClinicPermission(
               clinicId,
-              "blogs",
+              "write_blog", // Check "write_blog" module permission
               "read",
-              null, // subModuleName
+              null, // No submodule - this is a module-level check
               me.role === "doctor" ? "doctor" : me.role === "clinic" ? "clinic" : null
             );
             if (!hasPermission) {
@@ -99,9 +99,10 @@ export default async function handler(req, res) {
           if (!isAdmin && !isDoctor && clinicId) {
             const { hasPermission, error: permError } = await checkClinicPermission(
               clinicId,
-              "blogs",
+              "write_blog", // Check "write_blog" module permission
               "create",
-              "Write Blog" // Check "Write Blog" submodule permission
+              null, // No submodule - this is a module-level check
+              me.role === "doctor" ? "doctor" : me.role === "clinic" ? "clinic" : null
             );
             if (!hasPermission) {
               return res.status(403).json({
@@ -194,9 +195,10 @@ export default async function handler(req, res) {
           if (!isAdmin && !isDoctor && clinicId) {
             const { hasPermission, error: permError } = await checkClinicPermission(
               clinicId,
-              "blogs",
+              "write_blog", // Check "write_blog" module permission
               "update",
-              "Published and Drafts Blogs" // Check "Published and Drafts Blogs" submodule permission
+              null, // No submodule - this is a module-level check
+              me.role === "doctor" ? "doctor" : me.role === "clinic" ? "clinic" : null
             );
             if (!hasPermission) {
               return res.status(403).json({
@@ -280,9 +282,10 @@ export default async function handler(req, res) {
           if (!isAdmin && !isDoctor && clinicId) {
             const { hasPermission, error: permError } = await checkClinicPermission(
               clinicId,
-              "blogs",
+              "write_blog", // Check "write_blog" module permission
               "delete",
-              "Published and Drafts Blogs" // Check "Published and Drafts Blogs" submodule permission
+              null, // No submodule - this is a module-level check
+              me.role === "doctor" ? "doctor" : me.role === "clinic" ? "clinic" : null
             );
             if (!hasPermission) {
               return res.status(403).json({

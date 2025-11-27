@@ -56,9 +56,10 @@ export default async function handler(req, res) {
       const { checkClinicPermission } = await import("../../lead-ms/permissions-helper");
       const { hasPermission, error } = await checkClinicPermission(
         clinicId,
-        "jobs",
+        "job_posting", // Check "job_posting" module permission
         "delete",
-        "See Job Applicants" // Check "See Job Applicants" submodule permission for delete
+        null, // No submodule - this is a module-level check
+        me.role === "doctor" ? "doctor" : me.role === "clinic" ? "clinic" : null
       );
 
       if (!hasPermission) {
