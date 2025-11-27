@@ -107,7 +107,7 @@ const INITIAL_FORM_DATA = {
   membershipStartDate: "", membershipEndDate: ""
 };
 
-const InvoiceManagementSystem = () => {
+const InvoiceManagementSystem = ({ onSuccess }) => {
   const [currentUser, setCurrentUser] = useState({ name: "", role: "" });
   const [formData, setFormData] = useState(INITIAL_FORM_DATA);
   const [manualAdvance, setManualAdvance] = useState(false);
@@ -426,8 +426,18 @@ const handleSubmit = useCallback(async () => {
           showToast("Invoice saved successfully!", "success");
           resetForm();
 
-          // Redirect to patient information page
-          router.push("/staff/patient-information"); 
+          // If onSuccess callback is provided (modal mode), call it instead of redirecting
+          if (onSuccess) {
+            onSuccess();
+          } else {
+            // Redirect to patient information page - check if we're on clinic route
+            const isClinicRoute = router.pathname?.startsWith('/clinic/') || window.location.pathname?.startsWith('/clinic/');
+            if (isClinicRoute) {
+              router.push("/clinic/patient-registration?tab=information");
+            } else {
+              router.push("/staff/patient-information");
+            }
+          }
         } else {
           // Handle validation errors
           if (data.errors && Array.isArray(data.errors)) {
@@ -442,7 +452,7 @@ const handleSubmit = useCallback(async () => {
       setConfirmModal({ isOpen: false, action: null });
     }
   });
-}, [formData, autoFields, currentUser, calculatedFields, validateForm, showToast, router]);
+}, [formData, autoFields, currentUser, calculatedFields, validateForm, showToast, router, onSuccess]);
 
   const resetForm = useCallback(() => {
     setConfirmModal({

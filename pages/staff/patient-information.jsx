@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-import { Filter, Eye, Search, ChevronLeft, ChevronRight, X, AlertCircle, CheckCircle2, Info, Edit3 } from "lucide-react";
+import { Package, TrendingUp, Eye, Search, ChevronLeft, ChevronRight, X, AlertCircle, CheckCircle2, Info, Edit3, User, DollarSign, Filter } from "lucide-react";
 import { useRouter } from "next/router";
 import ClinicLayout from '../../components/staffLayout';
 import withClinicAuth from '../../components/withStaffAuth';
@@ -173,23 +173,31 @@ const PatientCard = ({ patient, onUpdate, onViewDetails }) => (
   </div>
 );
 
-function PatientFilterUI() {
+function PatientFilterUI({ hideHeader = false }) {
   const router = useRouter();
   const [filters, setFilters] = useState({ emrNumber: "", invoiceNumber: "", name: "", phone: "", claimStatus: "", applicationStatus: "", dateFrom: "", dateTo: "" });
-  const [search, setSearch] = useState("");
   const [patients, setPatients] = useState([]);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
   const [toasts, setToasts] = useState([]);
   const [detailsModal, setDetailsModal] = useState({ isOpen: false, patient: null });
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const pageSize = 12;
 
   const addToast = (message, type = "info") => setToasts(prev => [...prev, { id: Date.now(), message, type }]);
   const removeToast = (id) => setToasts(prev => prev.filter(t => t.id !== id));
 
-  const filteredPatients = patients.filter(item => search.trim() === "" || `${item.firstName} ${item.lastName} ${item.emrNumber} ${item.invoiceNumber} ${item.mobileNumber}`.toLowerCase().includes(search.trim().toLowerCase()));
+  const filteredPatients = patients;
   const totalPages = Math.ceil(filteredPatients.length / pageSize);
   const displayedPatients = filteredPatients.slice((page - 1) * pageSize, page * pageSize);
+
+  // Check if any filters are active
+  const hasActiveFilters = Object.values(filters).some(value => value !== "" && value !== null && value !== undefined);
+
+  // Calculate stats
+  const totalPatients = patients.length;
+  const activePatients = patients.filter(p => p.status === 'Active' || p.applicationStatus === 'Active').length;
+  const totalRevenue = patients.reduce((sum, p) => sum + (p.amount || 0), 0);
 
   const fetchPatients = async () => {
     const headers = getAuthHeaders();
@@ -215,8 +223,7 @@ function PatientFilterUI() {
   useEffect(() => { fetchPatients(); }, []);
 
   const handleUpdate = (id) => {
-    // Check if we're on a clinic route
-    const isClinicRoute = router.pathname?.startsWith('/clinic/') || window.location.pathname?.startsWith('/clinic/');
+    const isClinicRoute = router.pathname?.startsWith('/clinic/') || (typeof window !== 'undefined' && window.location.pathname?.startsWith('/clinic/'));
     if (isClinicRoute) {
       router.push(`/clinic/update-patient-info/${id}`);
     } else {
@@ -224,60 +231,264 @@ function PatientFilterUI() {
     }
   };
 
+  const getStatusBadge = (status) => {
+    const statusLower = (status || '').toLowerCase();
+    if (statusLower === 'active' || statusLower === 'completed') {
+      return <span className="px-2 py-1 text-[10px] font-medium rounded bg-emerald-100 text-emerald-700">active</span>;
+    }
+    if (statusLower === 'pending') {
+      return <span className="px-2 py-1 text-[10px] font-medium rounded bg-amber-100 text-amber-700">pending</span>;
+    }
+    return <span className="px-2 py-1 text-[10px] font-medium rounded bg-gray-100 text-gray-700 flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-gray-400"></span>expired</span>;
+  };
+
   return (
     <>
       <style>{`@keyframes slideIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}@keyframes scaleIn{from{transform:scale(0.9);opacity:0}to{transform:scale(1);opacity:1}}.animate-slideIn{animation:slideIn 0.3s ease-out}.animate-scaleIn{animation:scaleIn 0.2s ease-out}`}</style>
       <ToastContainer toasts={toasts} removeToast={removeToast} />
       <PatientDetailsModal isOpen={detailsModal.isOpen} onClose={() => setDetailsModal({ isOpen: false, patient: null })} patient={detailsModal.patient} />
-      <div className="min-h-screen bg-gray-50 p-3 sm:p-4 md:p-6">
-        <div className="max-w-7xl mx-auto">
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0"><Filter className="w-5 h-5 text-white" /></div>
-              <div><h1 className="text-lg sm:text-xl font-semibold text-gray-800">Patient Filter</h1><p className="text-xs sm:text-sm text-gray-600">Search and manage records</p></div>
+      
+      <div className={hideHeader ? "p-3 sm:p-4 md:p-6" : "min-h-screen bg-gray-50 p-3 sm:p-4 md:p-6"}>
+        <div className="max-w-7xl mx-auto space-y-3">
+          {/* Header Section */}
+          {!hideHeader && (
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
+              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2.5">
+                <div>
+                  <h1 className="text-xl font-semibold text-gray-900 mb-0.5">Patient Management</h1>
+                  <p className="text-gray-700 text-xs">View and manage all patient records and information</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                    className={`inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-md shadow hover:shadow-md transition-all duration-200 text-xs font-medium ${
+                      hasActiveFilters || showAdvancedFilters
+                        ? 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white border-2 border-blue-500'
+                        : 'bg-gradient-to-r from-teal-600 to-teal-700 hover:from-teal-700 hover:to-teal-800 text-white'
+                    }`}
+                  >
+                    <Filter className="h-3.5 w-3.5" />
+                    <span>
+                      Advanced Filters
+                      {hasActiveFilters && <span className="ml-1 text-[10px] opacity-90">(Active)</span>}
+                    </span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          {/* Advanced Filters Button (shown when header is hidden) */}
+          {hideHeader && (
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
+              <div className="flex items-center justify-end">
+                <button
+                  onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                  className={`inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-md shadow hover:shadow-md transition-all duration-200 text-xs font-medium ${
+                    hasActiveFilters || showAdvancedFilters
+                      ? 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white border-2 border-blue-500'
+                      : 'bg-gradient-to-r from-teal-600 to-teal-700 hover:from-teal-700 hover:to-teal-800 text-white'
+                  }`}
+                >
+                  <Filter className="h-3.5 w-3.5" />
+                  <span>
+                    Advanced Filters
+                    {hasActiveFilters && <span className="ml-1 text-[10px] opacity-90">(Active)</span>}
+                  </span>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Stats Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-[11px] font-medium text-gray-700 mb-0.5">Total Patients</p>
+                  <p className="text-xl font-bold text-gray-900">{totalPatients}</p>
+                </div>
+                <div className="bg-blue-100 p-2 rounded-md">
+                  <User className="h-5 w-5 text-blue-600" />
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-[11px] font-medium text-gray-700 mb-0.5">Active Patients</p>
+                  <p className="text-xl font-bold text-green-600">{activePatients}</p>
+                </div>
+                <div className="bg-green-100 p-2 rounded-md">
+                  <TrendingUp className="h-5 w-5 text-green-600" />
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-[11px] font-medium text-gray-700 mb-0.5">Total Revenue</p>
+                  <p className="text-xl font-bold text-teal-600">د.إ {totalRevenue.toLocaleString()}</p>
+                </div>
+                <div className="bg-teal-100 p-2 rounded-md">
+                  <DollarSign className="h-5 w-5 text-teal-600" />
+                </div>
+              </div>
             </div>
           </div>
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-4">
-            <div className="relative mb-4">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-              <input type="text" placeholder="Search patients..." value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm text-gray-800" />
+
+          {/* Patients Table */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+            <div className="px-4 py-3 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
+              <div className="flex items-center gap-3">
+                <Package className="h-4 w-4 text-teal-600" />
+                <h2 className="text-base font-semibold text-gray-900">All Patients</h2>
+              </div>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
-              <input type="text" placeholder="EMR Number" value={filters.emrNumber} onChange={e => setFilters({ ...filters, emrNumber: e.target.value })} className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm text-gray-800" />
-              <input type="text" placeholder="Invoice Number" value={filters.invoiceNumber} onChange={e => setFilters({ ...filters, invoiceNumber: e.target.value })} className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm text-gray-800" />
-              <input type="text" placeholder="Patient Name" value={filters.name} onChange={e => setFilters({ ...filters, name: e.target.value })} className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm text-gray-800" />
-              <input type="text" placeholder="Phone" value={filters.phone} onChange={e => setFilters({ ...filters, phone: e.target.value })} className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm text-gray-800" />
-              <select value={filters.claimStatus} onChange={e => setFilters({ ...filters, claimStatus: e.target.value })} className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm text-gray-800 bg-white">
-                <option value="">All Claim Status</option><option value="Pending">Pending</option><option value="Released">Released</option><option value="Cancelled">Cancelled</option>
-              </select>
-              <select value={filters.applicationStatus} onChange={e => setFilters({ ...filters, applicationStatus: e.target.value })} className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm text-gray-800 bg-white">
-                <option value="">All App Status</option><option value="Active">Active</option><option value="Cancelled">Cancelled</option><option value="Completed">Completed</option>
-              </select>
-              <input type="date" value={filters.dateFrom} onChange={e => setFilters({ ...filters, dateFrom: e.target.value })} className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm text-gray-800" />
-              <input type="date" value={filters.dateTo} onChange={e => setFilters({ ...filters, dateTo: e.target.value })} className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm text-gray-800" />
+
+            <div className="p-3">
+              {loading ? (
+                <div className="text-center py-10">
+                  <div className="w-10 h-10 border-3 border-gray-200 border-t-teal-600 rounded-full animate-spin mx-auto mb-3"></div>
+                  <p className="text-sm text-gray-600">Loading...</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-gray-200">
+                        <th className="text-left py-2.5 px-3 text-[11px] font-semibold text-gray-700 uppercase">PATIENT DETAILS</th>
+                        <th className="text-left py-2.5 px-3 text-[11px] font-semibold text-gray-700 uppercase">EMR NUMBER</th>
+                        <th className="text-left py-2.5 px-3 text-[11px] font-semibold text-gray-700 uppercase">TOTAL AMOUNT</th>
+                        <th className="text-left py-2.5 px-3 text-[11px] font-semibold text-gray-700 uppercase">PAID</th>
+                        <th className="text-left py-2.5 px-3 text-[11px] font-semibold text-gray-700 uppercase">PENDING</th>
+                        <th className="text-left py-2.5 px-3 text-[11px] font-semibold text-gray-700 uppercase">STATUS</th>
+                        <th className="text-left py-2.5 px-3 text-[11px] font-semibold text-gray-700 uppercase">ACTIONS</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {displayedPatients.length === 0 ? (
+                        <tr>
+                          <td colSpan="7" className="py-10 text-center">
+                            <div className="inline-flex items-center justify-center w-12 h-12 bg-gray-100 rounded-full mb-2.5">
+                              <User className="h-6 w-6 text-gray-500" />
+                            </div>
+                            <h3 className="text-sm font-medium text-gray-900 mb-1">No patients found</h3>
+                            <p className="text-gray-700 text-xs">Try adjusting your filters</p>
+                          </td>
+                        </tr>
+                      ) : (
+                        displayedPatients.map((patient) => (
+                          <tr key={patient._id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
+                            <td className="py-3 px-3">
+                              <div className="flex items-center gap-2">
+                                <div className="w-8 h-8 bg-emerald-100 rounded flex items-center justify-center flex-shrink-0">
+                                  <User className="h-4 w-4 text-emerald-600" />
+                                </div>
+                                <div>
+                                  <p className="text-xs font-medium text-gray-900">{patient.firstName} {patient.lastName}</p>
+                                  <p className="text-[10px] text-gray-500">{patient.mobileNumber}</p>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="py-3 px-3">
+                              <p className="text-xs font-medium text-gray-900">{patient.emrNumber}</p>
+                            </td>
+                            <td className="py-3 px-3">
+                              <p className="text-xs font-semibold text-gray-900">د.إ{patient.amount?.toLocaleString() || 0}</p>
+                            </td>
+                            <td className="py-3 px-3">
+                              <p className="text-xs font-semibold text-emerald-600">د.إ{patient.paid?.toLocaleString() || 0}</p>
+                            </td>
+                            <td className="py-3 px-3">
+                              <p className="text-xs font-semibold text-rose-600">د.إ{patient.pending?.toLocaleString() || 0}</p>
+                            </td>
+                            <td className="py-3 px-3">
+                              {getStatusBadge(patient.status || patient.applicationStatus)}
+                            </td>
+                            <td className="py-3 px-3">
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={() => handleUpdate(patient._id)}
+                                  className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                                  title="Edit"
+                                >
+                                  <Edit3 className="h-4 w-4" />
+                                </button>
+                                <button
+                                  onClick={() => setDetailsModal({ isOpen: true, patient })}
+                                  className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded transition-colors"
+                                  title="View Details"
+                                >
+                                  <Eye className="h-4 w-4" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
-            <button onClick={fetchPatients} className="w-full sm:w-auto px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium text-sm flex items-center justify-center gap-2"><Filter className="w-4 h-4" /> Apply Filters</button>
-          </div>
-          <div className="mb-4">
-            <p className="text-sm text-gray-600 mb-3"><span className="font-medium text-gray-800">{filteredPatients.length}</span> results found</p>
-            {loading ? (
-              <div className="bg-white rounded-lg border border-gray-200 p-12 flex flex-col items-center gap-3"><div className="w-10 h-10 border-3 border-gray-200 border-t-blue-600 rounded-full animate-spin"></div><p className="text-sm text-gray-600">Loading...</p></div>
-            ) : displayedPatients.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">{displayedPatients.map(patient => <PatientCard key={patient._id} patient={patient} onUpdate={handleUpdate} onViewDetails={(p) => setDetailsModal({ isOpen: true, patient: p })} />)}</div>
-            ) : (
-              <div className="bg-white rounded-lg border border-gray-200 p-12 flex flex-col items-center gap-2"><Search className="w-12 h-12 text-gray-300" /><p className="text-sm text-gray-600">No records found</p></div>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="px-4 py-3 border-t border-gray-200 bg-gray-50 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <p className="text-xs text-gray-600">Page <span className="font-medium text-gray-800">{page}</span> of <span className="font-medium text-gray-800">{totalPages}</span></p>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="p-1.5 border border-gray-300 rounded hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed"><ChevronLeft className="w-4 h-4" /></button>
+                  {[...Array(Math.min(totalPages, 5))].map((_, idx) => {
+                    const pageNum = totalPages <= 5 ? idx + 1 : page <= 3 ? idx + 1 : page >= totalPages - 2 ? totalPages - 4 + idx : page - 2 + idx;
+                    return <button key={idx} onClick={() => setPage(pageNum)} className={`w-8 h-8 rounded text-xs font-medium ${page === pageNum ? 'bg-teal-600 text-white' : 'border border-gray-300 text-gray-700 hover:bg-white'}`}>{pageNum}</button>;
+                  })}
+                  <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="p-1.5 border border-gray-300 rounded hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed"><ChevronRight className="w-4 h-4" /></button>
+                </div>
+              </div>
             )}
           </div>
-          {totalPages > 1 && (
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
-              <p className="text-sm text-gray-600">Page <span className="font-medium text-gray-800">{page}</span> of <span className="font-medium text-gray-800">{totalPages}</span></p>
-              <div className="flex items-center gap-2">
-                <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"><ChevronLeft className="w-4 h-4" /></button>
-                {[...Array(Math.min(totalPages, 5))].map((_, idx) => {
-                  const pageNum = totalPages <= 5 ? idx + 1 : page <= 3 ? idx + 1 : page >= totalPages - 2 ? totalPages - 4 + idx : page - 2 + idx;
-                  return <button key={idx} onClick={() => setPage(pageNum)} className={`w-9 h-9 rounded-lg text-sm font-medium ${page === pageNum ? 'bg-blue-600 text-white' : 'border border-gray-300 text-gray-700 hover:bg-gray-50'}`}>{pageNum}</button>;
-                })}
-                <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"><ChevronRight className="w-4 h-4" /></button>
+
+          {/* Filter Panel */}
+          {showAdvancedFilters && (
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-medium text-gray-700">Advanced Filters</h3>
+                <button
+                  onClick={() => setShowAdvancedFilters(false)}
+                  className="p-1 hover:bg-gray-100 rounded text-gray-500"
+                  aria-label="Close filters"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                <input type="text" placeholder="EMR Number" value={filters.emrNumber} onChange={e => setFilters({ ...filters, emrNumber: e.target.value })} className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none text-xs text-gray-800" />
+                <input type="text" placeholder="Invoice Number" value={filters.invoiceNumber} onChange={e => setFilters({ ...filters, invoiceNumber: e.target.value })} className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none text-xs text-gray-800" />
+                <input type="text" placeholder="Patient Name" value={filters.name} onChange={e => setFilters({ ...filters, name: e.target.value })} className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none text-xs text-gray-800" />
+                <input type="text" placeholder="Phone" value={filters.phone} onChange={e => setFilters({ ...filters, phone: e.target.value })} className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none text-xs text-gray-800" />
+                <select value={filters.claimStatus} onChange={e => setFilters({ ...filters, claimStatus: e.target.value })} className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none text-xs text-gray-800 bg-white">
+                  <option value="">All Claim Status</option><option value="Pending">Pending</option><option value="Released">Released</option><option value="Cancelled">Cancelled</option>
+                </select>
+                <select value={filters.applicationStatus} onChange={e => setFilters({ ...filters, applicationStatus: e.target.value })} className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none text-xs text-gray-800 bg-white">
+                  <option value="">All App Status</option><option value="Active">Active</option><option value="Cancelled">Cancelled</option><option value="Completed">Completed</option>
+                </select>
+                <input type="date" value={filters.dateFrom} onChange={e => setFilters({ ...filters, dateFrom: e.target.value })} className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none text-xs text-gray-800" />
+                <input type="date" value={filters.dateTo} onChange={e => setFilters({ ...filters, dateTo: e.target.value })} className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none text-xs text-gray-800" />
+              </div>
+              <div className="flex items-center gap-2 mt-3">
+                <button onClick={fetchPatients} className="px-6 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-xs font-medium transition-colors">Apply Filters</button>
+                <button 
+                  onClick={() => {
+                    setFilters({ emrNumber: "", invoiceNumber: "", name: "", phone: "", claimStatus: "", applicationStatus: "", dateFrom: "", dateTo: "" });
+                    fetchPatients();
+                  }} 
+                  className="px-6 py-2 border border-gray-300 hover:bg-gray-50 text-gray-700 rounded-lg text-xs font-medium transition-colors"
+                >
+                  Clear Filters
+                </button>
               </div>
             </div>
           )}
