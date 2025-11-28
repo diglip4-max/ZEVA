@@ -70,9 +70,14 @@ function ClinicReviews() {
   useEffect(() => {
     const fetchReviews = async () => {
       try {
-        const token =
+        // Check for tokens in priority order: clinicToken, agentToken, then userToken
+        let token =
           localStorage.getItem("clinicToken") ||
-          sessionStorage.getItem("clinicToken");
+          sessionStorage.getItem("clinicToken") ||
+          localStorage.getItem("agentToken") ||
+          sessionStorage.getItem("agentToken") ||
+          localStorage.getItem("userToken") ||
+          sessionStorage.getItem("userToken");
 
         if (!token) {
           setError("No authentication token found");

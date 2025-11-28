@@ -20,7 +20,7 @@ export default async function handler(req, res) {
     if (!clinicAdmin) {
       return res.status(401).json({ success: false, message: "Unauthorized" });
     }
-    if (!["clinic", "doctor", "admin"].includes(clinicAdmin.role)) {
+    if (!["clinic", "doctor", "admin", "agent", "doctorStaff", "staff"].includes(clinicAdmin.role)) {
       return res.status(403).json({ success: false, message: "Access denied" });
     }
   } catch (error) {
@@ -41,7 +41,7 @@ export default async function handler(req, res) {
         return res.status(404).json({ success: false, message: "Doctor staff not found" });
       }
 
-      // If clinic admin, verify they own this doctorStaff
+      // Verify clinic access for non-admin roles
       if (clinicAdmin.role === "clinic") {
         // Clinic users don't have clinicId - find their clinic by owner
         const clinic = await Clinic.findOne({ owner: clinicAdmin._id }).select("_id");
@@ -50,6 +50,14 @@ export default async function handler(req, res) {
         }
         const clinicId = clinic._id;
         if (doctorStaff.clinicId?.toString() !== clinicId?.toString()) {
+          return res.status(403).json({ success: false, message: "Access denied" });
+        }
+      } else if (["agent", "doctorStaff", "staff"].includes(clinicAdmin.role)) {
+        // For agent, doctorStaff, and staff, verify they belong to the same clinic
+        if (!clinicAdmin.clinicId) {
+          return res.status(403).json({ success: false, message: "User not linked to a clinic" });
+        }
+        if (doctorStaff.clinicId?.toString() !== clinicAdmin.clinicId?.toString()) {
           return res.status(403).json({ success: false, message: "Access denied" });
         }
       }
@@ -77,7 +85,7 @@ export default async function handler(req, res) {
         return res.status(404).json({ success: false, message: "Doctor staff not found" });
       }
 
-      // If clinic admin, verify they own this doctorStaff
+      // Verify clinic access for non-admin roles
       if (clinicAdmin.role === "clinic") {
         // Clinic users don't have clinicId - find their clinic by owner
         const clinic = await Clinic.findOne({ owner: clinicAdmin._id }).select("_id");
@@ -86,6 +94,14 @@ export default async function handler(req, res) {
         }
         const clinicId = clinic._id;
         if (doctorStaff.clinicId?.toString() !== clinicId?.toString()) {
+          return res.status(403).json({ success: false, message: "Access denied" });
+        }
+      } else if (["agent", "doctorStaff", "staff"].includes(clinicAdmin.role)) {
+        // For agent, doctorStaff, and staff, verify they belong to the same clinic
+        if (!clinicAdmin.clinicId) {
+          return res.status(403).json({ success: false, message: "User not linked to a clinic" });
+        }
+        if (doctorStaff.clinicId?.toString() !== clinicAdmin.clinicId?.toString()) {
           return res.status(403).json({ success: false, message: "Access denied" });
         }
       }

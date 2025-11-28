@@ -241,10 +241,20 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
 
   function getAuthHeaders(): Record<string, string> {
     if (typeof window === "undefined") return {};
-    const token =
-      routeContext === "agent"
-        ? localStorage.getItem("agentToken") || sessionStorage.getItem("agentToken")
-        : localStorage.getItem("clinicToken") || sessionStorage.getItem("clinicToken");
+    let token = null;
+    
+    // Check tokens based on route context first
+    if (routeContext === "agent") {
+      token = localStorage.getItem("agentToken") || sessionStorage.getItem("agentToken");
+    } else {
+      token = localStorage.getItem("clinicToken") || sessionStorage.getItem("clinicToken");
+    }
+    
+    // Fallback to userToken if no token found
+    if (!token) {
+      token = localStorage.getItem("userToken") || sessionStorage.getItem("userToken");
+    }
+    
     if (!token) return {};
     return { Authorization: `Bearer ${token}` };
   }

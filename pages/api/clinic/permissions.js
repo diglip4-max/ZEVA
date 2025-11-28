@@ -16,8 +16,9 @@ export default async function handler(req, res) {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    if (!['clinic', 'doctor', 'agent'].includes(decoded.role)) {
-      return res.status(403).json({ success: false, message: 'Clinic, doctor, or agent access required' });
+    // Allow clinic, doctor, agent, doctorStaff, and staff roles
+    if (!['clinic', 'doctor', 'agent', 'doctorStaff', 'staff'].includes(decoded.role)) {
+      return res.status(403).json({ success: false, message: 'Clinic, doctor, agent, doctorStaff, or staff access required' });
     }
 
     let clinicId = null;
@@ -34,12 +35,12 @@ export default async function handler(req, res) {
         return res.status(403).json({ success: false, message: 'Doctor is not linked to any clinic' });
       }
       clinicId = doctor.clinicId;
-    } else if (decoded.role === 'agent') {
-      const agent = await User.findById(decoded.userId).select("clinicId");
-      if (!agent?.clinicId) {
-        return res.status(403).json({ success: false, message: 'Agent is not linked to any clinic' });
+    } else if (['agent', 'doctorStaff', 'staff'].includes(decoded.role)) {
+      const user = await User.findById(decoded.userId).select("clinicId");
+      if (!user?.clinicId) {
+        return res.status(403).json({ success: false, message: 'User is not linked to any clinic' });
       }
-      clinicId = agent.clinicId;
+      clinicId = user.clinicId;
     }
 
     console.log('Decoded token:', { userId: decoded.userId, role: decoded.role, clinicId });

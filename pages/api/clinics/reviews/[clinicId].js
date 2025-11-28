@@ -2,6 +2,7 @@
 import dbConnect from "../../../../lib/database";
 import Review from "../../../../models/Review";
 import User from "../../../../models/Users";
+import { getUserFromReq } from "../../lead-ms/auth";
 
 export default async function handler(req, res) {
   await dbConnect();
@@ -17,6 +18,35 @@ export default async function handler(req, res) {
   }
 
   try {
+    // Optional: Verify user has access to this clinic (if authenticated)
+    let authUser = null;
+    try {
+      authUser = await getUserFromReq(req);
+    } catch (authError) {
+      // If authentication fails, allow unauthenticated access (public reviews)
+      console.log("Auth check failed, allowing public access:", authError.message);
+    }
+    
+    if (authUser) {
+      // If user is authenticated, verify they have access to this clinic
+      if (authUser.role === "clinic") {
+        try {
+          const Clinic = (await import("../../../../models/Clinic")).default;
+          const clinic = await Clinic.findOne({ owner: authUser._id }).select("_id");
+          if (clinic && clinic._id.toString() !== clinicId.toString()) {
+            return res.status(403).json({ success: false, message: "Access denied" });
+          }
+        } catch (clinicError) {
+          console.error("Error checking clinic access:", clinicError);
+          // Allow access if clinic check fails (fallback)
+        }
+      } else if (["agent", "doctor", "doctorStaff", "staff"].includes(authUser.role)) {
+        if (!authUser.clinicId || authUser.clinicId.toString() !== clinicId.toString()) {
+          return res.status(403).json({ success: false, message: "Access denied" });
+        }
+      }
+      // Admin and unauthenticated users can access any clinic's reviews
+    }
     // Fetch all reviews for the clinic
     const reviews = await Review.find({ clinicId })
       .sort({ createdAt: -1 })
@@ -48,7 +78,8 @@ export default async function handler(req, res) {
     console.error("Error fetching clinic reviews:", error);
     return res.status(500).json({ 
       success: false, 
-      message: "Internal server error" 
+      message: "Internal server error",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined
     });
   }
 }

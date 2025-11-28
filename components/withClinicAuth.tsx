@@ -2,6 +2,7 @@
 import { useEffect, useState, ComponentType } from 'react';
 import { useRouter } from 'next/router';
 import { toast } from 'react-hot-toast';
+import { jwtDecode } from 'jwt-decode';
 
 export default function withClinicAuth<P extends Record<string, unknown> = Record<string, unknown>>(WrappedComponent: ComponentType<P>) {
   return function ProtectedClinicPage(props: P) {
@@ -12,10 +13,17 @@ export default function withClinicAuth<P extends Record<string, unknown> = Recor
     useEffect(() => {
       const checkAuth = async () => {
         try {
-          const token = typeof window !== 'undefined' 
-            ? (localStorage.getItem('clinicToken') || sessionStorage.getItem('clinicToken'))
+          // Check for multiple token types in priority order
+          let token = typeof window !== 'undefined' 
+            ? (localStorage.getItem('clinicToken') || 
+               sessionStorage.getItem('clinicToken') ||
+               localStorage.getItem('agentToken') ||
+               sessionStorage.getItem('agentToken') ||
+               localStorage.getItem('userToken') ||
+               sessionStorage.getItem('userToken'))
             : null;
-          const user = typeof window !== 'undefined' 
+          
+          let user = typeof window !== 'undefined' 
             ? (localStorage.getItem('clinicUser') || sessionStorage.getItem('clinicUser'))
             : null;
 
@@ -27,12 +35,25 @@ export default function withClinicAuth<P extends Record<string, unknown> = Recor
             return;
           }
 
+          // If clinicUser not found, try to decode token to get user info
           if (!user) {
-            toast.error('User data not found. Please login again.');
-            clearStorage();
-            router.replace('/clinic/login-clinic');
-            setLoading(false);
-            return;
+            try {
+              const decoded: any = jwtDecode(token);
+              // Create a user object from decoded token
+              user = JSON.stringify({
+                _id: decoded.userId || decoded.id,
+                role: decoded.role,
+                email: decoded.email,
+                name: decoded.name
+              });
+            } catch (decodeError) {
+              console.error('Error decoding token:', decodeError);
+              toast.error('User data not found. Please login again.');
+              clearStorage();
+              router.replace('/clinic/login-clinic');
+              setLoading(false);
+              return;
+            }
           }
 
           // Verify token with clinic role check via API
@@ -63,9 +84,10 @@ export default function withClinicAuth<P extends Record<string, unknown> = Recor
             return;
           }
 
-          // Verify user role is clinic
+          // Verify user role - allow clinic, agent, doctor, doctorStaff, and staff roles
           const userObj = JSON.parse(user);
-          if (userObj.role === 'clinic') {
+          const allowedRoles = ['clinic', 'agent', 'doctor', 'doctorStaff', 'staff'];
+          if (allowedRoles.includes(userObj.role)) {
             setIsAuthorized(true);
           } else {
             toast.error('Access denied: Invalid user role');

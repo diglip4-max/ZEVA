@@ -2,7 +2,7 @@ import dbConnect from "../../../lib/database";
 import Review from "../../../models/Review";
 import Clinic from "../../../models/Clinic";
 import User from "../../../models/Users";
-import jwt from "jsonwebtoken";
+import { getUserFromReq } from "../lead-ms/auth";
 
 export default async function handler(req, res) {
   await dbConnect();
@@ -11,26 +11,41 @@ export default async function handler(req, res) {
     return res.status(405).json({ message: "Method not allowed" });
   }
 
-  const token = req.headers.authorization?.split(" ")[1];
-  if (!token) return res.status(401).json({ message: "No token provided" });
-
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    console.log("Decoded JWT:", decoded);
-
-    if (decoded.role !== "clinic") {
-      return res.status(403).json({ message: "Access denied: not a clinic" });
+    const authUser = await getUserFromReq(req);
+    if (!authUser) {
+      return res.status(401).json({ message: "Unauthorized" });
     }
 
-    // Step 1: Find the clinic associated with the user
-    const clinic = await Clinic.findOne({ owner: decoded.userId });
+    // Allow clinic, agent, doctor, doctorStaff, and staff roles
+    if (!["clinic", "agent", "doctor", "doctorStaff", "staff"].includes(authUser.role)) {
+      return res.status(403).json({ message: "Access denied" });
+    }
 
-    if (!clinic) {
-      return res.status(404).json({ message: "Clinic not found" });
+    let clinicId = null;
+    let clinic = null;
+
+    // Step 1: Find the clinic associated with the user
+    if (authUser.role === "clinic") {
+      clinic = await Clinic.findOne({ owner: authUser._id });
+      if (!clinic) {
+        return res.status(404).json({ message: "Clinic not found" });
+      }
+      clinicId = clinic._id;
+    } else if (["agent", "doctor", "doctorStaff", "staff"].includes(authUser.role)) {
+      // For agent, doctor, doctorStaff, and staff, use their clinicId
+      if (!authUser.clinicId) {
+        return res.status(403).json({ message: "Access denied. User not linked to a clinic." });
+      }
+      clinicId = authUser.clinicId;
+      clinic = await Clinic.findById(clinicId);
+      if (!clinic) {
+        return res.status(404).json({ message: "Clinic not found" });
+      }
     }
 
     // Step 2: Fetch all reviews for the clinic and populate user details
-    const reviews = await Review.find({ clinicId: clinic._id })
+    const reviews = await Review.find({ clinicId: clinicId })
       .sort({ createdAt: -1 })
       .populate({
         path: "userId",

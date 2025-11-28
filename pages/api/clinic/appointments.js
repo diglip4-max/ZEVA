@@ -13,7 +13,7 @@ export default async function handler(req, res) {
     if (!clinicUser) {
       return res.status(401).json({ success: false, message: "Unauthorized" });
     }
-    if (!["clinic", "agent", "doctor", "doctorStaff"].includes(clinicUser.role)) {
+    if (!["clinic", "agent", "doctor", "doctorStaff", "staff"].includes(clinicUser.role)) {
       return res.status(403).json({ success: false, message: "Access denied. Clinic role required." });
     }
 

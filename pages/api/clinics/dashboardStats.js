@@ -12,16 +12,51 @@ export default async function handler(req, res) {
   }
 
   try {
-    const token = req.headers.authorization?.split(' ')[1];
-    if (!token) {
-      return res.status(401).json({ success: false, message: 'No token provided' });
+    const { getUserFromReq } = await import('../lead-ms/auth');
+    const authUser = await getUserFromReq(req);
+    
+    if (!authUser) {
+      return res.status(401).json({ success: false, message: 'Unauthorized' });
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const userId = decoded.userId; // This is the clinic owner (user)
+    // Allow clinic, admin, agent, doctor, doctorStaff, and staff roles
+    if (!["clinic", "admin", "agent", "doctor", "doctorStaff", "staff"].includes(authUser.role)) {
+      return res.status(403).json({ success: false, message: 'Access denied' });
+    }
 
-    // Get the clinic owned by this user
-    const clinic = await Clinic.findOne({ owner: userId });
+    let clinicId = null;
+    let clinic = null;
+
+    // Get the clinic based on user role
+    if (authUser.role === "clinic") {
+      clinic = await Clinic.findOne({ owner: authUser._id });
+      if (!clinic) {
+        return res.status(404).json({ success: false, message: 'Clinic not found' });
+      }
+      clinicId = clinic._id;
+    } else if (authUser.role === "admin") {
+      // Admin users need clinicId - use their linked clinicId if available
+      if (!authUser.clinicId) {
+        return res.status(400).json({ success: false, message: 'Admin must be linked to a clinic' });
+      }
+      clinicId = authUser.clinicId;
+      clinic = await Clinic.findById(clinicId);
+      if (!clinic) {
+        return res.status(404).json({ success: false, message: 'Clinic not found' });
+      }
+    } else if (["agent", "doctor", "doctorStaff", "staff"].includes(authUser.role)) {
+      // For agent, doctor, doctorStaff, and staff, use their clinicId
+      if (!authUser.clinicId) {
+        return res.status(403).json({ success: false, message: 'User not linked to a clinic' });
+      }
+      clinicId = authUser.clinicId;
+      clinic = await Clinic.findById(clinicId);
+      if (!clinic) {
+        return res.status(404).json({ success: false, message: 'Clinic not found' });
+      }
+    }
+
+    // Ensure clinic exists before checking properties
     if (!clinic) {
       return res.status(404).json({ success: false, message: 'Clinic not found' });
     }
@@ -41,8 +76,6 @@ export default async function handler(req, res) {
         message: 'Clinic account has been declined' 
       });
     }
-
-    const clinicId = clinic._id;
    
 
     // Count reviews and enquiries for this clinic

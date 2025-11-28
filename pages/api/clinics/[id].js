@@ -75,7 +75,11 @@ export default async function handler(req, res) {
   }
 
   if (method !== "GET") {
-    if (!me || !requireRole(me, ["clinic", "admin"])) {
+    if (!me) {
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
+    // Allow clinic, admin, agent, doctor, doctorStaff, and staff roles
+    if (!["clinic", "admin", "agent", "doctor", "doctorStaff", "staff"].includes(me.role)) {
       return res.status(403).json({ success: false, message: "Access denied" });
     }
   }
@@ -94,6 +98,16 @@ export default async function handler(req, res) {
           clinicId = clinic._id;
         } else if (me.role === "admin") {
           clinicId = id;
+        } else if (["agent", "doctor", "doctorStaff", "staff"].includes(me.role)) {
+          // For agent, doctor, doctorStaff, and staff, use their clinicId
+          if (!me.clinicId) {
+            return res.status(403).json({ success: false, message: "User not linked to a clinic" });
+          }
+          clinicId = me.clinicId;
+          // Verify they're accessing their own clinic
+          if (clinicId.toString() !== id.toString()) {
+            return res.status(403).json({ success: false, message: "Access denied" });
+          }
         }
 
         if (me.role !== "admin" && clinicId) {
@@ -121,6 +135,16 @@ export default async function handler(req, res) {
       } else if (me && me.role === "admin") {
         // Admin can view any clinic, use the ID from URL
         clinicId = id;
+      } else if (me && ["agent", "doctor", "doctorStaff", "staff"].includes(me.role)) {
+        // For agent, doctor, doctorStaff, and staff, use their clinicId
+        if (!me.clinicId) {
+          return res.status(403).json({ success: false, message: "User not linked to a clinic" });
+        }
+        clinicId = me.clinicId;
+        // Verify they're accessing their own clinic
+        if (clinicId.toString() !== id.toString()) {
+          return res.status(403).json({ success: false, message: "Access denied" });
+        }
       }
 
       // ✅ Check permission for reading clinic (only for clinic, admin bypasses)
@@ -181,6 +205,16 @@ export default async function handler(req, res) {
       } else if (me.role === "admin") {
         // Admin can update any clinic, use the ID from URL
         clinicId = id;
+      } else if (["agent", "doctor", "doctorStaff", "staff"].includes(me.role)) {
+        // For agent, doctor, doctorStaff, and staff, use their clinicId
+        if (!me.clinicId) {
+          return res.status(403).json({ success: false, message: "User not linked to a clinic" });
+        }
+        clinicId = me.clinicId;
+        // Verify they're updating their own clinic
+        if (clinicId.toString() !== id.toString()) {
+          return res.status(403).json({ success: false, message: "Access denied" });
+        }
       }
 
       // ✅ Check permission for updating clinic (only for clinic, admin bypasses)
@@ -200,14 +234,20 @@ export default async function handler(req, res) {
         }
       }
 
-      // Find the clinic by ID and verify ownership (for clinic users)
+      // Find the clinic by ID and verify ownership/access
       let existingClinic;
       if (me.role === "clinic") {
         existingClinic = await Clinic.findOne({
-        _id: id,
+          _id: id,
           owner: me._id,
-      });
+        });
       } else if (me.role === "admin") {
+        existingClinic = await Clinic.findById(id);
+      } else if (["agent", "doctor", "doctorStaff", "staff"].includes(me.role)) {
+        // For agent, doctor, doctorStaff, and staff, verify clinicId matches
+        if (!me.clinicId || me.clinicId.toString() !== id.toString()) {
+          return res.status(403).json({ success: false, message: "Access denied" });
+        }
         existingClinic = await Clinic.findById(id);
       }
 
