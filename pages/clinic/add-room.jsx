@@ -567,7 +567,7 @@ function AddRoomPage({ contextOverride = null }) {
   const deptCreateDisabled = submittingDept || !permissions.canCreate;
 
   return (
-    <div className="space-y-2 sm:space-y-4">
+    <div className="p-3 sm:p-4 lg:p-5 space-y-3 sm:space-y-4 lg:space-y-5">
       <Toaster
         position="top-right"
         toastOptions={{
@@ -639,49 +639,91 @@ function AddRoomPage({ contextOverride = null }) {
         </div>
       ) : (
         <>
-          <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-3 sm:p-4">
-            <div className="flex flex-col gap-1 mb-3 sm:mb-4">
-              <h1 className="text-base sm:text-lg font-semibold text-gray-900">Manage Rooms</h1>
-              <p className="text-xs sm:text-sm text-gray-700">Create and manage rooms for your clinic.</p>
+          {/* Create Forms - Side by Side */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4 lg:gap-5">
+            {/* Manage Rooms Form */}
+            <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-3 sm:p-4">
+              <div className="flex flex-col gap-1 mb-3 sm:mb-4">
+                <h1 className="text-base sm:text-lg font-semibold text-gray-900">Manage Rooms</h1>
+                <p className="text-xs sm:text-sm text-gray-700">Create and manage rooms for your clinic.</p>
+              </div>
+
+              <MessageBanner type={message.type} text={message.text} />
+
+              {permissions.canCreate && (
+                <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Room Name <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={roomName}
+                      onChange={(e) => setRoomName(e.target.value)}
+                      placeholder="e.g., Consultation Room 1, Operation Theater A"
+                      className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
+                      required
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={roomCreateDisabled}
+                    className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl font-medium shadow hover:bg-blue-700 disabled:opacity-60"
+                  >
+                    {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
+                    {submitting ? "Creating..." : "Create Room"}
+                  </button>
+                </form>
+              )}
             </div>
 
-            <MessageBanner type={message.type} text={message.text} />
+            {/* Manage Dept Form */}
+            <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-3 sm:p-4">
+              <div className="flex flex-col gap-1 mb-3 sm:mb-4">
+                <h1 className="text-base sm:text-lg font-semibold text-gray-900">Manage Dept</h1>
+                <p className="text-xs sm:text-sm text-gray-700">Create and manage departments for your clinic.</p>
+              </div>
 
-            {permissions.canCreate && (
-              <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Room Name <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={roomName}
-                    onChange={(e) => setRoomName(e.target.value)}
-                    placeholder="e.g., Consultation Room 1, Operation Theater A"
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
-                    required
-                  />
-                </div>
+              {permissions.canCreate && (
+                <form onSubmit={handleDepartmentSubmit} className="mt-6 space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Department Name <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={departmentName}
+                      onChange={(e) => setDepartmentName(e.target.value)}
+                      placeholder="e.g., Cardiology, Dermatology"
+                      className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
+                      required
+                    />
+                  </div>
 
-                <button
-                  type="submit"
-                  disabled={roomCreateDisabled}
-                  className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl font-medium shadow hover:bg-blue-700 disabled:opacity-60"
-                >
-                  {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
-                  {submitting ? "Creating..." : "Create Room"}
-                </button>
-              </form>
-            )}
+                  <button
+                    type="submit"
+                    disabled={deptCreateDisabled}
+                    className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-green-600 text-white rounded-xl font-medium shadow hover:bg-green-700 disabled:opacity-60"
+                  >
+                    {submittingDept && <Loader2 className="w-4 h-4 animate-spin" />}
+                    {submittingDept ? "Creating..." : "Create Department"}
+                  </button>
+                </form>
+              )}
+            </div>
           </div>
 
-          <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-3 sm:p-4">
-            <div className="flex items-center justify-between mb-3 sm:mb-4">
-              <div>
-                <h2 className="text-base sm:text-lg font-semibold text-gray-900">All Rooms</h2>
-                <p className="text-xs sm:text-sm text-gray-700">List of all rooms in your clinic.</p>
+          {/* Lists - Side by Side */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4 lg:gap-5">
+            {/* All Rooms List */}
+            <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-3 sm:p-4">
+              <div className="flex items-center justify-between mb-3 sm:mb-4">
+                <div>
+                  <h2 className="text-base sm:text-lg font-semibold text-gray-900">All Rooms</h2>
+                  <p className="text-xs sm:text-sm text-gray-700">List of all rooms in your clinic.</p>
+                </div>
               </div>
-            </div>
 
             {loading ? (
               <div className="flex items-center justify-center py-8 text-gray-700">
@@ -777,50 +819,16 @@ function AddRoomPage({ contextOverride = null }) {
                 ))}
               </div>
             )}
-          </div>
-
-          {/* Departments Section */}
-          <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-3 sm:p-4">
-            <div className="flex flex-col gap-1 mb-3 sm:mb-4">
-              <h1 className="text-base sm:text-lg font-semibold text-gray-900">Manage Departments</h1>
-              <p className="text-xs sm:text-sm text-gray-700">Create and manage departments for your clinic.</p>
             </div>
 
-            {permissions.canCreate && (
-              <form onSubmit={handleDepartmentSubmit} className="mt-6 space-y-4">
+            {/* All Departments List */}
+            <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-3 sm:p-4">
+              <div className="flex items-center justify-between mb-3 sm:mb-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Department Name <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={departmentName}
-                    onChange={(e) => setDepartmentName(e.target.value)}
-                    placeholder="e.g., Cardiology, Dermatology"
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
-                    required
-                  />
+                  <h2 className="text-base sm:text-lg font-semibold text-gray-900">All Departments</h2>
+                  <p className="text-xs sm:text-sm text-gray-700">List of all departments in your clinic.</p>
                 </div>
-
-                <button
-                  type="submit"
-                  disabled={deptCreateDisabled}
-                  className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-green-600 text-white rounded-xl font-medium shadow hover:bg-green-700 disabled:opacity-60"
-                >
-                  {submittingDept && <Loader2 className="w-4 h-4 animate-spin" />}
-                  {submittingDept ? "Creating..." : "Create Department"}
-                </button>
-              </form>
-            )}
-          </div>
-
-          <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-3 sm:p-4">
-            <div className="flex items-center justify-between mb-3 sm:mb-4">
-              <div>
-                <h2 className="text-base sm:text-lg font-semibold text-gray-900">All Departments</h2>
-                <p className="text-xs sm:text-sm text-gray-700">List of all departments in your clinic.</p>
               </div>
-            </div>
 
             {loading ? (
               <div className="flex items-center justify-center py-8 text-gray-700">
@@ -918,6 +926,7 @@ function AddRoomPage({ contextOverride = null }) {
                 ))}
               </div>
             )}
+            </div>
           </div>
         </>
       )}

@@ -767,7 +767,7 @@ const ClinicCard = ({ clinic, onEdit, getImagePath, canUpdate, stats, statsLoadi
         </div>
         <div className="grid grid-cols-3 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3">
           <StatCard
-            icon={<Star className="w-5 h-5" />}
+            icon={<Star className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5" />}
             label="Reviews"
             value={stats?.totalReviews || 0}
             color="text-yellow-600"
@@ -776,7 +776,7 @@ const ClinicCard = ({ clinic, onEdit, getImagePath, canUpdate, stats, statsLoadi
             loading={statsLoading}
           />
           <StatCard
-            icon={<Mail className="w-5 h-5" />}
+            icon={<Mail className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5" />}
             label="Enquiries"
             value={stats?.totalEnquiries || 0}
             color="text-blue-600"
@@ -785,7 +785,7 @@ const ClinicCard = ({ clinic, onEdit, getImagePath, canUpdate, stats, statsLoadi
             loading={statsLoading}
           />
           <StatCard
-            icon={<Star className="w-5 h-5" />}
+            icon={<Star className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5" />}
             label="Rating"
             value={stats?.averageRating && stats.averageRating > 0 ? stats.averageRating.toFixed(1) : "N/A"}
             color="text-green-600"
@@ -794,7 +794,7 @@ const ClinicCard = ({ clinic, onEdit, getImagePath, canUpdate, stats, statsLoadi
             loading={statsLoading}
           />
           <StatCard
-            icon={<Heart className="w-5 h-5" />}
+            icon={<Heart className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5" />}
             label="Treatments"
             value={totalTreatments}
             color="text-rose-600"
@@ -803,7 +803,7 @@ const ClinicCard = ({ clinic, onEdit, getImagePath, canUpdate, stats, statsLoadi
             loading={false}
           />
           <StatCard
-            icon={<Leaf className="w-5 h-5" />}
+            icon={<Leaf className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5" />}
             label="Services"
             value={totalServices}
             color="text-emerald-600"
@@ -812,7 +812,7 @@ const ClinicCard = ({ clinic, onEdit, getImagePath, canUpdate, stats, statsLoadi
             loading={false}
           />
           <StatCard
-            icon={<Activity className="w-5 h-5" />}
+            icon={<Activity className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5" />}
             label="Sub-Treatments"
             value={totalSubTreatments}
             color="text-purple-600"
@@ -943,17 +943,17 @@ interface StatCardProps {
 
 const StatCard = ({ icon, label, value, color, bgColor, borderColor, loading }: StatCardProps) => (
   <div className={`bg-white rounded-lg p-2 sm:p-3 border ${borderColor} ${bgColor} shadow-sm hover:shadow-md transition-all`}>
-    <div className={`flex items-center gap-1.5 mb-1.5 ${color}`}>
-      <div className="w-3.5 h-3.5">{icon}</div>
+    <div className={`flex items-center gap-2 sm:gap-2.5 mb-1 sm:mb-1.5 ${color}`}>
+      <div className="w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4 flex-shrink-0">{icon}</div>
       <span className="text-[10px] sm:text-xs font-semibold text-gray-700 truncate">{label}</span>
     </div>
     {loading ? (
       <div className="flex items-center gap-1.5">
-        <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-gray-800"></div>
-        <span className="text-[10px] text-gray-500">Loading...</span>
+        <div className="animate-spin rounded-full h-2.5 w-2.5 sm:h-3 sm:w-3 border-b-2 border-gray-800"></div>
+        <span className="text-[10px] sm:text-xs text-gray-500">Loading...</span>
       </div>
     ) : (
-      <p className="text-lg sm:text-xl font-bold text-gray-900">{value}</p>
+      <p className="text-base sm:text-lg md:text-xl font-bold text-gray-900">{value}</p>
     )}
   </div>
 );

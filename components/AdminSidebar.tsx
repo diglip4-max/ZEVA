@@ -58,6 +58,13 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   {
+    label: 'Dashboard',
+    path: '/admin/dashboard-admin',
+    icon: HomeIcon,
+    iconSolid: HomeIconSolid,
+    description: 'Admin Dashboard'
+  },
+  {
     label: 'Approval Clinic',
     path: '/admin/AdminClinicApproval ',
     icon: CheckCircleIcon,

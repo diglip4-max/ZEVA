@@ -682,7 +682,16 @@ const GmailSender = () => {
 };
 
 // Layout
-GmailSender.getLayout = (page) => <ClinicLayout>{page}</ClinicLayout>;
+GmailSender.getLayout = function PageLayout(page) {
+  // Wrap page in ClinicLayout for persistent layout
+  // When getLayout is used, Next.js keeps the layout mounted and only swaps page content
+  // This prevents sidebar and header from re-rendering on navigation
+  return (
+    <ClinicLayout hideSidebar={false} hideHeader={false}>
+      {page}
+    </ClinicLayout>
+  );
+};
 
 // Protect and preserve layout
 const ProtectedGmailSender = withClinicAuth(GmailSender);

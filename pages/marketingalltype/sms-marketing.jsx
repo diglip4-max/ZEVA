@@ -645,7 +645,16 @@ const SmsSender = () => {
   );
 };
 
-SmsSender.getLayout = (page) => <ClinicLayout>{page}</ClinicLayout>;
+SmsSender.getLayout = function PageLayout(page) {
+  // Wrap page in ClinicLayout for persistent layout
+  // When getLayout is used, Next.js keeps the layout mounted and only swaps page content
+  // This prevents sidebar and header from re-rendering on navigation
+  return (
+    <ClinicLayout hideSidebar={false} hideHeader={false}>
+      {page}
+    </ClinicLayout>
+  );
+};
 const ProtectedSmsSender = withClinicAuth(SmsSender);
 ProtectedSmsSender.getLayout = SmsSender.getLayout;
 

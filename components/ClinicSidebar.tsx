@@ -23,6 +23,63 @@ import {
   ChevronRight,
   X,
   Menu,
+  Inbox,
+  UserPlus,
+  ClipboardList,
+  Gift,
+  UserCog,
+  PenTool,
+  BriefcaseBusiness,
+  Eye,
+  Phone,
+  MessageCircle,
+  Send,
+  FileEdit,
+  HelpCircle,
+  Bell,
+  CalendarCheck,
+  CalendarDays,
+  Clock,
+  DollarSign,
+  Package,
+  ShoppingBag,
+  Heart,
+  Activity,
+  Zap,
+  Target,
+  Award,
+  Shield,
+  BookOpen,
+  Newspaper,
+  Image,
+  Video,
+  Music,
+  Folder,
+  File,
+  Database,
+  Server,
+  Cloud,
+  Wifi,
+  Globe,
+  Link as LinkIcon,
+  Share2,
+  Download,
+  Upload,
+  RefreshCw,
+  Search,
+  Filter,
+  MoreHorizontal,
+  Plus,
+  Minus,
+  Edit,
+  Trash2,
+  Save,
+  Check,
+  XCircle,
+  AlertCircle,
+  Info,
+  CheckCircle,
+  AlertTriangle,
 } from "lucide-react";
 
 interface NavItemChild {
@@ -59,24 +116,116 @@ interface ClinicSidebarProps {
   className?: string;
 }
 
-// Icon mapping for professional icons
+// Comprehensive icon mapping for professional clinic icons
 const iconMap: { [key: string]: React.ReactNode } = {
+  // Dashboard & Overview
   '📊': <BarChart3 className="w-4 h-4" />,
-  '👥': <Users className="w-4 h-4" />,
-  '📝': <FileText className="w-4 h-4" />,
-  '💼': <Briefcase className="w-4 h-4" />,
-  '💬': <MessageSquare className="w-4 h-4" />,
-  '📅': <Calendar className="w-4 h-4" />,
-  '💳': <CreditCard className="w-4 h-4" />,
-  '⭐': <Star className="w-4 h-4" />,
-  '📧': <Mail className="w-4 h-4" />,
-  '⚙️': <Settings className="w-4 h-4" />,
-  '📈': <TrendingUp className="w-4 h-4" />,
-  '🔒': <Lock className="w-4 h-4" />,
-  '🏥': <Building2 className="w-4 h-4" />,
-  '👤': <UserCircle className="w-4 h-4" />,
   '🏠': <LayoutDashboard className="w-4 h-4" />,
+  '📈': <TrendingUp className="w-4 h-4" />,
+  '📉': <Activity className="w-4 h-4" />,
+  '⚡': <Zap className="w-4 h-4" />,
+  '🎯': <Target className="w-4 h-4" />,
+  
+  // Users & People
+  '👥': <Users className="w-4 h-4" />,
+  '👤': <UserCircle className="w-4 h-4" />,
+  '👨‍⚕️': <UserPlus className="w-4 h-4" />,
+  '👨‍💼': <UserCog className="w-4 h-4" />,
+  '👨‍🔬': <Stethoscope className="w-4 h-4" />,
+  
+  // Communication & Messages
+  '💬': <MessageSquare className="w-4 h-4" />,
+  '📧': <Mail className="w-4 h-4" />,
+  '📨': <Inbox className="w-4 h-4" />,
+  '💭': <MessageCircle className="w-4 h-4" />,
+  '📱': <Phone className="w-4 h-4" />,
+  '📤': <Send className="w-4 h-4" />,
+  
+  // Calendar & Appointments
+  '📅': <Calendar className="w-4 h-4" />,
+  '📆': <CalendarDays className="w-4 h-4" />,
+  '📅✅': <CalendarCheck className="w-4 h-4" />,
+  '⏰': <Clock className="w-4 h-4" />,
+  '🗓️': <CalendarCheck className="w-4 h-4" />,
+  
+  // Documents & Files
+  '📝': <FileText className="w-4 h-4" />,
+  '📄': <File className="w-4 h-4" />,
+  '📑': <FileEdit className="w-4 h-4" />,
+  '📋': <ClipboardList className="w-4 h-4" />,
+  '📚': <BookOpen className="w-4 h-4" />,
+  '📰': <Newspaper className="w-4 h-4" />,
+  '✍️': <PenTool className="w-4 h-4" />,
+  
+  // Business & Work
+  '💼': <Briefcase className="w-4 h-4" />,
+  '💼‍': <BriefcaseBusiness className="w-4 h-4" />,
+  '🏢': <Building2 className="w-4 h-4" />,
+  '🏥': <Building2 className="w-4 h-4" />,
   '🩺': <Stethoscope className="w-4 h-4" />,
+  
+  // Reviews & Ratings
+  '⭐': <Star className="w-4 h-4" />,
+  '👁️': <Eye className="w-4 h-4" />,
+  '🏆': <Award className="w-4 h-4" />,
+  
+  // Offers & Promotions
+  '🎁': <Gift className="w-4 h-4" />,
+  '🎉': <Package className="w-4 h-4" />,
+  '🛍️': <ShoppingBag className="w-4 h-4" />,
+  
+  // Payments & Finance
+  '💳': <CreditCard className="w-4 h-4" />,
+  '💰': <DollarSign className="w-4 h-4" />,
+  
+  // Settings & Security
+  '⚙️': <Settings className="w-4 h-4" />,
+  '🔒': <Lock className="w-4 h-4" />,
+  '🛡️': <Shield className="w-4 h-4" />,
+  
+  // Notifications & Alerts
+  '🔔': <Bell className="w-4 h-4" />,
+  '⚠️': <AlertTriangle className="w-4 h-4" />,
+  'ℹ️': <Info className="w-4 h-4" />,
+  '❓': <HelpCircle className="w-4 h-4" />,
+  '✅': <CheckCircle className="w-4 h-4" />,
+  '❌': <XCircle className="w-4 h-4" />,
+  
+  // Media & Content
+  '🖼️': <Image className="w-4 h-4" />,
+  '🎬': <Video className="w-4 h-4" />,
+  '🎵': <Music className="w-4 h-4" />,
+  
+  // Actions & Tools
+  '➕': <Plus className="w-4 h-4" />,
+  '➖': <Minus className="w-4 h-4" />,
+  '✏️': <Edit className="w-4 h-4" />,
+  '🗑️': <Trash2 className="w-4 h-4" />,
+  '💾': <Save className="w-4 h-4" />,
+  '🔍': <Search className="w-4 h-4" />,
+  '🔎': <Filter className="w-4 h-4" />,
+  '🔄': <RefreshCw className="w-4 h-4" />,
+  '⬇️': <Download className="w-4 h-4" />,
+  '⬆️': <Upload className="w-4 h-4" />,
+  '🔗': <LinkIcon className="w-4 h-4" />,
+  '🔀': <Share2 className="w-4 h-4" />,
+  '⋯': <MoreHorizontal className="w-4 h-4" />,
+  
+  // Folders & Organization
+  '📁': <Folder className="w-4 h-4" />,
+  '🗄️': <Database className="w-4 h-4" />,
+  '🖥️': <Server className="w-4 h-4" />,
+  '☁️': <Cloud className="w-4 h-4" />,
+  
+  // Network & Connectivity
+  '🌐': <Globe className="w-4 h-4" />,
+  '📶': <Wifi className="w-4 h-4" />,
+  
+  // Health & Medical
+  '❤️': <Heart className="w-4 h-4" />,
+  '💊': <Package className="w-4 h-4" />,
+  
+  // Default fallback for any unmapped icons
 };
 
 const ClinicSidebar: FC<ClinicSidebarProps> = ({ className }) => {

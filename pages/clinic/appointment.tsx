@@ -181,7 +181,7 @@ function formatTime(time24: string): string {
   return `${hour12}:${String(min).padStart(2, "0")} ${period}`;
 }
 
-function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic" | "agent" }) {
+function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic" | "agent" | null }) {
   const [routeContext, setRouteContext] = useState<"clinic" | "agent">(
     contextOverride || "clinic"
   );
@@ -646,7 +646,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
   };
 
   return (
-    <div className="space-y-2">
+    <div className="p-3 sm:p-4 lg:p-5 space-y-3 sm:space-y-4 lg:space-y-5">
       <Toaster
         position="top-right"
         toastOptions={{
@@ -675,26 +675,6 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
             },
             style: {
               background: "#ef4444",
-              color: "#fff",
-            },
-          },
-          warning: {
-            iconTheme: {
-              primary: "#f59e0b",
-              secondary: "#fff",
-            },
-            style: {
-              background: "#f59e0b",
-              color: "#fff",
-            },
-          },
-          info: {
-            iconTheme: {
-              primary: "#3b82f6",
-              secondary: "#fff",
-            },
-            style: {
-              background: "#3b82f6",
               color: "#fff",
             },
           },
@@ -1540,4 +1520,5 @@ const ProtectedAppointmentPage: NextPageWithLayout = withClinicAuth(AppointmentP
 ProtectedAppointmentPage.getLayout = AppointmentPage.getLayout;
 
 export default ProtectedAppointmentPage;
+
 

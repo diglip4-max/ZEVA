@@ -7,14 +7,8 @@ import type { NextPageWithLayout } from "../_app";
 import {
   Search,
   Filter,
-  Calendar,
   User,
-  Clock,
-  MapPin,
-  FileText,
   MoreVertical,
-  ChevronDown,
-  X,
   Edit,
   History,
 } from "lucide-react";
@@ -348,16 +342,13 @@ const AllAppointmentsPage: NextPageWithLayout = ({
     return dateStr;
   };
 
-  const hideClinicChrome = routeContext === "agent";
-
   return (
     <>
-    <ClinicLayout hideSidebar={hideClinicChrome} hideHeader={hideClinicChrome}>
-      <div className="bg-gray-50 min-h-screen" style={{ width: '100%', padding: '0', margin: '0' }}>
-        <div className="p-3 sm:p-4 md:p-6" style={{ width: '100%', minWidth: '100%' }}>
-          <div className="w-full" style={{ width: '100%', overflowX: 'visible' }}>
-          {/* Header */}
-          <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6 mb-4 sm:mb-6">
+        <div className="bg-gray-50 min-h-screen" style={{ width: '100%', padding: '0', margin: '0' }}>
+          <div className="p-3 sm:p-4 md:p-6" style={{ width: '100%', minWidth: '100%' }}>
+            <div className="w-full" style={{ width: '100%', overflowX: 'visible' }}>
+              {/* Header */}
+              <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6 mb-4 sm:mb-6">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
               <h1 className="text-xl sm:text-2xl font-bold text-gray-900">All Appointments</h1>
               <div className="flex items-center gap-3">
@@ -899,7 +890,6 @@ const AllAppointmentsPage: NextPageWithLayout = ({
           </div>
         </div>
       </div>
-      </ClinicLayout>
 
       {/* Edit Appointment Modal */}
       <EditAppointmentModal
@@ -939,7 +929,18 @@ const AllAppointmentsPage: NextPageWithLayout = ({
   );
 };
 
-AllAppointmentsPage.getLayout = (page: React.ReactElement) => page;
+AllAppointmentsPage.getLayout = function PageLayout(page: React.ReactElement) {
+  // Wrap page in ClinicLayout for persistent layout
+  // When getLayout is used, Next.js keeps the layout mounted and only swaps page content
+  // This prevents sidebar and header from re-rendering on navigation
+  // For clinic routes, sidebar and header will be visible and persistent
+  // For agent routes, the component can handle hiding via contextOverride if needed
+  return (
+    <ClinicLayout hideSidebar={false} hideHeader={false}>
+      {page}
+    </ClinicLayout>
+  );
+};
 export const ClinicAllAppointmentsPageBase = AllAppointmentsPage;
 
 const ProtectedAppointmentsPage = withClinicAuth(AllAppointmentsPage) as NextPageWithLayout;

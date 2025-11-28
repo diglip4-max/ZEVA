@@ -7,6 +7,14 @@ import { clinicNavigationItems } from "../../../data/clinicNavigationItems";
 // Admin sidebar items (from AdminSidebar.tsx)
 const adminNavigationItems = [
   {
+    label: 'Dashboard',
+    path: '/admin/dashboard-admin',
+    icon: '🏠',
+    description: 'Admin Dashboard',
+    moduleKey: 'dashboard',
+    order: 1,
+  },
+  {
     label: 'SMS Management',
     icon: '💬',
     description: 'Manage SMS wallets and top-ups',

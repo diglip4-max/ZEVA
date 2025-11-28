@@ -347,7 +347,16 @@ const WhatsAppSender = () => {
 };
 
 // Layout
-WhatsAppSender.getLayout = (page) => <ClinicLayout>{page}</ClinicLayout>;
+WhatsAppSender.getLayout = function PageLayout(page) {
+  // Wrap page in ClinicLayout for persistent layout
+  // When getLayout is used, Next.js keeps the layout mounted and only swaps page content
+  // This prevents sidebar and header from re-rendering on navigation
+  return (
+    <ClinicLayout hideSidebar={false} hideHeader={false}>
+      {page}
+    </ClinicLayout>
+  );
+};
 
 // Protect and preserve layout
 const ProtectedWhatsAppSender = withClinicAuth(WhatsAppSender);

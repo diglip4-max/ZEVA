@@ -955,7 +955,14 @@ const AssignedLeadsPage = ({ contextOverride = null }) => {
 };
 
 AssignedLeadsPage.getLayout = function PageLayout(page) {
-  return <ClinicLayout>{page}</ClinicLayout>;
+  // Wrap page in ClinicLayout for persistent layout
+  // When getLayout is used, Next.js keeps the layout mounted and only swaps page content
+  // This prevents sidebar and header from re-rendering on navigation
+  return (
+    <ClinicLayout hideSidebar={false} hideHeader={false}>
+      {page}
+    </ClinicLayout>
+  );
 };
 
 export const AssignedLeadsPageBase = AssignedLeadsPage;
