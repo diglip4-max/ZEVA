@@ -173,7 +173,7 @@ const PatientCard = ({ patient, onUpdate, onViewDetails }) => (
   </div>
 );
 
-function PatientFilterUI({ hideHeader = false }) {
+function PatientFilterUI({ hideHeader = false, onEditPatient }) {
   const router = useRouter();
   const [filters, setFilters] = useState({ emrNumber: "", invoiceNumber: "", name: "", phone: "", claimStatus: "", applicationStatus: "", dateFrom: "", dateTo: "" });
   const [patients, setPatients] = useState([]);
@@ -223,6 +223,10 @@ function PatientFilterUI({ hideHeader = false }) {
   useEffect(() => { fetchPatients(); }, []);
 
   const handleUpdate = (id) => {
+    if (typeof onEditPatient === "function") {
+      onEditPatient(id);
+      return;
+    }
     const isClinicRoute = router.pathname?.startsWith('/clinic/') || (typeof window !== 'undefined' && window.location.pathname?.startsWith('/clinic/'));
     if (isClinicRoute) {
       router.push(`/clinic/update-patient-info/${id}`);

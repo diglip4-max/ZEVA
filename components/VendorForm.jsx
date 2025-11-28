@@ -1,8 +1,8 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/router";
 import axios from "axios";
-import { CheckCircle, AlertCircle, Trash2, Edit3, Plus, X, Search, Mail, Phone, MapPin, Hash, Info, AlertTriangle } from "lucide-react";
+import { CheckCircle, AlertCircle, Trash2, Edit3, Plus, X, Search, Mail, Phone, MapPin, Hash, Info, AlertTriangle, Loader2 } from "lucide-react";
 import { useAgentPermissions } from "../hooks/useAgentPermissions";
 
 const TOKEN_PRIORITY = [
@@ -139,6 +139,172 @@ export default function VendorForm() {
   // Check if user is an admin or agent - use state to ensure reactivity
   const [isAdmin, setIsAdmin] = useState(false);
   const [isAgent, setIsAgent] = useState(false);
+  const [permissions, setPermissions] = useState({
+    canCreate: true,
+    canRead: true,
+    canUpdate: true,
+    canDelete: true,
+  });
+  const [permissionsLoaded, setPermissionsLoaded] = useState(false);
+  const [isClinicContext, setIsClinicContext] = useState(false);
+  
+  // Check if we're in clinic context
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const path = window.location.pathname;
+      setIsClinicContext(path.startsWith("/clinic/"));
+    } else if (router?.pathname) {
+      setIsClinicContext(router.pathname.startsWith("/clinic/"));
+    }
+  }, [router?.pathname]);
+
+  // Fetch permissions for clinic context
+  const fetchClinicPermissions = useCallback(async () => {
+    if (!isClinicContext) {
+      setPermissionsLoaded(true);
+      return;
+    }
+
+    try {
+      setPermissionsLoaded(false);
+      const token = getStoredToken();
+      if (!token) {
+        setPermissions({
+          canCreate: false,
+          canRead: false,
+          canUpdate: false,
+          canDelete: false,
+        });
+        setPermissionsLoaded(true);
+        return;
+      }
+
+      const res = await axios.get("/api/clinic/permissions", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const data = res.data;
+      if (data.success && data.data) {
+        // Find clinic_staff_management module
+        const modulePermission = data.data.permissions?.find((p) => {
+          if (!p?.module) return false;
+          const normalized = p.module.startsWith("clinic_")
+            ? p.module.slice(7)
+            : p.module.startsWith("admin_")
+            ? p.module.slice(6)
+            : p.module;
+          return normalized === "clinic_staff_management" || normalized === "staff_management";
+        });
+
+        if (modulePermission) {
+          const actions = modulePermission.actions || {};
+          const moduleAll = actions.all === true || 
+                           actions.all === "true" || 
+                           String(actions.all).toLowerCase() === "true";
+
+          // Find "Add Vendor" submodule
+          const vendorSubModule = modulePermission.subModules?.find(
+            (sm) => {
+              const subModuleName = (sm?.name || "").trim();
+              const subModulePath = (sm?.path || "").trim();
+              const nameMatch = subModuleName === "Add Vendor" || 
+                               subModuleName === "Create Vendor" ||
+                               subModuleName.toLowerCase().includes("vendor");
+              const pathMatch = subModulePath.includes("/add-vendor") || 
+                               subModulePath.includes("/create-vendor") ||
+                               subModulePath.includes("vendor");
+              return nameMatch || pathMatch;
+            }
+          );
+
+          if (vendorSubModule) {
+            const subModuleActions = vendorSubModule.actions || {};
+            const subModuleAll = subModuleActions.all === true || 
+                                subModuleActions.all === "true" || 
+                                String(subModuleActions.all).toLowerCase() === "true";
+
+            const checkPermission = (actionName) => {
+              if (subModuleActions && subModuleActions.hasOwnProperty(actionName)) {
+                const actionValue = subModuleActions[actionName];
+                if (actionValue === true || actionValue === "true" || String(actionValue).toLowerCase() === "true") {
+                  return true;
+                }
+                if (actionValue === false || actionValue === "false" || String(actionValue).toLowerCase() === "false") {
+                  return false;
+                }
+              }
+              if (subModuleAll) return true;
+              if (actions && actions.hasOwnProperty(actionName)) {
+                const moduleActionValue = actions[actionName];
+                if (moduleActionValue === true || moduleActionValue === "true" || String(moduleActionValue).toLowerCase() === "true") {
+                  return true;
+                }
+                if (moduleActionValue === false || moduleActionValue === "false" || String(moduleActionValue).toLowerCase() === "false") {
+                  return false;
+                }
+              }
+              if (moduleAll) return true;
+              return false;
+            };
+
+            setPermissions({
+              canCreate: checkPermission("create"),
+              canRead: checkPermission("read"),
+              canUpdate: checkPermission("update"),
+              canDelete: checkPermission("delete"),
+            });
+          } else {
+            const checkPermission = (actionName) => {
+              if (moduleAll) return true;
+              const moduleActionValue = actions[actionName];
+              if (moduleActionValue === true || moduleActionValue === "true" || String(moduleActionValue).toLowerCase() === "true") {
+                return true;
+              }
+              if (moduleActionValue === false || moduleActionValue === "false" || String(moduleActionValue).toLowerCase() === "false") {
+                return false;
+              }
+              return false;
+            };
+
+            setPermissions({
+              canCreate: checkPermission("create"),
+              canRead: checkPermission("read"),
+              canUpdate: checkPermission("update"),
+              canDelete: checkPermission("delete"),
+            });
+          }
+        } else {
+          setPermissions({
+            canCreate: false,
+            canRead: false,
+            canUpdate: false,
+            canDelete: false,
+          });
+        }
+      } else {
+        setPermissions({
+          canCreate: false,
+          canRead: false,
+          canUpdate: false,
+          canDelete: false,
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching clinic permissions for Add Vendor:", error);
+      setPermissions({
+        canCreate: false,
+        canRead: false,
+        canUpdate: false,
+        canDelete: false,
+      });
+    } finally {
+      setPermissionsLoaded(true);
+    }
+  }, [isClinicContext]);
+
+  useEffect(() => {
+    fetchClinicPermissions();
+  }, [fetchClinicPermissions]);
   
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -190,6 +356,14 @@ export default function VendorForm() {
   const permissionsLoading = isAgent ? agentPermissionsData?.loading : false;
 
   useEffect(() => {
+    if (isClinicContext && !permissionsLoaded) {
+      return;
+    }
+    if (isClinicContext && !permissions.canRead) {
+      setVendors([]);
+      setFilteredVendors([]);
+      return;
+    }
     if (isAdmin) {
       fetchVendors();
     } else if (isAgent) {
@@ -198,10 +372,12 @@ export default function VendorForm() {
           fetchVendors();
         }
       }
+    } else if (isClinicContext && permissionsLoaded && permissions.canRead) {
+      fetchVendors();
     } else {
-      // Neither admin nor agent - don't fetch
+      // Neither admin nor agent nor clinic with read permission - don't fetch
     }
-  }, [isAdmin, isAgent, permissionsLoading, agentPermissions]);
+  }, [isAdmin, isAgent, isClinicContext, permissionsLoaded, permissions.canRead, permissionsLoading, agentPermissions]);
 
   useEffect(() => {
     const filtered = vendors.filter((v) =>
@@ -259,6 +435,18 @@ export default function VendorForm() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Check clinic permissions first
+    if (isClinicContext) {
+      if (editId && !permissions.canUpdate) {
+        showToast("You do not have permission to update vendors", "error");
+        return;
+      }
+      if (!editId && !permissions.canCreate) {
+        showToast("You do not have permission to create vendors", "error");
+        return;
+      }
+    }
     
     // CRITICAL: Check route and tokens to determine if user is admin or agent
     const adminTokenExists = typeof window !== 'undefined' ? !!localStorage.getItem('adminToken') : false;
@@ -356,6 +544,12 @@ export default function VendorForm() {
   };
 
   const handleDelete = async (id) => {
+    // Check clinic permissions first
+    if (isClinicContext && !permissions.canDelete) {
+      showToast("You do not have permission to delete vendors", "error");
+      return;
+    }
+    
     // CRITICAL: Check route and tokens to determine if user is admin or agent
     const adminTokenExists = typeof window !== 'undefined' ? !!localStorage.getItem('adminToken') : false;
     const agentTokenExists = typeof window !== 'undefined' ? !!localStorage.getItem('agentToken') : false;
@@ -391,6 +585,12 @@ export default function VendorForm() {
   };
 
   const handleEdit = (vendor) => {
+    // Check clinic permissions first
+    if (isClinicContext && !permissions.canUpdate) {
+      showToast("You do not have permission to update vendors", "error");
+      return;
+    }
+    
     setEditId(vendor._id);
     setFormData({
       name: vendor.name,
@@ -431,22 +631,22 @@ export default function VendorForm() {
 
 
   // Check if agent has read permission
-  const hasReadPermission = isAdmin || (isAgent && agentPermissions && (agentPermissions.canRead === true || agentPermissions.canAll === true));
+  const hasReadPermission = isAdmin || (isAgent && agentPermissions && (agentPermissions.canRead === true || agentPermissions.canAll === true)) || (isClinicContext && permissions.canRead);
 
   // Show loading spinner while checking permissions
-  if (isAgent && permissionsLoading) {
+  if ((isAgent && permissionsLoading) || (isClinicContext && !permissionsLoaded)) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="inline-block w-10 h-10 sm:w-12 sm:h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
-          <p className="mt-4 text-sm sm:text-base text-slate-500">Loading...</p>
+          <Loader2 className="w-8 h-8 mx-auto mb-4 animate-spin text-blue-600" />
+          <p className="mt-4 text-sm sm:text-base text-slate-500">Checking your permissions...</p>
         </div>
       </div>
     );
   }
 
-  // Show access denied message if agent doesn't have read permission
-  if (isAgent && !hasReadPermission) {
+  // Show access denied message if agent or clinic doesn't have read permission
+  if ((isAgent && !hasReadPermission) || (isClinicContext && !permissions.canRead)) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="text-center max-w-md mx-auto">
@@ -479,6 +679,19 @@ export default function VendorForm() {
             
             // Admin always sees button - but ONLY if NOT on agent route
             if (!isAgentRoute && adminTokenExists && isAdmin) {
+              return (
+                <button
+                  onClick={openModal}
+                  className="flex items-center gap-2 bg-indigo-600 text-white px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg hover:bg-indigo-700 transition-all shadow-md hover:shadow-lg"
+                >
+                  <Plus className="w-5 h-5" />
+                  <span className="font-medium">Add Vendor</span>
+                </button>
+              );
+            }
+            
+            // For clinic: Only show if permissions are loaded AND create permission is explicitly true
+            if (isClinicContext && permissionsLoaded && permissions.canCreate) {
               return (
                 <button
                   onClick={openModal}
@@ -570,6 +783,19 @@ export default function VendorForm() {
                         );
                       }
                       
+                      // For clinic: Only show if permissions are loaded AND update permission is explicitly true
+                      if (isClinicContext && permissionsLoaded && permissions.canUpdate) {
+                        return (
+                          <button
+                            onClick={() => handleEdit(vendor)}
+                            className="text-blue-600 hover:bg-blue-50 p-2 rounded-lg transition-all"
+                            title="Edit Vendor"
+                          >
+                            <Edit3 className="w-4 h-4" />
+                          </button>
+                        );
+                      }
+                      
                       // For agents: Only show if permissions are loaded AND update permission is explicitly true
                       if ((isAgentRoute || isAgent) && agentTokenExists) {
                         if (permissionsLoading || !agentPermissions) {
@@ -601,6 +827,19 @@ export default function VendorForm() {
                       
                       // Admin always sees delete button - but ONLY if NOT on agent route
                       if (!isAgentRoute && adminTokenExists && isAdmin) {
+                        return (
+                          <button
+                            onClick={() => setConfirmDialog({ isOpen: true, vendorId: vendor._id })}
+                            className="text-red-600 hover:bg-red-50 p-2 rounded-lg transition-all"
+                            title="Delete Vendor"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        );
+                      }
+                      
+                      // For clinic: Only show if permissions are loaded AND delete permission is explicitly true
+                      if (isClinicContext && permissionsLoaded && permissions.canDelete) {
                         return (
                           <button
                             onClick={() => setConfirmDialog({ isOpen: true, vendorId: vendor._id })}

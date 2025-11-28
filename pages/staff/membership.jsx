@@ -1,4 +1,7 @@
 import React, { useEffect, useMemo, useState, useCallback, useRef } from "react";
+import { useRouter } from "next/router";
+import axios from "axios";
+import { Loader2 } from "lucide-react";
 import ClinicLayout from "../../components/staffLayout";
 import withClinicAuth from "../../components/withStaffAuth";
 
@@ -30,7 +33,7 @@ const getAuthHeaders = () => {
   return { Authorization: `Bearer ${token}` };
 };
 
-const MembershipModal = ({ isOpen, onClose }) => {
+const MembershipModal = ({ isOpen, onClose, permissions = { canCreate: true }, isClinicContext = false }) => {
   const [emrNumber, setEmrNumber] = useState("");
   const [fetching, setFetching] = useState(false);
   const [patient, setPatient] = useState(null);
@@ -240,6 +243,12 @@ const MembershipModal = ({ isOpen, onClose }) => {
   const removeLine = (idx) => setLines(prev => prev.filter((_, i) => i !== idx));
 
   const saveMembership = async () => {
+    // Check clinic permissions
+    if (isClinicContext && !permissions.canCreate) {
+      alert("You do not have permission to create memberships");
+      return;
+    }
+    
     if (!patient || !selectedPackage || !packageDurationMonths) {
       alert("Select package, enter duration and fetch a patient first");
       return;
@@ -531,6 +540,7 @@ const getValidityStatus = (endDate) => {
 };
 
 function MembershipPage() {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [list, setList] = useState([]);
   const [viewOpen, setViewOpen] = useState(false);
@@ -540,10 +550,180 @@ function MembershipPage() {
   const [transferOpen, setTransferOpen] = useState(false);
   const [transferItem, setTransferItem] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [permissions, setPermissions] = useState({
+    canCreate: true,
+    canRead: true,
+    canUpdate: true,
+    canDelete: true,
+  });
+  const [permissionsLoaded, setPermissionsLoaded] = useState(false);
+  const [isClinicContext, setIsClinicContext] = useState(false);
 
   const token = getStoredToken();
 
+  // Check if we're in clinic context
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const path = window.location.pathname;
+      setIsClinicContext(path.startsWith("/clinic/"));
+    } else if (router?.pathname) {
+      setIsClinicContext(router.pathname.startsWith("/clinic/"));
+    }
+  }, [router?.pathname]);
+
+  // Fetch permissions for clinic context
+  const fetchClinicPermissions = useCallback(async () => {
+    if (!isClinicContext) {
+      setPermissionsLoaded(true);
+      return;
+    }
+
+    try {
+      setPermissionsLoaded(false);
+      const token = getStoredToken();
+      if (!token) {
+        setPermissions({
+          canCreate: false,
+          canRead: false,
+          canUpdate: false,
+          canDelete: false,
+        });
+        setPermissionsLoaded(true);
+        return;
+      }
+
+      const res = await axios.get("/api/clinic/permissions", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const data = res.data;
+      if (data.success && data.data) {
+        // Find clinic_staff_management module
+        const modulePermission = data.data.permissions?.find((p) => {
+          if (!p?.module) return false;
+          const normalized = p.module.startsWith("clinic_")
+            ? p.module.slice(7)
+            : p.module.startsWith("admin_")
+            ? p.module.slice(6)
+            : p.module;
+          return normalized === "clinic_staff_management" || normalized === "staff_management";
+        });
+
+        if (modulePermission) {
+          const actions = modulePermission.actions || {};
+          const moduleAll = actions.all === true || 
+                           actions.all === "true" || 
+                           String(actions.all).toLowerCase() === "true";
+
+          // Find "Membership" submodule
+          const membershipSubModule = modulePermission.subModules?.find(
+            (sm) => {
+              const subModuleName = (sm?.name || "").trim();
+              const subModulePath = (sm?.path || "").trim();
+              const nameMatch = subModuleName === "Membership" || 
+                               subModuleName.toLowerCase().includes("membership");
+              const pathMatch = subModulePath.includes("/membership");
+              return nameMatch || pathMatch;
+            }
+          );
+
+          if (membershipSubModule) {
+            const subModuleActions = membershipSubModule.actions || {};
+            const subModuleAll = subModuleActions.all === true || 
+                                subModuleActions.all === "true" || 
+                                String(subModuleActions.all).toLowerCase() === "true";
+
+            const checkPermission = (actionName) => {
+              if (subModuleActions && subModuleActions.hasOwnProperty(actionName)) {
+                const actionValue = subModuleActions[actionName];
+                if (actionValue === true || actionValue === "true" || String(actionValue).toLowerCase() === "true") {
+                  return true;
+                }
+                if (actionValue === false || actionValue === "false" || String(actionValue).toLowerCase() === "false") {
+                  return false;
+                }
+              }
+              if (subModuleAll) return true;
+              if (actions && actions.hasOwnProperty(actionName)) {
+                const moduleActionValue = actions[actionName];
+                if (moduleActionValue === true || moduleActionValue === "true" || String(moduleActionValue).toLowerCase() === "true") {
+                  return true;
+                }
+                if (moduleActionValue === false || moduleActionValue === "false" || String(moduleActionValue).toLowerCase() === "false") {
+                  return false;
+                }
+              }
+              if (moduleAll) return true;
+              return false;
+            };
+
+            setPermissions({
+              canCreate: checkPermission("create"),
+              canRead: checkPermission("read"),
+              canUpdate: checkPermission("update"),
+              canDelete: checkPermission("delete"),
+            });
+          } else {
+            const checkPermission = (actionName) => {
+              if (moduleAll) return true;
+              const moduleActionValue = actions[actionName];
+              if (moduleActionValue === true || moduleActionValue === "true" || String(moduleActionValue).toLowerCase() === "true") {
+                return true;
+              }
+              if (moduleActionValue === false || moduleActionValue === "false" || String(moduleActionValue).toLowerCase() === "false") {
+                return false;
+              }
+              return false;
+            };
+
+            setPermissions({
+              canCreate: checkPermission("create"),
+              canRead: checkPermission("read"),
+              canUpdate: checkPermission("update"),
+              canDelete: checkPermission("delete"),
+            });
+          }
+        } else {
+          setPermissions({
+            canCreate: false,
+            canRead: false,
+            canUpdate: false,
+            canDelete: false,
+          });
+        }
+      } else {
+        setPermissions({
+          canCreate: false,
+          canRead: false,
+          canUpdate: false,
+          canDelete: false,
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching clinic permissions for Membership:", error);
+      setPermissions({
+        canCreate: false,
+        canRead: false,
+        canUpdate: false,
+        canDelete: false,
+      });
+    } finally {
+      setPermissionsLoaded(true);
+    }
+  }, [isClinicContext]);
+
+  useEffect(() => {
+    fetchClinicPermissions();
+  }, [fetchClinicPermissions]);
+
   const fetchMemberships = useCallback(async () => {
+    if (isClinicContext && !permissionsLoaded) {
+      return;
+    }
+    if (isClinicContext && !permissions.canRead) {
+      setList([]);
+      return;
+    }
     try {
       const headers = getAuthHeaders();
       if (!headers) {
@@ -555,7 +735,7 @@ function MembershipPage() {
       const json = await res.json();
       if (res.ok && json.success) setList(json.data || []);
     } catch { }
-  }, [token]);
+  }, [token, isClinicContext, permissionsLoaded, permissions.canRead]);
 
   useEffect(() => { fetchMemberships(); }, [fetchMemberships]);
 
@@ -563,6 +743,35 @@ function MembershipPage() {
     item.emrNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
     item.packageName.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  // Show loading state while checking permissions
+  if (isClinicContext && !permissionsLoaded) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 mx-auto mb-4 animate-spin text-blue-600" />
+          <p className="text-sm text-gray-700">Checking your permissions...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show access denied if no read permission
+  if (isClinicContext && permissionsLoaded && !permissions.canRead) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-lg shadow-sm border border-red-200 p-8 max-w-md w-full text-center">
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4 text-red-600 text-2xl">
+            !
+          </div>
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Access Denied</h2>
+          <p className="text-gray-600 mb-4">
+            You do not have permission to view or manage memberships. Please contact your administrator if you believe this is incorrect.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4 sm:p-6">
@@ -574,9 +783,11 @@ function MembershipPage() {
               <h1 className="text-3xl font-bold text-gray-900">Memberships</h1>
               <p className="text-gray-600 text-sm mt-1">Manage member packages and benefits</p>
             </div>
-            <button onClick={() => setOpen(true)} className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors">
-              + Add Membership
-            </button>
+            {(!isClinicContext || permissions.canCreate) && (
+              <button onClick={() => setOpen(true)} className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors">
+                + Add Membership
+              </button>
+            )}
           </div>
         </div>
 
@@ -661,15 +872,24 @@ function MembershipPage() {
 
                   {/* Action Buttons */}
                   <div className="flex gap-2">
-                    <button onClick={() => { setViewItem(item); setViewOpen(true); }} className="flex-1 px-3 py-2 bg-blue-50 text-blue-700 rounded-lg font-medium text-sm hover:bg-blue-100 transition-colors">
-                      View
-                    </button>
-                    <button onClick={() => { setUpdateItem(item); setUpdateOpen(true); }} className="flex-1 px-3 py-2 bg-green-50 text-green-700 rounded-lg font-medium text-sm hover:bg-green-100 transition-colors">
-                      Edit
-                    </button>
-                    <button onClick={() => { setTransferItem(item); setTransferOpen(true); }} className="flex-1 px-3 py-2 bg-amber-50 text-amber-700 rounded-lg font-medium text-sm hover:bg-amber-100 transition-colors">
-                      Transfer
-                    </button>
+                    {(!isClinicContext || permissions.canRead) && (
+                      <button onClick={() => { setViewItem(item); setViewOpen(true); }} className="flex-1 px-3 py-2 bg-blue-50 text-blue-700 rounded-lg font-medium text-sm hover:bg-blue-100 transition-colors">
+                        View
+                      </button>
+                    )}
+                    {(!isClinicContext || permissions.canUpdate) && (
+                      <button onClick={() => { setUpdateItem(item); setUpdateOpen(true); }} className="flex-1 px-3 py-2 bg-green-50 text-green-700 rounded-lg font-medium text-sm hover:bg-green-100 transition-colors">
+                        Edit
+                      </button>
+                    )}
+                    {(!isClinicContext || permissions.canUpdate) && (
+                      <button onClick={() => { setTransferItem(item); setTransferOpen(true); }} className="flex-1 px-3 py-2 bg-amber-50 text-amber-700 rounded-lg font-medium text-sm hover:bg-amber-100 transition-colors">
+                        Transfer
+                      </button>
+                    )}
+                    {isClinicContext && !permissions.canRead && !permissions.canUpdate && (
+                      <span className="text-xs text-gray-400 text-center w-full py-2">No actions available</span>
+                    )}
               </div>
                 </div>
               );
@@ -683,7 +903,7 @@ function MembershipPage() {
         )}
 
         {/* Modals */}
-        <MembershipModal isOpen={open} onClose={() => { setOpen(false); fetchMemberships(); }} />
+        <MembershipModal isOpen={open} onClose={() => { setOpen(false); fetchMemberships(); }} permissions={permissions} isClinicContext={isClinicContext} />
 
         {/* View Modal */}
         {viewOpen && viewItem && (
@@ -757,7 +977,7 @@ function MembershipPage() {
                 <h3 className="text-lg font-bold">Update Membership</h3>
                 <button onClick={() => { setUpdateOpen(false); setUpdateItem(null); }} className="p-1 hover:bg-green-500 rounded transition-colors">✕</button>
               </div>
-              <UpdateMembershipBody item={updateItem} onClose={() => { setUpdateOpen(false); setUpdateItem(null); fetchMemberships(); }} />
+              <UpdateMembershipBody item={updateItem} onClose={() => { setUpdateOpen(false); setUpdateItem(null); fetchMemberships(); }} permissions={permissions} isClinicContext={isClinicContext} />
             </div>
           </div>
         )}
@@ -766,7 +986,7 @@ function MembershipPage() {
         {transferOpen && transferItem && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
             <div className="bg-white rounded-xl shadow-2xl w-full max-w-xl">
-              <TransferMembershipBody item={transferItem} onClose={() => { setTransferOpen(false); setTransferItem(null); fetchMemberships(); }} />
+              <TransferMembershipBody item={transferItem} onClose={() => { setTransferOpen(false); setTransferItem(null); fetchMemberships(); }} permissions={permissions} isClinicContext={isClinicContext} />
             </div>
           </div>
         )}
@@ -787,7 +1007,7 @@ export default Protected;
 
 
 // Inline component for update body
-function UpdateMembershipBody({ item, onClose }) {
+function UpdateMembershipBody({ item, onClose, permissions = { canUpdate: true }, isClinicContext = false }) {
   const [treatmentsList, setTreatmentsList] = useState([]);
   const [selectedTreatment, setSelectedTreatment] = useState("");
   const [price, setPrice] = useState("");
@@ -1092,7 +1312,7 @@ function UpdateMembershipBody({ item, onClose }) {
   );
 }
 
-function TransferMembershipBody({ item, onClose }) {
+function TransferMembershipBody({ item, onClose, permissions = { canUpdate: true }, isClinicContext = false }) {
   const [toEmr, setToEmr] = useState("");
   const [toName, setToName] = useState("");
   const [amount, setAmount] = useState("");

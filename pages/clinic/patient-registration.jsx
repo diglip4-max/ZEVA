@@ -5,11 +5,13 @@ import PatientInformation from "../staff/patient-information";
 import ClinicLayout from '../../components/ClinicLayout';
 import withClinicAuth from '../../components/withClinicAuth';
 import { X, UserPlus } from "lucide-react";
+import PatientUpdateForm from "../../components/patient/PatientUpdateForm";
 
 function ClinicPatientRegistration() {
   const router = useRouter();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [editPatientId, setEditPatientId] = useState(null);
 
   const handleOpenModal = () => {
     setIsModalOpen(true);
@@ -23,6 +25,17 @@ function ClinicPatientRegistration() {
     setIsModalOpen(false);
     // Trigger refresh of patient information
     setRefreshKey(prev => prev + 1);
+  };
+
+  const handleOpenEditModal = (patientId) => {
+    setEditPatientId(patientId);
+  };
+
+  const handleCloseEditModal = (shouldRefresh = false) => {
+    setEditPatientId(null);
+    if (shouldRefresh) {
+      setRefreshKey((prev) => prev + 1);
+    }
   };
 
   return (
@@ -60,7 +73,28 @@ function ClinicPatientRegistration() {
       <PatientInformationWithButton 
         onRegisterClick={handleOpenModal} 
         refreshKey={refreshKey}
+        onEditPatient={handleOpenEditModal}
       />
+
+      {editPatientId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto bg-black/60 backdrop-blur-sm">
+          <div className="relative w-full max-w-6xl">
+            <button
+              onClick={() => handleCloseEditModal(false)}
+              className="absolute -top-3 -right-3 z-10 bg-white rounded-full shadow p-2 hover:bg-gray-100"
+              aria-label="Close edit modal"
+            >
+              <X className="w-4 h-4" />
+            </button>
+            <PatientUpdateForm
+              patientId={editPatientId}
+              embedded
+              onClose={() => handleCloseEditModal(true)}
+              onUpdated={() => setRefreshKey((prev) => prev + 1)}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -71,7 +105,7 @@ const PatientRegistrationWrapper = ({ onSuccess }) => {
 };
 
 // Enhanced Patient Information component with Register button
-function PatientInformationWithButton({ onRegisterClick, refreshKey }) {
+function PatientInformationWithButton({ onRegisterClick, refreshKey, onEditPatient }) {
   return (
     <div>
       {/* Header with Register Button */}
@@ -94,7 +128,7 @@ function PatientInformationWithButton({ onRegisterClick, refreshKey }) {
       </div>
 
       {/* Patient Information Content - key prop forces remount on refresh */}
-      <PatientInformation key={refreshKey} hideHeader={true} />
+      <PatientInformation key={refreshKey} hideHeader={true} onEditPatient={onEditPatient} />
     </div>
   );
 }

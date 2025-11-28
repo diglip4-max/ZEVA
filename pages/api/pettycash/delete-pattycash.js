@@ -15,6 +15,48 @@ export default async function handler(req, res) {
     if (!token) return res.status(401).json({ success: false, message: "Unauthorized" });
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const staffId = decoded.userId;
+
+    // Get user to check role and permissions
+    const User = (await import("../../../models/Users")).default;
+    const user = await User.findById(staffId);
+    if (!user) {
+      return res.status(403).json({ success: false, message: "Access denied" });
+    }
+
+    // Check permissions for clinic/agent/doctor roles
+    if (["clinic", "agent", "doctor", "doctorStaff"].includes(user.role)) {
+      try {
+        const { getClinicIdFromUser, checkClinicPermission } = await import("../lead-ms/permissions-helper");
+        const { clinicId, error: clinicError } = await getClinicIdFromUser(user);
+        if (clinicError || !clinicId) {
+          return res.status(403).json({ 
+            success: false,
+            message: clinicError || "Unable to determine clinic access" 
+          });
+        }
+
+        const { hasPermission, error: permError } = await checkClinicPermission(
+          clinicId,
+          "clinic_staff_management",
+          "delete",
+          "Add Expense"
+        );
+
+        if (!hasPermission) {
+          return res.status(403).json({
+            success: false,
+            message: permError || "You do not have permission to delete expenses"
+          });
+        }
+      } catch (permErr) {
+        console.error("Permission check error:", permErr);
+        return res.status(500).json({ success: false, message: "Error checking permissions" });
+      }
+    } else if (!["staff", "admin"].includes(user.role)) {
+      return res.status(403).json({ success: false, message: "Access denied" });
+    }
+
     const { type, pettyCashId, expenseId } = req.body;
 
     if (!type || !pettyCashId) {

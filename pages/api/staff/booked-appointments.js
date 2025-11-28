@@ -1,5 +1,7 @@
 import dbConnect from "../../../lib/database";
+import mongoose from "mongoose";
 import Appointment from "../../../models/Appointment";
+import Room from "../../../models/Room";
 import { getStaffUser } from "../../../server/staff/doctorTreatmentService";
 
 export default async function handler(req, res) {
@@ -36,7 +38,7 @@ export default async function handler(req, res) {
         })
         .populate({
           path: "roomId",
-          model: "Room",
+          model: Room,
           select: "name",
         })
         .sort({ startDate: 1, fromTime: 1 })

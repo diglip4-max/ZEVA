@@ -26,7 +26,7 @@ export default async function handler(req, res) {
 
         const { hasPermission, error: permError } = await checkClinicPermission(
           clinicId,
-          "staff_management",
+          "clinic_staff_management",
           "read",
           "Add EOD Task"
         );

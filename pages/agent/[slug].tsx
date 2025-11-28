@@ -163,14 +163,21 @@ const AgentDynamicPage = () => {
     }
 
     const loadPage = async () => {
+      setLoading(true);
       try {
-        // Get agent token and user info
+        // Get token - check both agentToken (for staff role) and userToken (for doctorStaff role)
         const agentToken = typeof window !== 'undefined'
           ? (localStorage.getItem('agentToken') || sessionStorage.getItem('agentToken'))
           : null;
+        const userToken = typeof window !== 'undefined'
+          ? (localStorage.getItem('userToken') || sessionStorage.getItem('userToken'))
+          : null;
 
-        if (!agentToken) {
-          setError('Agent token not found');
+        // Use agentToken if available, otherwise use userToken (for doctorStaff)
+        const token = agentToken || userToken;
+
+        if (!token) {
+          setError('Token not found');
           setLoading(false);
           return;
         }
@@ -179,7 +186,7 @@ const AgentDynamicPage = () => {
         let userInfo: any = null;
         let userRole: string | null = null;
         try {
-          const decoded: any = jwtDecode(agentToken);
+          const decoded: any = jwtDecode(token);
           userInfo = decoded;
           userRole = decoded.role || null;
         } catch (err) {
@@ -196,15 +203,15 @@ const AgentDynamicPage = () => {
         let doctorToken: string | null = null;
 
         if (routeInfo.type === 'clinic') {
-          // For clinic routes, use agentToken as clinicToken (API will validate role)
-          clinicToken = agentToken;
+          // For clinic routes, use token as clinicToken (API will validate role)
+          clinicToken = token;
         } else if (routeInfo.type === 'doctor') {
-          // For doctor routes, use agentToken as doctorToken (API will validate role)
-          doctorToken = agentToken;
+          // For doctor routes, use token as doctorToken (API will validate role)
+          doctorToken = token;
         }
 
         setTokenContext({
-          agentToken,
+          agentToken: agentToken || null, // Keep agentToken if available
           clinicToken,
           doctorToken,
           userRole,
@@ -215,14 +222,14 @@ const AgentDynamicPage = () => {
         // This allows components to work without modification
         if (routeInfo.type === 'clinic' && typeof window !== 'undefined') {
           const originalClinicToken = localStorage.getItem('clinicToken');
-          localStorage.setItem('clinicToken', agentToken);
+          localStorage.setItem('clinicToken', token);
           // Store original to restore later if needed
           if (originalClinicToken) {
             sessionStorage.setItem('_originalClinicToken', originalClinicToken);
           }
         } else if (routeInfo.type === 'doctor' && typeof window !== 'undefined') {
           const originalDoctorToken = localStorage.getItem('doctorToken');
-          localStorage.setItem('doctorToken', agentToken);
+          localStorage.setItem('doctorToken', token);
           // Store original to restore later if needed
           if (originalDoctorToken) {
             sessionStorage.setItem('_originalDoctorToken', originalDoctorToken);
@@ -284,13 +291,7 @@ const AgentDynamicPage = () => {
     };
   }, [slug]);
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-lg">Loading...</div>
-      </div>
-    );
-  }
+  const showInitialLoader = loading && !PageComponent;
 
   if (error) {
     return (
@@ -308,8 +309,21 @@ const AgentDynamicPage = () => {
     );
   }
 
+  if (showInitialLoader) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-lg">Loading...</div>
+      </div>
+    );
+  }
+
   return (
     <TokenContext.Provider value={tokenContext}>
+      {loading && PageComponent && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-white/60 text-slate-700 text-sm">
+          Loading…
+        </div>
+      )}
       <PageComponent />
     </TokenContext.Provider>
   );

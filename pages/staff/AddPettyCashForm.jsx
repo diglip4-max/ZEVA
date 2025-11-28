@@ -1,8 +1,10 @@
 // components/PettyCashAndExpense.jsx
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import axios from "axios";
+import { useRouter } from "next/router";
 import ClinicLayout from '../../components/staffLayout';
 import withClinicAuth from '../../components/withStaffAuth';
+import { Loader2 } from 'lucide-react';
 
 const TOKEN_PRIORITY = [
   "clinicToken",
@@ -102,11 +104,179 @@ function PettyCashAndExpense() {
     lastUpdated: null,
   });
   const [currentUser, setCurrentUser] = useState({ role: "" });
+  const router = useRouter();
+  const [permissions, setPermissions] = useState({
+    canCreate: true,
+    canRead: true,
+    canUpdate: true,
+    canDelete: true,
+  });
+  const [permissionsLoaded, setPermissionsLoaded] = useState(false);
+  const [isClinicContext, setIsClinicContext] = useState(false);
 
   const isTodaySelected =
     selectedDate === new Date().toISOString().split("T")[0];
 
   const [filteredExpenses, setFilteredExpenses] = useState([]);
+
+  // Check if we're in clinic context
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const path = window.location.pathname;
+      setIsClinicContext(path.startsWith("/clinic/"));
+    } else if (router?.pathname) {
+      setIsClinicContext(router.pathname.startsWith("/clinic/"));
+    }
+  }, [router?.pathname]);
+
+  // Fetch permissions for clinic context
+  const fetchClinicPermissions = useCallback(async () => {
+    if (!isClinicContext) {
+      setPermissionsLoaded(true);
+      return;
+    }
+
+    try {
+      setPermissionsLoaded(false);
+      const token = getStoredToken();
+      if (!token) {
+        setPermissions({
+          canCreate: false,
+          canRead: false,
+          canUpdate: false,
+          canDelete: false,
+        });
+        setPermissionsLoaded(true);
+        return;
+      }
+
+      const res = await axios.get("/api/clinic/permissions", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const data = res.data;
+      if (data.success && data.data) {
+        // Find clinic_staff_management module
+        const modulePermission = data.data.permissions?.find((p) => {
+          if (!p?.module) return false;
+          const normalized = p.module.startsWith("clinic_")
+            ? p.module.slice(7)
+            : p.module.startsWith("admin_")
+            ? p.module.slice(6)
+            : p.module;
+          return normalized === "clinic_staff_management" || normalized === "staff_management";
+        });
+
+        if (modulePermission) {
+          const actions = modulePermission.actions || {};
+          const moduleAll = actions.all === true || 
+                           actions.all === "true" || 
+                           String(actions.all).toLowerCase() === "true";
+
+          // Find "Add Expense" submodule - check multiple possible names and paths
+          const expenseSubModule = modulePermission.subModules?.find(
+            (sm) => {
+              const subModuleName = (sm?.name || "").trim();
+              const subModulePath = (sm?.path || "").trim();
+              const nameMatch = subModuleName === "Add Expense" || 
+                               subModuleName === "Add Petty Cash" ||
+                               subModuleName.toLowerCase().includes("expense") ||
+                               subModuleName.toLowerCase().includes("petty");
+              const pathMatch = subModulePath.includes("/AddPettyCashForm") || 
+                               subModulePath.includes("/add-petty-cash") ||
+                               subModulePath.includes("pettycash");
+              return nameMatch || pathMatch;
+            }
+          );
+
+          if (expenseSubModule) {
+            const subModuleActions = expenseSubModule.actions || {};
+            const subModuleAll = subModuleActions.all === true || 
+                                subModuleActions.all === "true" || 
+                                String(subModuleActions.all).toLowerCase() === "true";
+
+            const checkPermission = (actionName) => {
+              if (subModuleActions && subModuleActions.hasOwnProperty(actionName)) {
+                const actionValue = subModuleActions[actionName];
+                if (actionValue === true || actionValue === "true" || String(actionValue).toLowerCase() === "true") {
+                  return true;
+                }
+                if (actionValue === false || actionValue === "false" || String(actionValue).toLowerCase() === "false") {
+                  return false;
+                }
+              }
+              if (subModuleAll) return true;
+              if (actions && actions.hasOwnProperty(actionName)) {
+                const moduleActionValue = actions[actionName];
+                if (moduleActionValue === true || moduleActionValue === "true" || String(moduleActionValue).toLowerCase() === "true") {
+                  return true;
+                }
+                if (moduleActionValue === false || moduleActionValue === "false" || String(moduleActionValue).toLowerCase() === "false") {
+                  return false;
+                }
+              }
+              if (moduleAll) return true;
+              return false;
+            };
+
+            setPermissions({
+              canCreate: checkPermission("create"),
+              canRead: checkPermission("read"),
+              canUpdate: checkPermission("update"),
+              canDelete: checkPermission("delete"),
+            });
+          } else {
+            const checkPermission = (actionName) => {
+              if (moduleAll) return true;
+              const moduleActionValue = actions[actionName];
+              if (moduleActionValue === true || moduleActionValue === "true" || String(moduleActionValue).toLowerCase() === "true") {
+                return true;
+              }
+              if (moduleActionValue === false || moduleActionValue === "false" || String(moduleActionValue).toLowerCase() === "false") {
+                return false;
+              }
+              return false;
+            };
+
+            setPermissions({
+              canCreate: checkPermission("create"),
+              canRead: checkPermission("read"),
+              canUpdate: checkPermission("update"),
+              canDelete: checkPermission("delete"),
+            });
+          }
+        } else {
+          setPermissions({
+            canCreate: false,
+            canRead: false,
+            canUpdate: false,
+            canDelete: false,
+          });
+        }
+      } else {
+        setPermissions({
+          canCreate: false,
+          canRead: false,
+          canUpdate: false,
+          canDelete: false,
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching clinic permissions for Add Expense:", error);
+      setPermissions({
+        canCreate: false,
+        canRead: false,
+        canUpdate: false,
+        canDelete: false,
+      });
+    } finally {
+      setPermissionsLoaded(true);
+    }
+  }, [isClinicContext]);
+
+  useEffect(() => {
+    fetchClinicPermissions();
+  }, [fetchClinicPermissions]);
 
   // ---------- FETCH FUNCTIONS ----------
   const fetchPettyCash = async (query = "") => {
@@ -222,11 +392,19 @@ function PettyCashAndExpense() {
   };
 
   useEffect(() => {
+    if (isClinicContext && !permissionsLoaded) {
+      return;
+    }
+    if (isClinicContext && !permissions.canRead) {
+      setPettyCashList([]);
+      setFilteredExpenses([]);
+      return;
+    }
     fetchPettyCash();
     fetchGlobalTotals(selectedDate);
     fetchVendors();
     fetchCurrentUser();
-  }, []);
+  }, [permissionsLoaded, permissions.canRead, isClinicContext]);
 
   useEffect(() => {
     if (currentUser.role && ["admin", "super admin"].includes(currentUser.role.toLowerCase())) {
@@ -332,6 +510,18 @@ function PettyCashAndExpense() {
   // ---------- SUBMIT ALLOCATED (PETTY CASH) ----------
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    if (isClinicContext) {
+      if (editMode && editType === "allocated" && !permissions.canUpdate) {
+        alert("You do not have permission to update expenses");
+        return;
+      }
+      if (!editMode && !permissions.canCreate) {
+        alert("You do not have permission to create expenses");
+        return;
+      }
+    }
+    
     try {
       setIsSubmittingPetty(true);
       // Build multipart FormData to match API (multer with bodyParser disabled)
@@ -469,6 +659,18 @@ function PettyCashAndExpense() {
   // ---------- SUBMIT EXPENSE ----------
   const handleExpenseSubmit = async (e) => {
     e.preventDefault();
+    
+    if (isClinicContext) {
+      if (expenseForm.expenseId && !permissions.canUpdate) {
+        alert("You do not have permission to update expenses");
+        return;
+      }
+      if (!expenseForm.expenseId && !permissions.canCreate) {
+        alert("You do not have permission to create expenses");
+        return;
+      }
+    }
+    
     try {
       setIsSubmittingExpense(true);
       // For edit mode, continue using JSON update API
@@ -582,6 +784,10 @@ function PettyCashAndExpense() {
 
   // ---------- DELETE ----------
   const handleDeletePatient = async (pettyCashId) => {
+    if (isClinicContext && !permissions.canDelete) {
+      alert("You do not have permission to delete expenses");
+      return;
+    }
     if (!confirm("Are you sure you want to delete this patient record?")) return;
     const headers = getAuthHeaders();
     if (!headers) {
@@ -605,6 +811,10 @@ function PettyCashAndExpense() {
   };
 
   const handleDeleteExpense = async (expenseId) => {
+    if (isClinicContext && !permissions.canDelete) {
+      alert("You do not have permission to delete expenses");
+      return;
+    }
     if (pettyCashList.length === 0) return;
     const pettyCashId = pettyCashList[0]._id;
     if (!confirm("Delete this expense?")) return;
@@ -632,6 +842,10 @@ function PettyCashAndExpense() {
 
   // ---------- EDIT ----------
   const handleEdit = (item, type, pettyCashId = null) => {
+    if (isClinicContext && !permissions.canUpdate) {
+      alert("You do not have permission to update expenses");
+      return;
+    }
     setEditMode(true);
     setEditType(type);
 
@@ -675,6 +889,35 @@ function PettyCashAndExpense() {
   };
 
 
+  // Show loading state while checking permissions
+  if (isClinicContext && !permissionsLoaded) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 mx-auto mb-4 animate-spin text-blue-600" />
+          <p className="text-sm text-gray-700">Checking your permissions...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show access denied if no read permission
+  if (isClinicContext && permissionsLoaded && !permissions.canRead) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-lg shadow-sm border border-red-200 p-8 max-w-md w-full text-center">
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4 text-red-600 text-2xl">
+            !
+          </div>
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Access Denied</h2>
+          <p className="text-gray-600 mb-4">
+            You do not have permission to view or manage expenses. Please contact your administrator if you believe this is incorrect.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 p-3 sm:p-6">
       <div className="max-w-7xl mx-auto">
@@ -690,8 +933,12 @@ function PettyCashAndExpense() {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <h2 className="text-xl sm:text-2xl font-bold text-gray-800">Petty Cash Management</h2>
             <div className="flex flex-wrap gap-2">
-              <button onClick={() => setShowExpenseModal(true)} className="flex-1 sm:flex-initial px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-medium">+ Expense</button>
-              <button onClick={() => setShowManualPettyModal(true)} className="flex-1 sm:flex-initial px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition text-sm font-medium">+ Petty Cash</button>
+              {(!isClinicContext || permissions.canCreate) && (
+                <>
+                  <button onClick={() => setShowExpenseModal(true)} className="flex-1 sm:flex-initial px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm font-medium">+ Expense</button>
+                  <button onClick={() => setShowManualPettyModal(true)} className="flex-1 sm:flex-initial px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition text-sm font-medium">+ Petty Cash</button>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -951,10 +1198,17 @@ function PettyCashAndExpense() {
                         <td className="px-3 py-3 text-sm text-gray-700">{item.note || "-"}</td>
                         {isTodaySelected && (
                           <td className="px-3 py-3 text-center">
-                            <button onClick={() => handleEdit(item, "allocated")} className="text-blue-600 hover:text-blue-800 mr-3 text-lg">✏️</button>
-                            <button onClick={() => {
-                              if (confirm('Delete this record?')) handleDeletePatient(item._id);
-                            }} className="text-red-600 hover:text-red-800 text-lg">🗑️</button>
+                            {(!isClinicContext || permissions.canUpdate) && (
+                              <button onClick={() => handleEdit(item, "allocated")} className="text-blue-600 hover:text-blue-800 mr-3 text-lg">✏️</button>
+                            )}
+                            {(!isClinicContext || permissions.canDelete) && (
+                              <button onClick={() => {
+                                if (confirm('Delete this record?')) handleDeletePatient(item._id);
+                              }} className="text-red-600 hover:text-red-800 text-lg">🗑️</button>
+                            )}
+                            {isClinicContext && !permissions.canUpdate && !permissions.canDelete && (
+                              <span className="text-xs text-gray-400">No actions</span>
+                            )}
                           </td>
                         )}
                       </tr>
@@ -998,10 +1252,17 @@ function PettyCashAndExpense() {
                       </td>
                       {isTodaySelected && (
                         <td className="px-3 py-3 text-center">
-                          <button onClick={() => handleEdit(ex, "expense")} className="text-blue-600 hover:text-blue-800 mr-3 text-lg">✏️</button>
-                          <button onClick={() => {
-                            if (confirm('Delete this expense?')) handleDeleteExpense(ex._id);
-                          }} className="text-red-600 hover:text-red-800 text-lg">🗑️</button>
+                          {(!isClinicContext || permissions.canUpdate) && (
+                            <button onClick={() => handleEdit(ex, "expense")} className="text-blue-600 hover:text-blue-800 mr-3 text-lg">✏️</button>
+                          )}
+                          {(!isClinicContext || permissions.canDelete) && (
+                            <button onClick={() => {
+                              if (confirm('Delete this expense?')) handleDeleteExpense(ex._id);
+                            }} className="text-red-600 hover:text-red-800 text-lg">🗑️</button>
+                          )}
+                          {isClinicContext && !permissions.canUpdate && !permissions.canDelete && (
+                            <span className="text-xs text-gray-400">No actions</span>
+                          )}
                         </td>
                       )}
                     </tr>

@@ -859,51 +859,51 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
           <div className="border border-gray-200 rounded overflow-hidden bg-white">
             {/* Scrollable container */}
             <div className="overflow-x-auto max-h-[75vh] overflow-y-auto">
-              {/* Header with doctor names and rooms */}
+            {/* Header with doctor names and rooms */}
               <div className="flex bg-gray-50 border-b border-gray-200 sticky top-0 z-20 min-w-max">
                 <div className="w-20 sm:w-24 flex-shrink-0 border-r border-gray-200 p-1 sm:p-1.5 bg-white sticky left-0 z-30">
                   <div className="flex items-center gap-1 text-[10px] sm:text-xs font-semibold text-gray-900">
                     <Clock className="w-3 h-3" />
-                    <span>Time</span>
-                  </div>
+                  <span>Time</span>
                 </div>
-                {/* Doctor columns */}
+              </div>
+              {/* Doctor columns */}
                 {visibleDoctors.map((doctor) => (
-                  <div
-                    key={doctor._id}
+                <div
+                  key={doctor._id}
                     className="flex-1 min-w-[120px] sm:min-w-[140px] border-r border-gray-200 p-1 sm:p-1.5 relative bg-white"
                     onMouseEnter={(e) => handleDoctorMouseEnter(doctor, e)}
                     onMouseLeave={handleDoctorMouseLeave}
-                  >
+                >
                     <div className="flex items-center gap-1.5">
                       <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-700 font-semibold text-[10px] sm:text-xs flex-shrink-0">
-                        {getInitials(doctor.name)}
-                      </div>
-                      <div className="min-w-0">
+                      {getInitials(doctor.name)}
+                    </div>
+                    <div className="min-w-0">
                         <p className="text-[10px] sm:text-xs font-semibold text-gray-900 truncate">{doctor.name}</p>
-                      </div>
                     </div>
                   </div>
-                ))}
-                {/* Room columns */}
+                </div>
+              ))}
+              {/* Room columns */}
                 {visibleRooms.map((room) => (
-                  <div
-                    key={room._id}
+                <div
+                  key={room._id}
                     className="flex-1 min-w-[120px] sm:min-w-[140px] border-r border-gray-200 last:border-r-0 p-1 sm:p-1.5 bg-white"
-                  >
+                >
                     <div className="flex items-center gap-1.5">
                       <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-700 font-semibold text-[10px] sm:text-xs flex-shrink-0">
-                        🏥
-                      </div>
-                      <div className="min-w-0">
+                      🏥
+                    </div>
+                    <div className="min-w-0">
                         <p className="text-[10px] sm:text-xs font-semibold text-gray-900 truncate">{room.name}</p>
-                      </div>
                     </div>
                   </div>
-                ))}
-              </div>
+                </div>
+              ))}
+            </div>
 
-              {/* Time slots grid */}
+            {/* Time slots grid */}
               <div className="min-w-max">
               {timeSlots.map((slot) => {
                 const rowStartMinutes = timeStringToMinutes(slot.time);
@@ -918,7 +918,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                       <div className="absolute left-0 right-0 top-1/2 border-t border-gray-200" />
                     </div>
 
-                          {/* Doctor columns */}
+                    {/* Doctor columns */}
                           {visibleDoctors.map((doctor) => {
                       const rowAppointments = getAppointmentsForRow(doctor._id, slot.time);
 
@@ -1085,7 +1085,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                       );
                     })}
 
-                          {/* Room columns */}
+                    {/* Room columns */}
                           {visibleRooms.map((room) => {
                       const roomAppointments = getRoomAppointmentsForRow(room._id, slot.time);
 

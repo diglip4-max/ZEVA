@@ -63,10 +63,17 @@ function ClinicEnquiries({ contextOverride = null }: { contextOverride?: "clinic
     const fetchEnquiries = async () => {
       try {
         if (typeof window === "undefined") return;
-        const token =
-          routeContext === "agent"
-            ? localStorage.getItem("agentToken")
-            : localStorage.getItem("clinicToken");
+        const agentToken =
+          localStorage.getItem("agentToken") ||
+          sessionStorage.getItem("agentToken") ||
+          localStorage.getItem("userToken") ||
+          sessionStorage.getItem("userToken");
+
+        const clinicToken =
+          localStorage.getItem("clinicToken") ||
+          sessionStorage.getItem("clinicToken");
+
+        const token = routeContext === "agent" ? agentToken : clinicToken;
         if (!token) {
           setEnquiries([]);
           setFilteredEnquiries([]);
