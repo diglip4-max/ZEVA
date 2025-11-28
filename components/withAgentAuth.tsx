@@ -23,12 +23,18 @@ export default function withAgentAuth<P extends object>(
       };
 
       const checkAuth = async () => {
-        const token = typeof window !== 'undefined'
+        // Check for both agentToken (for staff role) and userToken (for doctorStaff role)
+        const agentToken = typeof window !== 'undefined'
           ? (localStorage.getItem('agentToken') || sessionStorage.getItem('agentToken'))
           : null;
+        const userToken = typeof window !== 'undefined'
+          ? (localStorage.getItem('userToken') || sessionStorage.getItem('userToken'))
+          : null;
+
+        const token = agentToken || userToken;
 
         if (!token) {
-          toast.error('Please login as an agent to continue');
+          toast.error('Please login to continue');
           clearStorage();
           setIsLoading(false);
           router.replace('/staff');
@@ -36,6 +42,7 @@ export default function withAgentAuth<P extends object>(
         }
 
         try {
+          // Use agent verify-token API which should handle both agentToken and userToken
           const response = await fetch('/api/agent/verify-token', {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -55,7 +62,7 @@ export default function withAgentAuth<P extends object>(
             router.replace('/staff');
           }
         } catch (error) {
-          console.error('Agent token verification failed:', error);
+          console.error('Token verification failed:', error);
           toast.error('Something went wrong. Please login again.');
           clearStorage();
           router.replace('/staff');
