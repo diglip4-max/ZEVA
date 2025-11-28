@@ -104,7 +104,7 @@ const EodNotePad = () => {
 
       const data = res.data;
       if (data.success && data.data) {
-        // Find staff_management module
+        // Find clinic_staff_management module (try various formats)
         const modulePermission = data.data.permissions?.find((p) => {
           if (!p?.module) return false;
           const normalized = p.module.startsWith("clinic_")
@@ -112,30 +112,77 @@ const EodNotePad = () => {
             : p.module.startsWith("admin_")
             ? p.module.slice(6)
             : p.module;
-          return normalized === "staff_management";
+          // Check for clinic_staff_management or staff_management
+          return normalized === "clinic_staff_management" || normalized === "staff_management";
         });
 
         if (modulePermission) {
           const actions = modulePermission.actions || {};
-          const moduleAll = actions.all === true;
+          // Handle both boolean true and string "true" cases
+          const moduleAll = actions.all === true || 
+                           actions.all === "true" || 
+                           String(actions.all).toLowerCase() === "true";
 
-          // Find "Add EOD Task" submodule
+          // Find "Add EOD Task" submodule - check multiple possible names and paths
           const eodTaskSubModule = modulePermission.subModules?.find(
-            (sm) => sm.name === "Add EOD Task" || sm.name === "Add EOD Notes"
+            (sm) => {
+              const subModuleName = (sm?.name || "").trim();
+              const subModulePath = (sm?.path || "").trim();
+              // Match by name (exact or variations)
+              const nameMatch = subModuleName === "Add EOD Task" || 
+                               subModuleName === "Add EOD Notes" ||
+                               subModuleName === "EOD Task" ||
+                               subModuleName === "EOD Notes" ||
+                               subModuleName.toLowerCase().includes("eod");
+              // Match by path (if available)
+              const pathMatch = subModulePath.includes("/eodNotes") || 
+                               subModulePath.includes("/eod-notes") ||
+                               subModulePath.includes("eodNotes");
+              return nameMatch || pathMatch;
+            }
           );
-          const subModuleActions = eodTaskSubModule?.actions || {};
-          const subModuleAll = subModuleActions.all === true;
+
+          // If submodule exists, use submodule permissions (priority)
+          if (eodTaskSubModule) {
+            const subModuleActions = eodTaskSubModule.actions || {};
+            const subModuleAll = subModuleActions.all === true || 
+                                subModuleActions.all === "true" || 
+                                String(subModuleActions.all).toLowerCase() === "true";
 
           // Helper to check permission: submodule explicit > submodule all > module explicit > module all
+            // IMPORTANT: Submodule permissions take priority over module permissions
           const checkPermission = (actionName) => {
-            if (moduleAll) return true;
-            if (subModuleAll) return true;
-            // Check if submodule has explicit permission
+              // Priority 1: If submodule has explicit permission, use it (respects false values)
             if (subModuleActions && subModuleActions.hasOwnProperty(actionName)) {
-              return subModuleActions[actionName] === true;
+                const actionValue = subModuleActions[actionName];
+                // Handle boolean and string "true"/"false"
+                if (actionValue === true || actionValue === "true" || String(actionValue).toLowerCase() === "true") {
+                  return true;
             }
-            // Fall back to module-level permission
-            return actions[actionName] === true;
+                if (actionValue === false || actionValue === "false" || String(actionValue).toLowerCase() === "false") {
+                  return false;
+                }
+              }
+              
+              // Priority 2: If submodule has "all" permission, grant all
+              if (subModuleAll) return true;
+              
+              // Priority 3: Fall back to module-level explicit permission
+              if (actions && actions.hasOwnProperty(actionName)) {
+                const moduleActionValue = actions[actionName];
+                if (moduleActionValue === true || moduleActionValue === "true" || String(moduleActionValue).toLowerCase() === "true") {
+                  return true;
+                }
+                if (moduleActionValue === false || moduleActionValue === "false" || String(moduleActionValue).toLowerCase() === "false") {
+                  return false;
+                }
+              }
+              
+              // Priority 4: If module has "all" permission, grant all
+              if (moduleAll) return true;
+              
+              // Default: no permission
+              return false;
           };
 
           setPermissions({
@@ -144,6 +191,29 @@ const EodNotePad = () => {
             canUpdate: checkPermission("update"),
             canDelete: checkPermission("delete"),
           });
+          } else {
+            // Submodule not found - use module-level permissions only
+            const checkPermission = (actionName) => {
+              if (moduleAll) return true;
+              
+              const moduleActionValue = actions[actionName];
+              if (moduleActionValue === true || moduleActionValue === "true" || String(moduleActionValue).toLowerCase() === "true") {
+                return true;
+              }
+              if (moduleActionValue === false || moduleActionValue === "false" || String(moduleActionValue).toLowerCase() === "false") {
+                return false;
+              }
+              
+              return false;
+            };
+
+            setPermissions({
+              canCreate: checkPermission("create"),
+              canRead: checkPermission("read"),
+              canUpdate: checkPermission("update"),
+              canDelete: checkPermission("delete"),
+            });
+          }
         } else {
           // If no permission entry exists, deny all access by default
           setPermissions({
@@ -177,6 +247,21 @@ const EodNotePad = () => {
   useEffect(() => {
     fetchClinicPermissions();
   }, [fetchClinicPermissions]);
+
+  // Set default tab based on permissions when permissions are loaded
+  useEffect(() => {
+    if (isClinicContext && permissionsLoaded) {
+      // If user only has create permission, set to add tab
+      if (permissions.canCreate && !permissions.canRead && activeTab === "view") {
+        setActiveTab("add");
+      }
+      // If user only has read permission, set to view tab
+      if (permissions.canRead && !permissions.canCreate && activeTab === "add") {
+        setActiveTab("view");
+      }
+      // If user has neither permission, stay on current tab (will show access denied)
+    }
+  }, [permissionsLoaded, permissions.canCreate, permissions.canRead, isClinicContext, activeTab]);
 
   const handleAddNote = async () => {
     if (isClinicContext && !permissions.canCreate) {
@@ -278,6 +363,10 @@ const EodNotePad = () => {
     }
     if (isClinicContext && !permissions.canRead) {
       setNotes([]);
+      // If user only has create permission, switch to add tab
+      if (permissions.canCreate && activeTab === "view") {
+        setActiveTab("add");
+      }
       return;
     }
     const loadNotes = async () => {
@@ -521,12 +610,23 @@ const EodNotePad = () => {
         </div>
       </div>
 
-      {/* Tabs Navigation */}
+      {/* Tabs Navigation - Only show tabs user has permission for */}
+      {((isClinicContext && (permissions.canCreate || permissions.canRead)) || !isClinicContext) && (
       <div className="bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <nav className="flex space-x-8" aria-label="Tabs">
+              {((isClinicContext && permissions.canCreate) || !isClinicContext) && (
             <button
-              onClick={() => setActiveTab("add")}
+                  onClick={() => {
+                    if (isClinicContext && !permissions.canCreate) {
+                      toast.error("You do not have permission to create EOD notes", {
+                        duration: 3000,
+                        position: 'top-right',
+                      });
+                      return;
+                    }
+                    setActiveTab("add");
+                  }}
               className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
                 activeTab === "add"
                   ? "border-blue-600 text-blue-600"
@@ -535,8 +635,19 @@ const EodNotePad = () => {
             >
               Add Note
             </button>
+              )}
+              {((isClinicContext && permissions.canRead) || !isClinicContext) && (
             <button
-              onClick={() => setActiveTab("view")}
+                  onClick={() => {
+                    if (isClinicContext && !permissions.canRead) {
+                      toast.error("You do not have permission to view EOD notes", {
+                        duration: 3000,
+                        position: 'top-right',
+                      });
+                      return;
+                    }
+                    setActiveTab("view");
+                  }}
               className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
                 activeTab === "view"
                   ? "border-blue-600 text-blue-600"
@@ -545,13 +656,15 @@ const EodNotePad = () => {
             >
               View Notes
             </button>
+              )}
           </nav>
         </div>
       </div>
+      )}
 
       {/* Content Area */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Add Note Section */}
+        {/* Add Note Section - Only show if user has create permission */}
         {activeTab === "add" && (
           <div className="max-w-3xl">
             {(!isClinicContext || permissions.canCreate) ? (
@@ -601,8 +714,9 @@ const EodNotePad = () => {
           </div>
         )}
 
-        {/* View Notes Section */}
+        {/* View Notes Section - Only show if user has read permission */}
         {activeTab === "view" && (
+          (!isClinicContext || permissions.canRead) ? (
           <div>
             {/* Filter Bar */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6 mb-6">
@@ -777,6 +891,19 @@ const EodNotePad = () => {
               )}
             </div>
           </div>
+          ) : (
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 sm:p-8 text-center">
+              <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">Permission Denied</h3>
+              <p className="text-sm text-gray-600">
+                You do not have permission to view EOD notes. Please contact your administrator.
+              </p>
+            </div>
+          )
         )}
       </div>
 

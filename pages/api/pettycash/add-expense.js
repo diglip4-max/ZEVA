@@ -203,7 +203,38 @@ export default async function handler(req, res) {
     const staffId = decoded.userId;
 
     const staffUser = await User.findById(staffId);
-    if (!staffUser || staffUser.role !== "staff") {
+    if (!staffUser) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    // Check permissions for clinic/agent/doctor roles
+    if (["clinic", "agent", "doctor", "doctorStaff"].includes(staffUser.role)) {
+      try {
+        const { getClinicIdFromUser, checkClinicPermission } = await import("../lead-ms/permissions-helper");
+        const { clinicId, error: clinicError } = await getClinicIdFromUser(staffUser);
+        if (clinicError || !clinicId) {
+          return res.status(403).json({ 
+            message: clinicError || "Unable to determine clinic access" 
+          });
+        }
+
+        const { hasPermission, error: permError } = await checkClinicPermission(
+          clinicId,
+          "clinic_staff_management",
+          "create",
+          "Add Expense"
+        );
+
+        if (!hasPermission) {
+          return res.status(403).json({
+            message: permError || "You do not have permission to create expenses"
+          });
+        }
+      } catch (permErr) {
+        console.error("Permission check error:", permErr);
+        return res.status(500).json({ message: "Error checking permissions" });
+      }
+    } else if (staffUser.role !== "staff" && staffUser.role !== "admin") {
       return res.status(403).json({ message: "Access denied" });
     }
 

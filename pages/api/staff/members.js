@@ -5,6 +5,7 @@ import Membership from "../../../models/Membership";
 import PatientRegistration from "../../../models/PatientRegistration";
 import PettyCash from "../../../models/PettyCash";
 import { getAuthorizedStaffUser } from "../../../server/staff/authHelpers";
+import { getClinicIdFromUser, checkClinicPermission } from "../lead-ms/permissions-helper";
 
 // Helper function to add treatment amounts to PettyCash when payment method is Cash
 async function addTreatmentToPettyCashIfCash(user, membership, treatments) {
@@ -76,6 +77,36 @@ export default async function handler(req, res) {
 
   if (req.method === "POST") {
     try {
+      // Check permissions for clinic/agent/doctor roles
+      if (["clinic", "agent", "doctor", "doctorStaff"].includes(user.role)) {
+        try {
+          const { clinicId, error: clinicError } = await getClinicIdFromUser(user);
+          if (clinicError || !clinicId) {
+            return res.status(403).json({ 
+              success: false,
+              message: clinicError || "Unable to determine clinic access" 
+            });
+          }
+
+          const { hasPermission, error: permError } = await checkClinicPermission(
+            clinicId,
+            "clinic_staff_management",
+            "create",
+            "Membership"
+          );
+
+          if (!hasPermission) {
+            return res.status(403).json({
+              success: false,
+              message: permError || "You do not have permission to create memberships"
+            });
+          }
+        } catch (permErr) {
+          console.error("Permission check error:", permErr);
+          return res.status(500).json({ success: false, message: "Error checking permissions" });
+        }
+      }
+
       const { emrNumber, patientId, packageName, packageAmount, packageStartDate, packageEndDate, packageDurationMonths, paymentMethod, paidAmount, treatments } = req.body;
       if (!emrNumber || !packageName || packageAmount === undefined || !packageEndDate || !packageDurationMonths) {
         return res.status(400).json({ success: false, message: "emrNumber, packageName, packageAmount, packageEndDate and packageDurationMonths are required" });
@@ -115,6 +146,36 @@ export default async function handler(req, res) {
 
   if (req.method === "GET") {
     try {
+      // Check permissions for clinic/agent/doctor roles
+      if (["clinic", "agent", "doctor", "doctorStaff"].includes(user.role)) {
+        try {
+          const { clinicId, error: clinicError } = await getClinicIdFromUser(user);
+          if (clinicError || !clinicId) {
+            return res.status(403).json({ 
+              success: false,
+              message: clinicError || "Unable to determine clinic access" 
+            });
+          }
+
+          const { hasPermission, error: permError } = await checkClinicPermission(
+            clinicId,
+            "clinic_staff_management",
+            "read",
+            "Membership"
+          );
+
+          if (!hasPermission) {
+            return res.status(403).json({
+              success: false,
+              message: permError || "You do not have permission to view memberships"
+            });
+          }
+        } catch (permErr) {
+          console.error("Permission check error:", permErr);
+          return res.status(500).json({ success: false, message: "Error checking permissions" });
+        }
+      }
+
       const { emrNumber } = req.query;
       const query = {};
       if (emrNumber) query.emrNumber = emrNumber;
@@ -127,6 +188,36 @@ export default async function handler(req, res) {
 
   if (req.method === "PUT") {
     try {
+      // Check permissions for clinic/agent/doctor roles
+      if (["clinic", "agent", "doctor", "doctorStaff"].includes(user.role)) {
+        try {
+          const { clinicId, error: clinicError } = await getClinicIdFromUser(user);
+          if (clinicError || !clinicId) {
+            return res.status(403).json({ 
+              success: false,
+              message: clinicError || "Unable to determine clinic access" 
+            });
+          }
+
+          const { hasPermission, error: permError } = await checkClinicPermission(
+            clinicId,
+            "clinic_staff_management",
+            "update",
+            "Membership"
+          );
+
+          if (!hasPermission) {
+            return res.status(403).json({
+              success: false,
+              message: permError || "You do not have permission to update memberships"
+            });
+          }
+        } catch (permErr) {
+          console.error("Permission check error:", permErr);
+          return res.status(500).json({ success: false, message: "Error checking permissions" });
+        }
+      }
+
       const { membershipId, treatments, paymentMethod, paidAmount } = req.body;
       if (!membershipId) {
         return res.status(400).json({ success: false, message: "membershipId is required" });
@@ -194,6 +285,36 @@ export default async function handler(req, res) {
   if (req.method === "PATCH") {
     // Transfer membership (by EMR)
     try {
+      // Check permissions for clinic/agent/doctor roles
+      if (["clinic", "agent", "doctor", "doctorStaff"].includes(user.role)) {
+        try {
+          const { clinicId, error: clinicError } = await getClinicIdFromUser(user);
+          if (clinicError || !clinicId) {
+            return res.status(403).json({ 
+              success: false,
+              message: clinicError || "Unable to determine clinic access" 
+            });
+          }
+
+          const { hasPermission, error: permError } = await checkClinicPermission(
+            clinicId,
+            "clinic_staff_management",
+            "update",
+            "Membership"
+          );
+
+          if (!hasPermission) {
+            return res.status(403).json({
+              success: false,
+              message: permError || "You do not have permission to transfer memberships"
+            });
+          }
+        } catch (permErr) {
+          console.error("Permission check error:", permErr);
+          return res.status(500).json({ success: false, message: "Error checking permissions" });
+        }
+      }
+
       const { membershipId, toEmrNumber, toPatientId, toName, amount, note } = req.body;
       if (!membershipId || !toEmrNumber) {
         return res.status(400).json({ success: false, message: "membershipId and toEmrNumber are required" });

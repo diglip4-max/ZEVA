@@ -1,9 +1,9 @@
 import Link from 'next/link';
 import { useRouter } from 'next/router';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import clsx from 'clsx';
 import { jwtDecode } from "jwt-decode";
-
+import axios from 'axios';
 
 const Sidebar = () => {
   const router = useRouter();
@@ -12,14 +12,284 @@ const Sidebar = () => {
   const [isDesktopHidden, setIsDesktopHidden] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [cancelledClaims, setCancelledClaims] = useState([]);
+  const [navItems, setNavItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [permissions, setPermissions] = useState(null);
 
   useEffect(() => {
     const token = localStorage.getItem("userToken");
     if (token) {
       const decoded = jwtDecode(token);
-      setRole(decoded.role); // "staff" or "doctor"
+      setRole(decoded.role); // "staff" or "doctorStaff"
     }
   }, []);
+
+  // Fetch staff permissions
+  const fetchStaffPermissions = useCallback(async () => {
+    try {
+      const token = localStorage.getItem("userToken");
+      if (!token) return;
+
+      const { data } = await axios.get('/api/staff/permissions', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (data.success && data.data && data.data.permissions) {
+        setPermissions(data.data.permissions);
+      } else {
+        setPermissions(null);
+      }
+    } catch (err) {
+      console.error('Error fetching staff permissions:', err);
+      setPermissions(null);
+    }
+  }, []);
+
+  // Fetch navigation items
+  const fetchNavigationItems = useCallback(async () => {
+    try {
+      const token = localStorage.getItem("userToken");
+      if (!token) return;
+
+      // Use the existing sidebar-permissions API which handles role detection
+      const { data } = await axios.get('/api/staff/sidebar-permissions', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (data.success) {
+        // The API returns navigationItems directly
+        let items = data.navigationItems || [];
+
+        // Filter navigation items based on permissions
+        if (permissions && permissions.length > 0) {
+          // Build permission map for quick lookup
+          const permissionMap = {};
+          permissions.forEach(perm => {
+            const moduleKey = perm.module;
+            const moduleKeyWithoutPrefix = moduleKey.replace(/^(admin|clinic|doctor)_/, '');
+            const moduleKeyWithPrefix = `clinic_${moduleKeyWithoutPrefix}`;
+            
+            const permissionData = {
+              moduleActions: perm.actions,
+              subModules: {}
+            };
+            
+            permissionMap[moduleKey] = permissionData;
+            permissionMap[moduleKeyWithoutPrefix] = permissionData;
+            permissionMap[moduleKeyWithPrefix] = permissionData;
+            
+            if (perm.subModules && perm.subModules.length > 0) {
+              perm.subModules.forEach(subModule => {
+                if (subModule && subModule.name) {
+                  permissionData.subModules[subModule.name] = subModule.actions;
+                }
+              });
+            }
+          });
+
+          // Filter navigation items based on permissions
+          items = items
+            .map((item) => {
+              // Try multiple lookup strategies for moduleKey matching
+              const modulePerm = permissionMap[item.moduleKey] || 
+                                permissionMap[item.moduleKey.replace('clinic_', '')] ||
+                                permissionMap[item.moduleKey.replace(/^(admin|clinic|doctor)_/, '')];
+              
+              // Check if module has read permission
+              const hasModuleRead = modulePerm && (
+                modulePerm.moduleActions.read === true || 
+                modulePerm.moduleActions.all === true
+              );
+
+              if (!hasModuleRead) {
+                return null; // Don't show this module at all
+              }
+
+              // Filter submodules based on permissions
+              let filteredSubModules = [];
+              if (item.subModules && item.subModules.length > 0) {
+                filteredSubModules = item.subModules
+                  .map((subModule) => {
+                    if (!subModule || !subModule.name) {
+                      return null;
+                    }
+                    const subModulePerm = modulePerm?.subModules[subModule.name];
+                    const hasSubModuleRead = subModulePerm && (
+                      subModulePerm.read === true || 
+                      subModulePerm.all === true
+                    );
+                    
+                    // Only include submodule if it has read permission
+                    if (hasSubModuleRead) {
+                      return subModule;
+                    }
+                    return null;
+                  })
+                  .filter((subModule) => subModule !== null);
+              }
+
+              return {
+                ...item,
+                subModules: filteredSubModules
+              };
+            })
+            .filter((item) => item !== null);
+        }
+
+        // Transform paths for staff (keep /staff/* paths)
+        const transformedItems = items.map(item => ({
+          ...item,
+          path: item.path?.startsWith('/staff/') ? item.path : item.path,
+          subModules: item.subModules?.map(subModule => ({
+            ...subModule,
+            path: subModule.path?.startsWith('/staff/') ? subModule.path : subModule.path
+          }))
+        }));
+
+        setNavItems(transformedItems);
+      }
+    } catch (err) {
+      console.error('Error fetching navigation items:', err);
+      // Fallback to hardcoded items if API fails
+      setNavItems(getFallbackNavItems(role));
+    } finally {
+      setLoading(false);
+    }
+  }, [permissions, role]);
+
+  // Fetch permissions first, then navigation items
+  useEffect(() => {
+    fetchStaffPermissions();
+  }, [fetchStaffPermissions]);
+
+  useEffect(() => {
+    if (role && (permissions !== null || !loading)) {
+      fetchNavigationItems();
+    }
+  }, [role, permissions, fetchNavigationItems, loading]);
+
+  // Fallback navigation items if API fails
+  const getFallbackNavItems = (userRole) => {
+    if (userRole === "staff") {
+      return [
+        { 
+          _id: "1",
+          label: "Patient Registration", 
+          path: "/staff/patient-registration", 
+          icon: "🧍‍♂️", 
+          description: "Manage Clinic",
+          order: 1,
+          moduleKey: "clinic_staff_management"
+        },
+        { 
+          _id: "2",
+          label: "Patient Information", 
+          path: "/staff/patient-information", 
+          icon: "📋", 
+          description: "Manage Clinic",
+          order: 2,
+          moduleKey: "clinic_staff_management"
+        },
+        { 
+          _id: "3",
+          label: "Add EOD Task", 
+          path: "/staff/eodNotes", 
+          icon: "✅", 
+          description: "Manage Clinic",
+          order: 3,
+          moduleKey: "clinic_staff_management"
+        },
+        { 
+          _id: "4",
+          label: "Add Expense", 
+          path: "/staff/AddPettyCashForm", 
+          icon: "💸", 
+          description: "Add Petty Cash Entry",
+          order: 4,
+          moduleKey: "clinic_staff_management"
+        },
+        { 
+          _id: "5",
+          label: " Add Vendor", 
+          path: "/staff/add-vendor", 
+          icon: "🧑‍💼", 
+          description: "Manage vendor",
+          order: 5,
+          moduleKey: "clinic_staff_management"
+        },
+        { 
+          _id: "6",
+          label: "Membership", 
+          path: "/staff/membership", 
+          icon: "🧑‍💼", 
+          description: "Manage Membership",
+          order: 6,
+          moduleKey: "clinic_staff_management"
+        },
+        { 
+          _id: "7",
+          label: "All Contracts", 
+          path: "/staff/contract", 
+          icon: "🧑‍💼", 
+          description: "See all contracts",
+          order: 7,
+          moduleKey: "clinic_staff_management"
+        },
+      ];
+    }
+
+    if (userRole === "doctorStaff") {
+      return [
+        { 
+          _id: "1",
+          label: "Pending Claims", 
+          path: "/staff/pending-claims", 
+          icon: "🧑‍⚕️", 
+          description: "View & Manage Patients",
+          order: 1,
+          moduleKey: "doctor_staff_management"
+        },
+        { 
+          _id: "2",
+          label: "Booked Appointments", 
+          path: "/staff/booked-appointments", 
+          icon: "🧑‍⚕️", 
+          description: "View & Manage Appointments",
+          order: 2,
+          moduleKey: "doctor_staff_management"
+        },
+        { 
+          _id: "3",
+          label: "Add Treatment", 
+          path: "/staff/add-treatment", 
+          icon: "➕", 
+          description: "Manage doctor treatments",
+          order: 3,
+          moduleKey: "doctor_staff_management"
+        },
+        { 
+          _id: "4",
+          label: "EOD Notes", 
+          path: "/staff/eodNotes", 
+          icon: "📝", 
+          description: "End of Day Notes",
+          order: 4,
+          moduleKey: "doctor_staff_management"
+        },
+        { 
+          _id: "5",
+          label: "Cancelled Claims", 
+          path: "/staff/cancelled-claims", 
+          icon: "❌", 
+          description: `View Cancelled Claims (${cancelledClaims.length})`,
+          order: 5,
+          moduleKey: "doctor_staff_management"
+        },
+      ];
+    }
+
+    return [];
+  };
 
   // Fetch cancelled advance claims count for doctorStaff
   const fetchCancelledClaimsCount = async () => {
@@ -76,93 +346,7 @@ const Sidebar = () => {
     };
   }, [isMobileOpen]);
 
-  let navItems = [];
-
-  if (role === "staff") {
-    navItems = [
-      { 
-        label: "Patient Registration", 
-        path: "/staff/patient-registration", 
-        icon: "🧍‍♂️", 
-        description: "Manage Clinic" 
-      },
-      { 
-        label: "Patient Information", 
-        path: "/staff/patient-information", 
-        icon: "📋", 
-        description: "Manage Clinic" 
-      },
-      { 
-        label: "Add EOD Task", 
-        path: "/staff/eodNotes", 
-        icon: "✅", 
-        description: "Manage Clinic" 
-      },
-      { 
-        label: "Add Expense", 
-        path: "/staff/AddPettyCashForm", 
-        icon: "💸", 
-        description: "Add Petty Cash Entry" 
-      },
-       { 
-        label: " Add Vendor", 
-        path: "/staff/add-vendor", 
-        icon: "🧑‍💼", 
-        description: "Manage vendor" 
-      },
-      { 
-        label: "Membership", 
-        path: "/staff/membership", 
-        icon: "🧑‍💼", 
-        description: "Manage Membership" 
-      },
-      { 
-        label: "All Contracts", 
-        path: "/staff/contract", 
-        icon: "🧑‍💼", 
-        description: "See all contracts" 
-      },
-      
-    ];
-  }
-
-  if (role === "doctorStaff") {
-    navItems = [
-      { 
-        label: "Pending Claims", 
-        path: "/staff/pending-claims", 
-        icon: "🧑‍⚕️", 
-        description: "View & Manage Patients" 
-      },
-      { 
-        label: "Booked Appointments", 
-        path: "/staff/booked-appointments", 
-        icon: "🧑‍⚕️", 
-        description: "View & Manage Appointments" 
-      },
-      { 
-        label: "Add Treatment", 
-        path: "/staff/add-treatment", 
-        icon: "➕", 
-        description: "Manage doctor treatments" 
-      },
-      { 
-        label: "EOD Notes", 
-        path: "/staff/eodNotes", 
-        icon: "📝", 
-        description: "End of Day Notes" 
-      },
-      { 
-        label: "Cancelled Claims", 
-        path: "/staff/cancelled-claims", 
-        icon: "❌", 
-        description: `View Cancelled Claims (${cancelledClaims.length})`,
-        badge: cancelledClaims.length > 0 ? cancelledClaims.length : null
-      },
-      
-      
-    ];
-  }
+  // Use dynamic navItems from state
 
   const handleToggleDesktop = () => {
     setIsDesktopHidden(!isDesktopHidden);
@@ -271,13 +455,18 @@ const Sidebar = () => {
               Staff Management
             </div>
             <div className="space-y-1">
-              {navItems.map((item, index) => {
-                const isActive = router.pathname === item.path;
-                const isHovered = hoveredItem === item.path;
+              {loading ? (
+                <div className="p-4 text-center text-gray-500 text-sm">Loading navigation...</div>
+              ) : navItems.length === 0 ? (
+                <div className="p-4 text-center text-gray-500 text-sm">No navigation items available</div>
+              ) : (
+                navItems.map((item, index) => {
+                  const isActive = router.pathname === item.path;
+                  const isHovered = hoveredItem === item.path;
 
-                // Regular navigation items
-                return (
-                  <Link key={`${item.path}-${index}`} href={item.path}>
+                  // Regular navigation items
+                  return (
+                    <Link key={`${item.path}-${index}`} href={item.path || '#'}>
                     <div
                       className={clsx(
                         'group relative block rounded-lg transition-all duration-200 cursor-pointer p-3',
@@ -346,8 +535,9 @@ const Sidebar = () => {
                       </div>
                     </div>
                   </Link>
-                );
-              })}
+                  );
+                })
+              )}
             </div>
           </nav>
         </div>
@@ -401,12 +591,17 @@ const Sidebar = () => {
               </div>
 
               <div className="space-y-1">
-                {navItems.map((item, index) => {
-                  const isActive = router.pathname === item.path;
+                {loading ? (
+                  <div className="p-4 text-center text-gray-500 text-sm">Loading navigation...</div>
+                ) : navItems.length === 0 ? (
+                  <div className="p-4 text-center text-gray-500 text-sm">No navigation items available</div>
+                ) : (
+                  navItems.map((item, index) => {
+                    const isActive = router.pathname === item.path;
 
-                  // Regular navigation items for mobile
-                  return (
-                    <Link key={`${item.path}-${index}`} href={item.path}>
+                    // Regular navigation items for mobile
+                    return (
+                      <Link key={`${item.path}-${index}`} href={item.path || '#'}>
                       <div
                         className={clsx(
                           'group relative block rounded-lg transition-all duration-200 cursor-pointer p-3 touch-manipulation active:scale-98',
@@ -468,8 +663,9 @@ const Sidebar = () => {
                         </div>
                       </div>
                     </Link>
-                  );
-                })}
+                    );
+                  })
+                )}
               </div>
             </nav>
           </div>
