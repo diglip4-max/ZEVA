@@ -20,7 +20,38 @@ export default async function handler(req, res) {
 
     // Get user to check role
     const user = await User.findById(staffId);
-    if (!user || !["staff", "admin"].includes(user.role)) {
+    if (!user) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    // Check permissions for clinic/agent/doctor roles
+    if (["clinic", "agent", "doctor", "doctorStaff"].includes(user.role)) {
+      try {
+        const { getClinicIdFromUser, checkClinicPermission } = await import("../lead-ms/permissions-helper");
+        const { clinicId, error: clinicError } = await getClinicIdFromUser(user);
+        if (clinicError || !clinicId) {
+          return res.status(403).json({ 
+            message: clinicError || "Unable to determine clinic access" 
+          });
+        }
+
+        const { hasPermission, error: permError } = await checkClinicPermission(
+          clinicId,
+          "clinic_staff_management",
+          "update",
+          "Add Expense"
+        );
+
+        if (!hasPermission) {
+          return res.status(403).json({
+            message: permError || "You do not have permission to update expenses"
+          });
+        }
+      } catch (permErr) {
+        console.error("Permission check error:", permErr);
+        return res.status(500).json({ message: "Error checking permissions" });
+      }
+    } else if (!["staff", "admin"].includes(user.role)) {
       return res.status(403).json({ message: "Access denied" });
     }
 
