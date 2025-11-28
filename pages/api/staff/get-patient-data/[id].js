@@ -102,7 +102,7 @@ export default async function handler(req, res) {
         return res.status(403).json({ success: false, message: "Access denied" });
       }
 
-      const { updateType } = req.body; // 'payment' | 'status' | 'advanceClaim'
+      const { updateType } = req.body; // 'payment' | 'status' | 'advanceClaim' | 'details'
       const invoice = await PatientRegistration.findById(id);
       if (!invoice) return res.status(404).json({ message: "Invoice not found" });
 
@@ -122,6 +122,8 @@ export default async function handler(req, res) {
           ...extra,
         });
       };
+
+      let responseMessage = "";
 
       // -------------------------------
       // OPTION 1: Payment Update
@@ -164,6 +166,7 @@ export default async function handler(req, res) {
         if (paying > 0 && paymentMethod === "Cash") {
           await addToPettyCashIfCash(user, invoice, paying);
         }
+        responseMessage = "Payment updated successfully";
       } 
       // -------------------------------
       // OPTION 2: Status Update
@@ -176,6 +179,7 @@ export default async function handler(req, res) {
 
         invoice.pending = Math.max(0, invoice.amount - invoice.paid);
         pushHistorySnapshot({ status: invoice.status, rejectionNote: invoice.rejectionNote });
+        responseMessage = "Status updated successfully";
       } 
       // -------------------------------
       // OPTION 3: Advance Claim Update
@@ -206,7 +210,152 @@ export default async function handler(req, res) {
           advanceClaimStatus: invoice.advanceClaimStatus,
           advanceClaimCancellationRemark: invoice.advanceClaimCancellationRemark,
         });
+        responseMessage = "Advance claim updated successfully";
       } 
+      // -------------------------------
+      // OPTION 4: Patient Detail Update
+      // -------------------------------
+      else if (updateType === "details") {
+        const {
+          invoiceNumber,
+          invoicedDate,
+          emrNumber,
+          firstName,
+          lastName,
+          gender,
+          email,
+          mobileNumber,
+          referredBy,
+          patientType,
+          doctor,
+          service,
+          treatment,
+          package: packageName,
+          packageUnits,
+          usedSession,
+          userTreatmentName,
+          amount,
+          paymentMethod,
+          insurance,
+          insuranceType,
+          advanceGivenAmount,
+          coPayPercent,
+          notes,
+          membership,
+          membershipStartDate,
+          membershipEndDate,
+          status,
+          rejectionNote,
+          paying,
+        } = req.body;
+
+        if (!firstName || !gender || !doctor || !service || !paymentMethod) {
+          return res.status(400).json({ message: "Missing required patient fields" });
+        }
+
+        if (invoiceNumber) invoice.invoiceNumber = invoiceNumber;
+        if (invoicedDate) invoice.invoicedDate = new Date(invoicedDate);
+        if (emrNumber !== undefined) invoice.emrNumber = emrNumber;
+        invoice.firstName = firstName;
+        invoice.lastName = lastName || "";
+        invoice.gender = gender;
+        if (email !== undefined) invoice.email = email;
+        if (mobileNumber !== undefined) invoice.mobileNumber = mobileNumber;
+        invoice.referredBy = referredBy || "";
+        invoice.patientType = patientType || invoice.patientType;
+        invoice.doctor = doctor;
+        invoice.service = service;
+        if (service === "Package") {
+          invoice.package = packageName || "";
+          invoice.treatment = "";
+        } else if (service === "Treatment") {
+          invoice.treatment = treatment || "";
+          invoice.package = "";
+        }
+        if (packageUnits !== undefined) invoice.packageUnits = Number(packageUnits) || 1;
+        if (usedSession !== undefined) invoice.usedSession = Number(usedSession) || 0;
+        if (userTreatmentName !== undefined) invoice.userTreatmentName = userTreatmentName || "";
+
+        if (amount !== undefined) invoice.amount = Number(amount) || 0;
+        if (paymentMethod !== undefined && paymentMethod !== "") {
+          invoice.paymentMethod = paymentMethod;
+        }
+
+        invoice.membership = membership || invoice.membership || "No";
+        if (membership === "Yes") {
+          if (membershipStartDate) invoice.membershipStartDate = new Date(membershipStartDate);
+          if (membershipEndDate) invoice.membershipEndDate = new Date(membershipEndDate);
+        } else if (membership === "No") {
+          invoice.membershipStartDate = null;
+          invoice.membershipEndDate = null;
+        }
+
+        invoice.status = status || invoice.status;
+        invoice.rejectionNote = rejectionNote || "";
+        invoice.notes = notes || "";
+
+        // Insurance handling
+        if (insurance === "Yes") {
+          invoice.insurance = "Yes";
+          invoice.insuranceType = insuranceType || invoice.insuranceType || "Paid";
+          invoice.advanceGivenAmount = advanceGivenAmount !== undefined ? Number(advanceGivenAmount) : invoice.advanceGivenAmount;
+          invoice.coPayPercent = coPayPercent !== undefined ? Number(coPayPercent) : invoice.coPayPercent;
+          if (!invoice.advanceClaimStatus) {
+            invoice.advanceClaimStatus = "Pending";
+          }
+        } else if (insurance === "No") {
+          invoice.insurance = "No";
+          invoice.insuranceType = "Paid";
+          invoice.advanceGivenAmount = 0;
+          invoice.coPayPercent = 0;
+          invoice.advanceClaimStatus = null;
+          invoice.advanceClaimReleaseDate = null;
+          invoice.advanceClaimReleasedBy = null;
+          invoice.advanceClaimCancellationRemark = null;
+        }
+
+        const payingAmount = paying !== undefined ? Number(paying) || 0 : 0;
+        if (payingAmount < 0) {
+          return res.status(400).json({ message: "Paying amount cannot be negative" });
+        }
+
+        if (payingAmount > 0) {
+          const previousPaid = Number(invoice.paid ?? 0);
+          invoice.paid = previousPaid + payingAmount;
+          invoice.pending = Math.max(0, Number(invoice.amount ?? 0) - invoice.paid);
+          invoice.advance = Math.max(0, invoice.paid - Number(invoice.amount ?? 0));
+
+          pushHistorySnapshot({
+            amount: Number(invoice.amount ?? 0),
+            paid: Number(invoice.paid ?? 0),
+            advance: Number(invoice.advance ?? 0),
+            pending: Number(invoice.pending ?? 0),
+            paymentMethod: invoice.paymentMethod,
+            paying: payingAmount,
+            status: invoice.status,
+            rejectionNote: invoice.rejectionNote,
+          });
+
+          if (invoice.paymentMethod === "Cash") {
+            await addToPettyCashIfCash(user, invoice, payingAmount);
+          }
+        } else {
+          invoice.pending = Math.max(0, Number(invoice.amount ?? 0) - Number(invoice.paid ?? 0));
+          invoice.advance = Math.max(0, Number(invoice.paid ?? 0) - Number(invoice.amount ?? 0));
+
+          pushHistorySnapshot({
+            amount: Number(invoice.amount ?? 0),
+            paid: Number(invoice.paid ?? 0),
+            advance: Number(invoice.advance ?? 0),
+            pending: Number(invoice.pending ?? 0),
+            paymentMethod: invoice.paymentMethod,
+            status: invoice.status,
+            rejectionNote: invoice.rejectionNote,
+          });
+        }
+
+        responseMessage = "Patient details updated successfully";
+      }
       else {
         return res.status(400).json({ message: "Invalid update type" });
       }
@@ -215,11 +364,14 @@ export default async function handler(req, res) {
 
       return res.status(200).json({
         message:
-          updateType === "payment"
+          responseMessage ||
+          (updateType === "payment"
             ? "Payment updated successfully"
             : updateType === "status"
             ? "Status updated successfully"
-            : "Advance claim status updated successfully",
+            : updateType === "advanceClaim"
+            ? "Advance claim status updated successfully"
+            : "Patient details updated successfully"),
         updatedInvoice: {
           ...invoice.toObject(),
           _id: invoice._id.toString(),

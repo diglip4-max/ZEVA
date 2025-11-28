@@ -314,9 +314,9 @@ function AddRoomPage({ contextOverride = null }: { contextOverride?: RouteContex
       setLoading(true);
       await Promise.all([loadRooms(), loadDepartments()]);
       if (!cancelled) {
-        setLoading(false);
-      }
-    };
+      setLoading(false);
+    }
+  };
 
     loadData();
 
@@ -429,7 +429,7 @@ function AddRoomPage({ contextOverride = null }: { contextOverride?: RouteContex
 
         try {
           const res = await axios.delete(`/api/clinic/rooms?roomId=${roomId}`, { headers });
-          if (res.data.success) {
+      if (res.data.success) {
             const successMsg = res.data.message || "Room deleted successfully";
             setMessage({ type: "success", text: successMsg });
             toast.success(successMsg, { duration: 3000 });
@@ -438,15 +438,15 @@ function AddRoomPage({ contextOverride = null }: { contextOverride?: RouteContex
               setEditingRoomName("");
             }
             await loadRooms();
-          } else {
+      } else {
             const errorMsg = res.data.message || "Failed to delete room";
             setMessage({ type: "error", text: errorMsg });
             toast.error(errorMsg, { duration: 3000 });
-          }
-        } catch (error: any) {
-          console.error("Error deleting room", error);
-          const errorMessage = error.response?.data?.message || "Failed to delete room";
-          setMessage({ type: "error", text: errorMessage });
+      }
+    } catch (error: any) {
+      console.error("Error deleting room", error);
+      const errorMessage = error.response?.data?.message || "Failed to delete room";
+      setMessage({ type: "error", text: errorMessage });
           toast.error(errorMessage, { duration: 3000 });
         }
         setConfirmModal({ ...confirmModal, isOpen: false });
@@ -666,64 +666,64 @@ function AddRoomPage({ contextOverride = null }: { contextOverride?: RouteContex
             <div className="flex flex-col gap-1 mb-3 sm:mb-4">
               <h1 className="text-base sm:text-lg font-semibold text-gray-900">Manage Rooms</h1>
               <p className="text-xs sm:text-sm text-gray-700">Create and manage rooms for your clinic.</p>
-            </div>
+        </div>
 
-            <MessageBanner type={message.type} text={message.text} />
+        <MessageBanner type={message.type} text={message.text} />
 
             {permissions.canCreate && (
-              <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Room Name <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={roomName}
-                    onChange={(e) => setRoomName(e.target.value)}
-                    placeholder="e.g., Consultation Room 1, Operation Theater A"
+        <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Room Name <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              value={roomName}
+              onChange={(e) => setRoomName(e.target.value)}
+              placeholder="e.g., Consultation Room 1, Operation Theater A"
                     className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
-                    required
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={roomCreateDisabled}
-                  className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl font-medium shadow hover:bg-blue-700 disabled:opacity-60"
-                >
-                  {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
-                  {submitting ? "Creating..." : "Create Room"}
-                </button>
-              </form>
-            )}
+              required
+            />
           </div>
+
+          <button
+            type="submit"
+                  disabled={roomCreateDisabled}
+            className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl font-medium shadow hover:bg-blue-700 disabled:opacity-60"
+          >
+            {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
+            {submitting ? "Creating..." : "Create Room"}
+          </button>
+        </form>
+            )}
+      </div>
 
           <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-3 sm:p-4">
             <div className="flex items-center justify-between mb-3 sm:mb-4">
-              <div>
+          <div>
                 <h2 className="text-base sm:text-lg font-semibold text-gray-900">All Rooms</h2>
                 <p className="text-xs sm:text-sm text-gray-700">List of all rooms in your clinic.</p>
-              </div>
-            </div>
+          </div>
+        </div>
 
-            {loading ? (
+        {loading ? (
               <div className="flex items-center justify-center py-8 text-gray-700">
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                 <span className="text-xs sm:text-sm">Loading rooms...</span>
-              </div>
-            ) : rooms.length === 0 ? (
+          </div>
+        ) : rooms.length === 0 ? (
               <div className="text-center py-8">
                 <div className="w-8 h-8 mx-auto mb-2 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 text-sm">
-                  🏥
-                </div>
+              🏥
+            </div>
                 <p className="text-xs sm:text-sm text-gray-700">No rooms created yet.</p>
                 <p className="text-[10px] sm:text-xs text-gray-700 mt-1">Use the form above to create your first room.</p>
-              </div>
-            ) : (
+          </div>
+        ) : (
               <div className="space-y-2">
-                {rooms.map((room) => (
-                  <div
-                    key={room._id}
+            {rooms.map((room) => (
+              <div
+                key={room._id}
                     className="border border-gray-200 rounded-lg p-2 sm:p-3 flex flex-col gap-2 sm:gap-3 md:flex-row md:items-center md:justify-between hover:bg-gray-50 transition-colors"
                   >
                     <div className="flex-1 min-w-0">
@@ -742,11 +742,11 @@ function AddRoomPage({ contextOverride = null }: { contextOverride?: RouteContex
                         <>
                           <h3 className="text-sm sm:text-base font-semibold text-gray-900 truncate">{room.name}</h3>
                           <p className="text-xs text-gray-700">
-                            Created {new Date(room.createdAt).toLocaleDateString()}
-                          </p>
+                    Created {new Date(room.createdAt).toLocaleDateString()}
+                  </p>
                         </>
                       )}
-                    </div>
+                </div>
                     <div className="flex items-center gap-1.5 sm:gap-2">
                       {editingRoomId === room._id ? (
                         <>
@@ -781,10 +781,10 @@ function AddRoomPage({ contextOverride = null }: { contextOverride?: RouteContex
                             </button>
                           )}
                           {permissions.canDelete && (
-                            <button
-                              onClick={() => handleDelete(room._id)}
+                <button
+                  onClick={() => handleDelete(room._id)}
                               className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-red-500"
-                              title="Delete room"
+                  title="Delete room"
                               aria-label="Delete room"
                             >
                               <Trash2 className="w-4 h-4" />
@@ -929,7 +929,7 @@ function AddRoomPage({ contextOverride = null }: { contextOverride?: RouteContex
                               aria-label="Delete department"
                             >
                               <Trash2 className="w-4 h-4" />
-                            </button>
+                </button>
                           )}
                           {!permissions.canUpdate && !permissions.canDelete && (
                             <span className="text-[10px] text-gray-700">No actions available</span>
@@ -937,11 +937,11 @@ function AddRoomPage({ contextOverride = null }: { contextOverride?: RouteContex
                         </>
                       )}
                     </div>
-                  </div>
-                ))}
               </div>
-            )}
+            ))}
           </div>
+        )}
+      </div>
         </>
       )}
 
