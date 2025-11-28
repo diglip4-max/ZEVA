@@ -406,7 +406,7 @@ function AddRoomPage({ contextOverride = null }) {
 
         try {
           const res = await axios.delete(`/api/clinic/rooms?roomId=${roomId}`, { headers });
-      if (res.data.success) {
+          if (res.data.success) {
             const successMsg = res.data.message || "Room deleted successfully";
             setMessage({ type: "success", text: successMsg });
             toast.success(successMsg, { duration: 3000 });
@@ -415,23 +415,15 @@ function AddRoomPage({ contextOverride = null }) {
               setEditingRoomName("");
             }
             await loadRooms();
-      } else {
+          } else {
             const errorMsg = res.data.message || "Failed to delete room";
             setMessage({ type: "error", text: errorMsg });
             toast.error(errorMsg, { duration: 3000 });
-<<<<<<< HEAD:pages/clinic/add-room.jsx
           }
         } catch (error) {
           console.error("Error deleting room", error);
           const errorMessage = error.response?.data?.message || "Failed to delete room";
           setMessage({ type: "error", text: errorMessage });
-=======
-      }
-    } catch (error: any) {
-      console.error("Error deleting room", error);
-      const errorMessage = error.response?.data?.message || "Failed to delete room";
-      setMessage({ type: "error", text: errorMessage });
->>>>>>> e57b3d107fa1ba1fb75ef273f2e09486c959e393:pages/clinic/add-room.tsx
           toast.error(errorMessage, { duration: 3000 });
         }
         setConfirmModal({ ...confirmModal, isOpen: false });
