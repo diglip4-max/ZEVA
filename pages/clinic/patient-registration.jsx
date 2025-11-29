@@ -40,29 +40,30 @@ function ClinicPatientRegistration() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Register Patient Modal */}
+      {/* Register Patient Modal - Compact */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto bg-black/50 backdrop-blur-sm">
-          <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-7xl max-h-[95vh] overflow-y-auto my-4">
-            {/* Modal Header */}
-            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between z-10">
-              <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
-                <UserPlus className="w-5 h-5 text-[#2D9AA5]" />
+          <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[85vh] overflow-y-auto flex flex-col">
+            {/* Compact Modal Header */}
+            <div className="sticky top-0 bg-gray-50 border-b border-gray-200 px-4 py-3 flex items-center justify-between z-10">
+              <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                <UserPlus className="w-5 h-5 text-gray-700" />
                 Register New Patient
               </h2>
               <button
                 onClick={handleCloseModal}
-                className="p-2 hover:bg-gray-100 rounded-lg text-gray-700 transition-colors"
+                className="p-1.5 hover:bg-gray-200 rounded-lg text-gray-400 hover:text-gray-700 transition-colors"
                 aria-label="Close modal"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
 
-            {/* Modal Content */}
-            <div className="p-4">
+            {/* Modal Content - Compact */}
+            <div className="p-4 flex-1 overflow-y-auto">
               <PatientRegistrationWrapper 
                 onSuccess={handleRegistrationSuccess}
+                isCompact={true}
               />
             </div>
           </div>
@@ -77,21 +78,29 @@ function ClinicPatientRegistration() {
       />
 
       {editPatientId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto bg-black/60 backdrop-blur-sm">
-          <div className="relative w-full max-w-6xl">
-            <button
-              onClick={() => handleCloseEditModal(false)}
-              className="absolute -top-3 -right-3 z-10 bg-white rounded-full shadow p-2 hover:bg-gray-100"
-              aria-label="Close edit modal"
-            >
-              <X className="w-4 h-4" />
-            </button>
-            <PatientUpdateForm
-              patientId={editPatientId}
-              embedded
-              onClose={() => handleCloseEditModal(true)}
-              onUpdated={() => setRefreshKey((prev) => prev + 1)}
-            />
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto bg-black/50 backdrop-blur-sm">
+          <div className="relative w-full max-w-3xl max-h-[85vh] overflow-y-auto flex flex-col bg-white rounded-xl shadow-2xl">
+            <div className="sticky top-0 bg-gray-50 border-b border-gray-200 px-4 py-3 flex items-center justify-between z-10">
+              <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                <UserPlus className="w-5 h-5 text-gray-700" />
+                Edit Patient
+              </h2>
+              <button
+                onClick={() => handleCloseEditModal(false)}
+                className="p-1.5 hover:bg-gray-200 rounded-lg text-gray-400 hover:text-gray-700 transition-colors"
+                aria-label="Close edit modal"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="p-4 flex-1 overflow-y-auto">
+              <PatientUpdateForm
+                patientId={editPatientId}
+                embedded
+                onClose={() => handleCloseEditModal(true)}
+                onUpdated={() => setRefreshKey((prev) => prev + 1)}
+              />
+            </div>
           </div>
         </div>
       )}
@@ -100,8 +109,8 @@ function ClinicPatientRegistration() {
 }
 
 // Wrapper component for PatientRegistration to handle success callback
-const PatientRegistrationWrapper = ({ onSuccess }) => {
-  return <PatientRegistration onSuccess={onSuccess} />;
+const PatientRegistrationWrapper = ({ onSuccess, isCompact = false }) => {
+  return <PatientRegistration onSuccess={onSuccess} isCompact={isCompact} />;
 };
 
 // Enhanced Patient Information component with Register button
@@ -114,11 +123,11 @@ function PatientInformationWithButton({ onRegisterClick, refreshKey, onEditPatie
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold text-gray-900">Patient Management</h1>
-              <p className="text-sm text-gray-600 mt-1">View and manage all patient records</p>
+              <p className="text-sm text-gray-700 mt-1">View and manage all patient records</p>
             </div>
             <button
               onClick={onRegisterClick}
-              className="inline-flex items-center gap-2 px-6 py-3 bg-[#2D9AA5] hover:bg-[#258a94] text-white rounded-lg font-medium transition-colors shadow-sm hover:shadow-md"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-gray-900 hover:bg-gray-800 text-white rounded-lg font-medium transition-colors shadow-sm hover:shadow-md"
             >
               <UserPlus className="w-5 h-5" />
               Register Patient

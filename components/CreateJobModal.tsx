@@ -2,7 +2,8 @@
 import React, { useState } from 'react';
 import JobPostingForm, { JobFormData } from './JobPostingForm';
 import { jobPostingService } from '../services/jobService';
-import { X } from 'lucide-react';
+import { X, Plus } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 interface CreateJobModalProps {
   isOpen: boolean;
@@ -21,17 +22,21 @@ const CreateJobModal: React.FC<CreateJobModalProps> = ({
 
   const handleJobSubmit = async (formData: JobFormData): Promise<void> => {
     if (!canCreate) {
+      toast.error("You do not have permission to create jobs");
       throw new Error("You do not have permission to create jobs");
     }
 
     setIsSubmitting(true);
     try {
       await jobPostingService.createClinicJob(formData);
+      toast.success("Job posted successfully!");
       if (onJobCreated) {
         onJobCreated();
       }
       onClose();
-    } catch (error) {
+    } catch (error: any) {
+      const errorMessage = error?.response?.data?.message || error?.message || "Failed to create job posting";
+      toast.error(errorMessage);
       throw error;
     } finally {
       setIsSubmitting(false);
@@ -42,31 +47,30 @@ const CreateJobModal: React.FC<CreateJobModalProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900">Create New Job</h2>
-            <p className="text-sm text-gray-600 mt-1">Fill in the details to post a new job</p>
+      <div className="bg-white rounded-xl shadow-2xl max-w-3xl w-full max-h-[85vh] overflow-hidden flex flex-col">
+        {/* Compact Header */}
+        <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-gray-50">
+          <div className="flex items-center gap-2">
+            <Plus className="w-5 h-5 text-gray-700" />
+            <h2 className="text-lg font-bold text-gray-900">Create New Job</h2>
           </div>
           <button
             onClick={onClose}
-            className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+            className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-200 rounded-lg transition-colors"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Form Content - Scrolled area */}
         <div className="flex-1 overflow-y-auto">
-          <div className="p-4">
-            <JobPostingForm
-              onSubmit={handleJobSubmit}
-              isSubmitting={isSubmitting}
-              title="Create New Job"
-              subtitle="Fill in the details to post a new job"
-            />
-          </div>
+          <JobPostingForm
+            onSubmit={handleJobSubmit}
+            isSubmitting={isSubmitting}
+            title="Create New Job"
+            subtitle="Fill in the details to post a new job"
+            isCompact={true}
+          />
         </div>
       </div>
     </div>

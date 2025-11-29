@@ -107,7 +107,7 @@ const INITIAL_FORM_DATA = {
   membershipStartDate: "", membershipEndDate: ""
 };
 
-const InvoiceManagementSystem = ({ onSuccess }) => {
+const InvoiceManagementSystem = ({ onSuccess, isCompact = false }) => {
   const [currentUser, setCurrentUser] = useState({ name: "", role: "" });
   const [formData, setFormData] = useState(INITIAL_FORM_DATA);
   const [manualAdvance, setManualAdvance] = useState(false);
@@ -497,39 +497,41 @@ return (
     <ToastContainer toasts={toasts} removeToast={removeToast} />
     <ConfirmModal {...confirmModal} onCancel={() => setConfirmModal({ isOpen: false, action: null })} onConfirm={confirmModal.action} />
 
-    <div className="min-h-screen bg-gray-50 p-3 sm:p-4 md:p-6">
-      <div className="max-w-7xl mx-auto">
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6 md:p-8">
+    <div className={isCompact ? "" : "min-h-screen bg-gray-50 p-3 sm:p-4 md:p-6"}>
+      <div className={isCompact ? "w-full" : "max-w-7xl mx-auto"}>
+        <div className={`bg-white ${isCompact ? '' : 'rounded-lg shadow-sm border border-gray-200'} ${isCompact ? 'p-0' : 'p-4 sm:p-6 md:p-8'}`}>
           
-          {/* Header */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 pb-4 border-b border-gray-200">
-            <div className="mb-3 sm:mb-0">
-              <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 flex items-center gap-2">
-                <FileText className="w-5 h-5 sm:w-6 sm:h-6 text-indigo-600" />
-                Patient Registration
-              </h1>
-              <p className="text-xs sm:text-sm text-gray-700 mt-1">Complete patient and invoice details</p>
-            </div>
-            {autoFields.invoicedBy && (
-              <div className="text-left sm:text-right">
-                <div className="text-xs text-gray-700">Logged in as:</div>
-                <div className="font-semibold text-sm text-indigo-600">{autoFields.invoicedBy}</div>
-                {currentUser.role && <div className="text-xs text-gray-700">{currentUser.role}</div>}
+          {/* Header - Hidden in compact mode */}
+          {!isCompact && (
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 pb-4 border-b border-gray-200">
+              <div className="mb-3 sm:mb-0">
+                <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 flex items-center gap-2">
+                  <FileText className="w-5 h-5 sm:w-6 sm:h-6 text-gray-700" />
+                  Patient Registration
+                </h1>
+                <p className="text-xs sm:text-sm text-gray-700 mt-1">Complete patient and invoice details</p>
               </div>
-            )}
-          </div>
+              {autoFields.invoicedBy && (
+                <div className="text-left sm:text-right">
+                  <div className="text-xs text-gray-700">Logged in as:</div>
+                  <div className="font-semibold text-sm text-gray-700">{autoFields.invoicedBy}</div>
+                  {currentUser.role && <div className="text-xs text-gray-700">{currentUser.role}</div>}
+                </div>
+              )}
+            </div>
+          )}
 
-          <div className="space-y-5">
+          <div className={isCompact ? "space-y-3" : "space-y-5"}>
             
             {/* Invoice Information */}
-            <div className="bg-white rounded-lg p-4 sm:p-5 border border-gray-200">
-              <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-indigo-600" />
+            <div className={`bg-white ${isCompact ? '' : 'rounded-lg'} ${isCompact ? 'p-0' : 'p-4 sm:p-5'} border border-gray-200`}>
+              <h2 className={`${isCompact ? 'text-sm' : 'text-base sm:text-lg'} font-semibold text-gray-900 ${isCompact ? 'mb-2' : 'mb-4'} flex items-center gap-2`}>
+                <Calendar className={`${isCompact ? 'w-4 h-4' : 'w-4 h-4 sm:w-5 sm:h-5'} text-gray-700`} />
                 Invoice Information
               </h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+              <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 ${isCompact ? 'gap-2' : 'gap-3 sm:gap-4'}`}>
                 <div>
-                  <label className="block text-xs sm:text-sm font-medium text-gray-800 mb-1.5">
+                  <label className={`block ${isCompact ? 'text-xs mb-1' : 'text-xs sm:text-sm mb-1.5'} font-medium text-gray-700`}>
                     Invoice Number <span className="text-red-500">*</span>
                   </label>
                   <input
@@ -537,7 +539,7 @@ return (
                     name="invoiceNumber"
                     value={formData.invoiceNumber}
                     onChange={handleInputChange}
-                    className={`text-gray-900 w-full px-3 py-2 text-sm border rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-transparent ${errors.invoiceNumber ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
+                    className={`text-gray-900 w-full ${isCompact ? 'px-2.5 py-1.5 text-xs' : 'px-3 py-2 text-sm'} border rounded-md focus:ring-2 focus:ring-gray-900 focus:border-gray-900 ${errors.invoiceNumber ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
                   />
                   {errors.invoiceNumber && (
                     <p className="text-red-500 text-xs mt-1 flex items-center gap-1">
@@ -546,46 +548,46 @@ return (
                   )}
                 </div>
                 <div>
-                  <label className="block text-xs sm:text-sm font-medium text-gray-800 mb-1.5">Invoiced Date</label>
+                  <label className={`block ${isCompact ? 'text-xs mb-1' : 'text-xs sm:text-sm mb-1.5'} font-medium text-gray-700`}>Invoiced Date</label>
                   <input
                     type="text"
                     value={new Date(autoFields.invoicedDate).toLocaleString()}
                     disabled
-                    className="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-300 rounded-md text-gray-700"
+                    className={`w-full ${isCompact ? 'px-2.5 py-1.5 text-xs' : 'px-3 py-2 text-sm'} bg-gray-50 border border-gray-300 rounded-md text-gray-700`}
                   />
                 </div>
                 <div>
-                  <label className="block text-xs sm:text-sm font-medium text-gray-800 mb-1.5">Invoiced By</label>
+                  <label className={`block ${isCompact ? 'text-xs mb-1' : 'text-xs sm:text-sm mb-1.5'} font-medium text-gray-700`}>Invoiced By</label>
                   <input
                     type="text"
                     value={autoFields.invoicedBy}
                     disabled
-                    className="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-300 rounded-md text-gray-700"
+                    className={`w-full ${isCompact ? 'px-2.5 py-1.5 text-xs' : 'px-3 py-2 text-sm'} bg-gray-50 border border-gray-300 rounded-md text-gray-700`}
                   />
                 </div>
               </div>
             </div>
 
             {/* EMR Search */}
-            <div className="bg-indigo-50 rounded-lg p-4 sm:p-5 border border-indigo-200">
-              <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                <Search className="w-4 h-4 sm:w-5 sm:h-5 text-indigo-600" />
+            <div className={`${isCompact ? 'bg-gray-50' : 'bg-indigo-50'} ${isCompact ? '' : 'rounded-lg'} ${isCompact ? 'p-0' : 'p-4 sm:p-5'} border ${isCompact ? 'border-gray-200' : 'border-indigo-200'}`}>
+              <h2 className={`${isCompact ? 'text-sm' : 'text-base sm:text-lg'} font-semibold text-gray-900 ${isCompact ? 'mb-2' : 'mb-4'} flex items-center gap-2`}>
+                <Search className={`${isCompact ? 'w-4 h-4' : 'w-4 h-4 sm:w-5 sm:h-5'} text-gray-700`} />
                 Search Patient by EMR
               </h2>
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
+              <div className={`flex flex-col sm:flex-row items-stretch sm:items-center ${isCompact ? 'gap-2' : 'gap-2 sm:gap-3'}`}>
                 <input
                   type="text"
                   name="emrNumber"
                   value={formData.emrNumber}
                   onChange={handleInputChange}
                   placeholder="Enter EMR Number"
-                  className="flex-1 px-3 py-2.5 text-sm border border-indigo-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900"
+                  className={`flex-1 ${isCompact ? 'px-2.5 py-1.5 text-xs' : 'px-3 py-2.5 text-sm'} border ${isCompact ? 'border-gray-300' : 'border-indigo-300'} rounded-md focus:ring-2 focus:ring-gray-900 focus:border-gray-900 text-gray-900`}
                 />
                 <button
                   type="button"
                   onClick={fetchEMRData}
                   disabled={fetching || !formData.emrNumber.trim()}
-                  className={`px-4 py-2.5 rounded-md text-white text-sm font-medium transition flex items-center justify-center gap-2 whitespace-nowrap ${fetching || !formData.emrNumber.trim() ? "bg-gray-400 cursor-not-allowed" : "bg-indigo-600 hover:bg-indigo-700"}`}
+                  className={`${isCompact ? 'px-3 py-1.5 text-xs' : 'px-4 py-2.5 text-sm'} rounded-md text-white font-medium transition flex items-center justify-center gap-2 whitespace-nowrap ${fetching || !formData.emrNumber.trim() ? "bg-gray-400 cursor-not-allowed" : "bg-gray-900 hover:bg-gray-800"}`}
                 >
                   <Search className="w-4 h-4" />
                   {fetching ? "Searching..." : "Search"}
@@ -595,12 +597,12 @@ return (
             </div>
 
             {/* Patient Information */}
-            <div className="bg-white rounded-lg p-4 sm:p-5 border border-gray-200">
-              <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                <User className="w-4 h-4 sm:w-5 sm:h-5 text-indigo-600" />
+            <div className={`bg-white ${isCompact ? '' : 'rounded-lg'} ${isCompact ? 'p-0' : 'p-4 sm:p-5'} border border-gray-200`}>
+              <h2 className={`${isCompact ? 'text-sm' : 'text-base sm:text-lg'} font-semibold text-gray-900 ${isCompact ? 'mb-2' : 'mb-4'} flex items-center gap-2`}>
+                <User className={`${isCompact ? 'w-4 h-4' : 'w-4 h-4 sm:w-5 sm:h-5'} text-gray-700`} />
                 Patient Information
               </h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+              <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 ${isCompact ? 'gap-2' : 'gap-3 sm:gap-4'}`}>
                 {[{ name: "emrNumber", label: "EMR Number", required: true },
                   { name: "firstName", label: "First Name", required: true },
                   { name: "lastName", label: "Last Name", required: true },
@@ -611,7 +613,7 @@ return (
                   { name: "referredBy", label: "Referred By" }
                 ].map(field => (
                   <div key={field.name}>
-                    <label className="block text-xs sm:text-sm font-medium text-gray-800 mb-1.5">
+                    <label className={`block ${isCompact ? 'text-xs mb-1' : 'text-xs sm:text-sm mb-1.5'} font-medium text-gray-700`}>
                       {field.label} {field.required && <span className="text-red-500">*</span>}
                     </label>
                     {field.type === "select" ? (
@@ -619,7 +621,7 @@ return (
                         name={field.name}
                         value={formData[field.name]}
                         onChange={handleInputChange}
-                        className={`text-gray-900 w-full px-3 py-2 text-sm border rounded-md focus:ring-2 focus:ring-indigo-500 ${errors[field.name] ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
+                        className={`text-gray-900 w-full ${isCompact ? 'px-2.5 py-1.5 text-xs' : 'px-3 py-2 text-sm'} border rounded-md focus:ring-2 focus:ring-gray-900 focus:border-gray-900 ${errors[field.name] ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
                       >
                         <option value="">Select {field.label}</option>
                         {field.options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
@@ -630,7 +632,7 @@ return (
                         name={field.name}
                         value={formData[field.name]}
                         onChange={handleInputChange}
-                        className={`w-full px-3 py-2 text-sm border rounded-md focus:ring-2 focus:ring-indigo-500 text-gray-900 ${errors[field.name] ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
+                        className={`w-full ${isCompact ? 'px-2.5 py-1.5 text-xs' : 'px-3 py-2 text-sm'} border rounded-md focus:ring-2 focus:ring-gray-900 focus:border-gray-900 text-gray-900 ${errors[field.name] ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
                         placeholder={field.label}
                       />
                     )}
@@ -646,7 +648,7 @@ return (
                 {formData.membership === "Yes" && (
                   <>
                     <div>
-                      <label className="block text-xs sm:text-sm font-medium text-gray-800 mb-1.5">
+                      <label className={`block ${isCompact ? 'text-xs mb-1' : 'text-xs sm:text-sm mb-1.5'} font-medium text-gray-700`}>
                         Membership Start Date <span className="text-red-500">*</span>
                       </label>
                       <input
@@ -663,7 +665,7 @@ return (
                       )}
                     </div>
                     <div>
-                      <label className="block text-xs sm:text-sm font-medium text-gray-800 mb-1.5">
+                      <label className={`block ${isCompact ? 'text-xs mb-1' : 'text-xs sm:text-sm mb-1.5'} font-medium text-gray-700`}>
                         Membership End Date <span className="text-red-500">*</span>
                       </label>
                       <input
@@ -687,9 +689,9 @@ return (
             {/* Medical Details */}
             <div className="bg-white rounded-lg p-4 sm:p-5 border border-gray-200">
               <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-4">Medical Details</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+              <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 ${isCompact ? 'gap-2' : 'gap-3 sm:gap-4'}`}>
                 <div>
-                  <label className="block text-xs sm:text-sm font-medium text-gray-800 mb-1.5">
+                  <label className={`block ${isCompact ? 'text-xs mb-1' : 'text-xs sm:text-sm mb-1.5'} font-medium text-gray-700`}>
                     Doctor <span className="text-red-500">*</span>
                   </label>
                   <select
@@ -704,7 +706,7 @@ return (
                   {errors.doctor && <p className="text-red-500 text-xs mt-1 flex items-center gap-1"><AlertCircle className="w-3 h-3" />{errors.doctor}</p>}
                 </div>
                 <div>
-                  <label className="block text-xs sm:text-sm font-medium text-gray-800 mb-1.5">
+                  <label className={`block ${isCompact ? 'text-xs mb-1' : 'text-xs sm:text-sm mb-1.5'} font-medium text-gray-700`}>
                     Service <span className="text-red-500">*</span>
                   </label>
                   <select
@@ -721,7 +723,7 @@ return (
                 </div>
                 {formData.service === "Package" && (
                     <div>
-                      <label className="block text-xs sm:text-sm font-medium text-gray-800 mb-1.5">Package <span className="text-red-500">*</span></label>
+                      <label className={`block ${isCompact ? 'text-xs mb-1' : 'text-xs sm:text-sm mb-1.5'} font-medium text-gray-700`}>Package <span className="text-red-500">*</span></label>
                       <select name="package" value={formData.package} onChange={handleServiceLinkedChange} className={`w-full px-3 py-2 text-sm border rounded-md text-gray-900 ${errors.package ? "border-red-500 bg-red-50" : "border-gray-300"}`}>
                         <option value="">Select Package</option>
                       {fetchedPackages.map(p => <option key={p._id} value={p.name}>{p.name}{typeof p.price === 'number' ? ` - د.إ${p.price.toFixed(2)}` : ''}</option>)}
@@ -731,7 +733,7 @@ return (
                 )}
                 {formData.service === "Treatment" && (
                   <div>
-                    <label className="block text-xs sm:text-sm font-medium text-gray-800 mb-1.5">Treatment <span className="text-red-500">*</span></label>
+                    <label className={`block ${isCompact ? 'text-xs mb-1' : 'text-xs sm:text-sm mb-1.5'} font-medium text-gray-700`}>Treatment <span className="text-red-500">*</span></label>
                     <select name="treatment" value={formData.treatment} onChange={handleServiceLinkedChange} className={`w-full px-3 py-2 text-sm border rounded-md text-gray-900 ${errors.treatment ? "border-red-500 bg-red-50" : "border-gray-300"}`}>
                       <option value="">Select Treatment</option>
                       {fetchedTreatments.map(t => <option key={t._id} value={t.name}>{t.name}{typeof t.price === 'number' ? ` - د.إ${t.price.toFixed(2)}` : ''}</option>)}
@@ -743,11 +745,11 @@ return (
             </div>
 
             {/* Insurance Details */}
-            <div className="bg-white rounded-lg p-4 sm:p-5 border border-gray-200">
-              <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-4">Insurance Details</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+            <div className={`bg-white ${isCompact ? '' : 'rounded-lg'} ${isCompact ? 'p-0' : 'p-4 sm:p-5'} border border-gray-200`}>
+              <h2 className={`${isCompact ? 'text-sm' : 'text-base sm:text-lg'} font-semibold text-gray-900 ${isCompact ? 'mb-2' : 'mb-4'}`}>Insurance Details</h2>
+              <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 ${isCompact ? 'gap-2' : 'gap-3 sm:gap-4'}`}>
                 <div>
-                  <label className="block text-xs sm:text-sm font-medium text-gray-800 mb-1.5">Insurance</label>
+                  <label className={`block ${isCompact ? 'text-xs mb-1' : 'text-xs sm:text-sm mb-1.5'} font-medium text-gray-700`}>Insurance</label>
                   <select name="insurance" value={formData.insurance} onChange={handleInputChange} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 text-gray-900">
                     <option value="No">No</option>
                     <option value="Yes">Yes</option>
@@ -756,7 +758,7 @@ return (
                 {formData.insurance === 'Yes' && (
                   <>
                     <div>
-                      <label className="block text-xs sm:text-sm font-medium text-gray-800 mb-1.5">Type</label>
+                      <label className={`block ${isCompact ? 'text-xs mb-1' : 'text-xs sm:text-sm mb-1.5'} font-medium text-gray-700`}>Type</label>
                       <select name="insuranceType" value={formData.insuranceType} onChange={handleInputChange} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 text-gray-900">
                         <option value="Paid">Paid</option>
                         <option value="Advance">Advance</option>
@@ -765,19 +767,19 @@ return (
                     {formData.insuranceType === 'Advance' && (
                       <>
                         <div>
-                          <label className="block text-xs sm:text-sm font-medium text-gray-800 mb-1.5">Advance Payment Amount</label>
+                          <label className={`block ${isCompact ? 'text-xs mb-1' : 'text-xs sm:text-sm mb-1.5'} font-medium text-gray-700`}>Advance Payment Amount</label>
                           <input 
                             type="number" 
                             name="advanceGivenAmount" 
                             value={formData.advanceGivenAmount || ""} 
                             onChange={handleInputChange}
-                            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 text-gray-900" 
+                            className={`w-full ${isCompact ? 'px-2.5 py-1.5 text-xs' : 'px-3 py-2 text-sm'} border border-gray-300 rounded-md focus:ring-2 focus:ring-gray-900 focus:border-gray-900 text-gray-900`} 
                             placeholder="0"
                             step="0.01"
                           />
                         </div>
                         <div>
-                          <label className="block text-xs sm:text-sm font-medium text-gray-800 mb-1.5">Co-Pay % <span className="text-red-500">*</span></label>
+                          <label className={`block ${isCompact ? 'text-xs mb-1' : 'text-xs sm:text-sm mb-1.5'} font-medium text-gray-700`}>Co-Pay % <span className="text-red-500">*</span></label>
                           <input 
                             type="number" 
                             name="coPayPercent" 
@@ -791,7 +793,7 @@ return (
                           {errors.coPayPercent && <p className="text-red-500 text-xs mt-1"><AlertCircle className="w-3 h-3 inline" /> {errors.coPayPercent}</p>}
                         </div>
                         <div>
-                          <label className="block text-xs sm:text-sm font-medium text-gray-800 mb-1.5">Need to Pay (Auto)</label>
+                          <label className={`block ${isCompact ? 'text-xs mb-1' : 'text-xs sm:text-sm mb-1.5'} font-medium text-gray-700`}>Need to Pay (Auto)</label>
                           <input 
                             type="text" 
                             value={`د.إ ${calculatedFields.needToPay.toFixed(2)}`} 
@@ -807,19 +809,19 @@ return (
             </div>
 
             {/* Payment Details */}
-            <div className="bg-white rounded-lg p-4 sm:p-5 border border-gray-200">
-              <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                <DollarSign className="w-4 h-4 sm:w-5 sm:h-5 text-indigo-600" />
+            <div className={`bg-white ${isCompact ? '' : 'rounded-lg'} ${isCompact ? 'p-0' : 'p-4 sm:p-5'} border border-gray-200`}>
+              <h2 className={`${isCompact ? 'text-sm' : 'text-base sm:text-lg'} font-semibold text-gray-900 ${isCompact ? 'mb-2' : 'mb-4'} flex items-center gap-2`}>
+                <DollarSign className={`${isCompact ? 'w-4 h-4' : 'w-4 h-4 sm:w-5 sm:h-5'} text-gray-700`} />
                 Payment Details
               </h2>
               
               
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+              <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 ${isCompact ? 'gap-2' : 'gap-3 sm:gap-4'}`}>
                 {[{ name: "amount", label: "Amount", required: true, type: "number" },
                   { name: "paid", label: "Paid", type: "number" }
                 ].map(f => (
                   <div key={f.name}>
-                    <label className="block text-xs sm:text-sm font-medium text-gray-800 mb-1.5">
+                    <label className={`block ${isCompact ? 'text-xs mb-1' : 'text-xs sm:text-sm mb-1.5'} font-medium text-gray-700`}>
                       {f.label} {f.required && <span className="text-red-500">*</span>}
                     </label>
                     <input
@@ -835,7 +837,7 @@ return (
                   </div>
                 ))}
                 <div>
-                  <label className="block text-xs sm:text-sm font-medium text-gray-800 mb-1.5">Advance (Auto)</label>
+                  <label className={`block ${isCompact ? 'text-xs mb-1' : 'text-xs sm:text-sm mb-1.5'} font-medium text-gray-700`}>Advance (Auto)</label>
                   <input
                     type="text"
                     value={formData.advance || "0.00"}
@@ -844,11 +846,11 @@ return (
                   />
                 </div>
                 <div>
-                  <label className="block text-xs sm:text-sm font-medium text-gray-800 mb-1.5">Pending (Auto)</label>
+                  <label className={`block ${isCompact ? 'text-xs mb-1' : 'text-xs sm:text-sm mb-1.5'} font-medium text-gray-700`}>Pending (Auto)</label>
                   <input type="text" value={`د.إ ${calculatedFields.pending.toFixed(2)}`} disabled className="w-full px-3 py-2 text-sm bg-gray-50 border border-gray-300 rounded-md text-gray-900 font-semibold" />
                 </div>
                 <div>
-                  <label className="block text-xs sm:text-sm font-medium text-gray-800 mb-1.5">Payment Method <span className="text-red-500">*</span></label>
+                  <label className={`block ${isCompact ? 'text-xs mb-1' : 'text-xs sm:text-sm mb-1.5'} font-medium text-gray-700`}>Payment Method <span className="text-red-500">*</span></label>
                   <select name="paymentMethod" value={formData.paymentMethod} onChange={handleInputChange} className={`w-full px-3 py-2 text-sm border rounded-md text-gray-900 ${errors.paymentMethod ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}>
                     <option value="">Select Method</option>
                     {paymentMethods.map((m, i) => <option key={i} value={m}>{m}</option>)}
@@ -870,7 +872,7 @@ return (
               <button 
                 type="button" 
                 onClick={handleSubmit} 
-                className="w-full sm:w-auto px-5 py-2.5 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition text-sm font-medium shadow-sm"
+                className={`w-full sm:w-auto ${isCompact ? 'px-4 py-2 text-xs' : 'px-5 py-2.5 text-sm'} bg-gray-900 text-white rounded-md hover:bg-gray-800 transition font-medium shadow-sm`}
               >
                 Save Invoice
               </button>
