@@ -12,10 +12,12 @@ import {
   Edit,
   History,
   FileText,
+  MessageCircle,
 } from "lucide-react";
 import EditAppointmentModal from "../../components/EditAppointmentModal";
 import AppointmentHistoryModal from "../../components/AppointmentHistoryModal";
 import AppointmentReportModal from "../../components/AppointmentReportModal";
+import AppointmentComplaintModal from "../../components/AppointmentComplaintModal";
 
 interface Appointment {
   _id: string;
@@ -116,10 +118,12 @@ const AllAppointmentsPage: NextPageWithLayout = ({
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [historyModalOpen, setHistoryModalOpen] = useState(false);
   const [reportModalOpen, setReportModalOpen] = useState(false);
+  const [complaintModalOpen, setComplaintModalOpen] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [selectedPatientId, setSelectedPatientId] = useState<string>("");
   const [selectedPatientName, setSelectedPatientName] = useState<string>("");
   const [reportAppointment, setReportAppointment] = useState<Appointment | null>(null);
+  const [complaintAppointment, setComplaintAppointment] = useState<Appointment | null>(null);
   const appointmentRef = useRef<Appointment | null>(null);
 
   // Debug: Log modal state changes
@@ -746,7 +750,19 @@ const AllAppointmentsPage: NextPageWithLayout = ({
                             {apt.notes || "No Remarks"}
                           </td>
                           <td className="px-3 py-4 whitespace-nowrap">
-                            {apt.emrNumber ? (
+                            {apt.status?.toLowerCase() === "arrived" ? (
+                              <button
+                                type="button"
+                                className="w-7 h-7 bg-red-100 text-red-700 rounded-full flex items-center justify-center hover:bg-red-200 transition"
+                                title="Patient Complaint"
+                                onClick={() => {
+                                  setComplaintAppointment(apt);
+                                  setComplaintModalOpen(true);
+                                }}
+                              >
+                                <MessageCircle className="w-4 h-4" />
+                              </button>
+                            ) : apt.emrNumber ? (
                               <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center">
                                 <span className="text-green-600 text-xs">✓</span>
                               </div>
@@ -969,6 +985,16 @@ const AllAppointmentsPage: NextPageWithLayout = ({
         onSuccess={() => {
           fetchAppointments();
         }}
+      />
+
+      <AppointmentComplaintModal
+        isOpen={complaintModalOpen}
+        appointment={complaintAppointment}
+        onClose={() => {
+          setComplaintModalOpen(false);
+          setComplaintAppointment(null);
+        }}
+        getAuthHeaders={getAuthHeaders}
       />
     </>
   );
