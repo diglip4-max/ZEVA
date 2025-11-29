@@ -11,6 +11,7 @@ import {
   MoreVertical,
   Edit,
   History,
+  FileText,
 } from "lucide-react";
 import EditAppointmentModal from "../../components/EditAppointmentModal";
 import AppointmentHistoryModal from "../../components/AppointmentHistoryModal";
@@ -207,12 +208,20 @@ const AllAppointmentsPage: NextPageWithLayout = ({
 
   const getAuthHeaders = useCallback((): Record<string, string> => {
     if (typeof window === "undefined") return {};
-    const token =
-      routeContext === "agent"
-        ? localStorage.getItem("agentToken") ||
-          sessionStorage.getItem("agentToken")
-        : localStorage.getItem("clinicToken") ||
-          sessionStorage.getItem("clinicToken");
+    let token = null;
+    if (routeContext === "agent") {
+      token = localStorage.getItem("agentToken") ||
+        sessionStorage.getItem("agentToken") ||
+        localStorage.getItem("userToken") ||
+        sessionStorage.getItem("userToken");
+    } else {
+      token = localStorage.getItem("clinicToken") ||
+        sessionStorage.getItem("clinicToken") ||
+        localStorage.getItem("agentToken") ||
+        sessionStorage.getItem("agentToken") ||
+        localStorage.getItem("userToken") ||
+        sessionStorage.getItem("userToken");
+    }
     if (!token) return {};
     return { Authorization: `Bearer ${token}` };
   }, [routeContext]);
