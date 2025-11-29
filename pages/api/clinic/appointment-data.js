@@ -27,7 +27,7 @@ export default async function handler(req, res) {
         return res.status(404).json({ success: false, message: "Clinic not found" });
       }
       clinicId = clinic._id;
-    } else if (["agent", "doctor", "doctorStaff"].includes(authUser.role)) {
+    } else if (["agent", "doctor", "doctorStaff", "staff"].includes(authUser.role)) {
       clinicId = authUser.clinicId;
       if (!clinicId) {
         return res.status(403).json({ success: false, message: "Access denied. User not linked to a clinic." });

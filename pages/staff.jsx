@@ -27,9 +27,10 @@ export default function StaffDoctorLogin() {
         localStorage.removeItem("userToken");
         router.push("/agent/dashboard");
       } else {
+        // doctorStaff (userToken) should also land on the agent dashboard
         localStorage.setItem("userToken", token);
         localStorage.removeItem("agentToken");
-        router.push("/staff/staff-dashboard");
+        router.push("/agent/dashboard");
       }
     } catch (err) {
       setError(err.response?.data?.message || "Login failed");

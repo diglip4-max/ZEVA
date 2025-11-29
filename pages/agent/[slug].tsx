@@ -74,6 +74,7 @@ const routeMap: { [key: string]: () => Promise<any> } = {
   
   // Clinic routes
   'myallClinic': () => import('../clinic/myallClinic'),
+  'clinic-myallClinic': () => import('../clinic/myallClinic'),
   'clinic-dashboard': () => import('../clinic/clinic-dashboard'),
   'clinic-BlogForm': () => import('../clinic/BlogForm'),
   'job-posting': () => import('../clinic/job-posting'),
@@ -89,6 +90,7 @@ const routeMap: { [key: string]: () => Promise<any> } = {
   'clinic-all-appointment': () => import('./clinic-all-appointment'),
   'lead-create-lead': () => import('./lead-create-lead'),
   'getAllReview': () => import('../clinic/getAllReview'),
+  'clinic-getAllReview': () => import('../clinic/getAllReview'),
   'get-Enquiry': () => import('../clinic/get-Enquiry'),
   'enquiry-form': () => import('../clinic/enquiry-form'),
   'review-form': () => import('../clinic/review-form'),
@@ -163,21 +165,19 @@ const AgentDynamicPage = () => {
     }
 
     const loadPage = async () => {
-      setLoading(true);
       try {
-        // Get token - check both agentToken (for staff role) and userToken (for doctorStaff role)
-        const agentToken = typeof window !== 'undefined'
+        // Get agent token and user info - check multiple token types
+        let agentToken = typeof window !== 'undefined'
           ? (localStorage.getItem('agentToken') || sessionStorage.getItem('agentToken'))
           : null;
-        const userToken = typeof window !== 'undefined'
-          ? (localStorage.getItem('userToken') || sessionStorage.getItem('userToken'))
-          : null;
 
-        // Use agentToken if available, otherwise use userToken (for doctorStaff)
-        const token = agentToken || userToken;
+        // Fallback to userToken if agentToken not found
+        if (!agentToken && typeof window !== 'undefined') {
+          agentToken = localStorage.getItem('userToken') || sessionStorage.getItem('userToken');
+        }
 
-        if (!token) {
-          setError('Token not found');
+        if (!agentToken) {
+          setError('Agent token not found');
           setLoading(false);
           return;
         }
@@ -186,7 +186,7 @@ const AgentDynamicPage = () => {
         let userInfo: any = null;
         let userRole: string | null = null;
         try {
-          const decoded: any = jwtDecode(token);
+          const decoded: any = jwtDecode(agentToken);
           userInfo = decoded;
           userRole = decoded.role || null;
         } catch (err) {
@@ -197,21 +197,21 @@ const AgentDynamicPage = () => {
         const routeInfo = getRouteInfo(slug);
         
         // Set up token context based on route type
-        // For clinic routes, temporarily set clinicToken (using agentToken, backend will handle it)
-        // For doctor routes, temporarily set doctorToken (using agentToken, backend will handle it)
+        // For clinic routes, temporarily set clinicToken (using agentToken/userToken, backend will handle it)
+        // For doctor routes, temporarily set doctorToken (using agentToken/userToken, backend will handle it)
         let clinicToken: string | null = null;
         let doctorToken: string | null = null;
 
         if (routeInfo.type === 'clinic') {
-          // For clinic routes, use token as clinicToken (API will validate role)
-          clinicToken = token;
+          // For clinic routes, use agentToken/userToken as clinicToken (API will validate role)
+          clinicToken = agentToken;
         } else if (routeInfo.type === 'doctor') {
-          // For doctor routes, use token as doctorToken (API will validate role)
-          doctorToken = token;
+          // For doctor routes, use agentToken/userToken as doctorToken (API will validate role)
+          doctorToken = agentToken;
         }
 
         setTokenContext({
-          agentToken: agentToken || null, // Keep agentToken if available
+          agentToken,
           clinicToken,
           doctorToken,
           userRole,
@@ -220,16 +220,17 @@ const AgentDynamicPage = () => {
 
         // Temporarily set tokens in localStorage for components that check them
         // This allows components to work without modification
+        // Note: agentToken may be userToken if agentToken was not found
         if (routeInfo.type === 'clinic' && typeof window !== 'undefined') {
           const originalClinicToken = localStorage.getItem('clinicToken');
-          localStorage.setItem('clinicToken', token);
+          localStorage.setItem('clinicToken', agentToken);
           // Store original to restore later if needed
           if (originalClinicToken) {
             sessionStorage.setItem('_originalClinicToken', originalClinicToken);
           }
         } else if (routeInfo.type === 'doctor' && typeof window !== 'undefined') {
           const originalDoctorToken = localStorage.getItem('doctorToken');
-          localStorage.setItem('doctorToken', token);
+          localStorage.setItem('doctorToken', agentToken);
           // Store original to restore later if needed
           if (originalDoctorToken) {
             sessionStorage.setItem('_originalDoctorToken', originalDoctorToken);
@@ -291,7 +292,13 @@ const AgentDynamicPage = () => {
     };
   }, [slug]);
 
-  const showInitialLoader = loading && !PageComponent;
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-lg">Loading...</div>
+      </div>
+    );
+  }
 
   if (error) {
     return (
@@ -309,21 +316,8 @@ const AgentDynamicPage = () => {
     );
   }
 
-  if (showInitialLoader) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-lg">Loading...</div>
-      </div>
-    );
-  }
-
   return (
     <TokenContext.Provider value={tokenContext}>
-      {loading && PageComponent && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-white/60 text-slate-700 text-sm">
-          Loading…
-        </div>
-      )}
       <PageComponent />
     </TokenContext.Provider>
   );

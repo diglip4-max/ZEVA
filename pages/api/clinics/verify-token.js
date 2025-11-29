@@ -22,7 +22,9 @@ export default async function handler(req, res) {
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    if (decoded.role !== 'clinic') {
+    // Allow clinic, agent, doctor, doctorStaff, and staff roles
+    const allowedRoles = ['clinic', 'agent', 'doctor', 'doctorStaff', 'staff'];
+    if (!allowedRoles.includes(decoded.role)) {
       return res.status(403).json({ valid: false, message: 'Invalid role' });
     }
 
@@ -32,15 +34,42 @@ export default async function handler(req, res) {
       return res.status(401).json({ valid: false, message: 'Invalid token format' });
     }
 
-    // Find the clinic associated with this user
-    const clinic = await Clinic.findOne({ owner: userId });
-
-    if (!clinic) {
-      return res.status(404).json({ valid: false, message: 'Clinic not found for this user' });
+    // Verify user exists
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(401).json({ valid: false, message: 'User not found' });
     }
 
-    // Check if clinic is approved
-    if (!clinic.isApproved) {
+    // Verify user has allowed role
+    if (!allowedRoles.includes(user.role)) {
+      return res.status(403).json({ valid: false, message: 'Access denied. Invalid user role' });
+    }
+
+    let clinic = null;
+    let clinicId = null;
+
+    // Find the clinic associated with this user
+    if (user.role === 'clinic') {
+      // For clinic role, find clinic by owner
+      clinic = await Clinic.findOne({ owner: userId });
+      if (!clinic) {
+        return res.status(404).json({ valid: false, message: 'Clinic not found for this user' });
+      }
+      clinicId = clinic._id;
+    } else if (['agent', 'doctor', 'doctorStaff', 'staff'].includes(user.role)) {
+      // For other roles, use their clinicId
+      if (!user.clinicId) {
+        return res.status(403).json({ valid: false, message: 'User not linked to a clinic' });
+      }
+      clinicId = user.clinicId;
+      clinic = await Clinic.findById(clinicId);
+      if (!clinic) {
+        return res.status(404).json({ valid: false, message: 'Clinic not found' });
+      }
+    }
+
+    // Check if clinic is approved (only for clinic role, others inherit clinic status)
+    if (user.role === 'clinic' && !clinic.isApproved) {
       return res.status(403).json({ valid: false, message: 'Clinic account not approved. Please wait for admin approval.' });
     }
 
@@ -49,20 +78,21 @@ export default async function handler(req, res) {
       return res.status(403).json({ valid: false, message: 'Clinic account has been declined' });
     }
 
-    // Verify user exists and has clinic role
-    const user = await User.findById(userId);
-    if (!user) {
-      return res.status(401).json({ valid: false, message: 'User not found' });
+    // Check if user is approved (for agent, doctorStaff, staff roles)
+    if (['agent', 'doctorStaff', 'staff'].includes(user.role) && !user.isApproved) {
+      return res.status(403).json({ valid: false, message: 'Account not approved' });
     }
 
-    if (user.role !== 'clinic') {
-      return res.status(403).json({ valid: false, message: 'Access denied. Clinic role required' });
+    // Check if user is declined
+    if (user.declined) {
+      return res.status(403).json({ valid: false, message: 'Account has been declined' });
     }
 
     return res.status(200).json({ 
       valid: true, 
       decoded,
-      clinic: { id: clinic._id, name: clinic.name, isApproved: clinic.isApproved }
+      clinic: { id: clinic._id, name: clinic.name, isApproved: clinic.isApproved },
+      user: { id: user._id, role: user.role, name: user.name, email: user.email }
     });
   } catch (error) {
     if (error.name === 'TokenExpiredError') {

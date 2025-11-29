@@ -1,28 +1,24 @@
 import dbConnect from "../../../lib/database";
 import Treatment from "../../../models/Treatment";
-import jwt from "jsonwebtoken";
+import { getUserFromReq } from "../lead-ms/auth";
 
 export default async function handler(req, res) {
   await dbConnect();
 
   if (req.method === "POST") {
-    // Verify doctor authentication
-    const token = req.headers.authorization?.split(" ")[1];
-    if (!token) {
-      return res.status(401).json({ message: "Unauthorized" });
-    }
-
     try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      console.log("Decoded token role:", decoded.role);
-      if (
-        decoded.role !== "doctor" &&
-        decoded.role !== "lead" &&
-        decoded.role !== "clinic"
-      ) {
+      // Verify authentication
+      const authUser = await getUserFromReq(req);
+      if (!authUser) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      // Allow doctor, lead, clinic, agent, doctorStaff, and staff roles
+      if (!["doctor", "lead", "clinic", "agent", "doctorStaff", "staff"].includes(authUser.role)) {
         return res.status(403).json({ message: "Access denied" });
       }
-    } catch  {
+    } catch (error) {
+      console.error("Auth error:", error);
       return res.status(401).json({ message: "Invalid token" });
     }
 
