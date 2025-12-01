@@ -5,7 +5,7 @@ import axios from "axios";
 import { useRouter } from "next/router";
 import withClinicAuth from "../../components/withClinicAuth";
 import ClinicLayout from "../../components/ClinicLayout";
-import { Loader2, Trash2, AlertCircle, CheckCircle, X } from "lucide-react";
+import { Loader2, Trash2, AlertCircle, CheckCircle, X, Building2, DoorOpen, Plus, Edit2, Calendar } from "lucide-react";
 import { useAgentPermissions } from "../../hooks/useAgentPermissions";
 import { Toaster, toast } from "react-hot-toast";
 
@@ -86,6 +86,7 @@ function AddRoomPage({ contextOverride = null }) {
   const [editingDeptId, setEditingDeptId] = useState(null);
   const [editingDeptName, setEditingDeptName] = useState("");
   const [deptUpdateLoading, setDeptUpdateLoading] = useState(false);
+  const [viewMode, setViewMode] = useState("room"); // "room" or "department"
   const [confirmModal, setConfirmModal] = useState({
     isOpen: false,
     title: "",
@@ -567,7 +568,8 @@ function AddRoomPage({ contextOverride = null }) {
   const deptCreateDisabled = submittingDept || !permissions.canCreate;
 
   return (
-    <div className="p-3 sm:p-4 lg:p-5 space-y-3 sm:space-y-4 lg:space-y-5">
+    <div className="min-h-screen bg-gray-50">
+      <div className="p-3 sm:p-4 lg:p-5 space-y-3 lg:space-y-4">
       <Toaster
         position="top-right"
         toastOptions={{
@@ -639,252 +641,358 @@ function AddRoomPage({ contextOverride = null }) {
         </div>
       ) : (
         <>
-          <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-3 sm:p-4">
-            <div className="flex flex-col gap-1 mb-3 sm:mb-4">
-              <h1 className="text-base sm:text-lg font-semibold text-gray-900">Manage Rooms</h1>
-              <p className="text-xs sm:text-sm text-gray-700">Create and manage rooms for your clinic.</p>
-        </div>
-
-        <MessageBanner type={message.type} text={message.text} />
-
-            {permissions.canCreate && (
-        <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Room Name <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              value={roomName}
-              onChange={(e) => setRoomName(e.target.value)}
-              placeholder="e.g., Consultation Room 1, Operation Theater A"
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:text-gray-500"
-              required
-            />
+          {/* Professional Header - Matching Dashboard Theme */}
+          <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-2">
+                  <Building2 className="w-5 h-5 text-gray-700" />
+                  <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
+                    Room & Department Management
+                  </h1>
+                </div>
+                <p className="text-xs sm:text-sm text-gray-600">
+                  Create and manage rooms and departments for your clinic
+                </p>
+              </div>
+              <div className="flex items-center gap-2 bg-gray-100 rounded-lg p-1 border border-gray-200">
+                <button
+                  type="button"
+                  onClick={() => setViewMode("room")}
+                  className={`px-4 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-2 ${
+                    viewMode === "room"
+                      ? "bg-white text-gray-900 shadow-sm"
+                      : "text-gray-600 hover:text-gray-900"
+                  }`}
+                >
+                  <DoorOpen className="w-4 h-4" />
+                  Rooms
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewMode("department")}
+                  className={`px-4 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-2 ${
+                    viewMode === "department"
+                      ? "bg-white text-gray-900 shadow-sm"
+                      : "text-gray-600 hover:text-gray-900"
+                  }`}
+                >
+                  <Building2 className="w-4 h-4" />
+                  Departments
+                </button>
+              </div>
+            </div>
           </div>
 
-          <button
-            type="submit"
-                  disabled={roomCreateDisabled}
-            className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl font-medium shadow hover:bg-blue-700 disabled:opacity-60"
-          >
-            {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
-            {submitting ? "Creating..." : "Create Room"}
-          </button>
-        </form>
+          {/* Stats Cards - Matching Dashboard Theme */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+              <div className="flex items-center gap-2 mb-2">
+                <DoorOpen className="w-4 h-4 text-gray-700" />
+                <span className="text-xs font-semibold text-gray-700">Total Rooms</span>
+              </div>
+              <p className="text-2xl font-bold text-gray-900 mb-1">{rooms.length}</p>
+              <p className="text-xs text-gray-600">Active rooms in your clinic</p>
+            </div>
+            <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+              <div className="flex items-center gap-2 mb-2">
+                <Building2 className="w-4 h-4 text-gray-700" />
+                <span className="text-xs font-semibold text-gray-700">Total Departments</span>
+              </div>
+              <p className="text-2xl font-bold text-gray-900 mb-1">{departments.length}</p>
+              <p className="text-xs text-gray-600">Active departments in your clinic</p>
+            </div>
+          </div>
+
+          {/* Create Form Card */}
+          <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
+
+            <div className="flex items-center gap-2 mb-3">
+              <Plus className="w-4 h-4 text-gray-700" />
+              <h2 className="text-base sm:text-lg font-semibold text-gray-900">
+                {viewMode === "room" ? "Create New Room" : "Create New Department"}
+              </h2>
+            </div>
+
+            {message.text && (
+              <div className={`mb-4 px-3 py-2 rounded-lg text-sm flex items-center gap-2 ${
+                message.type === "error" ? "bg-red-50 text-red-700 border border-red-200" :
+                message.type === "success" ? "bg-green-50 text-green-700 border border-green-200" :
+                "bg-blue-50 text-blue-700 border border-blue-200"
+              }`}>
+                {message.type === "error" ? <AlertCircle className="w-4 h-4" /> : <CheckCircle className="w-4 h-4" />}
+                {message.text}
+              </div>
             )}
-      </div>
 
-          <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-3 sm:p-4">
-            <div className="flex items-center justify-between mb-3 sm:mb-4">
-          <div>
-                <h2 className="text-base sm:text-lg font-semibold text-gray-900">All Rooms</h2>
-                <p className="text-xs sm:text-sm text-gray-700">List of all rooms in your clinic.</p>
+            {/* Room Form */}
+            {viewMode === "room" && permissions.canCreate && (
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Room Name <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={roomName}
+                    onChange={(e) => setRoomName(e.target.value)}
+                    placeholder="e.g., Consultation Room 1, Operation Theater A"
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                    required
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={roomCreateDisabled}
+                  className="inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800 active:bg-gray-950 disabled:opacity-60 transition-all duration-200 shadow-sm hover:shadow-md"
+                >
+                  {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                  {submitting ? "Creating..." : "Create Room"}
+                </button>
+              </form>
+            )}
+
+            {/* Department Form */}
+            {viewMode === "department" && permissions.canCreate && (
+              <form onSubmit={handleDepartmentSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Department Name <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={departmentName}
+                    onChange={(e) => setDepartmentName(e.target.value)}
+                    placeholder="e.g., Cardiology, Pediatrics, Emergency"
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                    required
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={deptCreateDisabled}
+                  className="inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800 active:bg-gray-950 disabled:opacity-60 transition-all duration-200 shadow-sm hover:shadow-md"
+                >
+                  {submittingDept ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                  {submittingDept ? "Creating..." : "Create Department"}
+                </button>
+              </form>
+            )}
           </div>
-        </div>
+
+          {/* Rooms List - Only show when viewMode is "room" */}
+          {viewMode === "room" && (
+            <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
+              <div className="flex items-center gap-2 mb-4">
+                <DoorOpen className="w-5 h-5 text-gray-700" />
+                <h2 className="text-lg sm:text-xl font-bold text-gray-900">All Rooms</h2>
+                <span className="ml-auto px-2.5 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-semibold">
+                  {rooms.length} {rooms.length === 1 ? 'Room' : 'Rooms'}
+                </span>
+              </div>
 
         {loading ? (
-              <div className="flex items-center justify-center py-8 text-gray-700">
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                <span className="text-xs sm:text-sm">Loading rooms...</span>
+          <div className="flex items-center justify-center py-12 text-gray-600">
+            <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+            <span className="text-sm">Loading rooms...</span>
           </div>
         ) : rooms.length === 0 ? (
-              <div className="text-center py-8">
-                <div className="w-8 h-8 mx-auto mb-2 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 text-sm">
-              🏥
+          <div className="text-center py-12">
+            <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-gray-100 flex items-center justify-center">
+              <DoorOpen className="w-8 h-8 text-gray-400" />
             </div>
-                <p className="text-xs sm:text-sm text-gray-700">No rooms created yet.</p>
-                <p className="text-[10px] sm:text-xs text-gray-700 mt-1">Use the form above to create your first room.</p>
+            <p className="text-sm font-medium text-gray-900 mb-1">No rooms created yet</p>
+            <p className="text-xs text-gray-600">Use the form above to create your first room</p>
           </div>
         ) : (
-              <div className="space-y-2">
+          <div className="space-y-2">
             {rooms.map((room) => (
               <div
                 key={room._id}
-                    className="border border-gray-200 rounded-lg p-2 sm:p-3 flex flex-col gap-2 sm:gap-3 md:flex-row md:items-center md:justify-between hover:bg-gray-50 transition-colors"
-                  >
-                    <div className="flex-1 min-w-0">
-                      {editingRoomId === room._id ? (
-                        <>
-                          <input
-                            type="text"
-                            value={editingRoomName}
-                            onChange={(e) => setEditingRoomName(e.target.value)}
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-gray-900 focus:border-gray-900 transition-all"
-                            aria-label="Edit room name"
-                          />
-                          <p className="text-[10px] sm:text-xs text-gray-700 mt-1">Editing room name</p>
-                        </>
-                      ) : (
-                        <>
-                          <h3 className="text-sm sm:text-base font-semibold text-gray-900 truncate">{room.name}</h3>
-                          <p className="text-xs text-gray-700">
-                    Created {new Date(room.createdAt).toLocaleDateString()}
-                  </p>
-                        </>
-                      )}
-                </div>
-                    <div className="flex items-center gap-1.5 sm:gap-2">
-                      {editingRoomId === room._id ? (
-                        <>
-                          <button
-                            onClick={handleRoomUpdate}
-                            disabled={roomUpdateLoading}
-                            className="px-3 py-1.5 bg-gray-900 text-white text-xs rounded-lg hover:bg-gray-800 disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-gray-900 transition-colors"
-                          >
-                            {roomUpdateLoading ? "Saving..." : "Save"}
-                          </button>
-                          <button
-                            onClick={() => {
-                              setEditingRoomId(null);
-                              setEditingRoomName("");
-                            }}
-                            className="px-3 py-1.5 bg-gray-100 text-gray-700 text-xs rounded-lg hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-900 transition-colors"
-                          >
-                            Cancel
-                          </button>
-                        </>
-                      ) : (
-                        <>
-                          {permissions.canUpdate && (
-                            <button
-                              onClick={() => {
-                                setEditingRoomId(room._id);
-                                setEditingRoomName(room.name);
-                              }}
-                              className="px-3 py-1.5 bg-gray-100 text-gray-700 text-xs rounded-lg hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-900 transition-colors"
-                            >
-                              Edit
-                            </button>
-                          )}
-                          {permissions.canDelete && (
-                <button
-                  onClick={() => handleDelete(room._id)}
-                              className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-red-500"
-                  title="Delete room"
-                              aria-label="Delete room"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          )}
-                          {!permissions.canUpdate && !permissions.canDelete && (
-                            <span className="text-[10px] text-gray-700">No actions available</span>
-                          )}
-                        </>
-                      )}
+                className="border border-gray-200 rounded-lg p-3 flex items-center justify-between hover:bg-gray-50 hover:border-gray-300 transition-all group"
+              >
+                <div className="flex-1 min-w-0">
+                  {editingRoomId === room._id ? (
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={editingRoomName}
+                        onChange={(e) => setEditingRoomName(e.target.value)}
+                        className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        autoFocus
+                      />
+                      <button
+                        onClick={handleRoomUpdate}
+                        disabled={roomUpdateLoading}
+                        className="px-3 py-2 bg-gray-900 text-white text-sm rounded-lg hover:bg-gray-800 disabled:opacity-60 transition-colors"
+                      >
+                        {roomUpdateLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save"}
+                      </button>
+                      <button
+                        onClick={() => {
+                          setEditingRoomId(null);
+                          setEditingRoomName("");
+                        }}
+                        className="px-3 py-2 bg-gray-100 text-gray-700 text-sm rounded-lg hover:bg-gray-200 transition-colors"
+                      >
+                        Cancel
+                      </button>
                     </div>
-                  </div>
-                ))}
-              </div>
-            )}
-            </div>
-
-            {/* All Departments List */}
-            <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-3 sm:p-4">
-              <div className="flex items-center justify-between mb-3 sm:mb-4">
-                <div>
-                  <h2 className="text-base sm:text-lg font-semibold text-gray-900">All Departments</h2>
-                  <p className="text-xs sm:text-sm text-gray-700">List of all departments in your clinic.</p>
+                  ) : (
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center">
+                        <DoorOpen className="w-5 h-5 text-blue-600" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-semibold text-gray-900">{room.name}</h3>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <Calendar className="w-3 h-3 text-gray-400" />
+                          <span className="text-xs text-gray-500">
+                            Created {new Date(room.createdAt).toLocaleDateString()}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
+                {editingRoomId !== room._id && (
+                  <div className="flex items-center gap-2">
+                    {permissions.canUpdate && (
+                      <button
+                        onClick={() => {
+                          setEditingRoomId(room._id);
+                          setEditingRoomName(room.name);
+                        }}
+                        className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                        title="Edit room"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                    )}
+                    {permissions.canDelete && (
+                      <button
+                        onClick={() => handleDelete(room._id)}
+                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        title="Delete room"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+          )}
+
+          {/* Departments List - Only show when viewMode is "department" */}
+          {viewMode === "department" && (
+            <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
+              <div className="flex items-center gap-2 mb-4">
+                <Building2 className="w-5 h-5 text-gray-700" />
+                <h2 className="text-lg sm:text-xl font-bold text-gray-900">All Departments</h2>
+                <span className="ml-auto px-2.5 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-semibold">
+                  {departments.length} {departments.length === 1 ? 'Department' : 'Departments'}
+                </span>
               </div>
 
             {loading ? (
-              <div className="flex items-center justify-center py-8 text-gray-700">
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                <span className="text-xs sm:text-sm">Loading departments...</span>
+              <div className="flex items-center justify-center py-12 text-gray-600">
+                <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                <span className="text-sm">Loading departments...</span>
               </div>
             ) : departments.length === 0 ? (
-              <div className="text-center py-8">
-                <div className="w-8 h-8 mx-auto mb-2 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 text-sm">
-                  🏢
+              <div className="text-center py-12">
+                <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-gray-100 flex items-center justify-center">
+                  <Building2 className="w-8 h-8 text-gray-400" />
                 </div>
-                <p className="text-xs sm:text-sm text-gray-700">No departments created yet.</p>
-                <p className="text-[10px] sm:text-xs text-gray-700 mt-1">
-                  Use the form above to create your first department.
-                </p>
+                <p className="text-sm font-medium text-gray-900 mb-1">No departments created yet</p>
+                <p className="text-xs text-gray-600">Use the form above to create your first department</p>
               </div>
             ) : (
               <div className="space-y-2">
                 {departments.map((dept) => (
                   <div
                     key={dept._id}
-                    className="border border-gray-200 rounded-lg p-2 sm:p-3 flex flex-col gap-2 sm:gap-3 md:flex-row md:items-center md:justify-between hover:bg-gray-50 transition-colors"
+                    className="border border-gray-200 rounded-lg p-3 flex items-center justify-between hover:bg-gray-50 hover:border-gray-300 transition-all group"
                   >
                     <div className="flex-1 min-w-0">
                       {editingDeptId === dept._id ? (
-                        <>
+                        <div className="flex items-center gap-2">
                           <input
                             type="text"
                             value={editingDeptName}
                             onChange={(e) => setEditingDeptName(e.target.value)}
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-gray-900 focus:border-gray-900 transition-all"
-                            aria-label="Edit department name"
+                            className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            autoFocus
                           />
-                          <p className="text-[10px] sm:text-xs text-gray-700 mt-1">Editing department name</p>
-                        </>
-                      ) : (
-                        <>
-                          <h3 className="text-sm sm:text-base font-semibold text-gray-900 truncate">{dept.name}</h3>
-                          <p className="text-xs text-gray-700">
-                            Created {new Date(dept.createdAt).toLocaleDateString()}
-                          </p>
-                        </>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-1.5 sm:gap-2">
-                      {editingDeptId === dept._id ? (
-                        <>
                           <button
                             onClick={handleDepartmentUpdate}
                             disabled={deptUpdateLoading}
-                            className="px-3 py-1.5 bg-gray-900 text-white text-xs rounded-lg hover:bg-gray-800 disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-gray-900 transition-colors"
+                            className="px-3 py-2 bg-gray-900 text-white text-sm rounded-lg hover:bg-gray-800 disabled:opacity-60 transition-colors"
                           >
-                            {deptUpdateLoading ? "Saving..." : "Save"}
+                            {deptUpdateLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save"}
                           </button>
                           <button
                             onClick={() => {
                               setEditingDeptId(null);
                               setEditingDeptName("");
                             }}
-                            className="px-3 py-1.5 bg-gray-100 text-gray-700 text-xs rounded-lg hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-900 transition-colors"
+                            className="px-3 py-2 bg-gray-100 text-gray-700 text-sm rounded-lg hover:bg-gray-200 transition-colors"
                           >
                             Cancel
                           </button>
-                        </>
+                        </div>
                       ) : (
-                        <>
-                          {permissions.canUpdate && (
-                            <button
-                              onClick={() => {
-                                setEditingDeptId(dept._id);
-                                setEditingDeptName(dept.name);
-                              }}
-                              className="px-3 py-1.5 bg-gray-100 text-gray-700 text-xs rounded-lg hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-900 transition-colors"
-                            >
-                              Edit
-                            </button>
-                          )}
-                          {permissions.canDelete && (
-                            <button
-                              onClick={() => handleDeleteDepartment(dept._id)}
-                              className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-red-500"
-                              title="Delete department"
-                              aria-label="Delete department"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                </button>
-                          )}
-                          {!permissions.canUpdate && !permissions.canDelete && (
-                            <span className="text-[10px] text-gray-700">No actions available</span>
-                          )}
-                        </>
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-lg bg-purple-50 flex items-center justify-center">
+                            <Building2 className="w-5 h-5 text-purple-600" />
+                          </div>
+                          <div>
+                            <h3 className="text-sm font-semibold text-gray-900">{dept.name}</h3>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              <Calendar className="w-3 h-3 text-gray-400" />
+                              <span className="text-xs text-gray-500">
+                                Created {new Date(dept.createdAt).toLocaleDateString()}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
                       )}
                     </div>
+                    {editingDeptId !== dept._id && (
+                      <div className="flex items-center gap-2">
+                        {permissions.canUpdate && (
+                          <button
+                            onClick={() => {
+                              setEditingDeptId(dept._id);
+                              setEditingDeptName(dept.name);
+                            }}
+                            className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                            title="Edit department"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                        )}
+                        {permissions.canDelete && (
+                          <button
+                            onClick={() => handleDeleteDepartment(dept._id)}
+                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            title="Delete department"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        )}
+            )}
       </div>
+          )}
         </>
       )}
 
@@ -958,6 +1066,7 @@ function AddRoomPage({ contextOverride = null }) {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }

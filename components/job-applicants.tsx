@@ -1,6 +1,8 @@
 // components/ApplicationsDashboard.tsx
 import React, { useEffect, useState, useMemo } from 'react';
 import axios from 'axios';
+import toast from 'react-hot-toast';
+import { Users, Mail, Phone, FileText, Search, Filter, X } from 'lucide-react';
 
 interface JobInfo {
   jobTitle: string;
@@ -66,7 +68,6 @@ const ApplicationsDashboard: React.FC<ApplicationsDashboardProps> = ({
   const [showDeleteModal, setShowDeleteModal] = useState<boolean>(false);
   const [applicationToDelete, setApplicationToDelete] = useState<Application | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
   const [showAdvancedFilters, setShowAdvancedFilters] = useState<boolean>(false);
 
   useEffect(() => {
@@ -81,7 +82,6 @@ const ApplicationsDashboard: React.FC<ApplicationsDashboardProps> = ({
 
       try {
         setLoading(true);
-        setError(null);
         
         // ✅ Fixed TypeScript error with proper typing
         const res = await axios.get<ApplicationsResponse>(apiEndpoint, {
@@ -97,9 +97,10 @@ const ApplicationsDashboard: React.FC<ApplicationsDashboardProps> = ({
         }
 
         setApplications(res.data.applications || []);
-      } catch (error) {
+      } catch (error: any) {
         console.error("Failed to load applications", error);
-        setError("Failed to load applications. Please try again.");
+        const errorMessage = error?.response?.data?.message || "Failed to load applications. Please try again.";
+        toast.error(errorMessage);
       } finally {
         setLoading(false);
       }
@@ -110,7 +111,7 @@ const ApplicationsDashboard: React.FC<ApplicationsDashboardProps> = ({
 
   const updateStatus = async (applicationId: string, status: string): Promise<void> => {
     if (!permissions.canUpdate) {
-      setError("You do not have permission to update application status.");
+      toast.error("You do not have permission to update application status.");
       return;
     }
 
@@ -131,15 +132,23 @@ const ApplicationsDashboard: React.FC<ApplicationsDashboardProps> = ({
           app._id === applicationId ? { ...app, status } : app
         )
       );
-    } catch (error) {
+      
+      const statusLabels: Record<string, string> = {
+        contacted: 'Contacted',
+        rejected: 'Rejected',
+        pending: 'Pending'
+      };
+      toast.success(`Application status updated to ${statusLabels[status] || status}`);
+    } catch (error: any) {
       console.error("Status update failed", error);
-      setError("Failed to update status. Please try again.");
+      const errorMessage = error?.response?.data?.message || "Failed to update status. Please try again.";
+      toast.error(errorMessage);
     }
   };
 
   const deleteApplication = async (applicationId: string): Promise<void> => {
     if (!permissions.canDelete) {
-      setError("You do not have permission to delete applications.");
+      toast.error("You do not have permission to delete applications.");
       return;
     }
 
@@ -155,9 +164,11 @@ const ApplicationsDashboard: React.FC<ApplicationsDashboardProps> = ({
       setApplications(prev => prev.filter(app => app._id !== applicationId));
       setShowDeleteModal(false);
       setApplicationToDelete(null);
-    } catch (error) {
+      toast.success("Application deleted successfully");
+    } catch (error: any) {
       console.error("Failed to delete application", error);
-      setError("Failed to delete application. Please try again.");
+      const errorMessage = error?.response?.data?.message || "Failed to delete application. Please try again.";
+      toast.error(errorMessage);
     }
   };
 
@@ -250,13 +261,21 @@ const ApplicationsDashboard: React.FC<ApplicationsDashboardProps> = ({
     { value: 'status', label: 'Status' }
   ];
 
+  // Stats calculations
+  const totalApplications = applications.length;
+  const pendingApplications = applications.filter(app => (app.status || 'pending') === 'pending').length;
+  const contactedApplications = applications.filter(app => app.status === 'contacted').length;
+  const rejectedApplications = applications.filter(app => app.status === 'rejected').length;
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 p-4 sm:p-6">
-        <div className="max-w-5xl mx-auto">
-          <div className="flex items-center justify-center py-12">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#2D9AA5]"></div>
-            <span className="ml-2 text-gray-600">Loading applications...</span>
+      <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
+        <div className="max-w-6xl mx-auto">
+          <div className="flex items-center justify-center min-h-[60vh]">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
+              <p className="text-sm text-gray-700">Loading applications...</p>
+            </div>
           </div>
         </div>
       </div>
@@ -275,10 +294,10 @@ const ApplicationsDashboard: React.FC<ApplicationsDashboardProps> = ({
               </svg>
             </div>
             <h3 className="text-lg font-semibold text-gray-900 mb-2">Access Denied</h3>
-            <p className="text-gray-600 mb-4">
+            <p className="text-gray-700 mb-4">
               You do not have permission to view job applicants.
             </p>
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-gray-700">
               Please contact your administrator to request access to the Job Applicants module.
             </p>
           </div>
@@ -288,84 +307,138 @@ const ApplicationsDashboard: React.FC<ApplicationsDashboardProps> = ({
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 sm:p-6">
-      <div className="max-w-5xl mx-auto">
+    <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
+      <div className="max-w-6xl mx-auto">
         {/* Header */}
-        <div className="mb-6">
-          <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Applications</h2>
-          <p className="text-gray-600">
-            {filteredAndSortedApplications.length} of {applications.length} applications
-          </p>
-        </div>
-
-        {/* Error Message */}
-        {error && (
-          <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
-            <p className="text-red-600 text-sm">{error}</p>
+        <div className="mb-8">
+          <div className="flex items-center gap-4 mb-6">
+            <div className="w-12 h-12 rounded-xl bg-gray-900 flex items-center justify-center shadow-lg">
+              <Users className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">Job Applicants</h1>
+              <p className="text-gray-700 mt-1">Manage and review job applications</p>
+            </div>
           </div>
-        )}
 
-        {/* Search Bar */}
-        <div className="mb-4">
-          <div className="text-black relative">
-            <input
-              type="text"
-              placeholder="Search by job title, applicant name, or email..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2D9AA5] focus:border-transparent"
-            />
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
+          {/* Stats Cards */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+            <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                  <Users className="w-5 h-5 text-blue-600" />
+                </div>
+                <div>
+                  <p className="text-sm text-gray-700">Total</p>
+                  <p className="text-xl font-bold text-gray-900">{totalApplications}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-yellow-100 rounded-lg flex items-center justify-center">
+                  <svg className="w-5 h-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-700">Pending</p>
+                  <p className="text-xl font-bold text-gray-900">{pendingApplications}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                  <Mail className="w-5 h-5 text-green-600" />
+                </div>
+                <div>
+                  <p className="text-sm text-gray-700">Contacted</p>
+                  <p className="text-xl font-bold text-gray-900">{contactedApplications}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
+                  <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-700">Rejected</p>
+                  <p className="text-xl font-bold text-gray-900">{rejectedApplications}</p>
+                </div>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Quick Filters */}
-        <div className="mb-4">
-          <div className="flex flex-wrap gap-2 mb-3">
-            {filterOptions.map((type) => (
+        {/* Search and Filter Section */}
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 mb-6">
+          <div className="flex flex-col gap-4">
+            {/* Search Bar */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+              <input
+                type="text"
+                placeholder="Search by job title, applicant name, or email..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 transition"
+              />
+            </div>
+
+            {/* Quick Filters */}
+            <div className="flex flex-wrap gap-2">
+              {filterOptions.map((type) => (
+                <button
+                  key={type}
+                  onClick={() => setFilter(type)}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    filter === type
+                      ? 'bg-gray-900 text-white'
+                      : 'bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200'
+                  }`}
+                >
+                  {type}
+                </button>
+              ))}
+            </div>
+
+            {/* Advanced Filters Toggle */}
+            <div className="flex items-center gap-3 pt-2 border-t border-gray-200">
               <button
-                key={type}
-                onClick={() => setFilter(type)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  filter === type
-                    ? 'bg-[#2D9AA5] text-white'
-                    : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
+                onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  showAdvancedFilters
+                    ? 'bg-gray-900 text-white'
+                    : 'bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200'
                 }`}
               >
-                {type}
+                <Filter className="w-4 h-4" />
+                Advanced Filters
               </button>
-            ))}
-          </div>
-          
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-              className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors"
-            >
-              <svg className={`h-4 w-4 transform transition-transform ${showAdvancedFilters ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-              </svg>
-              Advanced Filters
-            </button>
-            
-            {(filter !== 'All' || statusFilter !== 'All' || searchQuery || locationFilter !== 'All' || roleFilter !== 'All' || sortBy !== 'newest') && (
-              <button
-                onClick={clearAllFilters}
-                className="px-4 py-2 bg-gray-100 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors"
-              >
-                Clear All Filters
-              </button>
-            )}
+              
+              {(filter !== 'All' || statusFilter !== 'All' || searchQuery || locationFilter !== 'All' || roleFilter !== 'All' || sortBy !== 'newest') && (
+                <button
+                  onClick={clearAllFilters}
+                  className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                  Clear All
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
         {/* Advanced Filters */}
         {showAdvancedFilters && (
-          <div className="mb-6 bg-white border border-gray-200 rounded-lg p-4">
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 mb-6">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               {/* Status Filter */}
               <div>
@@ -373,7 +446,7 @@ const ApplicationsDashboard: React.FC<ApplicationsDashboardProps> = ({
                 <select
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
-                  className="text-black w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2D9AA5] focus:border-transparent"
+                  className="text-black w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 transition"
                 >
                   {statusOptions.map(status => (
                     <option key={status} value={status}>
@@ -389,7 +462,7 @@ const ApplicationsDashboard: React.FC<ApplicationsDashboardProps> = ({
                 <select
                   value={locationFilter}
                   onChange={(e) => setLocationFilter(e.target.value)}
-                  className="text-black w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2D9AA5] focus:border-transparent"
+                  className="text-black w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 transition"
                 >
                   {uniqueLocations.map(location => (
                     <option key={location} value={location}>
@@ -405,7 +478,7 @@ const ApplicationsDashboard: React.FC<ApplicationsDashboardProps> = ({
                 <select
                   value={roleFilter}
                   onChange={(e) => setRoleFilter(e.target.value)}
-                  className="text-black w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2D9AA5] focus:border-transparent"
+                  className="text-black w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 transition"
                 >
                   {uniqueRoles.map(role => (
                     <option key={role} value={role}>
@@ -421,7 +494,7 @@ const ApplicationsDashboard: React.FC<ApplicationsDashboardProps> = ({
                 <select
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value as SortOption)}
-                  className="text-black w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#2D9AA5] focus:border-transparent"
+                  className="text-black w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 transition"
                 >
                   {sortOptions.map(option => (
                     <option key={option.value} value={option.value}>
@@ -434,79 +507,131 @@ const ApplicationsDashboard: React.FC<ApplicationsDashboardProps> = ({
           </div>
         )}
 
+        {/* Results Count */}
+        <div className="mb-4 text-sm text-gray-700">
+          Showing {filteredAndSortedApplications.length} of {applications.length} applications
+          {searchQuery && ` matching "${searchQuery}"`}
+        </div>
+
         {/* Applications */}
         {filteredAndSortedApplications.length === 0 ? (
-          <div className="bg-white rounded-lg border border-gray-200 p-8 text-center">
-            <p className="text-gray-500">
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-12 text-center">
+            <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
+              <Users className="w-10 h-10 text-gray-400" />
+            </div>
+            <h3 className="text-xl font-bold text-gray-900 mb-2">
               {applications.length === 0 
-                ? 'No applications yet.' 
-                : 'No applications match your current filters.'
+                ? 'No Applications Yet' 
+                : 'No Applications Found'
+              }
+            </h3>
+            <p className="text-gray-700 mb-6 max-w-md mx-auto">
+              {applications.length === 0 
+                ? 'When candidates apply for your job postings, their applications will appear here.' 
+                : 'Try adjusting your search criteria or filters to find what you\'re looking for.'
               }
             </p>
             {applications.length > 0 && (
               <button
                 onClick={clearAllFilters}
-                className="mt-3 px-4 py-2 bg-[#2D9AA5] text-white rounded-lg text-sm font-medium hover:bg-[#247a84] transition-colors"
+                className="bg-gray-900 text-white px-6 py-3 rounded-xl hover:bg-gray-800 transition-colors font-medium shadow-sm"
               >
-                Clear Filters
+                Clear All Filters
               </button>
             )}
           </div>
         ) : (
           <div className="space-y-4">
             {filteredAndSortedApplications.map((app) => (
-              <div key={app._id} className="bg-white rounded-lg border border-gray-200 p-6">
+              <div key={app._id} className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200 p-6">
                 <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
                   {/* Left: Job & Applicant Info */}
                   <div className="flex-1">
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4">
                       <div>
-                        <h3 className="font-semibold text-lg text-gray-900">{app.jobId?.jobTitle}</h3>
-                        <p className="text-gray-600 text-sm mt-1">
-                          {app.jobId?.location} • {app.jobId?.jobType}
-                        </p>
+                        <h3 className="font-bold text-lg text-gray-900">{app.jobId?.jobTitle}</h3>
+                        <div className="flex flex-wrap items-center gap-2 mt-1">
+                          {app.jobId?.location && (
+                            <span className="text-gray-700 text-sm flex items-center gap-1">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                              </svg>
+                              {app.jobId.location}
+                            </span>
+                          )}
+                          {app.jobId?.jobType && (
+                            <span className="text-gray-700 text-sm flex items-center gap-1">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              {app.jobId.jobType}
+                            </span>
+                          )}
+                        </div>
                       </div>
-                      <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium mt-2 sm:mt-0 ${
+                      <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold mt-2 sm:mt-0 ${
                         app.status === 'contacted' ? 'bg-green-100 text-green-800' :
                         app.status === 'rejected' ? 'bg-red-100 text-red-800' :
                         'bg-yellow-100 text-yellow-800'
                       }`}>
+                        {app.status === 'contacted' && (
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                        {app.status === 'rejected' && (
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        )}
+                        {app.status === 'pending' && (
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        )}
                         {app.status || "Pending"}
                       </span>
                     </div>
                     
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-                      <div>
-                        <span className="text-gray-500">Applicant:</span>
-                        <span className="ml-2 font-medium text-gray-900">{app.applicantId?.name}</span>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                      <div className="flex items-center gap-2">
+                        <Users className="w-4 h-4 text-gray-400" />
+                        <span className="text-gray-700">Applicant:</span>
+                        <span className="font-semibold text-gray-900">{app.applicantId?.name}</span>
                       </div>
-                      <div>
-                        <span className="text-gray-500">Role:</span>
-                        <span className="ml-2 text-gray-900">{app.applicantId?.role}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-gray-700">Role:</span>
+                        <span className="text-gray-900 font-medium">{app.applicantId?.role || 'N/A'}</span>
                       </div>
-                      <div>
-                        <span className="text-gray-500">Email:</span>
-                        <a href={`mailto:${app.applicantId?.email}`} className="ml-2 text-[#2D9AA5] hover:underline">
+                      <div className="flex items-center gap-2">
+                        <Mail className="w-4 h-4 text-gray-400" />
+                        <span className="text-gray-700">Email:</span>
+                        <a href={`mailto:${app.applicantId?.email}`} className="text-gray-900 hover:text-gray-700 hover:underline font-medium">
                           {app.applicantId?.email}
                         </a>
                       </div>
-                      <div>
-                        <span className="text-gray-500">Phone:</span>
-                        <a href={`tel:${app.applicantId?.phone}`} className="ml-2 text-[#2D9AA5] hover:underline">
+                      <div className="flex items-center gap-2">
+                        <Phone className="w-4 h-4 text-gray-400" />
+                        <span className="text-gray-700">Phone:</span>
+                        <a href={`tel:${app.applicantId?.phone}`} className="text-gray-900 hover:text-gray-700 hover:underline font-medium">
                           {app.applicantId?.phone}
                         </a>
                       </div>
 
                       {app.resumeUrl && (
-                        <div className="col-span-2">
-                          <span className="text-gray-500">Resume:</span>
+                        <div className="col-span-2 flex items-center gap-2">
+                          <FileText className="w-4 h-4 text-gray-400" />
+                          <span className="text-gray-700">Resume:</span>
                           <a
                             href={app.resumeUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="ml-2 text-[#2D9AA5] hover:underline"
+                            className="text-gray-900 hover:text-gray-700 hover:underline font-medium flex items-center gap-1"
                           >
                             View Resume
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                            </svg>
                           </a>
                         </div>
                       )}
@@ -518,24 +643,31 @@ const ApplicationsDashboard: React.FC<ApplicationsDashboardProps> = ({
                     {permissions.canUpdate && (
                       <>
                         <button
-                          className="px-4 py-2 bg-[#2D9AA5] hover:bg-[#247a84] text-white rounded-lg text-sm font-medium transition-colors flex-1 lg:flex-none"
+                          className="px-4 py-2 bg-gray-900 hover:bg-gray-800 text-white rounded-lg text-sm font-medium transition-colors flex-1 lg:flex-none flex items-center justify-center gap-1.5 shadow-sm"
                           onClick={() => updateStatus(app._id, "contacted")}
                         >
+                          <Mail className="w-4 h-4" />
                           Contact
                         </button>
                         <button
-                          className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm font-medium transition-colors flex-1 lg:flex-none"
+                          className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm font-medium transition-colors flex-1 lg:flex-none flex items-center justify-center gap-1.5 shadow-sm"
                           onClick={() => updateStatus(app._id, "rejected")}
                         >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
                           Reject
                         </button>
                       </>
                     )}
                     {permissions.canDelete && (
                       <button
-                        className="px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg text-sm font-medium transition-colors flex-1 lg:flex-none"
+                        className="px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg text-sm font-medium transition-colors flex-1 lg:flex-none flex items-center justify-center gap-1.5 shadow-sm"
                         onClick={() => handleDeleteClick(app)}
                       >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1-1H8a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
                         Delete
                       </button>
                     )}
@@ -549,31 +681,62 @@ const ApplicationsDashboard: React.FC<ApplicationsDashboardProps> = ({
 
       {/* Delete Confirmation Modal */}
       {showDeleteModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg p-6 max-w-sm w-full">
-            <h3 className="text-lg font-semibold text-gray-900 mb-3">Confirm Delete</h3>
-            <p className="text-gray-600 mb-4">
-              Delete application from <strong>{applicationToDelete?.applicantId?.name}</strong>?
-            </p>
-            <div className="flex gap-3">
-              <button
-                className="flex-1 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm font-medium transition-colors"
-                onClick={() => applicationToDelete && deleteApplication(applicationToDelete._id)}
-              >
-                Delete
-              </button>
-              <button
-                className="flex-1 px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-lg text-sm font-medium transition-colors"
-                onClick={() => {
-                  setShowDeleteModal(false);
-                  setApplicationToDelete(null);
-                }}
-              >
-                Cancel
-              </button>
+        <>
+          <div 
+            className="fixed inset-0 bg-black/20 backdrop-blur-sm z-40 transition-opacity duration-300"
+            onClick={() => {
+              setShowDeleteModal(false);
+              setApplicationToDelete(null);
+            }}
+          />
+          <div className="fixed inset-x-4 top-1/2 transform -translate-y-1/2 sm:inset-x-auto sm:left-1/2 sm:-translate-x-1/2 sm:w-[400px] z-50">
+            <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden">
+              <div className="px-6 py-4 bg-gradient-to-r from-red-50 to-red-100 border-b border-red-200">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-red-500 flex items-center justify-center shadow-lg">
+                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1-1H8a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-900">Delete Application</h3>
+                    <p className="text-sm text-red-700">This action cannot be undone</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-6">
+                <p className="text-gray-700 mb-4">
+                  Are you sure you want to delete the application from <strong>{applicationToDelete?.applicantId?.name}</strong>?
+                </p>
+                <div className="bg-gray-50 p-3 rounded-lg border border-gray-200">
+                  <p className="font-semibold text-gray-900">{applicationToDelete?.jobId?.jobTitle}</p>
+                  <p className="text-sm text-gray-700 mt-1">{applicationToDelete?.applicantId?.email}</p>
+                </div>
+              </div>
+
+              <div className="bg-gray-50 px-6 py-4 border-t border-gray-200">
+                <div className="flex flex-col sm:flex-row gap-3 justify-end">
+                  <button
+                    onClick={() => {
+                      setShowDeleteModal(false);
+                      setApplicationToDelete(null);
+                    }}
+                    className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 transition-all duration-200 font-medium"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => applicationToDelete && deleteApplication(applicationToDelete._id)}
+                    className="px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl font-medium transition-all duration-200"
+                  >
+                    Delete Application
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
+        </>
       )}
     </div>
   );

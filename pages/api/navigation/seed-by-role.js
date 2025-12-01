@@ -434,16 +434,20 @@ export default async function handler(req, res) {
         isActive: item.isActive,
       };
 
+      // Always check for icon changes (to update emojis to professional icons)
+      const iconChanged = existing.icon !== payload.icon;
+      const subModulesChanged = JSON.stringify(existing.subModules) !== JSON.stringify(payload.subModules);
+      
       const hasChanges =
         existing.label !== payload.label ||
         existing.path !== payload.path ||
-        existing.icon !== payload.icon ||
+        iconChanged ||
         existing.description !== payload.description ||
         (existing.badge ?? null) !== payload.badge ||
         existing.order !== payload.order ||
         (existing.parentId ? existing.parentId.toString() : null) !== (payload.parentId ? payload.parentId.toString() : null) ||
         existing.isActive !== payload.isActive ||
-        JSON.stringify(existing.subModules) !== JSON.stringify(payload.subModules);
+        subModulesChanged;
 
       if (hasChanges) {
         Object.assign(existing, payload);

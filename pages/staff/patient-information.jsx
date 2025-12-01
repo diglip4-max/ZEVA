@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import axios from "axios";
-import { Package, TrendingUp, Eye, Search, ChevronLeft, ChevronRight, X, AlertCircle, CheckCircle2, Info, Edit3, User, DollarSign, Filter } from "lucide-react";
+import { Package, TrendingUp, Eye, Search, ChevronLeft, ChevronRight, X, AlertCircle, CheckCircle2, Info, Edit3, User, DollarSign, Mail, Phone, Calendar, FileText, MapPin, Building2, CreditCard } from "lucide-react";
 import { useRouter } from "next/router";
 import ClinicLayout from '../../components/staffLayout';
 import withClinicAuth from '../../components/withStaffAuth';
@@ -51,60 +51,83 @@ const ToastContainer = ({ toasts, removeToast }) => (
 const PatientDetailsModal = ({ isOpen, onClose, patient }) => {
   if (!isOpen || !patient) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-white rounded-xl shadow-2xl max-w-4xl w-full my-8 animate-scaleIn max-h-[90vh] overflow-y-auto">
-        <div className="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between">
-          <h3 className="text-xl font-semibold text-gray-800">Patient Details</h3>
-          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg text-gray-700"><X className="w-5 h-5" /></button>
+      <div className="relative bg-white rounded-lg sm:rounded-xl shadow-2xl max-w-3xl w-full my-2 sm:my-4 md:my-8 animate-scaleIn max-h-[95vh] sm:max-h-[90vh] md:max-h-[85vh] overflow-y-auto flex flex-col">
+        <div className="sticky top-0 bg-gray-50 border-b px-3 sm:px-4 py-2 sm:py-3 flex items-center justify-between z-10">
+          <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1">
+            <User className="w-4 h-4 sm:w-5 sm:h-5 text-gray-700 flex-shrink-0" />
+            <h3 className="text-base sm:text-lg font-bold text-gray-900 truncate">Patient Details</h3>
+          </div>
+          <button onClick={onClose} className="p-1.5 hover:bg-gray-200 rounded-lg text-gray-400 hover:text-gray-700 transition-colors flex-shrink-0 ml-2"><X className="w-4 h-4 sm:w-5 sm:h-5" /></button>
         </div>
-        <div className="p-6 space-y-6">
-          <div className="grid md:grid-cols-2 gap-6">
-                          <div><h4 className="text-sm font-semibold text-gray-900 uppercase border-b pb-2 mb-3">Personal Info</h4>
-              <div className="space-y-2 text-sm">
-                <div><span className="text-gray-700">Name:</span> <span className="font-medium text-gray-900">{patient.firstName} {patient.lastName}</span></div>
-                <div><span className="text-gray-700">Gender:</span> <span className="font-medium text-gray-900">{patient.gender}</span></div>
-                <div><span className="text-gray-700">Email:</span> <span className="font-medium text-gray-900">{patient.email}</span></div>
-                <div><span className="text-gray-700">Mobile:</span> <span className="font-medium text-gray-900">{patient.mobileNumber}</span></div>
-                <div><span className="text-gray-700">Type:</span> <span className="font-medium text-gray-900">{patient.patientType}</span></div>
-                <div><span className="text-gray-700">Referred By:</span> <span className="font-medium text-gray-900">{patient.referredBy || 'N/A'}</span></div>
+        <div className="p-3 sm:p-4 space-y-3 sm:space-y-4 flex-1 overflow-y-auto">
+          <div className="grid md:grid-cols-2 gap-3 sm:gap-4">
+            <div className="bg-white rounded-lg border border-gray-200 p-3">
+              <h4 className="text-xs font-semibold text-gray-900 uppercase border-b pb-2 mb-3 flex items-center gap-1.5">
+                <User className="w-3.5 h-3.5" />
+                Personal Info
+              </h4>
+              <div className="space-y-2 text-xs">
+                <div className="flex items-center gap-2"><span className="text-gray-700 w-20">Name:</span> <span className="font-medium text-gray-900">{patient.firstName} {patient.lastName}</span></div>
+                <div className="flex items-center gap-2"><span className="text-gray-700 w-20">Gender:</span> <span className="font-medium text-gray-900">{patient.gender}</span></div>
+                <div className="flex items-center gap-2"><Mail className="w-3.5 h-3.5 text-gray-400" /><span className="text-gray-700 w-20">Email:</span> <span className="font-medium text-gray-900">{patient.email}</span></div>
+                <div className="flex items-center gap-2"><Phone className="w-3.5 h-3.5 text-gray-400" /><span className="text-gray-700 w-20">Mobile:</span> <span className="font-medium text-gray-900">{patient.mobileNumber}</span></div>
+                <div className="flex items-center gap-2"><span className="text-gray-700 w-20">Type:</span> <span className="font-medium text-gray-900">{patient.patientType}</span></div>
+                <div className="flex items-center gap-2"><span className="text-gray-700 w-20">Referred:</span> <span className="font-medium text-gray-900">{patient.referredBy || 'N/A'}</span></div>
               </div>
             </div>
-            <div><h4 className="text-sm font-semibold text-gray-900 uppercase border-b pb-2 mb-3">Medical Info</h4>
-              <div className="space-y-2 text-sm">
-                <div><span className="text-gray-700">EMR:</span> <span className="font-medium text-gray-900">{patient.emrNumber}</span></div>
-                <div><span className="text-gray-700">Doctor:</span> <span className="font-medium text-gray-900">{patient.doctor}</span></div>
-                <div><span className="text-gray-700">Service:</span> <span className="font-medium text-gray-900">{patient.service}</span></div>
-                <div><span className="text-gray-700">Treatment:</span> <span className="font-medium text-gray-900">{patient.treatment || 'N/A'}</span></div>
-                <div><span className="text-gray-700">Package:</span> <span className="font-medium text-gray-900">{patient.package || 'N/A'}</span></div>
-                <div><span className="text-gray-700">Status:</span> <span className={`px-2 py-1 text-xs font-medium rounded ${patient.status === 'Completed' ? 'bg-blue-100 text-blue-700' : patient.status === 'Active' ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-700'}`}>{patient.status}</span></div>
+            <div className="bg-white rounded-lg border border-gray-200 p-3">
+              <h4 className="text-xs font-semibold text-gray-900 uppercase border-b pb-2 mb-3 flex items-center gap-1.5">
+                <FileText className="w-3.5 h-3.5" />
+                Medical Info
+              </h4>
+              <div className="space-y-2 text-xs">
+                <div className="flex items-center gap-2"><span className="text-gray-700 w-20">EMR:</span> <span className="font-medium text-gray-900">{patient.emrNumber}</span></div>
+                <div className="flex items-center gap-2"><User className="w-3.5 h-3.5 text-gray-400" /><span className="text-gray-700 w-20">Doctor:</span> <span className="font-medium text-gray-900">{patient.doctor}</span></div>
+                <div className="flex items-center gap-2"><span className="text-gray-700 w-20">Service:</span> <span className="font-medium text-gray-900">{patient.service}</span></div>
+                <div className="flex items-center gap-2"><span className="text-gray-700 w-20">Treatment:</span> <span className="font-medium text-gray-900">{patient.treatment || 'N/A'}</span></div>
+                <div className="flex items-center gap-2"><span className="text-gray-700 w-20">Package:</span> <span className="font-medium text-gray-900">{patient.package || 'N/A'}</span></div>
+                <div className="flex items-center gap-2"><span className="text-gray-700 w-20">Status:</span> <span className={`px-2 py-0.5 text-xs font-medium rounded ${patient.status === 'Completed' ? 'bg-blue-100 text-blue-700' : patient.status === 'Active' ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-700'}`}>{patient.status}</span></div>
               </div>
             </div>
-            <div><h4 className="text-sm font-semibold text-gray-900 uppercase border-b pb-2 mb-3">Invoice Info</h4>
-              <div className="space-y-2 text-sm">
-                <div><span className="text-gray-700">Invoice No:</span> <span className="font-medium text-gray-900">{patient.invoiceNumber}</span></div>
-                <div><span className="text-gray-700">Invoiced By:</span> <span className="font-medium text-gray-900">{patient.invoicedBy}</span></div>
-                <div><span className="text-gray-700">Date:</span> <span className="font-medium text-gray-900">{new Date(patient.invoicedDate).toLocaleDateString()}</span></div>
-                <div><span className="text-gray-700">Method:</span> <span className="font-medium text-gray-900">{patient.paymentMethod}</span></div>
+            <div className="bg-white rounded-lg border border-gray-200 p-3">
+              <h4 className="text-xs font-semibold text-gray-900 uppercase border-b pb-2 mb-3 flex items-center gap-1.5">
+                <Calendar className="w-3.5 h-3.5" />
+                Invoice Info
+              </h4>
+              <div className="space-y-2 text-xs">
+                <div className="flex items-center gap-2"><span className="text-gray-700 w-20">Invoice:</span> <span className="font-medium text-gray-900">{patient.invoiceNumber}</span></div>
+                <div className="flex items-center gap-2"><Building2 className="w-3.5 h-3.5 text-gray-400" /><span className="text-gray-700 w-20">By:</span> <span className="font-medium text-gray-900">{patient.invoicedBy}</span></div>
+                <div className="flex items-center gap-2"><Calendar className="w-3.5 h-3.5 text-gray-400" /><span className="text-gray-700 w-20">Date:</span> <span className="font-medium text-gray-900">{new Date(patient.invoicedDate).toLocaleDateString()}</span></div>
+                <div className="flex items-center gap-2"><CreditCard className="w-3.5 h-3.5 text-gray-400" /><span className="text-gray-700 w-20">Method:</span> <span className="font-medium text-gray-900">{patient.paymentMethod}</span></div>
               </div>
             </div>
-            <div><h4 className="text-sm font-semibold text-gray-900 uppercase border-b pb-2 mb-3">Financial Info</h4>
-              <div className="space-y-2 text-sm">
-                <div><span className="text-gray-700">Total:</span> <span className="font-semibold text-gray-900">د.إ{patient.amount?.toLocaleString() || 0}</span></div>
-                <div><span className="text-gray-700">Paid:</span> <span className="font-semibold text-emerald-600">د.إ{patient.paid?.toLocaleString() || 0}</span></div>
-                <div><span className="text-gray-700">Advance:</span> <span className="font-semibold text-blue-600">د.إ{patient.advance?.toLocaleString() || 0}</span></div>
-                <div><span className="text-gray-700">Pending:</span> <span className="font-semibold text-rose-600">د.إ{patient.pending?.toLocaleString() || 0}</span></div>
+            <div className="bg-white rounded-lg border border-gray-200 p-3">
+              <h4 className="text-xs font-semibold text-gray-900 uppercase border-b pb-2 mb-3 flex items-center gap-1.5">
+                <DollarSign className="w-3.5 h-3.5" />
+                Financial Info
+              </h4>
+              <div className="space-y-2 text-xs">
+                <div className="flex items-center gap-2"><span className="text-gray-700 w-20">Total:</span> <span className="font-semibold text-gray-900">د.إ{patient.amount?.toLocaleString() || 0}</span></div>
+                <div className="flex items-center gap-2"><span className="text-gray-700 w-20">Paid:</span> <span className="font-semibold text-emerald-600">د.إ{patient.paid?.toLocaleString() || 0}</span></div>
+                <div className="flex items-center gap-2"><span className="text-gray-700 w-20">Advance:</span> <span className="font-semibold text-blue-600">د.إ{patient.advance?.toLocaleString() || 0}</span></div>
+                <div className="flex items-center gap-2"><span className="text-gray-700 w-20">Pending:</span> <span className="font-semibold text-rose-600">د.إ{patient.pending?.toLocaleString() || 0}</span></div>
               </div>
             </div>
           </div>
-          <div><h4 className="text-sm font-semibold text-gray-900 uppercase border-b pb-2 mb-3">Insurance Info</h4>
-            <div className="grid md:grid-cols-3 gap-3 text-sm">
-              <div><span className="text-gray-700">Insurance:</span> <span className="font-medium text-gray-900">{patient.insurance}</span></div>
-              <div><span className="text-gray-700">Type:</span> <span className="font-medium text-gray-900">{patient.insuranceType || 'N/A'}</span></div>
-              <div><span className="text-gray-700">Advance Given:</span> <span className="font-medium text-gray-900">د.إ{patient.advanceGivenAmount?.toLocaleString() || 0}</span></div>
-              <div><span className="text-gray-700">Co-Pay:</span> <span className="font-medium text-gray-900">{patient.coPayPercent || 0}%</span></div>
-              <div><span className="text-gray-700">Need To Pay:</span> <span className="font-medium text-gray-900">د.إ{patient.needToPay?.toLocaleString() || 0}</span></div>
-              <div><span className="text-gray-700">Claim Status:</span> <span className={`px-2 py-1 text-xs font-medium rounded ${patient.advanceClaimStatus === 'Released' ? 'bg-emerald-100 text-emerald-700' : patient.advanceClaimStatus === 'Approved by doctor' ? 'bg-blue-100 text-blue-700' : patient.advanceClaimStatus === 'Pending' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'}`}>{patient.advanceClaimStatus}</span></div>
+          <div className="bg-white rounded-lg border border-gray-200 p-3">
+            <h4 className="text-xs font-semibold text-gray-900 uppercase border-b pb-2 mb-3 flex items-center gap-1.5">
+              <FileText className="w-3.5 h-3.5" />
+              Insurance Info
+            </h4>
+            <div className="grid md:grid-cols-3 gap-3 text-xs">
+              <div className="flex items-center gap-2"><span className="text-gray-700">Insurance:</span> <span className="font-medium text-gray-900">{patient.insurance}</span></div>
+              <div className="flex items-center gap-2"><span className="text-gray-700">Type:</span> <span className="font-medium text-gray-900">{patient.insuranceType || 'N/A'}</span></div>
+              <div className="flex items-center gap-2"><span className="text-gray-700">Advance:</span> <span className="font-medium text-gray-900">د.إ{patient.advanceGivenAmount?.toLocaleString() || 0}</span></div>
+              <div className="flex items-center gap-2"><span className="text-gray-700">Co-Pay:</span> <span className="font-medium text-gray-900">{patient.coPayPercent || 0}%</span></div>
+              <div className="flex items-center gap-2"><span className="text-gray-700">Need To Pay:</span> <span className="font-medium text-gray-900">د.إ{patient.needToPay?.toLocaleString() || 0}</span></div>
+              <div className="flex items-center gap-2"><span className="text-gray-700">Claim:</span> <span className={`px-2 py-0.5 text-xs font-medium rounded ${patient.advanceClaimStatus === 'Released' ? 'bg-emerald-100 text-emerald-700' : patient.advanceClaimStatus === 'Approved by doctor' ? 'bg-blue-100 text-blue-700' : patient.advanceClaimStatus === 'Pending' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'}`}>{patient.advanceClaimStatus}</span></div>
             </div>
           </div>
           {patient.paymentHistory?.length > 0 && (
@@ -125,8 +148,8 @@ const PatientDetailsModal = ({ isOpen, onClose, patient }) => {
             </div>
           )}
         </div>
-        <div className="sticky bottom-0 bg-gray-50 border-t px-6 py-4">
-          <button onClick={onClose} className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium">Close</button>
+        <div className="sticky bottom-0 bg-gray-50 border-t px-3 sm:px-4 py-2 sm:py-3">
+          <button onClick={onClose} className="w-full px-3 sm:px-4 py-2 bg-gray-900 hover:bg-gray-800 text-white rounded-lg text-xs sm:text-sm font-medium transition-colors">Close</button>
         </div>
       </div>
     </div>
@@ -167,32 +190,41 @@ const PatientCard = ({ patient, onUpdate, onViewDetails }) => (
       {patient.patientType && <span className="inline-flex px-2 py-1 text-xs font-medium rounded bg-purple-100 text-purple-700">{patient.patientType}</span>}
     </div>
     <div className="flex gap-2">
-      <button onClick={() => onUpdate(patient._id)} className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"><Edit3 className="w-4 h-4" /> Update</button>
-      <button onClick={() => onViewDetails(patient)} className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-lg transition-colors"><Eye className="w-4 h-4" /> View More</button>
+      <button onClick={() => onUpdate(patient._id)} className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-gray-800 hover:bg-gray-900 text-white text-sm font-medium rounded-lg transition-colors"><Edit3 className="w-4 h-4" /> Update</button>
+      <button onClick={() => onViewDetails(patient)} className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-gray-700 hover:bg-gray-800 text-white text-sm font-medium rounded-lg transition-colors"><Eye className="w-4 h-4" /> View More</button>
     </div>
   </div>
 );
 
 function PatientFilterUI({ hideHeader = false, onEditPatient }) {
   const router = useRouter();
-  const [filters, setFilters] = useState({ emrNumber: "", invoiceNumber: "", name: "", phone: "", claimStatus: "", applicationStatus: "", dateFrom: "", dateTo: "" });
+  const [searchQuery, setSearchQuery] = useState("");
   const [patients, setPatients] = useState([]);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
   const [toasts, setToasts] = useState([]);
   const [detailsModal, setDetailsModal] = useState({ isOpen: false, patient: null });
-  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const pageSize = 12;
 
   const addToast = (message, type = "info") => setToasts(prev => [...prev, { id: Date.now(), message, type }]);
   const removeToast = (id) => setToasts(prev => prev.filter(t => t.id !== id));
 
-  const filteredPatients = patients;
+  // Filter patients by search query
+  const filteredPatients = useMemo(() => {
+    if (!searchQuery.trim()) return patients;
+    const query = searchQuery.toLowerCase();
+    return patients.filter(patient => 
+      (patient.firstName && patient.firstName.toLowerCase().includes(query)) ||
+      (patient.lastName && patient.lastName.toLowerCase().includes(query)) ||
+      (patient.mobileNumber && patient.mobileNumber.includes(query)) ||
+      (patient.emrNumber && patient.emrNumber.toLowerCase().includes(query)) ||
+      (patient.invoiceNumber && patient.invoiceNumber.toLowerCase().includes(query)) ||
+      (patient.email && patient.email.toLowerCase().includes(query))
+    );
+  }, [patients, searchQuery]);
+  
   const totalPages = Math.ceil(filteredPatients.length / pageSize);
   const displayedPatients = filteredPatients.slice((page - 1) * pageSize, page * pageSize);
-
-  // Check if any filters are active
-  const hasActiveFilters = Object.values(filters).some(value => value !== "" && value !== null && value !== undefined);
 
   // Calculate stats
   const totalPatients = patients.length;
@@ -207,7 +239,7 @@ function PatientFilterUI({ hideHeader = false, onEditPatient }) {
     }
     setLoading(true);
     try {
-      const { data } = await axios.get("/api/staff/get-patient-registrations", { params: filters, headers });
+      const { data } = await axios.get("/api/staff/get-patient-registrations", { headers });
       setPatients(data.success ? data.data : []);
       setPage(1);
       addToast("Data loaded successfully", "success");
@@ -262,47 +294,23 @@ function PatientFilterUI({ hideHeader = false, onEditPatient }) {
                   <h1 className="text-xl font-semibold text-gray-900 mb-0.5">Patient Management</h1>
                   <p className="text-gray-700 text-xs">View and manage all patient records and information</p>
                 </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-                    className={`inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-md shadow hover:shadow-md transition-all duration-200 text-xs font-medium ${
-                      hasActiveFilters || showAdvancedFilters
-                        ? 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white border-2 border-blue-500'
-                        : 'bg-gradient-to-r from-teal-600 to-teal-700 hover:from-teal-700 hover:to-teal-800 text-white'
-                    }`}
-                  >
-                    <Filter className="h-3.5 w-3.5" />
-                    <span>
-                      Advanced Filters
-                      {hasActiveFilters && <span className="ml-1 text-[10px] opacity-90">(Active)</span>}
-                    </span>
-                  </button>
-                </div>
               </div>
             </div>
           )}
           
-          {/* Advanced Filters Button (shown when header is hidden) */}
-          {hideHeader && (
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
-              <div className="flex items-center justify-end">
-                <button
-                  onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-                  className={`inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-md shadow hover:shadow-md transition-all duration-200 text-xs font-medium ${
-                    hasActiveFilters || showAdvancedFilters
-                      ? 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white border-2 border-blue-500'
-                      : 'bg-gradient-to-r from-teal-600 to-teal-700 hover:from-teal-700 hover:to-teal-800 text-white'
-                  }`}
-                >
-                  <Filter className="h-3.5 w-3.5" />
-                  <span>
-                    Advanced Filters
-                    {hasActiveFilters && <span className="ml-1 text-[10px] opacity-90">(Active)</span>}
-                  </span>
-                </button>
-              </div>
+          {/* Simple Search Bar */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <input
+                type="text"
+                placeholder="Search by name, phone, EMR number, invoice number, or email..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 outline-none text-sm text-gray-900"
+              />
             </div>
-          )}
+          </div>
 
           {/* Stats Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -334,10 +342,10 @@ function PatientFilterUI({ hideHeader = false, onEditPatient }) {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-[11px] font-medium text-gray-700 mb-0.5">Total Revenue</p>
-                  <p className="text-xl font-bold text-teal-600">د.إ {totalRevenue.toLocaleString()}</p>
+                  <p className="text-xl font-bold text-gray-900">د.إ {totalRevenue.toLocaleString()}</p>
                 </div>
-                <div className="bg-teal-100 p-2 rounded-md">
-                  <DollarSign className="h-5 w-5 text-teal-600" />
+                <div className="bg-gray-100 p-2 rounded-md">
+                  <DollarSign className="h-5 w-5 text-gray-700" />
                 </div>
               </div>
             </div>
@@ -345,9 +353,9 @@ function PatientFilterUI({ hideHeader = false, onEditPatient }) {
 
           {/* Patients Table */}
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-            <div className="px-4 py-3 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
+            <div className="px-4 py-3 border-b border-gray-200 bg-gray-50">
               <div className="flex items-center gap-3">
-                <Package className="h-4 w-4 text-teal-600" />
+                <Package className="h-4 w-4 text-gray-700" />
                 <h2 className="text-base font-semibold text-gray-900">All Patients</h2>
               </div>
             </div>
@@ -355,7 +363,7 @@ function PatientFilterUI({ hideHeader = false, onEditPatient }) {
             <div className="p-3">
               {loading ? (
                 <div className="text-center py-10">
-                  <div className="w-10 h-10 border-3 border-gray-200 border-t-teal-600 rounded-full animate-spin mx-auto mb-3"></div>
+                  <div className="w-10 h-10 border-3 border-gray-200 border-t-gray-800 rounded-full animate-spin mx-auto mb-3"></div>
                   <p className="text-sm text-gray-600">Loading...</p>
                 </div>
               ) : (
@@ -416,14 +424,14 @@ function PatientFilterUI({ hideHeader = false, onEditPatient }) {
                               <div className="flex items-center gap-2">
                                 <button
                                   onClick={() => handleUpdate(patient._id)}
-                                  className="p-1.5 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                                  className="p-1.5 text-gray-700 hover:bg-gray-100 rounded transition-colors"
                                   title="Edit"
                                 >
                                   <Edit3 className="h-4 w-4" />
                                 </button>
                                 <button
                                   onClick={() => setDetailsModal({ isOpen: true, patient })}
-                                  className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded transition-colors"
+                                  className="p-1.5 text-gray-700 hover:bg-gray-100 rounded transition-colors"
                                   title="View Details"
                                 >
                                   <Eye className="h-4 w-4" />
@@ -447,7 +455,7 @@ function PatientFilterUI({ hideHeader = false, onEditPatient }) {
                   <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="p-1.5 border border-gray-300 rounded hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed"><ChevronLeft className="w-4 h-4" /></button>
                   {[...Array(Math.min(totalPages, 5))].map((_, idx) => {
                     const pageNum = totalPages <= 5 ? idx + 1 : page <= 3 ? idx + 1 : page >= totalPages - 2 ? totalPages - 4 + idx : page - 2 + idx;
-                    return <button key={idx} onClick={() => setPage(pageNum)} className={`w-8 h-8 rounded text-xs font-medium ${page === pageNum ? 'bg-teal-600 text-white' : 'border border-gray-300 text-gray-700 hover:bg-white'}`}>{pageNum}</button>;
+                    return <button key={idx} onClick={() => setPage(pageNum)} className={`w-8 h-8 rounded text-xs font-medium ${page === pageNum ? 'bg-gray-800 text-white' : 'border border-gray-300 text-gray-700 hover:bg-gray-50'}`}>{pageNum}</button>;
                   })}
                   <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages} className="p-1.5 border border-gray-300 rounded hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed"><ChevronRight className="w-4 h-4" /></button>
                 </div>
@@ -455,47 +463,6 @@ function PatientFilterUI({ hideHeader = false, onEditPatient }) {
             )}
           </div>
 
-          {/* Filter Panel */}
-          {showAdvancedFilters && (
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-medium text-gray-700">Advanced Filters</h3>
-                <button
-                  onClick={() => setShowAdvancedFilters(false)}
-                  className="p-1 hover:bg-gray-100 rounded text-gray-500"
-                  aria-label="Close filters"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                <input type="text" placeholder="EMR Number" value={filters.emrNumber} onChange={e => setFilters({ ...filters, emrNumber: e.target.value })} className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none text-xs text-gray-800" />
-                <input type="text" placeholder="Invoice Number" value={filters.invoiceNumber} onChange={e => setFilters({ ...filters, invoiceNumber: e.target.value })} className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none text-xs text-gray-800" />
-                <input type="text" placeholder="Patient Name" value={filters.name} onChange={e => setFilters({ ...filters, name: e.target.value })} className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none text-xs text-gray-800" />
-                <input type="text" placeholder="Phone" value={filters.phone} onChange={e => setFilters({ ...filters, phone: e.target.value })} className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none text-xs text-gray-800" />
-                <select value={filters.claimStatus} onChange={e => setFilters({ ...filters, claimStatus: e.target.value })} className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none text-xs text-gray-800 bg-white">
-                  <option value="">All Claim Status</option><option value="Pending">Pending</option><option value="Released">Released</option><option value="Cancelled">Cancelled</option>
-                </select>
-                <select value={filters.applicationStatus} onChange={e => setFilters({ ...filters, applicationStatus: e.target.value })} className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none text-xs text-gray-800 bg-white">
-                  <option value="">All App Status</option><option value="Active">Active</option><option value="Cancelled">Cancelled</option><option value="Completed">Completed</option>
-                </select>
-                <input type="date" value={filters.dateFrom} onChange={e => setFilters({ ...filters, dateFrom: e.target.value })} className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none text-xs text-gray-800" />
-                <input type="date" value={filters.dateTo} onChange={e => setFilters({ ...filters, dateTo: e.target.value })} className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none text-xs text-gray-800" />
-              </div>
-              <div className="flex items-center gap-2 mt-3">
-                <button onClick={fetchPatients} className="px-6 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-xs font-medium transition-colors">Apply Filters</button>
-                <button 
-                  onClick={() => {
-                    setFilters({ emrNumber: "", invoiceNumber: "", name: "", phone: "", claimStatus: "", applicationStatus: "", dateFrom: "", dateTo: "" });
-                    fetchPatients();
-                  }} 
-                  className="px-6 py-2 border border-gray-300 hover:bg-gray-50 text-gray-700 rounded-lg text-xs font-medium transition-colors"
-                >
-                  Clear Filters
-                </button>
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </>

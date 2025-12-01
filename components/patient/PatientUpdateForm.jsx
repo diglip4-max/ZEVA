@@ -81,9 +81,10 @@ const EditableField = ({
   min,
   max,
   step,
+  isCompact = false,
 }) => (
   <div className="min-w-0">
-    <label className="block text-xs md:text-sm font-semibold text-gray-800 mb-1">
+    <label className={`block ${isCompact ? 'text-xs mb-1' : 'text-xs md:text-sm mb-1'} font-semibold text-gray-700`}>
       {label} {required && <span className="text-red-500">*</span>}
     </label>
     {type === "select" ? (
@@ -92,7 +93,7 @@ const EditableField = ({
         value={value ?? ""}
         onChange={onChange}
         disabled={disabled}
-        className={`w-full px-3 py-2 text-sm md:text-base border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 ${disabled ? "bg-gray-100 cursor-not-allowed text-gray-500" : "bg-white text-gray-900"}`}
+        className={`w-full ${isCompact ? 'px-2.5 py-1.5 text-xs' : 'px-3 py-2 text-sm md:text-base'} border rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 ${disabled ? "bg-gray-100 cursor-not-allowed text-gray-500" : "bg-white text-gray-900"}`}
       >
         <option value="">{placeholder || `Select ${label}`}</option>
         {options.map((opt) => (
@@ -108,8 +109,8 @@ const EditableField = ({
         onChange={onChange}
         placeholder={placeholder}
         disabled={disabled}
-        rows={3}
-        className={`w-full px-3 py-2 text-sm md:text-base border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 resize-none ${disabled ? "bg-gray-100 cursor-not-allowed text-gray-500" : "bg-white text-gray-900"}`}
+        rows={isCompact ? 2 : 3}
+        className={`w-full ${isCompact ? 'px-2.5 py-1.5 text-xs' : 'px-3 py-2 text-sm md:text-base'} border rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 resize-none ${disabled ? "bg-gray-100 cursor-not-allowed text-gray-500" : "bg-white text-gray-900"}`}
       />
     ) : (
       <input
@@ -122,7 +123,7 @@ const EditableField = ({
         min={min}
         max={max}
         step={step}
-        className={`w-full px-3 py-2 text-sm md:text-base border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 ${disabled ? "bg-gray-100 cursor-not-allowed text-gray-500" : "bg-white text-gray-900"}`}
+        className={`w-full ${isCompact ? 'px-2.5 py-1.5 text-xs' : 'px-3 py-2 text-sm md:text-base'} border rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 ${disabled ? "bg-gray-100 cursor-not-allowed text-gray-500" : "bg-white text-gray-900"}`}
       />
     )}
   </div>
@@ -351,8 +352,8 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
   }
 
   const containerClass = embedded
-    ? "bg-white rounded-xl shadow-2xl w-full max-w-6xl mx-auto max-h-[90vh] overflow-y-auto"
-    : "min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 p-3 md:p-4 lg:p-6 xl:p-8";
+    ? "bg-white rounded-lg sm:rounded-xl shadow-2xl w-full max-w-3xl mx-auto max-h-[95vh] sm:max-h-[85vh] overflow-y-auto flex flex-col"
+    : "min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 p-3 sm:p-4 md:p-6 lg:p-8";
 
   return (
     <div className={containerClass}>
@@ -371,8 +372,23 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
 
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
-      <div className={embedded ? "p-4 md:p-6 space-y-6" : "max-w-7xl mx-auto"}>
-        <div className="bg-white rounded-xl md:rounded-2xl shadow-xl border border-gray-200 overflow-hidden">
+      <div className={embedded ? "p-2 sm:p-3 md:p-4 space-y-2 sm:space-y-3 flex-1 overflow-y-auto" : "max-w-7xl mx-auto"}>
+        {embedded ? (
+          <div className="sticky top-0 bg-gray-50 border-b px-2 sm:px-3 md:px-4 py-2 sm:py-3 flex items-center justify-between z-10">
+            <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1">
+              <FileText className="w-4 h-4 sm:w-5 sm:h-5 text-gray-700 flex-shrink-0" />
+              <h1 className="text-sm sm:text-base md:text-lg font-bold text-gray-900 truncate">Edit Patient</h1>
+            </div>
+            {onClose && (
+              <button
+                onClick={onClose}
+                className="p-1.5 hover:bg-gray-200 rounded-lg text-gray-400 hover:text-gray-700 transition-colors flex-shrink-0 ml-2"
+              >
+                <X className="w-4 h-4 sm:w-5 sm:h-5" />
+              </button>
+            )}
+          </div>
+        ) : (
           <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-4 md:px-6 lg:px-8 py-4 md:py-5 lg:py-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
               <h1 className="text-xl md:text-2xl lg:text-3xl font-bold flex items-center gap-2 md:gap-3">
@@ -396,20 +412,22 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
               </div>
             </div>
           </div>
+        )}
 
-          <div className="p-4 md:p-6 lg:p-8 space-y-6">
-            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-4 md:p-5 border border-blue-100">
-              <h2 className="text-base md:text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                <Calendar className="w-5 h-5 text-indigo-600" />
+        <div className={`${embedded ? 'p-2 sm:p-3 md:p-4 space-y-2 sm:space-y-3 flex-1 overflow-y-auto' : 'p-3 sm:p-4 md:p-6 lg:p-8 space-y-4 sm:space-y-5 md:space-y-6'}`}>
+            <div className={`${embedded ? 'bg-gray-50 rounded-lg p-2 sm:p-3 border border-gray-200' : 'bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg sm:rounded-xl p-3 sm:p-4 md:p-5 border border-blue-100'}`}>
+              <h2 className={`${embedded ? 'text-xs sm:text-sm' : 'text-sm sm:text-base md:text-lg'} font-bold text-gray-900 ${embedded ? 'mb-1.5 sm:mb-2' : 'mb-3 sm:mb-4'} flex items-center gap-1.5 sm:gap-2`}>
+                <Calendar className={`${embedded ? 'w-3.5 h-3.5 sm:w-4 sm:h-4' : 'w-4 h-4 sm:w-5 sm:h-5'} text-gray-700 flex-shrink-0`} />
                 Invoice Information
               </h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-5">
+              <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 ${embedded ? 'gap-2' : 'gap-4 md:gap-5'}`}>
                 <EditableField
                   label="Invoice Number"
                   name="invoiceNumber"
                   value={formData.invoiceNumber}
                   onChange={handleFieldChange}
                   required
+                  isCompact={embedded}
                 />
                 <EditableField
                   label="Invoiced Date"
@@ -418,22 +436,24 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
                   value={formData.invoicedDate || ""}
                   onChange={handleFieldChange}
                   required
+                  isCompact={embedded}
                 />
                 <EditableField
                   label="Invoiced By"
                   name="invoicedBy"
                   value={formData.invoicedBy}
                   onChange={handleFieldChange}
+                  isCompact={embedded}
                 />
               </div>
             </div>
 
-            <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-4 md:p-5 border border-green-100">
-              <h2 className="text-base md:text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                <User className="w-5 h-5 text-emerald-600" />
+            <div className={`${embedded ? 'bg-gray-50 rounded-lg p-3 border border-gray-200' : 'bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-4 md:p-5 border border-green-100'}`}>
+              <h2 className={`${embedded ? 'text-sm' : 'text-base md:text-lg'} font-bold text-gray-900 ${embedded ? 'mb-2' : 'mb-4'} flex items-center gap-2`}>
+                <User className={`${embedded ? 'w-4 h-4' : 'w-5 h-5'} text-gray-700`} />
                 Patient Information
               </h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-5">
+              <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 ${embedded ? 'gap-2' : 'gap-4 md:gap-5'}`}>
                 <EditableField
                   label="EMR Number"
                   name="emrNumber"
@@ -521,12 +541,12 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
               </div>
             </div>
 
-            <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-4 md:p-5 border border-purple-100">
-              <h2 className="text-base md:text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                <FileText className="w-5 h-5 text-purple-600" />
+            <div className={`${embedded ? 'bg-gray-50 rounded-lg p-3 border border-gray-200' : 'bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-4 md:p-5 border border-purple-100'}`}>
+              <h2 className={`${embedded ? 'text-sm' : 'text-base md:text-lg'} font-bold text-gray-900 ${embedded ? 'mb-2' : 'mb-4'} flex items-center gap-2`}>
+                <FileText className={`${embedded ? 'w-4 h-4' : 'w-5 h-5'} text-gray-700`} />
                 Medical Details
               </h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-5">
+              <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 ${embedded ? 'gap-2' : 'gap-4 md:gap-5'}`}>
                 <EditableField
                   label="Doctor"
                   name="doctor"
@@ -690,7 +710,7 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
               </div>
             </div>
 
-            <div className="bg-gradient-to-br from-cyan-50 to-blue-50 rounded-xl p-4 md:p-5 border border-cyan-100">
+            <div className={`${embedded ? 'bg-gray-50 rounded-lg p-3 border border-gray-200' : 'bg-gradient-to-br from-cyan-50 to-blue-50 rounded-xl p-4 md:p-5 border border-cyan-100'}`}>
               <h2 className="text-base md:text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
                 <FileText className="w-5 h-5 text-cyan-600" />
                 Insurance Details
@@ -855,7 +875,6 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
           </div>
         </div>
       </div>
-    </div>
   );
 };
 

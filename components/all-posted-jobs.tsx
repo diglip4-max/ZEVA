@@ -1,6 +1,9 @@
 // components/common/JobManagement.tsx
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import axios from 'axios';
+import toast from 'react-hot-toast';
+import { Eye, Edit, Trash2, Power, PowerOff, X, Building2, MapPin, Clock, Briefcase, GraduationCap, Users, DollarSign, Calendar, FileText } from 'lucide-react';
+import JobPostingForm, { JobFormData } from './JobPostingForm';
 
 // Type definitions
 interface JobConfig {
@@ -140,6 +143,10 @@ const JobManagement: React.FC<JobManagementProps> = ({
   const [showFilters, setShowFilters] = useState<boolean>(false);
   const [selectedDepartment, setSelectedDepartment] = useState<string>('all');
   const [selectedJobType, setSelectedJobType] = useState<string>('all');
+  const [previewJob, setPreviewJob] = useState<Job | null>(null);
+  const [editJob, setEditJob] = useState<Job | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const fetchJobs = useCallback(async (): Promise<void> => {
     // Don't fetch if no read permission
@@ -263,17 +270,46 @@ const JobManagement: React.FC<JobManagementProps> = ({
         }, {
           headers: { Authorization: `Bearer ${token}` },
         });
+        toast.success(`Job ${confirmAction.currentStatus ? 'deactivated' : 'activated'} successfully`);
       } else if (confirmAction.type === 'delete') {
         await axios.delete(`/api/job-postings/delete?jobId=${confirmAction.jobId}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
+        toast.success('Job deleted successfully');
       }
       
       fetchJobs();
       setShowConfirmModal(false);
       setConfirmAction(null);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error executing action:', error);
+      const errorMessage = error?.response?.data?.message || 'Failed to perform action';
+      toast.error(errorMessage);
+    }
+  };
+
+  const handleEditJob = async (formData: JobFormData): Promise<void> => {
+    if (!editJob || !permissions.canUpdate) {
+      toast.error("You do not have permission to edit jobs");
+      throw new Error("You do not have permission to edit jobs");
+    }
+
+    setIsSubmitting(true);
+    try {
+      const token = localStorage.getItem(config.tokenKey);
+      await axios.put(`/api/job-postings/update?jobId=${editJob._id}`, formData, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      toast.success("Job updated successfully!");
+      setIsEditing(false);
+      setEditJob(null);
+      fetchJobs();
+    } catch (error: any) {
+      const errorMessage = error?.response?.data?.message || error?.message || "Failed to update job posting";
+      toast.error(errorMessage);
+      throw error;
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -407,22 +443,10 @@ const JobManagement: React.FC<JobManagementProps> = ({
     return (
       <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
         <div className="max-w-6xl mx-auto">
-          <div className="animate-pulse">
-            <div className="h-8 bg-gray-300 rounded w-1/3 mb-4"></div>
-            <div className="h-4 bg-gray-300 rounded w-1/2 mb-8"></div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-              {[...Array(4)].map((_, i) => (
-                <div key={i} className="bg-white p-4 rounded-xl border border-gray-200">
-                  <div className="h-16 bg-gray-300 rounded"></div>
-                </div>
-              ))}
-            </div>
-            <div className="space-y-4">
-              {[...Array(3)].map((_, i) => (
-                <div key={i} className="bg-white p-4 rounded-xl border border-gray-200">
-                  <div className="h-20 bg-gray-300 rounded"></div>
-                </div>
-              ))}
+          <div className="flex items-center justify-center min-h-[60vh]">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
+              <p className="text-sm text-gray-700">Loading job postings...</p>
             </div>
           </div>
         </div>
@@ -442,10 +466,10 @@ const JobManagement: React.FC<JobManagementProps> = ({
               </svg>
             </div>
             <h3 className="text-lg font-semibold text-gray-900 mb-2">Access Denied</h3>
-            <p className="text-gray-600 mb-4">
+            <p className="text-gray-700 mb-4">
               You do not have permission to view job postings.
             </p>
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-gray-700">
               Please contact your administrator to request access to the Jobs module.
             </p>
           </div>
@@ -461,17 +485,14 @@ const JobManagement: React.FC<JobManagementProps> = ({
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center gap-4 mb-6">
-            <div 
-              className="w-12 h-12 rounded-xl flex items-center justify-center shadow-lg"
-              style={{ backgroundColor: '#2D9AA5' }}
-            >
+            <div className="w-12 h-12 rounded-xl bg-gray-900 flex items-center justify-center shadow-lg">
               <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2-2v2m8 0V6a2 2 0 012 2v6M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m-8 0V6a2 2 0 00-2 2v6.001" />
               </svg>
             </div>
             <div>
               <h1 className="text-3xl font-bold text-gray-900">{config.title}</h1>
-              <p className="text-gray-600 mt-1">{config.subtitle}</p>
+              <p className="text-gray-700 mt-1">{config.subtitle}</p>
             </div>
           </div>
 
@@ -485,7 +506,7 @@ const JobManagement: React.FC<JobManagementProps> = ({
                   </svg>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">Total</p>
+                  <p className="text-sm text-gray-700">Total</p>
                   <p className="text-xl font-bold text-gray-900">{totalJobs}</p>
                 </div>
               </div>
@@ -499,7 +520,7 @@ const JobManagement: React.FC<JobManagementProps> = ({
                   </svg>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">Active</p>
+                  <p className="text-sm text-gray-700">Active</p>
                   <p className="text-xl font-bold text-gray-900">{activeJobs}</p>
                 </div>
               </div>
@@ -513,7 +534,7 @@ const JobManagement: React.FC<JobManagementProps> = ({
                   </svg>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">Inactive</p>
+                  <p className="text-sm text-gray-700">Inactive</p>
                   <p className="text-xl font-bold text-gray-900">{inactiveJobs}</p>
                 </div>
               </div>
@@ -527,7 +548,7 @@ const JobManagement: React.FC<JobManagementProps> = ({
                   </svg>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">Pending</p>
+                  <p className="text-sm text-gray-700">Pending</p>
                   <p className="text-xl font-bold text-gray-900">{pendingJobs}</p>
                 </div>
               </div>
@@ -541,7 +562,7 @@ const JobManagement: React.FC<JobManagementProps> = ({
                   </svg>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">Approved</p>
+                  <p className="text-sm text-gray-700">Approved</p>
                   <p className="text-xl font-bold text-gray-900">{approvedJobs}</p>
                 </div>
               </div>
@@ -555,7 +576,7 @@ const JobManagement: React.FC<JobManagementProps> = ({
                   </svg>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">Declined</p>
+                  <p className="text-sm text-gray-700">Declined</p>
                   <p className="text-xl font-bold text-gray-900">{declinedJobs}</p>
                 </div>
               </div>
@@ -682,7 +703,7 @@ const JobManagement: React.FC<JobManagementProps> = ({
 
               {/* Results Count and Active Filters */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-gray-100">
-                <div className="text-sm text-gray-600">
+                <div className="text-sm text-gray-700">
                   Showing {filteredAndSortedJobs.length} of {jobs.length} jobs
                   {searchTerm && ` matching "${searchTerm}"`}
                 </div>
@@ -739,8 +760,8 @@ const JobManagement: React.FC<JobManagementProps> = ({
         <div className="space-y-4">
           {filteredAndSortedJobs.length === 0 ? (
             <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-12 text-center">
-              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                <svg className="w-10 h-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   {searchTerm || statusFilter !== 'all' || selectedDepartment !== 'all' || selectedJobType !== 'all' ? (
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   ) : (
@@ -748,19 +769,18 @@ const JobManagement: React.FC<JobManagementProps> = ({
                   )}
                 </svg>
               </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              <h3 className="text-xl font-bold text-gray-900 mb-2">
                 {searchTerm || statusFilter !== 'all' || selectedDepartment !== 'all' || selectedJobType !== 'all' ? 'No Jobs Found' : config.emptyStateTitle}
               </h3>
-              <p className="text-gray-600 mb-6">
+              <p className="text-gray-700 mb-6 max-w-md mx-auto">
                 {searchTerm || statusFilter !== 'all' || selectedDepartment !== 'all' || selectedJobType !== 'all'
-                  ? 'Try adjusting your search criteria or filters.' 
+                  ? 'Try adjusting your search criteria or filters to find what you\'re looking for.' 
                   : config.emptyStateDescription
                 }
               </p>
               {(!searchTerm && statusFilter === 'all' && selectedDepartment === 'all' && selectedJobType === 'all') && (
                 <button 
-                  className="text-white px-6 py-3 rounded-xl hover:opacity-90 transition-colors font-medium"
-                  style={{ backgroundColor: '#2D9AA5' }}
+                  className="bg-gray-900 text-white px-6 py-3 rounded-xl hover:bg-gray-800 transition-colors font-medium shadow-sm"
                 >
                   {config.emptyStateButtonText}
                 </button>
@@ -792,15 +812,12 @@ const JobManagement: React.FC<JobManagementProps> = ({
                               {statusConfig.label}
                             </div>
                           </div>
-                          <p 
-                            className="font-medium text-sm"
-                            style={{ color: '#2D9AA5' }}
-                          >
+                          <p className="font-medium text-sm text-gray-700">
                             {job.companyName || job.clinicName || job.hospitalName}
                           </p>
                           
                           {/* Job Details */}
-                          <div className="flex flex-wrap gap-3 mt-2 text-xs text-gray-600">
+                          <div className="flex flex-wrap gap-3 mt-2 text-xs text-gray-700">
                             {job.department && (
                               <span className="flex items-center gap-1">
                                 <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -847,27 +864,51 @@ const JobManagement: React.FC<JobManagementProps> = ({
                         
                         {/* Action Buttons */}
                         <div className="flex gap-2">
+                          <button
+                            onClick={() => setPreviewJob(job)}
+                            className="px-3 py-2 bg-blue-500 text-white hover:bg-blue-600 rounded-lg text-xs font-medium transition-all duration-200 flex items-center gap-1"
+                            title="Preview Job"
+                          >
+                            <Eye className="w-3 h-3" />
+                            Preview
+                          </button>
                           {permissions.canUpdate && (
-                            <button
-                              onClick={() => handleToggleJob(job._id, job.isActive, job.jobTitle)}
-                              disabled={job.status !== 'approved'}
-                              className={`px-4 py-2 rounded-lg text-xs font-medium transition-all duration-200 ${
-                                job.status !== 'approved'
-                                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                                  : job.isActive 
-                                  ? 'bg-orange-500 text-white hover:bg-orange-600' 
-                                  : 'bg-green-500 text-white hover:bg-green-600'
-                              }`}
-                              title={job.status !== 'approved' ? 'Only approved jobs can be activated/deactivated' : ''}
-                            >
-                              {job.isActive ? 'Deactivate' : 'Activate'}
-                            </button>
+                            <>
+                              <button
+                                onClick={() => {
+                                  setEditJob(job);
+                                  setIsEditing(true);
+                                }}
+                                className="px-3 py-2 bg-gray-700 text-white hover:bg-gray-800 rounded-lg text-xs font-medium transition-all duration-200 flex items-center gap-1"
+                                title="Edit Job"
+                              >
+                                <Edit className="w-3 h-3" />
+                                Edit
+                              </button>
+                              <button
+                                onClick={() => handleToggleJob(job._id, job.isActive, job.jobTitle)}
+                                disabled={job.status !== 'approved'}
+                                className={`px-3 py-2 rounded-lg text-xs font-medium transition-all duration-200 flex items-center gap-1 ${
+                                  job.status !== 'approved'
+                                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                    : job.isActive 
+                                    ? 'bg-orange-500 text-white hover:bg-orange-600' 
+                                    : 'bg-green-500 text-white hover:bg-green-600'
+                                }`}
+                                title={job.status !== 'approved' ? 'Only approved jobs can be activated/deactivated' : ''}
+                              >
+                                {job.isActive ? <PowerOff className="w-3 h-3" /> : <Power className="w-3 h-3" />}
+                                {job.isActive ? 'Unpublish' : 'Publish'}
+                              </button>
+                            </>
                           )}
                           {permissions.canDelete && (
                             <button
                               onClick={() => handleDeleteJob(job._id, job.jobTitle)}
-                              className="px-4 py-2 bg-red-500 text-white hover:bg-red-600 rounded-lg text-xs font-medium transition-all duration-200"
+                              className="px-3 py-2 bg-red-500 text-white hover:bg-red-600 rounded-lg text-xs font-medium transition-all duration-200 flex items-center gap-1"
+                              title="Delete Job"
                             >
+                              <Trash2 className="w-3 h-3" />
                               Delete
                             </button>
                           )}
@@ -966,7 +1007,7 @@ const JobManagement: React.FC<JobManagementProps> = ({
                           {job.description && (
                             <div className="sm:col-span-2 lg:col-span-3 border-t border-gray-200 pt-3 mt-2">
                               <strong>Description:</strong>
-                              <p className="mt-1 text-gray-600 leading-relaxed">{job.description}</p>
+                              <p className="mt-1 text-gray-700 leading-relaxed">{job.description}</p>
                             </div>
                           )}
                         </div>
@@ -982,6 +1023,229 @@ const JobManagement: React.FC<JobManagementProps> = ({
 
       {/* Confirmation Modal */}
       {showConfirmModal && <ConfirmationModal />}
+
+      {/* Preview Modal - Compact & Sleek */}
+      {previewJob && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full overflow-hidden flex flex-col">
+            {/* Compact Header */}
+            <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-gray-50">
+              <div className="flex items-center gap-2">
+                <Eye className="w-5 h-5 text-gray-700" />
+                <h2 className="text-lg font-bold text-gray-900">Job Preview</h2>
+              </div>
+              <button
+                onClick={() => setPreviewJob(null)}
+                className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-200 rounded-lg transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Compact Content */}
+            <div className="overflow-y-auto max-h-[75vh]">
+              <div className="p-5 space-y-4">
+                {/* Title & Company */}
+                <div>
+                  <h3 className="text-xl font-bold text-gray-900 mb-1">{previewJob.jobTitle}</h3>
+                  <div className="flex items-center gap-1.5 text-sm text-gray-700">
+                    <Building2 className="w-4 h-4" />
+                    <span>{previewJob.companyName || previewJob.clinicName || previewJob.hospitalName}</span>
+                  </div>
+                </div>
+
+                {/* Quick Info Badges */}
+                <div className="flex flex-wrap gap-2">
+                  {previewJob.department && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-50 text-blue-700 rounded-md text-xs font-medium border border-blue-200">
+                      <Briefcase className="w-3 h-3" />
+                      {previewJob.department}
+                    </span>
+                  )}
+                  {previewJob.jobType && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-green-50 text-green-700 rounded-md text-xs font-medium border border-green-200">
+                      <Clock className="w-3 h-3" />
+                      {previewJob.jobType}
+                    </span>
+                  )}
+                  {previewJob.location && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-purple-50 text-purple-700 rounded-md text-xs font-medium border border-purple-200">
+                      <MapPin className="w-3 h-3" />
+                      {previewJob.location}
+                    </span>
+                  )}
+                  {previewJob.salary && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 text-emerald-700 rounded-md text-xs font-semibold border border-emerald-200">
+                      <DollarSign className="w-3 h-3" />
+                      {formatSalary(previewJob.salary)}
+                    </span>
+                  )}
+                </div>
+
+                {/* Compact Details Grid */}
+                <div className="grid grid-cols-2 gap-3 pt-3 border-t border-gray-100">
+                  {previewJob.qualification && (
+                    <div className="flex items-start gap-2">
+                      <GraduationCap className="w-4 h-4 text-gray-700 mt-0.5 flex-shrink-0" />
+                      <div className="min-w-0">
+                        <p className="text-xs text-gray-700 font-medium">Qualification</p>
+                        <p className="text-sm text-gray-900 font-semibold truncate">{previewJob.qualification}</p>
+                      </div>
+                    </div>
+                  )}
+                  {previewJob.experience && (
+                    <div className="flex items-start gap-2">
+                      <Briefcase className="w-4 h-4 text-gray-700 mt-0.5 flex-shrink-0" />
+                      <div className="min-w-0">
+                        <p className="text-xs text-gray-700 font-medium">Experience</p>
+                        <p className="text-sm text-gray-900 font-semibold truncate">{previewJob.experience}</p>
+                      </div>
+                    </div>
+                  )}
+                  {previewJob.noOfOpenings !== undefined && (
+                    <div className="flex items-start gap-2">
+                      <Users className="w-4 h-4 text-gray-700 mt-0.5 flex-shrink-0" />
+                      <div className="min-w-0">
+                        <p className="text-xs text-gray-700 font-medium">Openings</p>
+                        <p className="text-sm text-gray-900 font-semibold">{previewJob.noOfOpenings}</p>
+                      </div>
+                    </div>
+                  )}
+                  {previewJob.workingDays && (
+                    <div className="flex items-start gap-2">
+                      <Calendar className="w-4 h-4 text-gray-700 mt-0.5 flex-shrink-0" />
+                      <div className="min-w-0">
+                        <p className="text-xs text-gray-700 font-medium">Working Days</p>
+                        <p className="text-sm text-gray-900 font-semibold truncate">{previewJob.workingDays}</p>
+                      </div>
+                    </div>
+                  )}
+                  {previewJob.jobTiming && (
+                    <div className="flex items-start gap-2 col-span-2">
+                      <Clock className="w-4 h-4 text-gray-700 mt-0.5 flex-shrink-0" />
+                      <div className="min-w-0">
+                        <p className="text-xs text-gray-700 font-medium">Job Timing</p>
+                        <p className="text-sm text-gray-900 font-semibold">{previewJob.jobTiming}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Description - Compact */}
+                {previewJob.description && (
+                  <div className="pt-3 border-t border-gray-100">
+                    <h4 className="text-sm font-semibold text-gray-900 mb-2 flex items-center gap-1.5">
+                      <FileText className="w-4 h-4" />
+                      Description
+                    </h4>
+                    <div 
+                      className="prose prose-sm max-w-none text-gray-700 line-clamp-4"
+                      dangerouslySetInnerHTML={{ __html: previewJob.description }}
+                      style={{ fontSize: '0.875rem', lineHeight: '1.5' }}
+                    />
+                  </div>
+                )}
+
+                {/* Skills - Compact */}
+                {previewJob.skills && previewJob.skills.length > 0 && (
+                  <div className="pt-3 border-t border-gray-100">
+                    <h4 className="text-sm font-semibold text-gray-900 mb-2 flex items-center gap-1.5">
+                      <Briefcase className="w-4 h-4" />
+                      Skills
+                    </h4>
+                    <div className="flex flex-wrap gap-1.5">
+                      {previewJob.skills.slice(0, 6).map((skill, index) => (
+                        <span key={index} className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs font-medium border border-blue-200">
+                          {skill}
+                        </span>
+                      ))}
+                      {previewJob.skills.length > 6 && (
+                        <span className="px-2 py-0.5 bg-gray-100 text-gray-700 rounded text-xs font-medium">
+                          +{previewJob.skills.length - 6} more
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Perks - Compact */}
+                {previewJob.perks && previewJob.perks.length > 0 && (
+                  <div className="pt-3 border-t border-gray-100">
+                    <h4 className="text-sm font-semibold text-gray-900 mb-2 flex items-center gap-1.5">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                      </svg>
+                      Perks & Benefits
+                    </h4>
+                    <div className="flex flex-wrap gap-1.5">
+                      {previewJob.perks.slice(0, 5).map((perk, index) => (
+                        <span key={index} className="px-2 py-0.5 bg-green-50 text-green-700 rounded text-xs font-medium border border-green-200">
+                          {perk}
+                        </span>
+                      ))}
+                      {previewJob.perks.length > 5 && (
+                        <span className="px-2 py-0.5 bg-gray-100 text-gray-700 rounded text-xs font-medium">
+                          +{previewJob.perks.length - 5} more
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Modal */}
+      {isEditing && editJob && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-xl shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-hidden flex flex-col my-8">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">Edit Job Posting</h2>
+                <p className="text-sm text-gray-700 mt-1">Update your job posting details</p>
+              </div>
+              <button
+                onClick={() => {
+                  setIsEditing(false);
+                  setEditJob(null);
+                }}
+                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto">
+              <JobPostingForm
+                onSubmit={handleEditJob}
+                isSubmitting={isSubmitting}
+                title="Edit Job Posting"
+                subtitle="Update your job posting details"
+                initialData={{
+                  companyName: editJob.companyName || '',
+                  jobTitle: editJob.jobTitle || '',
+                  department: editJob.department || '',
+                  qualification: editJob.qualification || '',
+                  jobType: editJob.jobType || '',
+                  location: editJob.location || '',
+                  jobTiming: editJob.jobTiming || '',
+                  skills: Array.isArray(editJob.skills) ? editJob.skills.join(', ') : editJob.skills || '',
+                  perks: Array.isArray(editJob.perks) ? editJob.perks.join(', ') : editJob.perks || '',
+                  languagesPreferred: Array.isArray(editJob.languagesPreferred) ? editJob.languagesPreferred.join(', ') : editJob.languagesPreferred || '',
+                  description: editJob.description || '',
+                  noOfOpenings: editJob.noOfOpenings?.toString() || '',
+                  salary: editJob.salary || '',
+                  salaryType: '',
+                  experience: editJob.experience || '',
+                  establishment: editJob.establishment || '',
+                  workingDays: editJob.workingDays || '',
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
