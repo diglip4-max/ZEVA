@@ -53,13 +53,50 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Get the logged-in agent
+    // Get the logged-in user
     const me = await getUserFromReq(req);
     if (!me) {
       return res.status(401).json({ success: false, message: 'Unauthorized: Missing or invalid token' });
     }
 
-    // Verify user is an agent
+    // Handle different user roles accessing the agent portal
+    // If user is clinic/doctor/admin, return their navigation items directly
+    if (['clinic', 'doctor', 'admin'].includes(me.role)) {
+      const navigationRole = me.role;
+      
+      // Get navigation items for the user's role
+      const navigationItems = await ClinicNavigationItem.find({ 
+        role: navigationRole, 
+        isActive: true 
+      }).sort({ order: 1 });
+
+      // Convert paths to agent routes
+      const convertedItems = navigationItems.map(item => ({
+        _id: item._id,
+        label: item.label,
+        path: item.path ? convertPathToAgent(item.path, navigationRole) : null,
+        icon: item.icon,
+        description: item.description,
+        order: item.order,
+        moduleKey: item.moduleKey,
+        subModules: (item.subModules || []).map(subModule => ({
+          name: subModule.name,
+          path: subModule.path ? convertPathToAgent(subModule.path, navigationRole) : '',
+          icon: subModule.icon,
+          order: subModule.order
+        }))
+      }));
+
+      return res.status(200).json({
+        success: true,
+        permissions: null, // Clinic/doctor/admin users don't need agent permissions
+        navigationItems: convertedItems,
+        navigationRole,
+        agentId: me._id.toString()
+      });
+    }
+
+    // Verify user is an agent or doctorStaff for agent permission logic
     if (!['agent', 'doctorStaff'].includes(me.role)) {
       return res.status(403).json({ success: false, message: 'Access denied. Agent role required' });
     }

@@ -76,6 +76,7 @@ const routeMap: { [key: string]: () => Promise<any> } = {
   'myallClinic': () => import('../clinic/myallClinic'),
   'clinic-myallClinic': () => import('../clinic/myallClinic'),
   'clinic-dashboard': () => import('../clinic/clinic-dashboard'),
+  'clinic-clinic-dashboard': () => import('../clinic/clinic-dashboard'), // Handle double-prefixed route from path conversion
   'clinic-BlogForm': () => import('../clinic/BlogForm'),
   'job-posting': () => import('../clinic/job-posting'),
   'clinic-published-blogs': () => import('../clinic/published-blogs'),
