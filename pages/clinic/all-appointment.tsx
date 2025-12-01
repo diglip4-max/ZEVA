@@ -214,10 +214,11 @@ const AllAppointmentsPage: NextPageWithLayout = ({
     if (typeof window === "undefined") return {};
     let token = null;
     if (routeContext === "agent") {
-      token = localStorage.getItem("agentToken") ||
-        sessionStorage.getItem("agentToken") ||
-        localStorage.getItem("userToken") ||
-        sessionStorage.getItem("userToken");
+      // Prioritize userToken for agent context
+      token = localStorage.getItem("userToken") ||
+        sessionStorage.getItem("userToken") ||
+        localStorage.getItem("agentToken") ||
+        sessionStorage.getItem("agentToken");
     } else {
       token = localStorage.getItem("clinicToken") ||
         sessionStorage.getItem("clinicToken") ||
