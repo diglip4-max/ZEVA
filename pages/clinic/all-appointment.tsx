@@ -13,6 +13,11 @@ import {
   History,
   FileText,
   MessageCircle,
+  Trash2,
+  AlertTriangle,
+  CheckCircle,
+  XCircle,
+  X,
 } from "lucide-react";
 import EditAppointmentModal from "../../components/EditAppointmentModal";
 import AppointmentHistoryModal from "../../components/AppointmentHistoryModal";
@@ -124,6 +129,10 @@ const AllAppointmentsPage: NextPageWithLayout = ({
   const [selectedPatientName, setSelectedPatientName] = useState<string>("");
   const [reportAppointment, setReportAppointment] = useState<Appointment | null>(null);
   const [complaintAppointment, setComplaintAppointment] = useState<Appointment | null>(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [appointmentToDelete, setAppointmentToDelete] = useState<Appointment | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const appointmentRef = useRef<Appointment | null>(null);
 
   // Debug: Log modal state changes
@@ -192,6 +201,20 @@ const AllAppointmentsPage: NextPageWithLayout = ({
       .appointment-table-wrapper table {
         min-width: 1800px !important;
         width: max-content !important;
+      }
+      /* Toast animation */
+      @keyframes slide-in {
+        from {
+          transform: translateX(100%);
+          opacity: 0;
+        }
+        to {
+          transform: translateX(0);
+          opacity: 1;
+        }
+      }
+      .animate-slide-in {
+        animation: slide-in 0.3s ease-out;
       }
     `;
     
@@ -337,13 +360,13 @@ const AllAppointmentsPage: NextPageWithLayout = ({
 
   const getStatusBadgeColor = (status: string) => {
     const statusLower = status.toLowerCase();
-    if (statusLower === "discharged") return "bg-blue-100 text-blue-800";
+    if (statusLower === "discharged") return "bg-gray-100 text-gray-800";
     if (statusLower === "invoiced") return "bg-purple-100 text-purple-800";
     if (statusLower === "booked") return "bg-green-100 text-green-800";
     if (statusLower === "enquiry") return "bg-yellow-100 text-yellow-800";
     if (statusLower === "cancelled") return "bg-red-100 text-red-800";
     if (statusLower === "arrived") return "bg-indigo-100 text-indigo-800";
-    if (statusLower === "consultation") return "bg-teal-100 text-teal-800";
+    if (statusLower === "consultation") return "bg-gray-100 text-gray-800";
     return "bg-gray-100 text-gray-800";
   };
 
@@ -353,6 +376,58 @@ const AllAppointmentsPage: NextPageWithLayout = ({
     return "";
   };
 
+  const handleDeleteClick = (apt: Appointment) => {
+    setAppointmentToDelete(apt);
+    setDeleteConfirmOpen(true);
+    setOpenActionMenu(null);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!appointmentToDelete) return;
+
+    setDeleting(true);
+    try {
+      const headers = getAuthHeaders();
+      if (!headers.Authorization) {
+        setError("Unauthorized. Please log in again.");
+        setDeleteConfirmOpen(false);
+        setAppointmentToDelete(null);
+        setDeleting(false);
+        return;
+      }
+
+      const response = await axios.delete(
+        `/api/clinic/delete-appointment/${appointmentToDelete._id}`,
+        { headers }
+      );
+
+      if (response.data.success) {
+        // Remove appointment from list
+        setAppointments((prev) =>
+          prev.filter((apt) => apt._id !== appointmentToDelete._id)
+        );
+        setTotal((prev) => Math.max(0, prev - 1));
+        setDeleteConfirmOpen(false);
+        setAppointmentToDelete(null);
+        setToast({ message: "Appointment deleted successfully", type: 'success' });
+        setTimeout(() => setToast(null), 3000);
+      } else {
+        setToast({ message: response.data.message || "Failed to delete appointment", type: 'error' });
+        setTimeout(() => setToast(null), 3000);
+        setDeleteConfirmOpen(false);
+        setAppointmentToDelete(null);
+      }
+    } catch (err: any) {
+      console.error("Error deleting appointment:", err);
+      setToast({ message: err.response?.data?.message || "Failed to delete appointment", type: 'error' });
+      setTimeout(() => setToast(null), 3000);
+      setDeleteConfirmOpen(false);
+      setAppointmentToDelete(null);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const formatDate = (dateStr: string) => {
     if (!dateStr || dateStr === "-") return "-";
     return dateStr;
@@ -360,216 +435,249 @@ const AllAppointmentsPage: NextPageWithLayout = ({
 
   return (
     <>
+      {/* Toast Notification */}
+      {toast && (
+        <div className="fixed top-4 right-4 z-[300] animate-slide-in">
+          <div className={`flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg border ${
+            toast.type === 'success' 
+              ? 'bg-green-50 border-green-200 text-green-800' 
+              : 'bg-red-50 border-red-200 text-red-800'
+          }`}>
+            {toast.type === 'success' ? (
+              <CheckCircle className="w-5 h-5 flex-shrink-0" />
+            ) : (
+              <XCircle className="w-5 h-5 flex-shrink-0" />
+            )}
+            <span className="font-medium text-sm">{toast.message}</span>
+            <button
+              onClick={() => setToast(null)}
+              className="ml-2 hover:opacity-70 transition-opacity"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
         <div className="bg-gray-50 min-h-screen" style={{ width: '100%', padding: '0', margin: '0' }}>
           <div className="p-3 sm:p-4 md:p-6" style={{ width: '100%', minWidth: '100%' }}>
             <div className="w-full" style={{ width: '100%', overflowX: 'visible' }}>
-              {/* Header */}
-              <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6 mb-4 sm:mb-6">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
-              <h1 className="text-xl sm:text-2xl font-bold text-gray-900">All Appointments</h1>
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => setShowFilters(!showFilters)}
-                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
-                >
-                  <Filter className="w-4 h-4" />
-                  {showFilters ? "Hide Filters" : "Show Filters"}
-                </button>
-              </div>
-            </div>
+              {/* Header - Matching clinic dashboard theme */}
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-3">
+                <div className="max-w-7xl mx-auto px-3 sm:px-4 py-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
+                    <div>
+                      <h1 className="text-lg sm:text-xl font-bold text-gray-900">All Appointments</h1>
+                      <p className="text-xs sm:text-sm text-gray-700 mt-0.5">View and manage all appointment records</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setShowFilters(!showFilters)}
+                        className="inline-flex items-center justify-center gap-1.5 bg-gray-800 hover:bg-gray-900 text-white px-3 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs sm:text-sm font-medium"
+                      >
+                        <Filter className="h-4 w-4" />
+                        <span>{showFilters ? "Hide Filters" : "Show Filters"}</span>
+                      </button>
+                    </div>
+                  </div>
 
-            {/* Quick Search */}
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-              <input
-                type="text"
-                placeholder="Search by patient name, mobile, visit ID, or patient ID..."
-                value={filters.search}
-                onChange={(e) => {
-                  handleFilterChange("search", e.target.value);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    fetchAppointments();
-                  }
-                }}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
+                  {/* Quick Search */}
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 sm:w-5 sm:h-5" />
+                    <input
+                      type="text"
+                      placeholder="Search by patient name, mobile, visit ID, or patient ID..."
+                      value={filters.search}
+                      onChange={(e) => {
+                        handleFilterChange("search", e.target.value);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          fetchAppointments();
+                        }
+                      }}
+                      className="w-full pl-9 sm:pl-10 pr-3 sm:pr-4 py-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 outline-none text-gray-900"
+                    />
+                  </div>
+                </div>
+              </div>
 
             {/* Advanced Filters */}
             {showFilters && (
-              <div className="mt-4 p-3 sm:p-4 bg-gray-50 rounded-lg border border-gray-200">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
-                  {/* EMR Number */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      EMR Number
-                    </label>
-                    <input
-                      type="text"
-                      value={filters.emrNumber}
-                      onChange={(e) => handleFilterChange("emrNumber", e.target.value)}
-                      placeholder="Enter EMR number"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-3">
+                <div className="max-w-7xl mx-auto px-3 sm:px-4 py-3">
+                  <div className="p-3 sm:p-4 bg-gray-50 rounded-lg border border-gray-200">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
+                      {/* EMR Number */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          EMR Number
+                        </label>
+                        <input
+                          type="text"
+                          value={filters.emrNumber}
+                          onChange={(e) => handleFilterChange("emrNumber", e.target.value)}
+                          placeholder="Enter EMR number"
+                          className="w-full px-3 py-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 outline-none text-gray-900"
+                        />
+                      </div>
 
-                  {/* From Date */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      From Date
-                    </label>
-                    <input
-                      type="date"
-                      value={filters.fromDate}
-                      onChange={(e) => handleFilterChange("fromDate", e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
+                      {/* From Date */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          From Date
+                        </label>
+                        <input
+                          type="date"
+                          value={filters.fromDate}
+                          onChange={(e) => handleFilterChange("fromDate", e.target.value)}
+                          className="w-full px-3 py-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 outline-none text-gray-900"
+                        />
+                      </div>
 
-                  {/* To Date */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      To Date
-                    </label>
-                    <input
-                      type="date"
-                      value={filters.toDate}
-                      onChange={(e) => handleFilterChange("toDate", e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
+                      {/* To Date */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          To Date
+                        </label>
+                        <input
+                          type="date"
+                          value={filters.toDate}
+                          onChange={(e) => handleFilterChange("toDate", e.target.value)}
+                          className="w-full px-3 py-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 outline-none text-gray-900"
+                        />
+                      </div>
 
-                  {/* Doctor */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Doctor
-                    </label>
-                    <select
-                      value={filters.doctorId}
-                      onChange={(e) => handleFilterChange("doctorId", e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="">All Doctors</option>
-                      {doctors.map((doc) => (
-                        <option key={doc._id} value={doc._id}>
-                          {doc.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                      {/* Doctor */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Doctor
+                        </label>
+                        <select
+                          value={filters.doctorId}
+                          onChange={(e) => handleFilterChange("doctorId", e.target.value)}
+                          className="w-full px-3 py-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 outline-none text-gray-900"
+                        >
+                          <option value="">All Doctors</option>
+                          {doctors.map((doc) => (
+                            <option key={doc._id} value={doc._id}>
+                              {doc.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
 
-                  {/* Room */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Room
-                    </label>
-                    <select
-                      value={filters.roomId}
-                      onChange={(e) => handleFilterChange("roomId", e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="">All Rooms</option>
-                      {rooms.map((room) => (
-                        <option key={room._id} value={room._id}>
-                          {room.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                      {/* Room */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Room
+                        </label>
+                        <select
+                          value={filters.roomId}
+                          onChange={(e) => handleFilterChange("roomId", e.target.value)}
+                          className="w-full px-3 py-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 outline-none text-gray-900"
+                        >
+                          <option value="">All Rooms</option>
+                          {rooms.map((room) => (
+                            <option key={room._id} value={room._id}>
+                              {room.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
 
-                  {/* Status */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Status
-                    </label>
-                    <select
-                      value={filters.status}
-                      onChange={(e) => handleFilterChange("status", e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="">All Status</option>
-                      <option value="booked">Booked</option>
-                      <option value="enquiry">Enquiry</option>
-                      <option value="Discharge">Discharged</option>
-                      <option value="Arrived">Arrived</option>
-                      <option value="Consultation">Consultation</option>
-                      <option value="Invoiced">Invoiced</option>
-                      <option value="Cancelled">Cancelled</option>
-                    </select>
-                  </div>
+                      {/* Status */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Status
+                        </label>
+                        <select
+                          value={filters.status}
+                          onChange={(e) => handleFilterChange("status", e.target.value)}
+                          className="w-full px-3 py-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 outline-none text-gray-900"
+                        >
+                          <option value="">All Status</option>
+                          <option value="booked">Booked</option>
+                          <option value="enquiry">Enquiry</option>
+                          <option value="Discharge">Discharged</option>
+                          <option value="Arrived">Arrived</option>
+                          <option value="Consultation">Consultation</option>
+                          <option value="Invoiced">Invoiced</option>
+                          <option value="Cancelled">Cancelled</option>
+                        </select>
+                      </div>
 
-                  {/* Follow Type */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Follow Type
-                    </label>
-                    <select
-                      value={filters.followType}
-                      onChange={(e) => handleFilterChange("followType", e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="">All Types</option>
-                      <option value="first time">First Time</option>
-                      <option value="follow up">Follow Up</option>
-                      <option value="repeat">Repeat</option>
-                    </select>
-                  </div>
+                      {/* Follow Type */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Follow Type
+                        </label>
+                        <select
+                          value={filters.followType}
+                          onChange={(e) => handleFilterChange("followType", e.target.value)}
+                          className="w-full px-3 py-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 outline-none text-gray-900"
+                        >
+                          <option value="">All Types</option>
+                          <option value="first time">First Time</option>
+                          <option value="follow up">Follow Up</option>
+                          <option value="repeat">Repeat</option>
+                        </select>
+                      </div>
 
-                  {/* Referral */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Source
-                    </label>
-                    <select
-                      value={filters.referral}
-                      onChange={(e) => handleFilterChange("referral", e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="">All Sources</option>
-                      <option value="direct">Direct</option>
-                      <option value="referral">Referral</option>
-                    </select>
-                  </div>
-                </div>
+                      {/* Referral */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Source
+                        </label>
+                        <select
+                          value={filters.referral}
+                          onChange={(e) => handleFilterChange("referral", e.target.value)}
+                          className="w-full px-3 py-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 outline-none text-gray-900"
+                        >
+                          <option value="">All Sources</option>
+                          <option value="direct">Direct</option>
+                          <option value="referral">Referral</option>
+                        </select>
+                      </div>
+                    </div>
 
-                {/* Clear Filters Button */}
-                <div className="mt-4 flex justify-end">
-                  <button
-                    onClick={clearFilters}
-                    className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition"
-                  >
-                    Clear All Filters
-                  </button>
+                    {/* Clear Filters Button */}
+                    <div className="mt-4 flex justify-end">
+                      <button
+                        onClick={clearFilters}
+                        className="px-3 sm:px-4 py-2 text-xs sm:text-sm text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition font-medium"
+                      >
+                        Clear All Filters
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
-          </div>
 
-          {/* Results Count */}
-          <div className="mb-3 sm:mb-4 text-xs sm:text-sm text-gray-600">
-            Showing {appointments.length} of {total} appointments
-          </div>
+            {/* Results Count */}
+            <div className="mb-3 text-xs sm:text-sm text-gray-700">
+              Showing {appointments.length} of {total} appointments
+            </div>
 
-          {/* Table */}
-          {loading ? (
-            <div className="bg-white rounded-lg shadow-sm p-12 text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-              <p className="mt-4 text-gray-600">Loading appointments...</p>
-            </div>
-          ) : error ? (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">
-              {error}
-            </div>
-          ) : appointments.length === 0 ? (
-            <div className="bg-white rounded-lg shadow-sm p-12 text-center">
-              <p className="text-gray-600">No appointments found</p>
-            </div>
-          ) : (
-            <div className="bg-white rounded-lg shadow-sm" style={{ width: '100%', overflow: 'visible' }}>
+            {/* Table */}
+            {loading ? (
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-800 mx-auto"></div>
+                <p className="mt-4 text-sm text-gray-700">Loading appointments...</p>
+              </div>
+            ) : error ? (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700 text-sm">
+                {error}
+              </div>
+            ) : appointments.length === 0 ? (
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
+                <p className="text-sm text-gray-700">No appointments found</p>
+              </div>
+            ) : (
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200" style={{ width: '100%', overflow: 'visible' }}>
               {/* Horizontal Scroll Indicator */}
-              <div className="px-3 sm:px-4 py-2 bg-gray-50 border-b border-gray-200 text-xs text-gray-600 flex items-center justify-center gap-2">
+              <div className="px-3 sm:px-4 py-2 bg-gray-50 border-b border-gray-200 text-xs text-gray-700 flex items-center justify-center gap-2">
                 <span className="hidden sm:inline">← Scroll horizontally to view all columns →</span>
                 <span className="sm:hidden">← Swipe to view all →</span>
               </div>
@@ -599,7 +707,7 @@ const AllAppointmentsPage: NextPageWithLayout = ({
                     margin: 0
                   }}
                 >
-                    <thead className="bg-blue-600 text-white">
+                    <thead className="bg-gray-900 text-white">
                       <tr>
                         <th className="px-3 py-3 text-left text-xs font-semibold uppercase tracking-wider whitespace-nowrap min-w-[50px]">
                           <input
@@ -677,27 +785,27 @@ const AllAppointmentsPage: NextPageWithLayout = ({
                         </td>
                           <td className="px-3 py-4 whitespace-nowrap">
                             <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center">
-                              <User className="w-6 h-6 text-gray-500" />
+                              <User className="w-6 h-6 text-gray-700" />
                             </div>
                           </td>
                           <td className="px-3 py-4 whitespace-nowrap">
-                            <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-semibold">
+                            <span className="px-2 py-1 bg-gray-100 text-gray-800 rounded-full text-xs font-semibold">
                               {apt.visitId}
                             </span>
                           </td>
                           <td className="px-3 py-4 whitespace-nowrap text-sm">
                           <div className="space-y-1">
                             <div>
-                              <span className="text-gray-600">D/T Registered: </span>
-                              <span className="font-medium">{formatDate(apt.registeredDate)}</span>
+                              <span className="text-gray-700">D/T Registered: </span>
+                              <span className="font-medium text-gray-900">{formatDate(apt.registeredDate)}</span>
                               {apt.registeredTime && (
                                 <span className="text-red-600 ml-1">{apt.registeredTime}</span>
                               )}
                             </div>
                             <div>
-                              <span className="text-gray-600">D/T Invoiced: </span>
-                              <span className="font-medium">{formatDate(apt.invoicedDate)}</span>
-                              {apt.invoicedTime && <span className="ml-1">{apt.invoicedTime}</span>}
+                              <span className="text-gray-700">D/T Invoiced: </span>
+                              <span className="font-medium text-gray-900">{formatDate(apt.invoicedDate)}</span>
+                              {apt.invoicedTime && <span className="text-gray-700 ml-1">{apt.invoicedTime}</span>}
                             </div>
                           </div>
                         </td>
@@ -708,14 +816,14 @@ const AllAppointmentsPage: NextPageWithLayout = ({
                                 <span className="px-2 py-1 bg-purple-100 text-purple-800 rounded text-xs">
                                   ID: {apt.patientId.slice(-4) || "N/A"}
                                 </span>
-                                <span className="text-gray-600 text-xs">{apt.patientNumber}</span>
+                                <span className="text-gray-700 text-xs">{apt.patientNumber}</span>
                                 {apt.gender && (
-                                  <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs flex items-center gap-1">
+                                  <span className="px-2 py-1 bg-gray-100 text-gray-800 rounded text-xs flex items-center gap-1">
                                     {getGenderIcon(apt.gender)} {apt.gender}
                                   </span>
                                 )}
                                 {apt.emrNumber && (
-                                  <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs">
+                                  <span className="px-2 py-1 bg-gray-100 text-gray-800 rounded text-xs">
                                     DOB: {apt.emrNumber}
                                   </span>
                                 )}
@@ -728,25 +836,25 @@ const AllAppointmentsPage: NextPageWithLayout = ({
                           <td className="px-3 py-4 text-sm">
                             <div className="space-y-1">
                               <div className="flex items-center gap-1">
-                                <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                                <span className="font-medium">{apt.doctorName}</span>
+                                <div className="w-2 h-2 bg-gray-700 rounded-full"></div>
+                                <span className="font-medium text-gray-900">{apt.doctorName}</span>
                               </div>
-                              <div className="text-gray-600 text-xs">{apt.doctorEmail}</div>
+                              <div className="text-gray-700 text-xs">{apt.doctorEmail}</div>
                             </div>
                           </td>
-                          <td className="px-3 py-4 whitespace-nowrap text-sm">
+                          <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
                             {apt.roomName}
                           </td>
-                          <td className="px-3 py-4 whitespace-nowrap text-sm">
+                          <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
                             <span className="capitalize">{apt.followType || "-"}</span>
                           </td>
-                          <td className="px-3 py-4 whitespace-nowrap text-sm">
+                          <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
                             <span className="capitalize">{apt.referral || "Direct"}</span>
                           </td>
-                          <td className="px-3 py-4 whitespace-nowrap text-sm">
-                            <span className="text-gray-600">Cash [DHA]</span>
+                          <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
+                            <span>Cash [DHA]</span>
                           </td>
-                          <td className="px-3 py-4 whitespace-nowrap text-sm max-w-xs truncate">
+                          <td className="px-3 py-4 whitespace-nowrap text-sm max-w-xs truncate text-gray-900">
                             {apt.notes || "No Remarks"}
                           </td>
                           <td className="px-3 py-4 whitespace-nowrap">
@@ -789,7 +897,7 @@ const AllAppointmentsPage: NextPageWithLayout = ({
                               }}
                               className="p-1 hover:bg-gray-200 rounded transition"
                             >
-                              <MoreVertical className="w-5 h-5 text-gray-600" />
+                              <MoreVertical className="w-5 h-5 text-gray-700" />
                             </button>
                             
                             {/* Dropdown Menu */}
@@ -897,6 +1005,22 @@ const AllAppointmentsPage: NextPageWithLayout = ({
                                         Report
                                       </button>
                                     )}
+                                    <button
+                                      type="button"
+                                      onMouseDown={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        handleDeleteClick(apt);
+                                      }}
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                      }}
+                                      className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 transition cursor-pointer"
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                      Delete
+                                    </button>
                                   </div>
                                 </div>
                               </>
@@ -996,6 +1120,72 @@ const AllAppointmentsPage: NextPageWithLayout = ({
         }}
         getAuthHeaders={getAuthHeaders}
       />
+
+      {/* Delete Confirmation Modal */}
+      {deleteConfirmOpen && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full">
+            <div className="p-6">
+              <div className="flex items-center justify-center w-16 h-16 mx-auto mb-4 bg-red-100 rounded-full">
+                <AlertTriangle className="w-8 h-8 text-red-600" />
+              </div>
+              <h2 className="text-2xl font-bold text-gray-900 text-center mb-2">
+                Delete Appointment
+              </h2>
+              <p className="text-gray-700 text-center mb-6">
+                Are you sure you want to delete this appointment?
+              </p>
+              {appointmentToDelete && (
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-6">
+                  <p className="text-sm text-gray-600 mb-1">
+                    <span className="font-semibold">Patient:</span> {appointmentToDelete.patientName}
+                  </p>
+                  <p className="text-sm text-gray-600 mb-1">
+                    <span className="font-semibold">Visit ID:</span> {appointmentToDelete.visitId}
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    <span className="font-semibold">Date:</span> {formatDate(appointmentToDelete.startDate)} {appointmentToDelete.fromTime}
+                  </p>
+                </div>
+              )}
+              <p className="text-sm text-red-600 font-medium text-center mb-6">
+                This action cannot be undone.
+              </p>
+              <div className="flex items-center justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDeleteConfirmOpen(false);
+                    setAppointmentToDelete(null);
+                  }}
+                  disabled={deleting}
+                  className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDeleteConfirm}
+                  disabled={deleting}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  {deleting ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      Deleting...
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="w-4 h-4" />
+                      Delete
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 };

@@ -84,6 +84,37 @@ const SeedNavigationPage = () => {
     }
   };
 
+  const updateIcons = async () => {
+    setLoading(true);
+    setError(null);
+    setResult(null);
+
+    try {
+      const { data } = await axios.post(
+        '/api/navigation/update-clinic-icons',
+        {},
+        {
+          headers: { Authorization: `Bearer ${clinicToken}` },
+        }
+      );
+
+      if (data.success) {
+        setResult({
+          ...data,
+          message: `Icons updated successfully! Updated ${data.updated.items} items and ${data.updated.subModules} sub-modules.`
+        });
+        // Refresh the list after updating
+        await fetchNavigationItems();
+      } else {
+        setError(data.message || 'Failed to update icons');
+      }
+    } catch (err: any) {
+      setError(err.response?.data?.message || err.message || 'Failed to update icons');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -103,13 +134,22 @@ const SeedNavigationPage = () => {
                   : 'No navigation items found. Click "Seed Navigation Items" to create them.'}
               </p>
             </div>
-            <button
-              onClick={seedNavigation}
-              disabled={loading}
-              className="px-4 py-2 bg-gray-900 hover:bg-gray-800 disabled:bg-gray-400 text-white text-sm font-medium rounded-md transition-colors shadow-sm"
-            >
-              {loading ? 'Seeding...' : 'Seed Navigation Items'}
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={updateIcons}
+                disabled={loading}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white text-sm font-medium rounded-md transition-colors shadow-sm"
+              >
+                {loading ? 'Updating...' : 'Update Icons to Professional'}
+              </button>
+              <button
+                onClick={seedNavigation}
+                disabled={loading}
+                className="px-4 py-2 bg-gray-900 hover:bg-gray-800 disabled:bg-gray-400 text-white text-sm font-medium rounded-md transition-colors shadow-sm"
+              >
+                {loading ? 'Seeding...' : 'Seed Navigation Items'}
+              </button>
+            </div>
           </div>
         </div>
 
