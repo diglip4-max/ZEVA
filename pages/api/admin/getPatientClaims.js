@@ -1,6 +1,7 @@
 // /pages/api/admin/getPatientClaims.js
 
 import jwt from "jsonwebtoken";
+import mongoose from "mongoose";
 import dbConnect from "../../../lib/database";
 import User from "../../../models/Users";
 import PatientRegistration from "../../../models/PatientRegistration";
@@ -48,15 +49,58 @@ export default async function handler(req, res) {
     }
 
     // 🔹 Fetch patients
-    const patients = await PatientRegistration.find(query)
-      .populate("userId", "name") // keep staff as-is
-      .populate({
-        path: "doctor",
-        model: "User",
-        select: "name role",
-        match: { role: "doctorStaff" }, // ✅ only populate if role is doctorStaff
+    // First fetch without populate to avoid errors with invalid ObjectIds
+    const patientsRaw = await PatientRegistration.find(query)
+      .sort({ createdAt: -1 })
+      .lean();
+
+    // Helper function to check if a value is a valid ObjectId
+    const isValidObjectId = (id) => {
+      if (!id) return false;
+      if (typeof id === 'string') {
+        return /^[0-9a-fA-F]{24}$/.test(id);
+      }
+      return id instanceof mongoose.Types.ObjectId;
+    };
+
+    // Manually populate userId for valid ObjectIds only
+    const patients = await Promise.all(
+      patientsRaw.map(async (p) => {
+        const patient = { ...p };
+        
+        // Populate userId only if it's a valid ObjectId
+        if (isValidObjectId(p.userId)) {
+          try {
+            const user = await User.findById(p.userId).select("name").lean();
+            patient.userId = user ? { _id: user._id, name: user.name } : null;
+          } catch (err) {
+            console.error(`Error populating userId for patient ${p._id}:`, err);
+            patient.userId = null;
+          }
+        } else {
+          // If userId is not a valid ObjectId, set it to null or keep the string value
+          patient.userId = typeof p.userId === 'string' ? { name: p.userId } : null;
+        }
+
+        // Populate doctor if it's a valid ObjectId and matches doctorStaff role
+        if (isValidObjectId(p.doctor)) {
+          try {
+            const doctor = await User.findOne({ _id: p.doctor, role: "doctorStaff" })
+              .select("name role")
+              .lean();
+            patient.doctor = doctor ? { _id: doctor._id, name: doctor.name, role: doctor.role } : null;
+          } catch (err) {
+            console.error(`Error populating doctor for patient ${p._id}:`, err);
+            patient.doctor = null;
+          }
+        } else {
+          // If doctor is a string (name), keep it as is
+          patient.doctor = typeof p.doctor === 'string' ? { name: p.doctor } : null;
+        }
+
+        return patient;
       })
-      .sort({ createdAt: -1 });
+    );
 
     // 🔹 Count summary
     const allPatients = await PatientRegistration.find({});
