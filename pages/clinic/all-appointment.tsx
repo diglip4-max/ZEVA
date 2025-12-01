@@ -1138,13 +1138,13 @@ const AllAppointmentsPage: NextPageWithLayout = ({
               </p>
               {appointmentToDelete && (
                 <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-6">
-                  <p className="text-sm text-gray-600 mb-1">
+                  <p className="text-sm text-gray-700 mb-1">
                     <span className="font-semibold">Patient:</span> {appointmentToDelete.patientName}
                   </p>
-                  <p className="text-sm text-gray-600 mb-1">
+                  <p className="text-sm text-gray-700 mb-1">
                     <span className="font-semibold">Visit ID:</span> {appointmentToDelete.visitId}
                   </p>
-                  <p className="text-sm text-gray-600">
+                  <p className="text-sm text-gray-700">
                     <span className="font-semibold">Date:</span> {formatDate(appointmentToDelete.startDate)} {appointmentToDelete.fromTime}
                   </p>
                 </div>

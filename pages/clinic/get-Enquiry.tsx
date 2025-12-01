@@ -205,7 +205,7 @@ function ClinicEnquiries({ contextOverride = null }: { contextOverride?: "clinic
                 <h1 className="text-lg sm:text-xl font-bold text-gray-900">
                   Patient Enquiries
                 </h1>
-                <p className="text-[10px] sm:text-xs text-gray-500">
+                <p className="text-[10px] sm:text-xs text-gray-700">
                   {enquiries.length} total enquiries
                 </p>
               </div>
@@ -216,7 +216,7 @@ function ClinicEnquiries({ contextOverride = null }: { contextOverride?: "clinic
               <div className="text-lg sm:text-xl font-bold text-gray-900">
                 {enquiries.length}
               </div>
-              <div className="text-[10px] sm:text-xs text-gray-600 font-medium">Total</div>
+              <div className="text-[10px] sm:text-xs text-gray-700 font-medium">Total</div>
             </div>
           </div>
           
@@ -227,7 +227,7 @@ function ClinicEnquiries({ contextOverride = null }: { contextOverride?: "clinic
                 <div className="w-7 h-7 bg-gray-800 rounded-lg flex items-center justify-center">
                   <Inbox className="w-3.5 h-3.5 text-white" />
                 </div>
-                <p className="text-[10px] uppercase text-gray-600 tracking-wide font-semibold">
+                <p className="text-[10px] uppercase text-gray-700 tracking-wide font-semibold">
                   Total
                 </p>
               </div>
@@ -240,7 +240,7 @@ function ClinicEnquiries({ contextOverride = null }: { contextOverride?: "clinic
                 <div className="w-7 h-7 bg-gray-700 rounded-lg flex items-center justify-center">
                   <CalendarDays className="w-3.5 h-3.5 text-white" />
                 </div>
-                <p className="text-[10px] uppercase text-gray-600 tracking-wide font-semibold">
+                <p className="text-[10px] uppercase text-gray-700 tracking-wide font-semibold">
                   Today
                 </p>
               </div>
@@ -253,7 +253,7 @@ function ClinicEnquiries({ contextOverride = null }: { contextOverride?: "clinic
                 <div className="w-7 h-7 bg-gray-600 rounded-lg flex items-center justify-center">
                   <Bell className="w-3.5 h-3.5 text-white" />
                 </div>
-                <p className="text-[10px] uppercase text-gray-600 tracking-wide font-semibold">
+                <p className="text-[10px] uppercase text-gray-700 tracking-wide font-semibold">
                   Pending
                 </p>
               </div>
@@ -266,7 +266,7 @@ function ClinicEnquiries({ contextOverride = null }: { contextOverride?: "clinic
                 <div className="w-7 h-7 bg-gray-500 rounded-lg flex items-center justify-center">
                   <Calendar className="w-3.5 h-3.5 text-white" />
                 </div>
-                <p className="text-[10px] uppercase text-gray-600 tracking-wide font-semibold">
+                <p className="text-[10px] uppercase text-gray-700 tracking-wide font-semibold">
                   Last
                 </p>
               </div>
@@ -328,12 +328,12 @@ function ClinicEnquiries({ contextOverride = null }: { contextOverride?: "clinic
           </div>
 
           {searchTerm && (
-            <div className="flex flex-wrap items-center gap-1.5 text-[10px] sm:text-xs text-gray-600 pt-2 border-t border-gray-100">
+            <div className="flex flex-wrap items-center gap-1.5 text-[10px] sm:text-xs text-gray-700 pt-2 border-t border-gray-100">
               <span className="font-medium">Results for:</span>
               <span className="bg-gray-100 text-gray-800 px-2 py-0.5 rounded-md font-medium break-all">
                 &quot;{searchTerm}&quot;
               </span>
-              <span className="text-gray-500">({filteredEnquiries.length} found)</span>
+              <span className="text-gray-700">({filteredEnquiries.length} found)</span>
             </div>
           )}
         </div>
@@ -348,7 +348,7 @@ function ClinicEnquiries({ contextOverride = null }: { contextOverride?: "clinic
               <h3 className="text-base sm:text-lg font-bold text-gray-900 mb-2">
                 {searchTerm ? "No results found" : "No enquiries yet"}
               </h3>
-              <p className="text-xs sm:text-sm text-gray-600 mb-4">
+              <p className="text-xs sm:text-sm text-gray-700 mb-4">
                 {searchTerm
                   ? "Try adjusting your search terms."
                   : "Patient enquiries will appear here when they contact your clinic."}
@@ -410,7 +410,7 @@ function ClinicEnquiries({ contextOverride = null }: { contextOverride?: "clinic
                               <span className="text-gray-400 text-[10px]">•</span>
                             )}
                             {enquiry.phone && (
-                              <span className="text-gray-600 text-[10px] sm:text-xs">
+                              <span className="text-gray-700 text-[10px] sm:text-xs">
                                 {enquiry.phone}
                               </span>
                             )}
@@ -420,7 +420,7 @@ function ClinicEnquiries({ contextOverride = null }: { contextOverride?: "clinic
                       {/* Date Badge */}
                       <div className="flex items-center gap-1.5 bg-gray-50 px-2 py-1 rounded-md flex-shrink-0">
                         <Calendar className="w-3 h-3 text-gray-500" />
-                        <span className="text-[10px] sm:text-xs text-gray-600 whitespace-nowrap">
+                        <span className="text-[10px] sm:text-xs text-gray-700 whitespace-nowrap">
                           {new Date(enquiry.createdAt).toLocaleDateString("en-US", {
                             month: "short",
                             day: "numeric",

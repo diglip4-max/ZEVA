@@ -761,7 +761,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                     className="inline-flex items-center gap-1 rounded border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-gray-900"
                   >
                     Doctors
-                    <span className="text-[10px] text-gray-600">
+                    <span className="text-[10px] text-gray-700">
                       ({visibleDoctorIds.length}/{doctorStaff.length})
                     </span>
                   </button>
@@ -811,7 +811,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                     className="inline-flex items-center gap-1 rounded border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-gray-900"
                   >
                     Rooms
-                    <span className="text-[10px] text-gray-600">
+                    <span className="text-[10px] text-gray-700">
                       ({visibleRoomIds.length}/{rooms.length})
                     </span>
                   </button>
@@ -1427,19 +1427,19 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
               <div className="space-y-0.5 pt-0.5 border-t border-gray-100">
                 {hoveredAppointment.appointment.patientEmrNumber && (
                   <div className="flex items-center gap-1">
-                    <span className="text-[9px] text-gray-600 font-medium">EMR:</span>
+                    <span className="text-[9px] text-gray-700 font-medium">EMR:</span>
                     <span className="text-[10px] text-gray-700 truncate">{hoveredAppointment.appointment.patientEmrNumber}</span>
                   </div>
                 )}
                 {hoveredAppointment.appointment.patientInvoiceNumber && (
                   <div className="flex items-center gap-1">
-                    <span className="text-[9px] text-gray-600 font-medium">Inv:</span>
+                    <span className="text-[9px] text-gray-700 font-medium">Inv:</span>
                     <span className="text-[10px] text-gray-700 truncate">{hoveredAppointment.appointment.patientInvoiceNumber}</span>
                   </div>
                 )}
                 {hoveredAppointment.appointment.patientGender && (
                   <div className="flex items-center gap-1">
-                    <span className="text-[9px] text-gray-600 font-medium">Gender:</span>
+                    <span className="text-[9px] text-gray-700 font-medium">Gender:</span>
                     <span className="text-[10px] text-gray-700">{hoveredAppointment.appointment.patientGender}</span>
                   </div>
                 )}
@@ -1450,13 +1450,13 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                 <div className="space-y-0.5 pt-0.5 border-t border-gray-100">
                   {hoveredAppointment.appointment.patientMobileNumber && (
                     <div className="flex items-center gap-1">
-                      <span className="text-[9px] text-gray-600 font-medium w-12 flex-shrink-0">Mobile:</span>
+                      <span className="text-[9px] text-gray-700 font-medium w-12 flex-shrink-0">Mobile:</span>
                       <span className="text-[10px] text-gray-700 truncate">{hoveredAppointment.appointment.patientMobileNumber}</span>
                     </div>
                   )}
                   {hoveredAppointment.appointment.patientEmail && (
                     <div className="flex items-center gap-1">
-                      <span className="text-[9px] text-gray-600 font-medium w-12 flex-shrink-0">Email:</span>
+                      <span className="text-[9px] text-gray-700 font-medium w-12 flex-shrink-0">Email:</span>
                       <span className="text-[10px] text-gray-700 truncate">{hoveredAppointment.appointment.patientEmail}</span>
                     </div>
                   )}
@@ -1466,11 +1466,11 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
               {/* Doctor & Room */}
               <div className="space-y-0.5 pt-0.5 border-t border-gray-100">
                 <div className="flex items-center gap-1">
-                  <span className="text-[9px] text-gray-600 font-medium w-12 flex-shrink-0">Dr:</span>
+                  <span className="text-[9px] text-gray-700 font-medium w-12 flex-shrink-0">Dr:</span>
                   <span className="text-[10px] text-gray-700 truncate">{hoveredAppointment.appointment.doctorName}</span>
                 </div>
                 <div className="flex items-center gap-1">
-                  <span className="text-[9px] text-gray-600 font-medium w-12 flex-shrink-0">Room:</span>
+                  <span className="text-[9px] text-gray-700 font-medium w-12 flex-shrink-0">Room:</span>
                   <span className="text-[10px] text-gray-700 truncate">{hoveredAppointment.appointment.roomName}</span>
                 </div>
               </div>
@@ -1479,7 +1479,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
               {hoveredAppointment.appointment.followType && (
                 <div className="pt-0.5 border-t border-gray-100">
                   <div className="flex items-center gap-1">
-                    <span className="text-[9px] text-gray-600 font-medium w-12 flex-shrink-0">Follow:</span>
+                    <span className="text-[9px] text-gray-700 font-medium w-12 flex-shrink-0">Follow:</span>
                     <span className="text-[10px] text-gray-700">{hoveredAppointment.appointment.followType}</span>
                   </div>
                 </div>
@@ -1489,7 +1489,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
               {hoveredAppointment.appointment.referral && (
                 <div className="pt-0.5 border-t border-gray-100">
                   <div className="flex items-start gap-1">
-                    <span className="text-[9px] text-gray-600 font-medium w-12 flex-shrink-0">Ref:</span>
+                    <span className="text-[9px] text-gray-700 font-medium w-12 flex-shrink-0">Ref:</span>
                     <span className="text-[10px] text-gray-700">{hoveredAppointment.appointment.referral}</span>
                   </div>
                 </div>
@@ -1499,7 +1499,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
               {hoveredAppointment.appointment.emergency && (
                 <div className="pt-0.5 border-t border-gray-100">
                   <div className="flex items-start gap-1">
-                    <span className="text-[9px] text-gray-600 font-medium w-12 flex-shrink-0">Emer:</span>
+                    <span className="text-[9px] text-gray-700 font-medium w-12 flex-shrink-0">Emer:</span>
                     <span className="text-[10px] text-red-600 font-semibold">{hoveredAppointment.appointment.emergency}</span>
                   </div>
                 </div>
@@ -1508,7 +1508,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
               {/* Notes */}
               {hoveredAppointment.appointment.notes && (
                 <div className="pt-0.5 border-t border-gray-100">
-                  <p className="text-[9px] font-semibold text-gray-600 uppercase mb-0.5">Notes</p>
+                  <p className="text-[9px] font-semibold text-gray-700 uppercase mb-0.5">Notes</p>
                   <p className="text-[10px] text-gray-700 leading-tight">{hoveredAppointment.appointment.notes}</p>
                 </div>
               )}
