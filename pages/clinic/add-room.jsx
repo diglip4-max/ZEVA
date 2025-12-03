@@ -5,7 +5,7 @@ import axios from "axios";
 import { useRouter } from "next/router";
 import withClinicAuth from "../../components/withClinicAuth";
 import ClinicLayout from "../../components/ClinicLayout";
-import { Loader2, Trash2, AlertCircle, CheckCircle, X, Building2, DoorOpen, Plus, Edit2, Calendar } from "lucide-react";
+import { Loader2, Trash2, AlertCircle, CheckCircle, X, Building2, DoorOpen, Plus, Edit2, Calendar, Package } from "lucide-react";
 import { useAgentPermissions } from "../../hooks/useAgentPermissions";
 import { Toaster, toast } from "react-hot-toast";
 
@@ -61,11 +61,15 @@ function AddRoomPage({ contextOverride = null }) {
   const router = useRouter();
   const [rooms, setRooms] = useState([]);
   const [departments, setDepartments] = useState([]);
+  const [packages, setPackages] = useState([]);
   const [roomName, setRoomName] = useState("");
   const [departmentName, setDepartmentName] = useState("");
+  const [packageName, setPackageName] = useState("");
+  const [packagePrice, setPackagePrice] = useState("");
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [submittingDept, setSubmittingDept] = useState(false);
+  const [submittingPackage, setSubmittingPackage] = useState(false);
   const [message, setMessage] = useState({
     type: "info",
     text: "",
@@ -86,7 +90,11 @@ function AddRoomPage({ contextOverride = null }) {
   const [editingDeptId, setEditingDeptId] = useState(null);
   const [editingDeptName, setEditingDeptName] = useState("");
   const [deptUpdateLoading, setDeptUpdateLoading] = useState(false);
-  const [viewMode, setViewMode] = useState("room"); // "room" or "department"
+  const [editingPackageId, setEditingPackageId] = useState(null);
+  const [editingPackageName, setEditingPackageName] = useState("");
+  const [editingPackagePrice, setEditingPackagePrice] = useState("");
+  const [packageUpdateLoading, setPackageUpdateLoading] = useState(false);
+  const [viewMode, setViewMode] = useState("room"); // "room", "department", or "package"
   const [confirmModal, setConfirmModal] = useState({
     isOpen: false,
     title: "",
@@ -278,11 +286,33 @@ function AddRoomPage({ contextOverride = null }) {
     }
   };
 
+  const loadPackages = async () => {
+    const headers = getHeadersOrNotify();
+    if (!headers) return;
+    try {
+      const res = await axios.get("/api/clinic/packages", { headers });
+      if (res.data.success) {
+        setPackages(res.data.packages || []);
+        toast.success(`Loaded ${res.data.packages?.length || 0} package(s)`, { duration: 2000 });
+      } else {
+        const errorMsg = res.data.message || "Failed to load packages";
+        setMessage({ type: "error", text: errorMsg });
+        toast.error(errorMsg, { duration: 3000 });
+      }
+    } catch (error) {
+      console.error("Error loading packages", error);
+      const errorMessage = error.response?.data?.message || "Failed to load packages";
+      setMessage({ type: "error", text: errorMessage });
+      toast.error(errorMessage, { duration: 3000 });
+    }
+  };
+
   useEffect(() => {
     if (!permissionsLoaded) return;
-    if (!permissions.canRead) {
+      if (!permissions.canRead) {
       setRooms([]);
       setDepartments([]);
+      setPackages([]);
       setLoading(false);
       return;
     }
@@ -290,7 +320,7 @@ function AddRoomPage({ contextOverride = null }) {
     let cancelled = false;
     const loadData = async () => {
       setLoading(true);
-      await Promise.all([loadRooms(), loadDepartments()]);
+      await Promise.all([loadRooms(), loadDepartments(), loadPackages()]);
       if (!cancelled) {
       setLoading(false);
     }
@@ -564,6 +594,148 @@ function AddRoomPage({ contextOverride = null }) {
     });
   };
 
+  const handlePackageSubmit = async (e) => {
+    e.preventDefault();
+    if (!permissions.canCreate) {
+      setMessage({ type: "error", text: "You do not have permission to create packages" });
+      return;
+    }
+    if (!packageName.trim()) {
+      setMessage({ type: "error", text: "Please enter a package name" });
+      return;
+    }
+    if (!packagePrice || parseFloat(packagePrice) < 0) {
+      setMessage({ type: "error", text: "Please enter a valid price" });
+      return;
+    }
+
+    const headers = getHeadersOrNotify();
+    if (!headers) return;
+    setSubmittingPackage(true);
+    setMessage({ type: "info", text: "" });
+
+    try {
+      const res = await axios.post(
+        "/api/clinic/packages",
+        { name: packageName.trim(), price: parseFloat(packagePrice) },
+        { headers }
+      );
+      if (res.data.success) {
+        const successMsg = res.data.message || "Package created successfully";
+        setMessage({ type: "success", text: successMsg });
+        toast.success(successMsg, { duration: 3000 });
+        setPackageName("");
+        setPackagePrice("");
+        await loadPackages();
+      } else {
+        const errorMsg = res.data.message || "Failed to create package";
+        setMessage({ type: "error", text: errorMsg });
+        toast.error(errorMsg, { duration: 3000 });
+      }
+    } catch (error) {
+      console.error("Error creating package", error);
+      const errorMessage = error.response?.data?.message || "Failed to create package";
+      setMessage({ type: "error", text: errorMessage });
+      toast.error(errorMessage, { duration: 3000 });
+    } finally {
+      setSubmittingPackage(false);
+    }
+  };
+
+  const handlePackageUpdate = async () => {
+    if (!editingPackageId) return;
+    if (!permissions.canUpdate) {
+      setMessage({ type: "error", text: "You do not have permission to update packages" });
+      return;
+    }
+    if (!editingPackageName.trim()) {
+      setMessage({ type: "error", text: "Package name cannot be empty" });
+      return;
+    }
+    if (!editingPackagePrice || parseFloat(editingPackagePrice) < 0) {
+      setMessage({ type: "error", text: "Please enter a valid price" });
+      return;
+    }
+    const headers = getHeadersOrNotify();
+    if (!headers) return;
+
+    setPackageUpdateLoading(true);
+    try {
+      const res = await axios.put(
+        "/api/clinic/packages",
+        { packageId: editingPackageId, name: editingPackageName.trim(), price: parseFloat(editingPackagePrice) },
+        { headers }
+      );
+      if (res.data.success) {
+        const successMsg = res.data.message || "Package updated successfully";
+        setMessage({ type: "success", text: successMsg });
+        toast.success(successMsg, { duration: 3000 });
+        setEditingPackageId(null);
+        setEditingPackageName("");
+        setEditingPackagePrice("");
+        await loadPackages();
+      } else {
+        const errorMsg = res.data.message || "Failed to update package";
+        setMessage({ type: "error", text: errorMsg });
+        toast.error(errorMsg, { duration: 3000 });
+      }
+    } catch (error) {
+      console.error("Error updating package", error);
+      const errorMessage = error.response?.data?.message || "Failed to update package";
+      setMessage({ type: "error", text: errorMessage });
+      toast.error(errorMessage, { duration: 3000 });
+    } finally {
+      setPackageUpdateLoading(false);
+    }
+  };
+
+  const handleDeletePackage = async (packageId) => {
+    if (!permissions.canDelete) {
+      const errorMsg = "You do not have permission to delete packages";
+      setMessage({ type: "error", text: errorMsg });
+      toast.error(errorMsg, { duration: 3000 });
+      return;
+    }
+    const pkg = packages.find((p) => p._id === packageId);
+    setConfirmModal({
+      isOpen: true,
+      title: "Delete Package",
+      message: `Are you sure you want to delete "${pkg?.name || "this package"}"? This action cannot be undone.`,
+      onConfirm: async () => {
+        const headers = getHeadersOrNotify();
+        if (!headers) return;
+
+        try {
+          const res = await axios.delete(`/api/clinic/packages?packageId=${packageId}`, {
+            headers,
+          });
+          if (res.data.success) {
+            const successMsg = res.data.message || "Package deleted successfully";
+            setMessage({ type: "success", text: successMsg });
+            toast.success(successMsg, { duration: 3000 });
+            if (editingPackageId === packageId) {
+              setEditingPackageId(null);
+              setEditingPackageName("");
+              setEditingPackagePrice("");
+            }
+            await loadPackages();
+          } else {
+            const errorMsg = res.data.message || "Failed to delete package";
+            setMessage({ type: "error", text: errorMsg });
+            toast.error(errorMsg, { duration: 3000 });
+          }
+        } catch (error) {
+          console.error("Error deleting package", error);
+          const errorMessage = error.response?.data?.message || "Failed to delete package";
+          setMessage({ type: "error", text: errorMessage });
+          toast.error(errorMessage, { duration: 3000 });
+        }
+        setConfirmModal({ ...confirmModal, isOpen: false });
+      },
+      type: "package",
+    });
+  };
+
   const roomCreateDisabled = submitting || !permissions.canCreate;
   const deptCreateDisabled = submittingDept || !permissions.canCreate;
 
@@ -648,17 +820,20 @@ function AddRoomPage({ contextOverride = null }) {
                 <div className="flex items-center gap-2 mb-2">
                   <Building2 className="w-5 h-5 text-gray-700" />
                   <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
-                    Room & Department Management
+                    Room, Department & Package Management
                   </h1>
                 </div>
                 <p className="text-xs sm:text-sm text-gray-600">
-                  Create and manage rooms and departments for your clinic
+                  Create and manage rooms, departments, and packages for your clinic
                 </p>
               </div>
               <div className="flex items-center gap-2 bg-gray-100 rounded-lg p-1 border border-gray-200">
                 <button
                   type="button"
-                  onClick={() => setViewMode("room")}
+                  onClick={() => {
+                    setViewMode("room");
+                    setMessage({ type: "info", text: "" }); // Clear message when switching view
+                  }}
                   className={`px-4 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-2 ${
                     viewMode === "room"
                       ? "bg-white text-gray-900 shadow-sm"
@@ -670,7 +845,10 @@ function AddRoomPage({ contextOverride = null }) {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setViewMode("department")}
+                  onClick={() => {
+                    setViewMode("department");
+                    setMessage({ type: "info", text: "" }); // Clear message when switching view
+                  }}
                   className={`px-4 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-2 ${
                     viewMode === "department"
                       ? "bg-white text-gray-900 shadow-sm"
@@ -680,12 +858,27 @@ function AddRoomPage({ contextOverride = null }) {
                   <Building2 className="w-4 h-4" />
                   Departments
                 </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setViewMode("package");
+                    setMessage({ type: "info", text: "" }); // Clear message when switching view
+                  }}
+                  className={`px-4 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-2 ${
+                    viewMode === "package"
+                      ? "bg-white text-gray-900 shadow-sm"
+                      : "text-gray-600 hover:text-gray-900"
+                  }`}
+                >
+                  <Package className="w-4 h-4" />
+                  Packages
+                </button>
               </div>
             </div>
           </div>
 
           {/* Stats Cards - Matching Dashboard Theme */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
               <div className="flex items-center gap-2 mb-2">
                 <DoorOpen className="w-4 h-4 text-gray-700" />
@@ -702,6 +895,14 @@ function AddRoomPage({ contextOverride = null }) {
               <p className="text-2xl font-bold text-gray-900 mb-1">{departments.length}</p>
               <p className="text-xs text-gray-600">Active departments in your clinic</p>
             </div>
+            <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+              <div className="flex items-center gap-2 mb-2">
+                <Package className="w-4 h-4 text-gray-700" />
+                <span className="text-xs font-semibold text-gray-700">Total Packages</span>
+              </div>
+              <p className="text-2xl font-bold text-gray-900 mb-1">{packages.length}</p>
+              <p className="text-xs text-gray-600">Active packages in your clinic</p>
+            </div>
           </div>
 
           {/* Create Form Card */}
@@ -710,7 +911,7 @@ function AddRoomPage({ contextOverride = null }) {
             <div className="flex items-center gap-2 mb-3">
               <Plus className="w-4 h-4 text-gray-700" />
               <h2 className="text-base sm:text-lg font-semibold text-gray-900">
-                {viewMode === "room" ? "Create New Room" : "Create New Department"}
+                {viewMode === "room" ? "Create New Room" : viewMode === "department" ? "Create New Department" : "Create New Package"}
               </h2>
             </div>
 
@@ -775,6 +976,48 @@ function AddRoomPage({ contextOverride = null }) {
                 >
                   {submittingDept ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
                   {submittingDept ? "Creating..." : "Create Department"}
+                </button>
+              </form>
+            )}
+
+            {/* Package Form */}
+            {viewMode === "package" && permissions.canCreate && (
+              <form onSubmit={handlePackageSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Package Name <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={packageName}
+                    onChange={(e) => setPackageName(e.target.value)}
+                    placeholder="e.g., Basic Health Package, Premium Wellness Package"
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Price <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={packagePrice}
+                    onChange={(e) => setPackagePrice(e.target.value)}
+                    placeholder="e.g., 5000.00"
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                    required
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={submittingPackage || !permissions.canCreate}
+                  className="inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800 active:bg-gray-950 disabled:opacity-60 transition-all duration-200 shadow-sm hover:shadow-md"
+                >
+                  {submittingPackage ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                  {submittingPackage ? "Creating..." : "Create Package"}
                 </button>
               </form>
             )}
@@ -981,6 +1224,129 @@ function AddRoomPage({ contextOverride = null }) {
                             onClick={() => handleDeleteDepartment(dept._id)}
                             className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                             title="Delete department"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+      </div>
+          )}
+
+          {/* Packages List - Only show when viewMode is "package" */}
+          {viewMode === "package" && (
+            <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
+              <div className="flex items-center gap-2 mb-4">
+                <Package className="w-5 h-5 text-gray-700" />
+                <h2 className="text-lg sm:text-xl font-bold text-gray-900">All Packages</h2>
+                <span className="ml-auto px-2.5 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-semibold">
+                  {packages.length} {packages.length === 1 ? 'Package' : 'Packages'}
+                </span>
+              </div>
+
+            {loading ? (
+              <div className="flex items-center justify-center py-12 text-gray-600">
+                <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                <span className="text-sm">Loading packages...</span>
+              </div>
+            ) : packages.length === 0 ? (
+              <div className="text-center py-12">
+                <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-gray-100 flex items-center justify-center">
+                  <Package className="w-8 h-8 text-gray-400" />
+                </div>
+                <p className="text-sm font-medium text-gray-900 mb-1">No packages created yet</p>
+                <p className="text-xs text-gray-600">Use the form above to create your first package</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {packages.map((pkg) => (
+                  <div
+                    key={pkg._id}
+                    className="border border-gray-200 rounded-lg p-3 flex items-center justify-between hover:bg-gray-50 hover:border-gray-300 transition-all group"
+                  >
+                    <div className="flex-1 min-w-0">
+                      {editingPackageId === pkg._id ? (
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            value={editingPackageName}
+                            onChange={(e) => setEditingPackageName(e.target.value)}
+                            placeholder="Package Name"
+                            className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            autoFocus
+                          />
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={editingPackagePrice}
+                            onChange={(e) => setEditingPackagePrice(e.target.value)}
+                            placeholder="Price"
+                            className="w-32 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          />
+                          <button
+                            onClick={handlePackageUpdate}
+                            disabled={packageUpdateLoading}
+                            className="px-3 py-2 bg-gray-900 text-white text-sm rounded-lg hover:bg-gray-800 disabled:opacity-60 transition-colors"
+                          >
+                            {packageUpdateLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save"}
+                          </button>
+                          <button
+                            onClick={() => {
+                              setEditingPackageId(null);
+                              setEditingPackageName("");
+                              setEditingPackagePrice("");
+                            }}
+                            className="px-3 py-2 bg-gray-100 text-gray-700 text-sm rounded-lg hover:bg-gray-200 transition-colors"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-lg bg-green-50 flex items-center justify-center">
+                            <Package className="w-5 h-5 text-green-600" />
+                          </div>
+                          <div>
+                            <h3 className="text-sm font-semibold text-gray-900">{pkg.name}</h3>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              <span className="text-xs text-gray-500 font-medium">
+                                Price: ${parseFloat(pkg.price).toFixed(2)}
+                              </span>
+                              <span className="text-xs text-gray-400">•</span>
+                              <Calendar className="w-3 h-3 text-gray-400" />
+                              <span className="text-xs text-gray-500">
+                                Created {new Date(pkg.createdAt).toLocaleDateString()}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    {editingPackageId !== pkg._id && (
+                      <div className="flex items-center gap-2">
+                        {permissions.canUpdate && (
+                          <button
+                            onClick={() => {
+                              setEditingPackageId(pkg._id);
+                              setEditingPackageName(pkg.name);
+                              setEditingPackagePrice(pkg.price.toString());
+                            }}
+                            className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                            title="Edit package"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                        )}
+                        {permissions.canDelete && (
+                          <button
+                            onClick={() => handleDeletePackage(pkg._id)}
+                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            title="Delete package"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>

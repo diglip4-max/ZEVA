@@ -14,6 +14,9 @@ interface AppointmentBookingModalProps {
   defaultDate: string;
   defaultRoomId?: string;
   bookedFrom?: "doctor" | "room"; // Track which column the appointment is being booked from
+  fromTime?: string; // For drag selection - start time
+  toTime?: string; // For drag selection - end time
+  customTimeSlots?: { startTime: string; endTime: string }; // Custom time slot selection
   rooms: Array<{ _id: string; name: string }>;
   doctorStaff: Array<{ _id: string; name: string; email?: string }>;
   getAuthHeaders: () => Record<string, string>;
@@ -57,6 +60,9 @@ export default function AppointmentBookingModal({
   defaultDate,
   defaultRoomId,
   bookedFrom, // No default - use the prop value directly
+  customTimeSlots,
+  fromTime: propFromTime,
+  toTime: propToTime,
   rooms,
   doctorStaff,
   getAuthHeaders,
@@ -135,8 +141,14 @@ export default function AppointmentBookingModal({
   // Whenever the selected slot changes (or modal reopens), sync the times
   useEffect(() => {
     if (isOpen) {
-      setFromTime(slotTime);
-      setToTime(calculateEndTime(slotTime));
+      // Use drag-selected times if available, otherwise use slotTime
+      if (propFromTime && propToTime) {
+        setFromTime(propFromTime);
+        setToTime(propToTime);
+      } else {
+        setFromTime(slotTime);
+        setToTime(calculateEndTime(slotTime));
+      }
       setStartDate(defaultDate || new Date().toISOString().split("T")[0]);
       setSelectedDoctorId(doctorId || "");
       setRoomId(defaultRoomId || "");
@@ -161,7 +173,7 @@ export default function AppointmentBookingModal({
       console.log("==========================================");
       setCurrentBookedFrom(newBookedFrom);
     }
-  }, [slotTime, isOpen, defaultDate, doctorId, defaultRoomId, bookedFrom]);
+  }, [slotTime, isOpen, defaultDate, doctorId, defaultRoomId, bookedFrom, propFromTime, propToTime]);
 
   // Search patients
   useEffect(() => {
@@ -378,6 +390,10 @@ export default function AppointmentBookingModal({
           emergency,
           notes,
           bookedFrom: valueToSend, // Use the determined value - ensure it's "room" or "doctor"
+          customTimeSlots: customTimeSlots ? {
+            startTime: customTimeSlots.startTime,
+            endTime: customTimeSlots.endTime,
+          } : undefined,
         },
         {
           headers: getAuthHeaders(),
@@ -927,7 +943,17 @@ export default function AppointmentBookingModal({
             </button>
             <button
               type="submit"
-              disabled={loading || !selectedPatient || !roomId}
+              disabled={
+                loading || 
+                !selectedPatient || 
+                !roomId || 
+                !selectedDoctorId || 
+                !status || 
+                !followType || 
+                !startDate || 
+                !fromTime || 
+                !toTime
+              }
               className="flex-1 px-3 sm:px-4 py-2 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-2 transition-colors"
             >
               {loading && <Loader2 className="w-4 h-4 animate-spin" />}
