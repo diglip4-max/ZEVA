@@ -18,11 +18,13 @@ import {
   CheckCircle,
   XCircle,
   X,
+  Receipt,
 } from "lucide-react";
 import EditAppointmentModal from "../../components/EditAppointmentModal";
 import AppointmentHistoryModal from "../../components/AppointmentHistoryModal";
 import AppointmentReportModal from "../../components/AppointmentReportModal";
 import AppointmentComplaintModal from "../../components/AppointmentComplaintModal";
+import AppointmentBillingModal from "../../components/AppointmentBillingModal";
 
 interface Appointment {
   _id: string;
@@ -124,6 +126,7 @@ const AllAppointmentsPage: NextPageWithLayout = ({
   const [historyModalOpen, setHistoryModalOpen] = useState(false);
   const [reportModalOpen, setReportModalOpen] = useState(false);
   const [complaintModalOpen, setComplaintModalOpen] = useState(false);
+  const [billingModalOpen, setBillingModalOpen] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [selectedPatientId, setSelectedPatientId] = useState<string>("");
   const [selectedPatientName, setSelectedPatientName] = useState<string>("");
@@ -472,210 +475,210 @@ const AllAppointmentsPage: NextPageWithLayout = ({
                       <p className="text-xs sm:text-sm text-gray-700 mt-0.5">View and manage all appointment records</p>
                     </div>
                     <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => setShowFilters(!showFilters)}
+                <button
+                  onClick={() => setShowFilters(!showFilters)}
                         className="inline-flex items-center justify-center gap-1.5 bg-gray-800 hover:bg-gray-900 text-white px-3 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs sm:text-sm font-medium"
-                      >
+                >
                         <Filter className="h-4 w-4" />
                         <span>{showFilters ? "Hide Filters" : "Show Filters"}</span>
-                      </button>
-                    </div>
-                  </div>
+                </button>
+              </div>
+            </div>
 
-                  {/* Quick Search */}
-                  <div className="relative">
+            {/* Quick Search */}
+            <div className="relative">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 sm:w-5 sm:h-5" />
-                    <input
-                      type="text"
-                      placeholder="Search by patient name, mobile, visit ID, or patient ID..."
-                      value={filters.search}
-                      onChange={(e) => {
-                        handleFilterChange("search", e.target.value);
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          fetchAppointments();
-                        }
-                      }}
+              <input
+                type="text"
+                placeholder="Search by patient name, mobile, visit ID, or patient ID..."
+                value={filters.search}
+                onChange={(e) => {
+                  handleFilterChange("search", e.target.value);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    fetchAppointments();
+                  }
+                }}
                       className="w-full pl-9 sm:pl-10 pr-3 sm:pr-4 py-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 outline-none text-gray-900"
-                    />
+              />
                   </div>
                 </div>
-              </div>
+            </div>
 
             {/* Advanced Filters */}
             {showFilters && (
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-3">
                 <div className="max-w-7xl mx-auto px-3 sm:px-4 py-3">
                   <div className="p-3 sm:p-4 bg-gray-50 rounded-lg border border-gray-200">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
-                      {/* EMR Number */}
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          EMR Number
-                        </label>
-                        <input
-                          type="text"
-                          value={filters.emrNumber}
-                          onChange={(e) => handleFilterChange("emrNumber", e.target.value)}
-                          placeholder="Enter EMR number"
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
+                  {/* EMR Number */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      EMR Number
+                    </label>
+                    <input
+                      type="text"
+                      value={filters.emrNumber}
+                      onChange={(e) => handleFilterChange("emrNumber", e.target.value)}
+                      placeholder="Enter EMR number"
                           className="w-full px-3 py-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 outline-none text-gray-900"
-                        />
-                      </div>
+                    />
+                  </div>
 
-                      {/* From Date */}
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          From Date
-                        </label>
-                        <input
-                          type="date"
-                          value={filters.fromDate}
-                          onChange={(e) => handleFilterChange("fromDate", e.target.value)}
+                  {/* From Date */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      From Date
+                    </label>
+                    <input
+                      type="date"
+                      value={filters.fromDate}
+                      onChange={(e) => handleFilterChange("fromDate", e.target.value)}
                           className="w-full px-3 py-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 outline-none text-gray-900"
-                        />
-                      </div>
+                    />
+                  </div>
 
-                      {/* To Date */}
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          To Date
-                        </label>
-                        <input
-                          type="date"
-                          value={filters.toDate}
-                          onChange={(e) => handleFilterChange("toDate", e.target.value)}
+                  {/* To Date */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      To Date
+                    </label>
+                    <input
+                      type="date"
+                      value={filters.toDate}
+                      onChange={(e) => handleFilterChange("toDate", e.target.value)}
                           className="w-full px-3 py-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 outline-none text-gray-900"
-                        />
-                      </div>
+                    />
+                  </div>
 
-                      {/* Doctor */}
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Doctor
-                        </label>
-                        <select
-                          value={filters.doctorId}
-                          onChange={(e) => handleFilterChange("doctorId", e.target.value)}
+                  {/* Doctor */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Doctor
+                    </label>
+                    <select
+                      value={filters.doctorId}
+                      onChange={(e) => handleFilterChange("doctorId", e.target.value)}
                           className="w-full px-3 py-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 outline-none text-gray-900"
-                        >
-                          <option value="">All Doctors</option>
-                          {doctors.map((doc) => (
-                            <option key={doc._id} value={doc._id}>
-                              {doc.name}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
+                    >
+                      <option value="">All Doctors</option>
+                      {doctors.map((doc) => (
+                        <option key={doc._id} value={doc._id}>
+                          {doc.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
 
-                      {/* Room */}
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Room
-                        </label>
-                        <select
-                          value={filters.roomId}
-                          onChange={(e) => handleFilterChange("roomId", e.target.value)}
+                  {/* Room */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Room
+                    </label>
+                    <select
+                      value={filters.roomId}
+                      onChange={(e) => handleFilterChange("roomId", e.target.value)}
                           className="w-full px-3 py-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 outline-none text-gray-900"
-                        >
-                          <option value="">All Rooms</option>
-                          {rooms.map((room) => (
-                            <option key={room._id} value={room._id}>
-                              {room.name}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
+                    >
+                      <option value="">All Rooms</option>
+                      {rooms.map((room) => (
+                        <option key={room._id} value={room._id}>
+                          {room.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
 
-                      {/* Status */}
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Status
-                        </label>
-                        <select
-                          value={filters.status}
-                          onChange={(e) => handleFilterChange("status", e.target.value)}
+                  {/* Status */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Status
+                    </label>
+                    <select
+                      value={filters.status}
+                      onChange={(e) => handleFilterChange("status", e.target.value)}
                           className="w-full px-3 py-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 outline-none text-gray-900"
-                        >
-                          <option value="">All Status</option>
-                          <option value="booked">Booked</option>
-                          <option value="enquiry">Enquiry</option>
-                          <option value="Discharge">Discharged</option>
-                          <option value="Arrived">Arrived</option>
-                          <option value="Consultation">Consultation</option>
-                          <option value="Invoiced">Invoiced</option>
-                          <option value="Cancelled">Cancelled</option>
-                        </select>
-                      </div>
+                    >
+                      <option value="">All Status</option>
+                      <option value="booked">Booked</option>
+                      <option value="enquiry">Enquiry</option>
+                      <option value="Discharge">Discharged</option>
+                      <option value="Arrived">Arrived</option>
+                      <option value="Consultation">Consultation</option>
+                      <option value="Invoiced">Invoiced</option>
+                      <option value="Cancelled">Cancelled</option>
+                    </select>
+                  </div>
 
-                      {/* Follow Type */}
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Follow Type
-                        </label>
-                        <select
-                          value={filters.followType}
-                          onChange={(e) => handleFilterChange("followType", e.target.value)}
+                  {/* Follow Type */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Follow Type
+                    </label>
+                    <select
+                      value={filters.followType}
+                      onChange={(e) => handleFilterChange("followType", e.target.value)}
                           className="w-full px-3 py-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 outline-none text-gray-900"
-                        >
-                          <option value="">All Types</option>
-                          <option value="first time">First Time</option>
-                          <option value="follow up">Follow Up</option>
-                          <option value="repeat">Repeat</option>
-                        </select>
-                      </div>
+                    >
+                      <option value="">All Types</option>
+                      <option value="first time">First Time</option>
+                      <option value="follow up">Follow Up</option>
+                      <option value="repeat">Repeat</option>
+                    </select>
+                  </div>
 
-                      {/* Referral */}
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Source
-                        </label>
-                        <select
-                          value={filters.referral}
-                          onChange={(e) => handleFilterChange("referral", e.target.value)}
+                  {/* Referral */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Source
+                    </label>
+                    <select
+                      value={filters.referral}
+                      onChange={(e) => handleFilterChange("referral", e.target.value)}
                           className="w-full px-3 py-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 outline-none text-gray-900"
-                        >
-                          <option value="">All Sources</option>
-                          <option value="direct">Direct</option>
-                          <option value="referral">Referral</option>
-                        </select>
-                      </div>
-                    </div>
-
-                    {/* Clear Filters Button */}
-                    <div className="mt-4 flex justify-end">
-                      <button
-                        onClick={clearFilters}
-                        className="px-3 sm:px-4 py-2 text-xs sm:text-sm text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition font-medium"
-                      >
-                        Clear All Filters
-                      </button>
-                    </div>
+                    >
+                      <option value="">All Sources</option>
+                      <option value="direct">Direct</option>
+                      <option value="referral">Referral</option>
+                    </select>
                   </div>
                 </div>
+
+                {/* Clear Filters Button */}
+                <div className="mt-4 flex justify-end">
+                  <button
+                    onClick={clearFilters}
+                        className="px-3 sm:px-4 py-2 text-xs sm:text-sm text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition font-medium"
+                  >
+                    Clear All Filters
+                  </button>
+                </div>
+              </div>
+          </div>
               </div>
             )}
 
-            {/* Results Count */}
+          {/* Results Count */}
             <div className="mb-3 text-xs sm:text-sm text-gray-700">
-              Showing {appointments.length} of {total} appointments
-            </div>
+            Showing {appointments.length} of {total} appointments
+          </div>
 
-            {/* Table */}
-            {loading ? (
+          {/* Table */}
+          {loading ? (
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-800 mx-auto"></div>
                 <p className="mt-4 text-sm text-gray-700">Loading appointments...</p>
-              </div>
-            ) : error ? (
+            </div>
+          ) : error ? (
               <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700 text-sm">
-                {error}
-              </div>
-            ) : appointments.length === 0 ? (
+              {error}
+            </div>
+          ) : appointments.length === 0 ? (
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
                 <p className="text-sm text-gray-700">No appointments found</p>
-              </div>
-            ) : (
+            </div>
+          ) : (
               <div className="bg-white rounded-lg shadow-sm border border-gray-200" style={{ width: '100%', overflow: 'visible' }}>
               {/* Horizontal Scroll Indicator */}
               <div className="px-3 sm:px-4 py-2 bg-gray-50 border-b border-gray-200 text-xs text-gray-700 flex items-center justify-center gap-2">
@@ -986,27 +989,47 @@ const AllAppointmentsPage: NextPageWithLayout = ({
                                       <History className="w-4 h-4" />
                                       Appointment History
                                     </button>
-                                    {apt.status?.toLowerCase() === "arrived" && (
-                                      <button
-                                        type="button"
-                                        onMouseDown={(e) => {
-                                          e.preventDefault();
-                                          e.stopPropagation();
-                                          setOpenActionMenu(null);
-                                          setReportAppointment(apt);
-                                          setReportModalOpen(true);
-                                        }}
-                                        onClick={(e) => {
-                                          e.preventDefault();
-                                          e.stopPropagation();
-                                        }}
-                                        className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2 transition cursor-pointer"
-                                      >
-                                        <FileText className="w-4 h-4" />
-                                        Report
-                                      </button>
-                                    )}
-                                    <button
+                                     {apt.status?.toLowerCase() === "arrived" && (
+                                       <button
+                                         type="button"
+                                         onMouseDown={(e) => {
+                                           e.preventDefault();
+                                           e.stopPropagation();
+                                           setOpenActionMenu(null);
+                                           setReportAppointment(apt);
+                                           setReportModalOpen(true);
+                                         }}
+                                         onClick={(e) => {
+                                           e.preventDefault();
+                                           e.stopPropagation();
+                                         }}
+                                         className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2 transition cursor-pointer"
+                                       >
+                                         <FileText className="w-4 h-4" />
+                                         Report
+                                       </button>
+                                     )}
+                                     {(apt.status?.toLowerCase() === "arrived" || apt.status?.toLowerCase() === "invoiced") && (
+                                       <button
+                                         type="button"
+                                         onMouseDown={(e) => {
+                                           e.preventDefault();
+                                           e.stopPropagation();
+                                           setOpenActionMenu(null);
+                                           setSelectedAppointment(apt);
+                                           setBillingModalOpen(true);
+                                         }}
+                                         onClick={(e) => {
+                                           e.preventDefault();
+                                           e.stopPropagation();
+                                         }}
+                                         className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2 transition cursor-pointer"
+                                       >
+                                         <Receipt className="w-4 h-4" />
+                                         Billing
+                                       </button>
+                                     )}
+                                     <button
                                       type="button"
                                       onMouseDown={(e) => {
                                         e.preventDefault();
@@ -1120,6 +1143,21 @@ const AllAppointmentsPage: NextPageWithLayout = ({
           setComplaintAppointment(null);
         }}
         getAuthHeaders={getAuthHeaders}
+      />
+
+      <AppointmentBillingModal
+        isOpen={billingModalOpen}
+        appointment={selectedAppointment}
+        onClose={() => {
+          setBillingModalOpen(false);
+          setSelectedAppointment(null);
+        }}
+        getAuthHeaders={getAuthHeaders}
+        onSuccess={() => {
+          fetchAppointments();
+          setBillingModalOpen(false);
+          setSelectedAppointment(null);
+        }}
       />
 
       {/* Delete Confirmation Modal */}

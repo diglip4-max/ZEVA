@@ -18,6 +18,24 @@ const PackageSchema = new mongoose.Schema(
       required: true,
       min: 0,
     },
+    treatments: [
+      {
+        treatmentName: {
+          type: String,
+          required: true,
+        },
+        treatmentSlug: {
+          type: String,
+          required: false,
+        },
+        sessions: {
+          type: Number,
+          required: true,
+          min: 1,
+          default: 1,
+        },
+      },
+    ],
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",

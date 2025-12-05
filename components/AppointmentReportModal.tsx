@@ -348,65 +348,65 @@ const AppointmentReportModal: React.FC<AppointmentReportModalProps> = ({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 py-8">
-      <div className="bg-white w-full max-w-4xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-        <div className="flex items-start justify-between border-b border-gray-200 px-6 py-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-2">
+      <div className="bg-white w-full max-w-6xl rounded-lg shadow-2xl overflow-hidden flex flex-col max-h-[95vh]">
+        <div className="flex items-start justify-between border-b border-gray-200 px-4 py-2">
           <div>
-            <p className="text-xs uppercase tracking-wide text-gray-500">Patient Report</p>
-            <h3 className="text-2xl font-semibold text-gray-900">{appointment.patientName}</h3>
-            <div className="mt-2 flex flex-wrap gap-2 text-xs text-gray-600">
+            <p className="text-[10px] uppercase tracking-wide text-gray-500">Patient Report</p>
+            <h3 className="text-lg font-semibold text-gray-900">{appointment.patientName}</h3>
+            <div className="mt-1 flex flex-wrap gap-1.5 text-xs text-gray-600">
               {appointment.emrNumber && (
-                <span className="px-2 py-1 bg-blue-50 text-blue-700 rounded-full">EMR: {appointment.emrNumber}</span>
+                <span className="px-1.5 py-0.5 bg-blue-50 text-blue-700 rounded text-[10px]">EMR: {appointment.emrNumber}</span>
               )}
               {appointment.gender && (
-                <span className="px-2 py-1 bg-purple-50 text-purple-700 rounded-full capitalize">
+                <span className="px-1.5 py-0.5 bg-purple-50 text-purple-700 rounded text-[10px] capitalize">
                   {appointment.gender}
                 </span>
               )}
-              <span className="px-2 py-1 bg-green-50 text-green-700 rounded-full">
+              <span className="px-1.5 py-0.5 bg-green-50 text-green-700 rounded text-[10px]">
                 Dr. {appointment.doctorName}
               </span>
               {patientDetails?.startDate && (
-                <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded-full">
+                <span className="px-1.5 py-0.5 bg-gray-100 text-gray-700 rounded text-[10px]">
                   {formatDate(patientDetails.startDate)} {formatTimeRange && `• ${formatTimeRange}`}
                 </span>
               )}
             </div>
           </div>
           <button
-            className="text-gray-400 hover:text-gray-600 transition"
+            className="text-gray-400 hover:text-gray-600 transition p-1"
             onClick={() => {
               onClose();
             }}
           >
-            <X className="w-6 h-6" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
-        <div className="px-6 py-4 overflow-y-auto">
+        <div className="px-4 py-3 overflow-y-auto">
           {error && (
-            <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <div className="mb-2 rounded border border-red-200 bg-red-50 px-2 py-1.5 text-xs text-red-700">
               {error}
             </div>
           )}
 
           {lastUpdated && (
-            <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 flex items-center gap-2">
-              <ClipboardList className="w-4 h-4" />
+            <div className="mb-2 rounded border border-emerald-200 bg-emerald-50 px-2 py-1.5 text-xs text-emerald-700 flex items-center gap-1.5">
+              <ClipboardList className="w-3 h-3" />
               Last updated {new Date(lastUpdated).toLocaleString()}
             </div>
           )}
 
           {loading ? (
-            <div className="py-10 text-center text-gray-500">Loading report...</div>
+            <div className="py-6 text-center text-xs text-gray-500">Loading report...</div>
           ) : (
-            <form onSubmit={handleSubmit} className="space-y-6">
+            <form onSubmit={handleSubmit} className="space-y-3">
               {fieldGroups.map((group) => (
-                <div key={group.title} className="rounded-xl border border-gray-100 bg-gray-50 p-4">
-                  <h4 className="text-sm font-semibold text-gray-700 mb-4">{group.title}</h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div key={group.title} className="rounded border border-gray-100 bg-gray-50 p-2">
+                  <h4 className="text-xs font-semibold text-gray-700 mb-2">{group.title}</h4>
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
                     {group.fields.map((field) => (
-                      <label key={field.name} className="text-sm font-medium text-gray-700 flex flex-col gap-1">
+                      <label key={field.name} className="text-xs font-medium text-gray-700 flex flex-col gap-0.5">
                         {field.label}
                         <input
                           type={field.type}
@@ -415,7 +415,7 @@ const AppointmentReportModal: React.FC<AppointmentReportModalProps> = ({
                           required={field.required}
                           min={field.type === "number" ? "0" : undefined}
                           readOnly={Boolean(field.readonly)}
-                          className={`rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-100 ${
+                          className={`rounded border border-gray-200 px-2 py-1 text-xs focus:border-blue-500 focus:ring-1 focus:ring-blue-100 ${
                             field.readonly ? "bg-gray-100 text-gray-500 cursor-not-allowed" : ""
                           }`}
                         />
@@ -425,71 +425,71 @@ const AppointmentReportModal: React.FC<AppointmentReportModalProps> = ({
                 </div>
               ))}
 
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                <label className="text-sm font-medium text-gray-700 flex flex-col gap-1">
+              <div className="grid grid-cols-2 gap-2">
+                <label className="text-xs font-medium text-gray-700 flex flex-col gap-0.5">
                   Sugar Details
                   <textarea
                     value={reportValues.sugar}
                     onChange={(e) => handleChange("sugar", e.target.value)}
-                    className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                    rows={3}
+                    className="rounded border border-gray-200 px-2 py-1 text-xs focus:border-blue-500 focus:ring-1 focus:ring-blue-100"
+                    rows={2}
                     placeholder="Enter sugar level details"
                   />
                 </label>
-                <label className="text-sm font-medium text-gray-700 flex flex-col gap-1">
+                <label className="text-xs font-medium text-gray-700 flex flex-col gap-0.5">
                   Urinalysis
                   <textarea
                     value={reportValues.urinalysis}
                     onChange={(e) => handleChange("urinalysis", e.target.value)}
-                    className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                    rows={3}
+                    className="rounded border border-gray-200 px-2 py-1 text-xs focus:border-blue-500 focus:ring-1 focus:ring-blue-100"
+                    rows={2}
                     placeholder="Enter urinalysis observations"
                   />
                 </label>
               </div>
 
-              <label className="text-sm font-medium text-gray-700 flex flex-col gap-1">
+              <label className="text-xs font-medium text-gray-700 flex flex-col gap-0.5">
                 Other Notes
                 <textarea
                   value={reportValues.otherDetails}
                   onChange={(e) => handleChange("otherDetails", e.target.value)}
-                  className="rounded-lg border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                  rows={3}
+                  className="rounded border border-gray-200 px-2 py-1 text-xs focus:border-blue-500 focus:ring-1 focus:ring-blue-100"
+                  rows={2}
                   placeholder="Add any additional observations"
                 />
               </label>
 
               {patientReports.length > 0 && (
-                <div className="rounded-xl border border-gray-100 bg-white/60 p-4 space-y-3">
-                  <h4 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
-                    <ClipboardList className="w-4 h-4" />
+                <div className="rounded border border-gray-100 bg-white/60 p-2 space-y-2">
+                  <h4 className="text-xs font-semibold text-gray-700 flex items-center gap-1.5">
+                    <ClipboardList className="w-3 h-3" />
                     Previous Reports ({patientReports.length})
                   </h4>
-                  <div className="space-y-3 max-h-60 overflow-y-auto pr-1">
+                  <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
                     {patientReports.map((report, idx) => (
                       <div
                         key={`${report.appointmentId}-${idx}`}
-                        className="rounded-lg border border-gray-200 bg-white p-3 text-xs text-gray-600"
+                        className="rounded border border-gray-200 bg-white p-2 text-[10px] text-gray-600"
                       >
-                        <div className="flex flex-wrap items-center justify-between gap-2 text-gray-500 text-[11px]">
+                        <div className="flex flex-wrap items-center justify-between gap-1.5 text-gray-500 text-[10px]">
                           <span className="font-semibold text-gray-700">
                             {new Date(report.updatedAt).toLocaleString()}
                           </span>
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1.5">
                             {report.doctorName && (
                               <span className="text-gray-500">Dr. {report.doctorName}</span>
                             )}
                             <button
                               type="button"
                               onClick={() => deleteReport(report.reportId)}
-                              className="rounded-full border border-red-200 p-1 text-red-500 hover:bg-red-50 transition"
+                              className="rounded-full border border-red-200 p-0.5 text-red-500 hover:bg-red-50 transition"
                               title="Delete report"
                             >
-                              <Trash2 className="w-3.5 h-3.5" />
+                              <Trash2 className="w-3 h-3" />
                             </button>
                           </div>
                         </div>
-                        <div className="mt-2 grid grid-cols-2 md:grid-cols-4 gap-2 text-[11px]">
+                        <div className="mt-1 grid grid-cols-2 md:grid-cols-4 gap-1.5 text-[10px]">
                           <span>Temp: {report.temperatureCelsius}°C</span>
                           <span>Pulse: {report.pulseBpm} BPM</span>
                           <span>BP: {report.systolicBp}/{report.diastolicBp} mmHg</span>
@@ -498,7 +498,7 @@ const AppointmentReportModal: React.FC<AppointmentReportModalProps> = ({
                           {report.waistCm && <span>Waist: {report.waistCm} cm</span>}
                         </div>
                         {(report.sugar || report.urinalysis || report.otherDetails) && (
-                          <div className="mt-2 space-y-1 text-gray-600">
+                          <div className="mt-1 space-y-0.5 text-gray-600 text-[10px]">
                             {report.sugar && <p>Sugar: {report.sugar}</p>}
                             {report.urinalysis && <p>Urinalysis: {report.urinalysis}</p>}
                             {report.otherDetails && <p>Notes: {report.otherDetails}</p>}
@@ -510,10 +510,10 @@ const AppointmentReportModal: React.FC<AppointmentReportModalProps> = ({
                 </div>
               )}
 
-              <div className="flex items-center justify-end gap-3 pt-2">
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-gray-200">
                 <button
                   type="button"
-                  className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100"
+                  className="rounded border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-100"
                   onClick={onClose}
                 >
                   Cancel
@@ -521,16 +521,16 @@ const AppointmentReportModal: React.FC<AppointmentReportModalProps> = ({
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60"
+                  className="inline-flex items-center gap-1.5 rounded bg-blue-600 px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60"
                 >
                   {submitting ? (
                     <>
-                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                      <span className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
                       Saving...
                     </>
                   ) : (
                     <>
-                      <Heart className="w-4 h-4" />
+                      <Heart className="w-3 h-3" />
                       Save Report
                     </>
                   )}

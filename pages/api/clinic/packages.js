@@ -7,27 +7,39 @@ import { getUserFromReq } from "../lead-ms/auth";
 export default async function handler(req, res) {
   await dbConnect();
 
-  // Verify clinic admin authentication
+  // Verify clinic authentication
   let clinicUser;
   try {
     clinicUser = await getUserFromReq(req);
     if (!clinicUser) {
       return res.status(401).json({ success: false, message: "Unauthorized" });
     }
-    if (clinicUser.role !== "clinic") {
-      return res.status(403).json({ success: false, message: "Access denied. Clinic role required." });
-    }
   } catch (error) {
     return res.status(401).json({ success: false, message: "Invalid token" });
   }
 
   // Find the clinic associated with this user
-  const clinic = await Clinic.findOne({ owner: clinicUser._id });
-  if (!clinic) {
-    return res.status(404).json({ success: false, message: "Clinic not found" });
+  let clinic;
+  let clinicId;
+  
+  if (clinicUser.role === "clinic") {
+    clinic = await Clinic.findOne({ owner: clinicUser._id });
+    if (!clinic) {
+      return res.status(404).json({ success: false, message: "Clinic not found" });
+    }
+    clinicId = clinic._id;
+  } else if (["agent", "doctorStaff", "staff"].includes(clinicUser.role)) {
+    if (!clinicUser.clinicId) {
+      return res.status(403).json({ success: false, message: "User not linked to a clinic" });
+    }
+    clinic = await Clinic.findById(clinicUser.clinicId);
+    if (!clinic) {
+      return res.status(404).json({ success: false, message: "Clinic not found" });
+    }
+    clinicId = clinic._id;
+  } else {
+    return res.status(403).json({ success: false, message: "Access denied" });
   }
-
-  const clinicId = clinic._id;
 
   // GET: Fetch all packages for this clinic
   if (req.method === "GET") {
@@ -65,6 +77,7 @@ export default async function handler(req, res) {
             _id: pkg._id.toString(),
             name: pkg.name,
             price: pkg.price,
+            treatments: pkg.treatments || [],
             createdAt: pkg.createdAt,
             updatedAt: pkg.updatedAt,
           })),
@@ -95,7 +108,7 @@ export default async function handler(req, res) {
         });
       }
 
-      const { name, price } = req.body;
+      const { name, price, treatments } = req.body;
 
       if (!name || !name.trim()) {
         return res.status(400).json({ success: false, message: "Package name is required" });
@@ -103,6 +116,20 @@ export default async function handler(req, res) {
 
       if (price === undefined || price === null || isNaN(price) || parseFloat(price) < 0) {
         return res.status(400).json({ success: false, message: "Valid price is required" });
+      }
+
+      if (!treatments || !Array.isArray(treatments) || treatments.length === 0) {
+        return res.status(400).json({ success: false, message: "At least one treatment is required" });
+      }
+
+      // Validate treatments structure
+      for (const treatment of treatments) {
+        if (!treatment.treatmentName || !treatment.treatmentName.trim()) {
+          return res.status(400).json({ success: false, message: "Treatment name is required for all treatments" });
+        }
+        if (!treatment.sessions || treatment.sessions < 1) {
+          return res.status(400).json({ success: false, message: "Valid sessions (minimum 1) is required for all treatments" });
+        }
       }
 
       // Check if package with same name already exists for this clinic
@@ -122,6 +149,11 @@ export default async function handler(req, res) {
         clinicId,
         name: name.trim(),
         price: parseFloat(price),
+        treatments: treatments.map((t) => ({
+          treatmentName: t.treatmentName.trim(),
+          treatmentSlug: t.treatmentSlug || "",
+          sessions: parseInt(t.sessions) || 1,
+        })),
         createdBy: clinicUser._id,
       });
 
@@ -132,6 +164,7 @@ export default async function handler(req, res) {
           _id: newPackage._id.toString(),
           name: newPackage.name,
           price: newPackage.price,
+          treatments: newPackage.treatments || [],
           createdAt: newPackage.createdAt,
           updatedAt: newPackage.updatedAt,
         },
@@ -168,7 +201,7 @@ export default async function handler(req, res) {
         });
       }
 
-      const { packageId, name, price } = req.body;
+      const { packageId, name, price, treatments } = req.body;
 
       if (!packageId || !name || !name.trim()) {
         return res.status(400).json({
@@ -182,6 +215,20 @@ export default async function handler(req, res) {
           success: false,
           message: "Valid price is required",
         });
+      }
+
+      if (!treatments || !Array.isArray(treatments) || treatments.length === 0) {
+        return res.status(400).json({ success: false, message: "At least one treatment is required" });
+      }
+
+      // Validate treatments structure
+      for (const treatment of treatments) {
+        if (!treatment.treatmentName || !treatment.treatmentName.trim()) {
+          return res.status(400).json({ success: false, message: "Treatment name is required for all treatments" });
+        }
+        if (!treatment.sessions || treatment.sessions < 1) {
+          return res.status(400).json({ success: false, message: "Valid sessions (minimum 1) is required for all treatments" });
+        }
       }
 
       const pkg = await Package.findOne({ _id: packageId, clinicId });
@@ -205,6 +252,11 @@ export default async function handler(req, res) {
 
       pkg.name = normalizedName;
       pkg.price = parseFloat(price);
+      pkg.treatments = treatments.map((t) => ({
+        treatmentName: t.treatmentName.trim(),
+        treatmentSlug: t.treatmentSlug || "",
+        sessions: parseInt(t.sessions) || 1,
+      }));
       await pkg.save();
 
       return res.status(200).json({
@@ -214,6 +266,7 @@ export default async function handler(req, res) {
           _id: pkg._id.toString(),
           name: pkg.name,
           price: pkg.price,
+          treatments: pkg.treatments || [],
           createdAt: pkg.createdAt,
           updatedAt: pkg.updatedAt,
         },

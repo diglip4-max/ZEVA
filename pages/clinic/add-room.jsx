@@ -5,7 +5,7 @@ import axios from "axios";
 import { useRouter } from "next/router";
 import withClinicAuth from "../../components/withClinicAuth";
 import ClinicLayout from "../../components/ClinicLayout";
-import { Loader2, Trash2, AlertCircle, CheckCircle, X, Building2, DoorOpen, Plus, Edit2, Calendar, Package } from "lucide-react";
+import { Loader2, Trash2, AlertCircle, CheckCircle, X, Building2, DoorOpen, Plus, Edit2, Calendar, Package, ChevronDown } from "lucide-react";
 import { useAgentPermissions } from "../../hooks/useAgentPermissions";
 import { Toaster, toast } from "react-hot-toast";
 
@@ -66,6 +66,10 @@ function AddRoomPage({ contextOverride = null }) {
   const [departmentName, setDepartmentName] = useState("");
   const [packageName, setPackageName] = useState("");
   const [packagePrice, setPackagePrice] = useState("");
+  const [treatments, setTreatments] = useState([]);
+  const [selectedTreatments, setSelectedTreatments] = useState([]); // Array of { treatmentName, treatmentSlug, sessions }
+  const [treatmentDropdownOpen, setTreatmentDropdownOpen] = useState(false);
+  const [treatmentSearchQuery, setTreatmentSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [submittingDept, setSubmittingDept] = useState(false);
@@ -307,6 +311,42 @@ function AddRoomPage({ contextOverride = null }) {
     }
   };
 
+  const loadTreatments = async () => {
+    const headers = getHeadersOrNotify();
+    if (!headers) return;
+    try {
+      const res = await axios.get("/api/clinic/treatments", { headers });
+      if (res.data.success) {
+        // Flatten treatments to get all treatment names
+        const allTreatments = [];
+        if (res.data.clinic?.treatments) {
+          res.data.clinic.treatments.forEach((treatment) => {
+            // Add main treatment
+            allTreatments.push({
+              name: treatment.mainTreatment,
+              slug: treatment.mainTreatmentSlug,
+              type: "main",
+            });
+            // Add sub-treatments
+            if (treatment.subTreatments && treatment.subTreatments.length > 0) {
+              treatment.subTreatments.forEach((subTreatment) => {
+                allTreatments.push({
+                  name: subTreatment.name,
+                  slug: subTreatment.slug,
+                  type: "sub",
+                  mainTreatment: treatment.mainTreatment,
+                });
+              });
+            }
+          });
+        }
+        setTreatments(allTreatments);
+      }
+    } catch (error) {
+      console.error("Error loading treatments", error);
+    }
+  };
+
   useEffect(() => {
     if (!permissionsLoaded) return;
       if (!permissions.canRead) {
@@ -320,7 +360,7 @@ function AddRoomPage({ contextOverride = null }) {
     let cancelled = false;
     const loadData = async () => {
       setLoading(true);
-      await Promise.all([loadRooms(), loadDepartments(), loadPackages()]);
+      await Promise.all([loadRooms(), loadDepartments(), loadPackages(), loadTreatments()]);
       if (!cancelled) {
       setLoading(false);
     }
@@ -332,6 +372,20 @@ function AddRoomPage({ contextOverride = null }) {
       cancelled = true;
     };
   }, [permissionsLoaded, permissions.canRead]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (treatmentDropdownOpen && !event.target.closest('.treatment-dropdown-container')) {
+        setTreatmentDropdownOpen(false);
+        setTreatmentSearchQuery(""); // Clear search when closing
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [treatmentDropdownOpen]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -594,6 +648,45 @@ function AddRoomPage({ contextOverride = null }) {
     });
   };
 
+  const handleTreatmentToggle = (treatment) => {
+    setSelectedTreatments((prev) => {
+      const exists = prev.find((t) => t.slug === treatment.slug);
+      if (exists) {
+        return prev.filter((t) => t.slug !== treatment.slug);
+      } else {
+        setTreatmentDropdownOpen(false); // Close dropdown after selection
+        return [...prev, { treatmentName: treatment.name, treatmentSlug: treatment.slug, sessions: 1 }];
+      }
+    });
+  };
+
+  const handleRemoveTreatment = (treatmentSlug, e) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    setSelectedTreatments((prev) => {
+      // Filter out the treatment by matching treatmentSlug (or slug for backward compatibility)
+      return prev.filter((t) => t.treatmentSlug !== treatmentSlug && t.slug !== treatmentSlug);
+    });
+  };
+
+  const handleSelectAllTreatments = () => {
+    if (selectedTreatments.length === treatments.length) {
+      setSelectedTreatments([]);
+    } else {
+      setSelectedTreatments(
+        treatments.map((t) => ({ treatmentName: t.name, treatmentSlug: t.slug, sessions: 1 }))
+      );
+    }
+  };
+
+  const handleSessionChange = (slug, sessions) => {
+    setSelectedTreatments((prev) =>
+      prev.map((t) => (t.treatmentSlug === slug ? { ...t, sessions: parseInt(sessions) || 1 } : t))
+    );
+  };
+
   const handlePackageSubmit = async (e) => {
     e.preventDefault();
     if (!permissions.canCreate) {
@@ -608,6 +701,10 @@ function AddRoomPage({ contextOverride = null }) {
       setMessage({ type: "error", text: "Please enter a valid price" });
       return;
     }
+    if (selectedTreatments.length === 0) {
+      setMessage({ type: "error", text: "Please select at least one treatment" });
+      return;
+    }
 
     const headers = getHeadersOrNotify();
     if (!headers) return;
@@ -617,7 +714,11 @@ function AddRoomPage({ contextOverride = null }) {
     try {
       const res = await axios.post(
         "/api/clinic/packages",
-        { name: packageName.trim(), price: parseFloat(packagePrice) },
+        {
+          name: packageName.trim(),
+          price: parseFloat(packagePrice),
+          treatments: selectedTreatments,
+        },
         { headers }
       );
       if (res.data.success) {
@@ -626,6 +727,8 @@ function AddRoomPage({ contextOverride = null }) {
         toast.success(successMsg, { duration: 3000 });
         setPackageName("");
         setPackagePrice("");
+        setSelectedTreatments([]);
+        setTreatmentDropdownOpen(false); // Close dropdown
         await loadPackages();
       } else {
         const errorMsg = res.data.message || "Failed to create package";
@@ -656,6 +759,10 @@ function AddRoomPage({ contextOverride = null }) {
       setMessage({ type: "error", text: "Please enter a valid price" });
       return;
     }
+    if (selectedTreatments.length === 0) {
+      setMessage({ type: "error", text: "Please select at least one treatment" });
+      return;
+    }
     const headers = getHeadersOrNotify();
     if (!headers) return;
 
@@ -663,7 +770,12 @@ function AddRoomPage({ contextOverride = null }) {
     try {
       const res = await axios.put(
         "/api/clinic/packages",
-        { packageId: editingPackageId, name: editingPackageName.trim(), price: parseFloat(editingPackagePrice) },
+        {
+          packageId: editingPackageId,
+          name: editingPackageName.trim(),
+          price: parseFloat(editingPackagePrice),
+          treatments: selectedTreatments,
+        },
         { headers }
       );
       if (res.data.success) {
@@ -673,6 +785,8 @@ function AddRoomPage({ contextOverride = null }) {
         setEditingPackageId(null);
         setEditingPackageName("");
         setEditingPackagePrice("");
+        setSelectedTreatments([]);
+        setTreatmentDropdownOpen(false); // Close dropdown
         await loadPackages();
       } else {
         const errorMsg = res.data.message || "Failed to update package";
@@ -833,6 +947,7 @@ function AddRoomPage({ contextOverride = null }) {
                   onClick={() => {
                     setViewMode("room");
                     setMessage({ type: "info", text: "" }); // Clear message when switching view
+                    setTreatmentDropdownOpen(false); // Close dropdown
                   }}
                   className={`px-4 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-2 ${
                     viewMode === "room"
@@ -848,6 +963,7 @@ function AddRoomPage({ contextOverride = null }) {
                   onClick={() => {
                     setViewMode("department");
                     setMessage({ type: "info", text: "" }); // Clear message when switching view
+                    setTreatmentDropdownOpen(false); // Close dropdown
                   }}
                   className={`px-4 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-2 ${
                     viewMode === "department"
@@ -863,6 +979,7 @@ function AddRoomPage({ contextOverride = null }) {
                   onClick={() => {
                     setViewMode("package");
                     setMessage({ type: "info", text: "" }); // Clear message when switching view
+                    setTreatmentDropdownOpen(false); // Close dropdown
                   }}
                   className={`px-4 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-2 ${
                     viewMode === "package"
@@ -1011,6 +1128,176 @@ function AddRoomPage({ contextOverride = null }) {
                     required
                   />
                 </div>
+
+                {/* Treatment Selection */}
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Select Treatment <span className="text-red-500">*</span>
+                    </label>
+                    {treatments.length === 0 ? (
+                      <div className="text-sm text-gray-500 py-2">No treatments available. Please add treatments to your clinic first.</div>
+                    ) : (
+                      <div className="relative treatment-dropdown-container">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setTreatmentDropdownOpen(!treatmentDropdownOpen);
+                            if (!treatmentDropdownOpen) {
+                              setTreatmentSearchQuery(""); // Clear search when opening
+                            }
+                          }}
+                          className="w-full flex items-center justify-between px-4 py-2.5 bg-white border border-gray-300 rounded-lg text-sm text-gray-700 hover:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                        >
+                          <span className="text-gray-500">Select a treatment to add...</span>
+                          <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${treatmentDropdownOpen ? 'rotate-180' : ''}`} />
+                        </button>
+                        {treatmentDropdownOpen && (
+                          <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-hidden flex flex-col">
+                            {/* Search Input */}
+                            <div className="p-2 border-b border-gray-200 sticky top-0 bg-white">
+                              <input
+                                type="text"
+                                placeholder="Search treatments..."
+                                value={treatmentSearchQuery}
+                                onChange={(e) => {
+                                  e.stopPropagation();
+                                  setTreatmentSearchQuery(e.target.value);
+                                }}
+                                onClick={(e) => e.stopPropagation()}
+                                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                autoFocus
+                              />
+                            </div>
+                            {/* Treatment List */}
+                            <div className="overflow-y-auto max-h-48">
+                              {(() => {
+                                // Only show treatments when user has typed something
+                                if (!treatmentSearchQuery.trim()) {
+                                  return (
+                                    <div className="p-4 text-center text-sm text-gray-500">
+                                      Start typing to search for treatments...
+                                    </div>
+                                  );
+                                }
+
+                                const filteredTreatments = treatments.filter((treatment) => {
+                                  const query = treatmentSearchQuery.toLowerCase();
+                                  const nameMatch = treatment.name.toLowerCase().includes(query);
+                                  const mainTreatmentMatch = treatment.mainTreatment?.toLowerCase().includes(query);
+                                  return nameMatch || mainTreatmentMatch;
+                                });
+
+                                if (filteredTreatments.length === 0) {
+                                  return (
+                                    <div className="p-4 text-center text-sm text-gray-500">
+                                      No treatments found matching "{treatmentSearchQuery}"
+                                    </div>
+                                  );
+                                }
+
+                                return (
+                                  <div className="p-2">
+                                    {filteredTreatments.map((treatment) => {
+                                      const isSelected = selectedTreatments.some((t) => t.treatmentSlug === treatment.slug || t.slug === treatment.slug);
+                                      return (
+                                        <button
+                                          key={treatment.slug}
+                                          type="button"
+                                          onClick={() => {
+                                            handleTreatmentToggle(treatment);
+                                            setTreatmentSearchQuery(""); // Clear search after selection
+                                          }}
+                                          className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${
+                                            isSelected
+                                              ? "bg-blue-50 text-blue-700 font-medium"
+                                              : "text-gray-700 hover:bg-gray-50"
+                                          }`}
+                                        >
+                                          <div className="flex items-center justify-between">
+                                            <span>
+                                              {treatment.name}
+                                              {treatment.type === "sub" && (
+                                                <span className="text-xs text-gray-500 ml-1">({treatment.mainTreatment})</span>
+                                              )}
+                                            </span>
+                                            {isSelected && (
+                                              <span className="text-blue-600 text-xs">✓</span>
+                                            )}
+                                          </div>
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                );
+                              })()}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Selected Treatments with Sessions - Compact Tile Design */}
+                  {selectedTreatments.length > 0 && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Selected Treatments & Sessions <span className="text-red-500">*</span>
+                      </label>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {selectedTreatments.map((selectedTreatment) => {
+                          const treatment = treatments.find((t) => t.slug === selectedTreatment.treatmentSlug);
+                          return (
+                            <div
+                              key={selectedTreatment.treatmentSlug}
+                              className="flex items-center justify-between p-2.5 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200 hover:border-blue-300 transition-all"
+                            >
+                              <div className="flex-1 min-w-0 mr-2">
+                                <span className="text-sm font-medium text-gray-900 block truncate">
+                                  {selectedTreatment.treatmentName}
+                                </span>
+                                {treatment?.type === "sub" && (
+                                  <span className="text-xs text-gray-500 truncate block">
+                                    {treatment.mainTreatment}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2 flex-shrink-0">
+                                <input
+                                  type="number"
+                                  min="1"
+                                  value={selectedTreatment.sessions || 1}
+                                  onChange={(e) => {
+                                    const value = parseInt(e.target.value) || 1;
+                                    handleSessionChange(selectedTreatment.treatmentSlug, value);
+                                  }}
+                                  className="w-16 px-2 py-1.5 text-sm font-semibold text-center border border-blue-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm"
+                                  placeholder="1"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    handleRemoveTreatment(selectedTreatment.treatmentSlug, e);
+                                  }}
+                                  className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
+                                  title="Remove treatment"
+                                >
+                                  <X className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <div className="mt-2 text-xs text-gray-500 text-center">
+                        {selectedTreatments.length} treatment(s) selected
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 <button
                   type="submit"
                   disabled={submittingPackage || !permissions.canCreate}
@@ -1270,41 +1557,214 @@ function AddRoomPage({ contextOverride = null }) {
                   >
                     <div className="flex-1 min-w-0">
                       {editingPackageId === pkg._id ? (
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="text"
-                            value={editingPackageName}
-                            onChange={(e) => setEditingPackageName(e.target.value)}
-                            placeholder="Package Name"
-                            className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                            autoFocus
-                          />
-                          <input
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            value={editingPackagePrice}
-                            onChange={(e) => setEditingPackagePrice(e.target.value)}
-                            placeholder="Price"
-                            className="w-32 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                          />
-                          <button
-                            onClick={handlePackageUpdate}
-                            disabled={packageUpdateLoading}
-                            className="px-3 py-2 bg-gray-900 text-white text-sm rounded-lg hover:bg-gray-800 disabled:opacity-60 transition-colors"
-                          >
-                            {packageUpdateLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save"}
-                          </button>
-                          <button
-                            onClick={() => {
-                              setEditingPackageId(null);
-                              setEditingPackageName("");
-                              setEditingPackagePrice("");
-                            }}
-                            className="px-3 py-2 bg-gray-100 text-gray-700 text-sm rounded-lg hover:bg-gray-200 transition-colors"
-                          >
-                            Cancel
-                          </button>
+                        <div className="space-y-3">
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="text"
+                              value={editingPackageName}
+                              onChange={(e) => setEditingPackageName(e.target.value)}
+                              placeholder="Package Name"
+                              className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                              autoFocus
+                            />
+                            <input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={editingPackagePrice}
+                              onChange={(e) => setEditingPackagePrice(e.target.value)}
+                              placeholder="Price"
+                              className="w-32 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            />
+                          </div>
+                          {/* Treatment Selection for Edit */}
+                          <div className="space-y-3">
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Select Treatment
+                              </label>
+                              {treatments.length === 0 ? (
+                                <div className="text-sm text-gray-500 py-2">No treatments available.</div>
+                              ) : (
+                                <div className="relative treatment-dropdown-container">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setTreatmentDropdownOpen(!treatmentDropdownOpen);
+                                      if (!treatmentDropdownOpen) {
+                                        setTreatmentSearchQuery(""); // Clear search when opening
+                                      }
+                                    }}
+                                    className="w-full flex items-center justify-between px-4 py-2.5 bg-white border border-gray-300 rounded-lg text-sm text-gray-700 hover:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                                  >
+                                    <span className="text-gray-500">Select a treatment to add...</span>
+                                    <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${treatmentDropdownOpen ? 'rotate-180' : ''}`} />
+                                  </button>
+                                  {treatmentDropdownOpen && (
+                                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-hidden flex flex-col">
+                                      {/* Search Input */}
+                                      <div className="p-2 border-b border-gray-200 sticky top-0 bg-white">
+                                        <input
+                                          type="text"
+                                          placeholder="Search treatments..."
+                                          value={treatmentSearchQuery}
+                                          onChange={(e) => {
+                                            e.stopPropagation();
+                                            setTreatmentSearchQuery(e.target.value);
+                                          }}
+                                          onClick={(e) => e.stopPropagation()}
+                                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                          autoFocus
+                                        />
+                                      </div>
+                                      {/* Treatment List */}
+                                      <div className="overflow-y-auto max-h-48">
+                                        {(() => {
+                                          // Only show treatments when user has typed something
+                                          if (!treatmentSearchQuery.trim()) {
+                                            return (
+                                              <div className="p-4 text-center text-sm text-gray-500">
+                                                Start typing to search for treatments...
+                                              </div>
+                                            );
+                                          }
+
+                                          const filteredTreatments = treatments.filter((treatment) => {
+                                            const query = treatmentSearchQuery.toLowerCase();
+                                            const nameMatch = treatment.name.toLowerCase().includes(query);
+                                            const mainTreatmentMatch = treatment.mainTreatment?.toLowerCase().includes(query);
+                                            return nameMatch || mainTreatmentMatch;
+                                          });
+
+                                          if (filteredTreatments.length === 0) {
+                                            return (
+                                              <div className="p-4 text-center text-sm text-gray-500">
+                                                No treatments found matching "{treatmentSearchQuery}"
+                                              </div>
+                                            );
+                                          }
+
+                                          return (
+                                            <div className="p-2">
+                                              {filteredTreatments.map((treatment) => {
+                                                const isSelected = selectedTreatments.some((t) => t.treatmentSlug === treatment.slug || t.slug === treatment.slug);
+                                                return (
+                                                  <button
+                                                    key={treatment.slug}
+                                                    type="button"
+                                                    onClick={() => {
+                                                      handleTreatmentToggle(treatment);
+                                                      setTreatmentSearchQuery(""); // Clear search after selection
+                                                    }}
+                                                    className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${
+                                                      isSelected
+                                                        ? "bg-blue-50 text-blue-700 font-medium"
+                                                        : "text-gray-700 hover:bg-gray-50"
+                                                    }`}
+                                                  >
+                                                    <div className="flex items-center justify-between">
+                                                      <span>
+                                                        {treatment.name}
+                                                        {treatment.type === "sub" && (
+                                                          <span className="text-xs text-gray-500 ml-1">({treatment.mainTreatment})</span>
+                                                        )}
+                                                      </span>
+                                                      {isSelected && (
+                                                        <span className="text-blue-600 text-xs">✓</span>
+                                                      )}
+                                                    </div>
+                                                  </button>
+                                                );
+                                              })}
+                                            </div>
+                                          );
+                                        })()}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Selected Treatments with Sessions for Edit - Compact Tile Design */}
+                            {selectedTreatments.length > 0 && (
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                  Selected Treatments & Sessions
+                                </label>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                  {selectedTreatments.map((selectedTreatment) => {
+                                    const treatment = treatments.find((t) => t.slug === selectedTreatment.treatmentSlug);
+                                    return (
+                                      <div
+                                        key={selectedTreatment.treatmentSlug}
+                                        className="flex items-center justify-between p-2.5 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200 hover:border-blue-300 transition-all"
+                                      >
+                                        <div className="flex-1 min-w-0 mr-2">
+                                          <span className="text-sm font-medium text-gray-900 block truncate">
+                                            {selectedTreatment.treatmentName}
+                                          </span>
+                                          {treatment?.type === "sub" && (
+                                            <span className="text-xs text-gray-500 truncate block">
+                                              {treatment.mainTreatment}
+                                            </span>
+                                          )}
+                                        </div>
+                                        <div className="flex items-center gap-2 flex-shrink-0">
+                                          <input
+                                            type="number"
+                                            min="1"
+                                            value={selectedTreatment.sessions || 1}
+                                            onChange={(e) => {
+                                              const value = parseInt(e.target.value) || 1;
+                                              handleSessionChange(selectedTreatment.treatmentSlug, value);
+                                            }}
+                                            className="w-16 px-2 py-1.5 text-sm font-semibold text-center border border-blue-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm"
+                                            placeholder="1"
+                                          />
+                                          <button
+                                            type="button"
+                                            onClick={(e) => {
+                                              e.preventDefault();
+                                              e.stopPropagation();
+                                              handleRemoveTreatment(selectedTreatment.treatmentSlug, e);
+                                            }}
+                                            className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
+                                            title="Remove treatment"
+                                          >
+                                            <X className="w-4 h-4" />
+                                          </button>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                                <div className="mt-2 text-xs text-gray-500 text-center">
+                                  {selectedTreatments.length} treatment(s) selected
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={handlePackageUpdate}
+                              disabled={packageUpdateLoading}
+                              className="px-3 py-2 bg-gray-900 text-white text-sm rounded-lg hover:bg-gray-800 disabled:opacity-60 transition-colors"
+                            >
+                              {packageUpdateLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save"}
+                            </button>
+                            <button
+                              onClick={() => {
+                                setEditingPackageId(null);
+                                setEditingPackageName("");
+                                setEditingPackagePrice("");
+                                setSelectedTreatments([]);
+                              }}
+                              className="px-3 py-2 bg-gray-100 text-gray-700 text-sm rounded-lg hover:bg-gray-200 transition-colors"
+                            >
+                              Cancel
+                            </button>
+                          </div>
                         </div>
                       ) : (
                         <div className="flex items-center gap-3">
@@ -1313,16 +1773,41 @@ function AddRoomPage({ contextOverride = null }) {
                           </div>
                           <div>
                             <h3 className="text-sm font-semibold text-gray-900">{pkg.name}</h3>
-                            <div className="flex items-center gap-1.5 mt-0.5">
+                            <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                               <span className="text-xs text-gray-500 font-medium">
                                 Price: ${parseFloat(pkg.price).toFixed(2)}
                               </span>
+                              {pkg.treatments && pkg.treatments.length > 0 && (
+                                <>
+                                  <span className="text-xs text-gray-400">•</span>
+                                  <span className="text-xs text-gray-500">
+                                    {pkg.treatments.length} treatment(s)
+                                  </span>
+                                </>
+                              )}
                               <span className="text-xs text-gray-400">•</span>
                               <Calendar className="w-3 h-3 text-gray-400" />
                               <span className="text-xs text-gray-500">
                                 Created {new Date(pkg.createdAt).toLocaleDateString()}
                               </span>
                             </div>
+                            {pkg.treatments && pkg.treatments.length > 0 && (
+                              <div className="mt-1 flex flex-wrap gap-1">
+                                {pkg.treatments.slice(0, 3).map((treatment, idx) => (
+                                  <span
+                                    key={idx}
+                                    className="text-xs px-2 py-0.5 bg-blue-50 text-blue-700 rounded"
+                                  >
+                                    {treatment.treatmentName || treatment.name} ({treatment.sessions || 1} session{treatment.sessions !== 1 ? 's' : ''})
+                                  </span>
+                                ))}
+                                {pkg.treatments.length > 3 && (
+                                  <span className="text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded">
+                                    +{pkg.treatments.length - 3} more
+                                  </span>
+                                )}
+                              </div>
+                            )}
                           </div>
                         </div>
                       )}
@@ -1335,6 +1820,18 @@ function AddRoomPage({ contextOverride = null }) {
                               setEditingPackageId(pkg._id);
                               setEditingPackageName(pkg.name);
                               setEditingPackagePrice(pkg.price.toString());
+                              // Load treatments for this package
+                              if (pkg.treatments && Array.isArray(pkg.treatments)) {
+                                setSelectedTreatments(
+                                  pkg.treatments.map((t) => ({
+                                    treatmentName: t.treatmentName || t.name || "",
+                                    treatmentSlug: t.treatmentSlug || t.slug || "",
+                                    sessions: t.sessions || 1,
+                                  }))
+                                );
+                              } else {
+                                setSelectedTreatments([]);
+                              }
                             }}
                             className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
                             title="Edit package"

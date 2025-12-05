@@ -129,127 +129,127 @@ export default function AppointmentHistoryModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center p-2" onClick={onClose}>
+      <div className="bg-white rounded-lg shadow-2xl max-w-6xl w-full max-h-[95vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
+        <div className="flex items-center justify-between p-3 border-b border-gray-200">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">Appointment History</h2>
-            <p className="text-sm text-gray-600 mt-1">Patient: {patientName}</p>
+            <h2 className="text-lg font-bold text-gray-900">Appointment History</h2>
+            <p className="text-xs text-gray-600 mt-0.5">Patient: {patientName}</p>
           </div>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-4">
           {loading && (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-              <span className="ml-3 text-gray-600">Loading appointment history...</span>
+            <div className="flex items-center justify-center py-6">
+              <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
+              <span className="ml-2 text-xs text-gray-600">Loading appointment history...</span>
             </div>
           )}
 
           {error && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-2 text-red-700">
-              <AlertCircle className="w-5 h-5" />
-              <p>{error}</p>
+            <div className="bg-red-50 border border-red-200 rounded p-2 flex items-center gap-2 text-red-700">
+              <AlertCircle className="w-4 h-4" />
+              <p className="text-xs">{error}</p>
             </div>
           )}
 
           {!loading && !error && appointments.length === 0 && (
-            <div className="text-center py-12">
-              <p className="text-gray-500">No appointment history found for this patient.</p>
+            <div className="text-center py-6">
+              <p className="text-xs text-gray-500">No appointment history found for this patient.</p>
             </div>
           )}
 
           {!loading && !error && appointments.length > 0 && (
-            <div className="space-y-4">
+            <div className="space-y-2">
               {appointments.map((apt) => (
                 <div
                   key={apt._id}
-                  className="border border-gray-200 rounded-lg p-5 hover:shadow-md transition-shadow"
+                  className="border border-gray-200 rounded p-3 hover:shadow-sm transition-shadow"
                 >
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {/* Left Column */}
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-2">
-                        <Calendar className="w-4 h-4 text-gray-500" />
-                        <span className="text-sm font-medium text-gray-700">Date:</span>
-                        <span className="text-sm text-gray-900">{formatDate(apt.startDate)}</span>
+                    <div className="space-y-1.5">
+                      <div className="flex items-center gap-1.5">
+                        <Calendar className="w-3 h-3 text-gray-500" />
+                        <span className="text-xs font-medium text-gray-700">Date:</span>
+                        <span className="text-xs text-gray-900">{formatDate(apt.startDate)}</span>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Clock className="w-4 h-4 text-gray-500" />
-                        <span className="text-sm font-medium text-gray-700">Time:</span>
-                        <span className="text-sm text-gray-900">
+                      <div className="flex items-center gap-1.5">
+                        <Clock className="w-3 h-3 text-gray-500" />
+                        <span className="text-xs font-medium text-gray-700">Time:</span>
+                        <span className="text-xs text-gray-900">
                           {formatTime(apt.fromTime)} - {formatTime(apt.toTime)}
                         </span>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Stethoscope className="w-4 h-4 text-gray-500" />
-                        <span className="text-sm font-medium text-gray-700">Doctor:</span>
-                        <span className="text-sm text-gray-900">{apt.doctorName}</span>
+                      <div className="flex items-center gap-1.5">
+                        <Stethoscope className="w-3 h-3 text-gray-500" />
+                        <span className="text-xs font-medium text-gray-700">Doctor:</span>
+                        <span className="text-xs text-gray-900">{apt.doctorName}</span>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Building2 className="w-4 h-4 text-gray-500" />
-                        <span className="text-sm font-medium text-gray-700">Room:</span>
-                        <span className="text-sm text-gray-900">{apt.roomName}</span>
+                      <div className="flex items-center gap-1.5">
+                        <Building2 className="w-3 h-3 text-gray-500" />
+                        <span className="text-xs font-medium text-gray-700">Room:</span>
+                        <span className="text-xs text-gray-900">{apt.roomName}</span>
                       </div>
                     </div>
 
                     {/* Right Column */}
-                    <div className="space-y-3">
+                    <div className="space-y-1.5">
                       <div>
-                        <span className="text-sm font-medium text-gray-700">Status:</span>
-                        <span className={`ml-2 px-2 py-1 rounded-full text-xs font-semibold ${getStatusBadgeColor(apt.status)}`}>
+                        <span className="text-xs font-medium text-gray-700">Status:</span>
+                        <span className={`ml-1.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold ${getStatusBadgeColor(apt.status)}`}>
                           {apt.status}
                         </span>
                       </div>
                       <div>
-                        <span className="text-sm font-medium text-gray-700">Follow Type:</span>
-                        <span className={`ml-2 px-2 py-1 rounded-full text-xs font-semibold ${getFollowTypeBadgeColor(apt.followType)}`}>
+                        <span className="text-xs font-medium text-gray-700">Follow Type:</span>
+                        <span className={`ml-1.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold ${getFollowTypeBadgeColor(apt.followType)}`}>
                           {apt.followType}
                         </span>
                       </div>
                       <div>
-                        <span className="text-sm font-medium text-gray-700">Referral:</span>
-                        <span className="ml-2 text-sm text-gray-900 capitalize">{apt.referral}</span>
+                        <span className="text-xs font-medium text-gray-700">Referral:</span>
+                        <span className="ml-1.5 text-xs text-gray-900 capitalize">{apt.referral}</span>
                       </div>
                       <div>
-                        <span className="text-sm font-medium text-gray-700">Emergency:</span>
-                        <span className="ml-2 text-sm text-gray-900 capitalize">{apt.emergency}</span>
+                        <span className="text-xs font-medium text-gray-700">Emergency:</span>
+                        <span className="ml-1.5 text-xs text-gray-900 capitalize">{apt.emergency}</span>
                       </div>
                     </div>
                   </div>
 
                   {/* Additional Info */}
-                  <div className="mt-4 pt-4 border-t border-gray-200 space-y-2">
+                  <div className="mt-2 pt-2 border-t border-gray-200 space-y-1">
                     {apt.visitId && (
-                      <div className="text-xs text-gray-500">
+                      <div className="text-[10px] text-gray-500">
                         <span className="font-medium">Visit ID:</span> {apt.visitId}
                       </div>
                     )}
                     {apt.emrNumber && (
-                      <div className="text-xs text-gray-500">
+                      <div className="text-[10px] text-gray-500">
                         <span className="font-medium">EMR Number:</span> {apt.emrNumber}
                       </div>
                     )}
                     {apt.arrivedAt && (
-                      <div className="text-xs text-gray-500">
+                      <div className="text-[10px] text-gray-500">
                         <span className="font-medium">Arrived At:</span> {formatDateTime(apt.arrivedAt)}
                       </div>
                     )}
                     {apt.notes && (
-                      <div className="mt-2">
-                        <span className="text-xs font-medium text-gray-700">Notes:</span>
-                        <p className="text-xs text-gray-600 mt-1">{apt.notes}</p>
+                      <div className="mt-1">
+                        <span className="text-[10px] font-medium text-gray-700">Notes:</span>
+                        <p className="text-[10px] text-gray-600 mt-0.5">{apt.notes}</p>
                       </div>
                     )}
-                    <div className="text-xs text-gray-400">
+                    <div className="text-[10px] text-gray-400">
                       Created: {formatDateTime(apt.createdAt)} | Updated: {formatDateTime(apt.updatedAt)}
                     </div>
                   </div>
@@ -260,10 +260,10 @@ export default function AppointmentHistoryModal({
         </div>
 
         {/* Footer */}
-        <div className="border-t border-gray-200 p-4 flex items-center justify-end">
+        <div className="border-t border-gray-200 p-2 flex items-center justify-end">
           <button
             onClick={onClose}
-            className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+            className="px-3 py-1.5 text-xs bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors"
           >
             Close
           </button>
