@@ -518,7 +518,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                   <p className="text-xs font-medium text-gray-700 mb-1">
                     Subscription Required
                   </p>
-                  <p className="text-xs text-gray-600 leading-relaxed">
+                  <p className="text-xs text-gray-700 leading-relaxed">
                     Contact administrator to enable this feature.
                   </p>
                 </div>
@@ -541,17 +541,17 @@ const ClinicDashboard: NextPageWithLayout = () => {
               <div className="text-gray-700">{icon}</div>
             </div>
           </div>
-          <h3 className="text-xs font-medium text-gray-600 mb-2">{label}</h3>
+          <h3 className="text-xs font-medium text-gray-700 mb-2">{label}</h3>
           {statsLoading ? (
             <div className="flex items-center gap-2">
               <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-800"></div>
-              <span className="text-sm text-gray-500">Loading...</span>
+              <span className="text-sm text-gray-700">Loading...</span>
             </div>
           ) : (
             <>
               <p className="text-3xl sm:text-4xl font-bold text-gray-900">{value}</p>
               {value === 0 && (
-                <p className="text-xs text-gray-500 mt-1">No data available</p>
+                <p className="text-xs text-gray-700 mt-1">No data available</p>
               )}
             </>
           )}
@@ -565,7 +565,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
       <div className="flex items-center justify-center min-h-screen px-4 bg-gray-50">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-sm text-gray-600">Loading dashboard...</p>
+          <p className="text-sm text-gray-700">Loading dashboard...</p>
         </div>
       </div>
     );
@@ -579,7 +579,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
             <Lock className="w-5 h-5 text-gray-600" />
           </div>
           <h2 className="text-lg font-semibold text-gray-900">Access Restricted</h2>
-          <p className="text-sm text-gray-600">{accessMessage}</p>
+          <p className="text-sm text-gray-700">{accessMessage}</p>
         </div>
       </div>
     );
@@ -599,7 +599,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                   {clinicInfo.name || 'Clinic Dashboard'}
                 </h1>
               </div>
-              <div className="flex items-center gap-3 text-xs sm:text-sm text-gray-600 flex-wrap">
+              <div className="flex items-center gap-3 text-xs sm:text-sm text-gray-700 flex-wrap">
                 <div className="flex items-center gap-1.5">
                   <User className="w-3.5 h-3.5" />
                   <span className="font-medium">Owner:</span>
@@ -634,7 +634,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
               <p className="text-2xl font-bold text-gray-900 mb-1">
                 {navigationItems.length}
               </p>
-              <p className="text-xs text-gray-600 mb-2">Active modules</p>
+              <p className="text-xs text-gray-700 mb-2">Active modules</p>
               <div className="bg-gray-100 rounded-full h-1.5">
                 <div 
                   className="bg-gray-800 h-1.5 rounded-full transition-all duration-500"
@@ -651,7 +651,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
               <p className="text-2xl font-bold text-gray-900 mb-1">
                 {subscriptionSummary.restrictedCount}
               </p>
-              <p className="text-xs text-gray-600 mb-2">Not subscribed</p>
+              <p className="text-xs text-gray-700 mb-2">Not subscribed</p>
               <div className="bg-gray-100 rounded-full h-1.5">
                 <div 
                   className="bg-gray-500 h-1.5 rounded-full transition-all duration-500"
@@ -668,7 +668,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
               <p className="text-2xl font-bold text-gray-900 mb-1">
                 {subscriptionSummary.totalModules}
               </p>
-              <p className="text-xs text-gray-600">Available modules</p>
+              <p className="text-xs text-gray-700">Available modules</p>
             </div>
 
             {/* Compact Chart */}
@@ -831,7 +831,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                       <div className="min-w-0 flex-1">
                         <h3 className="text-sm font-bold text-gray-900 truncate">{module.label}</h3>
                         {module.description && (
-                          <p className="text-xs text-gray-600 truncate">{module.description}</p>
+                          <p className="text-xs text-gray-700 truncate">{module.description}</p>
                         )}
                       </div>
                     </div>
@@ -885,7 +885,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                             {lockedSubModules.map((subModule, idx) => (
                               <div key={idx} className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg p-2">
                                 <Lock className="w-4 h-4 text-gray-500 flex-shrink-0" />
-                                <span className="text-sm text-gray-600">{subModule.name}</span>
+                                <span className="text-sm text-gray-700">{subModule.name}</span>
                               </div>
                             ))}
                           </div>
@@ -907,7 +907,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                     <div className="mt-4 bg-gray-50 border border-gray-200 rounded-lg p-3">
                       <div className="flex items-center gap-2">
                         <Lock className="w-4 h-4 text-gray-500" />
-                        <span className="text-sm text-gray-600">
+                        <span className="text-sm text-gray-700">
                           This entire module is locked. Contact administrator to subscribe.
                         </span>
                       </div>
@@ -1035,7 +1035,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
               <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
                 <div className="flex items-center justify-between">
                   <div className="min-w-0 flex-1">
-                    <p className="text-xs font-medium text-gray-600 mb-0.5">Total Enquiries</p>
+                    <p className="text-xs font-medium text-gray-700 mb-0.5">Total Enquiries</p>
                     <p className="text-xl font-bold text-gray-900">{stats.totalEnquiries}</p>
                   </div>
                   <div className="p-2 bg-white rounded-lg shadow-sm">
@@ -1047,7 +1047,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
               <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
                 <div className="flex items-center justify-between">
                   <div className="min-w-0 flex-1">
-                    <p className="text-xs font-medium text-gray-600 mb-0.5">Total Reviews</p>
+                    <p className="text-xs font-medium text-gray-700 mb-0.5">Total Reviews</p>
                     <p className="text-xl font-bold text-gray-900">{stats.totalReviews}</p>
                   </div>
                   <div className="p-2 bg-white rounded-lg shadow-sm">

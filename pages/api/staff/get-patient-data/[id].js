@@ -1,37 +1,12 @@
 // pages/api/staff/get-patient-data/[id].js
 import dbConnect from "../../../../lib/database";
 import PatientRegistration from "../../../../models/PatientRegistration";
-import PettyCash from "../../../../models/PettyCash";
 import User from "../../../../models/Users";
 import mongoose from "mongoose";
 import { getAuthorizedStaffUser } from "../../../../server/staff/authHelpers";
 
 const hasRole = (user, roles = []) => roles.includes(user.role);
 
-// ---------------- Add to PettyCash if payment method is Cash ----------------
-async function addToPettyCashIfCash(user, patient, paidAmount) {
-  if (patient.paymentMethod === "Cash" && paidAmount > 0) {
-    try {
-      const pettyCashRecord = await PettyCash.create({
-        staffId: user._id,
-        patientName: `${patient.firstName || ''} ${patient.lastName || ''}`.trim(),
-        patientEmail: patient.email || '',
-        patientPhone: patient.mobileNumber || '',
-        note: `Auto-added from patient payment update - Invoice: ${patient.invoiceNumber}`,
-        allocatedAmounts: [{
-          amount: paidAmount,
-          receipts: [],
-          date: new Date()
-        }],
-        expenses: []
-      });
-
-      await PettyCash.updateGlobalTotalAmount(paidAmount, 'add');
-    } catch (error) {
-      // Swallow petty cash errors to avoid breaking patient update
-    }
-  }
-}
 
 export default async function handler(req, res) {
   await dbConnect();
@@ -106,116 +81,13 @@ export default async function handler(req, res) {
       const invoice = await PatientRegistration.findById(id);
       if (!invoice) return res.status(404).json({ message: "Invoice not found" });
 
-      // Small helper to record a consistent, validated snapshot
-      const pushHistorySnapshot = (extra = {}) => {
-        const amountNum = Number(invoice.amount ?? 0);
-        const paidNum = Number(invoice.paid ?? 0);
-        const advanceNum = Number(invoice.advance ?? 0);
-        const pendingNum = Math.max(0, amountNum - paidNum);
-        invoice.paymentHistory.push({
-          amount: amountNum,
-          paid: paidNum,
-          advance: advanceNum,
-          pending: pendingNum,
-          paymentMethod: invoice.paymentMethod || "",
-          updatedAt: new Date(),
-          ...extra,
-        });
-      };
 
       let responseMessage = "";
 
       // -------------------------------
-      // OPTION 1: Payment Update
+      // Patient Detail Update
       // -------------------------------
-      if (updateType === "payment") {
-        let { amount, paying, paymentMethod } = req.body;
-
-        const currentAmount = invoice.amount ?? 0;
-        const currentPaid = invoice.paid ?? 0;
-
-        const newAmount = amount !== undefined ? Number(amount) : currentAmount;
-        paying = paying !== undefined ? Number(paying) : 0;
-        paymentMethod = paymentMethod || invoice.paymentMethod || "";
-
-        const newPaid = currentPaid + paying;
-        const totalAdvance = Math.max(0, (newPaid - currentAmount) / 2);
-        const newAdvance = totalAdvance;
-        const finalPending = Math.max(0, currentAmount - newPaid);
-
-        if (newAmount !== currentAmount) {
-          invoice.amount = newAmount;
-        }
-        invoice.paid = newPaid;
-        invoice.advance = newAdvance;
-        invoice.pending = finalPending;
-
-        invoice.advance = Math.max(0, (invoice.paid - invoice.amount) / 2);
-        invoice.pending = Math.max(0, invoice.amount - invoice.paid);
-        invoice.paymentMethod = paymentMethod;
-
-        pushHistorySnapshot({
-          amount: newAmount,
-          paid: newPaid,
-          advance: Math.max(0, newPaid - newAmount),
-          pending: Math.max(0, newAmount - newPaid),
-          paymentMethod,
-          paying,
-        });
-
-        if (paying > 0 && paymentMethod === "Cash") {
-          await addToPettyCashIfCash(user, invoice, paying);
-        }
-        responseMessage = "Payment updated successfully";
-      } 
-      // -------------------------------
-      // OPTION 2: Status Update
-      // -------------------------------
-      else if (updateType === "status") {
-        const { status, rejectionNote } = req.body;
-
-        if (status !== undefined) invoice.status = status;
-        if (rejectionNote !== undefined) invoice.rejectionNote = rejectionNote;
-
-        invoice.pending = Math.max(0, invoice.amount - invoice.paid);
-        pushHistorySnapshot({ status: invoice.status, rejectionNote: invoice.rejectionNote });
-        responseMessage = "Status updated successfully";
-      } 
-      // -------------------------------
-      // OPTION 3: Advance Claim Update
-      // -------------------------------
-      else if (updateType === "advanceClaim") {
-        const {
-          advanceClaimStatus,
-          advanceClaimCancellationRemark,
-          advanceClaimReleaseDate,
-          advanceClaimReleasedBy,
-        } = req.body;
-
-        if (advanceClaimStatus !== undefined)
-          invoice.advanceClaimStatus = advanceClaimStatus;
-
-        if (advanceClaimCancellationRemark !== undefined)
-          invoice.advanceClaimCancellationRemark = advanceClaimCancellationRemark;
-
-        if (advanceClaimReleaseDate !== undefined)
-          invoice.advanceClaimReleaseDate = advanceClaimReleaseDate
-            ? new Date(advanceClaimReleaseDate)
-            : null;
-
-        if (advanceClaimReleasedBy !== undefined)
-          invoice.advanceClaimReleasedBy = advanceClaimReleasedBy;
-
-        pushHistorySnapshot({
-          advanceClaimStatus: invoice.advanceClaimStatus,
-          advanceClaimCancellationRemark: invoice.advanceClaimCancellationRemark,
-        });
-        responseMessage = "Advance claim updated successfully";
-      } 
-      // -------------------------------
-      // OPTION 4: Patient Detail Update
-      // -------------------------------
-      else if (updateType === "details") {
+      if (updateType === "details") {
         const {
           invoiceNumber,
           invoicedDate,
@@ -227,15 +99,6 @@ export default async function handler(req, res) {
           mobileNumber,
           referredBy,
           patientType,
-          doctor,
-          service,
-          treatment,
-          package: packageName,
-          packageUnits,
-          usedSession,
-          userTreatmentName,
-          amount,
-          paymentMethod,
           insurance,
           insuranceType,
           advanceGivenAmount,
@@ -244,12 +107,9 @@ export default async function handler(req, res) {
           membership,
           membershipStartDate,
           membershipEndDate,
-          status,
-          rejectionNote,
-          paying,
         } = req.body;
 
-        if (!firstName || !gender || !doctor || !service || !paymentMethod) {
+        if (!firstName || !gender) {
           return res.status(400).json({ message: "Missing required patient fields" });
         }
 
@@ -263,23 +123,6 @@ export default async function handler(req, res) {
         if (mobileNumber !== undefined) invoice.mobileNumber = mobileNumber;
         invoice.referredBy = referredBy || "";
         invoice.patientType = patientType || invoice.patientType;
-        invoice.doctor = doctor;
-        invoice.service = service;
-        if (service === "Package") {
-          invoice.package = packageName || "";
-          invoice.treatment = "";
-        } else if (service === "Treatment") {
-          invoice.treatment = treatment || "";
-          invoice.package = "";
-        }
-        if (packageUnits !== undefined) invoice.packageUnits = Number(packageUnits) || 1;
-        if (usedSession !== undefined) invoice.usedSession = Number(usedSession) || 0;
-        if (userTreatmentName !== undefined) invoice.userTreatmentName = userTreatmentName || "";
-
-        if (amount !== undefined) invoice.amount = Number(amount) || 0;
-        if (paymentMethod !== undefined && paymentMethod !== "") {
-          invoice.paymentMethod = paymentMethod;
-        }
 
         invoice.membership = membership || invoice.membership || "No";
         if (membership === "Yes") {
@@ -290,8 +133,6 @@ export default async function handler(req, res) {
           invoice.membershipEndDate = null;
         }
 
-        invoice.status = status || invoice.status;
-        invoice.rejectionNote = rejectionNote || "";
         invoice.notes = notes || "";
 
         // Insurance handling
@@ -314,64 +155,13 @@ export default async function handler(req, res) {
           invoice.advanceClaimCancellationRemark = null;
         }
 
-        const payingAmount = paying !== undefined ? Number(paying) || 0 : 0;
-        if (payingAmount < 0) {
-          return res.status(400).json({ message: "Paying amount cannot be negative" });
-        }
-
-        if (payingAmount > 0) {
-          const previousPaid = Number(invoice.paid ?? 0);
-          invoice.paid = previousPaid + payingAmount;
-          invoice.pending = Math.max(0, Number(invoice.amount ?? 0) - invoice.paid);
-          invoice.advance = Math.max(0, invoice.paid - Number(invoice.amount ?? 0));
-
-          pushHistorySnapshot({
-            amount: Number(invoice.amount ?? 0),
-            paid: Number(invoice.paid ?? 0),
-            advance: Number(invoice.advance ?? 0),
-            pending: Number(invoice.pending ?? 0),
-            paymentMethod: invoice.paymentMethod,
-            paying: payingAmount,
-            status: invoice.status,
-            rejectionNote: invoice.rejectionNote,
-          });
-
-          if (invoice.paymentMethod === "Cash") {
-            await addToPettyCashIfCash(user, invoice, payingAmount);
-          }
-        } else {
-          invoice.pending = Math.max(0, Number(invoice.amount ?? 0) - Number(invoice.paid ?? 0));
-          invoice.advance = Math.max(0, Number(invoice.paid ?? 0) - Number(invoice.amount ?? 0));
-
-          pushHistorySnapshot({
-            amount: Number(invoice.amount ?? 0),
-            paid: Number(invoice.paid ?? 0),
-            advance: Number(invoice.advance ?? 0),
-            pending: Number(invoice.pending ?? 0),
-            paymentMethod: invoice.paymentMethod,
-            status: invoice.status,
-            rejectionNote: invoice.rejectionNote,
-          });
-        }
-
         responseMessage = "Patient details updated successfully";
-      }
-      else {
-        return res.status(400).json({ message: "Invalid update type" });
       }
 
       await invoice.save();
 
       return res.status(200).json({
-        message:
-          responseMessage ||
-          (updateType === "payment"
-            ? "Payment updated successfully"
-            : updateType === "status"
-            ? "Status updated successfully"
-            : updateType === "advanceClaim"
-            ? "Advance claim status updated successfully"
-            : "Patient details updated successfully"),
+        message: responseMessage || "Patient details updated successfully",
         updatedInvoice: {
           ...invoice.toObject(),
           _id: invoice._id.toString(),

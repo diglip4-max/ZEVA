@@ -260,6 +260,7 @@ export default async function handler(req, res) {
         notes: notes || "",
         createdBy: clinicUser._id,
         bookedFrom: validBookedFrom, // Use validated value - explicitly set to override default
+        customTimeSlots: req.body.customTimeSlots || undefined, // Save custom time slots if provided
       };
       console.log("💾 Appointment data being saved:", JSON.stringify(appointmentData, null, 2));
       

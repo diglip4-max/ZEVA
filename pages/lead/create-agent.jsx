@@ -734,6 +734,7 @@ const ManageAgentsPage = () => {
       {/* Doctor Treatment Modal */}
       {treatmentAgent && (
         <DoctorTreatmentModal
+          useClinicTreatments={true}
           isOpen={!!treatmentAgent}
           onClose={() => setTreatmentAgent(null)}
           doctorStaffId={treatmentAgent._id}

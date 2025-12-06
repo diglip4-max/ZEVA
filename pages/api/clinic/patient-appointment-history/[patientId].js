@@ -16,17 +16,27 @@ export default async function handler(req, res) {
     if (!clinicUser) {
       return res.status(401).json({ success: false, message: "Unauthorized" });
     }
-    if (clinicUser.role !== "clinic") {
-      return res.status(403).json({ success: false, message: "Access denied. Clinic role required." });
+    
+    // Allow clinic, agent, doctor, and doctorStaff roles
+    if (!["clinic", "agent", "doctor", "doctorStaff"].includes(clinicUser.role)) {
+      return res.status(403).json({ success: false, message: "Access denied. Clinic, agent, doctor, or doctorStaff role required." });
     }
 
     // Find the clinic associated with this user
-    const clinic = await Clinic.findOne({ owner: clinicUser._id }).lean();
-    if (!clinic) {
-      return res.status(404).json({ success: false, message: "Clinic not found" });
+    let clinicId = null;
+    if (clinicUser.role === "clinic") {
+      const clinic = await Clinic.findOne({ owner: clinicUser._id }).lean();
+      if (!clinic) {
+        return res.status(404).json({ success: false, message: "Clinic not found" });
+      }
+      clinicId = clinic._id;
+    } else if (["agent", "doctor", "doctorStaff"].includes(clinicUser.role)) {
+      // For agent, doctor, and doctorStaff, get clinicId from user's clinicId field
+      clinicId = clinicUser.clinicId;
+      if (!clinicId) {
+        return res.status(403).json({ success: false, message: "Access denied. User not linked to a clinic." });
+      }
     }
-
-    const clinicId = clinic._id;
     const patientId = req.query.patientId;
 
     // Validate patient ID

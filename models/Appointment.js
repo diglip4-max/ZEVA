@@ -74,6 +74,16 @@ const AppointmentSchema = new mongoose.Schema(
       enum: ["doctor", "room"],
       default: "doctor", // Track which column the appointment was booked from
     },
+    customTimeSlots: {
+      startTime: {
+        type: String,
+        required: false, // Format: "HH:MM" (24-hour)
+      },
+      endTime: {
+        type: String,
+        required: false, // Format: "HH:MM" (24-hour)
+      },
+    },
   },
   { timestamps: true }
 );

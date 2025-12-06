@@ -1,39 +1,9 @@
 import dbConnect from "../../../lib/database";
 import PatientRegistration from "../../../models/PatientRegistration";
-import PettyCash from "../../../models/PettyCash";
 import { getAuthorizedStaffUser } from "../../../server/staff/authHelpers";
 
 const hasRole = (user, roles = []) => roles.includes(user.role);
 
-// ---------------- Add to PettyCash if payment method is Cash ----------------
-async function addToPettyCashIfCash(user, patient, paidAmount) {
-  if (patient.paymentMethod === "Cash" && paidAmount > 0) {
-    try {
-      // Create a separate PettyCash record for each patient
-      const pettyCashRecord = await PettyCash.create({
-        staffId: user._id,
-        patientName: `${patient.firstName || ''} ${patient.lastName || ''}`.trim(),
-        patientEmail: patient.email || '',
-        patientPhone: patient.mobileNumber || '',
-        note: `Auto-added from patient registration - Invoice: ${patient.invoiceNumber}`,
-        allocatedAmounts: [{
-          amount: paidAmount,
-          receipts: [],
-          date: new Date()
-        }],
-        expenses: []
-      });
-
-      // Update global total amount
-      await PettyCash.updateGlobalTotalAmount(paidAmount, 'add');
-      
-      console.log(`Added د.إ${paidAmount} to PettyCash for staff ${user.name} and updated global total - Patient: ${patient.firstName} ${patient.lastName}`);
-    } catch (error) {
-      console.error("Error adding to PettyCash:", error);
-      // Don't throw error to avoid breaking patient registration
-    }
-  }
-}
 
 // ---------------- API Handler ----------------
 export default async function handler(req, res) {
@@ -64,14 +34,6 @@ export default async function handler(req, res) {
         mobileNumber,
         referredBy,
         patientType,
-        doctor,
-        service,
-        treatment,
-        package: packageName,
-        amount,
-        paid,
-        advance,
-        paymentMethod,
         insurance,
         insuranceType,
         advanceGivenAmount,
@@ -79,6 +41,9 @@ export default async function handler(req, res) {
         advanceClaimStatus,
         advanceClaimReleasedBy,
         notes,
+        membership,
+        membershipStartDate,
+        membershipEndDate,
       } = req.body;
 
       const computedInvoicedBy =
@@ -94,12 +59,7 @@ export default async function handler(req, res) {
         !invoiceNumber ||
         !firstName ||
         !gender ||
-        !mobileNumber ||
-        !doctor ||
-        !service ||
-        amount === undefined ||
-        paid === undefined ||
-        !paymentMethod
+        !mobileNumber
       ) {
         return res.status(400).json({ success: false, message: "Missing required fields" });
       }
@@ -107,47 +67,53 @@ export default async function handler(req, res) {
       const existingPatient = await PatientRegistration.findOne({ invoiceNumber });
 
       if (existingPatient) {
-        const normalizedAmount = Number(amount) || 0;
-        const normalizedPaidIncrement = Number(paid) || 0;
+        // Update existing patient with new data
+        if (emrNumber !== undefined) existingPatient.emrNumber = emrNumber;
+        if (firstName !== undefined) existingPatient.firstName = firstName;
+        if (lastName !== undefined) existingPatient.lastName = lastName;
+        if (gender !== undefined) existingPatient.gender = gender;
+        if (email !== undefined) existingPatient.email = email;
+        if (mobileNumber !== undefined) existingPatient.mobileNumber = mobileNumber;
+        if (referredBy !== undefined) existingPatient.referredBy = referredBy;
+        if (patientType !== undefined) existingPatient.patientType = patientType;
+        if (notes !== undefined) existingPatient.notes = notes;
+        
+        // Insurance handling
+        if (insurance === "Yes") {
+          existingPatient.insurance = "Yes";
+          existingPatient.insuranceType = insuranceType || existingPatient.insuranceType || "Paid";
+          existingPatient.advanceGivenAmount = advanceGivenAmount !== undefined ? Number(advanceGivenAmount) : existingPatient.advanceGivenAmount;
+          existingPatient.coPayPercent = coPayPercent !== undefined ? Number(coPayPercent) : existingPatient.coPayPercent;
+          if (!existingPatient.advanceClaimStatus) {
+            existingPatient.advanceClaimStatus = "Pending";
+          }
+        } else if (insurance === "No") {
+          existingPatient.insurance = "No";
+          existingPatient.insuranceType = "Paid";
+          existingPatient.advanceGivenAmount = 0;
+          existingPatient.coPayPercent = 0;
+          existingPatient.advanceClaimStatus = null;
+        }
 
-        // Apply increments
-        existingPatient.amount += normalizedAmount;
-        existingPatient.paid += normalizedPaidIncrement;
-
-        // Membership removed
-
-        // Derive correct advance/pending from paid vs amount (avoid double counting)
-        const derivedAdvance = Math.max(0, existingPatient.paid - existingPatient.amount);
-        const derivedPending = Math.max(0, existingPatient.amount - existingPatient.paid);
-        existingPatient.advance = derivedAdvance;
-        existingPatient.pending = derivedPending;
-
-        // Record history snapshot after applying the change
-        existingPatient.paymentHistory.push({
-          amount: existingPatient.amount,
-          paid: existingPatient.paid,
-          advance: existingPatient.advance,
-          pending: existingPatient.pending,
-          paymentMethod,
-          updatedAt: new Date(),
-        });
+        // Membership handling
+        if (membership === "Yes") {
+          existingPatient.membership = "Yes";
+          if (membershipStartDate) existingPatient.membershipStartDate = new Date(membershipStartDate);
+          if (membershipEndDate) existingPatient.membershipEndDate = new Date(membershipEndDate);
+        } else if (membership === "No") {
+          existingPatient.membership = "No";
+          existingPatient.membershipStartDate = null;
+          existingPatient.membershipEndDate = null;
+        }
 
         await existingPatient.save();
 
-        // Add to PettyCash if payment method is Cash
-        await addToPettyCashIfCash(user, existingPatient, normalizedPaidIncrement);
-
         return res.status(200).json({
           success: true,
-          message: "Payment added to existing patient",
+          message: "Patient updated successfully",
           data: existingPatient,
         });
       }
-
-      const normalizedAmount = Number(amount) || 0;
-      const normalizedPaid = Number(paid) || 0;
-      const derivedAdvanceOnCreate = Math.max(0, normalizedPaid - normalizedAmount);
-      const derivedPendingOnCreate = Math.max(0, normalizedAmount - normalizedPaid);
 
       const patient = await PatientRegistration.create({
         invoiceNumber,
@@ -161,35 +127,16 @@ export default async function handler(req, res) {
         mobileNumber,
         referredBy,
         patientType,
-        doctor,
-        service,
-        treatment,
-        package: packageName,
-        amount: normalizedAmount,
-        paid: normalizedPaid,
-        advance: derivedAdvanceOnCreate,
-        paymentMethod,
         insurance,
         insuranceType,
         advanceGivenAmount: Number(advanceGivenAmount) || 0,
         coPayPercent: Number(coPayPercent) || 0,
         advanceClaimStatus,
-        advanceClaimReleasedBy,
         notes,
-        paymentHistory: [
-          {
-            amount: normalizedAmount,
-            paid: normalizedPaid,
-            advance: derivedAdvanceOnCreate,
-            pending: derivedPendingOnCreate,
-            paymentMethod,
-            updatedAt: new Date(),
-          },
-        ],
+        membership: membership || "No",
+        membershipStartDate: membership === "Yes" && membershipStartDate ? new Date(membershipStartDate) : null,
+        membershipEndDate: membership === "Yes" && membershipEndDate ? new Date(membershipEndDate) : null,
       });
-
-      // Add to PettyCash if payment method is Cash
-      await addToPettyCashIfCash(user, patient, Number(paid) || 0);
 
       return res.status(201).json({
         success: true,

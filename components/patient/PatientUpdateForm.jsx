@@ -3,17 +3,17 @@ import { useRouter } from "next/router";
 import {
   Calendar,
   User,
-  DollarSign,
   FileText,
   X,
   CheckCircle,
   AlertCircle,
+  DollarSign,
+  Edit,
+  Loader2,
 } from "lucide-react";
 
-const paymentMethods = ["Cash", "Card", "BT", "Tabby", "Tamara"];
 const genderOptions = ["Male", "Female", "Other"];
 const patientTypeOptions = ["New", "Old"];
-const serviceOptions = ["Package", "Treatment"];
 const insuranceOptions = ["Yes", "No"];
 const insuranceTypeOptions = ["Paid", "Advance"];
 
@@ -83,8 +83,8 @@ const EditableField = ({
   step,
   isCompact = false,
 }) => (
-  <div className="min-w-0">
-    <label className={`block ${isCompact ? 'text-xs mb-1' : 'text-xs md:text-sm mb-1'} font-semibold text-gray-700`}>
+  <div className="flex-1 min-w-[120px]">
+    <label className={`block text-[10px] mb-0.5 font-medium text-gray-700`}>
       {label} {required && <span className="text-red-500">*</span>}
     </label>
     {type === "select" ? (
@@ -93,7 +93,7 @@ const EditableField = ({
         value={value ?? ""}
         onChange={onChange}
         disabled={disabled}
-        className={`w-full ${isCompact ? 'px-2.5 py-1.5 text-xs' : 'px-3 py-2 text-sm md:text-base'} border rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 ${disabled ? "bg-gray-100 cursor-not-allowed text-gray-500" : "bg-white text-gray-900"}`}
+        className={`w-full px-2 py-1 text-[10px] border rounded-md focus:ring-1 focus:ring-gray-900 focus:border-gray-900 ${disabled ? "bg-gray-100 cursor-not-allowed text-gray-500" : "bg-white text-gray-900"}`}
       >
         <option value="">{placeholder || `Select ${label}`}</option>
         {options.map((opt) => (
@@ -109,8 +109,8 @@ const EditableField = ({
         onChange={onChange}
         placeholder={placeholder}
         disabled={disabled}
-        rows={isCompact ? 2 : 3}
-        className={`w-full ${isCompact ? 'px-2.5 py-1.5 text-xs' : 'px-3 py-2 text-sm md:text-base'} border rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 resize-none ${disabled ? "bg-gray-100 cursor-not-allowed text-gray-500" : "bg-white text-gray-900"}`}
+        rows={2}
+        className={`w-full px-2 py-1 text-[10px] border rounded-md focus:ring-1 focus:ring-gray-900 focus:border-gray-900 resize-none ${disabled ? "bg-gray-100 cursor-not-allowed text-gray-500" : "bg-white text-gray-900"}`}
       />
     ) : (
       <input
@@ -123,7 +123,7 @@ const EditableField = ({
         min={min}
         max={max}
         step={step}
-        className={`w-full ${isCompact ? 'px-2.5 py-1.5 text-xs' : 'px-3 py-2 text-sm md:text-base'} border rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 ${disabled ? "bg-gray-100 cursor-not-allowed text-gray-500" : "bg-white text-gray-900"}`}
+        className={`w-full px-2 py-1 text-[10px] border rounded-md focus:ring-1 focus:ring-gray-900 focus:border-gray-900 ${disabled ? "bg-gray-100 cursor-not-allowed text-gray-500" : "bg-white text-gray-900"}`}
       />
     )}
   </div>
@@ -135,10 +135,13 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
   const [currentUser] = useState({ name: "Admin User", role: "Clinic" });
   const [invoiceInfo, setInvoiceInfo] = useState(null);
   const [formData, setFormData] = useState({});
-  const [calculatedFields, setCalculatedFields] = useState({ pending: 0, needToPay: 0 });
+  const [calculatedFields, setCalculatedFields] = useState({ needToPay: 0 });
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState("");
   const [toast, setToast] = useState(null);
+  const [activeTab, setActiveTab] = useState("update"); // "update" or "paymentHistory"
+  const [billingHistory, setBillingHistory] = useState([]);
+  const [loadingBillingHistory, setLoadingBillingHistory] = useState(false);
 
   const authToken = getStoredToken();
   const showToast = (message, type = "success") => setToast({ message, type });
@@ -184,47 +187,46 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
     fetchInvoice();
   }, [resolvedId, authToken]);
 
-  const calculatePending = useCallback(() => {
-    const amount = parseFloat(formData.amount) || 0;
-    const paid = parseFloat(formData.paid) || 0;
-    const advance = parseFloat(formData.advance) || 0;
-    setCalculatedFields((prev) => ({ ...prev, pending: Math.max(0, amount - (paid)) }));
-    setFormData((prev) => ({
-      ...prev,
-      pending: Math.max(0, amount - paid),
-      advance: paid > amount ? paid - amount : advance,
-    }));
-  }, [formData.amount, formData.paid, formData.advance]);
+  // Fetch billing history when payment history tab is active
+  useEffect(() => {
+    if (activeTab === "paymentHistory" && resolvedId && authToken && !loadingBillingHistory) {
+      const fetchBillingHistory = async () => {
+        setLoadingBillingHistory(true);
+        try {
+          const res = await fetch(`/api/clinic/billing-history/${resolvedId}`, {
+            headers: { Authorization: `Bearer ${authToken}` },
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (data.success) {
+              setBillingHistory(data.billings || []);
+            }
+          }
+        } catch (err) {
+          console.error("Error fetching billing history:", err);
+        } finally {
+          setLoadingBillingHistory(false);
+        }
+      };
+      fetchBillingHistory();
+    }
+  }, [activeTab, resolvedId, authToken]);
 
   const calculateNeedToPay = useCallback(() => {
-    if (formData.insurance === "Yes") {
-      const amount = parseFloat(formData.amount) || 0;
+    if (formData.insurance === "Yes" && formData.insuranceType === "Advance") {
+      const advanceGivenAmount = parseFloat(formData.advanceGivenAmount) || 0;
       const coPayPercent = parseFloat(formData.coPayPercent) || 0;
-      const coPayAmount = (amount * coPayPercent) / 100;
-      setCalculatedFields((prev) => ({ ...prev, needToPay: Math.max(0, amount - coPayAmount) }));
-      setFormData((prev) => ({ ...prev, needToPay: Math.max(0, amount - coPayAmount) }));
+      const coPayAmount = (advanceGivenAmount * coPayPercent) / 100;
+      setCalculatedFields((prev) => ({ ...prev, needToPay: Math.max(0, advanceGivenAmount - coPayAmount) }));
     } else {
-      setCalculatedFields((prev) => ({ ...prev, needToPay: Math.max(0, formData.pending || 0) }));
-      setFormData((prev) => ({ ...prev, needToPay: Math.max(0, prev.pending || 0) }));
+      setCalculatedFields((prev) => ({ ...prev, needToPay: 0 }));
     }
-  }, [formData.insurance, formData.amount, formData.coPayPercent, formData.pending]);
+  }, [formData.insurance, formData.insuranceType, formData.advanceGivenAmount, formData.coPayPercent]);
 
   useEffect(() => {
-    calculatePending();
     calculateNeedToPay();
-  }, [calculatePending, calculateNeedToPay]);
+  }, [calculateNeedToPay]);
 
-  const previewValues = useMemo(() => {
-    const amountNum = parseFloat(formData.amount) || 0;
-    const paidNum = parseFloat(formData.paid) || 0;
-    const payingNum = parseFloat(formData.paying) || 0;
-    const totalPaid = paidNum + payingNum;
-    return {
-      totalPaid,
-      advance: Math.max(0, totalPaid - amountNum),
-      pending: Math.max(0, amountNum - totalPaid),
-    };
-  }, [formData.amount, formData.paid, formData.paying]);
 
   const handleFullUpdate = useCallback(async () => {
     if (!invoiceInfo) return;
@@ -232,10 +234,6 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
       { field: "firstName", label: "First Name" },
       { field: "gender", label: "Gender" },
       { field: "mobileNumber", label: "Mobile Number" },
-      { field: "doctor", label: "Doctor" },
-      { field: "service", label: "Service" },
-      { field: "paymentMethod", label: "Payment Method" },
-      { field: "amount", label: "Amount" },
     ];
 
     const missingField = requiredFields.find(
@@ -246,10 +244,6 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
       return;
     }
 
-    if ((formData.status === "Rejected" || formData.status === "Cancelled") && !formData.rejectionNote?.trim()) {
-      showToast("Please provide a reason for the selected claim status", "error");
-      return;
-    }
 
     const invoiceId = invoiceInfo?._id;
     const payload = {
@@ -264,15 +258,6 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
       mobileNumber: formData.mobileNumber,
       referredBy: formData.referredBy,
       patientType: formData.patientType,
-      doctor: formData.doctor,
-      service: formData.service,
-      treatment: formData.service === "Treatment" ? formData.treatment : "",
-      package: formData.service === "Package" ? formData.package : "",
-      packageUnits: formData.packageUnits || 1,
-      usedSession: formData.usedSession || 0,
-      userTreatmentName: formData.userTreatmentName,
-      amount: formData.amount,
-      paymentMethod: formData.paymentMethod,
       insurance: formData.insurance,
       insuranceType: formData.insuranceType,
       advanceGivenAmount: formData.advanceGivenAmount,
@@ -281,9 +266,6 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
       membership: formData.membership,
       membershipStartDate: formData.membershipStartDate,
       membershipEndDate: formData.membershipEndDate,
-      status: formData.status,
-      rejectionNote: formData.rejectionNote,
-      paying: formData.paying || 0,
     };
 
     try {
@@ -303,7 +285,6 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
         setFormData({
           ...updated,
           invoicedDate: updated.invoicedDate ? updated.invoicedDate.slice(0, 16) : "",
-          paying: "",
         });
         showToast(result.message || "Patient updated successfully", "success");
         if (onUpdated) onUpdated();
@@ -316,13 +297,6 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
     }
   }, [authToken, formData, invoiceInfo, onUpdated]);
 
-  const handlePaymentChange = useCallback((e) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value === "" ? "" : Number(value),
-    }));
-  }, []);
 
   const canViewMobileNumber = useMemo(
     () => ["Admin", "Super Admin", "Clinic"].includes(currentUser.role),
@@ -372,55 +346,84 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
 
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
-      <div className={embedded ? "p-2 sm:p-3 md:p-4 space-y-2 sm:space-y-3 flex-1 overflow-y-auto" : "max-w-7xl mx-auto"}>
+      <div className={embedded ? "p-2 space-y-2 flex-1 overflow-y-auto" : "max-w-7xl mx-auto"}>
         {embedded ? (
-          <div className="sticky top-0 bg-gray-50 border-b px-2 sm:px-3 md:px-4 py-2 sm:py-3 flex items-center justify-between z-10">
-            <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1">
-              <FileText className="w-4 h-4 sm:w-5 sm:h-5 text-gray-700 flex-shrink-0" />
-              <h1 className="text-sm sm:text-base md:text-lg font-bold text-gray-900 truncate">Edit Patient</h1>
+          <div className="sticky top-0 bg-gray-50 border-b px-2 py-1 flex items-center justify-between z-10">
+            <div className="flex items-center gap-1 min-w-0 flex-1">
+              <FileText className="w-3 h-3 text-gray-700 flex-shrink-0" />
+              <h1 className="text-xs font-bold text-gray-900 truncate">Edit Patient</h1>
             </div>
             {onClose && (
               <button
                 onClick={onClose}
-                className="p-1.5 hover:bg-gray-200 rounded-lg text-gray-400 hover:text-gray-700 transition-colors flex-shrink-0 ml-2"
+                className="p-1 hover:bg-gray-200 rounded-lg text-gray-400 hover:text-gray-700 transition-colors flex-shrink-0 ml-2"
               >
-                <X className="w-4 h-4 sm:w-5 sm:h-5" />
+                <X className="w-3 h-3" />
               </button>
             )}
           </div>
         ) : (
-          <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-4 md:px-6 lg:px-8 py-4 md:py-5 lg:py-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-3 py-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <div>
-              <h1 className="text-xl md:text-2xl lg:text-3xl font-bold flex items-center gap-2 md:gap-3">
-                <FileText className="w-6 h-6 md:w-7 md:h-7 lg:w-8 lg:h-8" />
+              <h1 className="text-sm font-bold flex items-center gap-1">
+                <FileText className="w-3 h-3" />
                 Patient & Invoice Management
               </h1>
-              <p className="text-indigo-100 mt-1 text-xs md:text-sm">View and update patient information</p>
+              <p className="text-indigo-100 mt-0.5 text-[9px]">View and update patient information</p>
             </div>
             <div className="flex items-center gap-2">
               {onClose && (
                 <button
                   onClick={onClose}
-                  className="px-4 py-2 rounded-lg bg-white/10 text-white border border-white/30 hover:bg-white/20 transition-colors text-sm font-medium"
+                  className="px-2 py-1 rounded-lg bg-white/10 text-white border border-white/30 hover:bg-white/20 transition-colors text-[10px] font-medium"
                 >
                   Close
                 </button>
               )}
-              <div className="bg-white/10 backdrop-blur-sm rounded-lg px-3 py-2 text-left">
-                <div className="text-xs text-indigo-100">Logged in as</div>
-                <div className="text-xs text-indigo-200">Clinic Staff</div>
+              <div className="bg-white/10 backdrop-blur-sm rounded-lg px-2 py-1 text-left">
+                <div className="text-[9px] text-indigo-100">Logged in as</div>
+                <div className="text-[9px] text-indigo-200">Clinic Staff</div>
               </div>
             </div>
           </div>
         )}
 
-        <div className={`${embedded ? 'p-2 sm:p-3 md:p-4 space-y-2 sm:space-y-3 flex-1 overflow-y-auto' : 'p-3 sm:p-4 md:p-6 lg:p-8 space-y-4 sm:space-y-5 md:space-y-6'}`}>
-            <div className={`${embedded ? 'bg-gray-50 rounded-lg p-2 sm:p-3 border border-gray-200' : 'bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg sm:rounded-xl p-3 sm:p-4 md:p-5 border border-blue-100'}`}>
-              <h2 className={`${embedded ? 'text-xs sm:text-sm' : 'text-sm sm:text-base md:text-lg'} font-bold text-gray-900 ${embedded ? 'mb-1.5 sm:mb-2' : 'mb-3 sm:mb-4'} flex items-center gap-1.5 sm:gap-2`}>
-                <Calendar className={`${embedded ? 'w-3.5 h-3.5 sm:w-4 sm:h-4' : 'w-4 h-4 sm:w-5 sm:h-5'} text-gray-700 flex-shrink-0`} />
+        <div className={`${embedded ? 'p-2 space-y-2 flex-1 overflow-y-auto' : 'p-3 sm:p-4 md:p-6 lg:p-8 space-y-4 sm:space-y-5 md:space-y-6'}`}>
+          {/* Tabs */}
+          <div className="flex gap-1 border-b border-gray-200 mb-2">
+            <button
+              onClick={() => setActiveTab("update")}
+              className={`px-3 py-1.5 text-[10px] font-medium transition-colors flex items-center gap-1 ${
+                activeTab === "update"
+                  ? "text-gray-900 border-b-2 border-gray-900"
+                  : "text-gray-600 hover:text-gray-900"
+              }`}
+            >
+              <Edit className="w-3 h-3" />
+              Update Patient
+            </button>
+            <button
+              onClick={() => setActiveTab("paymentHistory")}
+              className={`px-3 py-1.5 text-[10px] font-medium transition-colors flex items-center gap-1 ${
+                activeTab === "paymentHistory"
+                  ? "text-gray-900 border-b-2 border-gray-900"
+                  : "text-gray-600 hover:text-gray-900"
+              }`}
+            >
+              <DollarSign className="w-3 h-3" />
+              Payment History
+            </button>
+          </div>
+
+          {/* Update Patient Tab */}
+          {activeTab === "update" && (
+            <>
+            <div className={`bg-white rounded-lg p-2 border border-gray-200`}>
+              <h2 className={`text-xs font-semibold text-gray-900 mb-1 flex items-center gap-1`}>
+                <Calendar className={`w-3 h-3 text-gray-700 flex-shrink-0`} />
                 Invoice Information
               </h2>
-              <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 ${embedded ? 'gap-2' : 'gap-4 md:gap-5'}`}>
+              <div className={`flex flex-wrap gap-2 items-end`}>
                 <EditableField
                   label="Invoice Number"
                   name="invoiceNumber"
@@ -448,12 +451,12 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
               </div>
             </div>
 
-            <div className={`${embedded ? 'bg-gray-50 rounded-lg p-3 border border-gray-200' : 'bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-4 md:p-5 border border-green-100'}`}>
-              <h2 className={`${embedded ? 'text-sm' : 'text-base md:text-lg'} font-bold text-gray-900 ${embedded ? 'mb-2' : 'mb-4'} flex items-center gap-2`}>
-                <User className={`${embedded ? 'w-4 h-4' : 'w-5 h-5'} text-gray-700`} />
+            <div className={`bg-white rounded-lg p-2 border border-gray-200`}>
+              <h2 className={`text-xs font-semibold text-gray-900 mb-1 flex items-center gap-1`}>
+                <User className={`w-3 h-3 text-gray-700`} />
                 Patient Information
               </h2>
-              <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 ${embedded ? 'gap-2' : 'gap-4 md:gap-5'}`}>
+              <div className={`flex flex-wrap gap-2 items-end`}>
                 <EditableField
                   label="EMR Number"
                   name="emrNumber"
@@ -541,181 +544,9 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
               </div>
             </div>
 
-            <div className={`${embedded ? 'bg-gray-50 rounded-lg p-3 border border-gray-200' : 'bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-4 md:p-5 border border-purple-100'}`}>
-              <h2 className={`${embedded ? 'text-sm' : 'text-base md:text-lg'} font-bold text-gray-900 ${embedded ? 'mb-2' : 'mb-4'} flex items-center gap-2`}>
-                <FileText className={`${embedded ? 'w-4 h-4' : 'w-5 h-5'} text-gray-700`} />
-                Medical Details
-              </h2>
-              <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 ${embedded ? 'gap-2' : 'gap-4 md:gap-5'}`}>
-                <EditableField
-                  label="Doctor"
-                  name="doctor"
-                  value={formData.doctor}
-                  onChange={handleFieldChange}
-                  required
-                />
-                <EditableField
-                  label="Service"
-                  name="service"
-                  type="select"
-                  value={formData.service}
-                  onChange={handleFieldChange}
-                  options={serviceOptions}
-                  required
-                />
-                {formData.service === "Treatment" && (
-                  <EditableField
-                    label="Treatment"
-                    name="treatment"
-                    value={formData.treatment}
-                    onChange={handleFieldChange}
-                    required
-                  />
-                )}
-                {formData.service === "Package" && (
-                  <>
-                    <EditableField
-                      label="Package"
-                      name="package"
-                      value={formData.package}
-                      onChange={handleFieldChange}
-                      required
-                    />
-                    <EditableField
-                      label="Package Units"
-                      name="packageUnits"
-                      type="number"
-                      value={formData.packageUnits}
-                      onChange={handleFieldChange}
-                      min={1}
-                    />
-                  </>
-                )}
-                <EditableField
-                  label="Used Sessions"
-                  name="usedSession"
-                  type="number"
-                  value={formData.usedSession}
-                  onChange={handleFieldChange}
-                  min={0}
-                />
-                <EditableField
-                  label="Custom Treatment Name"
-                  name="userTreatmentName"
-                  value={formData.userTreatmentName}
-                  onChange={handleFieldChange}
-                />
-              </div>
-            </div>
-
-            <div className="bg-gradient-to-br from-yellow-50 to-orange-50 rounded-xl p-4 md:p-5 border border-yellow-100">
-              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between mb-4">
-                <h2 className="text-base md:text-lg font-bold text-gray-900 flex items-center gap-2">
-                  <DollarSign className="w-5 h-5 text-amber-600" />
-                  Payment & Claim Details
-                </h2>
-                <button
-                  onClick={handleFullUpdate}
-                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-semibold hover:bg-indigo-700 transition-colors"
-                >
-                  Update Patient
-                </button>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-5 mb-6">
-                <EditableField
-                  label="Amount"
-                  name="amount"
-                  type="number"
-                  value={formData.amount}
-                  onChange={handleFieldChange}
-                  min={0}
-                  required
-                />
-                <EditableField
-                  label="Current Paid Amount"
-                  name="paid"
-                  type="number"
-                  value={formData.paid}
-                  onChange={handleFieldChange}
-                  min={0}
-                />
-                <EditableField
-                  label="New Payment to Add (Optional)"
-                  name="paying"
-                  type="number"
-                  value={formData.paying || ""}
-                  onChange={handlePaymentChange}
-                  min={0}
-                  placeholder="Enter amount to add (optional)"
-                />
-                <EditableField
-                  label="Total Paid After Update (Preview)"
-                  name="totalPaidPreview"
-                  type="number"
-                  value={previewValues.totalPaid.toFixed(2)}
-                  onChange={() => {}}
-                  disabled
-                />
-                <EditableField
-                  label="New Advance (Preview)"
-                  name="advancePreview"
-                  type="number"
-                  value={previewValues.advance.toFixed(2)}
-                  onChange={() => {}}
-                  disabled
-                />
-                <EditableField
-                  label="Pending (Auto)"
-                  name="pending"
-                  value={`د.إ ${formData.pending?.toFixed(2) || "0.00"}`}
-                  onChange={() => {}}
-                  disabled
-                />
-                <EditableField
-                  label="Payment Method"
-                  name="paymentMethod"
-                  type="select"
-                  value={formData.paymentMethod}
-                  onChange={handleFieldChange}
-                  options={paymentMethods}
-                  required
-                />
-                <EditableField
-                  label="Claim Status"
-                  name="status"
-                  type="select"
-                  value={formData.status || ""}
-                  onChange={handleFieldChange}
-                  options={["Released", "Approved by doctor", "Cancelled", "Rejected"]}
-                />
-                {formData.status === "Rejected" && (
-                  <EditableField
-                    label="Rejection Note"
-                    name="rejectionNote"
-                    type="textarea"
-                    value={formData.rejectionNote || ""}
-                    onChange={handleFieldChange}
-                    required
-                  />
-                )}
-                <EditableField
-                  label="Notes"
-                  name="notes"
-                  type="textarea"
-                  value={formData.notes || ""}
-                  onChange={handleFieldChange}
-                  placeholder="Optional notes..."
-                />
-              </div>
-            </div>
-
-            <div className={`${embedded ? 'bg-gray-50 rounded-lg p-3 border border-gray-200' : 'bg-gradient-to-br from-cyan-50 to-blue-50 rounded-xl p-4 md:p-5 border border-cyan-100'}`}>
-              <h2 className="text-base md:text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                <FileText className="w-5 h-5 text-cyan-600" />
-                Insurance Details
-              </h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-5">
+            <div className={`bg-white rounded-lg p-2 border border-gray-200`}>
+              <h2 className={`text-xs font-semibold text-gray-900 mb-1`}>Insurance Details</h2>
+              <div className={`flex flex-wrap gap-2 items-end`}>
                 <EditableField
                   label="Insurance"
                   name="insurance"
@@ -796,85 +627,80 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
               </div>
             </div>
 
-            {formData.paymentHistory && formData.paymentHistory.length > 0 && (
-              <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl p-4 md:p-5 border border-amber-100">
-                <h2 className="text-base md:text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                  <FileText className="w-5 h-5 text-amber-600" />
-                  Payment History
-                </h2>
-                <div className="space-y-3">
-                  {formData.paymentHistory.map((entry, index) => (
-                    <div key={index} className="bg-white border border-gray-200 rounded-lg p-3 md:p-4">
-                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-3 gap-2">
-                        <h4 className="font-semibold text-gray-800 text-sm md:text-base">Entry #{index + 1}</h4>
-                        <span className="text-xs md:text-sm text-gray-500">
-                          {new Date(entry.updatedAt).toLocaleString()}
-                        </span>
-                      </div>
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 md:gap-4 text-xs md:text-sm">
-                        <div>
-                          <span className="font-medium text-gray-600">Amount:</span>
-                          <p className="text-gray-800">د.إ{entry.amount?.toFixed(2) || "0.00"}</p>
-                        </div>
-                        <div>
-                          <span className="font-medium text-gray-600">Paid:</span>
-                          <p className="text-gray-800">د.إ{entry.paid?.toFixed(2) || "0.00"}</p>
-                        </div>
-                        <div>
-                          <span className="font-medium text-gray-600">Advance:</span>
-                          <p className="text-gray-800">د.إ{entry.advance?.toFixed(2) || "0.00"}</p>
-                        </div>
-                        <div>
-                          <span className="font-medium text-gray-600">Pending:</span>
-                          <p className="text-gray-800">د.إ{entry.pending?.toFixed(2) || "0.00"}</p>
-                        </div>
-                        {entry.paying > 0 && (
-                          <div className="col-span-2 sm:col-span-4">
-                            <span className="font-medium text-gray-600">Paying Amount:</span>
-                            <p className="text-green-600 font-semibold">د.إ{entry.paying.toFixed(2)}</p>
-                          </div>
-                        )}
-                        <div className="col-span-2 sm:col-span-4">
-                          <span className="font-medium text-gray-600">Payment Method:</span>
-                          <p className="text-gray-800">{entry.paymentMethod || "N/A"}</p>
-                        </div>
-                        {entry.status && (
-                          <div className="col-span-2 sm:col-span-4">
-                            <span className="font-medium text-gray-600">Status:</span>
-                            <span
-                              className={`ml-2 px-2 py-1 rounded text-xs font-semibold ${
-                                entry.status === "Active"
-                                  ? "bg-green-100 text-green-800"
-                                  : entry.status === "Completed"
-                                  ? "bg-blue-100 text-blue-800"
-                                  : entry.status === "Cancelled"
-                                  ? "bg-red-100 text-red-800"
-                                  : entry.status === "Rejected"
-                                  ? "bg-red-100 text-red-800"
-                                  : entry.status === "Released"
-                                  ? "bg-purple-100 text-purple-800"
-                                  : "bg-gray-100 text-gray-800"
-                              }`}
-                            >
-                              {entry.status}
-                            </span>
-                          </div>
-                        )}
-                        {entry.rejectionNote && (
-                          <div className="col-span-2 sm:col-span-4">
-                            <span className="font-medium text-gray-600">Rejection Note:</span>
-                            <p className="text-red-600 text-xs md:text-sm mt-1">{entry.rejectionNote}</p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
+            {/* Actions */}
+            <div className="flex justify-end gap-2 pt-1">
+              <button
+                onClick={handleFullUpdate}
+                className="px-3 py-1 text-[10px] bg-gray-900 text-white rounded-md hover:bg-gray-800 transition font-medium shadow-sm"
+              >
+                Update Patient
+              </button>
+            </div>
+            </>
+          )}
+
+          {/* Payment History Tab */}
+          {activeTab === "paymentHistory" && (
+            <div className="bg-white rounded-lg p-2 border border-gray-200">
+              <h2 className="text-xs font-semibold text-gray-900 mb-2 flex items-center gap-1">
+                <DollarSign className="w-3 h-3 text-gray-700" />
+                Payment History
+              </h2>
+              
+              {loadingBillingHistory ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="w-4 h-4 animate-spin text-gray-500 mr-2" />
+                  <span className="text-[10px] text-gray-500">Loading payment history...</span>
                 </div>
-              </div>
-            )}
-          </div>
+              ) : billingHistory.length === 0 ? (
+                <div className="text-center py-8">
+                  <p className="text-[10px] text-gray-500">No payment history found</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-[10px]">
+                    <thead>
+                      <tr className="bg-blue-900 text-white">
+                        <th className="px-2 py-1 text-left font-medium">Invoice ID</th>
+                        <th className="px-2 py-1 text-left font-medium">Treatment/Package</th>
+                        <th className="px-2 py-1 text-left font-medium">Total Amount</th>
+                        <th className="px-2 py-1 text-left font-medium">Paid</th>
+                        <th className="px-2 py-1 text-left font-medium">Pending</th>
+                        <th className="px-2 py-1 text-left font-medium">Advance</th>
+                        <th className="px-2 py-1 text-left font-medium">Quantity</th>
+                        <th className="px-2 py-1 text-left font-medium">Session</th>
+                        <th className="px-2 py-1 text-left font-medium">Payment Method</th>
+                        <th className="px-2 py-1 text-left font-medium">Date</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {billingHistory.map((billing, index) => (
+                        <tr key={billing._id || index} className="border-b border-gray-200 hover:bg-gray-50">
+                          <td className="px-2 py-1 text-gray-900">{billing.invoiceNumber || "-"}</td>
+                          <td className="px-2 py-1 text-gray-900">
+                            {billing.service === "Treatment" ? billing.treatment : billing.package || "-"}
+                          </td>
+                          <td className="px-2 py-1 text-gray-900">₹{billing.amount?.toFixed(2) || "0.00"}</td>
+                          <td className="px-2 py-1 text-gray-900">₹{billing.paid?.toFixed(2) || "0.00"}</td>
+                          <td className="px-2 py-1 text-gray-900">₹{billing.pending?.toFixed(2) || "0.00"}</td>
+                          <td className="px-2 py-1 text-gray-900">₹{billing.advance?.toFixed(2) || "0.00"}</td>
+                          <td className="px-2 py-1 text-gray-900">{billing.quantity || "-"}</td>
+                          <td className="px-2 py-1 text-gray-900">{billing.sessions || "-"}</td>
+                          <td className="px-2 py-1 text-gray-900">{billing.paymentMethod || "-"}</td>
+                          <td className="px-2 py-1 text-gray-900">
+                            {billing.invoicedDate ? new Date(billing.invoicedDate).toLocaleDateString() : "-"}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
+    </div>
   );
 };
 
