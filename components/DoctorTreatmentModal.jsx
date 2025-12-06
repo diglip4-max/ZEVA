@@ -23,18 +23,16 @@ const MessageBanner = ({ type = "success", text }) => {
   );
 };
 
-const DoctorTreatmentModal = ({ isOpen, onClose, doctorStaffId, doctorStaffName, token }) => {
+const DoctorTreatmentModal = ({ isOpen, onClose, doctorStaffId, doctorStaffName, token, useClinicTreatments = false }) => {
   const [baseTreatments, setBaseTreatments] = useState([]);
   const [doctorTreatments, setDoctorTreatments] = useState([]);
   const [selectedTreatmentId, setSelectedTreatmentId] = useState("");
   const [selectedSubcategories, setSelectedSubcategories] = useState([]);
-  const [price, setPrice] = useState("");
   const [fetching, setFetching] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState({ type: "info", text: "" });
   const [activeTab, setActiveTab] = useState("existing"); // "existing", "custom", or "department"
   const [customTreatmentName, setCustomTreatmentName] = useState("");
-  const [customPrice, setCustomPrice] = useState("");
   const [customSubTreatments, setCustomSubTreatments] = useState([
     { id: Date.now(), name: "", price: "" },
   ]);
@@ -59,13 +57,49 @@ const DoctorTreatmentModal = ({ isOpen, onClose, doctorStaffId, doctorStaffName,
 
   const loadBaseTreatments = async () => {
     try {
-      const res = await axios.get("/api/staff/available-treatments", {
+      let res;
+      if (useClinicTreatments) {
+        // Fetch treatments from Clinic model
+        res = await axios.get("/api/clinic/treatments", {
+          headers: getAuthHeaders(),
+        });
+        if (res.data.success) {
+          // Transform clinic treatments format to match expected format
+          const clinicTreatments = res.data.clinic?.treatments || [];
+          const allTreatments = [];
+          
+          clinicTreatments.forEach((tr) => {
+            // Generate a unique ID for the main treatment
+            const mainTreatmentId = tr.mainTreatmentSlug || tr.mainTreatment?.toLowerCase().replace(/\s+/g, '-') || `treatment-${Date.now()}-${Math.random()}`;
+            
+            // Add main treatment with subcategories (mapped from subTreatments)
+            allTreatments.push({
+              _id: mainTreatmentId,
+              name: tr.mainTreatment,
+              slug: tr.mainTreatmentSlug || tr.mainTreatment?.toLowerCase().replace(/\s+/g, '-'),
+              subcategories: (tr.subTreatments || []).map((sub) => ({
+                _id: sub.slug || `sub-${sub.name?.toLowerCase().replace(/\s+/g, '-')}`,
+                name: sub.name,
+                slug: sub.slug,
+                price: sub.price || 0,
+              })),
+            });
+          });
+          
+          setBaseTreatments(allTreatments);
+        } else {
+          setMessage({ type: "error", text: res.data.message || "Unable to load treatments" });
+        }
+      } else {
+        // Fetch treatments from staff/available-treatments (original behavior)
+        res = await axios.get("/api/staff/available-treatments", {
         headers: getAuthHeaders(),
       });
       if (res.data.success) {
         setBaseTreatments(res.data.treatments || []);
       } else {
         setMessage({ type: "error", text: res.data.message || "Unable to load treatments" });
+        }
       }
     } catch (error) {
       console.error("Error loading treatments", error);
@@ -81,7 +115,9 @@ const DoctorTreatmentModal = ({ isOpen, onClose, doctorStaffId, doctorStaffName,
         headers: getAuthHeaders(),
       });
       if (res.data.success) {
-        setDoctorTreatments(res.data.treatments || []);
+        // Ensure treatments is always an array
+        const treatments = Array.isArray(res.data.treatments) ? res.data.treatments : [];
+        setDoctorTreatments(treatments);
       } else {
         setMessage({ type: "error", text: res.data.message || "Unable to load treatments" });
       }
@@ -110,12 +146,10 @@ const DoctorTreatmentModal = ({ isOpen, onClose, doctorStaffId, doctorStaffName,
   const resetForm = () => {
     setSelectedTreatmentId("");
     setSelectedSubcategories([]);
-    setPrice("");
   };
 
   const resetCustomForm = () => {
     setCustomTreatmentName("");
-    setCustomPrice("");
     setCustomSubTreatments([{ id: Date.now(), name: "", price: "" }]);
     setCustomDepartmentId("");
   };
@@ -135,7 +169,6 @@ const DoctorTreatmentModal = ({ isOpen, onClose, doctorStaffId, doctorStaffName,
         doctorStaffId,
         treatmentId: selectedTreatmentId,
         subcategoryIds: selectedSubcategories,
-        price: price === "" ? null : price,
         department: null,
       };
 
@@ -171,7 +204,7 @@ const DoctorTreatmentModal = ({ isOpen, onClose, doctorStaffId, doctorStaffName,
       .filter((sub) => sub.name && sub.name.trim())
       .map((sub) => ({
         name: sub.name.trim(),
-        price: sub.price === "" ? null : Number(sub.price),
+        price: sub.price === "" ? 0 : Number(sub.price) || 0,
       }));
 
     const hasInvalidSubPrice = preparedSubTreatments.some(
@@ -182,22 +215,38 @@ const DoctorTreatmentModal = ({ isOpen, onClose, doctorStaffId, doctorStaffName,
       return;
     }
 
-    const parsedCustomPrice = customPrice === "" ? null : Number(customPrice);
-    if (parsedCustomPrice !== null && Number.isNaN(parsedCustomPrice)) {
-      setMessage({ type: "error", text: "Custom price must be a number" });
-      return;
-    }
-
     setCustomSubmitting(true);
     setMessage({ type: "info", text: "" });
 
     try {
+      if (useClinicTreatments) {
+        // When creating from create-agent, save to both Clinic and Treatment models
+        const payload = {
+          treatmentName: customTreatmentName.trim(),
+          subTreatments: preparedSubTreatments,
+          doctorStaffId,
+        };
+
+        const res = await axios.post("/api/clinic/add-clinic-treatment", payload, {
+          headers: getAuthHeaders(),
+        });
+
+        if (res.data.success) {
+          // Ensure treatments is always an array
+          const treatments = Array.isArray(res.data.treatments) ? res.data.treatments : [];
+          setDoctorTreatments(treatments);
+          setMessage({ type: "success", text: res.data.message || "Custom treatment created and added to clinic" });
+          resetCustomForm();
+          loadBaseTreatments();
+        } else {
+          setMessage({ type: "error", text: res.data.message || "Failed to create treatment" });
+        }
+      } else {
+        // Original behavior - save to doctor-treatments only
       const payload = {
         doctorStaffId,
         treatmentName: customTreatmentName.trim(),
-        price: parsedCustomPrice,
         subTreatments: preparedSubTreatments,
-        department: customDepartmentId || null,
       };
 
       const res = await axios.post("/api/clinic/doctor-treatments", payload, {
@@ -205,12 +254,15 @@ const DoctorTreatmentModal = ({ isOpen, onClose, doctorStaffId, doctorStaffName,
       });
 
       if (res.data.success) {
-        setDoctorTreatments(res.data.treatments || []);
+          // Ensure treatments is always an array
+          const treatments = Array.isArray(res.data.treatments) ? res.data.treatments : [];
+          setDoctorTreatments(treatments);
         setMessage({ type: "success", text: res.data.message || "Custom treatment created" });
         resetCustomForm();
         loadBaseTreatments();
       } else {
         setMessage({ type: "error", text: res.data.message || "Failed to create treatment" });
+        }
       }
     } catch (error) {
       console.error("Error creating custom treatment", error);
@@ -484,29 +536,6 @@ const DoctorTreatmentModal = ({ isOpen, onClose, doctorStaffId, doctorStaffName,
                 </div>
               )}
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Custom Price <span className="text-gray-500 font-normal">(optional)</span>
-                </label>
-                <div className="relative">
-                  <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-500 text-sm">
-                    ₹
-                  </span>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    placeholder="Enter price override"
-                    value={price}
-                    onChange={(e) => setPrice(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg pl-8 pr-4 py-2.5 text-sm focus:ring-2 focus:ring-gray-900 focus:border-gray-900 transition-all bg-white"
-                  />
-                </div>
-                <p className="text-xs text-gray-500 mt-1.5">
-                  Leave empty to use default clinic pricing
-                </p>
-              </div>
-
               <div className="pt-2">
                 <button
                   type="submit"
@@ -535,57 +564,6 @@ const DoctorTreatmentModal = ({ isOpen, onClose, doctorStaffId, doctorStaffName,
                   className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-gray-900 focus:border-gray-900 transition-all bg-white"
                   required
                 />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Default Price <span className="text-gray-500 font-normal">(optional)</span>
-                </label>
-                <div className="relative">
-                  <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-500 text-sm">
-                    ₹
-                  </span>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    placeholder="Enter default price"
-                    value={customPrice}
-                    onChange={(e) => setCustomPrice(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg pl-8 pr-4 py-2.5 text-sm focus:ring-2 focus:ring-gray-900 focus:border-gray-900 transition-all bg-white"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Department <span className="text-gray-500 font-normal">(optional)</span>
-                </label>
-                {doctorDepartmentsLoading ? (
-                  <div className="flex items-center gap-2 text-sm text-gray-500">
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Loading departments...
-                  </div>
-                ) : doctorDepartments.length === 0 ? (
-                  <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                    No departments added yet. Use the Department tab to add departments for this doctor.
-                  </p>
-                ) : (
-                  <select
-                    value={customDepartmentId}
-                    onChange={(e) => setCustomDepartmentId(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-gray-900 focus:border-gray-900 transition-all bg-white"
-                  >
-                    <option value="">No Department</option>
-                    {doctorDepartments
-                      .filter((dept) => dept.clinicDepartmentId)
-                      .map((dept) => (
-                        <option key={dept._id} value={dept.clinicDepartmentId}>
-                          {dept.name}
-                        </option>
-                      ))}
-                  </select>
-                )}
               </div>
 
               <div>

@@ -89,6 +89,8 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
   const [packageSearchQuery, setPackageSearchQuery] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [totalPrice, setTotalPrice] = useState(0);
+  const [billingHistory, setBillingHistory] = useState<any[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
 
   // Form data
   const [formData, setFormData] = useState({
@@ -180,6 +182,29 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     fetchData();
     generateInvoiceNumber();
   }, [isOpen, getAuthHeaders, generateInvoiceNumber]);
+
+  // Fetch billing history for the patient
+  useEffect(() => {
+    if (!isOpen || !appointment?.patientId) return;
+
+    const fetchBillingHistory = async () => {
+      setLoadingHistory(true);
+      try {
+        const headers = getAuthHeaders();
+        const response = await axios.get(`/api/clinic/billing-history/${appointment.patientId}`, { headers });
+        if (response.data.success) {
+          setBillingHistory(response.data.billings || []);
+        }
+      } catch (error) {
+        console.error("Error fetching billing history:", error);
+        setBillingHistory([]);
+      } finally {
+        setLoadingHistory(false);
+      }
+    };
+
+    fetchBillingHistory();
+  }, [isOpen, appointment?.patientId, getAuthHeaders]);
 
   // Initialize form data from appointment
   useEffect(() => {
@@ -445,6 +470,19 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       const response = await axios.post("/api/clinic/create-patient-registration", payload, { headers });
 
       if (response.data.success) {
+        // Refresh billing history after successful creation
+        if (appointment?.patientId) {
+          try {
+            const headers = getAuthHeaders();
+            const historyResponse = await axios.get(`/api/clinic/billing-history/${appointment.patientId}`, { headers });
+            if (historyResponse.data.success) {
+              setBillingHistory(historyResponse.data.billings || []);
+            }
+          } catch (error) {
+            console.error("Error refreshing billing history:", error);
+          }
+        }
+        
         if (onSuccess) onSuccess();
         onClose();
         // Reset form
@@ -936,6 +974,68 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
             </button>
           </div>
         </form>
+
+        {/* Billing History Table */}
+        <div className="border-t border-gray-200 p-4">
+          <h3 className="text-xs font-semibold text-gray-900 mb-2">Payment History</h3>
+          {loadingHistory ? (
+            <div className="flex items-center justify-center py-4">
+              <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
+              <span className="ml-2 text-xs text-gray-500">Loading history...</span>
+            </div>
+          ) : billingHistory.length === 0 ? (
+            <div className="text-center py-4 text-xs text-gray-500">No payment history found</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse">
+                <thead>
+                  <tr className="bg-blue-900 border-b border-blue-800">
+                    <th className="px-2 py-1.5 text-left text-xs font-medium text-white border-r border-blue-800">Invoice ID</th>
+                    <th className="px-2 py-1.5 text-left text-xs font-medium text-white border-r border-blue-800">Treatment/Package</th>
+                    <th className="px-2 py-1.5 text-right text-xs font-medium text-white border-r border-blue-800">Total Amount</th>
+                    <th className="px-2 py-1.5 text-right text-xs font-medium text-white border-r border-blue-800">Paid</th>
+                    <th className="px-2 py-1.5 text-right text-xs font-medium text-white border-r border-blue-800">Pending</th>
+                    <th className="px-2 py-1.5 text-right text-xs font-medium text-white border-r border-blue-800">Advance</th>
+                    <th className="px-2 py-1.5 text-center text-xs font-medium text-white border-r border-blue-800">Quantity</th>
+                    <th className="px-2 py-1.5 text-center text-xs font-medium text-white border-r border-blue-800">Session</th>
+                    <th className="px-2 py-1.5 text-center text-xs font-medium text-white">Payment Method</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {billingHistory.map((billing) => (
+                    <tr key={billing._id} className="hover:bg-gray-50">
+                      <td className="px-2 py-1.5 text-xs text-gray-900 border-r border-gray-200">{billing.invoiceNumber}</td>
+                      <td className="px-2 py-1.5 text-xs text-gray-700 border-r border-gray-200">
+                        {billing.service === "Treatment" ? billing.treatment || "-" : billing.package || "-"}
+                      </td>
+                      <td className="px-2 py-1.5 text-xs text-gray-900 text-right font-medium border-r border-gray-200">
+                        {billing.amount?.toFixed(2) || "0.00"}
+                      </td>
+                      <td className="px-2 py-1.5 text-xs text-gray-900 text-right border-r border-gray-200">
+                        {billing.paid?.toFixed(2) || "0.00"}
+                      </td>
+                      <td className="px-2 py-1.5 text-xs text-gray-900 text-right border-r border-gray-200">
+                        {billing.pending?.toFixed(2) || "0.00"}
+                      </td>
+                      <td className="px-2 py-1.5 text-xs text-gray-900 text-right border-r border-gray-200">
+                        {billing.advance?.toFixed(2) || "0.00"}
+                      </td>
+                      <td className="px-2 py-1.5 text-xs text-gray-700 text-center border-r border-gray-200">
+                        {billing.quantity || "-"}
+                      </td>
+                      <td className="px-2 py-1.5 text-xs text-gray-700 text-center border-r border-gray-200">
+                        {billing.sessions || "-"}
+                      </td>
+                      <td className="px-2 py-1.5 text-xs text-gray-700 text-center">
+                        {billing.paymentMethod || "-"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -67,14 +67,6 @@ export default async function handler(req, res) {
         mobileNumber,
         referredBy,
         patientType,
-        doctor,
-        service,
-        treatment,
-        package: packageName,
-        amount,
-        paid,
-        advance,
-        paymentMethod,
         insurance,
         insuranceType,
         advanceGivenAmount,
@@ -97,15 +89,11 @@ export default async function handler(req, res) {
         !invoiceNumber ||
         !firstName ||
         !gender ||
-        !mobileNumber ||
-        !doctor ||
-        !service ||
-        amount === undefined ||
-        paid === undefined
+        !mobileNumber
       ) {
         return res.status(400).json({
           success: false,
-          message: "Missing required fields: invoiceNumber, firstName, gender, mobileNumber, doctor, service, amount, and paid are required",
+          message: "Missing required fields: invoiceNumber, firstName, gender, and mobileNumber are required",
         });
       }
 
@@ -131,15 +119,6 @@ export default async function handler(req, res) {
         mobileNumber,
         referredBy: referredBy || "",
         patientType: patientType || "New",
-        doctor,
-        service,
-        treatment: treatment || "",
-        package: packageName || "",
-        amount: parseFloat(amount) || 0,
-        paid: parseFloat(paid) || 0,
-        advance: parseFloat(advance) || 0,
-        pending: Math.max(0, parseFloat(amount) - parseFloat(paid) - parseFloat(advance || 0)),
-        paymentMethod: paymentMethod || "Cash",
         insurance: insurance || "No",
         insuranceType: insuranceType || "Paid",
         advanceGivenAmount: advanceGivenAmount ? parseFloat(advanceGivenAmount) : 0,

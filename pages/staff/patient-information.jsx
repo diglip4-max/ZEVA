@@ -79,20 +79,6 @@ const PatientDetailsModal = ({ isOpen, onClose, patient }) => {
             </div>
             <div className="bg-white rounded-lg border border-gray-200 p-3">
               <h4 className="text-xs font-semibold text-gray-900 uppercase border-b pb-2 mb-3 flex items-center gap-1.5">
-                <FileText className="w-3.5 h-3.5" />
-                Medical Info
-              </h4>
-              <div className="space-y-2 text-xs">
-                <div className="flex items-center gap-2"><span className="text-gray-700 w-20">EMR:</span> <span className="font-medium text-gray-900">{patient.emrNumber}</span></div>
-                <div className="flex items-center gap-2"><User className="w-3.5 h-3.5 text-gray-400" /><span className="text-gray-700 w-20">Doctor:</span> <span className="font-medium text-gray-900">{patient.doctor}</span></div>
-                <div className="flex items-center gap-2"><span className="text-gray-700 w-20">Service:</span> <span className="font-medium text-gray-900">{patient.service}</span></div>
-                <div className="flex items-center gap-2"><span className="text-gray-700 w-20">Treatment:</span> <span className="font-medium text-gray-900">{patient.treatment || 'N/A'}</span></div>
-                <div className="flex items-center gap-2"><span className="text-gray-700 w-20">Package:</span> <span className="font-medium text-gray-900">{patient.package || 'N/A'}</span></div>
-                <div className="flex items-center gap-2"><span className="text-gray-700 w-20">Status:</span> <span className={`px-2 py-0.5 text-xs font-medium rounded ${patient.status === 'Completed' ? 'bg-blue-100 text-blue-700' : patient.status === 'Active' ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-700'}`}>{patient.status}</span></div>
-              </div>
-            </div>
-            <div className="bg-white rounded-lg border border-gray-200 p-3">
-              <h4 className="text-xs font-semibold text-gray-900 uppercase border-b pb-2 mb-3 flex items-center gap-1.5">
                 <Calendar className="w-3.5 h-3.5" />
                 Invoice Info
               </h4>
@@ -100,19 +86,7 @@ const PatientDetailsModal = ({ isOpen, onClose, patient }) => {
                 <div className="flex items-center gap-2"><span className="text-gray-700 w-20">Invoice:</span> <span className="font-medium text-gray-900">{patient.invoiceNumber}</span></div>
                 <div className="flex items-center gap-2"><Building2 className="w-3.5 h-3.5 text-gray-400" /><span className="text-gray-700 w-20">By:</span> <span className="font-medium text-gray-900">{patient.invoicedBy}</span></div>
                 <div className="flex items-center gap-2"><Calendar className="w-3.5 h-3.5 text-gray-400" /><span className="text-gray-700 w-20">Date:</span> <span className="font-medium text-gray-900">{new Date(patient.invoicedDate).toLocaleDateString()}</span></div>
-                <div className="flex items-center gap-2"><CreditCard className="w-3.5 h-3.5 text-gray-400" /><span className="text-gray-700 w-20">Method:</span> <span className="font-medium text-gray-900">{patient.paymentMethod}</span></div>
-              </div>
-            </div>
-            <div className="bg-white rounded-lg border border-gray-200 p-3">
-              <h4 className="text-xs font-semibold text-gray-900 uppercase border-b pb-2 mb-3 flex items-center gap-1.5">
-                <DollarSign className="w-3.5 h-3.5" />
-                Financial Info
-              </h4>
-              <div className="space-y-2 text-xs">
-                <div className="flex items-center gap-2"><span className="text-gray-700 w-20">Total:</span> <span className="font-semibold text-gray-900">د.إ{patient.amount?.toLocaleString() || 0}</span></div>
-                <div className="flex items-center gap-2"><span className="text-gray-700 w-20">Paid:</span> <span className="font-semibold text-emerald-600">د.إ{patient.paid?.toLocaleString() || 0}</span></div>
-                <div className="flex items-center gap-2"><span className="text-gray-700 w-20">Advance:</span> <span className="font-semibold text-blue-600">د.إ{patient.advance?.toLocaleString() || 0}</span></div>
-                <div className="flex items-center gap-2"><span className="text-gray-700 w-20">Pending:</span> <span className="font-semibold text-rose-600">د.إ{patient.pending?.toLocaleString() || 0}</span></div>
+                <div className="flex items-center gap-2"><span className="text-gray-700 w-20">EMR:</span> <span className="font-medium text-gray-900">{patient.emrNumber || 'N/A'}</span></div>
               </div>
             </div>
           </div>
@@ -173,12 +147,8 @@ const PatientCard = ({ patient, onUpdate, onViewDetails }) => (
     <div className="grid grid-cols-2 gap-2 mb-3 text-xs">
       <div><p className="text-gray-700">EMR Number</p><p className="font-medium text-gray-900">{patient.emrNumber}</p></div>
       <div><p className="text-gray-700">Invoice No</p><p className="font-medium text-gray-900">{patient.invoiceNumber}</p></div>
-      <div><p className="text-gray-700">Total Amount</p><p className="font-semibold text-gray-900">د.إ{patient.amount?.toLocaleString() || 0}</p></div>
-      <div><p className="text-gray-700">Paid Amount</p><p className="font-semibold text-emerald-600">د.إ{patient.paid?.toLocaleString() || 0}</p></div>
-      <div><p className="text-gray-700">Advance Payment</p><p className="font-semibold text-blue-600">د.إ{patient.advance?.toLocaleString() || 0}</p></div>
-      <div><p className="text-gray-700">Amount Pending</p><p className="font-semibold text-rose-600">د.إ{patient.pending?.toLocaleString() || 0}</p></div>
       <div><p className="text-gray-700">Insurance</p><p className="font-medium text-gray-900">{patient.insurance || 'No'}</p></div>
-      <div><p className="text-gray-700">Payment Type</p><p className="font-medium text-gray-900">{patient.paymentMethod || 'N/A'}</p></div>
+      <div><p className="text-gray-700">Patient Type</p><p className="font-medium text-gray-900">{patient.patientType || 'N/A'}</p></div>
     </div>
     {patient.notes && (
       <div className="mb-3 text-xs">
@@ -229,7 +199,6 @@ function PatientFilterUI({ hideHeader = false, onEditPatient }) {
   // Calculate stats
   const totalPatients = patients.length;
   const activePatients = patients.filter(p => p.status === 'Active' || p.applicationStatus === 'Active').length;
-  const totalRevenue = patients.reduce((sum, p) => sum + (p.amount || 0), 0);
 
   const fetchPatients = async () => {
     const headers = getAuthHeaders();
@@ -313,7 +282,7 @@ function PatientFilterUI({ hideHeader = false, onEditPatient }) {
           </div>
 
           {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
               <div className="flex items-center justify-between">
                 <div>
@@ -334,18 +303,6 @@ function PatientFilterUI({ hideHeader = false, onEditPatient }) {
                 </div>
                 <div className="bg-green-100 p-2 rounded-md">
                   <TrendingUp className="h-5 w-5 text-green-600" />
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-[11px] font-medium text-gray-700 mb-0.5">Total Revenue</p>
-                  <p className="text-xl font-bold text-gray-900">د.إ {totalRevenue.toLocaleString()}</p>
-                </div>
-                <div className="bg-gray-100 p-2 rounded-md">
-                  <DollarSign className="h-5 w-5 text-gray-700" />
                 </div>
               </div>
             </div>
@@ -371,19 +328,18 @@ function PatientFilterUI({ hideHeader = false, onEditPatient }) {
                   <table className="w-full">
                     <thead>
                       <tr className="border-b border-gray-200">
-                        <th className="text-left py-2.5 px-3 text-[11px] font-semibold text-gray-700 uppercase">PATIENT DETAILS</th>
-                        <th className="text-left py-2.5 px-3 text-[11px] font-semibold text-gray-700 uppercase">EMR NUMBER</th>
-                        <th className="text-left py-2.5 px-3 text-[11px] font-semibold text-gray-700 uppercase">TOTAL AMOUNT</th>
-                        <th className="text-left py-2.5 px-3 text-[11px] font-semibold text-gray-700 uppercase">PAID</th>
-                        <th className="text-left py-2.5 px-3 text-[11px] font-semibold text-gray-700 uppercase">PENDING</th>
-                        <th className="text-left py-2.5 px-3 text-[11px] font-semibold text-gray-700 uppercase">STATUS</th>
+                        <th className="text-left py-2.5 px-3 text-[11px] font-semibold text-gray-700 uppercase">NAME</th>
+                        <th className="text-left py-2.5 px-3 text-[11px] font-semibold text-gray-700 uppercase">GENDER</th>
+                        <th className="text-left py-2.5 px-3 text-[11px] font-semibold text-gray-700 uppercase">EMAIL</th>
+                        <th className="text-left py-2.5 px-3 text-[11px] font-semibold text-gray-700 uppercase">MOBILE</th>
+                        <th className="text-left py-2.5 px-3 text-[11px] font-semibold text-gray-700 uppercase">TYPE</th>
                         <th className="text-left py-2.5 px-3 text-[11px] font-semibold text-gray-700 uppercase">ACTIONS</th>
                       </tr>
                     </thead>
                     <tbody>
                       {displayedPatients.length === 0 ? (
                         <tr>
-                          <td colSpan="7" className="py-10 text-center">
+                          <td colSpan="6" className="py-10 text-center">
                             <div className="inline-flex items-center justify-center w-12 h-12 bg-gray-100 rounded-full mb-2.5">
                               <User className="h-6 w-6 text-gray-500" />
                             </div>
@@ -395,30 +351,19 @@ function PatientFilterUI({ hideHeader = false, onEditPatient }) {
                         displayedPatients.map((patient) => (
                           <tr key={patient._id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
                             <td className="py-3 px-3">
-                              <div className="flex items-center gap-2">
-                                <div className="w-8 h-8 bg-emerald-100 rounded flex items-center justify-center flex-shrink-0">
-                                  <User className="h-4 w-4 text-emerald-600" />
-                                </div>
-                                <div>
-                                  <p className="text-xs font-medium text-gray-900">{patient.firstName} {patient.lastName}</p>
-                                  <p className="text-[10px] text-gray-500">{patient.mobileNumber}</p>
-                                </div>
-                              </div>
+                              <p className="text-xs font-medium text-gray-900">{patient.firstName} {patient.lastName}</p>
                             </td>
                             <td className="py-3 px-3">
-                              <p className="text-xs font-medium text-gray-900">{patient.emrNumber}</p>
+                              <p className="text-xs text-gray-900">{patient.gender || '-'}</p>
                             </td>
                             <td className="py-3 px-3">
-                              <p className="text-xs font-semibold text-gray-900">د.إ{patient.amount?.toLocaleString() || 0}</p>
+                              <p className="text-xs text-gray-900">{patient.email || '-'}</p>
                             </td>
                             <td className="py-3 px-3">
-                              <p className="text-xs font-semibold text-emerald-600">د.إ{patient.paid?.toLocaleString() || 0}</p>
+                              <p className="text-xs text-gray-900">{patient.mobileNumber || '-'}</p>
                             </td>
                             <td className="py-3 px-3">
-                              <p className="text-xs font-semibold text-rose-600">د.إ{patient.pending?.toLocaleString() || 0}</p>
-                            </td>
-                            <td className="py-3 px-3">
-                              {getStatusBadge(patient.status || patient.applicationStatus)}
+                              <p className="text-xs text-gray-900">{patient.patientType || '-'}</p>
                             </td>
                             <td className="py-3 px-3">
                               <div className="flex items-center gap-2">
