@@ -16,8 +16,8 @@ export default async function handler(req, res) {
     return res.status(401).json({ success: false, message: 'Unauthorized: Missing or invalid token' });
   }
 
-  // Allow admin, clinic, doctor, and agent roles
-  if (!requireRole(me, ['admin', 'clinic', 'doctor', 'agent'])) {
+  // Allow admin, clinic, doctor, agent, and doctorStaff roles
+  if (!requireRole(me, ['admin', 'clinic', 'doctor', 'agent', 'doctorStaff'])) {
     return res.status(403).json({ success: false, message: 'Access denied' });
   }
 
@@ -33,7 +33,7 @@ export default async function handler(req, res) {
     }
 
     // Verify user has permission to view this role's navigation
-    // Admin can view any role, clinic can only view clinic, doctor only doctor, agent only clinic (if linked)
+    // Admin can view any role, clinic can only view clinic, doctor only doctor, agent/doctorStaff only clinic (if linked)
     if (me.role === 'clinic' && role !== 'clinic') {
       return res.status(403).json({
         success: false,
@@ -42,40 +42,36 @@ export default async function handler(req, res) {
     }
     if (me.role === 'doctor' && role !== 'doctor') {
       return res.status(403).json({
-        success:false,
-        message:'Doctor users can only view doctor navigation items'
+        success: false,
+        message: 'Doctor users can only view doctor navigation items'
       });
     }
-    if (me.role === 'agent') {
+    if (me.role === 'agent' || me.role === 'doctorStaff') {
       if (role !== 'clinic') {
         return res.status(403).json({
-          success:false,
-          message:'Agent users can only view clinic navigation items'
+          success: false,
+          message: 'Agent/doctorStaff users can only view clinic navigation items'
         });
       }
-      if (!me.clinicId) {
-        const agent = await User.findById(me._id).select('clinicId');
-        if (!agent?.clinicId) {
+      // Check if agent/doctorStaff is linked to a clinic
+      const agentUser = await User.findById(me._id).select('clinicId createdBy');
+      if (!agentUser?.clinicId && !agentUser?.createdBy) {
+        return res.status(403).json({
+          success: false,
+          message: 'Agent/doctorStaff is not linked to any clinic'
+        });
+      }
+      // If createdBy exists, check if creator is clinic/doctor/admin
+      if (agentUser.createdBy && !agentUser.clinicId) {
+        const creator = await User.findById(agentUser.createdBy).select('role');
+        if (creator && ['clinic', 'doctor', 'admin'].includes(creator.role)) {
+          // Allow access - agent was created by clinic/doctor/admin
+        } else {
           return res.status(403).json({
-            success:false,
-            message:'Agent is not linked to any clinic'
+            success: false,
+            message: 'Agent/doctorStaff is not properly linked'
           });
         }
-      }
-    }
-    if (me.role === 'agent') {
-      if (role !== 'clinic') {
-        return res.status(403).json({
-          success: false,
-          message: 'Agent users can only view clinic navigation items'
-        });
-      }
-      const agentUser = await User.findById(me._id).select('clinicId');
-      if (!agentUser?.clinicId) {
-        return res.status(403).json({
-          success: false,
-          message: 'Agent is not linked to any clinic'
-        });
       }
     }
 

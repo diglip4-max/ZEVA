@@ -12,15 +12,10 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Get the logged-in agent
+    // Get the logged-in user
     const me = await getUserFromReq(req);
     if (!me) {
       return res.status(401).json({ success: false, message: 'Unauthorized: Missing or invalid token' });
-    }
-
-    // Verify user is an agent
-    if (!['agent', 'doctorStaff'].includes(me.role)) {
-      return res.status(403).json({ success: false, message: 'Access denied. Agent role required' });
     }
 
     const { moduleKey } = req.query;
@@ -32,7 +27,36 @@ export default async function handler(req, res) {
       });
     }
 
-    // Get module permissions
+    // If user is clinic/doctor/admin, return full permissions (they own the modules)
+    if (['clinic', 'doctor', 'admin'].includes(me.role)) {
+      return res.status(200).json({
+        success: true,
+        permissions: {
+          module: moduleKey,
+          actions: {
+            all: true,
+            create: true,
+            read: true,
+            update: true,
+            delete: true,
+            approve: true,
+            print: true,
+            export: true
+          },
+          subModules: []
+        },
+        error: null,
+        agentId: me._id.toString(),
+        moduleKey
+      });
+    }
+
+    // Verify user is an agent or doctorStaff for agent permission logic
+    if (!['agent', 'doctorStaff'].includes(me.role)) {
+      return res.status(403).json({ success: false, message: 'Access denied. Agent role required' });
+    }
+
+    // Get module permissions for agents
     const { permissions, error } = await getAgentModulePermissions(
       me._id,
       moduleKey

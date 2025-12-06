@@ -42,9 +42,21 @@ export function useAgentPermissions(moduleKey, subModuleName = null) {
       }
 
       try {
-        const token = localStorage.getItem('agentToken');
+        // Check for multiple token types (priority: agentToken > userToken > clinicToken > doctorToken > adminToken)
+        const token = 
+          localStorage.getItem('agentToken') || 
+          sessionStorage.getItem('agentToken') ||
+          localStorage.getItem('userToken') || 
+          sessionStorage.getItem('userToken') ||
+          localStorage.getItem('clinicToken') || 
+          sessionStorage.getItem('clinicToken') ||
+          localStorage.getItem('doctorToken') || 
+          sessionStorage.getItem('doctorToken') ||
+          localStorage.getItem('adminToken') || 
+          sessionStorage.getItem('adminToken');
+          
         if (!token) {
-          setError('No agent token found');
+          setError('No authentication token found');
           setLoading(false);
           return;
         }
@@ -199,7 +211,19 @@ export function useAgentPermissions(moduleKey, subModuleName = null) {
     if (!moduleKey || !action) return false;
 
     try {
-      const token = localStorage.getItem('agentToken');
+      // Check for multiple token types
+      const token = 
+        localStorage.getItem('agentToken') || 
+        sessionStorage.getItem('agentToken') ||
+        localStorage.getItem('userToken') || 
+        sessionStorage.getItem('userToken') ||
+        localStorage.getItem('clinicToken') || 
+        sessionStorage.getItem('clinicToken') ||
+        localStorage.getItem('doctorToken') || 
+        sessionStorage.getItem('doctorToken') ||
+        localStorage.getItem('adminToken') || 
+        sessionStorage.getItem('adminToken');
+        
       if (!token) return false;
 
       const { data } = await axios.get('/api/agent/check-permission', {

@@ -179,7 +179,19 @@ const ClinicDashboard: NextPageWithLayout = () => {
   useEffect(() => {
     const fetchNavigationItems = async (): Promise<void> => {
       try {
-        const token = localStorage.getItem('clinicToken') || sessionStorage.getItem('clinicToken');
+        // Check for multiple token types (clinicToken, userToken, agentToken, etc.)
+        const token = 
+          localStorage.getItem('clinicToken') || 
+          sessionStorage.getItem('clinicToken') ||
+          localStorage.getItem('userToken') || 
+          sessionStorage.getItem('userToken') ||
+          localStorage.getItem('agentToken') || 
+          sessionStorage.getItem('agentToken') ||
+          localStorage.getItem('doctorToken') || 
+          sessionStorage.getItem('doctorToken') ||
+          localStorage.getItem('adminToken') || 
+          sessionStorage.getItem('adminToken');
+          
         if (!token) return;
 
         const res = await axios.get<SidebarResponse>('/api/clinic/sidebar-permissions', {
@@ -209,7 +221,19 @@ const ClinicDashboard: NextPageWithLayout = () => {
   useEffect(() => {
     const fetchAllModules = async (): Promise<void> => {
       try {
-        const token = localStorage.getItem('clinicToken') || sessionStorage.getItem('clinicToken');
+        // Check for multiple token types (clinicToken, userToken, agentToken, etc.)
+        const token = 
+          localStorage.getItem('clinicToken') || 
+          sessionStorage.getItem('clinicToken') ||
+          localStorage.getItem('userToken') || 
+          sessionStorage.getItem('userToken') ||
+          localStorage.getItem('agentToken') || 
+          sessionStorage.getItem('agentToken') ||
+          localStorage.getItem('doctorToken') || 
+          sessionStorage.getItem('doctorToken') ||
+          localStorage.getItem('adminToken') || 
+          sessionStorage.getItem('adminToken');
+          
         if (!token) return;
 
         const res = await axios.get<{ success: boolean; data: NavigationItem[] }>('/api/navigation/get-by-role?role=clinic', {

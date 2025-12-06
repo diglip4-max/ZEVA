@@ -76,8 +76,18 @@ const ManageAgentsPage = () => {
     const agentRoute =
       router.pathname?.startsWith('/agent/') ||
       window.location.pathname?.startsWith('/agent/');
-    setIsAgentRoute(Boolean(agentToken) && agentRoute);
-  }, [router.pathname, agentToken]);
+    
+    // Check for any token that might be used in agent portal
+    const hasAnyToken = Boolean(
+      agentToken || 
+      (typeof window !== 'undefined' && (localStorage.getItem('userToken') || sessionStorage.getItem('userToken'))) ||
+      clinicToken ||
+      doctorToken ||
+      adminToken
+    );
+    
+    setIsAgentRoute(hasAnyToken && agentRoute);
+  }, [router.pathname, agentToken, clinicToken, doctorToken, adminToken]);
 
   const { permissions: agentPermissions, loading: permissionsLoading } = useAgentPermissions(
     isAgentRoute ? 'create_agent' : null
@@ -141,15 +151,23 @@ const ManageAgentsPage = () => {
   }, [clinicToken]);
 
   const isClinicUser = Boolean(clinicToken);
+  const isDoctorUser = Boolean(doctorToken);
+  const isAdminUser = Boolean(adminToken);
+  
+  // Clinic/doctor/admin users have full permissions when accessing through agent portal
+  const isOwnerUser = isClinicUser || isDoctorUser || isAdminUser;
+  
   const canClinicRead = clinicPerms.canRead;
   const canClinicCreate = clinicPerms.canCreate;
   const canClinicUpdate = clinicPerms.canUpdate;
   const canClinicDelete = clinicPerms.canDelete;
 
-  const canRead = isAgentRoute ? agentCanRead : canClinicRead;
-  const canCreate = isAgentRoute ? agentCanCreate : canClinicCreate;
-  const canUpdate = isAgentRoute ? agentCanUpdate : canClinicUpdate;
-  const canDelete = isAgentRoute ? agentCanDelete : canClinicDelete;
+  // If accessing through agent portal as owner (clinic/doctor/admin), grant full permissions
+  // Otherwise, use agent permissions if agent route, or clinic permissions if clinic route
+  const canRead = (isAgentRoute && isOwnerUser) ? true : (isAgentRoute ? agentCanRead : canClinicRead);
+  const canCreate = (isAgentRoute && isOwnerUser) ? true : (isAgentRoute ? agentCanCreate : canClinicCreate);
+  const canUpdate = (isAgentRoute && isOwnerUser) ? true : (isAgentRoute ? agentCanUpdate : canClinicUpdate);
+  const canDelete = (isAgentRoute && isOwnerUser) ? true : (isAgentRoute ? agentCanDelete : canClinicDelete);
 
   async function loadAgents() {
     try {
