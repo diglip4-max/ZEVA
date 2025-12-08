@@ -24,16 +24,16 @@ export default async function handler(req, res) {
         // For agent and staff, check read permission for add_treatment module
         try {
           console.log("getTreatment - Checking permission for role:", me.role);
-          const { hasPermission, error: permissionError } = await checkAgentPermission(
-            me._id,
-            "add_treatment", // moduleKey
-            "read", // action
-            null // subModuleName
-          );
+        const { hasPermission, error: permissionError } = await checkAgentPermission(
+          me._id,
+          "add_treatment", // moduleKey
+          "read", // action
+          null // subModuleName
+        );
 
           console.log("getTreatment - Permission result:", { hasPermission, error: permissionError });
 
-          if (!hasPermission) {
+        if (!hasPermission) {
             return res.status(403).json({
               success: false,
               message: permissionError || "You do not have permission to view treatments",

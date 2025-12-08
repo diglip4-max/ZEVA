@@ -44,12 +44,104 @@ const SmsSender = () => {
   const [authToken, setAuthToken] = useState("");
   const [wallet, setWallet] = useState(null);
   const [walletLoading, setWalletLoading] = useState(true);
+  const [permissions, setPermissions] = useState({
+    canCreate: true,
+    canRead: true,
+    canUpdate: true,
+    canDelete: true,
+  });
+  const [permissionsLoaded, setPermissionsLoaded] = useState(false);
+  const [isClinicContext, setIsClinicContext] = useState(false);
+
+  // Check if we're in clinic context
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const path = window.location.pathname;
+      setIsClinicContext(path.startsWith("/clinic/") || path.startsWith("/marketingalltype/"));
+    }
+  }, []);
+
+  // Fetch permissions for clinic context
+  useEffect(() => {
+    const fetchPermissions = async () => {
+      if (!isClinicContext) {
+        setPermissionsLoaded(true);
+        return;
+      }
+
+      try {
+        setPermissionsLoaded(false);
+        const token = 
+          localStorage.getItem("clinicToken") ||
+          sessionStorage.getItem("clinicToken") ||
+          localStorage.getItem("agentToken") ||
+          sessionStorage.getItem("agentToken") ||
+          localStorage.getItem("userToken") ||
+          sessionStorage.getItem("userToken") ||
+          localStorage.getItem("doctorToken") ||
+          sessionStorage.getItem("doctorToken");
+        
+        if (!token) {
+          setPermissions({
+            canCreate: false,
+            canRead: false,
+            canUpdate: false,
+            canDelete: false,
+          });
+          setPermissionsLoaded(true);
+          return;
+        }
+
+        const response = await axios.get("/api/clinic/permissions", {
+          headers: { Authorization: `Bearer ${token}` },
+          params: {
+            moduleKey: "clinic_staff_management",
+            subModuleName: "SMS Marketing",
+          },
+        });
+
+        if (response.data.success) {
+          setPermissions({
+            canCreate: response.data.permissions?.create || false,
+            canRead: response.data.permissions?.read || false,
+            canUpdate: response.data.permissions?.update || false,
+            canDelete: response.data.permissions?.delete || false,
+          });
+        } else {
+          setPermissions({
+            canCreate: false,
+            canRead: false,
+            canUpdate: false,
+            canDelete: false,
+          });
+        }
+      } catch (error) {
+        console.error("Error fetching permissions:", error);
+        setPermissions({
+          canCreate: false,
+          canRead: false,
+          canUpdate: false,
+          canDelete: false,
+        });
+      } finally {
+        setPermissionsLoaded(true);
+      }
+    };
+
+    fetchPermissions();
+  }, [isClinicContext]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
     const stored =
       localStorage.getItem("clinicToken") ||
-      localStorage.getItem("doctorToken");
+      sessionStorage.getItem("clinicToken") ||
+      localStorage.getItem("agentToken") ||
+      sessionStorage.getItem("agentToken") ||
+      localStorage.getItem("userToken") ||
+      sessionStorage.getItem("userToken") ||
+      localStorage.getItem("doctorToken") ||
+      sessionStorage.getItem("doctorToken");
     if (stored) {
       setAuthToken(stored);
     }
@@ -204,6 +296,12 @@ const SmsSender = () => {
   const handleSubmit = async () => {
     setStatus("");
     setResults([]);
+
+    // Check permissions for create action
+    if (isClinicContext && !permissions.canCreate) {
+      setStatus("❌ You do not have permission to send SMS.");
+      return;
+    }
 
     if (addMethod !== "manual") {
       setStatus("❌ This import method is not supported yet. Please enter numbers manually.");
@@ -577,14 +675,20 @@ const SmsSender = () => {
               >
                 Cancel
               </button>
-              <button
-                type="button"
-                onClick={handleSubmit}
-                disabled={loading}
-                className="w-full sm:w-auto px-4 py-2 rounded-lg bg-gray-800 text-white text-xs sm:text-sm font-medium shadow-sm hover:bg-gray-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                {loading ? "Sending..." : "Review & Send"}
-              </button>
+              {(!isClinicContext || permissions.canCreate) ? (
+                <button
+                  type="button"
+                  onClick={handleSubmit}
+                  disabled={loading}
+                  className="w-full sm:w-auto px-4 py-2 rounded-lg bg-gray-800 text-white text-xs sm:text-sm font-medium shadow-sm hover:bg-gray-900 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {loading ? "Sending..." : "Review & Send"}
+                </button>
+              ) : (
+                <div className="w-full sm:w-auto px-4 py-2 rounded-lg bg-gray-100 text-gray-500 text-xs sm:text-sm font-medium text-center">
+                  Permission Denied: You do not have permission to send SMS
+                </div>
+              )}
             </section>
 
             {/* Status & Results */}

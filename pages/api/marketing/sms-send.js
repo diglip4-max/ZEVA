@@ -4,6 +4,7 @@ import SmsMarketing from "../../../models/SmsMarketing";
 import { getUserFromReq, requireRole } from "../lead-ms/auth";
 import Clinic from "../../../models/Clinic";
 import { debitWallet, getOrCreateWallet } from "../../../lib/smsWallet";
+import { getClinicIdFromUser, checkClinicPermission } from "../lead-ms/permissions-helper";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -18,8 +19,39 @@ export default async function handler(req, res) {
       return res.status(401).json({ success: false, message: "Unauthorized" });
     }
 
-    if (!requireRole(user, ["doctor", "clinic"])) {
-      return res.status(403).json({ success: false, message: "Forbidden: Only doctor or clinic can send SMS" });
+    // Allow clinic, doctor, doctorStaff, staff, and agent roles
+    if (!requireRole(user, ["doctor", "clinic", "doctorStaff", "staff", "agent"])) {
+      return res.status(403).json({ success: false, message: "Forbidden: Access denied" });
+    }
+
+    // Check permissions for clinic/agent/doctor/doctorStaff/staff roles
+    if (["clinic", "agent", "doctor", "doctorStaff", "staff"].includes(user.role)) {
+      try {
+        const { clinicId, error: clinicError } = await getClinicIdFromUser(user);
+        if (clinicError || !clinicId) {
+          return res.status(403).json({ 
+            success: false,
+            message: clinicError || "Unable to determine clinic access" 
+          });
+        }
+
+        const { hasPermission, error: permError } = await checkClinicPermission(
+          clinicId,
+          "clinic_staff_management",
+          "create",
+          "SMS Marketing"
+        );
+
+        if (!hasPermission) {
+          return res.status(403).json({
+            success: false,
+            message: permError || "You do not have permission to send SMS"
+          });
+        }
+      } catch (permErr) {
+        console.error("Permission check error:", permErr);
+        return res.status(500).json({ success: false, message: "Error checking permissions" });
+      }
     }
 
     const { body, mediaUrl, to } = req.body;
@@ -35,7 +67,13 @@ export default async function handler(req, res) {
     const recipients = Array.isArray(to) ? to : [to];
     const results = [];
 
-    const ownerType = user.role === "doctor" ? "doctor" : "clinic";
+    // Determine ownerType based on role
+    let ownerType = "clinic";
+    if (user.role === "doctor" || user.role === "doctorStaff") {
+      ownerType = "doctor";
+    } else if (["clinic", "agent", "staff"].includes(user.role)) {
+      ownerType = "clinic";
+    }
     await getOrCreateWallet(user._id, ownerType);
 
     const creditsPerRecipient = Math.max(1, Math.ceil(cleanBody.length / 160));

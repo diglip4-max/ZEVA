@@ -10,8 +10,8 @@ export default async function handler(req, res) {
       // Verify authentication
       const authUser = await getUserFromReq(req);
       if (!authUser) {
-        return res.status(401).json({ message: "Unauthorized" });
-      }
+      return res.status(401).json({ message: "Unauthorized" });
+    }
 
       // Allow doctor, lead, clinic, agent, doctorStaff, and staff roles
       if (!["doctor", "lead", "clinic", "agent", "doctorStaff", "staff"].includes(authUser.role)) {

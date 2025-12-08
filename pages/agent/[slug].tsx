@@ -32,7 +32,8 @@ const getRouteInfo = (slug: string) => {
   if (
     slug.startsWith('clinic-') ||
     slug.startsWith('clinic-staff-') ||
-    slug.startsWith('lead-')
+    slug.startsWith('lead-') ||
+    slug.startsWith('marketingalltype-')
   ) {
     return { type: 'clinic', tokenKey: 'clinicToken' };
   }
@@ -110,6 +111,11 @@ const routeMap: { [key: string]: () => Promise<any> } = {
   'clinic-cancelled-claims': () => import('../staff/cancelled-claims'),
   'clinic-booked-appointments': () => import('../staff/booked-appointments'),
   'clinic-staff-add-treatment': () => import('../staff/add-treatment'),
+  
+  // Marketing routes
+  'marketingalltype-sms-marketing': () => import('../marketingalltype/sms-marketing'),
+  'marketingalltype-whatsapp-marketing': () => import('../marketingalltype/whatsapp-marketing'),
+  'marketingalltype-gmail-marketing': () => import('../marketingalltype/gmail-marketing'),
   
   // Doctor routes
   'doctor-dashboard': () => import('../doctor/doctor-dashboard'),

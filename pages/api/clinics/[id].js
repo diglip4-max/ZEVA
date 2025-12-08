@@ -238,9 +238,9 @@ export default async function handler(req, res) {
       let existingClinic;
       if (me.role === "clinic") {
         existingClinic = await Clinic.findOne({
-          _id: id,
+        _id: id,
           owner: me._id,
-        });
+      });
       } else if (me.role === "admin") {
         existingClinic = await Clinic.findById(id);
       } else if (["agent", "doctor", "doctorStaff", "staff"].includes(me.role)) {

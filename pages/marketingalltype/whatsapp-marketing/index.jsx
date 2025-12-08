@@ -40,6 +40,14 @@ import WhatsAppMarketingSidebar from "../../../components/WhatsAppMarketingSideb
 const WhatsAppMarketingDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [userName, setUserName] = useState("Tenant Admin");
+  const [permissions, setPermissions] = useState({
+    canCreate: true,
+    canRead: true,
+    canUpdate: true,
+    canDelete: true,
+  });
+  const [permissionsLoaded, setPermissionsLoaded] = useState(false);
+  const [isClinicContext, setIsClinicContext] = useState(false);
   const [subscription, setSubscription] = useState({
     plan: "Plan Y3 - Enterprise",
     nextBilling: "2025-07-26",
@@ -106,6 +114,84 @@ const WhatsAppMarketingDashboard = () => {
     { month: "Nov 2025", created: 0, sent: 0, delivered: 0, read: 0 },
   ];
 
+  // Check if we're in clinic context
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const path = window.location.pathname;
+      setIsClinicContext(path.startsWith("/clinic/") || path.startsWith("/marketingalltype/") || path.startsWith("/agent/"));
+    }
+  }, []);
+
+  // Fetch permissions for clinic context
+  useEffect(() => {
+    const fetchPermissions = async () => {
+      if (!isClinicContext) {
+        setPermissionsLoaded(true);
+        return;
+      }
+
+      try {
+        setPermissionsLoaded(false);
+        const token = 
+          localStorage.getItem("clinicToken") ||
+          sessionStorage.getItem("clinicToken") ||
+          localStorage.getItem("agentToken") ||
+          sessionStorage.getItem("agentToken") ||
+          localStorage.getItem("userToken") ||
+          sessionStorage.getItem("userToken") ||
+          localStorage.getItem("doctorToken") ||
+          sessionStorage.getItem("doctorToken");
+        
+        if (!token) {
+          setPermissions({
+            canCreate: false,
+            canRead: false,
+            canUpdate: false,
+            canDelete: false,
+          });
+          setPermissionsLoaded(true);
+          return;
+        }
+
+        const response = await axios.get("/api/clinic/permissions", {
+          headers: { Authorization: `Bearer ${token}` },
+          params: {
+            moduleKey: "clinic_staff_management",
+            subModuleName: "WhatsApp Marketing",
+          },
+        });
+
+        if (response.data.success) {
+          setPermissions({
+            canCreate: response.data.permissions?.create || false,
+            canRead: response.data.permissions?.read || false,
+            canUpdate: response.data.permissions?.update || false,
+            canDelete: response.data.permissions?.delete || false,
+          });
+        } else {
+          setPermissions({
+            canCreate: false,
+            canRead: false,
+            canUpdate: false,
+            canDelete: false,
+          });
+        }
+      } catch (error) {
+        console.error("Error fetching permissions:", error);
+        setPermissions({
+          canCreate: false,
+          canRead: false,
+          canUpdate: false,
+          canDelete: false,
+        });
+      } finally {
+        setPermissionsLoaded(true);
+      }
+    };
+
+    fetchPermissions();
+  }, [isClinicContext]);
+
   const getAuthHeaders = useCallback(() => {
     if (typeof window === "undefined") return {};
     const token =
@@ -114,7 +200,9 @@ const WhatsAppMarketingDashboard = () => {
       localStorage.getItem("agentToken") ||
       sessionStorage.getItem("agentToken") ||
       localStorage.getItem("userToken") ||
-      sessionStorage.getItem("userToken");
+      sessionStorage.getItem("userToken") ||
+      localStorage.getItem("doctorToken") ||
+      sessionStorage.getItem("doctorToken");
     if (!token) return {};
     return { Authorization: `Bearer ${token}` };
   }, []);

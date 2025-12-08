@@ -1,6 +1,7 @@
 // pages/api/marketing/gmail-send.js
 import dbConnect from "../../../lib/database";
 import { getUserFromReq, requireRole } from "../lead-ms/auth";
+import { getClinicIdFromUser, checkClinicPermission } from "../lead-ms/permissions-helper";
 import { sendEmailViaSmtp } from "../../../services/brevoSmtpService";
 
 export default async function handler(req, res) {
@@ -16,11 +17,42 @@ export default async function handler(req, res) {
       return res.status(401).json({ success: false, message: "Unauthorized" });
     }
 
-    if (!requireRole(user, ["clinic", "doctor", "agent", "admin"])) {
+    // Allow clinic, doctor, doctorStaff, staff, and agent roles
+    if (!requireRole(user, ["clinic", "doctor", "doctorStaff", "staff", "agent", "admin"])) {
       return res.status(403).json({
         success: false,
-        message: "Forbidden: You do not have permission to send marketing emails",
+        message: "Forbidden: Access denied",
       });
+    }
+
+    // Check permissions for clinic/agent/doctor/doctorStaff/staff roles
+    if (["clinic", "agent", "doctor", "doctorStaff", "staff"].includes(user.role)) {
+      try {
+        const { clinicId, error: clinicError } = await getClinicIdFromUser(user);
+        if (clinicError || !clinicId) {
+          return res.status(403).json({ 
+            success: false,
+            message: clinicError || "Unable to determine clinic access" 
+          });
+        }
+
+        const { hasPermission, error: permError } = await checkClinicPermission(
+          clinicId,
+          "clinic_staff_management",
+          "create",
+          "Gmail Marketing"
+        );
+
+        if (!hasPermission) {
+          return res.status(403).json({
+            success: false,
+            message: permError || "You do not have permission to send emails"
+          });
+        }
+      } catch (permErr) {
+        console.error("Permission check error:", permErr);
+        return res.status(500).json({ success: false, message: "Error checking permissions" });
+      }
     }
 
     const { subject, body, to, mediaUrl } = req.body;
