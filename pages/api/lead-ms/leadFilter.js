@@ -11,7 +11,7 @@ export default async function handler(req, res) {
   await dbConnect();
 
   const me = await getUserFromReq(req);
-  if (!requireRole(me, ["clinic", "agent", "admin", "doctor"])) {
+  if (!requireRole(me, ["clinic", "agent", "admin", "doctor", "doctorStaff", "staff"])) {
     return res.status(403).json({ success: false, message: "Access denied" });
   }
 
@@ -30,6 +30,12 @@ export default async function handler(req, res) {
       return res.status(403).json({ success: false, message: "Doctor not linked to any clinic" });
     }
     clinic = await Clinic.findById(me.clinicId);
+  } else if (me.role === "doctorStaff" || me.role === "staff") {
+    // DoctorStaff/Staff uses their clinicId if they have one
+    if (!me.clinicId) {
+      return res.status(403).json({ success: false, message: "Staff not linked to any clinic" });
+    }
+    clinic = await Clinic.findById(me.clinicId);
   } else if (me.role === "admin") {
     // Admin can access all leads, but we still need clinicId if provided
     const { clinicId: adminClinicId } = req.query;
@@ -42,7 +48,7 @@ export default async function handler(req, res) {
     return res.status(404).json({ success: false, message: "Clinic not found for this user" });
   }
 
-  // ✅ Check permission for reading leads (only for clinic, agent, and doctor; admin bypasses)
+  // ✅ Check permission for reading leads (only for clinic, agent, doctor, and doctorStaff/staff; admin bypasses)
   if (me.role !== "admin" && clinic._id) {
     try {
       // First check if clinic has read permission for "create_lead" module
@@ -54,12 +60,18 @@ export default async function handler(req, res) {
         action: "read"
       });
       // Pass the user's role to check role-specific permissions (doctor uses 'doctor' role, clinic uses 'clinic' role)
+      // For doctorStaff/staff, use 'clinic' role permissions (they inherit clinic permissions)
+      const roleForPermissionCheck = 
+        me.role === "doctor" ? "doctor" : 
+        me.role === "clinic" ? "clinic" : 
+        (me.role === "doctorStaff" || me.role === "staff") ? "clinic" : null;
+      
       const { hasPermission: clinicHasPermission, error: clinicError } = await checkClinicPermission(
         clinic._id,
         "create_lead", // Check "create_lead" module permission
         "read",
         null, // No submodule - this is a module-level check
-        me.role === "doctor" ? "doctor" : me.role === "clinic" ? "clinic" : null
+        roleForPermissionCheck
       );
 
       console.log('[leadFilter] Permission check result', {
@@ -99,7 +111,7 @@ export default async function handler(req, res) {
         });
       }
     }
-    // Doctor role uses clinic permissions (no separate doctor permission check needed)
+    // Doctor and doctorStaff/staff roles use clinic permissions (no separate permission check needed)
   }
 
   if (req.method === "GET") {
