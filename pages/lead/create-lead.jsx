@@ -36,6 +36,7 @@ function LeadsPage() {
 
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1)
+  const [totalLeads, setTotalLeads] = useState(0)
   const leadsPerPage = 9;
 
   const token = typeof window !== "undefined" ? localStorage.getItem("clinicToken") : null;
@@ -43,6 +44,7 @@ function LeadsPage() {
   // Fetch permissions
   const fetchPermissions = async () => {
     if (!token) return;
+
     try {
       const res = await axios.get("/api/clinic/permissions", {
         headers: { Authorization: `Bearer ${token}` },
@@ -167,6 +169,7 @@ function LeadsPage() {
       if (res.data.success) {
         setLeads(res.data.leads || []);
         setTotalPages(res?.data?.pagination?.totalPages || 1)
+        setTotalLeads(res?.data?.pagination?.totalLeads || 0)
       } else {
         // If permission denied, clear leads
         if (res.data.message && res.data.message.includes("permission")) {
@@ -436,32 +439,34 @@ function LeadsPage() {
         )}
 
         {/* Pagination */}
-        {
-          permissions.canRead &&
+
+        {permissions.canRead &&
           totalPages > 1 && (
-            <div className="mt-4 flex items-center justify-center gap-1">
-              <button onClick={() => setCurrentPage(currentPage - 1)} disabled={currentPage === 1} className="px-3 py-1 rounded text-xs font-medium bg-white border border-gray-300 text-gray-800 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
-                Prev
-              </button>
-              {[...Array(totalPages)].map((_, i) => {
-                const page = i + 1;
-                if (page === 1 || page === totalPages || (page >= currentPage - 1 && page <= currentPage + 1)) {
-                  return (
-                    <button key={page} onClick={() => setCurrentPage(page)} className={`px-3 py-1 rounded text-xs font-medium ${currentPage === page ? "bg-blue-600 text-white" : "bg-white border border-gray-300 text-gray-800 hover:bg-gray-50"}`}>
-                      {page}
-                    </button>
-                  );
-                } else if (page === currentPage - 2 || page === currentPage + 2) {
-                  return <span key={page} className="px-1 text-gray-700">...</span>;
-                }
-                return null;
-              })}
-              <button onClick={() => setCurrentPage(currentPage + 1)} disabled={currentPage === totalPages} className="px-3 py-1 rounded text-xs font-medium bg-white border border-gray-300 text-gray-800 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
-                Next
-              </button>
+            <div className="mt-4 flex flex-col gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-700 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+              <p>
+                Showing {(currentPage - 1) * leadsPerPage + 1}-{currentPage * leadsPerPage} of {totalLeads} lead{totalLeads === 1 ? "" : "s"}
+              </p>
+              <div className="flex items-center gap-2 text-xs">
+                <button
+                  onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                  className="rounded-lg border border-gray-300 px-3 py-1.5 font-semibold text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Previous
+                </button>
+                <span className="text-gray-600">
+                  Page {currentPage} of {totalPages}
+                </span>
+                <button
+                  onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages}
+                  className="rounded-lg border border-gray-300 px-3 py-1.5 font-semibold text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Next
+                </button>
+              </div>
             </div>
-          )
-        }
+          )}
 
         {/* Create Lead Modal */}
         <CreateLeadModal
