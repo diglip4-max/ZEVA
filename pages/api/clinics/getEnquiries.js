@@ -26,7 +26,7 @@ export default async function handler(req, res) {
         return res.status(404).json({ message: 'Clinic not found' });
       }
       clinicIdToUse = clinic._id;
-    } else if (decoded.role === 'agent' || decoded.role === 'doctor' || decoded.role === 'doctorStaff') {
+    } else if (decoded.role === 'agent' || decoded.role === 'doctor' || decoded.role === 'doctorStaff' || decoded.role === 'staff') {
       const user = await User.findById(decoded.userId).select('clinicId');
       if (!user?.clinicId) {
         return res.status(403).json({ message: 'Access denied: user not linked to any clinic' });
