@@ -12,8 +12,8 @@ export default async function handler(req, res) {
     return res.status(401).json({ success: false, message: "Unauthorized" });
   }
 
-  // ✅ Allow admin, clinic, agent, or doctor
-  if (!requireRole(user, ["admin", "clinic", "agent", "doctor"])) {
+  // ✅ Allow admin, clinic, agent, doctor, or doctorStaff
+  if (!requireRole(user, ["admin", "clinic", "agent", "doctor", "doctorStaff", "staff"])) {
     return res.status(403).json({ success: false, message: "Access denied" });
   }
 
@@ -42,6 +42,12 @@ export default async function handler(req, res) {
           query.clinicId = user.clinicId;
         }
         // If no clinicId, doctor can see all agents (admin-like access)
+      } else if (user.role === "doctorStaff" || user.role === "staff") {
+        // DoctorStaff/Staff can see agents from their clinic
+        if (!user.clinicId) {
+          return res.status(403).json({ success: false, message: "Staff not linked to any clinic" });
+        }
+        query.clinicId = user.clinicId;
       }
 
       const agents = await User.find(query).select("_id name email clinicId");
