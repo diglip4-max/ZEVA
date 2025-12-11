@@ -3,49 +3,50 @@ import Department from "../../../models/Department";
 import Clinic from "../../../models/Clinic";
 import User from "../../../models/Users";
 import { getUserFromReq } from "../lead-ms/auth";
+import { getClinicIdFromUser, checkClinicPermission } from "../lead-ms/permissions-helper";
 
 export default async function handler(req, res) {
   await dbConnect();
 
-  // Verify clinic admin authentication
-  let clinicUser;
+  // Verify authentication
+  let user;
   try {
-    clinicUser = await getUserFromReq(req);
-    if (!clinicUser) {
+    user = await getUserFromReq(req);
+    if (!user) {
       return res.status(401).json({ success: false, message: "Unauthorized" });
     }
-    if (clinicUser.role !== "clinic") {
-      return res.status(403).json({ success: false, message: "Access denied. Clinic role required." });
+    // Allow clinic, doctor, agent, doctorStaff, and staff roles
+    if (!["clinic", "doctor", "agent", "doctorStaff", "staff"].includes(user.role)) {
+      return res.status(403).json({ success: false, message: "Access denied" });
     }
   } catch (error) {
     return res.status(401).json({ success: false, message: "Invalid token" });
   }
 
-  // Find the clinic associated with this user
-  const clinic = await Clinic.findOne({ owner: clinicUser._id });
-  if (!clinic) {
-    return res.status(404).json({ success: false, message: "Clinic not found" });
+  // Get clinic ID from user
+  const { clinicId, error: clinicError } = await getClinicIdFromUser(user);
+  if (clinicError || !clinicId) {
+    return res.status(403).json({ 
+      success: false,
+      message: clinicError || "Unable to determine clinic access" 
+    });
   }
-
-  const clinicId = clinic._id;
 
   // GET: Fetch all departments for this clinic
   if (req.method === "GET") {
     try {
       // Check read permission
-      const { checkClinicPermission } = await import("../lead-ms/permissions-helper");
-      const { hasPermission, error } = await checkClinicPermission(
+      const { hasPermission, error: permError } = await checkClinicPermission(
         clinicId,
-        "room_management",
+        "clinic_staff_management",
         "read",
-        null,
-        clinicUser.role
+        "Add Room"
       );
 
       if (!hasPermission) {
         return res.status(403).json({
           success: false,
-          message: error || "You do not have permission to view departments",
+          message: permError || "You do not have permission to view departments",
         });
       }
 
@@ -72,19 +73,17 @@ export default async function handler(req, res) {
   if (req.method === "POST") {
     try {
       // Check create permission
-      const { checkClinicPermission } = await import("../lead-ms/permissions-helper");
-      const { hasPermission, error } = await checkClinicPermission(
+      const { hasPermission, error: permError } = await checkClinicPermission(
         clinicId,
-        "room_management",
+        "clinic_staff_management",
         "create",
-        null,
-        clinicUser.role
+        "Add Room"
       );
 
       if (!hasPermission) {
         return res.status(403).json({
           success: false,
-          message: error || "You do not have permission to create departments",
+          message: permError || "You do not have permission to create departments",
         });
       }
 
@@ -110,7 +109,7 @@ export default async function handler(req, res) {
       const newDepartment = await Department.create({
         clinicId,
         name: name.trim(),
-        createdBy: clinicUser._id,
+        createdBy: user._id,
       });
 
       return res.status(201).json({
@@ -139,19 +138,17 @@ export default async function handler(req, res) {
   if (req.method === "PUT") {
     try {
       // Check update permission
-      const { checkClinicPermission } = await import("../lead-ms/permissions-helper");
-      const { hasPermission, error } = await checkClinicPermission(
+      const { hasPermission, error: permError } = await checkClinicPermission(
         clinicId,
-        "room_management",
+        "clinic_staff_management",
         "update",
-        null,
-        clinicUser.role
+        "Add Room"
       );
 
       if (!hasPermission) {
         return res.status(403).json({
           success: false,
-          message: error || "You do not have permission to update departments",
+          message: permError || "You do not have permission to update departments",
         });
       }
 
@@ -206,19 +203,17 @@ export default async function handler(req, res) {
   if (req.method === "DELETE") {
     try {
       // Check delete permission
-      const { checkClinicPermission } = await import("../lead-ms/permissions-helper");
-      const { hasPermission, error } = await checkClinicPermission(
+      const { hasPermission, error: permError } = await checkClinicPermission(
         clinicId,
-        "room_management",
+        "clinic_staff_management",
         "delete",
-        null,
-        clinicUser.role
+        "Add Room"
       );
 
       if (!hasPermission) {
         return res.status(403).json({
           success: false,
-          message: error || "You do not have permission to delete departments",
+          message: permError || "You do not have permission to delete departments",
         });
       }
 

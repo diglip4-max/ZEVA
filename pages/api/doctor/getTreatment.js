@@ -2,6 +2,7 @@ import dbConnect from "../../../lib/database";
 import Treatment from "../../../models/Treatment";
 import { getUserFromReq } from "../lead-ms/auth";
 import { checkAgentPermission } from "../agent/permissions-helper";
+import { getClinicIdFromUser, checkClinicPermission } from "../lead-ms/permissions-helper";
 
 export default async function handler(req, res) {
   await dbConnect();
@@ -16,29 +17,79 @@ export default async function handler(req, res) {
 
       console.log("getTreatment - User role:", me.role, "User ID:", me._id);
 
-      // Allow clinic, doctor, admin, lead, doctorStaff roles without permission checks
-      if (['clinic', 'doctor', 'admin', 'lead', 'doctorStaff'].includes(me.role)) {
+      // Allow clinic, doctor, admin roles without permission checks
+      if (['clinic', 'doctor', 'admin'].includes(me.role)) {
         // These roles can access treatments without permission checks
         console.log("getTreatment - Allowing access for role:", me.role);
-      } else if (['agent', 'staff'].includes(me.role)) {
-        // For agent and staff, check read permission for add_treatment module
+      } else if (['agent', 'staff', 'doctorStaff'].includes(me.role)) {
+        // For agent, staff, and doctorStaff, check clinic permissions
         try {
           console.log("getTreatment - Checking permission for role:", me.role);
-        const { hasPermission, error: permissionError } = await checkAgentPermission(
-          me._id,
-          "add_treatment", // moduleKey
-          "read", // action
-          null // subModuleName
-        );
-
-          console.log("getTreatment - Permission result:", { hasPermission, error: permissionError });
-
-        if (!hasPermission) {
+          
+          // Get clinic ID for the user
+          const { clinicId, error: clinicError, isAdmin } = await getClinicIdFromUser(me);
+          if (clinicError && !isAdmin) {
             return res.status(403).json({
               success: false,
-              message: permissionError || "You do not have permission to view treatments",
+              message: clinicError || "User not linked to any clinic",
               role: me.role
             });
+          }
+
+          if (clinicId) {
+            // Determine which role to check permissions for
+            let roleForPermission = null;
+            if (me.role === "doctor") {
+              roleForPermission = "doctor";
+            } else if (me.role === "clinic") {
+              roleForPermission = "clinic";
+            } else if (me.role === "staff" || me.role === "agent" || me.role === "doctorStaff") {
+              // Staff, agent, and doctorStaff should check clinic-level permissions
+              roleForPermission = "clinic";
+            }
+
+            // Check clinic permission for add_treatment module
+            const { hasPermission, error: permissionError } = await checkClinicPermission(
+              clinicId,
+              "add_treatment", // moduleKey
+              "read", // action
+              null, // subModuleName
+              roleForPermission
+            );
+
+            console.log("getTreatment - Permission result:", { hasPermission, error: permissionError });
+
+            if (!hasPermission) {
+              return res.status(403).json({
+                success: false,
+                message: permissionError || "You do not have permission to view treatments",
+                role: me.role
+              });
+            }
+          } else {
+            // For agent role, fall back to agent permissions if no clinicId
+            if (me.role === "agent") {
+              const { hasPermission, error: permissionError } = await checkAgentPermission(
+                me._id,
+                "add_treatment", // moduleKey
+                "read", // action
+                null // subModuleName
+              );
+
+              if (!hasPermission) {
+                return res.status(403).json({
+                  success: false,
+                  message: permissionError || "You do not have permission to view treatments",
+                  role: me.role
+                });
+              }
+            } else {
+              return res.status(403).json({
+                success: false,
+                message: "User not linked to any clinic",
+                role: me.role
+              });
+            }
           }
         } catch (permissionError) {
           console.error("Permission check error:", permissionError);
