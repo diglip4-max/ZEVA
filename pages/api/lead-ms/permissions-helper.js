@@ -40,6 +40,15 @@ export async function getClinicIdFromUser(user) {
       return { clinicId: null, error: "Clinic not found for this doctor" };
     }
     return { clinicId: clinic._id, error: null };
+  } else if (user.role === "doctorStaff" || user.role === "staff") {
+    if (!user.clinicId) {
+      return { clinicId: null, error: `${user.role === "doctorStaff" ? "Doctor staff" : "Staff"} is not assigned to any clinic` };
+    }
+    const clinic = await Clinic.findById(user.clinicId).select("_id");
+    if (!clinic) {
+      return { clinicId: null, error: `Clinic not found for this ${user.role === "doctorStaff" ? "doctor staff" : "staff"}` };
+    }
+    return { clinicId: clinic._id, error: null };
   } else if (user.role === "admin") {
     // Admin has all permissions, return null to skip permission checks
     return { clinicId: null, error: null, isAdmin: true };
