@@ -37,7 +37,7 @@ export default async function handler(req, res) {
 
         const { hasPermission, error: permError } = await checkClinicPermission(
           clinicId,
-          "clinic_staff_management",
+          "clinic_marketing",
           "create",
           "SMS Marketing"
         );
