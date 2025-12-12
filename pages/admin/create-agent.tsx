@@ -760,7 +760,7 @@ const ManageAgentsPage: NextPageWithLayout = () => {
                                           setPasswordAgent(agent);
                                           setMenuAgentId(null);
                                         }}
-                                      >
+                                      > 
                                         <KeyIcon className="w-4 h-4" />
                                         Change password
                                       </button>

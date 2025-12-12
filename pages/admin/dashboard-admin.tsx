@@ -471,6 +471,7 @@ const AdminDashboard = () => {
                 <Legend wrapperStyle={{ color: '#374151' }} />
               </PieChart>
             </ResponsiveContainer>
+            
           </div>
         </div>
 
