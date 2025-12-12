@@ -186,7 +186,7 @@ export default async function handler(req, res) {
         success: true,
         leads,
         pagination: {
-          totalCount,
+          totalLeads: totalCount,
           totalPages,
           currentPage,
           limit,

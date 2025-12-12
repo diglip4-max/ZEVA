@@ -12,8 +12,8 @@ export default async function handler(req, res) {
     return res.status(401).json({ success: false, message: 'Unauthorized: Missing or invalid token' });
   }
 
-  // Allow admin, clinic, doctor, staff, and doctorStaff roles
-  if (!requireRole(me, ['admin', 'clinic', 'doctor', 'staff', 'doctorStaff'])) {
+  // Allow admin, clinic, doctor, staff, doctorStaff, and agent roles
+  if (!requireRole(me, ['admin', 'clinic', 'doctor', 'staff', 'doctorStaff', 'agent'])) {
     return res.status(403).json({ success: false, message: 'Access denied' });
   }
 
@@ -74,6 +74,11 @@ export default async function handler(req, res) {
           if (agent.createdBy?.toString() !== me._id.toString()) {
             return res.status(403).json({ success: false, message: 'Access denied' });
           }
+        }
+      } else if (me.role === 'agent') {
+        // Agents can view only their own permissions
+        if (agent._id.toString() !== me._id.toString()) {
+          return res.status(403).json({ success: false, message: 'Access denied' });
         }
       }
 
@@ -151,6 +156,11 @@ export default async function handler(req, res) {
           if (agent.createdBy?.toString() !== me._id.toString()) {
             return res.status(403).json({ success: false, message: 'Access denied' });
           }
+        }
+      } else if (me.role === 'agent') {
+        // Agents cannot modify other agents; allow only self-update
+        if (agent._id.toString() !== me._id.toString()) {
+          return res.status(403).json({ success: false, message: 'Access denied' });
         }
       }
 

@@ -111,12 +111,32 @@ export default async function handler(req, res) {
         }
 
         if (me.role !== "admin" && clinicId) {
-          const { checkClinicPermission } = await import("../lead-ms/permissions-helper");
-          const { hasPermission, error } = await checkClinicPermission(
-            clinicId,
-            "health_center",
-            "read"
-          );
+          let hasPermission = false;
+          let error = null;
+
+          // For agents, staff, and doctorStaff, check agent permissions
+          if (["agent", "staff", "doctorStaff"].includes(me.role)) {
+            const { checkAgentPermission } = await import("../agent/permissions-helper");
+            const result = await checkAgentPermission(
+              me._id,
+              "clinic_health_center",
+              "read"
+            );
+            hasPermission = result.hasPermission;
+            error = result.error;
+          } else if (["clinic", "doctor"].includes(me.role)) {
+            // For clinic and doctor, check clinic permissions
+            const { checkClinicPermission } = await import("../lead-ms/permissions-helper");
+            const result = await checkClinicPermission(
+              clinicId,
+              "clinic_health_center",
+              "read",
+              null,
+              me.role
+            );
+            hasPermission = result.hasPermission;
+            error = result.error;
+          }
 
           if (!hasPermission) {
             return res.status(403).json({
@@ -149,12 +169,32 @@ export default async function handler(req, res) {
 
       // ✅ Check permission for reading clinic (only for clinic, admin bypasses)
       if (me && me.role !== "admin" && clinicId) {
-        const { checkClinicPermission } = await import("../lead-ms/permissions-helper");
-        const { hasPermission, error } = await checkClinicPermission(
-          clinicId,
-          "health_center",
-          "read"
-        );
+        let hasPermission = false;
+        let error = null;
+
+        // For agents, staff, and doctorStaff, check agent permissions
+        if (["agent", "staff", "doctorStaff"].includes(me.role)) {
+          const { checkAgentPermission } = await import("../agent/permissions-helper");
+          const result = await checkAgentPermission(
+            me._id,
+            "clinic_health_center",
+            "read"
+          );
+          hasPermission = result.hasPermission;
+          error = result.error;
+        } else if (["clinic", "doctor"].includes(me.role)) {
+          // For clinic and doctor, check clinic permissions
+          const { checkClinicPermission } = await import("../lead-ms/permissions-helper");
+          const result = await checkClinicPermission(
+            clinicId,
+            "clinic_health_center",
+            "read",
+            null,
+            me.role
+          );
+          hasPermission = result.hasPermission;
+          error = result.error;
+        }
 
         if (!hasPermission) {
           return res.status(403).json({
@@ -219,12 +259,32 @@ export default async function handler(req, res) {
 
       // ✅ Check permission for updating clinic (only for clinic, admin bypasses)
       if (me.role !== "admin" && clinicId) {
-        const { checkClinicPermission } = await import("../lead-ms/permissions-helper");
-        const { hasPermission, error } = await checkClinicPermission(
-          clinicId,
-          "health_center",
-          "update"
-        );
+        let hasPermission = false;
+        let error = null;
+
+        // For agents, staff, and doctorStaff, check agent permissions
+        if (["agent", "staff", "doctorStaff"].includes(me.role)) {
+          const { checkAgentPermission } = await import("../agent/permissions-helper");
+          const result = await checkAgentPermission(
+            me._id,
+            "clinic_health_center",
+            "update"
+          );
+          hasPermission = result.hasPermission;
+          error = result.error;
+        } else if (["clinic", "doctor"].includes(me.role)) {
+          // For clinic and doctor, check clinic permissions
+          const { checkClinicPermission } = await import("../lead-ms/permissions-helper");
+          const result = await checkClinicPermission(
+            clinicId,
+            "clinic_health_center",
+            "update",
+            null,
+            me.role
+          );
+          hasPermission = result.hasPermission;
+          error = result.error;
+        }
 
         if (!hasPermission) {
           return res.status(403).json({
@@ -431,12 +491,32 @@ export default async function handler(req, res) {
 
       // ✅ Check permission for deleting clinic (only for clinic, admin bypasses)
       if (me.role !== "admin" && clinicId) {
-        const { checkClinicPermission } = await import("../lead-ms/permissions-helper");
-        const { hasPermission, error } = await checkClinicPermission(
-          clinicId,
-          "health_center",
-          "delete"
-        );
+        let hasPermission = false;
+        let error = null;
+
+        // For agents, staff, and doctorStaff, check agent permissions
+        if (["agent", "staff", "doctorStaff"].includes(me.role)) {
+          const { checkAgentPermission } = await import("../agent/permissions-helper");
+          const result = await checkAgentPermission(
+            me._id,
+            "clinic_health_center",
+            "delete"
+          );
+          hasPermission = result.hasPermission;
+          error = result.error;
+        } else if (["clinic", "doctor"].includes(me.role)) {
+          // For clinic and doctor, check clinic permissions
+          const { checkClinicPermission } = await import("../lead-ms/permissions-helper");
+          const result = await checkClinicPermission(
+            clinicId,
+            "clinic_health_center",
+            "delete",
+            null,
+            me.role
+          );
+          hasPermission = result.hasPermission;
+          error = result.error;
+        }
 
         if (!hasPermission) {
           return res.status(403).json({
