@@ -160,6 +160,7 @@ function AdminJobs() {
   const [isLoading, setIsLoading] = useState(true);
   const [showFilters, setShowFilters] = useState(false);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [openSelect, setOpenSelect] = useState<null | 'jobType' | 'location' | 'department'>(null);
   const [confirmationModal, setConfirmationModal] = useState<ConfirmationModal>({
     isOpen: false,
     type: null,
@@ -434,6 +435,23 @@ function AdminJobs() {
     showToast('Filters cleared', 'info');
   };
 
+  // Close custom selects on outside click
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
+      if (openSelect && !(event.target as HTMLElement).closest('.custom-select')) {
+        setOpenSelect(null);
+      }
+    };
+    if (openSelect) {
+      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('touchstart', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
+  }, [openSelect]);
+
   const getTabCount = (status: keyof JobsData) => {
     if (status === activeTab) {
       return filteredJobs.length;
@@ -472,22 +490,25 @@ function AdminJobs() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 pt-2 sm:pt-3 lg:pt-4 px-4 sm:px-6 lg:px-8 pb-4 sm:pb-6 lg:pb-8">
       <ToastContainer toasts={toasts} removeToast={removeToast} />
       
-      <div className="max-w-7xl mx-auto space-y-6">
+      <div className="max-w-7xl mx-auto space-y-4">
         {/* Header Section */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-            <div className="flex items-start gap-4">
-              <div className="bg-gray-800 p-3 rounded-lg">
-                <BriefcaseIcon className="w-8 h-8 text-white" />
+        <div className="bg-white/95 backdrop-blur-sm rounded-xl shadow-sm border border-gray-200/50 p-4">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <div className="bg-gradient-to-br from-gray-800 to-gray-900 p-2.5 rounded-xl shadow-md">
+                <BriefcaseIcon className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
-                  Job Management
-                </h1>
-                <p className="text-gray-700">
+                <div className="flex items-center gap-2 mb-1">
+                  <h1 className="text-lg font-bold text-gray-900">
+                    Job Management
+                  </h1>
+                  <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 text-xs font-semibold rounded-full">New</span>
+                </div>
+                <p className="text-sm text-gray-600">
                   Manage and review job listings across different statuses
                 </p>
               </div>
@@ -526,22 +547,22 @@ function AdminJobs() {
           </div>
 
           {/* Stats Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6 pt-6 border-t border-gray-200">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4 pt-4 border-t border-gray-200">
             {[
-              { title: 'Pending', value: jobs.pending.length, icon: ClockIcon, color: 'bg-yellow-500' },
-              { title: 'Approved', value: jobs.approved.length, icon: CheckCircleIcon, color: 'bg-green-500' },
-              { title: 'Declined', value: jobs.declined.length, icon: XCircleIcon, color: 'bg-red-500' },
+              { title: 'Pending', value: jobs.pending.length, icon: ClockIcon, color: 'bg-amber-500', bgColor: 'bg-amber-50', textColor: 'text-amber-700', borderColor: 'border-amber-200' },
+              { title: 'Approved', value: jobs.approved.length, icon: CheckCircleIcon, color: 'bg-emerald-500', bgColor: 'bg-emerald-50', textColor: 'text-emerald-700', borderColor: 'border-emerald-200' },
+              { title: 'Declined', value: jobs.declined.length, icon: XCircleIcon, color: 'bg-rose-500', bgColor: 'bg-rose-50', textColor: 'text-rose-700', borderColor: 'border-rose-200' },
             ].map((stat, index) => {
               const Icon = stat.icon;
               return (
-                <div key={index} className="bg-gray-50 rounded-lg border border-gray-200 p-4">
+                <div key={index} className={`${stat.bgColor} ${stat.borderColor} rounded-xl border p-3 shadow-sm hover:shadow-md transition-shadow`}>
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-xs font-medium text-gray-700 uppercase tracking-wider mb-1">{stat.title}</p>
-                      <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
+                      <p className={`text-xs font-medium ${stat.textColor} uppercase tracking-wide mb-0.5`}>{stat.title}</p>
+                      <p className="text-xl font-bold text-gray-900">{stat.value}</p>
                     </div>
-                    <div className={`${stat.color} p-3 rounded-lg text-white`}>
-                      <Icon className="w-6 h-6" />
+                    <div className={`${stat.color} p-2 rounded-lg text-white shadow-sm`}>
+                      <Icon className="w-5 h-5" />
                     </div>
                   </div>
                 </div>
@@ -551,8 +572,8 @@ function AdminJobs() {
         </div>
 
         {/* Tab Navigation */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <nav className="flex space-x-6 border-b border-gray-200">
+        <div className="bg-white/95 backdrop-blur-sm rounded-xl shadow-sm border border-gray-200/50 p-4">
+          <nav className="flex space-x-4 border-b border-gray-200">
             {(['pending', 'approved', 'declined'] as const).map((tab) => (
               <button
                 key={tab}
@@ -561,10 +582,10 @@ function AdminJobs() {
                   setCurrentPage(1);
                   showToast(`Switched to ${tab} jobs`, 'info');
                 }}
-                className={`py-2 px-1 border-b-2 font-medium text-sm capitalize transition-colors duration-200 ${
+                className={`py-1.5 px-2 border-b-2 font-medium text-xs capitalize transition-colors duration-200 ${
                   activeTab === tab
                     ? 'border-gray-800 text-gray-800'
-                    : 'border-transparent text-gray-700 hover:text-gray-900 hover:border-gray-300'
+                    : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
                   }`}
               >
                 {tab} ({getTabCount(tab)})
@@ -575,22 +596,22 @@ function AdminJobs() {
 
         {/* Filters */}
         {showFilters && (
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-4">
-            <h3 className="text-lg font-medium text-gray-900 mb-4 lg:mb-0">Filters & Search</h3>
+          <div className="bg-white/95 backdrop-blur-sm rounded-xl shadow-sm border border-gray-200/50 p-4">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-3">
+            <h3 className="text-sm font-semibold text-gray-900 mb-3 lg:mb-0">Filters & Search</h3>
             <button
               onClick={clearFilters}
-                className="flex items-center gap-2 text-gray-700 hover:text-gray-900 text-sm font-medium transition-colors duration-200"
+                className="flex items-center gap-1.5 text-gray-600 hover:text-gray-900 text-xs font-medium transition-colors duration-200"
             >
-                <ArrowPathIcon className="w-4 h-4" />
+                <ArrowPathIcon className="w-3.5 h-3.5" />
               Clear all filters
             </button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
             {/* Search */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Search</label>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Search</label>
                 <div className="relative">
                   <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-700" />
               <input
@@ -604,48 +625,144 @@ function AdminJobs() {
             </div>
 
             {/* Job Type Filter */}
-            <div>
+            <div className="custom-select relative">
               <label className="block text-sm font-medium text-gray-700 mb-1">Job Type</label>
-              <select
-                value={filters.jobType}
-                onChange={(e) => handleFilterChange('jobType', e.target.value)}
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-800 focus:border-transparent"
+              <button
+                type="button"
+                onClick={() => setOpenSelect(openSelect === 'jobType' ? null : 'jobType')}
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-800 focus:border-transparent flex items-center justify-between"
               >
-                <option value="">All Types</option>
-                {filterOptions.jobTypes.map((type) => (
-                  <option key={type} value={type}>{type}</option>
-                ))}
-              </select>
+                <span className="truncate">{filters.jobType || "All Types"}</span>
+                <svg
+                  className={`w-4 h-4 text-gray-500 transition-transform ${openSelect === 'jobType' ? 'rotate-180' : ''}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              {openSelect === 'jobType' && (
+                <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-56 overflow-y-auto overscroll-contain">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleFilterChange('jobType', "");
+                      setOpenSelect(null);
+                    }}
+                    className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-100 transition-colors ${filters.jobType === "" ? "bg-blue-50 text-blue-600" : "text-gray-900"}`}
+                  >
+                    All Types
+                  </button>
+                  {filterOptions.jobTypes.map((type) => (
+                    <button
+                      key={type}
+                      type="button"
+                      onClick={() => {
+                        handleFilterChange('jobType', type);
+                        setOpenSelect(null);
+                      }}
+                      className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-100 transition-colors ${filters.jobType === type ? "bg-blue-50 text-blue-600" : "text-gray-900"}`}
+                    >
+                      {type}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Location Filter */}
-            <div>
+            <div className="custom-select relative">
               <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
-              <select
-                value={filters.location}
-                onChange={(e) => handleFilterChange('location', e.target.value)}
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-800 focus:border-transparent"
+              <button
+                type="button"
+                onClick={() => setOpenSelect(openSelect === 'location' ? null : 'location')}
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-800 focus:border-transparent flex items-center justify-between"
               >
-                <option value="">All Locations</option>
-                {filterOptions.locations.map((location) => (
-                  <option key={location} value={location}>{location}</option>
-                ))}
-              </select>
+                <span className="truncate">{filters.location || "All Locations"}</span>
+                <svg
+                  className={`w-4 h-4 text-gray-500 transition-transform ${openSelect === 'location' ? 'rotate-180' : ''}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              {openSelect === 'location' && (
+                <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-56 overflow-y-auto overscroll-contain">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleFilterChange('location', "");
+                      setOpenSelect(null);
+                    }}
+                    className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-100 transition-colors ${filters.location === "" ? "bg-blue-50 text-blue-600" : "text-gray-900"}`}
+                  >
+                    All Locations
+                  </button>
+                  {filterOptions.locations.map((location) => (
+                    <button
+                      key={location}
+                      type="button"
+                      onClick={() => {
+                        handleFilterChange('location', location);
+                        setOpenSelect(null);
+                      }}
+                      className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-100 transition-colors ${filters.location === location ? "bg-blue-50 text-blue-600" : "text-gray-900"}`}
+                    >
+                      {location}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Department Filter */}
-            <div>
+            <div className="custom-select relative">
               <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
-              <select
-                value={filters.department}
-                onChange={(e) => handleFilterChange('department', e.target.value)}
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-800 focus:border-transparent"
+              <button
+                type="button"
+                onClick={() => setOpenSelect(openSelect === 'department' ? null : 'department')}
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-800 focus:border-transparent flex items-center justify-between"
               >
-                <option value="">All Departments</option>
-                {filterOptions.departments.map((department) => (
-                  <option key={department} value={department}>{department}</option>
-                ))}
-              </select>
+                <span className="truncate">{filters.department || "All Departments"}</span>
+                <svg
+                  className={`w-4 h-4 text-gray-500 transition-transform ${openSelect === 'department' ? 'rotate-180' : ''}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              {openSelect === 'department' && (
+                <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-56 overflow-y-auto overscroll-contain">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleFilterChange('department', "");
+                      setOpenSelect(null);
+                    }}
+                    className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-100 transition-colors ${filters.department === "" ? "bg-blue-50 text-blue-600" : "text-gray-900"}`}
+                  >
+                    All Departments
+                  </button>
+                  {filterOptions.departments.map((department) => (
+                    <button
+                      key={department}
+                      type="button"
+                      onClick={() => {
+                        handleFilterChange('department', department);
+                        setOpenSelect(null);
+                      }}
+                      className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-100 transition-colors ${filters.department === department ? "bg-blue-50 text-blue-600" : "text-gray-900"}`}
+                    >
+                      {department}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Salary Range */}

@@ -364,10 +364,10 @@ const ManageAgentsPage = () => {
 
   if ((isAgentRoute && permissionsLoading) || isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <div className="text-center">
-          <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-gray-200 border-t-gray-900" />
-          <p className="text-sm text-gray-700">Loading team data...</p>
+          <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-gray-200 dark:border-gray-700 border-t-gray-900 dark:border-t-blue-500" />
+          <p className="text-sm text-gray-700 dark:text-gray-300">Loading team data...</p>
         </div>
       </div>
     );
@@ -375,10 +375,10 @@ const ManageAgentsPage = () => {
 
   if (isAgentRoute && !canRead) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="max-w-md mx-auto text-center bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">Access denied</h2>
-          <p className="text-sm text-gray-700">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+        <div className="max-w-md mx-auto text-center bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-6 shadow-sm">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">Access denied</h2>
+          <p className="text-sm text-gray-700 dark:text-gray-400">
             You do not have permission to view the Create Agent module. Please contact your
             administrator.
           </p>
@@ -388,7 +388,7 @@ const ManageAgentsPage = () => {
   }
 
   return (
-    <div className="w-full min-h-screen bg-gray-50 py-6 px-4 sm:px-6 lg:px-8">
+    <div className="w-full min-h-screen bg-gray-50 dark:bg-gray-900 py-6 px-4 sm:px-6 lg:px-8">
       <Toaster
         position="top-right"
         toastOptions={{
@@ -400,13 +400,13 @@ const ManageAgentsPage = () => {
         {/* Header Section */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Team Management</h1>
-            <p className="text-xs sm:text-sm text-gray-700 mt-1">Manage agents and doctor staff accounts</p>
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100">Team Management</h1>
+            <p className="text-xs sm:text-sm text-gray-700 dark:text-gray-400 mt-1">Manage agents and doctor staff accounts</p>
           </div>
           <button
             onClick={() => loadAll(false)}
             disabled={isRefreshing || !canRead}
-            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 w-full sm:w-auto justify-center"
+            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 w-full sm:w-auto justify-center"
           >
             <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
             Refresh
@@ -415,77 +415,77 @@ const ManageAgentsPage = () => {
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs font-medium text-gray-700 uppercase tracking-wide">Total Team</p>
-                <p className="text-3xl font-bold text-gray-900 mt-2">{totalTeam}</p>
-                <p className="text-xs text-gray-700 mt-1">{approvalRate}% approved</p>
+                <p className="text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wide">Total Team</p>
+                <p className="text-3xl font-bold text-gray-900 dark:text-gray-100 mt-2">{totalTeam}</p>
+                <p className="text-xs text-gray-700 dark:text-gray-400 mt-1">{approvalRate}% approved</p>
               </div>
-              <div className="h-12 w-12 rounded-lg bg-gray-100 flex items-center justify-center">
-                <Users className="w-6 h-6 text-gray-700" />
+              <div className="h-12 w-12 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
+                <Users className="w-6 h-6 text-gray-700 dark:text-gray-300" />
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs font-medium text-gray-700 uppercase tracking-wide">Approved</p>
-                <p className="text-3xl font-bold text-green-600 mt-2">{totalApproved}</p>
-                <p className="text-xs text-gray-700 mt-1">Active members</p>
+                <p className="text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wide">Approved</p>
+                <p className="text-3xl font-bold text-green-600 dark:text-green-400 mt-2">{totalApproved}</p>
+                <p className="text-xs text-gray-700 dark:text-gray-400 mt-1">Active members</p>
               </div>
-              <div className="h-12 w-12 rounded-lg bg-green-50 flex items-center justify-center">
-                <CheckCircle className="w-6 h-6 text-green-600" />
+              <div className="h-12 w-12 rounded-lg bg-green-50 dark:bg-green-900/30 flex items-center justify-center">
+                <CheckCircle className="w-6 h-6 text-green-600 dark:text-green-400" />
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs font-medium text-gray-700 uppercase tracking-wide">Pending</p>
-                <p className="text-3xl font-bold text-yellow-600 mt-2">{totalPending}</p>
-                <p className="text-xs text-gray-700 mt-1">Awaiting review</p>
+                <p className="text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wide">Pending</p>
+                <p className="text-3xl font-bold text-yellow-600 dark:text-yellow-400 mt-2">{totalPending}</p>
+                <p className="text-xs text-gray-700 dark:text-gray-400 mt-1">Awaiting review</p>
               </div>
-              <div className="h-12 w-12 rounded-lg bg-yellow-50 flex items-center justify-center">
-                <Clock className="w-6 h-6 text-yellow-600" />
+              <div className="h-12 w-12 rounded-lg bg-yellow-50 dark:bg-yellow-900/30 flex items-center justify-center">
+                <Clock className="w-6 h-6 text-yellow-600 dark:text-yellow-400" />
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs font-medium text-gray-700 uppercase tracking-wide">Declined</p>
-                <p className="text-3xl font-bold text-red-600 mt-2">{totalDeclined}</p>
-                <p className="text-xs text-gray-700 mt-1">Not approved</p>
+                <p className="text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wide">Declined</p>
+                <p className="text-3xl font-bold text-red-600 dark:text-red-400 mt-2">{totalDeclined}</p>
+                <p className="text-xs text-gray-700 dark:text-gray-400 mt-1">Not approved</p>
               </div>
-              <div className="h-12 w-12 rounded-lg bg-red-50 flex items-center justify-center">
-                <XCircle className="w-6 h-6 text-red-600" />
+              <div className="h-12 w-12 rounded-lg bg-red-50 dark:bg-red-900/30 flex items-center justify-center">
+                <XCircle className="w-6 h-6 text-red-600 dark:text-red-400" />
               </div>
             </div>
           </div>
         </div>
 
         {/* Action Bar */}
-        <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 shadow-sm">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="flex items-center gap-4">
               <div>
-                <h2 className="text-lg font-semibold text-gray-900">Team Members</h2>
-                <p className="text-sm text-gray-700 mt-0.5">
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Team Members</h2>
+                <p className="text-sm text-gray-700 dark:text-gray-400 mt-0.5">
                   {currentList.length} {activeView === 'agents' ? 'agents' : 'doctors'} total
                 </p>
               </div>
               {/* View Toggle */}
-              <div className="flex items-center gap-2 bg-gray-100 rounded-lg p-1">
+              <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
                 <button
                   onClick={() => setActiveView('agents')}
                   className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
                     activeView === 'agents'
-                      ? 'bg-white text-gray-900 shadow-sm'
-                      : 'text-gray-600 hover:text-gray-900'
+                      ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-gray-100 shadow-sm'
+                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
                   }`}
                 >
                   Agents ({agents.length})
@@ -494,8 +494,8 @@ const ManageAgentsPage = () => {
                   onClick={() => setActiveView('doctorStaff')}
                   className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
                     activeView === 'doctorStaff'
-                      ? 'bg-white text-gray-900 shadow-sm'
-                      : 'text-gray-600 hover:text-gray-900'
+                      ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-gray-100 shadow-sm'
+                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
                   }`}
                 >
                   Doctors ({doctorStaff.length})
@@ -505,7 +505,7 @@ const ManageAgentsPage = () => {
             {canCreate && (
               <button
                 onClick={handleCreateClick}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-lg transition-colors shadow-sm w-full sm:w-auto justify-center"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-gray-900 dark:bg-blue-600 hover:bg-gray-800 dark:hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm w-full sm:w-auto justify-center"
               >
                 <UserPlus className="w-4 h-4" />
                 Add {activeView === 'agents' ? 'Agent' : 'Doctor'}
@@ -515,16 +515,16 @@ const ManageAgentsPage = () => {
         </div>
 
         {/* Agents/Doctors Cards */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
 
           {currentList.length === 0 ? (
             <div className="px-5 py-16 text-center">
               <div className="flex flex-col items-center justify-center">
-                <div className="h-16 w-16 rounded-full bg-gray-100 flex items-center justify-center mb-4">
-                  <Users className="w-8 h-8 text-gray-700" />
+                <div className="h-16 w-16 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center mb-4">
+                  <Users className="w-8 h-8 text-gray-700 dark:text-gray-300" />
                 </div>
-                <p className="text-base font-semibold text-gray-900">No {activeView === 'agents' ? 'agents' : 'doctors'} found</p>
-                <p className="text-sm text-gray-700 mt-1 mb-4">
+                <p className="text-base font-semibold text-gray-900 dark:text-gray-100">No {activeView === 'agents' ? 'agents' : 'doctors'} found</p>
+                <p className="text-sm text-gray-700 dark:text-gray-400 mt-1 mb-4">
                   {canCreate
                     ? `Get started by adding your first ${activeView === 'agents' ? 'agent' : 'doctor'} to the team`
                     : 'You have read-only access.'}
@@ -532,7 +532,7 @@ const ManageAgentsPage = () => {
                 {canCreate && (
                   <button
                     onClick={handleCreateClick}
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-gray-900 hover:bg-gray-800 text-white text-sm font-medium rounded-lg transition-colors"
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-gray-900 dark:bg-blue-600 hover:bg-gray-800 dark:hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
                   >
                     <UserPlus className="w-4 h-4" />
                     Add {activeView === 'agents' ? 'Agent' : 'Doctor'}
@@ -546,7 +546,7 @@ const ManageAgentsPage = () => {
                 {currentList.map((agent) => (
                   <div
                     key={agent._id}
-                    className="bg-white border border-gray-200 rounded-xl p-5 hover:shadow-lg transition-all duration-200"
+                    className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-5 hover:shadow-lg transition-all duration-200"
                   >
                     {/* Card Header */}
                     <div className="flex items-start justify-between mb-4">
@@ -555,17 +555,17 @@ const ManageAgentsPage = () => {
                           {agent.name?.charAt(0).toUpperCase()}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="text-base font-semibold text-gray-900 truncate">
+                          <div className="text-base font-semibold text-gray-900 dark:text-gray-100 truncate">
                             {agent.name}
                           </div>
                           <div className="mt-1.5">
                             <span
                               className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
                                 agent.declined
-                                  ? 'bg-red-50 text-red-700 border border-red-200'
+                                  ? 'bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-700'
                                   : agent.isApproved
-                                  ? 'bg-green-50 text-green-700 border border-green-200'
-                                  : 'bg-yellow-50 text-yellow-700 border border-yellow-200'
+                                  ? 'bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-700'
+                                  : 'bg-yellow-50 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 border border-yellow-200 dark:border-yellow-700'
                               }`}
                             >
                               {agent.declined
@@ -584,10 +584,10 @@ const ManageAgentsPage = () => {
                             e.stopPropagation();
                             setMenuAgentId(menuAgentId === agent._id ? null : agent._id);
                           }}
-                          className="w-8 h-8 inline-flex items-center justify-center rounded-lg hover:bg-gray-100 border border-gray-200 transition-colors"
+                          className="w-8 h-8 inline-flex items-center justify-center rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-600 transition-colors"
                           aria-label="More actions"
                         >
-                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4 text-gray-600 dark:text-gray-400">
                             <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 12a.75.75 0 11-1.5 0 .75.75 0 011.5 0zM12.75 12a.75.75 0 11-1.5 0 .75.75 0 011.5 0zM18.75 12a.75.75 0 11-1.5 0 .75.75 0 011.5 0z" />
                           </svg>
                         </button>
@@ -600,11 +600,11 @@ const ManageAgentsPage = () => {
                                 setMenuAgentId(null);
                               }}
                             />
-                            <div className="absolute right-0 mt-1 w-40 bg-white border border-gray-200 rounded-md shadow-lg z-20">
+                            <div className="absolute right-0 mt-1 w-40 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg z-20">
                               {canUpdate && (
                                 <>
                                   <button
-                                    className="w-full text-left px-3 py-2 text-[11px] hover:bg-gray-50 transition-colors"
+                                    className="w-full text-left px-3 py-2 text-[11px] hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 transition-colors"
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       setPasswordAgent(agent);
@@ -614,7 +614,7 @@ const ManageAgentsPage = () => {
                                     Change password
                                   </button>
                                   <button
-                                    className="w-full text-left px-3 py-2 text-[11px] hover:bg-gray-50 transition-colors border-t border-gray-200"
+                                    className="w-full text-left px-3 py-2 text-[11px] hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 transition-colors border-t border-gray-200 dark:border-gray-700"
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       setPermissionAgent(agent);
@@ -625,7 +625,7 @@ const ManageAgentsPage = () => {
                                   </button>
                                   {agent.role === 'doctorStaff' && (
                                     <button
-                                      className="w-full text-left px-3 py-2 text-[11px] hover:bg-gray-50 transition-colors border-t border-gray-200"
+                                      className="w-full text-left px-3 py-2 text-[11px] hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 transition-colors border-t border-gray-200 dark:border-gray-700"
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         setTreatmentAgent(agent);
@@ -639,7 +639,7 @@ const ManageAgentsPage = () => {
                               )}
                               {canDelete && (
                                 <button
-                                  className="w-full text-left px-3 py-2 text-[11px] hover:bg-red-50 text-red-700 transition-colors border-t border-gray-200 flex items-center gap-2"
+                                  className="w-full text-left px-3 py-2 text-[11px] hover:bg-red-50 dark:hover:bg-red-900/30 text-red-700 dark:text-red-400 transition-colors border-t border-gray-200 dark:border-gray-700 flex items-center gap-2"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     setDeleteAgent(agent);
@@ -658,16 +658,16 @@ const ManageAgentsPage = () => {
 
                     {/* Card Body */}
                     <div className="space-y-2.5 mb-4">
-                      <div className="text-sm text-gray-700 truncate">
-                        <span className="font-medium text-gray-800">Email:</span> {agent.email}
+                      <div className="text-sm text-gray-700 dark:text-gray-300 truncate">
+                        <span className="font-medium text-gray-800 dark:text-gray-200">Email:</span> {agent.email}
                       </div>
-                      <div className="text-sm text-gray-700">
-                        <span className="font-medium text-gray-800">Phone:</span> {agent.phone || 'N/A'}
+                      <div className="text-sm text-gray-700 dark:text-gray-300">
+                        <span className="font-medium text-gray-800 dark:text-gray-200">Phone:</span> {agent.phone || 'N/A'}
                       </div>
                     </div>
 
                     {/* Card Footer - Actions */}
-                    <div className="flex gap-2 pt-4 border-t border-gray-100">
+                    <div className="flex gap-2 pt-4 border-t border-gray-100 dark:border-gray-700">
                       {canUpdate && (
                         <>
                           <button
@@ -678,8 +678,8 @@ const ManageAgentsPage = () => {
                             disabled={agent.isApproved}
                             className={`flex-1 px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
                               agent.isApproved
-                                ? 'bg-gray-50 text-gray-400 cursor-not-allowed border border-gray-200'
-                                : 'bg-gray-900 text-white hover:bg-gray-800 shadow-sm hover:shadow-md'
+                                ? 'bg-gray-50 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed border border-gray-200 dark:border-gray-600'
+                                : 'bg-gray-900 dark:bg-blue-600 text-white hover:bg-gray-800 dark:hover:bg-blue-700 shadow-sm hover:shadow-md'
                             }`}
                           >
                             Approve
@@ -692,8 +692,8 @@ const ManageAgentsPage = () => {
                             disabled={agent.declined}
                             className={`flex-1 px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
                               agent.declined
-                                ? 'bg-gray-50 text-gray-400 cursor-not-allowed border border-gray-200'
-                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-200 hover:border-gray-300'
+                                ? 'bg-gray-50 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed border border-gray-200 dark:border-gray-600'
+                                : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 border border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
                             }`}
                           >
                             Decline
@@ -746,32 +746,32 @@ const ManageAgentsPage = () => {
       {/* Change Password Modal */}
       {passwordAgent && (
         <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-sm bg-white rounded-lg border border-gray-200 shadow-xl">
-            <div className="px-5 py-3.5 border-b border-gray-200 bg-gray-50">
-              <h3 className="text-sm font-semibold text-gray-900">Change password</h3>
-              <p className="text-[11px] text-gray-700 mt-0.5">{passwordAgent.name} • {passwordAgent.email}</p>
+          <div className="w-full max-w-sm bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-xl">
+            <div className="px-5 py-3.5 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+              <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Change password</h3>
+              <p className="text-[11px] text-gray-700 dark:text-gray-400 mt-0.5">{passwordAgent.name} • {passwordAgent.email}</p>
             </div>
             <form onSubmit={handleResetPasswordSubmit} className="p-5">
               <div className="space-y-3.5">
                 <div>
-                  <label className="block text-[11px] font-medium text-gray-700 mb-1.5">New password</label>
+                  <label className="block text-[11px] font-medium text-gray-700 dark:text-gray-300 mb-1.5">New password</label>
                   <input
                     type="password"
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-xs focus:ring-1 focus:ring-gray-900 focus:border-gray-900 outline-none transition-colors"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-xs bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-400 focus:ring-1 focus:ring-gray-900 dark:focus:ring-blue-500 focus:border-gray-900 dark:focus:border-blue-500 outline-none transition-colors"
                     placeholder="Enter new password"
                     required
                     minLength={6}
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-medium text-gray-700 mb-1.5">Confirm password</label>
+                  <label className="block text-[11px] font-medium text-gray-700 dark:text-gray-300 mb-1.5">Confirm password</label>
                   <input
                     type="password"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-xs focus:ring-1 focus:ring-gray-900 focus:border-gray-900 outline-none transition-colors"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-xs bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-400 focus:ring-1 focus:ring-gray-900 dark:focus:ring-blue-500 focus:border-gray-900 dark:focus:border-blue-500 outline-none transition-colors"
                     placeholder="Re-enter password"
                     required
                     minLength={6}
@@ -782,13 +782,13 @@ const ManageAgentsPage = () => {
                 <button
                   type="button"
                   onClick={() => { setPasswordAgent(null); setNewPassword(''); setConfirmPassword(''); }}
-                  className="px-3.5 py-2 rounded-md border border-gray-300 text-[11px] font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                  className="px-3.5 py-2 rounded-md border border-gray-300 dark:border-gray-600 text-[11px] font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-3.5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-[11px] font-medium rounded-md transition-colors shadow-sm"
+                  className="px-3.5 py-2 bg-gray-900 dark:bg-blue-600 hover:bg-gray-800 dark:hover:bg-blue-700 text-white text-[11px] font-medium rounded-md transition-colors shadow-sm"
                 >
                   Save changes
                 </button>
@@ -808,24 +808,24 @@ const ManageAgentsPage = () => {
             }
           }}
         >
-          <div className="w-full max-w-md bg-white rounded-xl border border-red-200 shadow-2xl">
-            <div className="px-6 py-4 border-b border-red-200 bg-red-50 rounded-t-xl">
+          <div className="w-full max-w-md bg-white dark:bg-gray-800 rounded-xl border border-red-200 dark:border-red-800 shadow-2xl">
+            <div className="px-6 py-4 border-b border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/30 rounded-t-xl">
               <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-full bg-red-100 flex items-center justify-center">
-                  <Trash2 className="w-5 h-5 text-red-600" />
+                <div className="h-10 w-10 rounded-full bg-red-100 dark:bg-red-900/50 flex items-center justify-center">
+                  <Trash2 className="w-5 h-5 text-red-600 dark:text-red-400" />
                 </div>
                 <div>
-                  <h3 className="text-base font-semibold text-red-900">Confirm Deletion</h3>
-                  <p className="text-xs text-red-700 mt-0.5">{deleteAgent.name} • {deleteAgent.email}</p>
+                  <h3 className="text-base font-semibold text-red-900 dark:text-red-300">Confirm Deletion</h3>
+                  <p className="text-xs text-red-700 dark:text-red-400 mt-0.5">{deleteAgent.name} • {deleteAgent.email}</p>
                 </div>
               </div>
             </div>
             <div className="p-6">
               <div className="mb-6">
-                <p className="text-sm font-medium text-gray-900 mb-2">
+                <p className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
                   Are you sure you want to delete this {deleteAgent.role === 'doctorStaff' ? 'doctor' : 'agent'}?
                 </p>
-                <p className="text-sm text-gray-700">
+                <p className="text-sm text-gray-700 dark:text-gray-400">
                   This action cannot be undone. All data associated with this {deleteAgent.role === 'doctorStaff' ? 'doctor' : 'agent'} will be permanently removed.
                 </p>
               </div>
@@ -833,7 +833,7 @@ const ManageAgentsPage = () => {
                 <button
                   type="button"
                   onClick={() => setDeleteAgent(null)}
-                  className="px-4 py-2 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                  className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
                 >
                   Cancel
                 </button>

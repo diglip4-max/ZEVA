@@ -1,7 +1,7 @@
 "use client";
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/router";
-import { Search, FileText, FileSpreadsheet, X, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, FileText, FileSpreadsheet, X, ChevronLeft, ChevronRight, Users, ClipboardList, DollarSign, Calendar, CheckCircle, XCircle, Clock, CreditCard, TrendingUp } from "lucide-react";
 import AdminLayout from "../../components/AdminLayout";
 import withAdminAuth from "../../components/withAdminAuth";
 import { useAgentPermissions } from "../../hooks/useAgentPermissions";
@@ -315,7 +315,7 @@ const AdminPatientClaims = () => {
 
   const getStatusColor = (status) => {
     const colors = {
-      Pending: "bg-yellow-100 text-yellow-800 border-yellow-200",
+      Pending: "bg-gray-100 text-gray-800 border-gray-800",
       Released: "bg-green-100 text-green-800 border-green-200",
       Cancelled: "bg-red-100 text-red-800 border-red-200",
     };
@@ -341,12 +341,12 @@ const AdminPatientClaims = () => {
   if (isAgent && !hasReadPermission) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <div className="text-center max-w-md mx-auto">
-          <div className="bg-red-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
-            <X className="w-8 h-8 text-red-600" />
+        <div className="text-center max-w-md mx-auto p-4">
+          <div className="bg-red-100 rounded-full w-12 h-12 flex items-center justify-center mx-auto mb-3">
+            <X className="w-6 h-6 text-red-600" />
           </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Access Denied</h2>
-          <p className="text-gray-600 mb-4">
+          <h2 className="text-lg sm:text-xl font-bold text-gray-900 mb-2">Access Denied</h2>
+          <p className="text-sm text-gray-600 mb-4">
             You do not have permission to view patient reports. Please contact your administrator to request access.
           </p>
         </div>
@@ -355,32 +355,36 @@ const AdminPatientClaims = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-2 sm:p-4 md:p-6 lg:p-8">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50/30 to-indigo-50/30 p-2 sm:p-3 md:p-4 lg:p-5">
       <div className="w-full max-w-[1600px] mx-auto">
 
         {/* Header Section */}
-        <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg p-4 sm:p-6 lg:p-8 mb-4 sm:mb-6">
-          <div className="flex flex-col gap-4">
-            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
-              <div className="flex-1 min-w-0">
-                <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-800 flex items-center gap-2 flex-wrap">
-                  <span className="text-2xl sm:text-3xl">🧾</span>
-                  <span className="break-words">Patient Claims Dashboard</span>
-                </h2>
-                <p className="text-gray-500 mt-1 text-xs sm:text-sm md:text-base">
-                  Manage and monitor patient claims
-                </p>
+        <div className="bg-white rounded-lg shadow-md border border-gray-200 p-3 sm:p-4 mb-3 sm:mb-4">
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+              <div className="flex items-center gap-3 flex-1 min-w-0">
+                <div className="bg-white p-2 rounded-lg shadow-sm border border-gray-200">
+                  <ClipboardList className="w-5 h-5 text-gray-800" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h2 className="text-base sm:text-lg md:text-xl font-bold text-gray-800 truncate">
+                    Patient Claims Dashboard
+                  </h2>
+                  <p className="text-xs sm:text-sm text-gray-500 mt-0.5">
+                    Manage and monitor patient claims
+                  </p>
+                </div>
               </div>
 
               {/* Filter Dropdown */}
-              <div className="flex flex-col xs:flex-row items-stretch xs:items-center gap-2 sm:gap-3 w-full sm:w-auto">
-                <label className="font-medium text-gray-700 text-xs sm:text-sm whitespace-nowrap">
+              <div className="flex flex-col xs:flex-row items-stretch xs:items-center gap-2 w-full sm:w-auto">
+                <label className="font-medium text-gray-700 text-xs whitespace-nowrap">
                   Filter by Status:
                 </label>
                 <select
                   value={statusFilter}
                   onChange={handleFilterChange}
-                  className="text-gray-800 w-full xs:w-auto min-w-[140px] border-2 border-gray-200 rounded-lg px-3 sm:px-4 py-2 sm:py-2.5 text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white shadow-sm hover:border-gray-300"
+                  className="text-gray-800 w-full xs:w-auto min-w-[140px] border border-gray-300 rounded-lg px-3 py-1.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white shadow-sm hover:border-gray-400"
                 >
                   <option value="">All Claims</option>
                   <option value="Pending">Pending</option>
@@ -393,19 +397,19 @@ const AdminPatientClaims = () => {
             </div>
 
             {/* Search Bar and Export Buttons */}
-            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
               <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 sm:w-5 sm:h-5" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                 <input
                   type="text"
                   placeholder="Search by name, email, mobile, invoice, EMR, service..."
                   value={searchQuery}
                   onChange={handleSearch}
-                  className="text-gray-800 w-full pl-10 pr-4 py-2 sm:py-2.5 text-xs sm:text-sm border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                  className="text-gray-800 w-full pl-10 pr-4 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                 />
               </div>
 
-              <div className="flex gap-2 sm:gap-3">
+              <div className="flex gap-2">
                 {/* Download CSV button: Only show for admins OR agents with explicit export permission */}
                 {(() => {
                   const adminTokenExists = typeof window !== 'undefined' ? !!localStorage.getItem('adminToken') : false;
@@ -418,7 +422,7 @@ const AdminPatientClaims = () => {
                       <>
                         <button
                           onClick={downloadCSV}
-                          className="flex items-center justify-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 bg-green-600 hover:bg-green-700 text-white text-xs sm:text-sm font-medium rounded-lg transition-all shadow-sm hover:shadow-md flex-1 sm:flex-none"
+                          className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-all shadow-sm hover:shadow-md"
                           title="Download CSV"
                         >
                           <FileSpreadsheet className="w-4 h-4" />
@@ -426,7 +430,7 @@ const AdminPatientClaims = () => {
                         </button>
                         <button
                           onClick={downloadPDF}
-                          className="flex items-center justify-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 bg-red-600 hover:bg-red-700 text-white text-xs sm:text-sm font-medium rounded-lg transition-all shadow-sm hover:shadow-md flex-1 sm:flex-none"
+                          className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition-all shadow-sm hover:shadow-md"
                           title="Download PDF"
                         >
                           <FileText className="w-4 h-4" />
@@ -450,7 +454,7 @@ const AdminPatientClaims = () => {
                         {hasExportPermission && (
                           <button
                             onClick={downloadCSV}
-                            className="flex items-center justify-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 bg-green-600 hover:bg-green-700 text-white text-xs sm:text-sm font-medium rounded-lg transition-all shadow-sm hover:shadow-md flex-1 sm:flex-none"
+                            className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg transition-all shadow-sm hover:shadow-md"
                             title="Download CSV"
                           >
                             <FileSpreadsheet className="w-4 h-4" />
@@ -460,7 +464,7 @@ const AdminPatientClaims = () => {
                         {hasPrintPermission && (
                           <button
                             onClick={downloadPDF}
-                            className="flex items-center justify-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 bg-red-600 hover:bg-red-700 text-white text-xs sm:text-sm font-medium rounded-lg transition-all shadow-sm hover:shadow-md flex-1 sm:flex-none"
+                            className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition-all shadow-sm hover:shadow-md"
                             title="Download PDF"
                           >
                             <FileText className="w-4 h-4" />
@@ -479,109 +483,120 @@ const AdminPatientClaims = () => {
         </div>
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3 md:gap-4 mb-4 sm:mb-6">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3 mb-3 sm:mb-4">
           {[
-            { label: "Pending", value: summary.pending || 0, color: "from-yellow-400 to-yellow-500", icon: "⏳" },
-            { label: "Released", value: summary.released || 0, color: "from-green-400 to-green-500", icon: "✅" },
-            { label: "Cancelled", value: summary.cancelled || 0, color: "from-red-400 to-red-500", icon: "❌" },
-            { label: "Co-pay", value: summary.copay || 0, color: "from-blue-400 to-blue-500", icon: "💳" },
-            { label: "Advance", value: summary.advance || 0, color: "from-purple-400 to-purple-500", icon: "💰" },
-            { label: "Total", value: summary.total || 0, color: "from-gray-600 to-gray-700", icon: "📊" },
-          ].map((item, idx) => (
-            <div
-              key={idx}
-              className="bg-white rounded-lg sm:rounded-xl shadow-md hover:shadow-xl transition-all duration-300 p-3 sm:p-4 md:p-5 transform hover:-translate-y-1 cursor-pointer ring-1 ring-gray-100 hover:ring-2"
-            >
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xl sm:text-xl md:text-xl">{item.icon}</span>
-                <div className={`bg-gradient-to-br ${item.color} w-2 h-2 rounded-full shadow-sm`}></div>
+            { label: "Pending", value: summary.pending || 0, icon: Clock },
+            { label: "Released", value: summary.released || 0, icon: CheckCircle },
+            { label: "Cancelled", value: summary.cancelled || 0, icon: XCircle },
+            { label: "Co-pay", value: summary.copay || 0, icon: CreditCard },
+            { label: "Advance", value: summary.advance || 0, icon: DollarSign },
+            { label: "Total", value: summary.total || 0, icon: TrendingUp },
+          ].map((item, idx) => {
+            const Icon = item.icon;
+            return (
+              <div
+                key={idx}
+                className="bg-white rounded-lg shadow-sm hover:shadow-md transition-all duration-200 p-3 border border-gray-200 hover:border-gray-300"
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <div className="bg-white p-2 rounded-lg shadow-sm border border-gray-200">
+                    <Icon className="w-4 h-4 text-gray-800" />
+                  </div>
+                </div>
+                <div className="text-lg sm:text-xl font-bold text-gray-800 truncate">
+                  {item.value}
+                </div>
+                <div className="text-xs text-gray-500 font-medium mt-1 truncate">
+                  {item.label}
+                </div>
               </div>
-              <div className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-800 truncate">
-                {item.value}
-              </div>
-              <div className="text-[10px] xs:text-xs sm:text-sm text-gray-500 font-medium mt-1 truncate">
-                {item.label}
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* Patient List */}
-        <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg overflow-hidden">
-          <div className="p-4 sm:p-6 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
-            <h3 className="text-base sm:text-lg md:text-xl font-bold text-gray-800">
-              Patient Records
-            </h3>
-            <p className="text-xs sm:text-sm text-gray-500 mt-1">
+        <div className="bg-white rounded-lg shadow-md border border-gray-200 overflow-hidden">
+          <div className="p-3 sm:p-4 border-b border-gray-200 bg-gray-50">
+            <div className="flex items-center gap-2 mb-1">
+              <div className="bg-white p-1.5 rounded-lg border border-gray-200">
+                <Users className="w-4 h-4 text-gray-800" />
+              </div>
+              <h3 className="text-base sm:text-lg font-bold text-gray-800">
+                Patient Records
+              </h3>
+            </div>
+            <p className="text-xs text-gray-500">
               {filteredPatients.length} {filteredPatients.length === 1 ? "record" : "records"} found
               {searchQuery && ` (filtered from ${patients.length} total)`}
             </p>
           </div>
 
           {loading ? (
-            <div className="flex flex-col items-center justify-center py-12 sm:py-16">
-              <div className="animate-spin rounded-full h-10 w-10 sm:h-12 sm:w-12 border-b-2 border-blue-500"></div>
-              <p className="text-gray-500 mt-4 text-sm">Loading patients...</p>
+            <div className="flex flex-col items-center justify-center py-10">
+              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500"></div>
+              <p className="text-gray-500 mt-3 text-sm">Loading patients...</p>
             </div>
           ) : filteredPatients.length === 0 ? (
-            <div className="text-center py-12 sm:py-16 px-4">
-              <div className="text-5xl sm:text-6xl mb-4">📭</div>
-              <p className="text-gray-500 text-base sm:text-lg font-medium">
+            <div className="text-center py-10 px-4">
+              <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center mx-auto mb-3 border border-gray-200">
+                <Users className="w-6 h-6 text-gray-800" />
+              </div>
+              <p className="text-gray-500 text-sm font-medium">
                 {searchQuery ? "No matching patients found" : "No patients found"}
               </p>
-              <p className="text-gray-400 text-xs sm:text-sm mt-2">
+              <p className="text-gray-400 text-xs mt-1">
                 {searchQuery ? "Try a different search term" : "Try adjusting your filters"}
               </p>
             </div>
           ) : (
             <>
               {/* Patient Cards Grid - 3 cards per row */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 p-3 sm:p-4">
                 {currentPatients.map((patient, i) => (
                   <div
                     key={i}
-                    className="bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow p-5 border border-gray-200"
+                    className="bg-white rounded-lg shadow-sm hover:shadow-md transition-all duration-200 p-3 border border-gray-200"
                   >
-                    <div className="flex justify-between items-start mb-3">
-                      <div>
-                        <h3 className="font-bold text-lg text-gray-900">
+                    <div className="flex justify-between items-start mb-2">
+                      <div className="min-w-0 flex-1">
+                        <h3 className="font-semibold text-base text-gray-900 truncate">
                           {patient.firstName} {patient.lastName}
                         </h3>
-                        <p className="text-sm text-gray-600">{patient.emrNumber}</p>
+                        <p className="text-xs text-gray-600 truncate">{patient.emrNumber}</p>
                       </div>
-                      <span className={`px-2 py-1 text-xs rounded-full ${getStatusColor(patient.advanceClaimStatus)}`}>
+                      <span className={`px-2 py-0.5 text-xs rounded-full flex-shrink-0 ml-2 ${getStatusColor(patient.advanceClaimStatus)}`}>
                         {patient.advanceClaimStatus}
                       </span>
                     </div>
 
-                    <div className="space-y-2 mb-4">
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-700">Treatment:</span>
-                        <span className="font-medium text-gray-900 truncate ml-2" title={patient.treatment || patient.package}>
+                    <div className="space-y-1.5 mb-3">
+                      <div className="flex justify-between text-xs">
+                        <span className="text-gray-600">Treatment:</span>
+                        <span className="font-medium text-gray-900 truncate ml-2 text-right" title={patient.treatment || patient.package}>
                           {patient.treatment || patient.package || '-'}
                         </span>
                       </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-700">Amount:</span>
+                      <div className="flex justify-between text-xs">
+                        <span className="text-gray-600">Amount:</span>
                         <span className="font-medium text-gray-900">د.إ{patient.amount?.toLocaleString() || 0}</span>
                       </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-700">Paid:</span>
+                      <div className="flex justify-between text-xs">
+                        <span className="text-gray-600">Paid:</span>
                         <span className="font-medium text-green-600">د.إ{patient.paid?.toLocaleString() || 0}</span>
                       </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-700">Pending:</span>
+                      <div className="flex justify-between text-xs">
+                        <span className="text-gray-600">Pending:</span>
                         <span className="font-medium text-red-600">د.إ{patient.pending?.toLocaleString() || 0}</span>
                       </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-700">Advance:</span>
+                      <div className="flex justify-between text-xs">
+                        <span className="text-gray-600">Advance:</span>
                         <span className="font-medium text-blue-600">د.إ{patient.advance?.toLocaleString() || 0}</span>
                       </div>
                     </div>
 
                     <button
                       onClick={() => setSelectedPatient(patient)}
-                      className="w-full py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                      className="w-full py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors font-medium shadow-sm"
                     >
                       See Full Details
                     </button>
@@ -591,13 +606,13 @@ const AdminPatientClaims = () => {
 
               {/* Pagination */}
               {totalPages > 1 && (
-                <div className="flex items-center justify-center gap-2 p-6 border-t border-gray-200">
+                <div className="flex items-center justify-center gap-2 p-3 border-t border-gray-200">
                   <button
                     onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                     disabled={currentPage === 1}
-                    className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="p-1.5 rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
-                    <ChevronLeft size={20} />
+                    <ChevronLeft size={18} />
                   </button>
 
                   <div className="flex gap-1">
@@ -617,7 +632,7 @@ const AdminPatientClaims = () => {
                         <button
                           key={i}
                           onClick={() => setCurrentPage(pageNum)}
-                          className={`px-3 py-1 rounded-lg ${currentPage === pageNum
+                          className={`px-2.5 py-1 text-sm rounded-lg transition-all shadow-sm ${currentPage === pageNum
                               ? 'bg-blue-600 text-white'
                               : 'border border-gray-300 hover:bg-gray-50'
                             }`}
@@ -631,9 +646,9 @@ const AdminPatientClaims = () => {
                   <button
                     onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
                     disabled={currentPage === totalPages}
-                    className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="p-1.5 rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
-                    <ChevronRight size={20} />
+                    <ChevronRight size={18} />
                   </button>
                 </div>
               )}
@@ -644,91 +659,91 @@ const AdminPatientClaims = () => {
 
       {/* Patient Detail Modal with Blurred Background */}
       {selectedPatient && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 backdrop-blur-md">
-          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
-            <div className="sticky top-0 bg-white border-b border-gray-200 p-6 flex justify-between items-center z-10">
-              <h2 className="text-2xl font-bold text-gray-900">Patient Details</h2>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 backdrop-blur-sm bg-black/20">
+          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-gray-200">
+            <div className="sticky top-0 bg-white border-b border-gray-200 p-3 sm:p-4 flex justify-between items-center z-10">
+              <h2 className="text-lg sm:text-xl font-bold text-gray-900">Patient Details</h2>
               <button
                 onClick={() => setSelectedPatient(null)}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-900"
+                className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors text-gray-900"
               >
-                <X size={24} />
+                <X size={20} />
               </button>
             </div>
 
-            <div className="p-6 space-y-6">
+            <div className="p-4 sm:p-5 space-y-4">
               {/* Personal Information */}
               <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-3 border-b border-gray-300 pb-2">Personal Information</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div><span className="text-gray-700">Invoice Number:</span> <span className="font-medium text-gray-900">{selectedPatient.invoiceNumber || '-'}</span></div>
-                  <div><span className="text-gray-700">EMR Number:</span> <span className="font-medium text-gray-900">{selectedPatient.emrNumber || '-'}</span></div>
-                  <div><span className="text-gray-700">First Name:</span> <span className="font-medium text-gray-900">{selectedPatient.firstName || '-'}</span></div>
-                  <div><span className="text-gray-700">Last Name:</span> <span className="font-medium text-gray-900">{selectedPatient.lastName || '-'}</span></div>
-                  <div><span className="text-gray-700">Gender:</span> <span className="font-medium text-gray-900">{selectedPatient.gender || '-'}</span></div>
-                  <div><span className="text-gray-700">Email:</span> <span className="font-medium text-gray-900">{selectedPatient.email || '-'}</span></div>
-                  <div><span className="text-gray-700">Mobile:</span> <span className="font-medium text-gray-900">{selectedPatient.mobileNumber || '-'}</span></div>
-                  <div><span className="text-gray-700">Patient Type:</span> <span className="font-medium text-gray-900">{selectedPatient.patientType || '-'}</span></div>
+                <h3 className="text-base font-semibold text-gray-900 mb-2 border-b border-gray-300 pb-1.5">Personal Information</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="text-sm"><span className="text-gray-600">Invoice Number:</span> <span className="font-medium text-gray-900 ml-2">{selectedPatient.invoiceNumber || '-'}</span></div>
+                  <div className="text-sm"><span className="text-gray-600">EMR Number:</span> <span className="font-medium text-gray-900 ml-2">{selectedPatient.emrNumber || '-'}</span></div>
+                  <div className="text-sm"><span className="text-gray-600">First Name:</span> <span className="font-medium text-gray-900 ml-2">{selectedPatient.firstName || '-'}</span></div>
+                  <div className="text-sm"><span className="text-gray-600">Last Name:</span> <span className="font-medium text-gray-900 ml-2">{selectedPatient.lastName || '-'}</span></div>
+                  <div className="text-sm"><span className="text-gray-600">Gender:</span> <span className="font-medium text-gray-900 ml-2">{selectedPatient.gender || '-'}</span></div>
+                  <div className="text-sm"><span className="text-gray-600">Email:</span> <span className="font-medium text-gray-900 ml-2 break-words">{selectedPatient.email || '-'}</span></div>
+                  <div className="text-sm"><span className="text-gray-600">Mobile:</span> <span className="font-medium text-gray-900 ml-2">{selectedPatient.mobileNumber || '-'}</span></div>
+                  <div className="text-sm"><span className="text-gray-600">Patient Type:</span> <span className="font-medium text-gray-900 ml-2">{selectedPatient.patientType || '-'}</span></div>
                 </div>
               </div>
 
               {/* Medical Information */}
               <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-3 border-b border-gray-300 pb-2">Medical Information</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div><span className="text-gray-700">Doctor:</span> <span className="font-medium text-gray-900">{selectedPatient.doctor?.name || selectedPatient.doctor || '-'}</span></div>
-                  <div><span className="text-gray-700">Service:</span> <span className="font-medium text-gray-900">{selectedPatient.service || '-'}</span></div>
-                  <div><span className="text-gray-700">Treatment:</span> <span className="font-medium text-gray-900">{selectedPatient.treatment || '-'}</span></div>
-                  <div><span className="text-gray-700">Package:</span> <span className="font-medium text-gray-900">{selectedPatient.package || '-'}</span></div>
-                  <div><span className="text-gray-700">Referred By:</span> <span className="font-medium text-gray-900">{selectedPatient.referredBy || '-'}</span></div>
-                  <div><span className="text-gray-700">Insurance:</span> <span className="font-medium text-gray-900">{selectedPatient.insurance || '-'}</span></div>
+                <h3 className="text-base font-semibold text-gray-900 mb-2 border-b border-gray-300 pb-1.5">Medical Information</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="text-sm"><span className="text-gray-600">Doctor:</span> <span className="font-medium text-gray-900 ml-2">{selectedPatient.doctor?.name || selectedPatient.doctor || '-'}</span></div>
+                  <div className="text-sm"><span className="text-gray-600">Service:</span> <span className="font-medium text-gray-900 ml-2">{selectedPatient.service || '-'}</span></div>
+                  <div className="text-sm"><span className="text-gray-600">Treatment:</span> <span className="font-medium text-gray-900 ml-2">{selectedPatient.treatment || '-'}</span></div>
+                  <div className="text-sm"><span className="text-gray-600">Package:</span> <span className="font-medium text-gray-900 ml-2">{selectedPatient.package || '-'}</span></div>
+                  <div className="text-sm"><span className="text-gray-600">Referred By:</span> <span className="font-medium text-gray-900 ml-2">{selectedPatient.referredBy || '-'}</span></div>
+                  <div className="text-sm"><span className="text-gray-600">Insurance:</span> <span className="font-medium text-gray-900 ml-2">{selectedPatient.insurance || '-'}</span></div>
                 </div>
               </div>
 
               {/* Financial Information */}
               <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-3 border-b border-gray-300 pb-2">Financial Information</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div><span className="text-gray-700">Total Amount:</span> <span className="font-medium text-gray-900">د.إ{selectedPatient.amount?.toLocaleString() || 0}</span></div>
-                  <div><span className="text-gray-700">Paid Amount:</span> <span className="font-medium text-green-600">د.إ{selectedPatient.paid?.toLocaleString() || 0}</span></div>
-                  <div><span className="text-gray-700">Pending Amount:</span> <span className="font-medium text-red-600">د.إ{selectedPatient.pending?.toLocaleString() || 0}</span></div>
-                  <div><span className="text-gray-700">Advance:</span> <span className="font-medium text-blue-600">د.إ{selectedPatient.advance?.toLocaleString() || 0}</span></div>
-                  <div><span className="text-gray-700">Advance Given:</span> <span className="font-medium text-gray-900">د.إ{selectedPatient.advanceGivenAmount?.toLocaleString() || 0}</span></div>
-                  <div><span className="text-gray-700">Co-pay %:</span> <span className="font-medium text-gray-900">{selectedPatient.coPayPercent || 0}%</span></div>
-                  <div><span className="text-gray-700">Need to Pay:</span> <span className="font-medium text-gray-900">د.إ{selectedPatient.needToPay?.toLocaleString() || 0}</span></div>
-                  <div><span className="text-gray-700">Payment Method:</span> <span className="font-medium text-gray-900">{selectedPatient.paymentMethod || '-'}</span></div>
+                <h3 className="text-base font-semibold text-gray-900 mb-2 border-b border-gray-300 pb-1.5">Financial Information</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="text-sm"><span className="text-gray-600">Total Amount:</span> <span className="font-medium text-gray-900 ml-2">د.إ{selectedPatient.amount?.toLocaleString() || 0}</span></div>
+                  <div className="text-sm"><span className="text-gray-600">Paid Amount:</span> <span className="font-medium text-green-600 ml-2">د.إ{selectedPatient.paid?.toLocaleString() || 0}</span></div>
+                  <div className="text-sm"><span className="text-gray-600">Pending Amount:</span> <span className="font-medium text-red-600 ml-2">د.إ{selectedPatient.pending?.toLocaleString() || 0}</span></div>
+                  <div className="text-sm"><span className="text-gray-600">Advance:</span> <span className="font-medium text-blue-600 ml-2">د.إ{selectedPatient.advance?.toLocaleString() || 0}</span></div>
+                  <div className="text-sm"><span className="text-gray-600">Advance Given:</span> <span className="font-medium text-gray-900 ml-2">د.إ{selectedPatient.advanceGivenAmount?.toLocaleString() || 0}</span></div>
+                  <div className="text-sm"><span className="text-gray-600">Co-pay %:</span> <span className="font-medium text-gray-900 ml-2">{selectedPatient.coPayPercent || 0}%</span></div>
+                  <div className="text-sm"><span className="text-gray-600">Need to Pay:</span> <span className="font-medium text-gray-900 ml-2">د.إ{selectedPatient.needToPay?.toLocaleString() || 0}</span></div>
+                  <div className="text-sm"><span className="text-gray-600">Payment Method:</span> <span className="font-medium text-gray-900 ml-2">{selectedPatient.paymentMethod || '-'}</span></div>
                 </div>
               </div>
 
               {/* Claim Status */}
               <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-3 border-b border-gray-300 pb-2">Claim Status</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div><span className="text-gray-700">Claim Status:</span> <span className={`font-medium ${selectedPatient.advanceClaimStatus === 'Pending' ? 'text-yellow-600' :
+                <h3 className="text-base font-semibold text-gray-900 mb-2 border-b border-gray-300 pb-1.5">Claim Status</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="text-sm"><span className="text-gray-600">Claim Status:</span> <span className={`font-medium ml-2 ${selectedPatient.advanceClaimStatus === 'Pending' ? 'text-gray-600' :
                       selectedPatient.advanceClaimStatus === 'Released' ? 'text-green-600' :
                         'text-red-600'
                     }`}>{selectedPatient.advanceClaimStatus || '-'}</span></div>
-                  <div><span className="text-gray-700">Patient Status:</span> <span className="font-medium text-gray-900">{selectedPatient.status || '-'}</span></div>
-                  <div><span className="text-gray-700">Invoiced By:</span> <span className="font-medium text-gray-900">{selectedPatient.invoicedBy || '-'}</span></div>
-                  <div><span className="text-gray-700">Released By:</span> <span className="font-medium text-gray-900">{selectedPatient.advanceClaimReleasedBy || '-'}</span></div>
-                  <div><span className="text-gray-700">Invoice Date:</span> <span className="font-medium text-gray-900">{selectedPatient.invoicedDate ? new Date(selectedPatient.invoicedDate).toLocaleDateString() : '-'}</span></div>
-                  <div><span className="text-gray-700">Created At:</span> <span className="font-medium text-gray-900">{selectedPatient.createdAt ? new Date(selectedPatient.createdAt).toLocaleString() : '-'}</span></div>
+                  <div className="text-sm"><span className="text-gray-600">Patient Status:</span> <span className="font-medium text-gray-900 ml-2">{selectedPatient.status || '-'}</span></div>
+                  <div className="text-sm"><span className="text-gray-600">Invoiced By:</span> <span className="font-medium text-gray-900 ml-2">{selectedPatient.invoicedBy || '-'}</span></div>
+                  <div className="text-sm"><span className="text-gray-600">Released By:</span> <span className="font-medium text-gray-900 ml-2">{selectedPatient.advanceClaimReleasedBy || '-'}</span></div>
+                  <div className="text-sm"><span className="text-gray-600">Invoice Date:</span> <span className="font-medium text-gray-900 ml-2">{selectedPatient.invoicedDate ? new Date(selectedPatient.invoicedDate).toLocaleDateString() : '-'}</span></div>
+                  <div className="text-sm"><span className="text-gray-600">Created At:</span> <span className="font-medium text-gray-900 ml-2">{selectedPatient.createdAt ? new Date(selectedPatient.createdAt).toLocaleString() : '-'}</span></div>
                 </div>
               </div>
 
               {/* Payment History */}
               {selectedPatient.paymentHistory && selectedPatient.paymentHistory.length > 0 && (
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-3 border-b border-gray-300 pb-2">Payment History</h3>
+                  <h3 className="text-base font-semibold text-gray-900 mb-2 border-b border-gray-300 pb-1.5">Payment History</h3>
                   <div className="space-y-2">
                     {selectedPatient.paymentHistory.map((payment, idx) => (
-                      <div key={idx} className="bg-gray-50 p-3 rounded-lg flex justify-between items-center">
+                      <div key={idx} className="bg-gray-50 p-2.5 rounded-lg flex justify-between items-center">
                         <div>
-                          <span className="text-sm text-gray-800 font-medium">Payment #{idx + 1}</span>
+                          <span className="text-xs text-gray-800 font-medium">Payment #{idx + 1}</span>
                           <p className="text-xs text-gray-600">{payment.date ? new Date(payment.date).toLocaleString() : '-'}</p>
                         </div>
                         <div className="text-right">
-                          <p className="font-semibold text-green-600">د.إ{payment.amount?.toLocaleString() || 0}</p>
+                          <p className="font-semibold text-sm text-green-600">د.إ{payment.amount?.toLocaleString() || 0}</p>
                           <p className="text-xs text-gray-700">{payment.method || '-'}</p>
                         </div>
                       </div>
