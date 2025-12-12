@@ -329,136 +329,6 @@ function ClinicReviews() {
         </div>
       )}
 
-      {/* Charts Section - Compact Grid */}
-      {reviews.length > 0 && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
-          {/* Trend Graph - Ratings Over Time */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
-            <div className="flex items-center gap-2 mb-2">
-              <Activity className="w-4 h-4 text-gray-800" />
-              <h3 className="text-xs sm:text-sm font-semibold text-gray-900">Ratings Trend</h3>
-            </div>
-            <ResponsiveContainer width="100%" height={180}>
-              <AreaChart data={monthlyTrendData} margin={{ top: 5, right: 10, left: 0, bottom: 30 }}>
-                <defs>
-                  <linearGradient id="colorRating" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#1f2937" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#1f2937" stopOpacity={0}/>
-                  </linearGradient>
-                  <linearGradient id="colorCount" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#6b7280" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#6b7280" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis 
-                  dataKey="month" 
-                  stroke="#6b7280" 
-                  fontSize={10}
-                  tick={{ fill: '#6b7280' }}
-                  angle={-45}
-                  textAnchor="end"
-                  height={50}
-                />
-                <YAxis 
-                  yAxisId="left"
-                  stroke="#6b7280" 
-                  fontSize={10}
-                  tick={{ fill: '#6b7280' }}
-                  label={{ value: 'Rating', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fill: '#6b7280', fontSize: '10px' } }}
-                />
-                <YAxis 
-                  yAxisId="right"
-                  orientation="right"
-                  stroke="#6b7280" 
-                  fontSize={10}
-                  tick={{ fill: '#6b7280' }}
-                  label={{ value: 'Count', angle: 90, position: 'insideRight', style: { textAnchor: 'middle', fill: '#6b7280', fontSize: '10px' } }}
-                />
-                <Tooltip 
-                  contentStyle={{ 
-                    backgroundColor: '#fff', 
-                    border: '1px solid #e5e7eb',
-                    borderRadius: '6px',
-                    fontSize: '11px',
-                    padding: '6px'
-                  }}
-                />
-                <Legend wrapperStyle={{ fontSize: '10px', paddingTop: '8px' }} />
-                <Area 
-                  yAxisId="left"
-                  type="monotone" 
-                  dataKey="avgRating" 
-                  stroke="#1f2937" 
-                  fillOpacity={1} 
-                  fill="url(#colorRating)"
-                  name="Avg Rating"
-                  strokeWidth={2}
-                />
-                <Area 
-                  yAxisId="right"
-                  type="monotone" 
-                  dataKey="reviewCount" 
-                  stroke="#6b7280" 
-                  fillOpacity={1} 
-                  fill="url(#colorCount)"
-                  name="Reviews"
-                  strokeWidth={2}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-
-          {/* Sentiment Distribution - Donut Chart */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
-            <div className="flex items-center gap-2 mb-2">
-              <BarChart3 className="w-4 h-4 text-gray-800" />
-              <h3 className="text-xs sm:text-sm font-semibold text-gray-900">Sentiment Distribution</h3>
-            </div>
-            <ResponsiveContainer width="100%" height={180}>
-              <PieChart>
-                <Pie
-                  data={sentimentData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={40}
-                  outerRadius={65}
-                  paddingAngle={2}
-                  dataKey="value"
-                  label={({ name, percentage }) => `${name}: ${percentage}%`}
-                  labelLine={false}
-                >
-                  {sentimentData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip 
-                  contentStyle={{ 
-                    backgroundColor: '#fff', 
-                    border: '1px solid #e5e7eb',
-                    borderRadius: '6px',
-                    fontSize: '11px'
-                  }}
-                  formatter={(value: number, name: string, props: any) => [
-                    `${value} (${props.payload.percentage}%)`,
-                    name
-                  ]}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-            <div className="flex justify-center gap-3 mt-2 text-[10px] sm:text-xs">
-              {sentimentData.map((item, idx) => (
-                <div key={idx} className="flex items-center gap-1">
-                  <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }}></div>
-                  <span className="text-gray-600">{item.name.split(' ')[0]}</span>
-                  <span className="font-semibold text-gray-900">{item.percentage}%</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Compact Search + Filter */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-2.5 sm:p-3 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
         <div className="relative flex-1">
@@ -630,6 +500,136 @@ function ClinicReviews() {
           </div>
         )}
         </>
+      )}
+
+      {/* Charts Section - moved below reviews so feedback lists show first */}
+      {reviews.length > 0 && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
+          {/* Trend Graph - Ratings Over Time */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
+            <div className="flex items-center gap-2 mb-2">
+              <Activity className="w-4 h-4 text-gray-800" />
+              <h3 className="text-xs sm:text-sm font-semibold text-gray-900">Ratings Trend</h3>
+            </div>
+            <ResponsiveContainer width="100%" height={180}>
+              <AreaChart data={monthlyTrendData} margin={{ top: 5, right: 10, left: 0, bottom: 30 }}>
+                <defs>
+                  <linearGradient id="colorRating" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#1f2937" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="#1f2937" stopOpacity={0}/>
+                  </linearGradient>
+                  <linearGradient id="colorCount" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#6b7280" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="#6b7280" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <XAxis 
+                  dataKey="month" 
+                  stroke="#6b7280" 
+                  fontSize={10}
+                  tick={{ fill: '#6b7280' }}
+                  angle={-45}
+                  textAnchor="end"
+                  height={50}
+                />
+                <YAxis 
+                  yAxisId="left"
+                  stroke="#6b7280" 
+                  fontSize={10}
+                  tick={{ fill: '#6b7280' }}
+                  label={{ value: 'Rating', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fill: '#6b7280', fontSize: '10px' } }}
+                />
+                <YAxis 
+                  yAxisId="right"
+                  orientation="right"
+                  stroke="#6b7280" 
+                  fontSize={10}
+                  tick={{ fill: '#6b7280' }}
+                  label={{ value: 'Count', angle: 90, position: 'insideRight', style: { textAnchor: 'middle', fill: '#6b7280', fontSize: '10px' } }}
+                />
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: '#fff', 
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '6px',
+                    fontSize: '11px',
+                    padding: '6px'
+                  }}
+                />
+                <Legend wrapperStyle={{ fontSize: '10px', paddingTop: '8px' }} />
+                <Area 
+                  yAxisId="left"
+                  type="monotone" 
+                  dataKey="avgRating" 
+                  stroke="#1f2937" 
+                  fillOpacity={1} 
+                  fill="url(#colorRating)"
+                  name="Avg Rating"
+                  strokeWidth={2}
+                />
+                <Area 
+                  yAxisId="right"
+                  type="monotone" 
+                  dataKey="reviewCount" 
+                  stroke="#6b7280" 
+                  fillOpacity={1} 
+                  fill="url(#colorCount)"
+                  name="Reviews"
+                  strokeWidth={2}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* Sentiment Distribution - Donut Chart */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
+            <div className="flex items-center gap-2 mb-2">
+              <BarChart3 className="w-4 h-4 text-gray-800" />
+              <h3 className="text-xs sm:text-sm font-semibold text-gray-900">Sentiment Distribution</h3>
+            </div>
+            <ResponsiveContainer width="100%" height={180}>
+              <PieChart>
+                <Pie
+                  data={sentimentData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={40}
+                  outerRadius={65}
+                  paddingAngle={2}
+                  dataKey="value"
+                  label={({ name, percentage }) => `${name}: ${percentage}%`}
+                  labelLine={false}
+                >
+                  {sentimentData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: '#fff', 
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '6px',
+                    fontSize: '11px'
+                  }}
+                  formatter={(value: number, name: string, props: any) => [
+                    `${value} (${props.payload.percentage}%)`,
+                    name
+                  ]}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+            <div className="flex justify-center gap-3 mt-2 text-[10px] sm:text-xs">
+              {sentimentData.map((item, idx) => (
+                <div key={idx} className="flex items-center gap-1">
+                  <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }}></div>
+                  <span className="text-gray-600">{item.name.split(' ')[0]}</span>
+                  <span className="font-semibold text-gray-900">{item.percentage}%</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

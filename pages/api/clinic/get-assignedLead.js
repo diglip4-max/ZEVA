@@ -2,7 +2,7 @@
 import dbConnect from "../../../lib/database";
 import Lead from "../../../models/Lead";
 import Clinic from "../../../models/Clinic";
-import Treatment from '../../../models/Treatment';
+import Treatment from "../../../models/Treatment";
 import { getUserFromReq, requireRole } from "../lead-ms/auth";
 
 export default async function handler(req, res) {
@@ -11,6 +11,8 @@ export default async function handler(req, res) {
   if (req.method !== "GET") {
     return res.status(405).json({ message: "Method not allowed" });
   }
+
+  const { page: pageQuery, limit: limitQuery } = req.query;
 
   try {
     const user = await getUserFromReq(req);
@@ -35,8 +37,25 @@ export default async function handler(req, res) {
       matchQuery["assignedTo.user"] = user._id;
     }
 
+    // Pagination defaults & sanitization
+    const page = Math.max(1, parseInt(pageQuery || "1", 10));
+    const limit = Math.min(100, Math.max(1, parseInt(limitQuery || "20", 10))); // default 20, max 100
+    const skip = (page - 1) * limit;
+
+    // Total count for the filtered query
+    const totalCount = await Lead.countDocuments(matchQuery);
+
+    // Calculate pages
+    const totalPages = Math.ceil(totalCount / limit);
+
+    // Pagination meta
+    const currentPage = page;
+    const hasMore = page < totalPages;
+
     // ✅ Fetch leads assigned to agents in this clinic
     const leads = await Lead.find(matchQuery)
+      .skip(skip)
+      .limit(limit)
       .populate("treatments.treatment", "name")
       .populate("assignedTo.user", "name email role")
       .lean();
@@ -78,10 +97,16 @@ export default async function handler(req, res) {
       success: true,
       totalAssigned: orderedLeads.length,
       leads: orderedLeads,
+      pagination: {
+        totalLeads: totalCount,
+        totalPages,
+        currentPage,
+        limit,
+        hasMore,
+      },
     });
   } catch (error) {
     console.error("Error fetching assigned leads:", error);
     return res.status(500).json({ success: false, message: "Server Error" });
   }
 }
-

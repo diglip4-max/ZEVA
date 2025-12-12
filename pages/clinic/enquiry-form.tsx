@@ -12,10 +12,12 @@ import {
   MessageSquare,
   Home,
 } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
+import AuthModal from '../../components/AuthModal';
 
 function EnquiryFormPage() {
   const searchParams = useSearchParams();
-  // const router = useRouter();
+  const { isAuthenticated } = useAuth();
   const clinicId = searchParams.get('clinicId');
   const clinicName = searchParams.get('clinicName');
   const clinicAddress = searchParams.get('clinicAddress');
@@ -34,6 +36,29 @@ function EnquiryFormPage() {
     message: '',
   });
   const [submitted, setSubmitted] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authModalMode, setAuthModalMode] = useState<'login' | 'register'>('login');
+
+  // Check authentication on mount and show login popup if not authenticated
+  useEffect(() => {
+    // Small delay to ensure auth context is loaded
+    const checkAuth = setTimeout(() => {
+      const token = localStorage.getItem('token');
+      if (!token || !isAuthenticated) {
+        setAuthModalMode('login');
+        setShowAuthModal(true);
+      }
+    }, 100);
+    
+    return () => clearTimeout(checkAuth);
+  }, []); // Run only on mount
+
+  // Close modal when user successfully authenticates
+  useEffect(() => {
+    if (isAuthenticated) {
+      setShowAuthModal(false);
+    }
+  }, [isAuthenticated]);
 
   useEffect(() => {
     if (clinicId) {
@@ -64,6 +89,14 @@ function EnquiryFormPage() {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    
+    // Check authentication before submitting
+    if (!isAuthenticated) {
+      setAuthModalMode('login');
+      setShowAuthModal(true);
+      return;
+    }
+
     try {
       const token = localStorage.getItem('token');
       await axios.post(
@@ -404,6 +437,22 @@ function EnquiryFormPage() {
           </div>
         </div>
       </div>
+
+      {showAuthModal && (
+        <AuthModal
+          isOpen={showAuthModal}
+          onClose={() => {
+            // Allow closing, but will show again on submit if not authenticated
+            setShowAuthModal(false);
+          }}
+          onSuccess={() => {
+            // Close modal after successful login/registration
+            setShowAuthModal(false);
+            // User can now continue with the form on the same page
+          }}
+          initialMode={authModalMode}
+        />
+      )}
     </div>
   );
 }

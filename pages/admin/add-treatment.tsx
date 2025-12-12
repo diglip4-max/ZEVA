@@ -1,5 +1,5 @@
 'use client';
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/router';
 import axios from 'axios';
 import AdminLayout from '../../components/AdminLayout';
@@ -87,12 +87,16 @@ const AddTreatment: NextPageWithLayout = () => {
   const [newMainTreatment, setNewMainTreatment] = useState<string>('');
   const [newSubTreatment, setNewSubTreatment] = useState<string>('');
   const [selectedMainTreatment, setSelectedMainTreatment] = useState<string>('');
+  const [availableSubTreatments, setAvailableSubTreatments] = useState<SubTreatment[]>([]);
   const [treatments, setTreatments] = useState<Treatment[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [fetching, setFetching] = useState<boolean>(false);
   const [showDeleteModal, setShowDeleteModal] = useState<boolean>(false);
   const [treatmentToDelete, setTreatmentToDelete] = useState<{id: string, name: string} | null>(null);
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
+  const [isFromDropdown, setIsFromDropdown] = useState<boolean>(false);
+  const [customMainTreatments, setCustomMainTreatments] = useState<Array<{id: string, name: string}>>([]);
+  const [customSubTreatments, setCustomSubTreatments] = useState<Array<{id: string, name: string}>>([]);
 
   // Toast helper functions
   const showToast = useCallback((message: string, type: Toast['type'] = 'info') => {
@@ -164,6 +168,20 @@ const AddTreatment: NextPageWithLayout = () => {
     }
   }, [isAdmin, isAgent, permissionsLoading]);
 
+  // Update available sub-treatments when treatments or selectedMainTreatment changes
+  useEffect(() => {
+    if (selectedMainTreatment && treatments.length > 0) {
+      const selectedTreatment = treatments.find(t => t._id === selectedMainTreatment);
+      if (selectedTreatment) {
+        setAvailableSubTreatments(selectedTreatment.subcategories || []);
+      } else {
+        setAvailableSubTreatments([]);
+      }
+    } else {
+      setAvailableSubTreatments([]);
+    }
+  }, [selectedMainTreatment, treatments]);
+
   useEffect(() => {
     if (showDeleteModal) {
       document.body.style.overflow = 'hidden';
@@ -175,6 +193,7 @@ const AddTreatment: NextPageWithLayout = () => {
       document.body.style.overflow = 'unset';
     };
   }, [showDeleteModal]);
+
 
   const handleAddMainTreatment = async () => {
     if (!newMainTreatment.trim()) {
@@ -209,6 +228,10 @@ const AddTreatment: NextPageWithLayout = () => {
 
       if (res.status === 201) {
         showToast('Treatment added', 'success');
+        const addedTreatmentName = newMainTreatment;
+        // Add to custom main treatments list
+        const customId = Math.random().toString(36).substr(2, 9);
+        setCustomMainTreatments(prev => [...prev, { id: customId, name: addedTreatmentName }]);
         setNewMainTreatment('');
         fetchTreatments();
       }
@@ -259,6 +282,10 @@ const AddTreatment: NextPageWithLayout = () => {
 
       if (res.status === 201) {
         showToast('Sub-treatment added', 'success');
+        const addedSubTreatmentName = newSubTreatment;
+        // Add to custom sub-treatments list
+        const customId = Math.random().toString(36).substr(2, 9);
+        setCustomSubTreatments(prev => [...prev, { id: customId, name: addedSubTreatmentName }]);
         setNewSubTreatment('');
         setSelectedMainTreatment('');
         fetchTreatments();
@@ -269,6 +296,14 @@ const AddTreatment: NextPageWithLayout = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleRemoveCustomMainTreatment = (id: string) => {
+    setCustomMainTreatments(prev => prev.filter(item => item.id !== id));
+  };
+
+  const handleRemoveCustomSubTreatment = (id: string) => {
+    setCustomSubTreatments(prev => prev.filter(item => item.id !== id));
   };
 
   const handleDeleteClick = (id: string, name: string) => {
@@ -318,13 +353,110 @@ const AddTreatment: NextPageWithLayout = () => {
     setTreatmentToDelete(null);
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent, type: 'main' | 'sub') => {
-    if (e.key === 'Enter') {
-      if (type === 'main') {
-        handleAddMainTreatment();
-      } else {
-        handleAddSubTreatment();
+  const handleMainTreatmentSelect = (treatmentId: string) => {
+    setIsFromDropdown(true);
+    setSelectedMainTreatment(treatmentId);
+    const selectedTreatment = treatments.find(t => t._id === treatmentId);
+    if (selectedTreatment) {
+      // Load sub-treatments for the selected main treatment
+      setAvailableSubTreatments(selectedTreatment.subcategories || []);
+    } else {
+      setAvailableSubTreatments([]);
+    }
+    setNewSubTreatment('');
+    setTimeout(() => setIsFromDropdown(false), 100);
+  };
+
+  const handleSubTreatmentSelect = (subTreatmentName: string) => {
+    setIsFromDropdown(true);
+    setNewSubTreatment(subTreatmentName);
+    setTimeout(() => setIsFromDropdown(false), 100);
+  };
+
+  const handleAddBoth = async () => {
+    if (!newMainTreatment.trim() && !newSubTreatment.trim()) {
+      showToast('Please enter main treatment or sub-treatment', 'warning');
+      return;
+    }
+
+    if (!isAdmin && isAgent && agentPermissions && !agentPermissions.canCreate && !agentPermissions.canAll) {
+      showToast('Permission denied', 'error');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const adminToken = typeof window !== 'undefined' ? localStorage.getItem('adminToken') : null;
+      const agentToken = typeof window !== 'undefined' ? localStorage.getItem('agentToken') : null;
+      const token = adminToken || agentToken;
+
+      if (!token) {
+        showToast('Authentication required', 'error');
+        setLoading(false);
+        return;
       }
+
+      let mainTreatmentId = selectedMainTreatment;
+
+      // Add main treatment if value exists
+      if (newMainTreatment.trim()) {
+        const res = await axios.post('/api/admin/addTreatment', {
+          name: newMainTreatment,
+          slug: newMainTreatment.toLowerCase().replace(/\s+/g, '-'),
+        }, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+
+        if (res.status === 201) {
+          const addedTreatmentName = newMainTreatment;
+          const customId = Math.random().toString(36).substr(2, 9);
+          setCustomMainTreatments(prev => [...prev, { id: customId, name: addedTreatmentName }]);
+          setNewMainTreatment('');
+          // Fetch updated treatments to get the new treatment ID
+          const updatedRes = await axios.get<{ treatments: Treatment[] }>('/api/doctor/getTreatment', {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          setTreatments(updatedRes.data.treatments || []);
+          const newTreatment = updatedRes.data.treatments?.find(t => t.name === addedTreatmentName);
+          if (newTreatment) {
+            mainTreatmentId = newTreatment._id;
+            setSelectedMainTreatment(newTreatment._id);
+          }
+        }
+      }
+
+      // Add sub-treatment if value exists and main treatment is selected
+      if (newSubTreatment.trim()) {
+        if (!mainTreatmentId) {
+          showToast('Please select or add main treatment first', 'warning');
+          setLoading(false);
+          return;
+        }
+
+        const res = await axios.post('/api/admin/addSubTreatment', {
+          mainTreatmentId: mainTreatmentId,
+          subTreatmentName: newSubTreatment,
+          subTreatmentSlug: newSubTreatment.toLowerCase().replace(/\s+/g, '-'),
+        }, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+
+        if (res.status === 201) {
+          const addedSubTreatmentName = newSubTreatment;
+          const customId = Math.random().toString(36).substr(2, 9);
+          setCustomSubTreatments(prev => [...prev, { id: customId, name: addedSubTreatmentName }]);
+          setNewSubTreatment('');
+          await fetchTreatments();
+        }
+      }
+
+      showToast('Treatment(s) added successfully', 'success');
+    } catch (err: any) {
+      const message = err.response?.data?.message || 'Failed to add treatment';
+      showToast(message, 'error');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -377,7 +509,7 @@ const AddTreatment: NextPageWithLayout = () => {
     <div className="min-h-screen bg-gray-50 p-4 sm:p-6">
       <ToastContainer toasts={toasts} removeToast={removeToast} />
       
-      <div className="max-w-6xl mx-auto space-y-4">
+      <div className="max-w-6xl mx-auto sm:pt-1 lg:pt-1 space-y-4">
         {/* Compact Header */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
           <div className="flex items-center justify-between">
@@ -416,177 +548,7 @@ const AddTreatment: NextPageWithLayout = () => {
           </div>
         </div>
 
-        {/* Graphical Overview */}
-        <div className="bg-white rounded-lg border border-gray-200 p-4">
-          <div className="flex items-center justify-between mb-3">
-            <div>
-              <p className="text-sm font-semibold text-gray-900">Treatment Distribution</p>
-              <p className="text-xs text-gray-600">Share of sub-treatments by top mains</p>
-            </div>
-            <span className="text-xs text-gray-600 bg-gray-100 px-2 py-0.5 rounded">
-              {totalSubTreatments} sub treatments
-            </span>
-          </div>
-          {topTreatments.length === 0 || totalSubTreatments === 0 ? (
-            <div className="py-6 text-center text-xs text-gray-500">No data yet</div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="relative flex items-center justify-center">
-                <svg viewBox="0 0 220 220" className="w-48 h-48">
-                  <defs>
-                    <radialGradient id="innerCircle" cx="50%" cy="50%" r="50%">
-                      <stop offset="70%" stopColor="#111827" />
-                      <stop offset="100%" stopColor="#0f172a" />
-                    </radialGradient>
-                    <linearGradient id="donutColor1" x1="0%" y1="0%" x2="100%" y2="100%">
-                      <stop offset="0%" stopColor="#fb7185" />
-                      <stop offset="100%" stopColor="#ec4899" />
-                    </linearGradient>
-                    <linearGradient id="donutColor2" x1="0%" y1="0%" x2="100%" y2="100%">
-                      <stop offset="0%" stopColor="#f97316" />
-                      <stop offset="100%" stopColor="#facc15" />
-                    </linearGradient>
-                    <linearGradient id="donutColor3" x1="0%" y1="0%" x2="100%" y2="100%">
-                      <stop offset="0%" stopColor="#fde047" />
-                      <stop offset="100%" stopColor="#fbbf24" />
-                    </linearGradient>
-                    <linearGradient id="donutColor4" x1="0%" y1="0%" x2="100%" y2="100%">
-                      <stop offset="0%" stopColor="#34d399" />
-                      <stop offset="100%" stopColor="#10b981" />
-                    </linearGradient>
-                    <linearGradient id="donutColor5" x1="0%" y1="0%" x2="100%" y2="100%">
-                      <stop offset="0%" stopColor="#60a5fa" />
-                      <stop offset="100%" stopColor="#3b82f6" />
-                    </linearGradient>
-                  </defs>
-                  {topTreatments.reduce(
-                    (segments: { paths: React.ReactElement[]; currentAngle: number }, treatment, index) => {
-                      const fraction = (treatment.subCount || 0) / totalSubTreatments;
-                      const startAngle = segments.currentAngle;
-                      const endAngle = startAngle + fraction * Math.PI * 2;
-                      const largeArcFlag = fraction > 0.5 ? 1 : 0;
-                      const radiusOuter = 90;
-                      const radiusInner = 45;
-                      const startOuterX = 110 + radiusOuter * Math.cos(startAngle);
-                      const startOuterY = 110 + radiusOuter * Math.sin(startAngle);
-                      const endOuterX = 110 + radiusOuter * Math.cos(endAngle);
-                      const endOuterY = 110 + radiusOuter * Math.sin(endAngle);
-                      const startInnerX = 110 + radiusInner * Math.cos(endAngle);
-                      const startInnerY = 110 + radiusInner * Math.sin(endAngle);
-                      const endInnerX = 110 + radiusInner * Math.cos(startAngle);
-                      const endInnerY = 110 + radiusInner * Math.sin(startAngle);
-
-                      segments.paths.push(
-                        <path
-                          key={treatment._id}
-                          d={`M ${startOuterX} ${startOuterY} A ${radiusOuter} ${radiusOuter} 0 ${largeArcFlag} 1 ${endOuterX} ${endOuterY} L ${startInnerX} ${startInnerY} A ${radiusInner} ${radiusInner} 0 ${largeArcFlag} 0 ${endInnerX} ${endInnerY} Z`}
-                          fill={`url(#donutColor${(index % 5) + 1})`}
-                          className="shadow-sm"
-                        />
-                      );
-
-                      segments.currentAngle = endAngle;
-                      return segments;
-                    },
-                    { paths: [] as React.ReactElement[], currentAngle: -Math.PI / 2 }
-                  ).paths}
-                  <circle cx="110" cy="110" r="40" fill="url(#innerCircle)" />
-                </svg>
-                <div className="absolute text-center">
-                  <p className="text-xs text-gray-500">Total</p>
-                  <p className="text-lg font-semibold text-gray-900">{totalSubTreatments}</p>
-                </div>
-              </div>
-              <div className="space-y-2 text-xs">
-                {topTreatments.map((treatment, index) => {
-                  const percent = ((treatment.subCount / totalSubTreatments) * 100).toFixed(1);
-                  const legendColors = [
-                    "text-pink-500",
-                    "text-orange-500",
-                    "text-yellow-500",
-                    "text-green-500",
-                    "text-blue-500",
-                  ];
-                  return (
-                    <div
-                      key={treatment._id}
-                      className="flex items-center justify-between border border-gray-100 rounded-lg px-3 py-2"
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className={`font-bold ${legendColors[index % legendColors.length]}`}>
-                          {percent}%
-                        </span>
-                        <span className="font-medium text-gray-900 truncate">{treatment.name}</span>
-                      </div>
-                      <span className="text-gray-500 font-semibold">{treatment.subCount} sub</span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-          <div className="mt-4 flex items-center justify-between text-xs text-gray-600">
-            <span>Main with sub treatments: {treatmentsWithSub}</span>
-            <span>
-              Avg sub/main:{" "}
-              {treatments.length ? (totalSubTreatments / treatments.length).toFixed(1) : "0.0"}
-            </span>
-          </div>
-        </div>
-
-        {/* Coverage & Activity Visualization */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="bg-white rounded-lg border border-gray-200 p-4 flex items-center gap-4">
-            <div
-              className="w-24 h-24 rounded-full flex items-center justify-center relative"
-              style={{
-                background: `conic-gradient(#111 ${subCoveragePercent}%, #e5e7eb ${subCoveragePercent}% 100%)`,
-              }}
-            >
-              <div className="absolute w-16 h-16 bg-white rounded-full flex items-center justify-center">
-                <span className="text-lg font-semibold text-gray-900">
-                  {subCoveragePercent}%
-                </span>
-              </div>
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-gray-900">Coverage</p>
-              <p className="text-xs text-gray-600 mb-2">
-                Main treatments with at least one sub-treatment
-              </p>
-              <p className="text-sm text-gray-700">
-                {treatmentsWithSub} of {treatments.length || 0} mains
-              </p>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg border border-gray-200 p-4 flex items-center gap-4">
-            <div
-              className="w-24 h-24 rounded-full flex items-center justify-center relative"
-              style={{
-                background: `conic-gradient(#4b5563 ${Math.min(
-                  (avgSubsPerMain / 5) * 100,
-                  100
-                )}%, #e5e7eb ${Math.min((avgSubsPerMain / 5) * 100, 100)}% 100%)`,
-              }}
-            >
-              <div className="absolute w-16 h-16 bg-white rounded-full flex items-center justify-center">
-                <span className="text-lg font-semibold text-gray-900">
-                  {avgSubsPerMain}
-                </span>
-              </div>
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-gray-900">Avg. Sub Count</p>
-              <p className="text-xs text-gray-600 mb-2">
-                Average sub-treatments per main (target 5+)
-              </p>
-              <p className="text-sm text-gray-700">
-                {totalSubTreatments} subs / {treatments.length || 0} mains
-              </p>
-            </div>
-          </div>
-        </div>
+     
 
         {/* Main Content Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -601,37 +563,12 @@ const AddTreatment: NextPageWithLayout = () => {
                 <label className="block text-xs font-medium text-gray-700 mb-1.5">
                   Main Treatment
                 </label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={newMainTreatment}
-                    onChange={(e) => setNewMainTreatment(e.target.value)}
-                    onKeyPress={(e) => handleKeyPress(e, 'main')}
-                    placeholder="Enter name"
-                    className="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-800"
-                  />
-                  {(isAdmin || (isAgent && !permissionsLoading && agentPermissions && (agentPermissions.canCreate || agentPermissions.canAll))) && (
-                    <button
-                      onClick={handleAddMainTreatment}
-                      disabled={loading}
-                      className="px-4 py-1.5 bg-gray-800 hover:bg-gray-700 text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-50"
-                    >
-                      {loading ? '...' : 'Add'}
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* Divider */}
-              <div className="border-t border-gray-200 pt-4">
-                <label className="block text-xs font-medium text-gray-700 mb-1.5">
-                  Sub-Treatment
-                </label>
-                
+            
+                {/* Main treatment selection dropdown */}
                 <select
                   value={selectedMainTreatment}
-                  onChange={(e) => setSelectedMainTreatment(e.target.value)}
-                  className="w-full mb-2 px-3 py-1.5 text-sm border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-800"
+                  onChange={(e) => handleMainTreatmentSelect(e.target.value)}
+                  className="w-full mt-3 px-3 py-1.5 text-sm border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-800"
                 >
                   <option value="">Select main treatment</option>
                   {treatments.map((treatment) => (
@@ -640,27 +577,101 @@ const AddTreatment: NextPageWithLayout = () => {
                     </option>
                   ))}
                 </select>
+                <input
+                  type="text"
+                  value={newMainTreatment}
+                  onChange={(e) => {
+                    setIsFromDropdown(false);
+                    setNewMainTreatment(e.target.value);
+                  }}
+                  placeholder="Enter name"
+                  className="w-full px-3 mt-2 py-1.5 text-sm border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-800"
+                />
+                {/* Custom Main Treatments Boxes */}
+                {customMainTreatments.length > 0 && (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {customMainTreatments.map((custom) => (
+                      <div
+                        key={custom.id}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-gray-100 border border-gray-300 rounded-lg text-sm text-gray-900"
+                      >
+                        <span>{custom.name}</span>
+                        <button
+                          onClick={() => handleRemoveCustomMainTreatment(custom.id)}
+                          className="text-gray-500 hover:text-red-600 transition-colors"
+                          aria-label="Remove"
+                        >
+                          <XMarkIcon className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
 
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={newSubTreatment}
-                    onChange={(e) => setNewSubTreatment(e.target.value)}
-                    onKeyPress={(e) => handleKeyPress(e, 'sub')}
-                    placeholder="Enter sub-treatment name"
-                    disabled={!selectedMainTreatment}
-                    className="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-800 disabled:opacity-50"
-                  />
-                  {(isAdmin || (isAgent && !permissionsLoading && agentPermissions && (agentPermissions.canCreate || agentPermissions.canAll))) && (
-                    <button
-                      onClick={handleAddSubTreatment}
-                      disabled={loading || !selectedMainTreatment}
-                      className="px-4 py-1.5 bg-gray-800 hover:bg-gray-700 text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-50"
-                    >
-                      {loading ? '...' : 'Add'}
-                    </button>
-                  )}
-                </div>
+              {/* Divider */}
+              <div className="border-t border-gray-200 pt-4">
+                <label className="block text-xs font-medium text-gray-700 mb-1.5">
+                  Sub-Treatment
+                </label>
+                
+                {/* Sub-treatment selection dropdown */}
+                {selectedMainTreatment && availableSubTreatments.length > 0 && (
+                  <select
+                    onChange={(e) => handleSubTreatmentSelect(e.target.value)}
+                    className="w-full mb-2 px-3 py-1.5 text-sm border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-800"
+                  >
+                    <option value="">Select sub-treatment</option>
+                    {availableSubTreatments.map((sub, index) => (
+                      <option key={index} value={sub.name}>
+                        {sub.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
+
+                <input
+                  type="text"
+                  value={newSubTreatment}
+                  onChange={(e) => {
+                    setIsFromDropdown(false);
+                    setNewSubTreatment(e.target.value);
+                  }}
+                  placeholder="Enter sub-treatment name"
+                  className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-800"
+                />
+                
+                {/* Custom Sub-Treatments Boxes */}
+                {customSubTreatments.length > 0 && (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {customSubTreatments.map((custom) => (
+                      <div
+                        key={custom.id}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-gray-100 border border-gray-300 rounded-lg text-sm text-gray-900"
+                      >
+                        <span>{custom.name}</span>
+                        <button
+                          onClick={() => handleRemoveCustomSubTreatment(custom.id)}
+                          className="text-gray-500 hover:text-red-600 transition-colors"
+                          aria-label="Remove"
+                        >
+                          <XMarkIcon className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                
+                {/* Single Add Button for Both */}
+                {(isAdmin || (isAgent && !permissionsLoading && agentPermissions && (agentPermissions.canCreate || agentPermissions.canAll))) && (
+                  <button
+                    onClick={handleAddBoth}
+                    disabled={loading || (!newMainTreatment.trim() && !newSubTreatment.trim())}
+                    className="w-full mt-4 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {loading ? 'Adding...' : 'Add Treatment'}
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -780,6 +791,179 @@ const AddTreatment: NextPageWithLayout = () => {
           </div>
         </div>
       )}
+ {/* Graphical Overview */}
+      <div className="bg-white rounded-lg mt-5 border border-gray-200 p-4">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <p className="text-sm font-semibold text-gray-900">Treatment Distribution</p>
+              <p className="text-xs text-gray-600">Share of sub-treatments by top mains</p>
+            </div>
+            <span className="text-xs text-gray-600 bg-gray-100 px-2 py-0.5 rounded">
+              {totalSubTreatments} sub treatments
+            </span>
+          </div>
+          {topTreatments.length === 0 || totalSubTreatments === 0 ? (
+            <div className="py-6 text-center text-xs text-gray-500">No data yet</div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="relative flex items-center justify-center">
+                <svg viewBox="0 0 220 220" className="w-48 h-48">
+                  <defs>
+                    <radialGradient id="innerCircle" cx="50%" cy="50%" r="50%">
+                      <stop offset="70%" stopColor="#111827" />
+                      <stop offset="100%" stopColor="#0f172a" />
+                    </radialGradient>
+                    <linearGradient id="donutColor1" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stopColor="#fb7185" />
+                      <stop offset="100%" stopColor="#ec4899" />
+                    </linearGradient>
+                    <linearGradient id="donutColor2" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stopColor="#f97316" />
+                      <stop offset="100%" stopColor="#facc15" />
+                    </linearGradient>
+                    <linearGradient id="donutColor3" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stopColor="#fde047" />
+                      <stop offset="100%" stopColor="#fbbf24" />
+                    </linearGradient>
+                    <linearGradient id="donutColor4" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stopColor="#34d399" />
+                      <stop offset="100%" stopColor="#10b981" />
+                    </linearGradient>
+                    <linearGradient id="donutColor5" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stopColor="#60a5fa" />
+                      <stop offset="100%" stopColor="#3b82f6" />
+                    </linearGradient>
+                  </defs>
+                  {topTreatments.reduce(
+                    (segments: { paths: React.ReactElement[]; currentAngle: number }, treatment, index) => {
+                      const fraction = (treatment.subCount || 0) / totalSubTreatments;
+                      const startAngle = segments.currentAngle;
+                      const endAngle = startAngle + fraction * Math.PI * 2;
+                      const largeArcFlag = fraction > 0.5 ? 1 : 0;
+                      const radiusOuter = 90;
+                      const radiusInner = 45;
+                      const startOuterX = 110 + radiusOuter * Math.cos(startAngle);
+                      const startOuterY = 110 + radiusOuter * Math.sin(startAngle);
+                      const endOuterX = 110 + radiusOuter * Math.cos(endAngle);
+                      const endOuterY = 110 + radiusOuter * Math.sin(endAngle);
+                      const startInnerX = 110 + radiusInner * Math.cos(endAngle);
+                      const startInnerY = 110 + radiusInner * Math.sin(endAngle);
+                      const endInnerX = 110 + radiusInner * Math.cos(startAngle);
+                      const endInnerY = 110 + radiusInner * Math.sin(startAngle);
+
+                      segments.paths.push(
+                        <path
+                          key={treatment._id}
+                          d={`M ${startOuterX} ${startOuterY} A ${radiusOuter} ${radiusOuter} 0 ${largeArcFlag} 1 ${endOuterX} ${endOuterY} L ${startInnerX} ${startInnerY} A ${radiusInner} ${radiusInner} 0 ${largeArcFlag} 0 ${endInnerX} ${endInnerY} Z`}
+                          fill={`url(#donutColor${(index % 5) + 1})`}
+                          className="shadow-sm"
+                        />
+                      );
+
+                      segments.currentAngle = endAngle;
+                      return segments;
+                    },
+                    { paths: [] as React.ReactElement[], currentAngle: -Math.PI / 2 }
+                  ).paths}
+                  <circle cx="110" cy="110" r="40" fill="url(#innerCircle)" />
+                </svg>
+                <div className="absolute text-center">
+                  <p className="text-xs text-gray-500">Total</p>
+                  <p className="text-lg font-semibold text-gray-900">{totalSubTreatments}</p>
+                </div>
+              </div>
+              <div className="space-y-2 text-xs">
+                {topTreatments.map((treatment, index) => {
+                  const percent = ((treatment.subCount / totalSubTreatments) * 100).toFixed(1);
+                  const legendColors = [
+                    "text-pink-500",
+                    "text-orange-500",
+                    "text-yellow-500",
+                    "text-green-500",
+                    "text-blue-500",
+                  ];
+                  return (
+                    <div
+                      key={treatment._id}
+                      className="flex items-center justify-between border border-gray-100 rounded-lg px-3 py-2"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className={`font-bold ${legendColors[index % legendColors.length]}`}>
+                          {percent}%
+                        </span>
+                        <span className="font-medium text-gray-900 truncate">{treatment.name}</span>
+                      </div>
+                      <span className="text-gray-500 font-semibold">{treatment.subCount} sub</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+          <div className="mt-4 flex items-center justify-between text-xs text-gray-600">
+            <span>Main with sub treatments: {treatmentsWithSub}</span>
+            <span>
+              Avg sub/main:{" "}
+              {treatments.length ? (totalSubTreatments / treatments.length).toFixed(1) : "0.0"}
+            </span>
+          </div>
+        </div> 
+
+ {/* Coverage & Activity Visualization */}
+         <div className="grid grid-cols-1 mt-5 md:grid-cols-2 gap-4">
+          <div className="bg-white rounded-lg border border-gray-200 p-4 flex items-center gap-4">
+            <div
+              className="w-24 h-24 rounded-full flex items-center justify-center relative"
+              style={{
+                background: `conic-gradient(#111 ${subCoveragePercent}%, #e5e7eb ${subCoveragePercent}% 100%)`,
+              }}
+            >
+              <div className="absolute w-16 h-16 bg-white rounded-full flex items-center justify-center">
+                <span className="text-lg font-semibold text-gray-900">
+                  {subCoveragePercent}%
+                </span>
+              </div>
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-gray-900">Coverage</p>
+              <p className="text-xs text-gray-600 mb-2">
+                Main treatments with at least one sub-treatment
+              </p>
+              <p className="text-sm text-gray-700">
+                {treatmentsWithSub} of {treatments.length || 0} mains
+              </p>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg border border-gray-200 p-4 flex items-center gap-4">
+            <div
+              className="w-24 h-24 rounded-full flex items-center justify-center relative"
+              style={{
+                background: `conic-gradient(#4b5563 ${Math.min(
+                  (avgSubsPerMain / 5) * 100,
+                  100
+                )}%, #e5e7eb ${Math.min((avgSubsPerMain / 5) * 100, 100)}% 100%)`,
+              }}
+            >
+              <div className="absolute w-16 h-16 bg-white rounded-full flex items-center justify-center">
+                <span className="text-lg font-semibold text-gray-900">
+                  {avgSubsPerMain}
+                </span>
+              </div>
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-gray-900">Avg. Sub Count</p>
+              <p className="text-xs text-gray-600 mb-2">
+                Average sub-treatments per main (target 5+)
+              </p>
+              <p className="text-sm text-gray-700">
+                {totalSubTreatments} subs / {treatments.length || 0} mains
+              </p>
+            </div>
+          </div>
+        </div> 
+
+
     </div>
 );
 };

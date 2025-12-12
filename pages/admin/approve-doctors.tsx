@@ -558,7 +558,7 @@ function AdminDoctors() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
+    <div className="min-h-screen bg-gray-50 pt-2 sm:pt-3 lg:pt-4 px-4 sm:px-6 lg:px-8 pb-4 sm:pb-6 lg:pb-8">
       <ToastContainer toasts={toasts} removeToast={removeToast} />
       
       <div className="max-w-7xl mx-auto space-y-6">
@@ -573,7 +573,7 @@ function AdminDoctors() {
                 <p className="text-xs uppercase tracking-[0.2em] text-slate-500">
                   Doctor approvals
                 </p>
-                <h1 className="text-3xl font-semibold text-slate-900 mt-2">
+                <h1 className="text-xl font-semibold text-slate-900 mt-2">
                   Doctor Management
                 </h1>
                 <p className="text-sm text-slate-600 mt-1">
@@ -600,7 +600,7 @@ function AdminDoctors() {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div className="grid grid-cols-1 mt-4 gap-6 sm:grid-cols-3">
           {[
             {
               title: "Pending",
@@ -631,22 +631,22 @@ function AdminDoctors() {
             return (
               <div
                 key={index}
-                className={`rounded-2xl border ${stat.border} bg-white/85 p-4 shadow-sm`}
+                className={`rounded-xl border ${stat.border} bg-white/85 p-3 shadow-sm`}
               >
-                <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center justify-between gap-3">
                   <div>
                     <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
                       {stat.title}
                     </p>
-                    <p className="mt-1 text-2xl font-semibold text-slate-900">
+                    <p className="mt-1 text-xl font-semibold text-slate-900">
                       {stat.value}
                     </p>
                     <p className="text-xs text-slate-500 mt-1">{stat.subtitle}</p>
                   </div>
                   <div
-                    className={`flex h-12 w-12 items-center justify-center rounded-xl ${stat.accent}`}
+                    className={`flex h-10 w-10 items-center justify-center rounded-lg ${stat.accent}`}
                   >
-                    <Icon className="w-5 h-5" />
+                    <Icon className="w-4 h-4" />
                   </div>
                 </div>
               </div>

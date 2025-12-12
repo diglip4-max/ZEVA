@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/router";
 import axios from "axios";
 import {
@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext"; // ✅ make sure this path is correct
 import CalculatorGames from "../../components/CalculatorGames";
+import AuthModal from "../../components/AuthModal";
 import Image from 'next/image';
 
 interface Clinic {
@@ -52,6 +53,11 @@ export default function ClinicDetail() {
     Record<string, { averageRating: number; totalReviews: number }>
   >({});
   const [reviewsLoaded, setReviewsLoaded] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authModalMode, setAuthModalMode] = useState<"login" | "register">("login");
+  const shouldNavigateAfterLogin = useRef(false);
+  const pendingClinicData = useRef<{ clinic: Clinic } | null>(null);
+  const navigateToReview = useRef(false);
 
   useEffect(() => {
     if (!id) return;
@@ -97,12 +103,44 @@ export default function ClinicDetail() {
     fetchReviews();
   }, [clinic?._id]);
 
+  // Navigate to enquiry or review form after successful login
+  useEffect(() => {
+    if (isAuthenticated && shouldNavigateAfterLogin.current && pendingClinicData.current) {
+      shouldNavigateAfterLogin.current = false;
+      const clinic = pendingClinicData.current.clinic;
+      
+      if (navigateToReview.current) {
+        // Navigate to review form
+        const params = new URLSearchParams({
+          clinicId: clinic._id,
+          clinicName: clinic.name,
+        });
+        router.push(`/clinic/review-form?${params.toString()}`);
+        navigateToReview.current = false;
+      } else {
+        // Navigate to enquiry form
+        const params = new URLSearchParams({
+          clinicId: clinic._id,
+          clinicName: clinic.name,
+          clinicAddress: clinic.address,
+        });
+        router.push(`/clinic/enquiry-form?${params.toString()}`);
+      }
+      pendingClinicData.current = null;
+    }
+  }, [isAuthenticated, router]);
+
   // ✅ Handlers moved inside so they can use router + isAuthenticated
   const handleEnquiryClick = (clinic: Clinic) => {
     if (!isAuthenticated) {
-      router.push("/login");
+      // Show login popup on the same page
+      setAuthModalMode("login");
+      setShowAuthModal(true);
+      shouldNavigateAfterLogin.current = true;
+      pendingClinicData.current = { clinic };
       return;
     }
+    // If authenticated, navigate to enquiry form
     const params = new URLSearchParams({
       clinicId: clinic._id,
       clinicName: clinic.name,
@@ -113,9 +151,15 @@ export default function ClinicDetail() {
 
   const handleReviewClick = (clinic: Clinic) => {
     if (!isAuthenticated) {
-      router.push("/login");
+      // Show login popup on the same page
+      setAuthModalMode("login");
+      setShowAuthModal(true);
+      shouldNavigateAfterLogin.current = true;
+      navigateToReview.current = true;
+      pendingClinicData.current = { clinic };
       return;
     }
+    // If authenticated, navigate to review form
     const params = new URLSearchParams({
       clinicId: clinic._id,
       clinicName: clinic.name,
@@ -428,6 +472,24 @@ export default function ClinicDetail() {
       {/* Bottom Spacing */}
       <div className="h-8"></div>
       <CalculatorGames />
+
+      {/* Login Modal */}
+      {showAuthModal && (
+        <AuthModal
+          isOpen={showAuthModal}
+          onClose={() => {
+            setShowAuthModal(false);
+            shouldNavigateAfterLogin.current = false;
+            navigateToReview.current = false;
+            pendingClinicData.current = null;
+          }}
+          onSuccess={() => {
+            setShowAuthModal(false);
+            // Navigation will happen automatically via useEffect when isAuthenticated becomes true
+          }}
+          initialMode={authModalMode}
+        />
+      )}
     </div>
   );
 }

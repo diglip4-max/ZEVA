@@ -193,10 +193,34 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>("");
   const [closingMinutes, setClosingMinutes] = useState<number | null>(null);
-  // Custom time slot state
-  const [useCustomTimeSlots, setUseCustomTimeSlots] = useState<boolean>(false);
-  const [customStartTime, setCustomStartTime] = useState<string>("");
-  const [customEndTime, setCustomEndTime] = useState<string>("");
+  // Custom time slot state - Initialize from localStorage if available
+  const [useCustomTimeSlots, setUseCustomTimeSlots] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("appointmentUseCustomTimeSlots");
+      if (saved !== null) {
+        return saved === "true";
+      }
+    }
+    return false;
+  });
+  const [customStartTime, setCustomStartTime] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("appointmentCustomStartTime");
+      if (saved) {
+        return saved;
+      }
+    }
+    return "";
+  });
+  const [customEndTime, setCustomEndTime] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("appointmentCustomEndTime");
+      if (saved) {
+        return saved;
+      }
+    }
+    return "";
+  });
   const [customTimeSlotModalOpen, setCustomTimeSlotModalOpen] = useState<boolean>(false);
   const [bookingModal, setBookingModal] = useState<{
     isOpen: boolean;
@@ -272,6 +296,25 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
     }
   }, [columnOrder]);
 
+  // Save custom time slot settings to localStorage whenever they change
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("appointmentUseCustomTimeSlots", String(useCustomTimeSlots));
+    }
+  }, [useCustomTimeSlots]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && customStartTime) {
+      localStorage.setItem("appointmentCustomStartTime", customStartTime);
+    }
+  }, [customStartTime]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && customEndTime) {
+      localStorage.setItem("appointmentCustomEndTime", customEndTime);
+    }
+  }, [customEndTime]);
+
   // Update time slots when custom time slots are enabled/disabled or changed
   useEffect(() => {
     if (useCustomTimeSlots && customStartTime && customEndTime) {
@@ -290,7 +333,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
         setClosingMinutes(timeStringToMinutes(parsed.endTime));
       }
     }
-  }, [useCustomTimeSlots, customStartTime, customEndTime]);
+  }, [useCustomTimeSlots, customStartTime, customEndTime, clinic?.timings]);
   const [doctorFilterOpen, setDoctorFilterOpen] = useState(false);
   const [roomFilterOpen, setRoomFilterOpen] = useState(false);
   const doctorFilterTouchedRef = useRef(false);
@@ -1898,16 +1941,8 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                     checked={useCustomTimeSlots}
                     onChange={(e) => {
                       setUseCustomTimeSlots(e.target.checked);
-                      if (!e.target.checked) {
-                        // Reset to clinic timings when disabled
-                        if (clinic?.timings) {
-                          const parsed = parseTimings(clinic.timings);
-                          if (parsed) {
-                            setCustomStartTime(parsed.startTime);
-                            setCustomEndTime(parsed.endTime);
-                          }
-                        }
-                      }
+                      // Don't reset custom times when disabled - preserve them for when user re-enables
+                      // The time slots will switch back to clinic timings, but custom values are preserved
                     }}
                     className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
                   />

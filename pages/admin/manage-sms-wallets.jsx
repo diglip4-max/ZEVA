@@ -79,11 +79,11 @@ function AllocateModal({ isOpen, onClose, onConfirm, wallet }) {
             />
           </div>
           <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-2">Note (optional)</label>
+            <label className="block text-sm font-semibold text-slate-700 resize-none mb-2">Note (optional)</label>
             <textarea
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              className="w-full px-4 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500"
+              className="w-full px-4 py-2 border border-slate-300 resize-none rounded-xl focus:ring-2 focus:ring-blue-500"
               rows={3}
               placeholder="Add a note about this allocation"
             />
@@ -167,7 +167,7 @@ function AdminCreditModal({ isOpen, onClose, onSubmit, loading }) {
             <textarea
               value={note}
               onChange={(e) => setNote(e.target.value)}
-              className="w-full px-4 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500"
+              className="w-full px-4 py-2 border border-slate-300 rounded-xl resize-none focus:ring-2 focus:ring-blue-500"
               rows={2}
               placeholder="Optional note"
             />
@@ -316,9 +316,9 @@ const ManageSmsWallets = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 py-8 px-4">
+    <div className="min-h-screen bg-slate-50 py-4 sm:py-5 px-3 sm:px-4">
       <div className="max-w-7xl mx-auto">
-        <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-6 mb-6">
+        <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-4 sm:p-5 mb-5 sm:mb-6">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Admin SMS Pool</p>
@@ -326,10 +326,10 @@ const ManageSmsWallets = () => {
                 <p className="text-slate-500 text-sm mt-1">Loading credits...</p>
               ) : adminCredits ? (
                 <div>
-                  <p className="text-3xl font-bold text-slate-900">
-                    {adminCredits.availableCredits?.toLocaleString() || 0} <span className="text-base text-slate-500 font-normal">credits</span>
+                  <p className="text-2xl sm:text-3xl font-bold text-slate-900">
+                    {adminCredits.availableCredits?.toLocaleString() || 0} <span className="text-sm sm:text-base text-slate-500 font-normal">credits</span>
                   </p>
-                  <p className="text-sm text-slate-500">
+                  <p className="text-xs sm:text-sm text-slate-500">
                     Low threshold: {adminCredits.lowThreshold?.toLocaleString()} • Last top-up:{" "}
                     {adminCredits.lastTopupAt ? new Date(adminCredits.lastTopupAt).toLocaleString() : "Never"}
                   </p>
@@ -340,14 +340,14 @@ const ManageSmsWallets = () => {
             </div>
             <div className="flex flex-wrap gap-3">
               {adminCredits?.isLow && (
-                <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 text-sm font-semibold">
+                <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 text-xs sm:text-sm font-semibold">
                   <AlertTriangle className="w-4 h-4" />
                   Low credits
                 </span>
               )}
               <button
                 onClick={() => setShowAdminModal(true)}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700"
+                className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700"
               >
                 <Plus className="w-4 h-4" />
                 Add Credits
@@ -355,61 +355,61 @@ const ManageSmsWallets = () => {
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-6 mb-6">
-          <div className="flex items-center justify-between mb-6">
+        <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-4 sm:p-5 mb-5 sm:mb-6">
+          <div className="flex items-center justify-between mb-4 sm:mb-5">
             <div>
-              <h1 className="text-3xl font-bold text-slate-900">SMS Wallet Management</h1>
-              <p className="text-slate-600 mt-1">Manage SMS credits for clinics and doctors</p>
+              <h1 className="text-xl sm:text-2xl font-bold text-slate-900">SMS Wallet Management</h1>
+              <p className="text-slate-600 mt-1 text-sm">Manage SMS credits for clinics and doctors</p>
             </div>
             <button
               onClick={handleRefresh}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-700 rounded-xl hover:bg-slate-200"
+              className="inline-flex items-center gap-2 px-3 py-1.5 bg-slate-100 text-slate-700 rounded-lg text-sm hover:bg-slate-200"
             >
               <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
               Refresh
             </button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-            <div className="p-4 bg-blue-50 rounded-xl border border-blue-200">
-              <div className="flex items-center gap-3">
-                <Wallet className="w-8 h-8 text-blue-600" />
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-5">
+            <div className="p-3 bg-blue-50 rounded-xl border border-blue-200">
+              <div className="flex items-center gap-2">
+                <Wallet className="w-6 h-6 text-blue-600" />
                 <div>
                   <p className="text-xs text-blue-600 uppercase tracking-wide">Total Wallets</p>
-                  <p className="text-2xl font-bold text-blue-900">{stats.total}</p>
+                  <p className="text-xl font-bold text-blue-900">{stats.total}</p>
                 </div>
               </div>
             </div>
-            <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-200">
-              <div className="flex items-center gap-3">
-                <Users className="w-8 h-8 text-emerald-600" />
+            <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200">
+              <div className="flex items-center gap-2">
+                <Users className="w-6 h-6 text-emerald-600" />
                 <div>
                   <p className="text-xs text-emerald-600 uppercase tracking-wide">Clinics</p>
-                  <p className="text-2xl font-bold text-emerald-900">{stats.clinics}</p>
+                  <p className="text-xl font-bold text-emerald-900">{stats.clinics}</p>
                 </div>
               </div>
             </div>
-            <div className="p-4 bg-purple-50 rounded-xl border border-purple-200">
-              <div className="flex items-center gap-3">
-                <Users className="w-8 h-8 text-purple-600" />
+            <div className="p-3 bg-purple-50 rounded-xl border border-purple-200">
+              <div className="flex items-center gap-2">
+                <Users className="w-6 h-6 text-purple-600" />
                 <div>
                   <p className="text-xs text-purple-600 uppercase tracking-wide">Doctors</p>
-                  <p className="text-2xl font-bold text-purple-900">{stats.doctors}</p>
+                  <p className="text-xl font-bold text-purple-900">{stats.doctors}</p>
                 </div>
               </div>
             </div>
-            <div className="p-4 bg-amber-50 rounded-xl border border-amber-200">
-              <div className="flex items-center gap-3">
-                <TrendingUp className="w-8 h-8 text-amber-600" />
+            <div className="p-3 bg-amber-50 rounded-xl border border-amber-200">
+              <div className="flex items-center gap-2">
+                <TrendingUp className="w-6 h-6 text-amber-600" />
                 <div>
                   <p className="text-xs text-amber-600 uppercase tracking-wide">Total Balance</p>
-                  <p className="text-2xl font-bold text-amber-900">{stats.totalBalance.toLocaleString()}</p>
+                  <p className="text-xl font-bold text-amber-900">{stats.totalBalance.toLocaleString()}</p>
                 </div>
               </div>
             </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row gap-4">
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
               <input
@@ -417,13 +417,13 @@ const ManageSmsWallets = () => {
                 placeholder="Search by name or email..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500"
+                className="w-full pl-9 pr-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
               />
             </div>
             <select
               value={filterType}
               onChange={(e) => setFilterType(e.target.value)}
-              className="px-4 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500"
+              className="w-full sm:w-44 px-2.5 py-1.5 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500 text-xs bg-white"
             >
               <option value="all">All Types</option>
               <option value="clinic">Clinics</option>
@@ -434,67 +434,110 @@ const ManageSmsWallets = () => {
 
         <div className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
           {loading ? (
-            <div className="p-12 text-center text-slate-500">Loading wallets...</div>
+            <div className="p-10 text-center text-slate-500 text-sm">Loading wallets...</div>
           ) : filteredWallets.length === 0 ? (
-            <div className="p-12 text-center text-slate-500">No wallets found</div>
+            <div className="p-10 text-center text-slate-500 text-sm">No wallets found</div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-slate-50 border-b border-slate-200">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Owner</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Type</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Balance</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Total Sent</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Total Purchased</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Last Top-up</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200">
-                  {filteredWallets.map((wallet) => (
-                    <tr key={wallet._id} className="hover:bg-slate-50">
-                      <td className="px-6 py-4">
-                        <div>
-                          <p className="font-semibold text-slate-900">{wallet.ownerId?.name || "N/A"}</p>
-                          <p className="text-xs text-slate-500">{wallet.ownerId?.email || ""}</p>
+            <>
+              {/* Mobile cards */}
+              <div className="sm:hidden divide-y divide-slate-200">
+                {filteredWallets.map((wallet) => (
+                  <div key={wallet._id} className="p-4 space-y-2">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="font-semibold text-slate-900 text-sm truncate">{wallet.ownerId?.name || "N/A"}</p>
+                        <p className="text-[11px] text-slate-500 truncate">{wallet.ownerId?.email || ""}</p>
+                        <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                          <span
+                            className={`px-2.5 py-1 rounded-full text-[11px] font-semibold ${
+                              wallet.ownerType === "clinic"
+                                ? "bg-blue-100 text-blue-700"
+                                : "bg-purple-100 text-purple-700"
+                            }`}
+                          >
+                            {wallet.ownerType}
+                          </span>
+                          <span className={`px-2.5 py-1 rounded-full text-[11px] font-semibold ${wallet.balance <= 20 ? "bg-rose-100 text-rose-700" : "bg-slate-100 text-slate-700"}`}>
+                            Bal: {wallet.balance?.toLocaleString() || 0}
+                          </span>
                         </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span
-                          className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                            wallet.ownerType === "clinic"
-                              ? "bg-blue-100 text-blue-700"
-                              : "bg-purple-100 text-purple-700"
-                          }`}
-                        >
-                          {wallet.ownerType}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className={`font-bold ${wallet.balance <= 20 ? "text-rose-600" : "text-slate-900"}`}>
-                          {wallet.balance?.toLocaleString() || 0}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-slate-700">{wallet.totalSent?.toLocaleString() || 0}</td>
-                      <td className="px-6 py-4 text-slate-700">{wallet.totalPurchased?.toLocaleString() || 0}</td>
-                      <td className="px-6 py-4 text-sm text-slate-500">
-                        {wallet.lastTopupAt ? new Date(wallet.lastTopupAt).toLocaleDateString() : "Never"}
-                      </td>
-                      <td className="px-6 py-4">
-                        <button
-                          onClick={() => setAllocateModal({ open: true, wallet })}
-                          className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700"
-                        >
-                          <Plus className="w-4 h-4" />
-                          Allocate
-                        </button>
-                      </td>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm text-slate-700">Sent: {wallet.totalSent?.toLocaleString() || 0}</p>
+                        <p className="text-sm text-slate-700">Bought: {wallet.totalPurchased?.toLocaleString() || 0}</p>
+                        <p className="text-[11px] text-slate-500">{wallet.lastTopupAt ? new Date(wallet.lastTopupAt).toLocaleDateString() : "Never"}</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setAllocateModal({ open: true, wallet })}
+                      className="w-full inline-flex items-center justify-center gap-2 px-3 py-1.5 bg-blue-600 text-white rounded-lg text-[11px] font-semibold hover:bg-blue-700"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Allocate
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              {/* Desktop table */}
+              <div className="hidden sm:block overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-slate-50 border-b border-slate-200">
+                    <tr>
+                      <th className="px-4 sm:px-5 py-2.5 text-left text-[11px] font-semibold text-slate-600 uppercase">Owner</th>
+                      <th className="px-4 sm:px-5 py-2.5 text-left text-[11px] font-semibold text-slate-600 uppercase">Type</th>
+                      <th className="px-4 sm:px-5 py-2.5 text-left text-[11px] font-semibold text-slate-600 uppercase">Balance</th>
+                      <th className="px-4 sm:px-5 py-2.5 text-left text-[11px] font-semibold text-slate-600 uppercase">Total Sent</th>
+                      <th className="px-4 sm:px-5 py-2.5 text-left text-[11px] font-semibold text-slate-600 uppercase">Total Purchased</th>
+                      <th className="px-4 sm:px-5 py-2.5 text-left text-[11px] font-semibold text-slate-600 uppercase">Last Top-up</th>
+                      <th className="px-4 sm:px-5 py-2.5 text-left text-[11px] font-semibold text-slate-600 uppercase">Actions</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200">
+                    {filteredWallets.map((wallet) => (
+                      <tr key={wallet._id} className="hover:bg-slate-50">
+                        <td className="px-4 sm:px-5 py-3">
+                          <div>
+                            <p className="font-semibold text-slate-900 text-sm">{wallet.ownerId?.name || "N/A"}</p>
+                            <p className="text-[11px] text-slate-500">{wallet.ownerId?.email || ""}</p>
+                          </div>
+                        </td>
+                        <td className="px-4 sm:px-5 py-3">
+                          <span
+                            className={`px-3 py-1 rounded-full text-[11px] font-semibold ${
+                              wallet.ownerType === "clinic"
+                                ? "bg-blue-100 text-blue-700"
+                                : "bg-purple-100 text-purple-700"
+                            }`}
+                          >
+                            {wallet.ownerType}
+                          </span>
+                        </td>
+                        <td className="px-4 sm:px-5 py-3">
+                          <span className={`font-bold text-sm ${wallet.balance <= 20 ? "text-rose-600" : "text-slate-900"}`}>
+                            {wallet.balance?.toLocaleString() || 0}
+                          </span>
+                        </td>
+                        <td className="px-4 sm:px-5 py-3 text-sm text-slate-700">{wallet.totalSent?.toLocaleString() || 0}</td>
+                        <td className="px-4 sm:px-5 py-3 text-sm text-slate-700">{wallet.totalPurchased?.toLocaleString() || 0}</td>
+                        <td className="px-4 sm:px-5 py-3 text-xs text-slate-500">
+                          {wallet.lastTopupAt ? new Date(wallet.lastTopupAt).toLocaleDateString() : "Never"}
+                        </td>
+                        <td className="px-4 sm:px-5 py-3">
+                          <button
+                            onClick={() => setAllocateModal({ open: true, wallet })}
+                            className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white rounded-lg text-[11px] font-semibold hover:bg-blue-700"
+                          >
+                            <Plus className="w-4 h-4" />
+                            Allocate
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
         </div>
       </div>

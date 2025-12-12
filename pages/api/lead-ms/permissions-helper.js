@@ -224,9 +224,9 @@ export async function checkClinicPermission(clinicId, moduleKey, action, subModu
         return { hasPermission: true, error: null };
       }
 
-      // ✅ PRIORITY 2: Check if submodule exists
+      // ✅ PRIORITY 2: Check if submodule exists (case-insensitive matching)
       const subModule = modulePermission.subModules.find(
-        (sm) => sm.name === subModuleName
+        (sm) => sm.name === subModuleName || sm.name?.toLowerCase() === subModuleName?.toLowerCase()
       );
 
       // If submodule doesn't exist, check module-level permissions

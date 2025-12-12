@@ -407,12 +407,12 @@ const ManageAgentsPage: NextPageWithLayout = () => {
   if (isAgent && !hasReadPermission) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <div className="text-center max-w-md mx-auto p-6">
-          <div className="bg-red-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
-            <XCircleIcon className="w-8 h-8 text-red-600" />
+        <div className="text-center max-w-md mx-auto p-5">
+          <div className="bg-red-100 rounded-full w-14 h-14 flex items-center justify-center mx-auto mb-3">
+            <XCircleIcon className="w-7 h-7 text-red-600" />
           </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Access Denied</h2>
-          <p className="text-gray-700 mb-4">
+          <h2 className="text-xl font-bold text-gray-900 mb-2">Access Denied</h2>
+          <p className="text-base text-gray-700 mb-4">
             You do not have permission to view agent management. Please contact your administrator to request access.
           </p>
         </div>
@@ -421,46 +421,47 @@ const ManageAgentsPage: NextPageWithLayout = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
+    <div className="min-h-screen bg-gray-50 p-3 sm:p-4 lg:p-5">
       <ToastContainer toasts={toasts} removeToast={removeToast} />
       
-      <div className="max-w-7xl mx-auto space-y-6">
+      <div className="max-w-7xl mx-auto space-y-4">
         {/* Header Section */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-            <div className="flex items-start gap-4">
-              <div className="bg-gray-800 p-3 rounded-lg">
-                <UserGroupIcon className="w-8 h-8 text-white" />
+        <div className="bg-white rounded-xl shadow-md border border-gray-200 p-4">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <div className="bg-gray-800 p-2.5 rounded-xl shadow-sm">
+                <UserGroupIcon className="w-7 h-7 text-white" />
               </div>
-              <div>
-                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
+              <div className="min-w-0 flex-1">
+                <h1 className="text-lg sm:text-xl md:text-xl font-bold text-gray-900 mb-1">
                   Agent Management
                 </h1>
-                <p className="text-gray-700">
+                <p className="text-sm sm:text-base text-gray-700">
                   Create and manage agent accounts and permissions
                 </p>
               </div>
             </div>
 
-            <div className="flex gap-2">
+            <div className="flex gap-2 w-full sm:w-auto">
               <button
                 onClick={() => {
                   setShowFilters(!showFilters);
                 }}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                className={`flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm sm:text-base font-medium transition-all shadow-sm w-full sm:w-auto ${
                   showFilters
                     ? 'bg-gray-800 text-white'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
               >
-                <FunnelIcon className="w-4 h-4" />
-                Filters
+                <FunnelIcon className="w-4 h-4 sm:w-5 sm:h-5" />
+                <span className="hidden xs:inline">Filters</span>
+                <span className="xs:hidden">Filter</span>
               </button>
             </div>
           </div>
 
           {/* Stats Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6 pt-6 border-t border-gray-200">
+          <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-3 gap-3 mt-4 pt-4 border-t border-gray-200">
             {[
               { 
                 title: activeView === 'agents' ? 'Total Agents' : 'Total Staff', 
@@ -483,14 +484,14 @@ const ManageAgentsPage: NextPageWithLayout = () => {
             ].map((stat, index) => {
               const Icon = stat.icon;
               return (
-                <div key={index} className="bg-gray-50 rounded-lg border border-gray-200 p-4">
+                <div key={index} className="bg-gray-50 rounded-xl border border-gray-200 p-3 shadow-sm hover:shadow-md transition-shadow">
                   <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-xs font-medium text-gray-700 uppercase tracking-wider mb-1">{stat.title}</p>
-                      <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs sm:text-sm font-medium text-gray-700 uppercase tracking-wide mb-1 truncate">{stat.title}</p>
+                      <p className="text-lg sm:text-xl font-bold text-gray-900">{stat.value}</p>
                     </div>
-                    <div className={`${stat.color} p-3 rounded-lg text-white`}>
-                      <Icon className="w-6 h-6" />
+                    <div className={`${stat.color} p-2 sm:p-2.5 rounded-lg text-white shadow-sm flex-shrink-0 ml-2`}>
+                      <Icon className="w-4 h-4 sm:w-5 sm:h-5" />
                     </div>
                   </div>
                 </div>
@@ -500,18 +501,18 @@ const ManageAgentsPage: NextPageWithLayout = () => {
         </div>
 
         {/* Tabs and Search */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="bg-white rounded-xl shadow-md border border-gray-200 p-3 sm:p-4">
           {/* Tabs with Create Button */}
-          <div className="border-b border-gray-200 mb-6 pb-4">
-            <div className="flex items-center justify-between flex-nowrap gap-4">
-              <nav className="flex space-x-6 flex-shrink-0">
+          <div className="border-b border-gray-200 mb-3 sm:mb-4 pb-2 sm:pb-3">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <nav className="flex space-x-2 sm:space-x-4 md:space-x-6 flex-shrink-0 overflow-x-auto -mx-3 sm:-mx-0 px-3 sm:px-0 w-full sm:w-auto">
                 <button
                   onClick={() => {
                     setActiveView('agents');
                     setCurrentPage(1);
                     showToast('Switched to Agents view', 'info');
                   }}
-                  className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200 whitespace-nowrap ${
+                  className={`py-2 px-2 sm:px-3 border-b-2 font-medium text-sm sm:text-base transition-colors duration-200 whitespace-nowrap flex-shrink-0 ${
                     activeView === 'agents'
                       ? 'border-gray-800 text-gray-800'
                       : 'border-transparent text-gray-700 hover:text-gray-900 hover:border-gray-300'
@@ -525,7 +526,7 @@ const ManageAgentsPage: NextPageWithLayout = () => {
                     setCurrentPage(1);
                     showToast('Switched to Doctor Staff view', 'info');
                   }}
-                  className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors duration-200 whitespace-nowrap ${
+                  className={`py-2 px-2 sm:px-3 border-b-2 font-medium text-sm sm:text-base transition-colors duration-200 whitespace-nowrap flex-shrink-0 ${
                     activeView === 'doctorStaff'
                       ? 'border-gray-800 text-gray-800'
                       : 'border-transparent text-gray-700 hover:text-gray-900 hover:border-gray-300'
@@ -562,9 +563,9 @@ const ManageAgentsPage: NextPageWithLayout = () => {
                 return shouldShowAction('create') ? (
                   <button 
                     onClick={() => setIsCreateOpen(true)} 
-                    className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm flex-shrink-0 whitespace-nowrap"
+                    className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-white text-sm font-medium rounded-lg transition-all shadow-sm hover:shadow-md flex-shrink-0 whitespace-nowrap"
                   >
-                    <UserPlusIcon className="w-5 h-5" />
+                    <UserPlusIcon className="w-4 h-4" />
                     Create Agent
                   </button>
                 ) : null;
@@ -574,28 +575,28 @@ const ManageAgentsPage: NextPageWithLayout = () => {
 
           {/* Search Bar */}
           {showFilters && (
-            <div className="mb-6 space-y-4">
+            <div className="mb-3 sm:mb-4 space-y-2 sm:space-y-3">
               <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-gray-900">Search & Filter</h3>
+                <h3 className="text-sm sm:text-base font-semibold text-gray-900">Search & Filter</h3>
                 <button
                   onClick={() => {
                     setSearchTerm('');
                     showToast('Filters cleared', 'info');
                   }}
-                  className="flex items-center gap-1 text-xs text-gray-700 hover:text-gray-900 transition-colors"
+                  className="flex items-center gap-1 text-sm sm:text-base text-gray-700 hover:text-gray-900 transition-colors"
                 >
-                  <ArrowPathIcon className="w-3 h-3" />
-                  Clear
+                  <ArrowPathIcon className="w-4 h-4" />
+                  <span className="hidden sm:inline">Clear</span>
                 </button>
               </div>
               <div className="relative">
-                <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-700" />
+                <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-gray-700" />
                 <input
                   type="text"
                   placeholder="Search by name, email, or phone..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-10 py-2.5 text-sm border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-800 focus:border-transparent placeholder-gray-500"
+                  className="w-full pl-9 sm:pl-10 pr-9 sm:pr-10 py-2 sm:py-2.5 text-sm sm:text-base border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-800 focus:border-transparent placeholder-gray-500"
                 />
                 {searchTerm && (
                   <button
@@ -611,112 +612,302 @@ const ManageAgentsPage: NextPageWithLayout = () => {
 
           {/* Results Summary */}
           {searchTerm && (
-            <div className="mb-4 text-sm text-gray-700">
+            <div className="mb-3 text-base text-gray-700">
               Showing {filteredList.length} result(s) for "{searchTerm}"
             </div>
           )}
         </div>
 
         {/* Agents Table */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
-            <h2 className="text-lg font-semibold text-gray-900">{activeView === 'agents' ? 'Agents' : 'Doctor Staff'}</h2>
-            <p className="text-sm text-gray-700 mt-1">Approve, decline and manage agent accounts</p>
+        <div className="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden">
+          <div className="px-3 sm:px-4 py-2 sm:py-3 border-b border-gray-200 bg-gray-50">
+            <h2 className="text-lg sm:text-xl font-semibold text-gray-900">{activeView === 'agents' ? 'Agents' : 'Doctor Staff'}</h2>
+            <p className="text-sm sm:text-base text-gray-700 mt-1">Approve, decline and manage agent accounts</p>
           </div>
 
           {loading ? (
-            <div className="px-6 py-12 text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-800 mx-auto"></div>
-              <p className="mt-4 text-gray-700">Loading...</p>
+            <div className="px-4 py-10 text-center">
+              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-gray-800 mx-auto"></div>
+              <p className="mt-3 text-sm sm:text-base text-gray-700">Loading...</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    {[
-                      activeView === 'agents' ? 'Agent Name' : 'Staff Name',
-                      'Email Address',
-                      'Phone Number',
-                      'Status',
-                      'Actions',
-                    ].map((header) => (
-                      <th
-                        key={header}
-                        className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider"
-                      >
-                        {header}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {currentList.length === 0 ? (
-                    <tr>
-                      <td colSpan={5} className="px-6 py-12 text-center">
-                        <div className="flex flex-col items-center justify-center">
-                          <UserGroupIcon className="w-16 h-16 text-gray-300 mb-4" />
-                          <p className="text-lg font-medium text-gray-900 mb-2">
-                            {searchTerm ? 'No results found' : `No ${activeView === 'agents' ? 'agents' : 'doctor staff'} found`}
-                          </p>
-                          <p className="text-sm text-gray-700">
-                            {searchTerm 
-                              ? 'Try adjusting your search terms' 
-                              : 'Create your first agent to get started'}
-                          </p>
-                        </div>
-                      </td>
-                    </tr>
-                  ) : (
-                    currentList.map((agent) => (
-                      <tr key={agent._id} className="hover:bg-gray-50 transition-colors">
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center">
-                            <div className="h-10 w-10 flex-shrink-0 rounded-full bg-gray-800 text-white flex items-center justify-center text-sm font-semibold">
-                              {agent.name?.charAt(0).toUpperCase()}
+            <>
+              {/* Mobile Card View */}
+              <div className="block md:hidden divide-y divide-gray-200">
+                {currentList.length === 0 ? (
+                  <div className="px-4 py-10 text-center">
+                    <div className="flex flex-col items-center justify-center">
+                      <UserGroupIcon className="w-12 h-12 text-gray-300 mb-3" />
+                      <p className="text-lg sm:text-xl font-medium text-gray-900 mb-2">
+                        {searchTerm ? 'No results found' : `No ${activeView === 'agents' ? 'agents' : 'doctor staff'} found`}
+                      </p>
+                      <p className="text-sm sm:text-base text-gray-700">
+                        {searchTerm 
+                          ? 'Try adjusting your search terms' 
+                          : 'Create your first agent to get started'}
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  currentList.map((agent) => (
+                    <div key={agent._id} className="p-4 hover:bg-gray-50 transition-colors">
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex items-center min-w-0 flex-1">
+                          <div className="h-10 w-10 flex-shrink-0 rounded-full bg-gray-800 text-white flex items-center justify-center text-base font-semibold">
+                            {agent.name?.charAt(0).toUpperCase()}
+                          </div>
+                          <div className="ml-3 min-w-0 flex-1">
+                            <div className="text-base font-medium text-gray-900 truncate">
+                              {agent.name}
                             </div>
-                            <div className="ml-4">
-                              <div className="text-sm font-medium text-gray-900">
-                                {agent.name}
+                            <div className="flex items-center text-sm text-gray-600 mt-1 truncate">
+                              <EnvelopeIcon className="w-3 h-3 mr-1.5 text-gray-500 flex-shrink-0" />
+                              <span className="truncate">{agent.email}</span>
+                            </div>
+                          </div>
+                        </div>
+                        <span
+                          className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium flex-shrink-0 ml-2 ${
+                            agent.declined
+                              ? 'bg-red-100 text-red-800'
+                              : agent.isApproved
+                              ? 'bg-green-100 text-green-800'
+                              : 'bg-yellow-100 text-yellow-800'
+                          }`}
+                        >
+                          {agent.declined
+                            ? 'Declined'
+                            : agent.isApproved
+                            ? 'Approved'
+                            : 'Pending'}
+                        </span>
+                      </div>
+                      
+                      {agent.phone && (
+                        <div className="flex items-center text-sm text-gray-700 mb-3">
+                          <PhoneIcon className="w-3 h-3 mr-1.5 text-gray-500 flex-shrink-0" />
+                          {agent.phone}
+                        </div>
+                      )}
+                      
+                      <div className="flex flex-wrap gap-2 items-center">
+                        {(() => {
+                          const adminTokenExists = typeof window !== 'undefined' ? !!localStorage.getItem('adminToken') : false;
+                          const agentTokenExists = typeof window !== 'undefined' ? !!localStorage.getItem('agentToken') : false;
+                          const isAgentRoute = router.pathname?.startsWith('/agent/') || (typeof window !== 'undefined' && window.location.pathname?.startsWith('/agent/'));
+                          
+                          const shouldShowAction = (action: 'create' | 'update' | 'approve') => {
+                            if (adminTokenExists) {
+                              return true;
+                            }
+                            
+                            if ((isAgentRoute || isAgent) && agentTokenExists && !adminTokenExists) {
+                              if (permissionsLoading || !agentPermissions) {
+                                return false;
+                              }
+                              
+                              if (action === 'approve') {
+                                return agentPermissions.canApprove === true || agentPermissions.canAll === true;
+                              }
+                            }
+                            
+                            return false;
+                          };
+                          
+                          return (
+                            <>
+                              {shouldShowAction('approve') && (
+                                <>
+                                  <button
+                                    onClick={() => handleAction(agent._id, 'approve')}
+                                    disabled={agent.isApproved}
+                                    className={`text-xs sm:text-sm font-medium transition-all ${
+                                      agent.isApproved
+                                        ? 'text-gray-400 cursor-not-allowed'
+                                        : 'text-green-600 hover:text-green-700 hover:underline'
+                                    }`}
+                                  >
+                                    Approve
+                                  </button>
+                                  <button
+                                    onClick={() => handleAction(agent._id, 'decline')}
+                                    disabled={agent.declined}
+                                    className={`text-xs sm:text-sm font-medium transition-all ${
+                                      agent.declined
+                                        ? 'text-gray-400 cursor-not-allowed'
+                                        : 'text-red-600 hover:text-red-700 hover:underline'
+                                    }`}
+                                  >
+                                    Decline
+                                  </button>
+                                </>
+                              )}
+                              <div className="relative inline-block">
+                                <button
+                                  type="button"
+                                  onClick={() => setMenuAgentId(menuAgentId === agent._id ? null : agent._id)}
+                                  className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                                  aria-label="More actions"
+                                >
+                                  <EllipsisVerticalIcon className="w-5 h-5 text-gray-700" />
+                                </button>
+                                {menuAgentId === agent._id && (
+                                  <div className="absolute right-0 mt-1 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
+                                    <div className="py-1">
+                                      <button
+                                        className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-2"
+                                        onClick={() => {
+                                          setPasswordAgent(agent);
+                                          setMenuAgentId(null);
+                                        }}
+                                      > 
+                                        <KeyIcon className="w-4 h-4" />
+                                        Change password
+                                      </button>
+                                      <button
+                                        className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors border-t border-gray-200 flex items-center gap-2"
+                                        onClick={() => {
+                                          setPermissionAgent(agent);
+                                          setMenuAgentId(null);
+                                        }}
+                                      >
+                                        <ShieldCheckIcon className="w-4 h-4" />
+                                        Manage Permissions
+                                      </button>
+                                      {(() => {
+                                        const adminTokenExists = typeof window !== 'undefined' ? !!localStorage.getItem('adminToken') : false;
+                                        const agentTokenExists = typeof window !== 'undefined' ? !!localStorage.getItem('agentToken') : false;
+                                        const isAgentRoute = router.pathname?.startsWith('/agent/') || (typeof window !== 'undefined' && window.location.pathname?.startsWith('/agent/'));
+                                        
+                                        const shouldShowDelete = () => {
+                                          if (adminTokenExists) {
+                                            return true;
+                                          }
+                                          
+                                          if ((isAgentRoute || isAgent) && agentTokenExists && !adminTokenExists) {
+                                            if (permissionsLoading || !agentPermissions) {
+                                              return false;
+                                            }
+                                            return agentPermissions.canDelete === true || agentPermissions.canAll === true;
+                                          }
+                                          
+                                          return false;
+                                        };
+                                        
+                                        return shouldShowDelete() ? (
+                                          <button
+                                            className="w-full text-left px-4 py-2.5 text-sm text-red-700 hover:bg-red-50 transition-colors border-t border-gray-200 flex items-center gap-2"
+                                            onClick={() => {
+                                              setDeleteAgent(agent);
+                                              setMenuAgentId(null);
+                                            }}
+                                          >
+                                            <TrashIcon className="w-4 h-4" />
+                                            Delete Agent
+                                          </button>
+                                        ) : null;
+                                      })()}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </>
+                          );
+                        })()}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+              
+              {/* Desktop Table View */}
+              <div className="hidden md:block overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      {[
+                        activeView === 'agents' ? 'Agent Name' : 'Staff Name',
+                        'Email Address',
+                        'Phone Number',
+                        'Status',
+                        'Actions',
+                      ].map((header) => (
+                        <th
+                          key={header}
+                          className="px-3 lg:px-4 py-2 lg:py-3 text-left text-xs lg:text-sm font-semibold text-gray-700 uppercase tracking-wider"
+                        >
+                          {header}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {currentList.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="px-4 py-10 text-center">
+                          <div className="flex flex-col items-center justify-center">
+                            <UserGroupIcon className="w-12 h-12 text-gray-300 mb-3" />
+                            <p className="text-lg lg:text-xl font-medium text-gray-900 mb-2">
+                              {searchTerm ? 'No results found' : `No ${activeView === 'agents' ? 'agents' : 'doctor staff'} found`}
+                            </p>
+                            <p className="text-sm lg:text-base text-gray-700">
+                              {searchTerm 
+                                ? 'Try adjusting your search terms' 
+                                : 'Create your first agent to get started'}
+                            </p>
+                          </div>
+                        </td>
+                      </tr>
+                    ) : (
+                      currentList.map((agent) => (
+                        <tr key={agent._id} className="hover:bg-gray-50 transition-colors">
+                          <td className="px-3 lg:px-4 py-2 lg:py-3">
+                            <div className="flex items-center min-w-0">
+                              <div className="h-8 w-8 lg:h-9 lg:w-9 flex-shrink-0 rounded-full bg-gray-800 text-white flex items-center justify-center text-sm lg:text-base font-semibold">
+                                {agent.name?.charAt(0).toUpperCase()}
+                              </div>
+                              <div className="ml-2 lg:ml-3 min-w-0">
+                                <div className="text-sm lg:text-base font-medium text-gray-900 truncate">
+                                  {agent.name}
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center text-sm text-gray-700">
-                            <EnvelopeIcon className="w-4 h-4 mr-2 text-gray-500" />
-                            {agent.email}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                          {agent.phone ? (
-                            <div className="flex items-center">
-                              <PhoneIcon className="w-4 h-4 mr-2 text-gray-500" />
-                              {agent.phone}
+                          </td>
+                          <td className="px-3 lg:px-4 py-2 lg:py-3">
+                            <div className="flex items-center text-sm lg:text-base text-gray-700 min-w-0">
+                              <EnvelopeIcon className="w-3 h-3 lg:w-4 lg:h-4 mr-1.5 lg:mr-2 text-gray-500 flex-shrink-0" />
+                              <span className="truncate">{agent.email}</span>
                             </div>
-                          ) : (
-                            <span className="text-gray-500">-</span>
-                          )}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span
-                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                              agent.declined
-                                ? 'bg-red-100 text-red-800'
+                          </td>
+                          <td className="px-3 lg:px-4 py-2 lg:py-3 text-sm lg:text-base text-gray-700">
+                            {agent.phone ? (
+                              <div className="flex items-center min-w-0">
+                                <PhoneIcon className="w-3 h-3 lg:w-4 lg:h-4 mr-1.5 lg:mr-2 text-gray-500 flex-shrink-0" />
+                                <span className="truncate">{agent.phone}</span>
+                              </div>
+                            ) : (
+                              <span className="text-gray-500">-</span>
+                            )}
+                          </td>
+                          <td className="px-3 lg:px-4 py-2 lg:py-3">
+                            <span
+                              className={`inline-flex items-center px-2 lg:px-3 py-0.5 lg:py-1 rounded-full text-xs lg:text-sm font-medium ${
+                                agent.declined
+                                  ? 'bg-red-100 text-red-800'
+                                  : agent.isApproved
+                                  ? 'bg-green-100 text-green-800'
+                                  : 'bg-yellow-100 text-yellow-800'
+                              }`}
+                            >
+                              {agent.declined
+                                ? 'Declined'
                                 : agent.isApproved
-                                ? 'bg-green-100 text-green-800'
-                                : 'bg-yellow-100 text-yellow-800'
-                            }`}
-                          >
-                            {agent.declined
-                              ? 'Declined'
-                              : agent.isApproved
-                              ? 'Approved'
-                              : 'Pending'}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          <div className="flex gap-2 items-center">
+                                ? 'Approved'
+                                : 'Pending'}
+                            </span>
+                          </td>
+                          <td className="px-3 lg:px-4 py-2 lg:py-3 text-sm lg:text-base font-medium">
+                            <div className="flex flex-wrap gap-1.5 lg:gap-2 items-center">
                           {(() => {
                             const adminTokenExists = typeof window !== 'undefined' ? !!localStorage.getItem('adminToken') : false;
                             const agentTokenExists = typeof window !== 'undefined' ? !!localStorage.getItem('agentToken') : false;
@@ -747,10 +938,10 @@ const ManageAgentsPage: NextPageWithLayout = () => {
                                     <button
                                       onClick={() => handleAction(agent._id, 'approve')}
                                       disabled={agent.isApproved}
-                                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                                      className={`text-xs lg:text-sm font-medium transition-all ${
                                         agent.isApproved
-                                          ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                                          : 'bg-gray-800 hover:bg-gray-700 text-white'
+                                          ? 'text-gray-400 cursor-not-allowed'
+                                          : 'text-green-600 hover:text-green-700 hover:underline'
                                       }`}
                                     >
                                       Approve
@@ -758,10 +949,10 @@ const ManageAgentsPage: NextPageWithLayout = () => {
                                     <button
                                       onClick={() => handleAction(agent._id, 'decline')}
                                       disabled={agent.declined}
-                                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                                      className={`text-xs lg:text-sm font-medium transition-all ${
                                         agent.declined
-                                          ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                                          : 'bg-yellow-500 hover:bg-yellow-600 text-white'
+                                          ? 'text-gray-400 cursor-not-allowed'
+                                          : 'text-red-600 hover:text-red-700 hover:underline'
                                       }`}
                                     >
                                       Decline
@@ -775,32 +966,32 @@ const ManageAgentsPage: NextPageWithLayout = () => {
                               <button
                                 type="button"
                                 onClick={() => setMenuAgentId(menuAgentId === agent._id ? null : agent._id)}
-                                className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                                className="p-1.5 lg:p-2 rounded-lg hover:bg-gray-100 transition-colors"
                                 aria-label="More actions"
                               >
-                                <EllipsisVerticalIcon className="w-5 h-5 text-gray-700" />
+                                <EllipsisVerticalIcon className="w-4 h-4 lg:w-5 lg:h-5 text-gray-700" />
                               </button>
                               {menuAgentId === agent._id && (
-                                <div className="absolute right-0 mt-1 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
+                                <div className="absolute right-0 mt-1 w-48 lg:w-52 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
                                   <div className="py-1">
                                     <button
-                                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-2"
+                                      className="w-full text-left px-3 sm:px-4 py-2 sm:py-2.5 text-sm sm:text-base text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-2"
                                       onClick={() => {
                                         setPasswordAgent(agent);
                                         setMenuAgentId(null);
                                       }}
                                     >
-                                      <KeyIcon className="w-4 h-4" />
+                                      <KeyIcon className="w-4 h-4 sm:w-5 sm:h-5" />
                                       Change password
                                     </button>
                                     <button
-                                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors border-t border-gray-200 flex items-center gap-2"
+                                      className="w-full text-left px-3 sm:px-4 py-2 sm:py-2.5 text-sm sm:text-base text-gray-700 hover:bg-gray-50 transition-colors border-t border-gray-200 flex items-center gap-2"
                                       onClick={() => {
                                         setPermissionAgent(agent);
                                         setMenuAgentId(null);
                                       }}
                                     >
-                                      <ShieldCheckIcon className="w-4 h-4" />
+                                      <ShieldCheckIcon className="w-4 h-4 sm:w-5 sm:h-5" />
                                       Manage Permissions
                                     </button>
                                     {(() => {
@@ -823,18 +1014,18 @@ const ManageAgentsPage: NextPageWithLayout = () => {
                                         return false;
                                       };
                                       
-                                      return shouldShowDelete() ? (
-                                        <button
-                                          className="w-full text-left px-4 py-2 text-sm text-red-700 hover:bg-red-50 transition-colors border-t border-gray-200 flex items-center gap-2"
-                                          onClick={() => {
-                                            setDeleteAgent(agent);
-                                            setMenuAgentId(null);
-                                          }}
-                                        >
-                                          <TrashIcon className="w-4 h-4" />
-                                          Delete Agent
-                                        </button>
-                                      ) : null;
+                                        return shouldShowDelete() ? (
+                                          <button
+                                            className="w-full text-left px-3 sm:px-4 py-2 sm:py-2.5 text-sm sm:text-base text-red-700 hover:bg-red-50 transition-colors border-t border-gray-200 flex items-center gap-2"
+                                            onClick={() => {
+                                              setDeleteAgent(agent);
+                                              setMenuAgentId(null);
+                                            }}
+                                          >
+                                            <TrashIcon className="w-4 h-4 sm:w-5 sm:h-5" />
+                                            Delete Agent
+                                          </button>
+                                        ) : null;
                                     })()}
                                   </div>
                                 </div>
@@ -845,34 +1036,35 @@ const ManageAgentsPage: NextPageWithLayout = () => {
                       </tr>
                     ))
                   )}
-                </tbody>
-              </table>
-            </div>
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
 
           {/* Pagination */}
           {filteredList.length > itemsPerPage && (
-            <div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-                <div className="text-sm text-gray-700">
+            <div className="px-3 sm:px-4 py-2 sm:py-3 border-t border-gray-200 bg-gray-50">
+              <div className="flex flex-col gap-3">
+                <div className="text-xs sm:text-sm lg:text-base text-gray-700 text-center sm:text-left">
                   Showing <span className="font-medium">{startIndex + 1}</span> to{' '}
                   <span className="font-medium">{Math.min(endIndex, filteredList.length)}</span> of{' '}
                   <span className="font-medium">{filteredList.length}</span> results
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 justify-center">
                   <button
                     onClick={() => {
                       setCurrentPage((prev) => Math.max(1, prev - 1));
                       window.scrollTo({ top: 0, behavior: 'smooth' });
                     }}
                     disabled={currentPage === 1}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    className={`px-2 sm:px-3 py-1.5 rounded-lg text-xs sm:text-sm lg:text-base font-medium transition-all shadow-sm ${
                       currentPage === 1
                         ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                         : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300'
                     }`}
                   >
-                    Previous
+                    Prev
                   </button>
                   <div className="flex items-center gap-1">
                     {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
@@ -893,7 +1085,7 @@ const ManageAgentsPage: NextPageWithLayout = () => {
                             setCurrentPage(pageNum);
                             window.scrollTo({ top: 0, behavior: 'smooth' });
                           }}
-                          className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                          className={`px-2 sm:px-3 py-1.5 rounded-lg text-xs sm:text-sm lg:text-base font-medium transition-all shadow-sm ${
                             currentPage === pageNum
                               ? 'bg-gray-800 text-white'
                               : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300'
@@ -910,7 +1102,7 @@ const ManageAgentsPage: NextPageWithLayout = () => {
                       window.scrollTo({ top: 0, behavior: 'smooth' });
                     }}
                     disabled={currentPage === totalPages}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    className={`px-2 sm:px-3 py-1.5 rounded-lg text-xs sm:text-sm lg:text-base font-medium transition-all shadow-sm ${
                       currentPage === totalPages
                         ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                         : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300'
@@ -960,10 +1152,10 @@ const ManageAgentsPage: NextPageWithLayout = () => {
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="px-6 py-4 border-b border-gray-200 bg-red-50 flex items-start justify-between">
+            <div className="px-4 py-3 border-b border-gray-200 bg-red-50 flex items-start justify-between">
               <div className="flex-1 min-w-0 pr-2">
-                <h3 className="text-lg font-semibold text-red-900">Delete Agent</h3>
-                <p className="text-sm text-red-700 mt-1 break-words">
+                <h3 className="text-xl font-semibold text-red-900">Delete Agent</h3>
+                <p className="text-base text-red-700 mt-1 break-words">
                   Are you sure you want to delete this agent? This action cannot be undone.
                 </p>
               </div>
@@ -980,16 +1172,16 @@ const ManageAgentsPage: NextPageWithLayout = () => {
             </div>
 
             {/* Content */}
-            <div className="p-6">
-              <div className="mb-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
-                <p className="text-sm font-medium text-gray-900 mb-1">Agent Details:</p>
-                <p className="text-sm text-gray-700">{deleteAgent.name}</p>
-                <p className="text-sm text-gray-700">{deleteAgent.email}</p>
-                <p className="text-xs text-gray-500 mt-1 capitalize">{deleteAgent.role}</p>
+            <div className="p-4">
+              <div className="mb-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                <p className="text-base font-medium text-gray-900 mb-1">Agent Details:</p>
+                <p className="text-base text-gray-700">{deleteAgent.name}</p>
+                <p className="text-base text-gray-700">{deleteAgent.email}</p>
+                <p className="text-sm text-gray-500 mt-1 capitalize">{deleteAgent.role}</p>
               </div>
-              <div className="flex items-center gap-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg mb-4">
+              <div className="flex items-center gap-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg mb-3">
                 <ExclamationTriangleIcon className="w-5 h-5 text-yellow-600 flex-shrink-0" />
-                <p className="text-sm text-yellow-800">
+                <p className="text-base text-yellow-800">
                   This will permanently delete the agent account and all associated data.
                 </p>
               </div>
@@ -1001,7 +1193,7 @@ const ManageAgentsPage: NextPageWithLayout = () => {
                   onClick={() => {
                     setDeleteAgent(null);
                   }}
-                  className="w-full sm:w-auto px-4 py-2.5 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                  className="w-full sm:w-auto px-4 py-2 rounded-lg border border-gray-300 text-base font-medium text-gray-700 hover:bg-gray-50 transition-all shadow-sm"
                 >
                   Cancel
                 </button>
@@ -1010,7 +1202,7 @@ const ManageAgentsPage: NextPageWithLayout = () => {
                   onClick={() => {
                     handleDelete(deleteAgent._id);
                   }}
-                  className="w-full sm:w-auto px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm"
+                  className="w-full sm:w-auto px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-base font-medium rounded-lg transition-all shadow-md"
                 >
                   Delete Agent
                 </button>
@@ -1023,7 +1215,7 @@ const ManageAgentsPage: NextPageWithLayout = () => {
       {/* Change Password Modal */}
       {passwordAgent && (
         <div 
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-3 sm:p-4 backdrop-blur-sm"
           onClick={() => {
             setPasswordAgent(null);
             setNewPassword('');
@@ -1031,14 +1223,14 @@ const ManageAgentsPage: NextPageWithLayout = () => {
           }}
         >
           <div 
-            className="w-full max-w-md bg-white rounded-2xl shadow-2xl border border-gray-100" 
+            className="w-full max-w-md bg-white rounded-xl sm:rounded-2xl shadow-2xl border border-gray-100 max-h-[90vh] overflow-y-auto" 
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 flex items-start justify-between">
+            <div className="px-3 sm:px-4 py-2 sm:py-3 border-b border-gray-200 bg-gray-50 flex items-start justify-between">
               <div className="flex-1 min-w-0 pr-2">
-                <h3 className="text-lg font-semibold text-gray-900">Change Password</h3>
-                <p className="text-sm text-gray-700 mt-1 break-words">
+                <h3 className="text-lg sm:text-xl font-semibold text-gray-900">Change Password</h3>
+                <p className="text-sm sm:text-base text-gray-700 mt-1 break-words">
                   {passwordAgent.name} • {passwordAgent.email}
                 </p>
               </div>
@@ -1057,17 +1249,17 @@ const ManageAgentsPage: NextPageWithLayout = () => {
             </div>
 
             {/* Form */}
-            <form onSubmit={handleResetPasswordSubmit} className="p-6">
-              <div className="space-y-4">
+            <form onSubmit={handleResetPasswordSubmit} className="p-3 sm:p-4">
+              <div className="space-y-3">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm sm:text-base font-medium text-gray-700 mb-2">
                     New Password
                   </label>
                   <input
                     type="password"
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
-                    className="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-800 focus:border-transparent placeholder-gray-500"
+                    className="w-full px-3 sm:px-4 py-2 sm:py-2.5 text-sm sm:text-base border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-800 focus:border-transparent placeholder-gray-500"
                     placeholder="Enter new password (min. 6 characters)"
                     required
                     minLength={6}
@@ -1075,14 +1267,14 @@ const ManageAgentsPage: NextPageWithLayout = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm sm:text-base font-medium text-gray-700 mb-2">
                     Confirm Password
                   </label>
                   <input
                     type="password"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="w-full px-4 py-2.5 text-sm border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-800 focus:border-transparent placeholder-gray-500"
+                    className="w-full px-3 sm:px-4 py-2 sm:py-2.5 text-sm sm:text-base border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-800 focus:border-transparent placeholder-gray-500"
                     placeholder="Re-enter password"
                     required
                     minLength={6}
@@ -1092,7 +1284,7 @@ const ManageAgentsPage: NextPageWithLayout = () => {
               </div>
 
               {/* Buttons */}
-              <div className="mt-6 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-3">
+              <div className="mt-4 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2 sm:gap-3">
                 <button
                   type="button"
                   onClick={() => {
@@ -1100,13 +1292,13 @@ const ManageAgentsPage: NextPageWithLayout = () => {
                     setNewPassword('');
                     setConfirmPassword('');
                   }}
-                  className="w-full sm:w-auto px-4 py-2.5 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                  className="w-full sm:w-auto px-3 sm:px-4 py-2 rounded-lg border border-gray-300 text-sm sm:text-base font-medium text-gray-700 hover:bg-gray-50 transition-all shadow-sm"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="w-full sm:w-auto px-4 py-2.5 bg-gray-800 hover:bg-gray-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm"
+                  className="w-full sm:w-auto px-3 sm:px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white text-sm sm:text-base font-medium rounded-lg transition-all shadow-md"
                 >
                   Save Changes
                 </button>

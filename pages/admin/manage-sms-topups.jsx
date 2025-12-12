@@ -210,19 +210,19 @@ const ManageSmsTopups = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 py-8 px-4">
+    <div className="min-h-screen bg-slate-50 py-4 sm:py-5 px-3 sm:px-4">
       <div className="max-w-7xl mx-auto">
-        <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-6 mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-4 sm:p-5 mb-5 sm:mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-500">Admin SMS Pool</p>
             {adminCreditsLoading ? (
               <p className="text-slate-500 text-sm mt-1">Loading credits...</p>
             ) : adminCredits ? (
               <div>
-                <p className="text-3xl font-bold text-slate-900">
-                  {adminCredits.availableCredits?.toLocaleString() || 0} <span className="text-base font-normal text-slate-500">credits</span>
+                <p className="text-2xl sm:text-3xl font-bold text-slate-900">
+                  {adminCredits.availableCredits?.toLocaleString() || 0} <span className="text-sm sm:text-base font-normal text-slate-500">credits</span>
                 </p>
-                <p className="text-sm text-slate-500">
+                <p className="text-xs sm:text-sm text-slate-500">
                   Low threshold: {adminCredits.lowThreshold?.toLocaleString()} • Last top-up:{" "}
                   {adminCredits.lastTopupAt ? new Date(adminCredits.lastTopupAt).toLocaleString() : "Never"}
                 </p>
@@ -232,67 +232,67 @@ const ManageSmsTopups = () => {
             )}
           </div>
           {adminCredits?.isLow && (
-            <span className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-rose-50 text-rose-700 border border-rose-200 text-sm font-semibold">
-              <AlertTriangle className="w-5 h-5" />
+            <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-rose-50 text-rose-700 border border-rose-200 text-xs sm:text-sm font-semibold">
+              <AlertTriangle className="w-4 h-4" />
               Low credits – add more from wallet page
             </span>
           )}
         </div>
-        <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-6 mb-6">
-          <div className="flex items-center justify-between mb-6">
+        <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-4 sm:p-5 mb-5 sm:mb-6">
+          <div className="flex items-center justify-between mb-4 sm:mb-5">
             <div>
-              <h1 className="text-3xl font-bold text-slate-900">SMS Top-up Requests</h1>
-              <p className="text-slate-600 mt-1">Review and manage SMS credit top-up requests</p>
+              <h1 className="text-xl sm:text-2xl font-bold text-slate-900">SMS Top-up Requests</h1>
+              <p className="text-slate-600 mt-1 text-sm">Review and manage SMS credit top-up requests</p>
             </div>
             <button
               onClick={fetchRequests}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-700 rounded-xl hover:bg-slate-200"
+              className="inline-flex items-center gap-2 px-3 py-1.5 bg-slate-100 text-slate-700 rounded-lg text-sm hover:bg-slate-200"
             >
               <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
               Refresh
             </button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-            <div className="p-4 bg-amber-50 rounded-xl border border-amber-200">
-              <div className="flex items-center gap-3">
-                <Clock className="w-8 h-8 text-amber-600" />
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-5">
+            <div className="p-3 bg-amber-50 rounded-xl border border-amber-200">
+              <div className="flex items-center gap-2">
+                <Clock className="w-6 h-6 text-amber-600" />
                 <div>
                   <p className="text-xs text-amber-600 uppercase tracking-wide">Pending</p>
-                  <p className="text-2xl font-bold text-amber-900">{stats.pending}</p>
+                  <p className="text-xl font-bold text-amber-900">{stats.pending}</p>
                 </div>
               </div>
             </div>
-            <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-200">
-              <div className="flex items-center gap-3">
-                <CheckCircle className="w-8 h-8 text-emerald-600" />
+            <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200">
+              <div className="flex items-center gap-2">
+                <CheckCircle className="w-6 h-6 text-emerald-600" />
                 <div>
                   <p className="text-xs text-emerald-600 uppercase tracking-wide">Approved</p>
-                  <p className="text-2xl font-bold text-emerald-900">{stats.approved}</p>
+                  <p className="text-xl font-bold text-emerald-900">{stats.approved}</p>
                 </div>
               </div>
             </div>
-            <div className="p-4 bg-rose-50 rounded-xl border border-rose-200">
-              <div className="flex items-center gap-3">
-                <XCircle className="w-8 h-8 text-rose-600" />
+            <div className="p-3 bg-rose-50 rounded-xl border border-rose-200">
+              <div className="flex items-center gap-2">
+                <XCircle className="w-6 h-6 text-rose-600" />
                 <div>
                   <p className="text-xs text-rose-600 uppercase tracking-wide">Rejected</p>
-                  <p className="text-2xl font-bold text-rose-900">{stats.rejected}</p>
+                  <p className="text-xl font-bold text-rose-900">{stats.rejected}</p>
                 </div>
               </div>
             </div>
-            <div className="p-4 bg-blue-50 rounded-xl border border-blue-200">
-              <div className="flex items-center gap-3">
-                <MessageSquare className="w-8 h-8 text-blue-600" />
+            <div className="p-3 bg-blue-50 rounded-xl border border-blue-200">
+              <div className="flex items-center gap-2">
+                <MessageSquare className="w-6 h-6 text-blue-600" />
                 <div>
                   <p className="text-xs text-blue-600 uppercase tracking-wide">Total Credits</p>
-                  <p className="text-2xl font-bold text-blue-900">{stats.totalCredits.toLocaleString()}</p>
+                  <p className="text-xl font-bold text-blue-900">{stats.totalCredits.toLocaleString()}</p>
                 </div>
               </div>
             </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row gap-4">
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
               <input
@@ -300,15 +300,17 @@ const ManageSmsTopups = () => {
                 placeholder="Search by name or email..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500"
+                className="w-full pl-9 pr-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
               />
             </div>
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
-              className="px-4 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500"
+              className="px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
             >
-              <option value="all">All Status</option>
+              <option value="all">
+                
+              </option>
               <option value="pending">Pending</option>
               <option value="approved">Approved</option>
               <option value="rejected">Rejected</option>
@@ -318,82 +320,137 @@ const ManageSmsTopups = () => {
 
         <div className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
           {loading ? (
-            <div className="p-12 text-center text-slate-500">Loading requests...</div>
+            <div className="p-10 text-center text-slate-500 text-sm">Loading requests...</div>
           ) : filteredRequests.length === 0 ? (
-            <div className="p-12 text-center text-slate-500">No requests found</div>
+            <div className="p-10 text-center text-slate-500 text-sm">No requests found</div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-slate-50 border-b border-slate-200">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase">User</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Type</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Credits</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Note</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Status</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Date</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200">
-                  {filteredRequests.map((request) => {
-                    const statusConfig = getStatusConfig(request.status);
-                    const StatusIcon = statusConfig.icon;
-                    return (
-                      <tr key={request._id} className="hover:bg-slate-50">
-                        <td className="px-6 py-4">
-                          <div>
-                            <p className="font-semibold text-slate-900">{request.ownerId?.name || "N/A"}</p>
-                            <p className="text-xs text-slate-500">{request.ownerId?.email || ""}</p>
+            <>
+              {/* Mobile cards */}
+              <div className="sm:hidden divide-y divide-slate-200">
+                {filteredRequests.map((request) => {
+                  const statusConfig = getStatusConfig(request.status);
+                  const StatusIcon = statusConfig.icon;
+                  return (
+                    <div key={request._id} className="p-4 flex flex-col gap-2">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="font-semibold text-slate-900 text-sm">{request.ownerId?.name || "N/A"}</p>
+                          <p className="text-[11px] text-slate-500 truncate">{request.ownerId?.email || ""}</p>
+                          <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                            <span className="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-700 capitalize">
+                              {request.ownerType}
+                            </span>
+                            <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold ${statusConfig.bg} ${statusConfig.text}`}>
+                              <StatusIcon className="w-3.5 h-3.5" />
+                              {statusConfig.label}
+                            </span>
                           </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className="px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 capitalize">
-                            {request.ownerType}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className="font-bold text-slate-900">{request.credits?.toLocaleString() || 0}</span>
-                        </td>
-                        <td className="px-6 py-4 text-sm text-slate-600 max-w-xs truncate">
-                          {request.note || "-"}
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold ${statusConfig.bg} ${statusConfig.text}`}>
-                            <StatusIcon className="w-3 h-3" />
-                            {statusConfig.label}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-sm text-slate-500">
-                          {new Date(request.createdAt).toLocaleDateString()}
-                        </td>
-                        <td className="px-6 py-4">
-                          {request.status === "pending" && (
-                            <div className="flex gap-2">
-                              <button
-                                onClick={() => setActionModal({ open: true, request, action: "approve" })}
-                                className="px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-semibold hover:bg-emerald-700"
-                              >
-                                Approve
-                              </button>
-                              <button
-                                onClick={() => setActionModal({ open: true, request, action: "reject" })}
-                                className="px-3 py-1.5 bg-rose-600 text-white rounded-lg text-xs font-semibold hover:bg-rose-700"
-                              >
-                                Reject
-                              </button>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-bold text-slate-900 text-sm">{request.credits?.toLocaleString() || 0}</p>
+                          <p className="text-[11px] text-slate-500">{new Date(request.createdAt).toLocaleDateString()}</p>
+                        </div>
+                      </div>
+                      {request.note && (
+                        <p className="text-[11px] text-slate-600 line-clamp-2">{request.note}</p>
+                      )}
+                      {request.status === "pending" ? (
+                        <div className="flex gap-2 pt-1">
+                          <button
+                            onClick={() => setActionModal({ open: true, request, action: "approve" })}
+                            className="flex-1 px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-[11px] font-semibold hover:bg-emerald-700"
+                          >
+                            Approve
+                          </button>
+                          <button
+                            onClick={() => setActionModal({ open: true, request, action: "reject" })}
+                            className="flex-1 px-3 py-1.5 bg-rose-600 text-white rounded-lg text-[11px] font-semibold hover:bg-rose-700"
+                          >
+                            Reject
+                          </button>
+                        </div>
+                      ) : (
+                        request.adminNote && <p className="text-[11px] text-slate-500 italic">{request.adminNote}</p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Desktop table */}
+              <div className="hidden sm:block overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-slate-50 border-b border-slate-200">
+                    <tr>
+                      <th className="px-4 sm:px-5 py-2.5 text-left text-[11px] font-semibold text-slate-600 uppercase">User</th>
+                      <th className="px-4 sm:px-5 py-2.5 text-left text-[11px] font-semibold text-slate-600 uppercase">Type</th>
+                      <th className="px-4 sm:px-5 py-2.5 text-left text-[11px] font-semibold text-slate-600 uppercase">Credits</th>
+                      <th className="px-4 sm:px-5 py-2.5 text-left text-[11px] font-semibold text-slate-600 uppercase">Note</th>
+                      <th className="px-4 sm:px-5 py-2.5 text-left text-[11px] font-semibold text-slate-600 uppercase">Status</th>
+                      <th className="px-4 sm:px-5 py-2.5 text-left text-[11px] font-semibold text-slate-600 uppercase">Date</th>
+                      <th className="px-4 sm:px-5 py-2.5 text-left text-[11px] font-semibold text-slate-600 uppercase">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200">
+                    {filteredRequests.map((request) => {
+                      const statusConfig = getStatusConfig(request.status);
+                      const StatusIcon = statusConfig.icon;
+                      return (
+                        <tr key={request._id} className="hover:bg-slate-50">
+                          <td className="px-4 sm:px-5 py-3">
+                            <div>
+                              <p className="font-semibold text-slate-900 text-sm">{request.ownerId?.name || "N/A"}</p>
+                              <p className="text-[11px] text-slate-500">{request.ownerId?.email || ""}</p>
                             </div>
-                          )}
-                          {request.status !== "pending" && request.adminNote && (
-                            <p className="text-xs text-slate-500 italic">{request.adminNote}</p>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                          </td>
+                          <td className="px-4 sm:px-5 py-3">
+                            <span className="px-3 py-1 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-700 capitalize">
+                              {request.ownerType}
+                            </span>
+                          </td>
+                          <td className="px-4 sm:px-5 py-3">
+                            <span className="font-bold text-slate-900 text-sm">{request.credits?.toLocaleString() || 0}</span>
+                          </td>
+                          <td className="px-4 sm:px-5 py-3 text-xs text-slate-600 max-w-xs truncate">
+                            {request.note || "-"}
+                          </td>
+                          <td className="px-4 sm:px-5 py-3">
+                            <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-semibold ${statusConfig.bg} ${statusConfig.text}`}>
+                              <StatusIcon className="w-3.5 h-3.5" />
+                              {statusConfig.label}
+                            </span>
+                          </td>
+                          <td className="px-4 sm:px-5 py-3 text-xs text-slate-500">
+                            {new Date(request.createdAt).toLocaleDateString()}
+                          </td>
+                          <td className="px-4 sm:px-5 py-3">
+                            {request.status === "pending" && (
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => setActionModal({ open: true, request, action: "approve" })}
+                                  className="px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-[11px] font-semibold hover:bg-emerald-700"
+                                >
+                                  Approve
+                                </button>
+                                <button
+                                  onClick={() => setActionModal({ open: true, request, action: "reject" })}
+                                  className="px-3 py-1.5 bg-rose-600 text-white rounded-lg text-[11px] font-semibold hover:bg-rose-700"
+                                >
+                                  Reject
+                                </button>
+                              </div>
+                            )}
+                            {request.status !== "pending" && request.adminNote && (
+                              <p className="text-[11px] text-slate-500 italic">{request.adminNote}</p>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
         </div>
       </div>
