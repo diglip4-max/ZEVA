@@ -6,12 +6,12 @@ import { checkAgentPermission } from '../agent/permissions-helper';
 
 export default async function handler(req, res) {
   await dbConnect();
-
+  
   if (req.method !== 'GET') {
     return res.status(405).json({ message: 'Method not allowed' });
   }
 
-  try {
+  try { 
     // Get the logged-in user
     const me = await getUserFromReq(req);
     if (!me) {
