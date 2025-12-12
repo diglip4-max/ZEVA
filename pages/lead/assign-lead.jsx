@@ -1,14 +1,8 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
-<<<<<<< HEAD
-import ClinicLayout from "../../components/ClinicLayout";
-import withClinicAuth from "../../components/withClinicAuth";
-import LeadViewModal from "../../components/LeadViewModal";
-=======
 import DoctorLayout from "../../../components/DoctorLayout";
 import withDoctorAuth from "../../../components/withDoctorAuth";
 import LeadViewModal from "../../../components/LeadViewModal";
->>>>>>> 7b3cc9240e6f6a061cee9de1eef367e94205568a
 
 const LeadsPage = () => {
   const [leads, setLeads] = useState([]);
@@ -25,12 +19,8 @@ const LeadsPage = () => {
   const [loading, setLoading] = useState(false);
   const leadsPerPage = 20;
 
-<<<<<<< HEAD
-  const token = typeof window !== "undefined" ? localStorage.getItem("clinicToken") : null;
-=======
   const token =
     typeof window !== "undefined" ? localStorage.getItem("doctorToken") : null;
->>>>>>> 7b3cc9240e6f6a061cee9de1eef367e94205568a
 
   const fetchLeads = async () => {
     setLoading(true);
@@ -299,16 +289,10 @@ const LeadsPage = () => {
   );
 };
 
-<<<<<<< HEAD
-LeadsPage.getLayout = page => <ClinicLayout>{page}</ClinicLayout>;
-
-const ProtectedLeadsPage = withClinicAuth(LeadsPage);
-=======
 LeadsPage.getLayout = (page) => <DoctorLayout>{page}</DoctorLayout>;
 
 // Wrap with withDoctorAuth and preserve layout
 const ProtectedLeadsPage = withDoctorAuth(LeadsPage);
->>>>>>> 7b3cc9240e6f6a061cee9de1eef367e94205568a
 ProtectedLeadsPage.getLayout = LeadsPage.getLayout;
 
 export default ProtectedLeadsPage;

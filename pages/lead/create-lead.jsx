@@ -5,11 +5,13 @@ import withClinicAuth from '../../components/withClinicAuth';
 import CreateLeadModal from '../../components/CreateLeadModal';
 import LeadViewModal from '../../components/LeadViewModal';
 import { PlusCircle } from "lucide-react";
+import ImportLeadsModal from "@/components/ImportLeadsModal";
 
 function LeadsPage() {
   const [leads, setLeads] = useState([]);
   const [agents, setAgents] = useState([]);
   const [modalOpen, setModalOpen] = useState(false);
+  const [importModalOpen, setImportModalOpen] = useState(false);
   const [filters, setFilters] = useState({
     treatment: "",
     offer: "",
@@ -32,6 +34,10 @@ function LeadsPage() {
   });
   const [permissionsLoaded, setPermissionsLoaded] = useState(false);
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1)
+  const leadsPerPage = 9;
+
   const token = typeof window !== "undefined" ? localStorage.getItem("clinicToken") : null;
 
   // Fetch permissions
@@ -39,8 +45,8 @@ function LeadsPage() {
     if (!token) return;
     try {
       const res = await axios.get("/api/clinic/permissions", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        headers: { Authorization: `Bearer ${token}` },
+      });
       const data = res.data;
       if (data.success && data.data) {
         // Find "create_lead" module permission (not submodule)
@@ -49,11 +55,11 @@ function LeadsPage() {
             const moduleKey = p.module || "";
             // Check for "create_lead" module (with or without prefix)
             const normalizedModule = moduleKey.replace(/^(admin|clinic|doctor|agent)_/, "");
-            return normalizedModule === "create_lead" || moduleKey === "create_lead" || 
-                   moduleKey === "clinic_create_lead" || moduleKey === "doctor_create_lead";
+            return normalizedModule === "create_lead" || moduleKey === "create_lead" ||
+              moduleKey === "clinic_create_lead" || moduleKey === "doctor_create_lead";
           }
         );
-        
+
         if (modulePermission) {
           const actions = modulePermission.actions || {};
           console.log('[create-lead] Module permission found:', {
@@ -76,7 +82,7 @@ function LeadsPage() {
           const moduleUpdate = isTrue(actions.update);
           const moduleDelete = isTrue(actions.delete);
           const moduleRead = isTrue(actions.read);
-          
+
           console.log('[create-lead] Permission checks:', {
             moduleAll,
             moduleRead,
@@ -102,7 +108,7 @@ function LeadsPage() {
           });
         } else {
           // No permissions found for create_lead module
-          console.log('[create-lead] No create_lead module permission found. Available modules:', 
+          console.log('[create-lead] No create_lead module permission found. Available modules:',
             data.data.permissions?.map(p => p.module) || []
           );
           // If no permissions are set up at all, allow access (backward compatibility)
@@ -127,7 +133,7 @@ function LeadsPage() {
         });
       }
       setPermissionsLoaded(true);
-      } catch (err) {
+    } catch (err) {
       console.error("Error fetching permissions:", err);
       // On error, default to false
       setPermissions({
@@ -143,10 +149,10 @@ function LeadsPage() {
 
   const fetchLeads = async () => {
     if (!token) return;
-    
+
     // Wait for permissions to load
     if (!permissionsLoaded) return;
-    
+
     // Check if user has read permission
     if (permissions.canRead === false) {
       setLeads([]);
@@ -155,11 +161,12 @@ function LeadsPage() {
 
     try {
       const res = await axios.get("/api/lead-ms/leadFilter", {
-        params: filters,
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        params: { ...filters, page: currentPage, limit: leadsPerPage },
+        headers: { Authorization: `Bearer ${token}` },
+      });
       if (res.data.success) {
         setLeads(res.data.leads || []);
+        setTotalPages(res?.data?.pagination?.totalPages || 1)
       } else {
         // If permission denied, clear leads
         if (res.data.message && res.data.message.includes("permission")) {
@@ -174,12 +181,12 @@ function LeadsPage() {
   const fetchAgents = async () => {
     try {
       const res = await axios.get("/api/lead-ms/getA", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        headers: { Authorization: `Bearer ${token}` },
+      });
       if (res.data.success) {
         setAgents(res.data.agents || []);
       }
-      } catch (err) {
+    } catch (err) {
       console.error("Error fetching agents:", err);
     }
   };
@@ -194,14 +201,14 @@ function LeadsPage() {
       fetchLeads();
       fetchAgents();
     }
-  }, [permissionsLoaded, permissions.canRead, filters]);
+  }, [permissionsLoaded, permissions.canRead, filters, currentPage]);
 
   const assignLead = async () => {
     if (!selectedLead || !selectedAgent) {
       alert("Please select an agent");
       return;
     }
-    
+
     // Check permission
     if (!permissions.canAssign) {
       alert("You do not have permission to assign leads");
@@ -262,79 +269,92 @@ function LeadsPage() {
               <h1 className="text-lg sm:text-xl font-bold text-gray-900">Leads Management</h1>
               <p className="text-[10px] sm:text-xs text-gray-500">Filter, review, and assign leads to your team</p>
             </div>
-            {permissions.canCreate && (
-              <button
-                onClick={() => setModalOpen(true)}
-                className="inline-flex items-center justify-center gap-1.5 bg-gray-800 hover:bg-gray-900 text-white px-3 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs sm:text-sm font-medium"
-              >
-                <PlusCircle className="h-3.5 w-3.5" />
-                <span>Create New Lead</span>
-              </button>
-            )}
+            <div className="flex items-center gap-2.5">
+              {permissions.canCreate && (
+                <button
+                  onClick={() => setModalOpen(true)}
+                  className="inline-flex items-center justify-center cursor-pointer gap-1.5 border border-gray-800 text-gray-800 bg-transparent hover:bg-gray-800 hover:text-white px-3 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs sm:text-sm font-medium"
+                >
+                  <PlusCircle className="h-3.5 w-3.5" />
+                  <span>Create New Lead</span>
+                </button>
+              )}
+
+              {permissions.canCreate && (
+                <button
+                  onClick={() => setImportModalOpen(true)}
+                  className="inline-flex items-center justify-center cursor-pointer gap-1.5 bg-gray-800 hover:bg-gray-900 text-white px-3 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs sm:text-sm font-medium"
+                >
+                  <PlusCircle className="h-3.5 w-3.5" />
+                  <span>Import New Lead</span>
+                </button>
+              )}
             </div>
+
           </div>
+        </div>
 
         {/* Compact Filters - Only show if user has read permission */}
         {permissions.canRead && (
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 sm:p-4 mb-3 grid grid-cols-1 md:grid-cols-4 gap-2 sm:gap-3">
-          <input
-            placeholder="Name"
-            value={filters.name}
-            onChange={(e) => setFilters({ ...filters, name: e.target.value })}
-            className="w-full rounded-lg border border-gray-200 bg-white p-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
-          />
-          <input
-            placeholder="Offer Tag"
-            value={filters.offer}
-            onChange={(e) => setFilters({ ...filters, offer: e.target.value })}
-            className="w-full rounded-lg border border-gray-200 bg-white p-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
-          />
-          <select
-            value={filters.source}
-            onChange={(e) => setFilters({ ...filters, source: e.target.value })}
-            className="w-full rounded-lg border border-gray-200 bg-white p-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
-          >
-            <option value="">All Sources</option>
-            <option>Instagram</option>
-            <option>Facebook</option>
-            <option>Google</option>
-            <option>WhatsApp</option>
-            <option>Walk-in</option>
-            <option>Other</option>
-          </select>
-          <select
-            value={filters.status}
-            onChange={(e) => setFilters({ ...filters, status: e.target.value })}
-            className="w-full rounded-lg border border-gray-200 bg-white p-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
-          >
-            <option value="">All Status</option>
-            <option>New</option>
-            <option>Contacted</option>
-            <option>Booked</option>
-            <option>Visited</option>
-            <option>Follow-up</option>
-            <option>Not Interested</option>
-            <option>Other</option>
+            <input
+              placeholder="Name"
+              value={filters.name}
+              onChange={(e) => setFilters({ ...filters, name: e.target.value })}
+              className="w-full rounded-lg border border-gray-200 bg-white p-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
+            />
+            <input
+              placeholder="Offer Tag"
+              value={filters.offer}
+              onChange={(e) => setFilters({ ...filters, offer: e.target.value })}
+              className="w-full rounded-lg border border-gray-200 bg-white p-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
+            />
+            <select
+              value={filters.source}
+              onChange={(e) => setFilters({ ...filters, source: e.target.value })}
+              className="w-full rounded-lg border border-gray-200 bg-white p-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
+            >
+              <option value="">All Sources</option>
+              <option>Instagram</option>
+              <option>Facebook</option>
+              <option>Google</option>
+              <option>WhatsApp</option>
+              <option>Walk-in</option>
+              <option>Other</option>
+            </select>
+            <select
+              value={filters.status}
+              onChange={(e) => setFilters({ ...filters, status: e.target.value })}
+              className="w-full rounded-lg border border-gray-200 bg-white p-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
+            >
+              <option value="">All Status</option>
+              <option>New</option>
+              <option>Contacted</option>
+              <option>Booked</option>
+              <option>Visited</option>
+              <option>Follow-up</option>
+              <option>Not Interested</option>
+              <option>Other</option>
             </select>
 
-          <input
-            type="date"
-            value={filters.startDate}
-            onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
-            className="w-full rounded-lg border border-gray-200 bg-white p-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
-          />
-          <input
-            type="date"
-            value={filters.endDate}
-            onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
-            className="w-full rounded-lg border border-gray-200 bg-white p-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
-          />
-          <button
-            onClick={fetchLeads}
-            className="inline-flex items-center justify-center bg-gray-800 hover:bg-gray-900 text-white px-3 py-2 rounded-lg text-xs sm:text-sm font-medium shadow-sm hover:shadow-md transition-all"
-          >
-            Apply Filters
-          </button>
+            <input
+              type="date"
+              value={filters.startDate}
+              onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
+              className="w-full rounded-lg border border-gray-200 bg-white p-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
+            />
+            <input
+              type="date"
+              value={filters.endDate}
+              onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
+              className="w-full rounded-lg border border-gray-200 bg-white p-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
+            />
+            <button
+              onClick={fetchLeads}
+              className="inline-flex items-center justify-center bg-gray-800 hover:bg-gray-900 text-white px-3 py-2 rounded-lg text-xs sm:text-sm font-medium shadow-sm hover:shadow-md transition-all"
+            >
+              Apply Filters
+            </button>
           </div>
         )}
 
@@ -364,14 +384,14 @@ function LeadsPage() {
                   <div className="flex justify-end gap-1.5 pt-1 border-t border-gray-100">
                     <button
                       onClick={() => setViewLead(lead)}
-                      className="inline-flex items-center justify-center bg-white border border-gray-200 text-gray-800 px-2.5 py-1.5 rounded-md text-[10px] sm:text-xs font-medium shadow-sm hover:bg-gray-50 transition-all"
+                      className="inline-flex items-center justify-center cursor-pointer bg-white border border-gray-200 text-gray-800 px-2.5 py-1.5 rounded-md text-[10px] sm:text-xs font-medium shadow-sm hover:bg-gray-50 transition-all"
                     >
                       View
                     </button>
                     {permissions.canAssign && (
                       <button
                         onClick={() => setSelectedLead(lead._id)}
-                        className="inline-flex items-center justify-center bg-gray-800 hover:bg-gray-900 text-white px-2.5 py-1.5 rounded-md text-[10px] sm:text-xs font-medium shadow-sm hover:shadow-md transition-all"
+                        className="inline-flex items-center justify-center cursor-pointer bg-gray-800 hover:bg-gray-900 text-white px-2.5 py-1.5 rounded-md text-[10px] sm:text-xs font-medium shadow-sm hover:shadow-md transition-all"
                       >
                         ReAssign
                       </button>
@@ -379,7 +399,7 @@ function LeadsPage() {
                     {permissions.canDelete && (
                       <button
                         onClick={() => deleteLead(lead._id)}
-                        className="inline-flex items-center justify-center bg-red-600 hover:bg-red-700 text-white px-2.5 py-1.5 rounded-md text-[10px] sm:text-xs font-medium shadow-sm hover:shadow-md transition-all"
+                        className="inline-flex items-center justify-center cursor-pointer bg-red-600 hover:bg-red-700 text-white px-2.5 py-1.5 rounded-md text-[10px] sm:text-xs font-medium shadow-sm hover:shadow-md transition-all"
                       >
                         Delete
                       </button>
@@ -415,6 +435,34 @@ function LeadsPage() {
           </div>
         )}
 
+        {/* Pagination */}
+        {
+          permissions.canRead &&
+          totalPages > 1 && (
+            <div className="mt-4 flex items-center justify-center gap-1">
+              <button onClick={() => setCurrentPage(currentPage - 1)} disabled={currentPage === 1} className="px-3 py-1 rounded text-xs font-medium bg-white border border-gray-300 text-gray-800 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
+                Prev
+              </button>
+              {[...Array(totalPages)].map((_, i) => {
+                const page = i + 1;
+                if (page === 1 || page === totalPages || (page >= currentPage - 1 && page <= currentPage + 1)) {
+                  return (
+                    <button key={page} onClick={() => setCurrentPage(page)} className={`px-3 py-1 rounded text-xs font-medium ${currentPage === page ? "bg-blue-600 text-white" : "bg-white border border-gray-300 text-gray-800 hover:bg-gray-50"}`}>
+                      {page}
+                    </button>
+                  );
+                } else if (page === currentPage - 2 || page === currentPage + 2) {
+                  return <span key={page} className="px-1 text-gray-700">...</span>;
+                }
+                return null;
+              })}
+              <button onClick={() => setCurrentPage(currentPage + 1)} disabled={currentPage === totalPages} className="px-3 py-1 rounded text-xs font-medium bg-white border border-gray-300 text-gray-800 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed">
+                Next
+              </button>
+            </div>
+          )
+        }
+
         {/* Create Lead Modal */}
         <CreateLeadModal
           isOpen={modalOpen}
@@ -422,6 +470,16 @@ function LeadsPage() {
           onCreated={() => {
             fetchLeads();
             setModalOpen(false);
+          }}
+          token={token || ""}
+        />
+
+        <ImportLeadsModal
+          isOpen={importModalOpen}
+          onClose={() => setImportModalOpen(false)}
+          onImported={() => {
+            fetchLeads();
+            setImportModalOpen(false);
           }}
           token={token || ""}
         />

@@ -374,6 +374,10 @@ function CreateUser() {
   
   const [staffPage, setStaffPage] = useState(1);
   const [doctorPage, setDoctorPage] = useState(1);
+  const [staffTotalPages, setStaffTotalPages] = useState(1);
+  const [doctorTotalPages, setDoctorTotalPages] = useState(1);
+  const [staffTotal, setStaffTotal] = useState(0);
+  const [doctorTotal, setDoctorTotal] = useState(0);
   const itemsPerPage = 9;
 
   const addToast = (type, message, title = "") => {
@@ -387,28 +391,76 @@ function CreateUser() {
     setToasts(prev => prev.filter(toast => toast.id !== id));
   };
 
-  const fetchStaff = async () => {
+  const fetchStaff = async (role = null, page = 1, search = "") => {
     setLoading(true);
     try {
       const token = localStorage.getItem("adminToken");
-      const response = await axios.get("/api/admin/get-staff", {
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: itemsPerPage.toString(),
+      });
+      
+      if (role) {
+        params.append("role", role);
+      }
+      
+      if (search) {
+        params.append("search", search);
+      }
+
+      const response = await axios.get(`/api/admin/get-staff?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       
       if (response.data.success && response.data.staff) {
         setStaffList(response.data.staff);
+        
+        // Update pagination data based on role
+        if (role === "doctorStaff") {
+          setDoctorTotalPages(response.data.pagination?.totalPages || 1);
+          setDoctorTotal(response.data.pagination?.total || 0);
+        } else if (role === "staff") {
+          setStaffTotalPages(response.data.pagination?.totalPages || 1);
+          setStaffTotal(response.data.pagination?.total || 0);
+        }
       } else {
         setStaffList([]);
+        if (role === "doctorStaff") {
+          setDoctorTotalPages(1);
+          setDoctorTotal(0);
+        } else if (role === "staff") {
+          setStaffTotalPages(1);
+          setStaffTotal(0);
+        }
       }
     } catch (err) {
       setStaffList([]);
+      if (role === "doctorStaff") {
+        setDoctorTotalPages(1);
+        setDoctorTotal(0);
+      } else if (role === "staff") {
+        setStaffTotalPages(1);
+        setStaffTotal(0);
+      }
     } finally {
       setLoading(false);
     }
   };
 
+  // Debounce search to avoid too many API calls
   useEffect(() => {
-    fetchStaff();
+    const timeoutId = setTimeout(() => {
+      if (activeTab === "doctors") {
+        fetchStaff("doctorStaff", doctorPage, doctorSearch);
+      } else {
+        fetchStaff("staff", staffPage, staffSearch);
+      }
+    }, 500); // 500ms debounce
+
+    return () => clearTimeout(timeoutId);
+  }, [activeTab, staffPage, doctorPage, staffSearch, doctorSearch]);
+
+  useEffect(() => {
     addToast("info", "Welcome to Staff Management Dashboard", "Welcome");
   }, []);
 
@@ -423,7 +475,8 @@ function CreateUser() {
       
       if (response.data.success) {
         addToast("success", response.data.message || `User ${action}d successfully`, "Action Complete");
-        fetchStaff();
+        // Refetch current tab data
+        fetchStaff(activeTab === "doctors" ? "doctorStaff" : "staff", activeTab === "doctors" ? doctorPage : staffPage, activeTab === "doctors" ? doctorSearch : staffSearch);
       }
     } catch (err) {
       const errorMsg = err.response?.data?.message || "Error updating user";
@@ -436,18 +489,6 @@ function CreateUser() {
       }
     }
   };
-
-  const staff = staffList.filter(u => u.role === "staff" && 
-    u.name.toLowerCase().includes(staffSearch.toLowerCase())
-  );
-  const staffTotalPages = Math.ceil(staff.length / itemsPerPage);
-  const paginatedStaff = staff.slice((staffPage - 1) * itemsPerPage, staffPage * itemsPerPage);
-
-  const doctors = staffList.filter(u => u.role === "doctorStaff" && 
-    u.name.toLowerCase().includes(doctorSearch.toLowerCase())
-  );
-  const doctorTotalPages = Math.ceil(doctors.length / itemsPerPage);
-  const paginatedDoctors = doctors.slice((doctorPage - 1) * itemsPerPage, doctorPage * itemsPerPage);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -494,7 +535,7 @@ function CreateUser() {
                   ? "bg-purple-100 text-purple-700"
                   : "bg-gray-200 text-gray-600"
               }`}>
-                {doctors.length}
+                {doctorTotal}
               </span>
             </button>
             
@@ -517,7 +558,7 @@ function CreateUser() {
                   ? "bg-blue-100 text-blue-700"
                   : "bg-gray-200 text-gray-600"
               }`}>
-                {staff.length}
+                {staffTotal}
               </span>
             </button>
           </div>
@@ -550,10 +591,10 @@ function CreateUser() {
               <div className="text-center py-12">
                 <div className="inline-block w-8 h-8 border-4 border-purple-600 border-t-transparent rounded-full animate-spin" />
               </div>
-            ) : paginatedDoctors.length > 0 ? (
+            ) : staffList.length > 0 ? (
               <>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {paginatedDoctors.map(doctor => (
+                  {staffList.map(doctor => (
                     <UserCard key={doctor._id} user={doctor} onAction={handleAction} addToast={addToast} />
                   ))}
                 </div>
@@ -561,7 +602,9 @@ function CreateUser() {
                   <Pagination 
                     currentPage={doctorPage} 
                     totalPages={doctorTotalPages} 
-                    onPageChange={setDoctorPage} 
+                    onPageChange={(page) => {
+                      setDoctorPage(page);
+                    }} 
                   />
                 )}
               </>
@@ -578,10 +621,10 @@ function CreateUser() {
               <div className="text-center py-12">
                 <div className="inline-block w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
               </div>
-            ) : paginatedStaff.length > 0 ? (
+            ) : staffList.length > 0 ? (
               <>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {paginatedStaff.map(staffMember => (
+                  {staffList.map(staffMember => (
                     <UserCard key={staffMember._id} user={staffMember} onAction={handleAction} addToast={addToast} />
                   ))}
                 </div>
@@ -589,7 +632,9 @@ function CreateUser() {
                   <Pagination 
                     currentPage={staffPage} 
                     totalPages={staffTotalPages} 
-                    onPageChange={setStaffPage} 
+                    onPageChange={(page) => {
+                      setStaffPage(page);
+                    }} 
                   />
                 )}
               </>
@@ -606,7 +651,10 @@ function CreateUser() {
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)}>
         <CreateUserForm 
           onClose={() => setIsModalOpen(false)} 
-          onSuccess={fetchStaff}
+          onSuccess={() => {
+            // Refetch current tab data after creating user
+            fetchStaff(activeTab === "doctors" ? "doctorStaff" : "staff", activeTab === "doctors" ? doctorPage : staffPage, activeTab === "doctors" ? doctorSearch : staffSearch);
+          }}
           addToast={addToast}
         />
       </Modal>
