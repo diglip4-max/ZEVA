@@ -9,7 +9,7 @@ import { Loader2, Trash2, AlertCircle, CheckCircle, X, Building2, DoorOpen, Plus
 import { useAgentPermissions } from "../../hooks/useAgentPermissions";
 import { Toaster, toast } from "react-hot-toast";
 
-const MODULE_KEY = "clinic_staff_management";
+const MODULE_KEY = "clinic_addRoom";
 const SUBMODULE_NAME = "Add Room";
 
 const TOKEN_PRIORITY = [
@@ -190,15 +190,15 @@ function AddRoomPage({ contextOverride = null }) {
         if (cancelled) return;
 
         if (data.success && data.data) {
-          // Find clinic_staff_management module
+          // Find clinic_addRoom module
           const modulePermission = data.data.permissions?.find((p) => {
             if (!p?.module) return false;
-            const normalized = p.module.startsWith("clinic_")
-              ? p.module.slice(7)
-              : p.module.startsWith("admin_")
-              ? p.module.slice(6)
-              : p.module;
-            return normalized === "clinic_staff_management" || normalized === "staff_management";
+            // Check for exact match or normalized match
+            const module = p.module || "";
+            return module === "clinic_addRoom" || 
+                   module === "addRoom" ||
+                   module.replace(/^(admin|clinic|doctor|agent)_/, "") === "addRoom" ||
+                   module.replace(/^(admin|clinic|doctor|agent)_/, "") === "add_room";
           });
 
           if (modulePermission) {
@@ -207,41 +207,13 @@ function AddRoomPage({ contextOverride = null }) {
                              actions.all === "true" || 
                              String(actions.all).toLowerCase() === "true";
 
-            // Find "Add Room" submodule
-            const addRoomSubModule = modulePermission.subModules?.find(
-              (sm) => {
-                const subModuleName = (sm?.name || "").trim();
-                const subModulePath = (sm?.path || "").trim();
-                const nameMatch = subModuleName === "Add Room" || 
-                                 subModuleName === "Room Management" ||
-                                 subModuleName.toLowerCase().includes("room");
-                const pathMatch = subModulePath.includes("/add-room") || 
-                                 subModulePath.includes("add-room");
-                return nameMatch || pathMatch;
-              }
-            );
-
-            // If submodule exists, use submodule permissions (priority)
-            if (addRoomSubModule) {
-              const subModuleActions = addRoomSubModule.actions || {};
-              const subModuleAll = subModuleActions.all === true || 
-                                  subModuleActions.all === "true" || 
-                                  String(subModuleActions.all).toLowerCase() === "true";
-              setPermissions({
-                canCreate: subModuleAll ? true : (subModuleActions.create === true),
-                canRead: subModuleAll ? true : (subModuleActions.read === true),
-                canUpdate: subModuleAll ? true : (subModuleActions.update === true),
-                canDelete: subModuleAll ? true : (subModuleActions.delete === true),
-              });
-            } else {
-              // Fall back to module-level permissions
-              setPermissions({
-                canCreate: moduleAll ? true : (actions.create === true),
-                canRead: moduleAll ? true : (actions.read === true),
-                canUpdate: moduleAll ? true : (actions.update === true),
-                canDelete: moduleAll ? true : (actions.delete === true),
-              });
-            }
+            // Use module-level permissions (clinic_addRoom is a module, not a submodule)
+            setPermissions({
+              canCreate: moduleAll ? true : (actions.create === true),
+              canRead: moduleAll ? true : (actions.read === true),
+              canUpdate: moduleAll ? true : (actions.update === true),
+              canDelete: moduleAll ? true : (actions.delete === true),
+            });
           } else {
             // If no permission entry exists for this module, deny all access by default
             setPermissions({

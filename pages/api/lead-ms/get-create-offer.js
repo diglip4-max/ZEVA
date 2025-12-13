@@ -24,8 +24,8 @@ export default async function handler(req, res) {
         .json({ success: false, message: "User not authenticated" });
     }
 
-    // Allow clinics, agents, doctors, and admins
-    if (!requireRole(user, ["clinic", "agent", "admin", "doctor"])) {
+    // Allow clinics, agents, doctors, doctorStaff, and admins
+    if (!requireRole(user, ["clinic", "agent", "admin", "doctor", "doctorStaff"])) {
       return res.status(403).json({ success: false, message: "Access denied" });
     }
 
@@ -39,12 +39,12 @@ export default async function handler(req, res) {
           .json({ success: false, message: "Clinic not found for this user" });
       }
       clinicId = clinic._id;
-    } else if (user.role === "agent") {
-      // agent must have clinicId
+    } else if (user.role === "agent" || user.role === "doctorStaff") {
+      // agent and doctorStaff must have clinicId
       if (!user.clinicId) {
         return res
           .status(403)
-          .json({ success: false, message: "Agent not linked to any clinic" });
+          .json({ success: false, message: "User not linked to any clinic" });
       }
       clinicId = user.clinicId;
     } else if (user.role === "doctor") {
@@ -62,37 +62,25 @@ export default async function handler(req, res) {
       }
     }
 
-    // ✅ Check permission for reading offers (only for clinic and agent, admin bypasses)
-    if (user.role !== "admin" && clinicId) {
-      // First check if clinic has read permission
-      const { hasPermission: clinicHasPermission, error: clinicError } = await checkClinicPermission(
-        clinicId,
-        "create_offers",
-        "read"
-      );
-
-      if (!clinicHasPermission) {
-        return res.status(403).json({
-          success: false,
-          message: clinicError || "You do not have permission to view offers"
-        });
-      }
-
-      // If user is an agent, also check agent-specific permissions
-      if (user.role === "agent") {
-        const { hasPermission: agentHasPermission, error: agentError } = await checkAgentPermission(
+    // ✅ Check permission for reading offers (only for doctorStaff and agent, clinic/admin/doctor bypass)
+    if (!["admin", "clinic", "doctor"].includes(user.role) && clinicId) {
+      // If user is doctorStaff or agent, check read permission for create_offers module
+      if (['agent', 'doctorStaff'].includes(user.role)) {
+        const { hasPermission, error: permissionError } = await checkAgentPermission(
           user._id,
-          "create_offers",
-          "read"
+          "create_offers", // moduleKey
+          "read", // action
+          null // subModuleName
         );
 
-        if (!agentHasPermission) {
+        if (!hasPermission) {
           return res.status(403).json({
             success: false,
-            message: agentError || "You do not have permission to view offers"
+            message: permissionError || "You do not have permission to view offers"
           });
         }
       }
+      // Clinic, admin, and doctor users bypass permission checks
     }
 
     // Fetch offers for the clinic - minimal fields, no populate for speed

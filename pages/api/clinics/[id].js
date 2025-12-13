@@ -110,38 +110,20 @@ export default async function handler(req, res) {
           }
         }
 
-        if (me.role !== "admin" && clinicId) {
-          let hasPermission = false;
-          let error = null;
+        // ✅ Check permission for reading clinic (only for agent, doctorStaff, staff roles)
+        // Clinic and doctor roles have full access by default, admin bypasses
+        if (me.role !== "admin" && clinicId && ["agent", "staff", "doctorStaff"].includes(me.role)) {
+          const { checkAgentPermission } = await import("../agent/permissions-helper");
+          const result = await checkAgentPermission(
+            me._id,
+            "clinic_health_center",
+            "read"
+          );
 
-          // For agents, staff, and doctorStaff, check agent permissions
-          if (["agent", "staff", "doctorStaff"].includes(me.role)) {
-            const { checkAgentPermission } = await import("../agent/permissions-helper");
-            const result = await checkAgentPermission(
-              me._id,
-              "clinic_health_center",
-              "read"
-            );
-            hasPermission = result.hasPermission;
-            error = result.error;
-          } else if (["clinic", "doctor"].includes(me.role)) {
-            // For clinic and doctor, check clinic permissions
-            const { checkClinicPermission } = await import("../lead-ms/permissions-helper");
-            const result = await checkClinicPermission(
-              clinicId,
-              "clinic_health_center",
-              "read",
-              null,
-              me.role
-            );
-            hasPermission = result.hasPermission;
-            error = result.error;
-          }
-
-          if (!hasPermission) {
+          if (!result.hasPermission) {
             return res.status(403).json({
               success: false,
-              message: error || "You do not have permission to view clinic information"
+              message: result.error || "You do not have permission to view clinic information"
             });
           }
         }
@@ -167,39 +149,20 @@ export default async function handler(req, res) {
         }
       }
 
-      // ✅ Check permission for reading clinic (only for clinic, admin bypasses)
-      if (me && me.role !== "admin" && clinicId) {
-        let hasPermission = false;
-        let error = null;
+      // ✅ Check permission for reading clinic (only for agent, doctorStaff, staff roles)
+      // Clinic and doctor roles have full access by default, admin bypasses
+      if (me && me.role !== "admin" && clinicId && ["agent", "staff", "doctorStaff"].includes(me.role)) {
+        const { checkAgentPermission } = await import("../agent/permissions-helper");
+        const result = await checkAgentPermission(
+          me._id,
+          "clinic_health_center",
+          "read"
+        );
 
-        // For agents, staff, and doctorStaff, check agent permissions
-        if (["agent", "staff", "doctorStaff"].includes(me.role)) {
-          const { checkAgentPermission } = await import("../agent/permissions-helper");
-          const result = await checkAgentPermission(
-            me._id,
-            "clinic_health_center",
-            "read"
-          );
-          hasPermission = result.hasPermission;
-          error = result.error;
-        } else if (["clinic", "doctor"].includes(me.role)) {
-          // For clinic and doctor, check clinic permissions
-          const { checkClinicPermission } = await import("../lead-ms/permissions-helper");
-          const result = await checkClinicPermission(
-            clinicId,
-            "clinic_health_center",
-            "read",
-            null,
-            me.role
-          );
-          hasPermission = result.hasPermission;
-          error = result.error;
-        }
-
-        if (!hasPermission) {
+        if (!result.hasPermission) {
           return res.status(403).json({
             success: false,
-            message: error || "You do not have permission to view clinic information"
+            message: result.error || "You do not have permission to view clinic information"
           });
         }
       }
@@ -257,39 +220,20 @@ export default async function handler(req, res) {
         }
       }
 
-      // ✅ Check permission for updating clinic (only for clinic, admin bypasses)
-      if (me.role !== "admin" && clinicId) {
-        let hasPermission = false;
-        let error = null;
+      // ✅ Check permission for updating clinic (only for agent, doctorStaff, staff roles)
+      // Clinic and doctor roles have full access by default, admin bypasses
+      if (me.role !== "admin" && clinicId && ["agent", "staff", "doctorStaff"].includes(me.role)) {
+        const { checkAgentPermission } = await import("../agent/permissions-helper");
+        const result = await checkAgentPermission(
+          me._id,
+          "clinic_health_center",
+          "update"
+        );
 
-        // For agents, staff, and doctorStaff, check agent permissions
-        if (["agent", "staff", "doctorStaff"].includes(me.role)) {
-          const { checkAgentPermission } = await import("../agent/permissions-helper");
-          const result = await checkAgentPermission(
-            me._id,
-            "clinic_health_center",
-            "update"
-          );
-          hasPermission = result.hasPermission;
-          error = result.error;
-        } else if (["clinic", "doctor"].includes(me.role)) {
-          // For clinic and doctor, check clinic permissions
-          const { checkClinicPermission } = await import("../lead-ms/permissions-helper");
-          const result = await checkClinicPermission(
-            clinicId,
-            "clinic_health_center",
-            "update",
-            null,
-            me.role
-          );
-          hasPermission = result.hasPermission;
-          error = result.error;
-        }
-
-        if (!hasPermission) {
+        if (!result.hasPermission) {
           return res.status(403).json({
             success: false,
-            message: error || "You do not have permission to update clinic information"
+            message: result.error || "You do not have permission to update clinic information"
           });
         }
       }
@@ -489,39 +433,20 @@ export default async function handler(req, res) {
         clinicId = id;
       }
 
-      // ✅ Check permission for deleting clinic (only for clinic, admin bypasses)
-      if (me.role !== "admin" && clinicId) {
-        let hasPermission = false;
-        let error = null;
+      // ✅ Check permission for deleting clinic (only for agent, doctorStaff, staff roles)
+      // Clinic and doctor roles have full access by default, admin bypasses
+      if (me.role !== "admin" && clinicId && ["agent", "staff", "doctorStaff"].includes(me.role)) {
+        const { checkAgentPermission } = await import("../agent/permissions-helper");
+        const result = await checkAgentPermission(
+          me._id,
+          "clinic_health_center",
+          "delete"
+        );
 
-        // For agents, staff, and doctorStaff, check agent permissions
-        if (["agent", "staff", "doctorStaff"].includes(me.role)) {
-          const { checkAgentPermission } = await import("../agent/permissions-helper");
-          const result = await checkAgentPermission(
-            me._id,
-            "clinic_health_center",
-            "delete"
-          );
-          hasPermission = result.hasPermission;
-          error = result.error;
-        } else if (["clinic", "doctor"].includes(me.role)) {
-          // For clinic and doctor, check clinic permissions
-          const { checkClinicPermission } = await import("../lead-ms/permissions-helper");
-          const result = await checkClinicPermission(
-            clinicId,
-            "clinic_health_center",
-            "delete",
-            null,
-            me.role
-          );
-          hasPermission = result.hasPermission;
-          error = result.error;
-        }
-
-        if (!hasPermission) {
+        if (!result.hasPermission) {
           return res.status(403).json({
             success: false,
-            message: error || "You do not have permission to delete clinic"
+            message: result.error || "You do not have permission to delete clinic"
           });
         }
       }

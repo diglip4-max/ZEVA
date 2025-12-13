@@ -290,12 +290,12 @@ export default function CreateOfferModal({
     e.preventDefault();
     if (!clinicId) return alert("Clinic ID not loaded yet.");
 
-    // Check permissions before submitting
-    if (mode === "create" && !permissions.canCreate) {
+    // ✅ Strict permission checks before submitting
+    if (mode === "create" && permissions.canCreate !== true) {
       alert("You do not have permission to create offers");
       return;
     }
-    if (mode === "update" && !permissions.canUpdate) {
+    if (mode === "update" && permissions.canUpdate !== true) {
       alert("You do not have permission to update offers");
       return;
     }
@@ -330,6 +330,14 @@ export default function CreateOfferModal({
       });
 
       const data = await res.json();
+      
+      // ✅ Handle 403 permission denied explicitly
+      if (res.status === 403 || (data.message && data.message.toLowerCase().includes("permission"))) {
+        alert(data.message || `You do not have permission to ${mode} offers`);
+        setLoading(false);
+        return;
+      }
+      
       if (data.success) {
         onCreated(data.offer);
         onClose();

@@ -1,11 +1,47 @@
 // pages/api/clinics/geocode.js
 import axios from 'axios';
+import { getUserFromReq } from '../lead-ms/auth';
+import { getClinicIdFromUser, checkClinicPermission } from '../lead-ms/permissions-helper';
 
 export default async function handler(req, res) {
   const { place } = req.query;
   if (!place) return res.status(400).json({ message: 'Place is required' });
 
   try {
+    // Check authentication and permissions for clinic-related roles
+    try {
+      const authUser = await getUserFromReq(req);
+      if (authUser) {
+        // Allow clinic, admin, agent, doctor, doctorStaff, and staff roles
+        if (!["clinic", "admin", "agent", "doctor", "doctorStaff", "staff"].includes(authUser.role)) {
+          return res.status(403).json({ success: false, message: 'Access denied' });
+        }
+
+        const { clinicId, error, isAdmin } = await getClinicIdFromUser(authUser);
+        
+        // ✅ Check permission for using geocode (only for agent, doctorStaff, staff roles)
+        // Clinic and doctor roles have full access by default, admin bypasses
+        // This is typically used when updating clinic info, so check update permission
+        if (!isAdmin && clinicId && ["agent", "staff", "doctorStaff"].includes(authUser.role)) {
+          const { checkAgentPermission } = await import("../agent/permissions-helper");
+          const result = await checkAgentPermission(
+            authUser._id,
+            "clinic_health_center",
+            "update"
+          );
+
+          if (!result.hasPermission) {
+            return res.status(403).json({
+              success: false,
+              message: result.error || "You do not have permission to use geocoding"
+            });
+          }
+        }
+      }
+    } catch (authError) {
+      // If authentication fails, allow access (geocoding might be used publicly)
+      console.log("Auth check failed for geocode, allowing access:", authError.message);
+    }
     const response = await axios.get('https://maps.googleapis.com/maps/api/geocode/json', {
       params: { 
         address: place, 

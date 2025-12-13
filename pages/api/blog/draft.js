@@ -1,7 +1,9 @@
 import dbConnect from "../../../lib/database";
 import Blog from "../../../models/Blog";
+import User from "../../../models/Users";
 import Clinic from "../../../models/Clinic";
 import { getUserFromReq, requireRole } from "../lead-ms/auth";
+import { getClinicIdFromUser, checkClinicPermission } from "../lead-ms/permissions-helper";
 
 export default async function handler(req, res) {
   await dbConnect();
@@ -12,32 +14,32 @@ export default async function handler(req, res) {
       case "GET":
         try {
           const me = await getUserFromReq(req);
-          if (!me || !requireRole(me, ["clinic", "doctor", "admin"])) {
+          if (!me || !requireRole(me, ["clinic", "doctor", "doctorStaff", "agent", "admin"])) {
             return res.status(403).json({ success: false, message: "Access denied" });
           }
 
-          let clinicId;
-          if (me.role === "clinic") {
-            const clinic = await Clinic.findOne({ owner: me._id }).select("_id");
-            if (!clinic) {
-              return res.status(404).json({ success: false, message: "Clinic not found for this user" });
-            }
-            clinicId = clinic._id;
+          const { clinicId, error, isAdmin } = await getClinicIdFromUser(me);
+          const isDoctor = me.role === "doctor";
+          const isDoctorStaff = me.role === "doctorStaff";
+          const isAgent = me.role === "agent";
+          if (error && !isAdmin && !isDoctor && !isDoctorStaff && !isAgent) {
+            return res.status(404).json({ success: false, message: error });
           }
 
-          // ✅ Check permission for reading drafts (only for clinic, admin bypasses)
-          if (me.role !== "admin" && clinicId) {
-            const { checkClinicPermission } = await import("../lead-ms/permissions-helper");
-            const { hasPermission, error } = await checkClinicPermission(
+          // ✅ Check permission for reading drafts (only for clinic roles, admin bypasses)
+          if (!isAdmin && !isDoctor && clinicId) {
+            const roleForPermission = isDoctorStaff ? "doctorStaff" : isAgent ? "agent" : me.role === "clinic" ? "clinic" : null;
+            const { hasPermission, error: permError } = await checkClinicPermission(
               clinicId,
-              "blogs",
+              "write_blog", // Check "write_blog" module permission
               "read",
-              "Published and Drafts Blogs" // Check "Published and Drafts Blogs" submodule permission
+              null, // No submodule - this is a module-level check
+              roleForPermission
             );
             if (!hasPermission) {
               return res.status(403).json({
                 success: false,
-                message: error || "You do not have permission to view drafts"
+                message: permError || "You do not have permission to view drafts"
               });
             }
           }
@@ -46,14 +48,46 @@ export default async function handler(req, res) {
 
           if (id) {
             // Get single draft by ID
-            const draft = await Blog.findOne({
+            let draftQuery = {
               _id: id,
               status: "draft",
-              $or: [
+            };
+
+            // For agent/doctorStaff, find drafts from their clinic
+            if ((isAgent || isDoctorStaff) && clinicId) {
+              // Find clinic owner and all users from this clinic
+              const clinic = await Clinic.findById(clinicId).select("owner");
+              if (clinic) {
+                const clinicUsers = await User.find({
+                  $or: [
+                    { _id: clinic.owner }, // Clinic owner
+                    { clinicId: clinicId, role: "doctor" }, // Doctors from this clinic
+                  ],
+                }).select("_id");
+                const clinicUserIds = clinicUsers.map(u => u._id);
+                
+                // Include the current user (agent/doctorStaff) in the list so their own drafts show up
+                clinicUserIds.push(me._id);
+                
+                draftQuery.$or = [
+                  { postedBy: { $in: clinicUserIds } }, // Posted by clinic users (including current user)
+                  { role: "admin" }, // Or admin drafts
+                ];
+              } else {
+                draftQuery.$or = [
+                  { postedBy: me._id },
+                  { role: "admin" },
+                ];
+              }
+            } else {
+              // For clinic/doctor/admin, use existing logic
+              draftQuery.$or = [
                 { postedBy: me._id }, // User owns the draft
                 { role: "admin" }, // Or user is admin
-              ],
-            }).populate("postedBy", "name email");
+              ];
+            }
+
+            const draft = await Blog.findOne(draftQuery).populate("postedBy", "name email");
 
             if (!draft) {
               return res
@@ -67,14 +101,50 @@ export default async function handler(req, res) {
           }
 
           // Get all drafts for the authenticated user's role
-          const drafts = await Blog.find({
+          let draftQuery = {
             status: "draft",
-            role: me.role, // Filter by the user's role
-            $or: [
+          };
+
+          // For agent/doctorStaff, find drafts from their clinic
+          if ((isAgent || isDoctorStaff) && clinicId) {
+            // Find clinic owner and all users from this clinic
+            const clinic = await Clinic.findById(clinicId).select("owner");
+            if (clinic) {
+              const clinicUsers = await User.find({
+                $or: [
+                  { _id: clinic.owner }, // Clinic owner
+                  { clinicId: clinicId, role: "doctor" }, // Doctors from this clinic
+                ],
+              }).select("_id");
+              const clinicUserIds = clinicUsers.map(u => u._id);
+              
+              // Include the current user (agent/doctorStaff) in the list so their own drafts show up
+              clinicUserIds.push(me._id);
+              
+              draftQuery.$or = [
+                { postedBy: { $in: clinicUserIds } }, // Posted by clinic users (including current user)
+                { role: "admin" }, // Or admin drafts
+              ];
+            } else {
+              // Fallback if clinic not found
+              draftQuery.$or = [
+                { postedBy: me._id },
+                { role: "admin" },
+              ];
+            }
+          } else if (isAdmin) {
+            // Admin can see all drafts
+            draftQuery = { status: "draft" };
+          } else {
+            // For clinic/doctor, filter by role
+            draftQuery.role = me.role;
+            draftQuery.$or = [
               { postedBy: me._id }, // User owns the draft
               { role: "admin" }, // Or user is admin
-            ],
-          })
+            ];
+          }
+
+          const drafts = await Blog.find(draftQuery)
             .populate("postedBy", "name email")
             .sort({ createdAt: -1 });
 
@@ -88,33 +158,32 @@ export default async function handler(req, res) {
       case "POST":
         try {
           const me = await getUserFromReq(req);
-          if (!me || !requireRole(me, ["clinic", "doctor", "admin"])) {
+          if (!me || !requireRole(me, ["clinic", "doctor", "doctorStaff", "agent", "admin"])) {
             return res.status(403).json({ success: false, message: "Access denied" });
           }
 
-          let clinicId;
-          if (me.role === "clinic") {
-            const clinic = await Clinic.findOne({ owner: me._id }).select("_id");
-            if (!clinic) {
-              return res.status(404).json({ success: false, message: "Clinic not found for this user" });
-            }
-            clinicId = clinic._id;
+          const { clinicId, error, isAdmin } = await getClinicIdFromUser(me);
+          const isDoctor = me.role === "doctor";
+          const isDoctorStaff = me.role === "doctorStaff";
+          const isAgent = me.role === "agent";
+          if (error && !isAdmin && !isDoctor && !isDoctorStaff && !isAgent) {
+            return res.status(404).json({ success: false, message: error });
           }
 
-          // ✅ Check permission for creating drafts (only for clinic, admin bypasses)
-          if (me.role !== "admin" && clinicId) {
-            const { checkClinicPermission } = await import("../lead-ms/permissions-helper");
-            const { hasPermission, error } = await checkClinicPermission(
+          // ✅ Check permission for creating drafts (only for clinic roles, admin bypasses)
+          if (!isAdmin && !isDoctor && clinicId) {
+            const roleForPermission = isDoctorStaff ? "doctorStaff" : isAgent ? "agent" : me.role === "clinic" ? "clinic" : null;
+            const { hasPermission, error: permError } = await checkClinicPermission(
               clinicId,
               "write_blog", // Check "write_blog" module permission
               "create",
               null, // No submodule - this is a module-level check
-              me.role === "doctor" ? "doctor" : me.role === "clinic" ? "clinic" : null
+              roleForPermission
             );
             if (!hasPermission) {
               return res.status(403).json({
                 success: false,
-                message: error || "You do not have permission to create drafts"
+                message: permError || "You do not have permission to create drafts"
               });
             }
           }
@@ -136,13 +205,20 @@ export default async function handler(req, res) {
               .json({ success: false, message: "Paramlink already exists" });
           }
 
+          // Determine the role to use for the blog
+          // Blog model only accepts "clinic" or "doctor", so use "clinic" for agent/doctorStaff
+          let blogRole = me.role;
+          if (me.role === "agent" || me.role === "doctorStaff") {
+            blogRole = "clinic"; // Agent/doctorStaff blogs are associated with clinic
+          }
+
           const draft = await Blog.create({
             title: title || "Untitled Draft",
             content: content || "",
             paramlink,
             status: "draft",
             postedBy: me._id,
-            role: me.role,
+            role: blogRole,
           });
 
           // Populate the postedBy field to return user info
@@ -161,7 +237,7 @@ export default async function handler(req, res) {
       case "PUT":
         try {
           const me = await getUserFromReq(req);
-          if (!me || !requireRole(me, ["clinic", "doctor", "admin"])) {
+          if (!me || !requireRole(me, ["clinic", "doctor", "doctorStaff", "agent", "admin"])) {
             return res.status(403).json({ success: false, message: "Access denied" });
           }
 
@@ -194,29 +270,28 @@ export default async function handler(req, res) {
             });
           }
 
-          let clinicId;
-          if (me.role === "clinic") {
-            const clinic = await Clinic.findOne({ owner: me._id }).select("_id");
-            if (!clinic) {
-              return res.status(404).json({ success: false, message: "Clinic not found for this user" });
-            }
-            clinicId = clinic._id;
+          const { clinicId, error, isAdmin } = await getClinicIdFromUser(me);
+          const isDoctor = me.role === "doctor";
+          const isDoctorStaff = me.role === "doctorStaff";
+          const isAgent = me.role === "agent";
+          if (error && !isAdmin && !isDoctor && !isDoctorStaff && !isAgent) {
+            return res.status(404).json({ success: false, message: error });
           }
 
-          // ✅ Check permission for updating drafts (only for clinic, admin bypasses)
-          if (me.role !== "admin" && clinicId) {
-            const { checkClinicPermission } = await import("../lead-ms/permissions-helper");
-            const { hasPermission, error } = await checkClinicPermission(
+          // ✅ Check permission for updating drafts (only for clinic roles, admin bypasses)
+          if (!isAdmin && !isDoctor && clinicId) {
+            const roleForPermission = isDoctorStaff ? "doctorStaff" : isAgent ? "agent" : me.role === "clinic" ? "clinic" : null;
+            const { hasPermission, error: permError } = await checkClinicPermission(
               clinicId,
               "write_blog", // Check "write_blog" module permission
               "update",
               null, // No submodule - this is a module-level check
-              me.role === "doctor" ? "doctor" : me.role === "clinic" ? "clinic" : null
+              roleForPermission
             );
             if (!hasPermission) {
               return res.status(403).json({
                 success: false,
-                message: error || "You do not have permission to update drafts"
+                message: permError || "You do not have permission to update drafts"
               });
             }
           }
@@ -256,7 +331,7 @@ export default async function handler(req, res) {
       case "DELETE":
         try {
           const me = await getUserFromReq(req);
-          if (!me || !requireRole(me, ["clinic", "doctor", "admin"])) {
+          if (!me || !requireRole(me, ["clinic", "doctor", "doctorStaff", "agent", "admin"])) {
             return res.status(403).json({ success: false, message: "Access denied" });
           }
 
@@ -287,29 +362,28 @@ export default async function handler(req, res) {
             });
           }
 
-          let clinicId;
-          if (me.role === "clinic") {
-            const clinic = await Clinic.findOne({ owner: me._id }).select("_id");
-            if (!clinic) {
-              return res.status(404).json({ success: false, message: "Clinic not found for this user" });
-            }
-            clinicId = clinic._id;
+          const { clinicId, error, isAdmin } = await getClinicIdFromUser(me);
+          const isDoctor = me.role === "doctor";
+          const isDoctorStaff = me.role === "doctorStaff";
+          const isAgent = me.role === "agent";
+          if (error && !isAdmin && !isDoctor && !isDoctorStaff && !isAgent) {
+            return res.status(404).json({ success: false, message: error });
           }
 
-          // ✅ Check permission for deleting drafts (only for clinic, admin bypasses)
-          if (me.role !== "admin" && clinicId) {
-            const { checkClinicPermission } = await import("../lead-ms/permissions-helper");
-            const { hasPermission, error } = await checkClinicPermission(
+          // ✅ Check permission for deleting drafts (only for clinic roles, admin bypasses)
+          if (!isAdmin && !isDoctor && clinicId) {
+            const roleForPermission = isDoctorStaff ? "doctorStaff" : isAgent ? "agent" : me.role === "clinic" ? "clinic" : null;
+            const { hasPermission, error: permError } = await checkClinicPermission(
               clinicId,
               "write_blog", // Check "write_blog" module permission
               "delete",
               null, // No submodule - this is a module-level check
-              me.role === "doctor" ? "doctor" : me.role === "clinic" ? "clinic" : null
+              roleForPermission
             );
             if (!hasPermission) {
               return res.status(403).json({
                 success: false,
-                message: error || "You do not have permission to delete drafts"
+                message: permError || "You do not have permission to delete drafts"
               });
             }
           }
