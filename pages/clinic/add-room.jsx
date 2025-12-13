@@ -9,14 +9,15 @@ import { Loader2, Trash2, AlertCircle, CheckCircle, X, Building2, DoorOpen, Plus
 import { useAgentPermissions } from "../../hooks/useAgentPermissions";
 import { Toaster, toast } from "react-hot-toast";
 
-const MODULE_KEY = "room_management";
+const MODULE_KEY = "clinic_staff_management";
+const SUBMODULE_NAME = "Add Room";
 
 const TOKEN_PRIORITY = [
   "clinicToken",
-  "doctorToken",
   "agentToken",
-  "staffToken",
+  "doctorToken",
   "userToken",
+  "staffToken",
   "adminToken",
 ];
 
@@ -85,6 +86,7 @@ function AddRoomPage({ contextOverride = null }) {
     canDelete: true,
   });
   const [permissionsLoaded, setPermissionsLoaded] = useState(false);
+  const [isClinicContext, setIsClinicContext] = useState(false);
   const [token, setToken] = useState("");
   const [hasAgentToken, setHasAgentToken] = useState(contextOverride === "agent");
   const [isAgentRoute, setIsAgentRoute] = useState(contextOverride === "agent");
@@ -134,6 +136,16 @@ function AddRoomPage({ contextOverride = null }) {
     setIsAgentRoute(Boolean(agentPath && hasAgentToken));
   }, [contextOverride, router.pathname, hasAgentToken]);
 
+  // Check if we're in clinic context
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const path = window.location.pathname;
+      setIsClinicContext(path.startsWith("/clinic/"));
+    } else if (router?.pathname) {
+      setIsClinicContext(router.pathname.startsWith("/clinic/"));
+    }
+  }, [router?.pathname]);
+
   const { permissions: agentPermissions, loading: agentPermissionsLoading } = useAgentPermissions(
     isAgentRoute ? MODULE_KEY : null
   );
@@ -154,6 +166,10 @@ function AddRoomPage({ contextOverride = null }) {
 
   useEffect(() => {
     if (isAgentRoute) return;
+    if (!isClinicContext) {
+      setPermissionsLoaded(true);
+      return;
+    }
     let cancelled = false;
     const headers = getAuthHeaders();
     if (!headers) {
@@ -174,6 +190,7 @@ function AddRoomPage({ contextOverride = null }) {
         if (cancelled) return;
 
         if (data.success && data.data) {
+          // Find clinic_staff_management module
           const modulePermission = data.data.permissions?.find((p) => {
             if (!p?.module) return false;
             const normalized = p.module.startsWith("clinic_")
@@ -181,21 +198,50 @@ function AddRoomPage({ contextOverride = null }) {
               : p.module.startsWith("admin_")
               ? p.module.slice(6)
               : p.module;
-            // Check for both room_management and addRoom (clinic_addRoom)
-            return normalized === MODULE_KEY || normalized === "addRoom";
+            return normalized === "clinic_staff_management" || normalized === "staff_management";
           });
 
           if (modulePermission) {
             const actions = modulePermission.actions || {};
-            const moduleAll = actions.all === true;
-            // Properly handle false values - if all is false, check individual permissions
-            // If a permission is explicitly false, it should be false
-            setPermissions({
-              canCreate: moduleAll ? true : (actions.create === true),
-              canRead: moduleAll ? true : (actions.read === true),
-              canUpdate: moduleAll ? true : (actions.update === true),
-              canDelete: moduleAll ? true : (actions.delete === true),
-            });
+            const moduleAll = actions.all === true || 
+                             actions.all === "true" || 
+                             String(actions.all).toLowerCase() === "true";
+
+            // Find "Add Room" submodule
+            const addRoomSubModule = modulePermission.subModules?.find(
+              (sm) => {
+                const subModuleName = (sm?.name || "").trim();
+                const subModulePath = (sm?.path || "").trim();
+                const nameMatch = subModuleName === "Add Room" || 
+                                 subModuleName === "Room Management" ||
+                                 subModuleName.toLowerCase().includes("room");
+                const pathMatch = subModulePath.includes("/add-room") || 
+                                 subModulePath.includes("add-room");
+                return nameMatch || pathMatch;
+              }
+            );
+
+            // If submodule exists, use submodule permissions (priority)
+            if (addRoomSubModule) {
+              const subModuleActions = addRoomSubModule.actions || {};
+              const subModuleAll = subModuleActions.all === true || 
+                                  subModuleActions.all === "true" || 
+                                  String(subModuleActions.all).toLowerCase() === "true";
+              setPermissions({
+                canCreate: subModuleAll ? true : (subModuleActions.create === true),
+                canRead: subModuleAll ? true : (subModuleActions.read === true),
+                canUpdate: subModuleAll ? true : (subModuleActions.update === true),
+                canDelete: subModuleAll ? true : (subModuleActions.delete === true),
+              });
+            } else {
+              // Fall back to module-level permissions
+              setPermissions({
+                canCreate: moduleAll ? true : (actions.create === true),
+                canRead: moduleAll ? true : (actions.read === true),
+                canUpdate: moduleAll ? true : (actions.update === true),
+                canDelete: moduleAll ? true : (actions.delete === true),
+              });
+            }
           } else {
             // If no permission entry exists for this module, deny all access by default
             setPermissions({
@@ -235,7 +281,7 @@ function AddRoomPage({ contextOverride = null }) {
     return () => {
       cancelled = true;
     };
-  }, [isAgentRoute, token]);
+  }, [isAgentRoute, isClinicContext, token]);
 
   const getHeadersOrNotify = () => {
     const headers = getAuthHeaders();

@@ -31,7 +31,7 @@ interface EnquiriesResponse {
   enquiries: Enquiry[];
 }
 
-function ClinicEnquiries({ contextOverride = null }: { contextOverride?: "clinic" | "agent" }) {
+function ClinicEnquiries({ contextOverride = null }: { contextOverride?: "clinic" | "agent" | null }) {
   const [enquiries, setEnquiries] = useState<Enquiry[]>([]);
   const [filteredEnquiries, setFilteredEnquiries] = useState<Enquiry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -181,96 +181,96 @@ function ClinicEnquiries({ contextOverride = null }: { contextOverride?: "clinic
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-10 w-10 border-3 border-gray-200 border-t-gray-800 mx-auto mb-3"></div>
-          <p className="text-gray-700 font-medium text-sm">Loading enquiries...</p>
+          <div className="animate-spin rounded-full h-10 w-10 border-3 border-gray-200 dark:border-gray-700 border-t-gray-800 dark:border-t-blue-500 mx-auto mb-3"></div>
+          <p className="text-gray-700 dark:text-gray-300 font-medium text-sm">Loading enquiries...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 sm:p-6">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 sm:p-6">
       {/* Compact Unique Header */}
-      <div className="bg-white rounded-lg border border-gray-200 shadow-sm mb-4 sm:mb-6">
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm mb-4 sm:mb-6">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-5">
           <div className="flex items-center justify-between mb-4">
             {/* Left: Brand */}
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-gray-800 rounded-lg flex items-center justify-center shadow-sm">
+              <div className="w-8 h-8 bg-gray-800 dark:bg-blue-600 rounded-lg flex items-center justify-center shadow-sm">
                 <MessageSquare className="w-4 h-4 text-white" />
               </div>
               <div>
-                <h1 className="text-lg sm:text-xl font-bold text-gray-900">
+                <h1 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100">
                   Patient Enquiries
                 </h1>
-                <p className="text-[10px] sm:text-xs text-gray-700">
+                <p className="text-[10px] sm:text-xs text-gray-700 dark:text-gray-400">
                   {enquiries.length} total enquiries
                 </p>
               </div>
             </div>
 
             {/* Right: Count Badge */}
-            <div className="flex items-center gap-1.5 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-200">
-              <div className="text-lg sm:text-xl font-bold text-gray-900">
+            <div className="flex items-center gap-1.5 bg-gray-50 dark:bg-gray-700 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600">
+              <div className="text-lg sm:text-xl font-bold text-gray-900 dark:text-gray-100">
                 {enquiries.length}
               </div>
-              <div className="text-[10px] sm:text-xs text-gray-700 font-medium">Total</div>
+              <div className="text-[10px] sm:text-xs text-gray-700 dark:text-gray-300 font-medium">Total</div>
             </div>
           </div>
           
           {/* Compact Stats Grid - Unique Card Style with Gray Theme */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
-            <div className="bg-gray-50 border-l-4 border-gray-800 rounded-lg p-3 sm:p-4 shadow-sm hover:shadow-md transition-all">
+            <div className="bg-gray-50 dark:bg-gray-700/50 border-l-4 border-gray-800 dark:border-blue-500 rounded-lg p-3 sm:p-4 shadow-sm hover:shadow-md transition-all">
               <div className="flex items-center gap-2 mb-1">
-                <div className="w-7 h-7 bg-gray-800 rounded-lg flex items-center justify-center">
+                <div className="w-7 h-7 bg-gray-800 dark:bg-blue-600 rounded-lg flex items-center justify-center">
                   <Inbox className="w-3.5 h-3.5 text-white" />
                 </div>
-                <p className="text-[10px] uppercase text-gray-700 tracking-wide font-semibold">
+                <p className="text-[10px] uppercase text-gray-700 dark:text-gray-300 tracking-wide font-semibold">
                   Total
                 </p>
               </div>
-              <p className="text-xl sm:text-2xl font-bold text-gray-900">
+              <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100">
                 {totalEnquiries}
               </p>
             </div>
-            <div className="bg-gray-50 border-l-4 border-gray-700 rounded-lg p-3 sm:p-4 shadow-sm hover:shadow-md transition-all">
+            <div className="bg-gray-50 dark:bg-gray-700/50 border-l-4 border-gray-700 dark:border-blue-600 rounded-lg p-3 sm:p-4 shadow-sm hover:shadow-md transition-all">
               <div className="flex items-center gap-2 mb-1">
-                <div className="w-7 h-7 bg-gray-700 rounded-lg flex items-center justify-center">
+                <div className="w-7 h-7 bg-gray-700 dark:bg-blue-500 rounded-lg flex items-center justify-center">
                   <CalendarDays className="w-3.5 h-3.5 text-white" />
                 </div>
-                <p className="text-[10px] uppercase text-gray-700 tracking-wide font-semibold">
+                <p className="text-[10px] uppercase text-gray-700 dark:text-gray-300 tracking-wide font-semibold">
                   Today
                 </p>
               </div>
-              <p className="text-xl sm:text-2xl font-bold text-gray-900">
+              <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100">
                 {todaysEnquiries}
               </p>
             </div>
-            <div className="bg-gray-50 border-l-4 border-gray-600 rounded-lg p-3 sm:p-4 shadow-sm hover:shadow-md transition-all">
+            <div className="bg-gray-50 dark:bg-gray-700/50 border-l-4 border-gray-600 dark:border-blue-400 rounded-lg p-3 sm:p-4 shadow-sm hover:shadow-md transition-all">
               <div className="flex items-center gap-2 mb-1">
-                <div className="w-7 h-7 bg-gray-600 rounded-lg flex items-center justify-center">
+                <div className="w-7 h-7 bg-gray-600 dark:bg-blue-400 rounded-lg flex items-center justify-center">
                   <Bell className="w-3.5 h-3.5 text-white" />
                 </div>
-                <p className="text-[10px] uppercase text-gray-700 tracking-wide font-semibold">
+                <p className="text-[10px] uppercase text-gray-700 dark:text-gray-300 tracking-wide font-semibold">
                   Pending
                 </p>
               </div>
-              <p className="text-xl sm:text-2xl font-bold text-gray-900">
+              <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100">
                 {unreadEnquiries}
               </p>
             </div>
-            <div className="bg-gray-50 border-l-4 border-gray-500 rounded-lg p-3 sm:p-4 shadow-sm hover:shadow-md transition-all">
+            <div className="bg-gray-50 dark:bg-gray-700/50 border-l-4 border-gray-500 dark:border-blue-300 rounded-lg p-3 sm:p-4 shadow-sm hover:shadow-md transition-all">
               <div className="flex items-center gap-2 mb-1">
-                <div className="w-7 h-7 bg-gray-500 rounded-lg flex items-center justify-center">
+                <div className="w-7 h-7 bg-gray-500 dark:bg-blue-300 rounded-lg flex items-center justify-center">
                   <Calendar className="w-3.5 h-3.5 text-white" />
                 </div>
-                <p className="text-[10px] uppercase text-gray-700 tracking-wide font-semibold">
+                <p className="text-[10px] uppercase text-gray-700 dark:text-gray-300 tracking-wide font-semibold">
                   Last
                 </p>
               </div>
-              <p className="text-xs sm:text-sm font-bold text-gray-900 truncate">
+              <p className="text-xs sm:text-sm font-bold text-gray-900 dark:text-gray-100 truncate">
                 {lastEnquiryDate}
               </p>
             </div>
@@ -280,34 +280,34 @@ function ClinicEnquiries({ contextOverride = null }: { contextOverride?: "clinic
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
         {/* Compact Search Bar & Controls - Unique Style */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-5 mb-4 sm:mb-6 space-y-4">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 sm:p-5 mb-4 sm:mb-6 space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
             <div className="relative flex-1">
-              <Search className="absolute left-2.5 top-2 w-3.5 h-3.5 text-gray-500" />
+              <Search className="absolute left-2.5 top-2 w-3.5 h-3.5 text-gray-500 dark:text-gray-400" />
               <input
                 type="text"
                 placeholder="Search by name, email, or message..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="text-gray-900 w-full pl-9 pr-8 py-2 text-xs sm:text-sm border border-gray-200 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 outline-none transition-all bg-white"
+                className="text-gray-900 dark:text-gray-100 w-full pl-9 pr-8 py-2 text-xs sm:text-sm border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-gray-800/20 dark:focus:ring-blue-500/50 focus:border-gray-800 dark:focus:border-blue-500 outline-none transition-all bg-white dark:bg-gray-700 placeholder-gray-400 dark:placeholder-gray-400"
               />
               {searchTerm && (
                 <button
                   onClick={() => setSearchTerm("")}
-                  className="absolute right-2 top-1/2 transform -translate-y-1/2 p-1 hover:bg-gray-100 rounded-full transition-colors"
+                  className="absolute right-2 top-1/2 transform -translate-y-1/2 p-1 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-full transition-colors"
                 >
-                  <X className="w-3 h-3 text-gray-500" />
+                  <X className="w-3 h-3 text-gray-500 dark:text-gray-400" />
                 </button>
               )}
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
-              <Filter className="w-3.5 h-3.5 text-gray-600" />
+              <Filter className="w-3.5 h-3.5 text-gray-600 dark:text-gray-400" />
               <select
                 value={timeFilter}
                 onChange={(e) =>
                   setTimeFilter(e.target.value as "all" | "today" | "7d" | "30d")
                 }
-                className="border border-gray-200 rounded-lg px-2.5 py-2 text-xs sm:text-sm focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 bg-white"
+                className="border border-gray-200 dark:border-gray-600 rounded-lg px-2.5 py-2 text-xs sm:text-sm focus:ring-2 focus:ring-gray-800/20 dark:focus:ring-blue-500/50 focus:border-gray-800 dark:focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
               >
                 <option value="all">All time</option>
                 <option value="today">Today</option>
@@ -319,7 +319,7 @@ function ClinicEnquiries({ contextOverride = null }: { contextOverride?: "clinic
                 onChange={(e) =>
                   setSortOrder(e.target.value as "newest" | "oldest")
                 }
-                className="border border-gray-200 rounded-lg px-2.5 py-2 text-xs sm:text-sm focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 bg-white"
+                className="border border-gray-200 dark:border-gray-600 rounded-lg px-2.5 py-2 text-xs sm:text-sm focus:ring-2 focus:ring-gray-800/20 dark:focus:ring-blue-500/50 focus:border-gray-800 dark:focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
               >
                 <option value="newest">Newest</option>
                 <option value="oldest">Oldest</option>
@@ -328,12 +328,12 @@ function ClinicEnquiries({ contextOverride = null }: { contextOverride?: "clinic
           </div>
 
           {searchTerm && (
-            <div className="flex flex-wrap items-center gap-1.5 text-[10px] sm:text-xs text-gray-700 pt-2 border-t border-gray-100">
+            <div className="flex flex-wrap items-center gap-1.5 text-[10px] sm:text-xs text-gray-700 dark:text-gray-300 pt-2 border-t border-gray-100 dark:border-gray-700">
               <span className="font-medium">Results for:</span>
-              <span className="bg-gray-100 text-gray-800 px-2 py-0.5 rounded-md font-medium break-all">
+              <span className="bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 px-2 py-0.5 rounded-md font-medium break-all">
                 &quot;{searchTerm}&quot;
               </span>
-              <span className="text-gray-700">({filteredEnquiries.length} found)</span>
+              <span className="text-gray-700 dark:text-gray-300">({filteredEnquiries.length} found)</span>
             </div>
           )}
         </div>
@@ -341,14 +341,14 @@ function ClinicEnquiries({ contextOverride = null }: { contextOverride?: "clinic
         {/* Enquiries List - Unique Card Design */}
         <div className="space-y-3 sm:space-y-4">
           {filteredEnquiries.length === 0 ? (
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 sm:p-10 text-center">
-              <div className="bg-gray-100 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3">
-                <MessageSquare className="w-6 h-6 text-gray-800" />
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-8 sm:p-10 text-center">
+              <div className="bg-gray-100 dark:bg-gray-700 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3">
+                <MessageSquare className="w-6 h-6 text-gray-800 dark:text-gray-200" />
               </div>
-              <h3 className="text-base sm:text-lg font-bold text-gray-900 mb-2">
+              <h3 className="text-base sm:text-lg font-bold text-gray-900 dark:text-gray-100 mb-2">
                 {searchTerm ? "No results found" : "No enquiries yet"}
               </h3>
-              <p className="text-xs sm:text-sm text-gray-700 mb-4">
+              <p className="text-xs sm:text-sm text-gray-700 dark:text-gray-400 mb-4">
                 {searchTerm
                   ? "Try adjusting your search terms."
                   : "Patient enquiries will appear here when they contact your clinic."}
@@ -356,7 +356,7 @@ function ClinicEnquiries({ contextOverride = null }: { contextOverride?: "clinic
               {searchTerm && (
                 <button
                   onClick={() => setSearchTerm("")}
-                  className="bg-gray-800 text-white px-4 py-2 text-xs sm:text-sm rounded-lg hover:bg-gray-900 transition-colors font-medium"
+                  className="bg-gray-800 dark:bg-blue-600 text-white px-4 py-2 text-xs sm:text-sm rounded-lg hover:bg-gray-900 dark:hover:bg-blue-700 transition-colors font-medium"
                 >
                   Clear Search
                 </button>
@@ -370,7 +370,7 @@ function ClinicEnquiries({ contextOverride = null }: { contextOverride?: "clinic
               return (
                 <div
                   key={enquiry._id}
-                  className="bg-white rounded-lg shadow-sm border-l-4 border-gray-800 hover:shadow-lg hover:border-gray-900 transition-all duration-200 group"
+                  className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border-l-4 border-gray-800 dark:border-blue-500 hover:shadow-lg hover:border-gray-900 dark:hover:border-blue-400 transition-all duration-200 group"
                 >
                   {/* Unique Card Design */}
                   <div className="p-4 sm:p-5">
@@ -380,20 +380,20 @@ function ClinicEnquiries({ contextOverride = null }: { contextOverride?: "clinic
                         {/* Avatar with gray theme */}
                         <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 shadow-sm ${
                           isTodayEnquiry 
-                            ? 'bg-gray-800' 
+                            ? 'bg-gray-800 dark:bg-blue-600' 
                             : isRecent 
-                            ? 'bg-gray-700'
-                            : 'bg-gray-600'
+                            ? 'bg-gray-700 dark:bg-blue-500'
+                            : 'bg-gray-600 dark:bg-blue-400'
                         }`}>
                           <User className="w-4 h-4 text-white" />
                         </div>
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2 mb-1">
-                            <h3 className="text-sm sm:text-base font-bold text-gray-900 truncate">
+                            <h3 className="text-sm sm:text-base font-bold text-gray-900 dark:text-gray-100 truncate">
                               {enquiry.name}
                             </h3>
                             {isTodayEnquiry && (
-                              <span className="px-1.5 py-0.5 bg-gray-100 text-gray-800 text-[10px] font-semibold rounded-md border border-gray-200">
+                              <span className="px-1.5 py-0.5 bg-gray-100 dark:bg-blue-900/30 text-gray-800 dark:text-blue-300 text-[10px] font-semibold rounded-md border border-gray-200 dark:border-blue-700">
                                 NEW
                               </span>
                             )}
@@ -401,16 +401,16 @@ function ClinicEnquiries({ contextOverride = null }: { contextOverride?: "clinic
                           <div className="flex items-center gap-1.5 flex-wrap">
                             <a
                               href={`mailto:${enquiry.email}`}
-                              className="flex items-center gap-1 text-gray-800 hover:text-gray-900 transition-colors text-[10px] sm:text-xs break-all font-medium"
+                              className="flex items-center gap-1 text-gray-800 dark:text-gray-200 hover:text-gray-900 dark:hover:text-gray-100 transition-colors text-[10px] sm:text-xs break-all font-medium"
                             >
                               <Mail className="w-3 h-3 flex-shrink-0" />
                               <span className="truncate max-w-[200px]">{enquiry.email}</span>
                             </a>
                             {enquiry.phone && (
-                              <span className="text-gray-400 text-[10px]">•</span>
+                              <span className="text-gray-400 dark:text-gray-500 text-[10px]">•</span>
                             )}
                             {enquiry.phone && (
-                              <span className="text-gray-700 text-[10px] sm:text-xs">
+                              <span className="text-gray-700 dark:text-gray-300 text-[10px] sm:text-xs">
                                 {enquiry.phone}
                               </span>
                             )}
@@ -418,9 +418,9 @@ function ClinicEnquiries({ contextOverride = null }: { contextOverride?: "clinic
                         </div>
                       </div>
                       {/* Date Badge */}
-                      <div className="flex items-center gap-1.5 bg-gray-50 px-2 py-1 rounded-md flex-shrink-0">
-                        <Calendar className="w-3 h-3 text-gray-500" />
-                        <span className="text-[10px] sm:text-xs text-gray-700 whitespace-nowrap">
+                      <div className="flex items-center gap-1.5 bg-gray-50 dark:bg-gray-700 px-2 py-1 rounded-md flex-shrink-0">
+                        <Calendar className="w-3 h-3 text-gray-500 dark:text-gray-400" />
+                        <span className="text-[10px] sm:text-xs text-gray-700 dark:text-gray-300 whitespace-nowrap">
                           {new Date(enquiry.createdAt).toLocaleDateString("en-US", {
                             month: "short",
                             day: "numeric",
@@ -432,14 +432,14 @@ function ClinicEnquiries({ contextOverride = null }: { contextOverride?: "clinic
                     </div>
                     
                     {/* Message Box - Gray Theme */}
-                    <div className="mt-3 bg-gray-50 rounded-lg p-3 sm:p-4 border border-gray-200">
+                    <div className="mt-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3 sm:p-4 border border-gray-200 dark:border-gray-600">
                       <div className="flex items-start gap-2 mb-2">
-                        <MessageSquare className="w-3.5 h-3.5 text-gray-800 flex-shrink-0 mt-0.5" />
-                        <span className="font-semibold text-gray-900 text-xs sm:text-sm">
+                        <MessageSquare className="w-3.5 h-3.5 text-gray-800 dark:text-gray-200 flex-shrink-0 mt-0.5" />
+                        <span className="font-semibold text-gray-900 dark:text-gray-100 text-xs sm:text-sm">
                           Message:
                         </span>
                       </div>
-                      <p className="text-gray-700 leading-relaxed pl-5 text-xs sm:text-sm break-words italic">
+                      <p className="text-gray-700 dark:text-gray-300 leading-relaxed pl-5 text-xs sm:text-sm break-words italic">
                         &quot;{enquiry.message}&quot;
                       </p>
                     </div>

@@ -61,26 +61,26 @@ const CreateAgentModal = ({ isOpen, onClose, onCreated, token, doctorToken, admi
   const showRoleSelector = !!adminToken;
 
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-md bg-white rounded-lg border border-gray-200">
-        <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
-          <h3 className="text-base font-medium text-gray-900">Create {role === 'doctorStaff' ? 'Doctor Staff' : 'Agent'}</h3>
-          <button onClick={onClose} className="p-1.5 rounded-md hover:bg-gray-100" aria-label="Close">
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+      <div className="w-full max-w-md bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-xl">
+        <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 flex items-center justify-between">
+          <h3 className="text-base font-medium text-gray-900 dark:text-gray-100">Create {role === 'doctorStaff' ? 'Doctor Staff' : 'Agent'}</h3>
+          <button onClick={onClose} className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 transition-colors" aria-label="Close">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
-        <form onSubmit={handleSubmit} className="p-4">
+        <form onSubmit={handleSubmit} className="p-4 bg-white dark:bg-gray-800">
           <div className="grid grid-cols-1 gap-3">
             {showRoleSelector && (
               <div>
-                <label className="block text-sm text-gray-700 mb-1">Role <span className="text-red-500">*</span></label>
+                <label className="block text-sm text-gray-700 dark:text-gray-300 mb-1">Role <span className="text-red-500">*</span></label>
                 <select
                   value={role}
                   onChange={(e) => setRole(e.target.value)}
                   required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-1 focus:ring-gray-400 focus:border-gray-400 outline-none"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-1 focus:ring-gray-400 dark:focus:ring-blue-500 focus:border-gray-400 dark:focus:border-blue-500 outline-none transition-colors"
                 >
                   <option value="agent">Agent</option>
                   <option value="doctorStaff">Doctor Staff</option>
@@ -88,25 +88,62 @@ const CreateAgentModal = ({ isOpen, onClose, onCreated, token, doctorToken, admi
               </div>
             )}
             <div>
-              <label className="block text-sm text-gray-700 mb-1">Full name <span className="text-red-500">*</span></label>
-              <input value={name} onChange={(e) => setName(e.target.value)} placeholder={role === 'doctorStaff' ? 'Staff name' : 'Agent name'} required className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-1 focus:ring-gray-400 focus:border-gray-400 outline-none" />
+              <label className="block text-sm text-gray-700 dark:text-gray-300 mb-1">Full name <span className="text-red-500">*</span></label>
+              <input 
+                value={name} 
+                onChange={(e) => setName(e.target.value)} 
+                placeholder={role === 'doctorStaff' ? 'Staff name' : 'Agent name'} 
+                required 
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-400 focus:ring-1 focus:ring-gray-400 dark:focus:ring-blue-500 focus:border-gray-400 dark:focus:border-blue-500 outline-none transition-colors" 
+              />
             </div>
             <div>
-              <label className="block text-sm text-gray-700 mb-1">Email address <span className="text-red-500">*</span></label>
-              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder={role === 'doctorStaff' ? 'staff@example.com' : 'agent@example.com'} required className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-1 focus:ring-gray-400 focus:border-gray-400 outline-none" />
+              <label className="block text-sm text-gray-700 dark:text-gray-300 mb-1">Email address <span className="text-red-500">*</span></label>
+              <input 
+                type="email" 
+                value={email} 
+                onChange={(e) => setEmail(e.target.value)} 
+                placeholder={role === 'doctorStaff' ? 'staff@example.com' : 'agent@example.com'} 
+                required 
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-400 focus:ring-1 focus:ring-gray-400 dark:focus:ring-blue-500 focus:border-gray-400 dark:focus:border-blue-500 outline-none transition-colors" 
+              />
             </div>
             <div>
-              <label className="block text-sm text-gray-700 mb-1">Phone number</label>
-              <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+1 555 000 0000" className="text-gray-700 w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-1 focus:ring-gray-400 focus:border-gray-400 outline-none" />
+              <label className="block text-sm text-gray-700 dark:text-gray-300 mb-1">Phone number</label>
+              <input 
+                value={phone} 
+                onChange={(e) => setPhone(e.target.value)} 
+                placeholder="+1 555 000 0000" 
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-400 focus:ring-1 focus:ring-gray-400 dark:focus:ring-blue-500 focus:border-gray-400 dark:focus:border-blue-500 outline-none transition-colors" 
+              />
             </div>
             <div>
-              <label className="block text-sm text-gray-700 mb-1">Password <span className="text-red-500">*</span></label>
-              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Enter password" required className="text-gray-700 w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-1 focus:ring-gray-400 focus:border-gray-400 outline-none" />
+              <label className="block text-sm text-gray-700 dark:text-gray-300 mb-1">Password <span className="text-red-500">*</span></label>
+              <input 
+                type="password" 
+                value={password} 
+                onChange={(e) => setPassword(e.target.value)} 
+                placeholder="Enter password" 
+                required 
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-400 focus:ring-1 focus:ring-gray-400 dark:focus:ring-blue-500 focus:border-gray-400 dark:focus:border-blue-500 outline-none transition-colors" 
+              />
             </div>
           </div>
           <div className="mt-4 flex items-center justify-end gap-2">
-            <button type="button" onClick={onClose} className="px-3 py-2 rounded-md border border-gray-300 text-sm text-gray-700 hover:bg-gray-50">Cancel</button>
-            <button type="submit" disabled={submitting} className="px-3.5 py-2 bg-gray-900 hover:bg-black text-white text-sm rounded-md">{submitting ? 'Creating...' : 'Create'}</button>
+            <button 
+              type="button" 
+              onClick={onClose} 
+              className="px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 text-sm text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+            >
+              Cancel
+            </button>
+            <button 
+              type="submit" 
+              disabled={submitting} 
+              className="px-3.5 py-2 bg-gray-900 dark:bg-blue-600 hover:bg-black dark:hover:bg-blue-700 text-white text-sm rounded-md disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
+            >
+              {submitting ? 'Creating...' : 'Create'}
+            </button>
           </div>
         </form>
       </div>

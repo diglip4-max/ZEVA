@@ -18,6 +18,7 @@ function AllPettyCashAdmin() {
   const [showModal, setShowModal] = useState(false);
   const [page, setPage] = useState(1);
   const [toast, setToast] = useState(null);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const perPage = 20;
   
   // Check if user is an admin or agent - use state to ensure reactivity
@@ -156,6 +157,23 @@ function AllPettyCashAdmin() {
     setPage(1);
   }, [filters.search, data]);
 
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (isDropdownOpen && !event.target.closest('.dropdown-container')) {
+        setIsDropdownOpen(false);
+      }
+    };
+    if (isDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('touchstart', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
+  }, [isDropdownOpen]);
+
   const totalPages = Math.ceil(filtered.length / perPage);
   const currentData = filtered.slice((page - 1) * perPage, page * perPage);
 
@@ -196,7 +214,7 @@ function AllPettyCashAdmin() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 p-4 md:p-6">
+    <div className="min-h-screen bg-gray-100 p-3 sm:p-4 lg:p-6">
       {/* Toast */}
       {toast && (
         <div className={`fixed top-4 right-4 z-50 px-4 py-3 rounded shadow-lg text-white ${
@@ -207,24 +225,24 @@ function AllPettyCashAdmin() {
       )}
 
       {/* Header */}
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">Petty Cash Records</h1>
+      <h1 className="text-lg sm:text-xl font-bold text-gray-900 mb-4 sm:mb-6">Petty Cash Records</h1>
 
       {/* Global Totals */}
-      <div className="bg-white rounded shadow p-6 mb-6">
-        <h2 className="text-xl font-bold text-gray-900 mb-4">Global Petty Cash Summary</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
-            <div className="text-2xl font-bold text-green-600">د.إ{globalAmounts.globalTotalAmount}</div>
+      <div className="bg-white rounded shadow p-4 sm:p-5 mb-5 sm:mb-6">
+        <h2 className="text-base sm:text-md font-bold text-gray-900 mb-3 sm:mb-4">Global Petty Cash Summary</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+          <div className="bg-green-50 border border-green-200 rounded-lg p-3 sm:p-4 text-center">
+            <div className="text-lg sm:text-xl font-bold text-green-600">د.إ{globalAmounts.globalTotalAmount}</div>
             <div className="text-sm text-green-800">Total Amount</div>
             <div className="text-xs text-green-600 mt-1">All staff combined</div>
           </div>
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-center">
-            <div className="text-2xl font-bold text-red-600">د.إ{globalAmounts.globalSpentAmount}</div>
+          <div className="bg-red-50 border border-red-200 rounded-lg p-3 sm:p-4 text-center">
+            <div className="text-lg sm:text-xl font-bold text-red-600">د.إ{globalAmounts.globalSpentAmount}</div>
             <div className="text-sm text-red-800">Total Spent</div>
             <div className="text-xs text-red-600 mt-1">All expenses combined</div>
           </div>
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
-            <div className="text-2xl font-bold text-blue-600">د.إ{globalAmounts.globalRemainingAmount}</div>
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-4 text-center">
+            <div className="text-lg sm:text-xl font-bold text-blue-600">د.إ{globalAmounts.globalRemainingAmount}</div>
             <div className="text-sm text-blue-800">Remaining Balance</div>
             <div className="text-xs text-blue-600 mt-1">Available for use</div>
           </div>
@@ -232,8 +250,8 @@ function AllPettyCashAdmin() {
       </div>
 
       {/* Filters */}
-      <div className="bg-white rounded shadow p-4 mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
+      <div className="bg-white rounded shadow p-4 sm:p-5 mb-5 sm:mb-6 overflow-visible">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
           <div className="lg:col-span-2 relative">
             <Search className="absolute left-3 top-3 text-gray-900 w-4 h-4" />
             <input
@@ -241,37 +259,83 @@ function AllPettyCashAdmin() {
               placeholder="Search staff or patient..."
               value={filters.search}
               onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
-              className="w-full pl-9 pr-3 py-2 border rounded focus:ring-2 focus:ring-blue-500 text-gray-900"
+              className="w-full pl-9 pr-3 py-2 border rounded focus:ring-2 focus:ring-blue-500 text-gray-900 text-sm"
             />
           </div>
           
-          <select
-            value={filters.staff}
-            onChange={(e) => setFilters(prev => ({ ...prev, staff: e.target.value }))}
-            className="px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500 text-gray-900"
-          >
-            <option value="">All Staff</option>
-            {staffList.map(name => <option key={name} value={name}>{name}</option>)}
-          </select>
+          <div className="relative w-full dropdown-container">
+            <button
+              type="button"
+              onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+              className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500 text-gray-900 text-sm bg-white text-left flex items-center justify-between"
+            >
+              <span>{filters.staff || "All Staff"}</span>
+              <svg 
+                className={`w-4 h-4 text-gray-500 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} 
+                fill="none" 
+                stroke="currentColor" 
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            {isDropdownOpen && (
+              <>
+                <div 
+                  className="fixed inset-0 z-10" 
+                  onClick={() => setIsDropdownOpen(false)}
+                ></div>
+                <div className="absolute z-20 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-[200px] sm:max-h-60 overflow-y-auto overscroll-contain">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFilters(prev => ({ ...prev, staff: "" }));
+                      setIsDropdownOpen(false);
+                    }}
+                    className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-100 transition-colors ${
+                      filters.staff === "" ? "bg-blue-50 text-blue-600" : "text-gray-900"
+                    }`}
+                  >
+                    All Staff
+                  </button>
+                  {staffList.map(name => (
+                    <button
+                      key={name}
+                      type="button"
+                      onClick={() => {
+                        setFilters(prev => ({ ...prev, staff: name }));
+                        setIsDropdownOpen(false);
+                      }}
+                      className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-100 transition-colors ${
+                        filters.staff === name ? "bg-blue-50 text-blue-600" : "text-gray-900"
+                      }`}
+                    >
+                      {name}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
 
           <input
             type="date"
             value={filters.start}
             onChange={(e) => setFilters(prev => ({ ...prev, start: e.target.value }))}
-            className="px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500 text-gray-900"
+            className="w-full px-2 py-2 border rounded focus:ring-2 focus:ring-blue-500 text-gray-900 text-sm"
           />
 
           <input
             type="date"
             value={filters.end}
             onChange={(e) => setFilters(prev => ({ ...prev, end: e.target.value }))}
-            className="px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500 text-gray-900"
+            className="w-full px-2 py-2 border rounded focus:ring-2 focus:ring-blue-500 text-gray-900 text-sm"
           />
         </div>
 
         <button
           onClick={fetchData}
-          className="mt-3 bg-blue-600 text-white px-5 py-2 rounded hover:bg-blue-700"
+          className="mt-3 bg-blue-600 text-white px-5 py-2 rounded hover:bg-blue-700 w-full sm:w-auto text-sm font-medium"
         >
           Apply
         </button>
@@ -285,33 +349,33 @@ function AllPettyCashAdmin() {
       ) : currentData.length > 0 ? (
         <>
           {/* Cards */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-5 mb-5 sm:mb-6">
             {currentData.map(item => (
               <div key={item.staff._id} className="bg-white rounded shadow">
                 {/* Header */}
-                <div className="bg-blue-600 text-white p-4 flex items-center gap-3">
+                <div className="bg-blue-600 text-white p-4 sm:p-5 flex items-center gap-3">
                   <User className="w-8 h-8" />
                   <div>
-                    <h3 className="font-bold">{item.staff.name}</h3>
-                    <p className="text-sm opacity-90">{item.staff.email}</p>
+                    <h3 className="font-bold text-base sm:text-lg">{item.staff.name}</h3>
+                    <p className="text-xs sm:text-sm opacity-90 break-all">{item.staff.email}</p>
                   </div>
                 </div>
 
                 {/* Summary */}
-                <div className="grid grid-cols-3 gap-2 p-4 bg-gray-50 text-center">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 p-4 bg-gray-50 text-center">
                   {item.totalAllocated > 0 && (
                     <div>
                       <p className="text-xs text-gray-800">Allocated</p>
-                      <p className="font-bold text-gray-900">د.إ{item.totalAllocated}</p>
+                      <p className="font-bold text-gray-900 text-sm sm:text-base">د.إ{item.totalAllocated}</p>
                     </div>
                   )}
                   <div>
                     <p className="text-xs text-gray-800">Spent</p>
-                    <p className="font-bold text-gray-900">د.إ{item.totalSpent}</p>
+                    <p className="font-bold text-gray-900 text-sm sm:text-base">د.إ{item.totalSpent}</p>
                   </div>
                   <div>
                     <p className="text-xs text-gray-800">Balance</p>
-                    <p className="font-bold text-gray-900">د.إ{item.totalAmount}</p>
+                    <p className="font-bold text-gray-900 text-sm sm:text-base">د.إ{item.totalAmount}</p>
                   </div>
                 </div>
 
@@ -321,19 +385,19 @@ function AllPettyCashAdmin() {
                     const patientsWithAlloc = item.patients.filter(p => Array.isArray(p.allocatedAmounts) && p.allocatedAmounts.length > 0);
                     return (
                       <>
-                        <h4 className="font-semibold text-gray-900 mb-2">Allocated ({patientsWithAlloc.length})</h4>
-                        <div className="space-y-2 max-h-40 overflow-y-auto">
+                        <h4 className="font-semibold text-gray-900 mb-2 text-sm sm:text-base">Allocated ({patientsWithAlloc.length})</h4>
+                        <div className="space-y-2 max-h-48 overflow-y-auto">
                           {patientsWithAlloc.map((p, i) => (
                             <div key={i} className="bg-gray-50 rounded p-2 text-sm">
-                              <p className="font-semibold text-gray-900">{p.name}</p>
-                              <p className="text-gray-800">{p.phone} • {p.email}</p>
+                              <p className="font-semibold text-gray-900 text-sm sm:text-base">{p.name}</p>
+                              <p className="text-gray-800 text-xs sm:text-sm">{p.phone} • {p.email}</p>
                               {p.allocatedAmounts.map((a, j) => (
-                                <div key={j} className="flex justify-between items-center mt-1 pt-1 border-t">
-                                  <span className="text-gray-900">د.إ{a.amount} • {formatDate(a.date)}</span>
+                                <div key={j} className="flex justify-between items-center mt-1 pt-1 border-t gap-2">
+                                  <span className="text-gray-900 text-xs sm:text-sm">د.إ{a.amount} • {formatDate(a.date)}</span>
                                   {a.receipts?.length > 0 && (
                                     <button
                                       onClick={() => { setReceipts(a.receipts); setShowModal(true); }}
-                                      className="text-blue-600 hover:underline flex items-center gap-1"
+                                      className="text-blue-600 hover:underline flex items-center gap-1 text-xs sm:text-sm"
                                     >
                                       <Eye className="w-3 h-3" /> View
                                     </button>
@@ -351,18 +415,18 @@ function AllPettyCashAdmin() {
                 {/* Expenses */}
                 {item.expenses.length > 0 && (
                   <div className="p-4 border-t">
-                    <h4 className="font-semibold text-gray-900 mb-2">Expenses ({item.expenses.length})</h4>
-                    <div className="space-y-2 max-h-32 overflow-y-auto">
+                    <h4 className="font-semibold text-gray-900 mb-2 text-sm sm:text-base">Expenses ({item.expenses.length})</h4>
+                    <div className="space-y-2 max-h-40 overflow-y-auto">
                       {item.expenses.map((e, i) => (
                         <div key={i} className="bg-gray-50 rounded p-2 text-sm flex justify-between items-center">
                           <div>
-                            <p className="font-medium text-gray-900">{e.description}</p>
-                            <p className="text-gray-800">د.إ{e.spentAmount} • {formatDate(e.date)}</p>
+                            <p className="font-medium text-gray-900 text-sm sm:text-base">{e.description}</p>
+                            <p className="text-gray-800 text-xs sm:text-sm">د.إ{e.spentAmount} • {formatDate(e.date)}</p>
                           </div>
                           {e.receipts?.length > 0 && (
                             <button
                               onClick={() => { setReceipts(e.receipts); setShowModal(true); }}
-                              className="text-blue-600 hover:underline flex items-center gap-1"
+                              className="text-blue-600 hover:underline flex items-center gap-1 text-xs sm:text-sm"
                             >
                               <Eye className="w-3 h-3" /> View
                             </button>
@@ -378,11 +442,11 @@ function AllPettyCashAdmin() {
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="bg-white rounded shadow p-4 flex justify-between items-center">
+            <div className="bg-white rounded shadow p-4 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
               <p className="text-sm text-gray-900">
                 {(page - 1) * perPage + 1}-{Math.min(page * perPage, filtered.length)} of {filtered.length}
               </p>
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
                 <button
                   onClick={() => setPage(p => Math.max(1, p - 1))}
                   disabled={page === 1}

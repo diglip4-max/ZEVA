@@ -1007,6 +1007,27 @@ function ClinicManagementDashboard() {
     return `/uploads/clinic/${photoPath}`;
   };
 
+  // Helper to get user role from token
+  const getUserRole = (): string | null => {
+    if (typeof window === "undefined") return null;
+    try {
+      for (const key of TOKEN_PRIORITY) {
+        const token = window.localStorage.getItem(key) || window.sessionStorage.getItem(key);
+        if (token) {
+          try {
+            const payload = JSON.parse(atob(token.split('.')[1]));
+            return payload.role || null;
+          } catch (e) {
+            continue;
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Error getting user role:", error);
+    }
+    return null;
+  };
+
   // Fetch permissions
   useEffect(() => {
     const fetchPermissions = async () => {
@@ -1022,13 +1043,48 @@ function ClinicManagementDashboard() {
           return;
         }
 
-        const res = await axios.get("/api/clinic/permissions", {
-          headers: authHeaders,
-        });
+        const userRole = getUserRole();
+        let permissionsData = null;
 
-        const data = res.data;
-        if (data.success && data.data) {
-          const modulePermission = data.data.permissions?.find((p: any) => {
+        // For agents, staff, and doctorStaff, fetch from /api/agent/permissions
+        if (["agent", "staff", "doctorStaff"].includes(userRole || "")) {
+          try {
+            // Get agentId from token
+            const token = getStoredToken();
+            if (token) {
+              const payload = JSON.parse(atob(token.split('.')[1]));
+              const agentId = payload.userId || payload.id;
+              
+              if (agentId) {
+                const res = await axios.get(`/api/agent/permissions?agentId=${agentId}`, {
+                  headers: authHeaders,
+                });
+                
+                if (res.data.success && res.data.data) {
+                  permissionsData = res.data.data;
+                }
+              }
+            }
+          } catch (err: any) {
+            console.error("Error fetching agent permissions:", err);
+          }
+        } else {
+          // For clinic and doctor, fetch from /api/clinic/permissions
+          try {
+            const res = await axios.get("/api/clinic/permissions", {
+              headers: authHeaders,
+            });
+            
+            if (res.data.success && res.data.data) {
+              permissionsData = res.data.data;
+            }
+          } catch (err: any) {
+            console.error("Error fetching clinic permissions:", err);
+          }
+        }
+
+        if (permissionsData && permissionsData.permissions) {
+          const modulePermission = permissionsData.permissions.find((p: any) => {
             if (!p?.module) return false;
             if (p.module === "health_center") return true;
             if (p.module === "clinic_health_center") return true;
@@ -1042,10 +1098,10 @@ function ClinicManagementDashboard() {
             const actions = modulePermission.actions || {};
             
             // Module-level "all" grants all permissions
-            const moduleAll = actions.all === true;
-            const moduleRead = actions.read === true;
-            const moduleUpdate = actions.update === true;
-            const moduleDelete = actions.delete === true;
+            const moduleAll = actions.all === true || actions.all === "true" || String(actions.all).toLowerCase() === "true";
+            const moduleRead = actions.read === true || actions.read === "true" || String(actions.read).toLowerCase() === "true";
+            const moduleUpdate = actions.update === true || actions.update === "true" || String(actions.update).toLowerCase() === "true";
+            const moduleDelete = actions.delete === true || actions.delete === "true" || String(actions.delete).toLowerCase() === "true";
 
             setPermissions({
               canRead: moduleAll || moduleRead,

@@ -26,7 +26,7 @@ interface Appointment {
 }
 
 interface Treatment {
-  name: string;
+  name: string; 
   slug: string;
   price: number;
   type: "main" | "sub";

@@ -12,8 +12,8 @@ export default async function handler(req, res) {
     return res.status(401).json({ success: false, message: 'Unauthorized: Missing or invalid token' });
   }
 
-  // Allow admin, clinic, and doctor roles
-  if (!requireRole(me, ['admin', 'clinic', 'doctor'])) {
+  // Allow admin, clinic, doctor, staff, doctorStaff, and agent roles
+  if (!requireRole(me, ['admin', 'clinic', 'doctor', 'staff', 'doctorStaff', 'agent'])) {
     return res.status(403).json({ success: false, message: 'Access denied' });
   }
 
@@ -62,6 +62,23 @@ export default async function handler(req, res) {
           if (agent.createdBy?.toString() !== me._id.toString()) {
             return res.status(403).json({ success: false, message: 'Access denied' });
           }
+        }
+      } else if (me.role === 'staff' || me.role === 'doctorStaff') {
+        // Staff and doctorStaff can view agents from their clinic or agents they created
+        if (me.clinicId) {
+          if (agent.clinicId?.toString() !== me.clinicId.toString() && 
+              agent.createdBy?.toString() !== me._id.toString()) {
+            return res.status(403).json({ success: false, message: 'Access denied' });
+          }
+        } else {
+          if (agent.createdBy?.toString() !== me._id.toString()) {
+            return res.status(403).json({ success: false, message: 'Access denied' });
+          }
+        }
+      } else if (me.role === 'agent') {
+        // Agents can view only their own permissions
+        if (agent._id.toString() !== me._id.toString()) {
+          return res.status(403).json({ success: false, message: 'Access denied' });
         }
       }
 
@@ -127,6 +144,23 @@ export default async function handler(req, res) {
           if (agent.createdBy?.toString() !== me._id.toString()) {
             return res.status(403).json({ success: false, message: 'Access denied' });
           }
+        }
+      } else if (me.role === 'staff' || me.role === 'doctorStaff') {
+        // Staff and doctorStaff can modify agents from their clinic or agents they created
+        if (me.clinicId) {
+          if (agent.clinicId?.toString() !== me.clinicId.toString() && 
+              agent.createdBy?.toString() !== me._id.toString()) {
+            return res.status(403).json({ success: false, message: 'Access denied' });
+          }
+        } else {
+          if (agent.createdBy?.toString() !== me._id.toString()) {
+            return res.status(403).json({ success: false, message: 'Access denied' });
+          }
+        }
+      } else if (me.role === 'agent') {
+        // Agents cannot modify other agents; allow only self-update
+        if (agent._id.toString() !== me._id.toString()) {
+          return res.status(403).json({ success: false, message: 'Access denied' });
         }
       }
 

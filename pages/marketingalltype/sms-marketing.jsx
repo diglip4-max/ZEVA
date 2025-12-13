@@ -95,8 +95,8 @@ const SmsSender = () => {
         const response = await axios.get("/api/clinic/permissions", {
           headers: { Authorization: `Bearer ${token}` },
           params: {
-            moduleKey: "clinic_staff_management",
-            subModuleName: "SMS Marketing",
+            moduleKey: "clinic_marketing",
+            subModuleName: "SMS marketing",
           },
         });
 
