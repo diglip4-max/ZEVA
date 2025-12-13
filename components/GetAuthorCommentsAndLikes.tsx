@@ -55,7 +55,7 @@ interface Blog {
 }
 
 interface Props {
-  tokenKey: "clinicToken" | "doctorToken" | "adminToken";
+  tokenKey: "clinicToken" | "doctorToken" | "adminToken" | "agentToken";
   blog?: Blog;
   totalLikes?: number;
   totalComments?: number;

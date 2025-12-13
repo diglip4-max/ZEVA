@@ -2,7 +2,8 @@ import dbConnect from '../../../lib/database';
 import Enquiry from '../../../models/Enquiry';
 import Clinic from '../../../models/Clinic';
 import User from '../../../models/Users';
-import jwt from 'jsonwebtoken';
+import { getUserFromReq } from '../lead-ms/auth';
+import { getClinicIdFromUser } from '../lead-ms/permissions-helper';
 
 export default async function handler(req, res) {
   await dbConnect();
@@ -11,32 +12,54 @@ export default async function handler(req, res) {
     return res.status(405).json({ message: 'Method not allowed' });
   }
 
-  const token = req.headers.authorization?.split(' ')[1];
-  if (!token) return res.status(401).json({ message: 'No token provided' });
-
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    console.log('Decoded JWT:', decoded);
-
-    let clinicIdToUse = null;
-
-    if (decoded.role === 'clinic') {
-      const clinic = await Clinic.findOne({ owner: decoded.userId });
-      if (!clinic) {
-        return res.status(404).json({ message: 'Clinic not found' });
-      }
-      clinicIdToUse = clinic._id;
-    } else if (decoded.role === 'agent' || decoded.role === 'doctor' || decoded.role === 'doctorStaff' || decoded.role === 'staff') {
-      const user = await User.findById(decoded.userId).select('clinicId');
-      if (!user?.clinicId) {
-        return res.status(403).json({ message: 'Access denied: user not linked to any clinic' });
-      }
-      clinicIdToUse = user.clinicId;
-    } else {
-      return res.status(403).json({ message: 'Access denied: unsupported role' });
+    const authUser = await getUserFromReq(req);
+    if (!authUser) {
+      return res.status(401).json({ message: 'Unauthorized' });
     }
 
-    const enquiries = await Enquiry.find({ clinicId: clinicIdToUse }).sort({ createdAt: -1 });
+    // Allow clinic, admin, agent, doctor, doctorStaff, and staff roles
+    if (!["clinic", "admin", "agent", "doctor", "doctorStaff", "staff"].includes(authUser.role)) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    let { clinicId, error, isAdmin } = await getClinicIdFromUser(authUser);
+    if (error && !isAdmin) {
+      return res.status(404).json({ message: error });
+    }
+
+    // ✅ Check permission for reading clinic enquiries (only for agent, doctorStaff roles)
+    // Clinic, doctor, and staff roles have full access by default, admin bypasses
+    if (!isAdmin && clinicId && ["agent", "doctorStaff"].includes(authUser.role)) {
+      const { checkAgentPermission } = await import("../agent/permissions-helper");
+      const result = await checkAgentPermission(
+        authUser._id,
+        "clinic_enquiry",
+        "read"
+      );
+
+      if (!result.hasPermission) {
+        return res.status(403).json({
+          success: false,
+          message: result.error || "You do not have permission to view clinic enquiries"
+        });
+      }
+    }
+
+    // Ensure clinicId is set correctly
+    if (!clinicId && authUser.role === "clinic") {
+      const clinic = await Clinic.findOne({ owner: authUser._id }).select("_id");
+      if (!clinic) {
+        return res.status(404).json({ message: "Clinic not found" });
+      }
+      clinicId = clinic._id;
+    }
+
+    if (!clinicId) {
+      return res.status(404).json({ message: "Clinic not found" });
+    }
+
+    const enquiries = await Enquiry.find({ clinicId: clinicId }).sort({ createdAt: -1 });
 
     return res.status(200).json({ success: true, enquiries });
   } catch (err) {

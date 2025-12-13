@@ -2,6 +2,8 @@
 
 import dbConnect from "../../../lib/database";
 import Blog from "../../../models/Blog";
+import User from "../../../models/Users";
+import Clinic from "../../../models/Clinic";
 import { getUserFromReq, requireRole } from "../lead-ms/auth";
 import { getClinicIdFromUser, checkClinicPermission } from "../lead-ms/permissions-helper";
 
@@ -14,24 +16,27 @@ export default async function handler(req, res) {
       case "GET":
         try {
           const me = await getUserFromReq(req);
-          if (!me || !requireRole(me, ["clinic", "doctor", "admin"])) {
+          if (!me || !requireRole(me, ["clinic", "doctor", "doctorStaff", "agent", "admin"])) {
             return res.status(403).json({ success: false, message: "Access denied" });
           }
 
           const { clinicId, error, isAdmin } = await getClinicIdFromUser(me);
           const isDoctor = me.role === "doctor";
-          if (error && !isAdmin && !isDoctor) {
+          const isDoctorStaff = me.role === "doctorStaff";
+          const isAgent = me.role === "agent";
+          if (error && !isAdmin && !isDoctor && !isDoctorStaff && !isAgent) {
             return res.status(404).json({ success: false, message: error });
           }
 
-          // ✅ Check permission for reading published blogs (only for clinic, admin bypasses)
+          // ✅ Check permission for reading published blogs (only for clinic roles, admin bypasses)
           if (!isAdmin && !isDoctor && clinicId) {
+            const roleForPermission = isDoctorStaff ? "doctorStaff" : isAgent ? "agent" : me.role === "clinic" ? "clinic" : null;
             const { hasPermission, error: permError } = await checkClinicPermission(
               clinicId,
               "write_blog", // Check "write_blog" module permission
               "read",
               null, // No submodule - this is a module-level check
-              me.role === "doctor" ? "doctor" : me.role === "clinic" ? "clinic" : null
+              roleForPermission
             );
             if (!hasPermission) {
               return res.status(403).json({
@@ -45,14 +50,46 @@ export default async function handler(req, res) {
 
           if (id) {
             // Get single published blog by ID
-            const blog = await Blog.findOne({
+            let blogQuery = {
               _id: id,
               status: "published",
-              $or: [
+            };
+
+            // For agent/doctorStaff, find blogs from their clinic
+            if ((isAgent || isDoctorStaff) && clinicId) {
+              // Find clinic owner and all users from this clinic
+              const clinic = await Clinic.findById(clinicId).select("owner");
+              if (clinic) {
+                const clinicUsers = await User.find({
+                  $or: [
+                    { _id: clinic.owner }, // Clinic owner
+                    { clinicId: clinicId, role: "doctor" }, // Doctors from this clinic
+                  ],
+                }).select("_id");
+                const clinicUserIds = clinicUsers.map(u => u._id);
+                
+                // Include the current user (agent/doctorStaff) in the list so their own blogs show up
+                clinicUserIds.push(me._id);
+                
+                blogQuery.$or = [
+                  { postedBy: { $in: clinicUserIds } }, // Posted by clinic users (including current user)
+                  { role: "admin" }, // Or admin blogs
+                ];
+              } else {
+                blogQuery.$or = [
+                  { postedBy: me._id },
+                  { role: "admin" },
+                ];
+              }
+            } else {
+              // For clinic/doctor/admin, use existing logic
+              blogQuery.$or = [
                 { postedBy: me._id }, // User owns the blog
                 { role: "admin" }, // Or user is admin
-              ],
-            }).populate("postedBy", "name email");
+              ];
+            }
+
+            const blog = await Blog.findOne(blogQuery).populate("postedBy", "name email");
 
             if (!blog) {
               return res.status(404).json({
@@ -64,14 +101,50 @@ export default async function handler(req, res) {
           }
 
           // Get published blogs for the authenticated user's role
-          const publishedBlogs = await Blog.find({
+          let blogQuery = {
             status: "published",
-            role: me.role, // Filter by the user's role
-            $or: [
+          };
+
+          // For agent/doctorStaff, find blogs from their clinic
+          if ((isAgent || isDoctorStaff) && clinicId) {
+            // Find clinic owner and all users from this clinic
+            const clinic = await Clinic.findById(clinicId).select("owner");
+            if (clinic) {
+              const clinicUsers = await User.find({
+                $or: [
+                  { _id: clinic.owner }, // Clinic owner
+                  { clinicId: clinicId, role: "doctor" }, // Doctors from this clinic
+                ],
+              }).select("_id");
+              const clinicUserIds = clinicUsers.map(u => u._id);
+              
+              // Include the current user (agent/doctorStaff) in the list so their own blogs show up
+              clinicUserIds.push(me._id);
+              
+              blogQuery.$or = [
+                { postedBy: { $in: clinicUserIds } }, // Posted by clinic users (including current user)
+                { role: "admin" }, // Or admin blogs
+              ];
+            } else {
+              // Fallback if clinic not found
+              blogQuery.$or = [
+                { postedBy: me._id },
+                { role: "admin" },
+              ];
+            }
+          } else if (isAdmin) {
+            // Admin can see all blogs
+            blogQuery = { status: "published" };
+          } else {
+            // For clinic/doctor, filter by role
+            blogQuery.role = me.role;
+            blogQuery.$or = [
               { postedBy: me._id }, // User owns the blog
               { role: "admin" }, // Or user is admin
-            ],
-          })
+            ];
+          }
+
+          const publishedBlogs = await Blog.find(blogQuery)
             .populate("postedBy", "name email")
             .sort({ createdAt: -1 });
 
@@ -85,24 +158,27 @@ export default async function handler(req, res) {
       case "POST":
         try {
           const me = await getUserFromReq(req);
-          if (!me || !requireRole(me, ["clinic", "doctor", "admin"])) {
+          if (!me || !requireRole(me, ["clinic", "doctor", "doctorStaff", "agent", "admin"])) {
             return res.status(403).json({ success: false, message: "Access denied" });
           }
 
           const { clinicId, error, isAdmin } = await getClinicIdFromUser(me);
           const isDoctor = me.role === "doctor";
-          if (error && !isAdmin && !isDoctor) {
+          const isDoctorStaff = me.role === "doctorStaff";
+          const isAgent = me.role === "agent";
+          if (error && !isAdmin && !isDoctor && !isDoctorStaff && !isAgent) {
             return res.status(404).json({ success: false, message: error });
           }
 
-          // ✅ Check permission for creating published blogs (only for clinic, admin bypasses)
+          // ✅ Check permission for creating published blogs (only for clinic roles, admin bypasses)
           if (!isAdmin && !isDoctor && clinicId) {
+            const roleForPermission = isDoctorStaff ? "doctorStaff" : isAgent ? "agent" : me.role === "clinic" ? "clinic" : null;
             const { hasPermission, error: permError } = await checkClinicPermission(
               clinicId,
               "write_blog", // Check "write_blog" module permission
               "create",
               null, // No submodule - this is a module-level check
-              me.role === "doctor" ? "doctor" : me.role === "clinic" ? "clinic" : null
+              roleForPermission
             );
             if (!hasPermission) {
               return res.status(403).json({
@@ -130,13 +206,20 @@ export default async function handler(req, res) {
               .json({ success: false, message: "Paramlink already exists" });
           }
 
+          // Determine the role to use for the blog
+          // Blog model only accepts "clinic" or "doctor", so use "clinic" for agent/doctorStaff
+          let blogRole = me.role;
+          if (me.role === "agent" || me.role === "doctorStaff") {
+            blogRole = "clinic"; // Agent/doctorStaff blogs are associated with clinic
+          }
+
           const publishedBlog = await Blog.create({
             title: title || "Untitled Blog",
             content: content || "",
             paramlink,
             status: "published",
             postedBy: me._id,
-            role: me.role,
+            role: blogRole,
           });
 
           // Populate the postedBy field to return user info
@@ -155,7 +238,7 @@ export default async function handler(req, res) {
       case "PUT":
         try {
           const me = await getUserFromReq(req);
-          if (!me || !requireRole(me, ["clinic", "doctor", "admin"])) {
+          if (!me || !requireRole(me, ["clinic", "doctor", "doctorStaff", "agent", "admin"])) {
             return res.status(403).json({ success: false, message: "Access denied" });
           }
 
@@ -176,29 +259,50 @@ export default async function handler(req, res) {
               .json({ success: false, message: "Published blog not found" });
           }
 
-          // Check if user owns the blog or is admin
-          if (existingBlog.postedBy.toString() !== me._id.toString() && me.role !== "admin") {
-            return res.status(403).json({
-              success: false,
-              message:
-                "You can only edit your own published blogs unless you are an admin",
-            });
-          }
-
           const { clinicId, error, isAdmin } = await getClinicIdFromUser(me);
           const isDoctor = me.role === "doctor";
-          if (error && !isAdmin && !isDoctor) {
+          const isDoctorStaff = me.role === "doctorStaff";
+          const isAgent = me.role === "agent";
+          if (error && !isAdmin && !isDoctor && !isDoctorStaff && !isAgent) {
             return res.status(404).json({ success: false, message: error });
           }
 
-          // ✅ Check permission for updating published blogs (only for clinic, admin bypasses)
+          // Check if user owns the blog, is from the same clinic (for agent/doctorStaff), or is admin
+          const isBlogAuthor = existingBlog.postedBy.toString() === me._id.toString();
+          
+          // For agent/doctorStaff, check if blog is from their clinic
+          let isClinicBlog = false;
+          if ((isAgent || isDoctorStaff) && clinicId && !isBlogAuthor) {
+            const clinic = await Clinic.findById(clinicId).select("owner");
+            if (clinic) {
+              const clinicUsers = await User.find({
+                $or: [
+                  { _id: clinic.owner },
+                  { clinicId: clinicId, role: "doctor" },
+                ],
+              }).select("_id");
+              const clinicUserIds = clinicUsers.map(u => u._id.toString());
+              isClinicBlog = clinicUserIds.includes(existingBlog.postedBy.toString());
+            }
+          }
+
+          // Only allow if user owns the blog, is from the same clinic (with permission), or is admin
+          if (!isBlogAuthor && !isClinicBlog && !isAdmin) {
+            return res.status(403).json({
+              success: false,
+              message: "You can only edit blogs from your clinic unless you are an admin",
+            });
+          }
+
+          // ✅ Check permission for updating published blogs (only for clinic roles, admin bypasses)
           if (!isAdmin && !isDoctor && clinicId) {
+            const roleForPermission = isDoctorStaff ? "doctorStaff" : isAgent ? "agent" : me.role === "clinic" ? "clinic" : null;
             const { hasPermission, error: permError } = await checkClinicPermission(
               clinicId,
               "write_blog", // Check "write_blog" module permission
               "update",
               null, // No submodule - this is a module-level check
-              me.role === "doctor" ? "doctor" : me.role === "clinic" ? "clinic" : null
+              roleForPermission
             );
             if (!hasPermission) {
               return res.status(403).json({
@@ -244,7 +348,7 @@ export default async function handler(req, res) {
       case "DELETE":
         try {
           const me = await getUserFromReq(req);
-          if (!me || !requireRole(me, ["clinic", "doctor", "admin"])) {
+          if (!me || !requireRole(me, ["clinic", "doctor", "doctorStaff", "agent", "admin"])) {
             return res.status(403).json({ success: false, message: "Access denied" });
           }
 
@@ -264,28 +368,50 @@ export default async function handler(req, res) {
               .json({ success: false, message: "Published blog not found" });
           }
 
-          // Check if user owns the blog or is admin
-          if (existingBlog.postedBy.toString() !== me._id.toString() && me.role !== "admin") {
+          const { clinicId, error, isAdmin } = await getClinicIdFromUser(me);
+          const isDoctor = me.role === "doctor";
+          const isDoctorStaff = me.role === "doctorStaff";
+          const isAgent = me.role === "agent";
+          if (error && !isAdmin && !isDoctor && !isDoctorStaff && !isAgent) {
+            return res.status(404).json({ success: false, message: error });
+          }
+
+          // Check if user owns the blog, is from the same clinic (for agent/doctorStaff), or is admin
+          const isBlogAuthor = existingBlog.postedBy.toString() === me._id.toString();
+          
+          // For agent/doctorStaff, check if blog is from their clinic
+          let isClinicBlog = false;
+          if ((isAgent || isDoctorStaff) && clinicId && !isBlogAuthor) {
+            const clinic = await Clinic.findById(clinicId).select("owner");
+            if (clinic) {
+              const clinicUsers = await User.find({
+                $or: [
+                  { _id: clinic.owner },
+                  { clinicId: clinicId, role: "doctor" },
+                ],
+              }).select("_id");
+              const clinicUserIds = clinicUsers.map(u => u._id.toString());
+              isClinicBlog = clinicUserIds.includes(existingBlog.postedBy.toString());
+            }
+          }
+
+          // Only allow if user owns the blog, is from the same clinic (with permission), or is admin
+          if (!isBlogAuthor && !isClinicBlog && !isAdmin) {
             return res.status(403).json({
               success: false,
               message: "Not allowed to access this blog",
             });
           }
 
-          const { clinicId, error, isAdmin } = await getClinicIdFromUser(me);
-          const isDoctor = me.role === "doctor";
-          if (error && !isAdmin && !isDoctor) {
-            return res.status(404).json({ success: false, message: error });
-          }
-
-          // ✅ Check permission for deleting published blogs (only for clinic, admin bypasses)
+          // ✅ Check permission for deleting published blogs (only for clinic roles, admin bypasses)
           if (!isAdmin && !isDoctor && clinicId) {
+            const roleForPermission = isDoctorStaff ? "doctorStaff" : isAgent ? "agent" : me.role === "clinic" ? "clinic" : null;
             const { hasPermission, error: permError } = await checkClinicPermission(
               clinicId,
               "write_blog", // Check "write_blog" module permission
               "delete",
               null, // No submodule - this is a module-level check
-              me.role === "doctor" ? "doctor" : me.role === "clinic" ? "clinic" : null
+              roleForPermission
             );
             if (!hasPermission) {
               return res.status(403).json({

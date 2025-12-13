@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/router';
 import ClinicLayout from '../../components/ClinicLayout';
 import withClinicAuth from '../../components/withClinicAuth';
 import type { NextPageWithLayout } from '../_app';
@@ -8,10 +9,32 @@ import GetAuthorCommentsAndLikes from '../../components/GetAuthorCommentsAndLike
 import BlogEditor from '../../components/createBlog';
 import axios from 'axios';
 import { PlusCircle, X, FileText, BarChart3, BookOpen } from 'lucide-react';
+import { useAgentPermissions } from '../../hooks/useAgentPermissions';
 
 type TabType = 'published' | 'analytics';
 
+const TOKEN_PRIORITY = [
+  "clinicToken",
+  "doctorToken",
+  "agentToken",
+  "staffToken",
+  "userToken",
+  "adminToken",
+];
+
+const getStoredToken = () => {
+  if (typeof window === "undefined") return null;
+  for (const key of TOKEN_PRIORITY) {
+    const value =
+      localStorage.getItem(key) ||
+      sessionStorage.getItem(key);
+    if (value) return value;
+  }
+  return null;
+};
+
 function ClinicBlog() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabType>('published');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -26,21 +49,93 @@ function ClinicBlog() {
     canDeleteAnalytics: false,
   });
   const [permissionsLoaded, setPermissionsLoaded] = useState(false);
+  const [hasAgentToken, setHasAgentToken] = useState(false);
+  const [isAgentRoute, setIsAgentRoute] = useState(false);
 
   useEffect(() => {
-    const fetchPermissions = async () => {
+    if (typeof window === "undefined") return;
+    const syncTokens = () => {
+      setHasAgentToken(Boolean(localStorage.getItem("agentToken")));
+    };
+    syncTokens();
+    window.addEventListener("storage", syncTokens);
+    return () => window.removeEventListener("storage", syncTokens);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const agentPath =
+      router?.pathname?.startsWith("/agent/") ||
+      window.location.pathname?.startsWith("/agent/");
+    setIsAgentRoute(agentPath && hasAgentToken);
+  }, [router.pathname, hasAgentToken]);
+
+  // Use agent permissions hook for agent routes
+  const agentPermissionsHook: any = useAgentPermissions(isAgentRoute ? "clinic_write_blog" : null);
+  const agentPermissions = agentPermissionsHook?.permissions || {
+    canCreate: false,
+    canRead: false,
+    canUpdate: false,
+    canDelete: false,
+    canAll: false,
+  };
+  const agentPermissionsLoading = agentPermissionsHook?.loading || false;
+
+  // Handle agent permissions
+  useEffect(() => {
+    if (!isAgentRoute) return;
+    if (agentPermissionsLoading) return;
+    
+    // ✅ Ensure permissions are properly set from hook response
+    const newPermissions = {
+      canCreate: Boolean(agentPermissions.canAll || agentPermissions.canCreate),
+      canReadPublished: Boolean(agentPermissions.canAll || agentPermissions.canRead),
+      canUpdatePublished: Boolean(agentPermissions.canAll || agentPermissions.canUpdate),
+      canDeletePublished: Boolean(agentPermissions.canAll || agentPermissions.canDelete),
+      canReadAnalytics: Boolean(agentPermissions.canAll || agentPermissions.canRead),
+      canUpdateAnalytics: Boolean(agentPermissions.canAll || agentPermissions.canUpdate),
+      canDeleteAnalytics: Boolean(agentPermissions.canAll || agentPermissions.canDelete),
+    };
+    
+    console.log('Setting permissions from agentPermissions:', {
+      agentPermissions,
+      newPermissions,
+      hasAnyPermission: newPermissions.canCreate || newPermissions.canReadPublished || newPermissions.canUpdatePublished || newPermissions.canDeletePublished
+    });
+    
+    setPermissions(newPermissions);
+    setPermissionsLoaded(true);
+  }, [isAgentRoute, agentPermissions, agentPermissionsLoading]);
+
+  // Handle clinic permissions
+  useEffect(() => {
+    if (isAgentRoute) return;
+    let isMounted = true;
+    const token = getStoredToken();
+    if (!token) {
+      setPermissions({
+        canCreate: false,
+        canReadPublished: false,
+        canUpdatePublished: false,
+        canDeletePublished: false,
+        canReadAnalytics: false,
+        canUpdateAnalytics: false,
+        canDeleteAnalytics: false,
+      });
+      setPermissionsLoaded(true);
+      return;
+    }
+
+    const fetchClinicPermissions = async () => {
       try {
-        const token = localStorage.getItem("clinicToken");
-        if (!token) {
-          setPermissionsLoaded(true);
-          return;
-        }
+        setPermissionsLoaded(false);
         const res = await axios.get("/api/clinic/permissions", {
           headers: { Authorization: `Bearer ${token}` }
         });
         const data = res.data;
         console.log('[Blog Form] Permissions API response:', JSON.stringify(data, null, 2));
         
+        if (!isMounted) return;
         if (data.success && data.data) {
           // Find "write_blog" module permission (not submodule)
           const modulePermission = data.data.permissions?.find((p: any) => {
@@ -70,7 +165,6 @@ function ClinicBlog() {
             };
 
             // Module-level permissions - check each action independently
-            // If user only has "create", they can ONLY create, not read/update/delete
             const moduleAll = isTrue(actions.all);
             const moduleCreate = isTrue(actions.create);
             const moduleRead = isTrue(actions.read);
@@ -86,24 +180,17 @@ function ClinicBlog() {
             });
             
             // CRUD permissions based on module-level actions
-            // If "all" is true, grant everything
-            // Otherwise, check each action independently
-            setPermissions({
-              // Create: Module "all" OR module "create"
-              canCreate: moduleAll || moduleCreate,
-              // Read Published: Module "all" OR module "read" (independent of create)
-              canReadPublished: moduleAll || moduleRead,
-              // Update Published: Module "all" OR module "update" (independent of create)
-              canUpdatePublished: moduleAll || moduleUpdate,
-              // Delete Published: Module "all" OR module "delete" (independent of create)
-              canDeletePublished: moduleAll || moduleDelete,
-              // Read Analytics: Module "all" OR module "read" (same as read published)
-              canReadAnalytics: moduleAll || moduleRead,
-              // Update Analytics: Module "all" OR module "update" (same as update published)
-              canUpdateAnalytics: moduleAll || moduleUpdate,
-              // Delete Analytics: Module "all" OR module "delete" (same as delete published)
-              canDeleteAnalytics: moduleAll || moduleDelete,
-            });
+            if (isMounted) {
+              setPermissions({
+                canCreate: moduleAll || moduleCreate,
+                canReadPublished: moduleAll || moduleRead,
+                canUpdatePublished: moduleAll || moduleUpdate,
+                canDeletePublished: moduleAll || moduleDelete,
+                canReadAnalytics: moduleAll || moduleRead,
+                canUpdateAnalytics: moduleAll || moduleUpdate,
+                canDeleteAnalytics: moduleAll || moduleDelete,
+              });
+            }
           } else {
             // No permissions found for write_blog module
             console.log('[Blog Form] No write_blog module permission found. Available modules:', 
@@ -112,18 +199,35 @@ function ClinicBlog() {
             // If no permissions are set up at all, allow access (backward compatibility)
             // Otherwise, deny access
             const hasAnyPermissions = data.data.permissions && data.data.permissions.length > 0;
-            setPermissions({
-              canCreate: !hasAnyPermissions,
-              canReadPublished: !hasAnyPermissions,
-              canUpdatePublished: !hasAnyPermissions,
-              canDeletePublished: !hasAnyPermissions,
-              canReadAnalytics: !hasAnyPermissions,
-              canUpdateAnalytics: !hasAnyPermissions,
-              canDeleteAnalytics: !hasAnyPermissions,
-            });
+            if (isMounted) {
+              setPermissions({
+                canCreate: !hasAnyPermissions,
+                canReadPublished: !hasAnyPermissions,
+                canUpdatePublished: !hasAnyPermissions,
+                canDeletePublished: !hasAnyPermissions,
+                canReadAnalytics: !hasAnyPermissions,
+                canUpdateAnalytics: !hasAnyPermissions,
+                canDeleteAnalytics: !hasAnyPermissions,
+              });
+            }
           }
         } else {
           // API failed or no permissions data
+          if (isMounted) {
+            setPermissions({
+              canCreate: false,
+              canReadPublished: false,
+              canUpdatePublished: false,
+              canDeletePublished: false,
+              canReadAnalytics: false,
+              canUpdateAnalytics: false,
+              canDeleteAnalytics: false,
+            });
+          }
+        }
+      } catch (err: any) {
+        console.error("Error fetching permissions:", err);
+        if (isMounted) {
           setPermissions({
             canCreate: false,
             canReadPublished: false,
@@ -134,14 +238,19 @@ function ClinicBlog() {
             canDeleteAnalytics: false,
           });
         }
-        setPermissionsLoaded(true);
-      } catch (err: any) {
-        console.error("Error fetching permissions:", err);
-        setPermissionsLoaded(true);
+      } finally {
+        if (isMounted) {
+          setPermissionsLoaded(true);
+        }
       }
     };
-    fetchPermissions();
-  }, []);
+
+    fetchClinicPermissions();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isAgentRoute]);
 
   const handleBlogCreated = () => {
     setRefreshKey(prev => prev + 1);
@@ -229,7 +338,7 @@ function ClinicBlog() {
             <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
               <PublishedBlogs
                 key={`published-${refreshKey}`}
-                tokenKey="clinicToken"
+                tokenKey={isAgentRoute ? "agentToken" : "clinicToken"}
                 permissions={{
                   canRead: permissions.canReadPublished,
                   canUpdate: permissions.canUpdatePublished,
@@ -283,7 +392,7 @@ function ClinicBlog() {
             <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
               <GetAuthorCommentsAndLikes
                 key={`analytics-${refreshKey}`}
-                tokenKey="clinicToken"
+                tokenKey={isAgentRoute ? "agentToken" : "clinicToken"}
                 permissions={{
                   canRead: permissions.canReadAnalytics,
                   canUpdate: permissions.canUpdateAnalytics,
@@ -352,7 +461,7 @@ function ClinicBlog() {
             <div className="flex-1 overflow-hidden bg-gray-50">
               <BlogEditor 
                 key={blogEditorKey}
-                tokenKey="clinicToken" 
+                tokenKey={isAgentRoute ? "agentToken" : "clinicToken"} 
                 skipLandingPage={true}
                 onClose={() => {
                   setIsCreateModalOpen(false);
