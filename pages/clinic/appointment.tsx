@@ -351,6 +351,11 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
     appointment: Appointment;
     position: { top: number; left: number };
   } | null>(null);
+  
+  // Drag and drop state for appointments
+  const [draggedAppointmentId, setDraggedAppointmentId] = useState<string | null>(null);
+  const [dragOverDoctorId, setDragOverDoctorId] = useState<string | null>(null);
+  const [dragOverTimeSlot, setDragOverTimeSlot] = useState<{ doctorId: string; minutes: number } | null>(null);
 
   function getAuthHeaders(): Record<string, string> {
     if (typeof window === "undefined") return {};
@@ -697,33 +702,204 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
 
 
   // Fetch appointments when date changes
-  useEffect(() => {
-    const loadAppointments = async () => {
-      try {
-        const res = await axios.get(`/api/clinic/appointments?date=${selectedDate}`, {
-          headers: getAuthHeaders(),
-        });
+  const loadAppointments = useCallback(async () => {
+    try {
+      const res = await axios.get(`/api/clinic/appointments?date=${selectedDate}`, {
+        headers: getAuthHeaders(),
+      });
 
-        if (res.data.success) {
-          const appointmentsData = res.data.appointments || [];
-          setAppointments(appointmentsData);
-          if (appointmentsData.length > 0) {
-            toast.success(`Loaded ${appointmentsData.length} appointment(s)`, { duration: 2000 });
-          }
-        } else {
-          toast.error(res.data.message || "Failed to load appointments", { duration: 3000 });
+      if (res.data.success) {
+        const appointmentsData = res.data.appointments || [];
+        setAppointments(appointmentsData);
+        if (appointmentsData.length > 0) {
+          toast.success(`Loaded ${appointmentsData.length} appointment(s)`, { duration: 2000 });
         }
-      } catch (err: any) {
-        console.error("Error loading appointments", err);
-        const errorMsg = err.response?.data?.message || "Failed to load appointments";
-        toast.error(errorMsg, { duration: 3000 });
+      } else {
+        toast.error(res.data.message || "Failed to load appointments", { duration: 3000 });
       }
-    };
+    } catch (err: any) {
+      console.error("Error loading appointments", err);
+      const errorMsg = err.response?.data?.message || "Failed to load appointments";
+      toast.error(errorMsg, { duration: 3000 });
+    }
+  }, [selectedDate, routeContext]);
 
+  useEffect(() => {
     if (selectedDate) {
       loadAppointments();
     }
-  }, [selectedDate]);
+  }, [selectedDate, loadAppointments]);
+
+  // Update appointment function
+  const updateAppointment = useCallback(async (
+    appointmentId: string,
+    updates: {
+      doctorId?: string;
+      fromTime?: string;
+      toTime?: string;
+      roomId?: string;
+    }
+  ) => {
+    try {
+      const appointment = appointments.find(apt => apt._id === appointmentId);
+      if (!appointment) {
+        toast.error("Appointment not found", { duration: 3000 });
+        return;
+      }
+
+      // Calculate new times if needed
+      let newFromTime = updates.fromTime || appointment.fromTime;
+      let newToTime = updates.toTime || appointment.toTime;
+      
+      // If only time is changed, preserve duration
+      if (updates.fromTime && !updates.toTime) {
+        const oldDuration = timeStringToMinutes(appointment.toTime) - timeStringToMinutes(appointment.fromTime);
+        const newFromMinutes = timeStringToMinutes(updates.fromTime);
+        const newToMinutes = newFromMinutes + oldDuration;
+        newToTime = `${String(Math.floor(newToMinutes / 60)).padStart(2, "0")}:${String(newToMinutes % 60).padStart(2, "0")}`;
+      }
+
+      const updateData = {
+        patientId: appointment.patientId,
+        doctorId: updates.doctorId || appointment.doctorId,
+        roomId: updates.roomId || appointment.roomId,
+        status: appointment.status,
+        followType: appointment.followType,
+        startDate: appointment.startDate,
+        fromTime: newFromTime,
+        toTime: newToTime,
+        referral: appointment.referral,
+        emergency: appointment.emergency,
+        notes: appointment.notes,
+      };
+
+      const res = await axios.put(
+        `/api/clinic/update-appointment/${appointmentId}`,
+        updateData,
+        { headers: getAuthHeaders() }
+      );
+
+      if (res.data.success) {
+        toast.success("Appointment updated successfully", { duration: 2000 });
+        // Refresh appointments
+        await loadAppointments();
+      } else {
+        toast.error(res.data.message || "Failed to update appointment", { duration: 3000 });
+      }
+    } catch (err: any) {
+      console.error("Error updating appointment", err);
+      const errorMsg = err.response?.data?.message || "Failed to update appointment";
+      toast.error(errorMsg, { duration: 3000 });
+    }
+  }, [appointments, loadAppointments, routeContext]);
+
+  // Drag handlers for appointments
+  const handleAppointmentDragStart = (e: React.DragEvent, appointmentId: string) => {
+    e.stopPropagation();
+    setDraggedAppointmentId(appointmentId);
+    // Set drag image
+    if (e.dataTransfer) {
+      e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.setData("appointmentId", appointmentId);
+    }
+  };
+
+  const handleAppointmentDragEnd = () => {
+    setDraggedAppointmentId(null);
+    setDragOverDoctorId(null);
+    setDragOverTimeSlot(null);
+  };
+
+  // Drop handler for doctor columns
+  const handleDoctorColumnDrop = async (e: React.DragEvent, doctorId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (!draggedAppointmentId) return;
+
+    const appointment = appointments.find(apt => apt._id === draggedAppointmentId);
+    if (!appointment) return;
+
+    // If dropped on same doctor, do nothing
+    if (appointment.doctorId === doctorId) {
+      setDraggedAppointmentId(null);
+      setDragOverDoctorId(null);
+      return;
+    }
+
+    // Update doctor
+    await updateAppointment(draggedAppointmentId, { doctorId });
+    
+    setDraggedAppointmentId(null);
+    setDragOverDoctorId(null);
+  };
+
+  // Drop handler for time slots
+  const handleTimeSlotDrop = async (
+    e: React.DragEvent,
+    doctorId: string,
+    slotMinutes: number
+  ) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (!draggedAppointmentId) return;
+
+    const appointment = appointments.find(apt => apt._id === draggedAppointmentId);
+    if (!appointment) return;
+
+    // Calculate new time
+    const newFromTime = `${String(Math.floor(slotMinutes / 60)).padStart(2, "0")}:${String(slotMinutes % 60).padStart(2, "0")}`;
+    
+    // Check if dropping on the same doctor and same time
+    const currentFromMinutes = timeStringToMinutes(appointment.fromTime);
+    if (appointment.doctorId === doctorId && currentFromMinutes === slotMinutes) {
+      setDraggedAppointmentId(null);
+      setDragOverTimeSlot(null);
+      return;
+    }
+    
+    // Update both doctor and time
+    await updateAppointment(draggedAppointmentId, {
+      doctorId,
+      fromTime: newFromTime,
+    });
+    
+    setDraggedAppointmentId(null);
+    setDragOverTimeSlot(null);
+  };
+
+  // Drag over handlers
+  const handleDoctorColumnDragOver = (e: React.DragEvent, doctorId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (draggedAppointmentId) {
+      setDragOverDoctorId(doctorId);
+      if (e.dataTransfer) {
+        e.dataTransfer.dropEffect = "move";
+      }
+    }
+  };
+
+  const handleTimeSlotDragOver = (
+    e: React.DragEvent,
+    doctorId: string,
+    slotMinutes: number
+  ) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (draggedAppointmentId) {
+      setDragOverTimeSlot({ doctorId, minutes: slotMinutes });
+      if (e.dataTransfer) {
+        e.dataTransfer.dropEffect = "move";
+      }
+    }
+  };
+
+  const handleDragLeave = () => {
+    setDragOverDoctorId(null);
+    setDragOverTimeSlot(null);
+  };
 
   // Get initials for avatar
   const getInitials = (name: string): string => {
@@ -1229,12 +1405,12 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
           },
         }}
       />
-      <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-2 sm:p-3">
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm p-2 sm:p-3">
         <div className="flex flex-col gap-2 mb-2">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2">
             <div>
-              <h1 className="text-base sm:text-lg font-semibold text-gray-900">Appointment Schedule</h1>
-              <p className="text-xs text-gray-700">
+              <h1 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-100">Appointment Schedule</h1>
+              <p className="text-xs text-gray-700 dark:text-gray-300">
                 {clinic?.name} • {clinic?.timings || "No timings set"}
               </p>
             </div>
@@ -1246,7 +1422,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                     current.setDate(current.getDate() - 1);
                     setSelectedDate(current.toISOString().split("T")[0]);
                   }}
-                  className="px-2 py-1 rounded border border-gray-300 text-xs font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                  className="px-2 py-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
                   type="button"
                 >
                   Prev
@@ -1256,7 +1432,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                     setSelectedDate(new Date().toISOString().split("T")[0]);
                     toast.success("Switched to today", { duration: 2000 });
                   }}
-                  className="px-2 py-1 rounded border border-gray-900 bg-gray-900 text-xs font-medium text-white hover:bg-gray-800 transition-colors"
+                  className="px-2 py-1 rounded border border-gray-900 dark:border-gray-100 bg-gray-900 dark:bg-gray-100 text-xs font-medium text-white dark:text-gray-900 hover:bg-gray-800 dark:hover:bg-gray-200 transition-colors"
                   type="button"
                 >
                   Today
@@ -1267,14 +1443,14 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                     current.setDate(current.getDate() + 1);
                     setSelectedDate(current.toISOString().split("T")[0]);
                   }}
-                  className="px-2 py-1 rounded border border-gray-300 text-xs font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                  className="px-2 py-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
                   type="button"
                 >
                   Next
                 </button>
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-0.5">Date</label>
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-0.5">Date</label>
                 <input
                   type="date"
                   value={selectedDate}
@@ -1285,7 +1461,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                       icon: "ℹ️",
                     });
                   }}
-                  className="border border-gray-300 rounded px-2 py-1 text-xs focus:ring-1 focus:ring-gray-900 focus:border-gray-900 transition-all"
+                  className="border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded px-2 py-1 text-xs focus:ring-1 focus:ring-gray-900 dark:focus:ring-gray-100 focus:border-gray-900 dark:focus:border-gray-100 transition-all"
                 />
               </div>
             </div>
@@ -1297,28 +1473,28 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                   <button
                     type="button"
                     onClick={() => setDoctorFilterOpen((prev) => !prev)}
-                    className="inline-flex items-center gap-1 rounded border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-gray-900"
+                    className="inline-flex items-center gap-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-2 py-1 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-1 focus:ring-gray-900 dark:focus:ring-gray-100"
                   >
                     Doctors
-                    <span className="text-[10px] text-gray-700">
+                    <span className="text-[10px] text-gray-700 dark:text-gray-300">
                       ({visibleDoctorIds.length}/{doctorStaff.length})
                     </span>
                   </button>
                   {doctorFilterOpen && (
-                    <div className="absolute z-40 mt-1 w-48 rounded border border-gray-200 bg-white p-2 shadow-lg">
-                      <div className="mb-1 flex items-center justify-between text-[10px] text-gray-700">
+                    <div className="absolute z-40 mt-1 w-48 rounded border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-2 shadow-lg">
+                      <div className="mb-1 flex items-center justify-between text-[10px] text-gray-700 dark:text-gray-300">
                         <span>Doctors</span>
                         <div className="flex gap-1.5">
                           <button
                             type="button"
-                            className="text-blue-600 hover:text-blue-800 text-[10px]"
+                            className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 text-[10px]"
                             onClick={handleSelectAllDoctors}
                           >
                             All
                           </button>
                           <button
                             type="button"
-                            className="text-blue-600 hover:text-blue-800 text-[10px]"
+                            className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 text-[10px]"
                             onClick={handleClearDoctors}
                           >
                             Clear
@@ -1327,10 +1503,10 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                       </div>
                       <div className="max-h-48 space-y-1 overflow-y-auto pr-0.5">
                         {doctorStaff.map((doctor) => (
-                          <label key={doctor._id} className="flex items-center gap-1.5 text-xs text-gray-700">
+                          <label key={doctor._id} className="flex items-center gap-1.5 text-xs text-gray-700 dark:text-gray-300">
                             <input
                               type="checkbox"
-                              className="h-3 w-3 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                              className="h-3 w-3 rounded border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-blue-600 focus:ring-blue-500 dark:focus:ring-blue-400"
                               checked={visibleDoctorIds.includes(doctor._id)}
                               onChange={() => handleToggleDoctorVisibility(doctor._id)}
                             />
@@ -1347,28 +1523,28 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                   <button
                     type="button"
                     onClick={() => setRoomFilterOpen((prev) => !prev)}
-                    className="inline-flex items-center gap-1 rounded border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-gray-900"
+                    className="inline-flex items-center gap-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-2 py-1 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-1 focus:ring-gray-900 dark:focus:ring-gray-100"
                   >
                     Rooms
-                    <span className="text-[10px] text-gray-700">
+                    <span className="text-[10px] text-gray-700 dark:text-gray-300">
                       ({visibleRoomIds.length}/{rooms.length})
                     </span>
                   </button>
                   {roomFilterOpen && (
-                    <div className="absolute z-40 mt-1 w-48 rounded border border-gray-200 bg-white p-2 shadow-lg">
-                      <div className="mb-1 flex items-center justify-between text-[10px] text-gray-700">
+                    <div className="absolute z-40 mt-1 w-48 rounded border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-2 shadow-lg">
+                      <div className="mb-1 flex items-center justify-between text-[10px] text-gray-700 dark:text-gray-300">
                         <span>Rooms</span>
                         <div className="flex gap-1.5">
                           <button
                             type="button"
-                            className="text-blue-600 hover:text-blue-800 text-[10px]"
+                            className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 text-[10px]"
                             onClick={handleSelectAllRooms}
                           >
                             All
                           </button>
                           <button
                             type="button"
-                            className="text-blue-600 hover:text-blue-800 text-[10px]"
+                            className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 text-[10px]"
                             onClick={handleClearRooms}
                           >
                             Clear
@@ -1377,10 +1553,10 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                       </div>
                       <div className="max-h-48 space-y-1 overflow-y-auto pr-0.5">
                         {rooms.map((room) => (
-                          <label key={room._id} className="flex items-center gap-1.5 text-xs text-gray-700">
+                          <label key={room._id} className="flex items-center gap-1.5 text-xs text-gray-700 dark:text-gray-300">
                             <input
                               type="checkbox"
-                              className="h-3 w-3 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                              className="h-3 w-3 rounded border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-blue-600 focus:ring-blue-500 dark:focus:ring-blue-400"
                               checked={visibleRoomIds.includes(room._id)}
                               onChange={() => handleToggleRoomVisibility(room._id)}
                             />
@@ -1397,10 +1573,10 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                 <button
                   type="button"
                   onClick={() => setCustomTimeSlotModalOpen(true)}
-                  className={`inline-flex items-center gap-1 rounded border px-2 py-1 text-xs font-medium transition-colors focus:outline-none focus:ring-1 focus:ring-gray-900 ${
+                  className={`inline-flex items-center gap-1 rounded border px-2 py-1 text-xs font-medium transition-colors focus:outline-none focus:ring-1 focus:ring-gray-900 dark:focus:ring-gray-100 ${
                     useCustomTimeSlots
-                      ? "border-purple-500 bg-purple-50 text-purple-700 hover:bg-purple-100"
-                      : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+                      ? "border-purple-500 dark:border-purple-400 bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/50"
+                      : "border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600"
                   }`}
                 >
                   <Clock className="w-3 h-3" />
@@ -1418,20 +1594,20 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
 
         {doctorStaff.length === 0 && rooms.length === 0 ? (
           <div className="text-center py-8">
-            <div className="w-8 h-8 mx-auto mb-2 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 text-sm">
+            <div className="w-8 h-8 mx-auto mb-2 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-gray-400 dark:text-gray-500 text-sm">
               👨‍⚕️
             </div>
-            <p className="text-xs text-gray-700">No doctor staff or rooms available.</p>
-            <p className="text-[10px] text-gray-700 mt-1">Add doctor staff and rooms to view their schedules.</p>
+            <p className="text-xs text-gray-700 dark:text-gray-300">No doctor staff or rooms available.</p>
+            <p className="text-[10px] text-gray-700 dark:text-gray-400 mt-1">Add doctor staff and rooms to view their schedules.</p>
           </div>
         ) : (
-          <div className="border border-gray-200 rounded overflow-hidden bg-white">
+          <div className="border border-gray-200 dark:border-gray-700 rounded overflow-hidden bg-white dark:bg-gray-800">
             {/* Scrollable container */}
             <div className="overflow-x-auto max-h-[75vh] overflow-y-auto">
             {/* Header with doctor names and rooms */}
-              <div className="flex bg-gray-50 border-b border-gray-200 sticky top-0 z-20 min-w-max">
-                <div className="w-20 sm:w-24 flex-shrink-0 border-r border-gray-200 p-1 sm:p-1.5 bg-white sticky left-0 z-30">
-                  <div className="flex items-center gap-1 text-[10px] sm:text-xs font-semibold text-gray-900">
+              <div className="flex bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-20 min-w-max">
+                <div className="w-20 sm:w-24 flex-shrink-0 border-r border-gray-200 dark:border-gray-700 p-1 sm:p-1.5 bg-white dark:bg-gray-800 sticky left-0 z-30">
+                  <div className="flex items-center gap-1 text-[10px] sm:text-xs font-semibold text-gray-900 dark:text-gray-100">
                     <Clock className="w-3 h-3" />
                   <span>Time</span>
                 </div>
@@ -1446,7 +1622,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                     return (
                       <div
                         key={columnKey}
-                        className={`flex-1 min-w-[120px] sm:min-w-[140px] border-r border-gray-200 p-1 sm:p-1.5 relative bg-white transition-all ${
+                        className={`flex-1 min-w-[120px] sm:min-w-[140px] border-r border-gray-200 dark:border-gray-700 p-1 sm:p-1.5 relative bg-white dark:bg-gray-800 transition-all ${
                           isDragged ? "opacity-50" : ""
                         } ${draggedColumnId ? "cursor-move" : ""}`}
                         draggable
@@ -1465,14 +1641,14 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                         title="Drag to reorder columns"
                 >
                     <div className="flex items-center gap-1.5">
-                      <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-700 font-semibold text-[10px] sm:text-xs flex-shrink-0">
+                      <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 flex items-center justify-center text-blue-700 dark:text-blue-300 font-semibold text-[10px] sm:text-xs flex-shrink-0">
                       {getInitials(doctor.name)}
                     </div>
                           <div className="min-w-0 flex-1">
-                        <p className="text-[10px] sm:text-xs font-semibold text-gray-900 truncate">{doctor.name}</p>
+                        <p className="text-[10px] sm:text-xs font-semibold text-gray-900 dark:text-gray-100 truncate">{doctor.name}</p>
                     </div>
                           <div className="flex-shrink-0 cursor-grab active:cursor-grabbing opacity-40 hover:opacity-70 transition-opacity" title="Drag to reorder">
-                            <svg className="w-3 h-3 sm:w-4 sm:h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-3 h-3 sm:w-4 sm:h-4 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
                             </svg>
                   </div>
@@ -1484,7 +1660,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                     return (
                       <div
                         key={columnKey}
-                        className={`flex-1 min-w-[120px] sm:min-w-[140px] border-r border-gray-200 last:border-r-0 p-1 sm:p-1.5 bg-white transition-all room-column ${
+                        className={`flex-1 min-w-[120px] sm:min-w-[140px] border-r border-gray-200 dark:border-gray-700 last:border-r-0 p-1 sm:p-1.5 bg-white dark:bg-gray-800 transition-all room-column ${
                           isDragged ? "opacity-50" : ""
                         } ${draggedColumnId ? "cursor-move" : ""}`}
                         draggable
@@ -1501,14 +1677,14 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                         title="Drag to reorder columns"
                 >
                     <div className="flex items-center gap-1.5">
-                      <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-700 font-semibold text-[10px] sm:text-xs flex-shrink-0">
+                      <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 flex items-center justify-center text-emerald-700 dark:text-emerald-300 font-semibold text-[10px] sm:text-xs flex-shrink-0">
                       🏥
                     </div>
                           <div className="min-w-0 flex-1">
-                        <p className="text-[10px] sm:text-xs font-semibold text-gray-900 truncate">{room.name}</p>
+                        <p className="text-[10px] sm:text-xs font-semibold text-gray-900 dark:text-gray-100 truncate">{room.name}</p>
                     </div>
                           <div className="flex-shrink-0 cursor-grab active:cursor-grabbing opacity-40 hover:opacity-70 transition-opacity" title="Drag to reorder">
-                            <svg className="w-3 h-3 sm:w-4 sm:h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-3 h-3 sm:w-4 sm:h-4 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
                             </svg>
                   </div>
@@ -1524,14 +1700,14 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
               {timeSlots.map((slot) => {
                 const rowStartMinutes = timeStringToMinutes(slot.time);
                 return (
-                  <div key={slot.time} className="flex border-b border-gray-100 hover:bg-gray-50/50 transition-colors min-w-max">
+                  <div key={slot.time} className="flex border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50/50 dark:hover:bg-gray-700/50 transition-colors min-w-max">
                     {/* Time column */}
                     <div
-                      className="w-20 sm:w-24 flex-shrink-0 border-r border-gray-200 p-1 sm:p-1.5 bg-white relative sticky left-0 z-10"
+                      className="w-20 sm:w-24 flex-shrink-0 border-r border-gray-200 dark:border-gray-700 p-1 sm:p-1.5 bg-white dark:bg-gray-800 relative sticky left-0 z-10"
                       style={{ height: ROW_HEIGHT_PX }}
                     >
-                      <p className="text-[10px] sm:text-xs font-semibold text-gray-900">{slot.displayTime}</p>
-                      <div className="absolute left-0 right-0 top-1/2 border-t border-gray-200" />
+                      <p className="text-[10px] sm:text-xs font-semibold text-gray-900 dark:text-gray-100">{slot.displayTime}</p>
+                      <div className="absolute left-0 right-0 top-1/2 border-t border-gray-200 dark:border-gray-700" />
                     </div>
 
                     {/* Unified columns (doctors and rooms in order) */}
@@ -1542,14 +1718,18 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
 
                       const isInSelection = timeDragSelection.isDragging && timeDragSelection.doctorId === doctor._id;
 
+                      const isDragOver = dragOverDoctorId === doctor._id;
                       return (
                         <div
                             key={`${slot.time}-doctor-${doctor._id}`}
-                          className="flex-1 min-w-[120px] sm:min-w-[140px] border-r border-gray-200 relative bg-white"
+                          className={`flex-1 min-w-[120px] sm:min-w-[140px] border-r border-gray-200 dark:border-gray-700 relative bg-white dark:bg-gray-800 transition-colors ${isDragOver ? "bg-blue-50 dark:bg-blue-900/30 border-blue-300 dark:border-blue-600" : ""}`}
                           style={{ height: ROW_HEIGHT_PX }}
                           data-doctor-id={doctor._id}
+                          onDragOver={(e) => handleDoctorColumnDragOver(e, doctor._id)}
+                          onDragLeave={handleDragLeave}
+                          onDrop={(e) => handleDoctorColumnDrop(e, doctor._id)}
                         >
-                          <div className="absolute left-0 right-0 top-1/2 border-t border-gray-200 pointer-events-none" />
+                          <div className="absolute left-0 right-0 top-1/2 border-t border-gray-200 dark:border-gray-700 pointer-events-none" />
                           <div className="flex flex-col h-full">
                             {[0, SLOT_INTERVAL_MINUTES].map((offset) => {
                               const subSlotTime = addMinutesToTime(slot.time, offset);
@@ -1571,22 +1751,27 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                               
                               // Check if this slot is in the drag selection
                               const isSelected = isInSelection && isSlotInSelection(subStartMinutes, subEndMinutes, doctor._id);
+                              const isDragOverSlot = dragOverTimeSlot?.doctorId === doctor._id && dragOverTimeSlot?.minutes === subStartMinutes;
 
                               return (
                                 <div
                                   key={`${slot.time}-${doctor._id}-${offset}`}
                                   className={`flex-1 transition-all ${
-                                    isSelected
-                                      ? "bg-blue-200 border-l-2 border-blue-500 cursor-crosshair"
+                                    isDragOverSlot
+                                      ? "bg-green-200 dark:bg-green-900/40 border-l-2 border-green-500 dark:border-green-400"
+                                      : isSelected
+                                      ? "bg-blue-200 dark:bg-blue-900/40 border-l-2 border-blue-500 dark:border-blue-400 cursor-crosshair"
                                       : canBookSlot
-                                      ? "cursor-crosshair hover:bg-blue-50 border-l-2 border-transparent hover:border-blue-400"
+                                      ? "cursor-crosshair hover:bg-blue-50 dark:hover:bg-blue-900/20 border-l-2 border-transparent hover:border-blue-400 dark:hover:border-blue-500"
                                       : isSubSlotOccupied
-                                      ? "bg-gray-50 cursor-not-allowed"
-                                      : "bg-gray-50 cursor-not-allowed"
+                                      ? "bg-gray-50 dark:bg-gray-700/50 cursor-not-allowed"
+                                      : "bg-gray-50 dark:bg-gray-700/50 cursor-not-allowed"
                                   }`}
                                   style={{ height: SUB_SLOT_HEIGHT_PX }}
                                   title={
-                                    canBookSlot
+                                    draggedAppointmentId
+                                      ? `Drop appointment here to move to ${minutesToDisplay(subStartMinutes)}`
+                                      : canBookSlot
                                       ? `Click or drag to select time range starting at ${minutesToDisplay(subStartMinutes)}`
                                       : isPastDay
                                       ? "Cannot book appointments for past dates"
@@ -1594,14 +1779,25 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                                       ? "Cannot book past time slots"
                                       : "Cannot book beyond clinic closing time"
                                   }
+                                  onDragOver={(e) => {
+                                    if (draggedAppointmentId && canBookSlot) {
+                                      handleTimeSlotDragOver(e, doctor._id, subStartMinutes);
+                                    }
+                                  }}
+                                  onDragLeave={handleDragLeave}
+                                  onDrop={(e) => {
+                                    if (draggedAppointmentId && canBookSlot) {
+                                      handleTimeSlotDrop(e, doctor._id, subStartMinutes);
+                                    }
+                                  }}
                                   onMouseDown={(e) => {
-                                    if (canBookSlot) {
+                                    if (canBookSlot && !draggedAppointmentId) {
                                       handleTimeSlotMouseDown(e, doctor._id, subStartMinutes);
                                     }
                                   }}
                                   onClick={(e) => {
                                     // Only handle click if not dragging (to avoid double-triggering)
-                                    if (canBookSlot && !timeDragSelection.isDragging) {
+                                    if (canBookSlot && !timeDragSelection.isDragging && !draggedAppointmentId) {
                                       setBookingModal({
                                         isOpen: true,
                                         doctorId: doctor._id,
@@ -1642,15 +1838,19 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                                 
                                 const statusColor = getStatusColor(apt.status);
                                 const isShortAppointment = fullHeightPx < 32;
+                                const isDragging = draggedAppointmentId === apt._id;
                                 return (
                                   <div
                                     key={apt._id}
-                                    className={`absolute left-0.5 right-0.5 rounded shadow-sm border ${statusColor.bg} ${statusColor.text} ${statusColor.border} overflow-hidden transition-all hover:shadow-md hover:scale-[1.01] cursor-pointer`}
+                                    className={`absolute left-0.5 right-0.5 rounded shadow-sm border ${statusColor.bg} ${statusColor.text} ${statusColor.border} overflow-hidden transition-all hover:shadow-md hover:scale-[1.01] cursor-move ${isDragging ? "opacity-50" : ""}`}
                                     style={{
                                       top: `${topOffset + 1}px`,
                                       height: `${fullHeightPx - 2}px`,
-                                      zIndex: 10,
+                                      zIndex: isDragging ? 50 : 10,
                                     }}
+                                    draggable
+                                    onDragStart={(e) => handleAppointmentDragStart(e, apt._id)}
+                                    onDragEnd={handleAppointmentDragEnd}
                                     onMouseEnter={(e) => {
                                       const rect = e.currentTarget.getBoundingClientRect();
                                       const tooltipWidth = 200;
@@ -1696,6 +1896,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                                     onClick={(e) => {
                                       e.stopPropagation();
                                     }}
+                                    title="Drag to move appointment to another doctor or time slot"
                                   >
                                     <div className="h-full flex flex-col justify-between p-1">
                                       <div className="flex items-start gap-1 min-w-0">
@@ -1729,10 +1930,10 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                       return (
                         <div
                             key={`${slot.time}-room-${room._id}`}
-                          className="flex-1 min-w-[120px] sm:min-w-[140px] border-r border-gray-200 relative bg-white"
+                          className="flex-1 min-w-[120px] sm:min-w-[140px] border-r border-gray-200 dark:border-gray-700 relative bg-white dark:bg-gray-800"
                           style={{ height: ROW_HEIGHT_PX }}
                         >
-                          <div className="absolute left-0 right-0 top-1/2 border-t border-gray-200 pointer-events-none" />
+                          <div className="absolute left-0 right-0 top-1/2 border-t border-gray-200 dark:border-gray-700 pointer-events-none" />
                           <div className="flex flex-col h-full">
                             {[0, SLOT_INTERVAL_MINUTES].map((offset) => {
                               const subSlotTime = addMinutesToTime(slot.time, offset);
@@ -1757,10 +1958,10 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                                   key={`${slot.time}-${room._id}-${offset}`}
                                   className={`flex-1 transition-all ${
                                     canBookSlot
-                                      ? "cursor-pointer hover:bg-emerald-50 border-l-2 border-transparent hover:border-emerald-400"
+                                      ? "cursor-pointer hover:bg-emerald-50 dark:hover:bg-emerald-900/20 border-l-2 border-transparent hover:border-emerald-400 dark:hover:border-emerald-500"
                                       : isSubSlotOccupied
-                                      ? "bg-gray-50 cursor-not-allowed"
-                                      : "bg-gray-50 cursor-not-allowed"
+                                      ? "bg-gray-50 dark:bg-gray-700/50 cursor-not-allowed"
+                                      : "bg-gray-50 dark:bg-gray-700/50 cursor-not-allowed"
                                   }`}
                                   style={{ height: SUB_SLOT_HEIGHT_PX }}
                                   title={
@@ -1814,15 +2015,19 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                                 
                                 const statusColor = getStatusColor(apt.status);
                                 const isShortAppointment = fullHeightPx < 32;
+                                const isDragging = draggedAppointmentId === apt._id;
                                 return (
                                   <div
                                     key={apt._id}
-                                    className={`absolute left-0.5 right-0.5 rounded shadow-sm border ${statusColor.bg} ${statusColor.text} ${statusColor.border} overflow-hidden transition-all hover:shadow-md hover:scale-[1.01] cursor-pointer`}
+                                    className={`absolute left-0.5 right-0.5 rounded shadow-sm border ${statusColor.bg} ${statusColor.text} ${statusColor.border} overflow-hidden transition-all hover:shadow-md hover:scale-[1.01] cursor-move ${isDragging ? "opacity-50" : ""}`}
                                     style={{
                                       top: `${topOffset + 1}px`,
                                       height: `${fullHeightPx - 2}px`,
-                                      zIndex: 10,
+                                      zIndex: isDragging ? 50 : 10,
                                     }}
+                                    draggable
+                                    onDragStart={(e) => handleAppointmentDragStart(e, apt._id)}
+                                    onDragEnd={handleAppointmentDragEnd}
                                     onMouseEnter={(e) => {
                                       const rect = e.currentTarget.getBoundingClientRect();
                                       const tooltipWidth = 200;
@@ -1868,6 +2073,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                                     onClick={(e) => {
                                       e.stopPropagation();
                                     }}
+                                    title="Drag to move appointment to another doctor or time slot"
                                   >
                                     <div className="h-full flex flex-col justify-between p-1">
                                       <div className="flex items-start gap-1 min-w-0">
@@ -1875,15 +2081,15 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                                           <div className={`w-1 h-1 rounded-full ${statusColor.bg} ${statusColor.border} border`} />
                                         </div>
                                         <div className="flex-1 min-w-0">
-                                          <p className="truncate font-bold text-[10px] sm:text-xs leading-tight">{apt.patientName}</p>
+                                          <p className="truncate font-bold text-[10px] sm:text-xs leading-tight text-gray-900 dark:text-gray-100">{apt.patientName}</p>
                                           {!isShortAppointment && apt.patientEmrNumber && (
-                                            <p className="truncate text-[9px] opacity-85 mt-0.5 font-medium">EMR: {apt.patientEmrNumber}</p>
+                                            <p className="truncate text-[9px] opacity-85 dark:opacity-75 mt-0.5 font-medium text-gray-700 dark:text-gray-300">EMR: {apt.patientEmrNumber}</p>
                                           )}
                                         </div>
                                       </div>
                                       <div className="flex items-center gap-0.5 mt-auto">
-                                        <Clock className="w-2 h-2 opacity-90 flex-shrink-0" />
-                                        <p className="truncate text-[9px] font-semibold opacity-95 leading-tight">
+                                        <Clock className="w-2 h-2 opacity-90 dark:opacity-80 flex-shrink-0 text-gray-700 dark:text-gray-300" />
+                                        <p className="truncate text-[9px] font-semibold opacity-95 dark:opacity-85 leading-tight text-gray-700 dark:text-gray-300">
                                           {formatTime(apt.fromTime)} - {formatTime(apt.toTime)}
                                         </p>
                                       </div>
@@ -1904,7 +2110,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
           </div>
         )}
         {visibleDoctors.length === 0 && visibleRooms.length === 0 && (doctorStaff.length > 0 || rooms.length > 0) && (
-          <div className="mt-2 rounded border border-dashed border-gray-300 bg-gray-50 p-2 text-center text-xs text-gray-700">
+          <div className="mt-2 rounded border border-dashed border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/50 p-2 text-center text-xs text-gray-700 dark:text-gray-300">
             No doctor or room columns selected. Use the filters above to choose which schedules to display.
           </div>
         )}
@@ -1917,22 +2123,22 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
           onClick={() => setCustomTimeSlotModalOpen(false)}
         >
           <div
-            className="bg-white rounded-xl shadow-2xl max-w-md w-full p-4 sm:p-6"
+            className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-md w-full p-4 sm:p-6"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-gray-900">Custom Time Slots</h2>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Custom Time Slots</h2>
               <button
                 onClick={() => setCustomTimeSlotModalOpen(false)}
-                className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
+                className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors text-gray-900 dark:text-gray-100"
               >
-                <X className="w-5 h-5 text-gray-500" />
+                <X className="w-5 h-5 text-gray-500 dark:text-gray-400" />
               </button>
             </div>
             
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Use Custom Time Slots
                 </label>
                 <label className="flex items-center gap-2 cursor-pointer">
@@ -1944,39 +2150,39 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                       // Don't reset custom times when disabled - preserve them for when user re-enables
                       // The time slots will switch back to clinic timings, but custom values are preserved
                     }}
-                    className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                    className="w-4 h-4 rounded border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-purple-600 focus:ring-purple-500 dark:focus:ring-purple-400"
                   />
-                  <span className="text-sm text-gray-700">Enable custom time slots</span>
+                  <span className="text-sm text-gray-700 dark:text-gray-300">Enable custom time slots</span>
                 </label>
               </div>
 
               {useCustomTimeSlots && (
                 <>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                       Start Time
                     </label>
                     <input
                       type="time"
                       value={customStartTime}
                       onChange={(e) => setCustomStartTime(e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                      className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400 focus:border-purple-500 dark:focus:border-purple-400"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                       End Time
                     </label>
                     <input
                       type="time"
                       value={customEndTime}
                       onChange={(e) => setCustomEndTime(e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                      className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400 focus:border-purple-500 dark:focus:border-purple-400"
                     />
                   </div>
                   {customStartTime && customEndTime && (
-                    <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
-                      <p className="text-sm text-purple-700">
+                    <div className="bg-purple-50 dark:bg-purple-900/30 border border-purple-200 dark:border-purple-800 rounded-lg p-3">
+                      <p className="text-sm text-purple-700 dark:text-purple-300">
                         <strong>Preview:</strong> {formatTime(customStartTime)} - {formatTime(customEndTime)}
                       </p>
                     </div>
@@ -2003,13 +2209,13 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                       setCustomTimeSlotModalOpen(false);
                     }
                   }}
-                  className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-medium transition-colors"
+                  className="flex-1 px-4 py-2 bg-purple-600 dark:bg-purple-500 text-white rounded-lg hover:bg-purple-700 dark:hover:bg-purple-600 font-medium transition-colors"
                 >
                   Apply
                 </button>
                 <button
                   onClick={() => setCustomTimeSlotModalOpen(false)}
-                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-medium transition-colors"
+                  className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 font-medium transition-colors"
                 >
                   Cancel
                 </button>
@@ -2047,73 +2253,73 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
             left: activeDoctorTooltip.position.left,
           }}
         >
-          <div className="rounded-xl bg-white shadow-2xl border border-purple-100 overflow-hidden">
-            <div className="bg-purple-600 text-white text-xs font-semibold px-3 py-2 flex items-center gap-2 tracking-wide">
+          <div className="rounded-xl bg-white dark:bg-gray-800 shadow-2xl border border-purple-100 dark:border-purple-900/50 overflow-hidden">
+            <div className="bg-purple-600 dark:bg-purple-700 text-white text-xs font-semibold px-3 py-2 flex items-center gap-2 tracking-wide">
               Doctor Information
             </div>
             <div className="p-3 space-y-3">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center text-purple-700 font-semibold text-base">
+                <div className="w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center text-purple-700 dark:text-purple-300 font-semibold text-base">
                   {getInitials(activeDoctorTooltip.doctorName)}
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-slate-900">
+                  <p className="text-sm font-semibold text-slate-900 dark:text-gray-100">
                     {activeDoctorTooltip.doctorName}
                   </p>
-                  <p className="text-xs text-gray-700">{tooltipDoctor?.email || "No email available"}</p>
+                  <p className="text-xs text-gray-700 dark:text-gray-300">{tooltipDoctor?.email || "No email available"}</p>
                 </div>
               </div>
 
-              <div className="space-y-1 text-xs text-gray-700">
-                <p className="font-semibold text-gray-900 text-[11px] uppercase tracking-[0.2em]">
+              <div className="space-y-1 text-xs text-gray-700 dark:text-gray-300">
+                <p className="font-semibold text-gray-900 dark:text-gray-100 text-[11px] uppercase tracking-[0.2em]">
                   Departments
                 </p>
                 {tooltipDeptLoading ? (
-                  <div className="flex items-center gap-2 text-gray-700">
+                  <div className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
                     Loading...
                   </div>
                 ) : tooltipDeptError ? (
-                  <p className="text-xs text-red-500">{tooltipDeptError}</p>
+                  <p className="text-xs text-red-500 dark:text-red-400">{tooltipDeptError}</p>
                 ) : tooltipDeptList && tooltipDeptList.length > 0 ? (
                   <div className="flex flex-wrap gap-1.5">
                     {tooltipDeptList.map((dept) => (
                       <span
                         key={dept._id}
-                        className="px-2 py-0.5 rounded-full bg-white border border-gray-200 text-[11px] text-gray-700"
+                        className="px-2 py-0.5 rounded-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-[11px] text-gray-700 dark:text-gray-300"
                       >
                         {dept.name}
                       </span>
                     ))}
                   </div>
                 ) : (
-                  <p className="text-xs text-gray-700">Not assigned</p>
+                  <p className="text-xs text-gray-700 dark:text-gray-400">Not assigned</p>
                 )}
               </div>
 
               <div>
-                <p className="text-[11px] font-semibold text-gray-700 uppercase tracking-[0.2em] mb-1.5">
+                <p className="text-[11px] font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-[0.2em] mb-1.5">
                   Treatments
                 </p>
                 {tooltipLoading ? (
-                  <div className="flex items-center gap-2 text-sm text-gray-700">
+                  <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
                     <Loader2 className="w-4 h-4 animate-spin" />
                     Loading treatments...
                   </div>
                 ) : tooltipError ? (
-                  <p className="text-xs text-red-500">{tooltipError}</p>
+                  <p className="text-xs text-red-500 dark:text-red-400">{tooltipError}</p>
                 ) : tooltipTreatments && tooltipTreatments.length > 0 ? (
                   <div className="space-y-2.5 max-h-56 overflow-y-auto pr-1">
                     {tooltipTreatments.map((treatment) => (
                       <div
                         key={treatment._id}
-                        className="rounded-lg border border-gray-100 bg-gray-50/60 p-2.5"
+                        className="rounded-lg border border-gray-100 dark:border-gray-700 bg-gray-50/60 dark:bg-gray-700/60 p-2.5"
                       >
-                        <p className="text-sm font-semibold text-gray-900 truncate">
+                        <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
                           {treatment.treatmentName}
                         </p>
                         {treatment.departmentName && (
-                          <p className="text-xs text-gray-700 mt-0.5">
+                          <p className="text-xs text-gray-700 dark:text-gray-300 mt-0.5">
                             Department: <span className="font-medium">{treatment.departmentName}</span>
                           </p>
                         )}
@@ -2122,7 +2328,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                             {treatment.subcategories.map((sub, idx) => (
                               <span
                                 key={sub.slug || `${treatment._id}-${idx}`}
-                                className="px-2 py-0.5 rounded-full bg-white border border-gray-200 text-[11px] text-gray-700"
+                                className="px-2 py-0.5 rounded-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-[11px] text-gray-700 dark:text-gray-300"
                               >
                                 {sub.name}
                               </span>
@@ -2133,7 +2339,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                     ))}
                   </div>
                 ) : (
-                  <p className="text-xs text-gray-700">No treatments assigned yet.</p>
+                  <p className="text-xs text-gray-700 dark:text-gray-400">No treatments assigned yet.</p>
                 )}
               </div>
             </div>
@@ -2150,12 +2356,12 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
             left: hoveredAppointment.position.left,
           }}
         >
-          <div className="bg-white rounded-md shadow-xl border border-gray-200 overflow-hidden">
+          <div className="bg-white dark:bg-gray-800 rounded-md shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
             {/* Header */}
             <div className={`px-2 py-1 ${getStatusColor(hoveredAppointment.appointment.status).bg} ${getStatusColor(hoveredAppointment.appointment.status).text}`}>
               <div className="flex items-center justify-between gap-1">
-                <p className="text-[10px] font-bold truncate">{hoveredAppointment.appointment.patientName}</p>
-                <span className="text-[9px] font-semibold opacity-90 ml-1">{hoveredAppointment.appointment.status.toUpperCase()}</span>
+                <p className="text-[10px] font-bold truncate text-gray-900 dark:text-gray-100">{hoveredAppointment.appointment.patientName}</p>
+                <span className="text-[9px] font-semibold opacity-90 dark:opacity-80 ml-1">{hoveredAppointment.appointment.status.toUpperCase()}</span>
               </div>
             </div>
 
@@ -2163,99 +2369,99 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
             <div className="p-2 space-y-1 max-h-[300px] overflow-y-auto">
               {/* Time */}
               <div className="flex items-center gap-1.5">
-                <Clock className="w-2.5 h-2.5 text-gray-500 flex-shrink-0" />
-                <p className="text-[10px] text-gray-700 font-semibold">
+                <Clock className="w-2.5 h-2.5 text-gray-500 dark:text-gray-400 flex-shrink-0" />
+                <p className="text-[10px] text-gray-700 dark:text-gray-300 font-semibold">
                   {formatTime(hoveredAppointment.appointment.fromTime)} - {formatTime(hoveredAppointment.appointment.toTime)}
                 </p>
               </div>
 
               {/* Patient Info */}
-              <div className="space-y-0.5 pt-0.5 border-t border-gray-100">
+              <div className="space-y-0.5 pt-0.5 border-t border-gray-100 dark:border-gray-700">
                 {hoveredAppointment.appointment.patientEmrNumber && (
                   <div className="flex items-center gap-1">
-                    <span className="text-[9px] text-gray-700 font-medium">EMR:</span>
-                    <span className="text-[10px] text-gray-700 truncate">{hoveredAppointment.appointment.patientEmrNumber}</span>
+                    <span className="text-[9px] text-gray-700 dark:text-gray-300 font-medium">EMR:</span>
+                    <span className="text-[10px] text-gray-700 dark:text-gray-300 truncate">{hoveredAppointment.appointment.patientEmrNumber}</span>
                   </div>
                 )}
                 {hoveredAppointment.appointment.patientInvoiceNumber && (
                   <div className="flex items-center gap-1">
-                    <span className="text-[9px] text-gray-700 font-medium">Inv:</span>
-                    <span className="text-[10px] text-gray-700 truncate">{hoveredAppointment.appointment.patientInvoiceNumber}</span>
+                    <span className="text-[9px] text-gray-700 dark:text-gray-300 font-medium">Inv:</span>
+                    <span className="text-[10px] text-gray-700 dark:text-gray-300 truncate">{hoveredAppointment.appointment.patientInvoiceNumber}</span>
                   </div>
                 )}
                 {hoveredAppointment.appointment.patientGender && (
                   <div className="flex items-center gap-1">
-                    <span className="text-[9px] text-gray-700 font-medium">Gender:</span>
-                    <span className="text-[10px] text-gray-700">{hoveredAppointment.appointment.patientGender}</span>
+                    <span className="text-[9px] text-gray-700 dark:text-gray-300 font-medium">Gender:</span>
+                    <span className="text-[10px] text-gray-700 dark:text-gray-300">{hoveredAppointment.appointment.patientGender}</span>
                   </div>
                 )}
               </div>
 
               {/* Contact Info */}
               {(hoveredAppointment.appointment.patientEmail || hoveredAppointment.appointment.patientMobileNumber) && (
-                <div className="space-y-0.5 pt-0.5 border-t border-gray-100">
+                <div className="space-y-0.5 pt-0.5 border-t border-gray-100 dark:border-gray-700">
                   {hoveredAppointment.appointment.patientMobileNumber && (
                     <div className="flex items-center gap-1">
-                      <span className="text-[9px] text-gray-700 font-medium w-12 flex-shrink-0">Mobile:</span>
-                      <span className="text-[10px] text-gray-700 truncate">{hoveredAppointment.appointment.patientMobileNumber}</span>
+                      <span className="text-[9px] text-gray-700 dark:text-gray-300 font-medium w-12 flex-shrink-0">Mobile:</span>
+                      <span className="text-[10px] text-gray-700 dark:text-gray-300 truncate">{hoveredAppointment.appointment.patientMobileNumber}</span>
                     </div>
                   )}
                   {hoveredAppointment.appointment.patientEmail && (
                     <div className="flex items-center gap-1">
-                      <span className="text-[9px] text-gray-700 font-medium w-12 flex-shrink-0">Email:</span>
-                      <span className="text-[10px] text-gray-700 truncate">{hoveredAppointment.appointment.patientEmail}</span>
+                      <span className="text-[9px] text-gray-700 dark:text-gray-300 font-medium w-12 flex-shrink-0">Email:</span>
+                      <span className="text-[10px] text-gray-700 dark:text-gray-300 truncate">{hoveredAppointment.appointment.patientEmail}</span>
                     </div>
                   )}
                 </div>
               )}
 
               {/* Doctor & Room */}
-              <div className="space-y-0.5 pt-0.5 border-t border-gray-100">
+              <div className="space-y-0.5 pt-0.5 border-t border-gray-100 dark:border-gray-700">
                 <div className="flex items-center gap-1">
-                  <span className="text-[9px] text-gray-700 font-medium w-12 flex-shrink-0">Dr:</span>
-                  <span className="text-[10px] text-gray-700 truncate">{hoveredAppointment.appointment.doctorName}</span>
+                  <span className="text-[9px] text-gray-700 dark:text-gray-300 font-medium w-12 flex-shrink-0">Dr:</span>
+                  <span className="text-[10px] text-gray-700 dark:text-gray-300 truncate">{hoveredAppointment.appointment.doctorName}</span>
                 </div>
                 <div className="flex items-center gap-1">
-                  <span className="text-[9px] text-gray-700 font-medium w-12 flex-shrink-0">Room:</span>
-                  <span className="text-[10px] text-gray-700 truncate">{hoveredAppointment.appointment.roomName}</span>
+                  <span className="text-[9px] text-gray-700 dark:text-gray-300 font-medium w-12 flex-shrink-0">Room:</span>
+                  <span className="text-[10px] text-gray-700 dark:text-gray-300 truncate">{hoveredAppointment.appointment.roomName}</span>
                 </div>
               </div>
 
               {/* Follow Type */}
               {hoveredAppointment.appointment.followType && (
-                <div className="pt-0.5 border-t border-gray-100">
+                <div className="pt-0.5 border-t border-gray-100 dark:border-gray-700">
                   <div className="flex items-center gap-1">
-                    <span className="text-[9px] text-gray-700 font-medium w-12 flex-shrink-0">Follow:</span>
-                    <span className="text-[10px] text-gray-700">{hoveredAppointment.appointment.followType}</span>
+                    <span className="text-[9px] text-gray-700 dark:text-gray-300 font-medium w-12 flex-shrink-0">Follow:</span>
+                    <span className="text-[10px] text-gray-700 dark:text-gray-300">{hoveredAppointment.appointment.followType}</span>
                   </div>
                 </div>
               )}
 
               {/* Referral */}
               {hoveredAppointment.appointment.referral && (
-                <div className="pt-0.5 border-t border-gray-100">
+                <div className="pt-0.5 border-t border-gray-100 dark:border-gray-700">
                   <div className="flex items-start gap-1">
-                    <span className="text-[9px] text-gray-700 font-medium w-12 flex-shrink-0">Ref:</span>
-                    <span className="text-[10px] text-gray-700">{hoveredAppointment.appointment.referral}</span>
+                    <span className="text-[9px] text-gray-700 dark:text-gray-300 font-medium w-12 flex-shrink-0">Ref:</span>
+                    <span className="text-[10px] text-gray-700 dark:text-gray-300">{hoveredAppointment.appointment.referral}</span>
                   </div>
                 </div>
               )}
 
               {/* Emergency */}
               {hoveredAppointment.appointment.emergency && (
-                <div className="pt-0.5 border-t border-gray-100">
+                <div className="pt-0.5 border-t border-gray-100 dark:border-gray-700">
                   <div className="flex items-start gap-1">
-                    <span className="text-[9px] text-gray-700 font-medium w-12 flex-shrink-0">Emer:</span>
-                    <span className="text-[10px] text-red-600 font-semibold">{hoveredAppointment.appointment.emergency}</span>
+                    <span className="text-[9px] text-gray-700 dark:text-gray-300 font-medium w-12 flex-shrink-0">Emer:</span>
+                    <span className="text-[10px] text-red-600 dark:text-red-400 font-semibold">{hoveredAppointment.appointment.emergency}</span>
                   </div>
                 </div>
               )}
 
               {/* Notes */}
               {hoveredAppointment.appointment.notes && (
-                <div className="pt-0.5 border-t border-gray-100">
-                  <p className="text-[9px] font-semibold text-gray-700 uppercase mb-0.5">Notes</p>
-                  <p className="text-[10px] text-gray-700 leading-tight">{hoveredAppointment.appointment.notes}</p>
+                <div className="pt-0.5 border-t border-gray-100 dark:border-gray-700">
+                  <p className="text-[9px] font-semibold text-gray-700 dark:text-gray-300 uppercase mb-0.5">Notes</p>
+                  <p className="text-[10px] text-gray-700 dark:text-gray-300 leading-tight">{hoveredAppointment.appointment.notes}</p>
                 </div>
               )}
             </div>

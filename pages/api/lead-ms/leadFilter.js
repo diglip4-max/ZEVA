@@ -66,21 +66,6 @@ export default async function handler(req, res) {
         action: "read",
       });
       // Pass the user's role to check role-specific permissions (doctor uses 'doctor' role, clinic uses 'clinic' role)
-<<<<<<< HEAD
-      // For doctorStaff/staff, use 'clinic' role permissions (they inherit clinic permissions)
-      const roleForPermissionCheck = 
-        me.role === "doctor" ? "doctor" : 
-        me.role === "clinic" ? "clinic" : 
-        (me.role === "doctorStaff" || me.role === "staff") ? "clinic" : null;
-      
-      const { hasPermission: clinicHasPermission, error: clinicError } = await checkClinicPermission(
-        clinic._id,
-        "create_lead", // Check "create_lead" module permission
-        "read",
-        null, // No submodule - this is a module-level check
-        roleForPermissionCheck
-      );
-=======
       const { hasPermission: clinicHasPermission, error: clinicError } =
         await checkClinicPermission(
           clinic._id,
@@ -93,7 +78,6 @@ export default async function handler(req, res) {
             ? "clinic"
             : null
         );
->>>>>>> origin/v-importLeads
 
       console.log("[leadFilter] Permission check result", {
         hasPermission: clinicHasPermission,
