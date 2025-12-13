@@ -620,12 +620,17 @@ export default function ImportLeadsModal({
       });
 
       if (result.data?.failed === 0) {
-        alert(`Successfully imported ${result.data?.imported} leads!`);
+        alert(
+          `${result.data?.total} leads uploaded successfully.\n` +
+            `The import process has started and may take a few minutes for large files.`
+        );
         onImported();
         onClose();
       } else {
         alert(
-          `Imported ${result.data?.imported} leads. ${result.data?.failed} failed.`
+          `${result.data?.total} leads uploaded.\n` +
+            `${result.data?.failed} rows could not be processed.\n` +
+            `The remaining leads are now being imported in the background.`
         );
       }
     } catch (error: any) {
@@ -869,7 +874,7 @@ export default function ImportLeadsModal({
                       </li>
                       <li className="flex items-start">
                         <span className="text-green-500 mr-2">✓</span>
-                        <span>Maximum file size: 10MB</span>
+                        <span>Maximum file size: 5 MB</span>
                       </li>
                       <li className="flex items-start">
                         <span className="text-green-500 mr-2">✓</span>
