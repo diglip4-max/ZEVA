@@ -15,7 +15,7 @@ export default async function handler(req, res) {
 
   try {
     const me = await getUserFromReq(req);
-    if (!me || !requireRole(me, ["clinic", "admin"])) {
+    if (!me || !requireRole(me, ["clinic", "admin", "doctor", "agent", "doctorStaff"])) {
       return res.status(403).json({ success: false, message: "Access denied" });
     }
 
@@ -38,22 +38,24 @@ export default async function handler(req, res) {
       return res.status(400).json({ success: false, message: "Clinic not found for this user" });
     }
 
-    if (!isAdmin && resolvedClinicId) {
-      // Check "job_posting" module permission (not submodule)
-      const { hasPermission, error } = await checkClinicPermission(
-        resolvedClinicId,
-        "job_posting", // Check "job_posting" module permission
-        "create",
-        null, // No submodule - this is a module-level check
-        me.role === "doctor" ? "doctor" : me.role === "clinic" ? "clinic" : null
-      );
-
-      if (!hasPermission) {
-        return res.status(403).json({
-          success: false,
-          message: error || "You do not have permission to create jobs"
-        });
+    // ✅ Check permission for creating jobs (only for doctorStaff and agent, clinic/admin/doctor bypass)
+    if (!["admin", "clinic", "doctor"].includes(me.role) && resolvedClinicId) {
+      if (['agent', 'doctorStaff'].includes(me.role)) {
+        const { checkAgentPermission } = await import("../agent/permissions-helper");
+        const { hasPermission, error: permissionError } = await checkAgentPermission(
+          me._id,
+          "job_posting", // moduleKey
+          "create", // action
+          null // subModuleName
+        );
+        if (!hasPermission) {
+          return res.status(403).json({
+            success: false,
+            message: permissionError || "You do not have permission to create jobs"
+          });
+        }
       }
+      // Clinic, admin, and doctor users bypass permission checks
     }
 
     const newJob = await JobPosting.create({

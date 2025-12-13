@@ -16,7 +16,7 @@ export default async function handler(req, res) {
       return res.status(401).json({ success: false, message: "User not authenticated" });
     }
 
-   if (!requireRole(user, ["clinic", "admin", "agent", "doctor"])) {
+   if (!requireRole(user, ["clinic", "admin", "agent", "doctor", "doctorStaff"])) {
   return res.status(403).json({ success: false, message: "Access denied" });
 }
 
@@ -55,37 +55,25 @@ export default async function handler(req, res) {
       return res.status(400).json({ success: false, message: "Clinic not found for this user" });
     }
 
-    // ✅ Check permission for creating offers (only for clinic and agent, admin bypasses)
-    if (!isAdmin) {
-      // First check if clinic has create permission
-      const { hasPermission: clinicHasPermission, error: clinicError } = await checkClinicPermission(
-        resolvedClinicId,
-        "create_offers",
-        "create"
-      );
-
-      if (!clinicHasPermission) {
-        return res.status(403).json({
-          success: false,
-          message: clinicError || "You do not have permission to create offers"
-        });
-      }
-
-      // If user is an agent, also check agent-specific permissions
-      if (user.role === "agent") {
-        const { hasPermission: agentHasPermission, error: agentError } = await checkAgentPermission(
+    // ✅ Check permission for creating offers (only for doctorStaff and agent, clinic/admin/doctor bypass)
+    if (!["admin", "clinic", "doctor"].includes(user.role)) {
+      // If user is doctorStaff or agent, check create permission for create_offers module
+      if (['agent', 'doctorStaff'].includes(user.role)) {
+        const { hasPermission, error: permissionError } = await checkAgentPermission(
           user._id,
-          "create_offers",
-          "create"
+          "create_offers", // moduleKey
+          "create", // action
+          null // subModuleName
         );
 
-        if (!agentHasPermission) {
+        if (!hasPermission) {
           return res.status(403).json({
             success: false,
-            message: agentError || "You do not have permission to create offers"
+            message: permissionError || "You do not have permission to create offers"
           });
         }
       }
+      // Clinic, admin, and doctor users bypass permission checks
     }
 
 
