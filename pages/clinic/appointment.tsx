@@ -1405,12 +1405,12 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
           },
         }}
       />
-      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm p-2 sm:p-3">
+      <div className="bg-white dark:bg-gray-50 rounded-lg border border-gray-200 dark:border-gray-200 shadow-sm p-2 sm:p-3">
         <div className="flex flex-col gap-2 mb-2">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2">
             <div>
-              <h1 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-100">Appointment Schedule</h1>
-              <p className="text-xs text-gray-700 dark:text-gray-300">
+              <h1 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-900">Appointment Schedule</h1>
+              <p className="text-xs text-gray-700 dark:text-gray-800">
                 {clinic?.name} • {clinic?.timings || "No timings set"}
               </p>
             </div>
@@ -1422,7 +1422,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                     current.setDate(current.getDate() - 1);
                     setSelectedDate(current.toISOString().split("T")[0]);
                   }}
-                  className="px-2 py-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+                  className="px-2 py-1 rounded border border-gray-300 dark:border-gray-300 bg-white dark:bg-gray-100 text-xs font-medium text-gray-700 dark:text-gray-800 hover:bg-gray-50 dark:hover:bg-gray-200 transition-colors"
                   type="button"
                 >
                   Prev
@@ -1432,7 +1432,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                     setSelectedDate(new Date().toISOString().split("T")[0]);
                     toast.success("Switched to today", { duration: 2000 });
                   }}
-                  className="px-2 py-1 rounded border border-gray-900 dark:border-gray-100 bg-gray-900 dark:bg-gray-100 text-xs font-medium text-white dark:text-gray-900 hover:bg-gray-800 dark:hover:bg-gray-200 transition-colors"
+                  className="px-2 py-1 rounded border border-gray-900 dark:border-gray-300 bg-gray-900 dark:bg-gray-200 text-xs font-medium text-white dark:text-gray-900 hover:bg-gray-800 dark:hover:bg-gray-300 transition-colors"
                   type="button"
                 >
                   Today
@@ -1443,14 +1443,14 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                     current.setDate(current.getDate() + 1);
                     setSelectedDate(current.toISOString().split("T")[0]);
                   }}
-                  className="px-2 py-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+                  className="px-2 py-1 rounded border border-gray-300 dark:border-gray-300 bg-white dark:bg-gray-100 text-xs font-medium text-gray-700 dark:text-gray-800 hover:bg-gray-50 dark:hover:bg-gray-200 transition-colors"
                   type="button"
                 >
                   Next
                 </button>
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-0.5">Date</label>
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-800 mb-0.5">Date</label>
                 <input
                   type="date"
                   value={selectedDate}
@@ -1461,7 +1461,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                       icon: "ℹ️",
                     });
                   }}
-                  className="border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded px-2 py-1 text-xs focus:ring-1 focus:ring-gray-900 dark:focus:ring-gray-100 focus:border-gray-900 dark:focus:border-gray-100 transition-all"
+                  className="border border-gray-300 dark:border-gray-300 bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 rounded px-2 py-1 text-xs focus:ring-1 focus:ring-gray-900 dark:focus:ring-gray-700 focus:border-gray-900 dark:focus:border-gray-700 transition-all"
                 />
               </div>
             </div>
@@ -1473,16 +1473,16 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                   <button
                     type="button"
                     onClick={() => setDoctorFilterOpen((prev) => !prev)}
-                    className="inline-flex items-center gap-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-2 py-1 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-1 focus:ring-gray-900 dark:focus:ring-gray-100"
+                    className="inline-flex items-center gap-1 rounded border border-gray-300 dark:border-gray-300 bg-white dark:bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700 dark:text-gray-800 hover:bg-gray-50 dark:hover:bg-gray-200 focus:outline-none focus:ring-1 focus:ring-gray-900 dark:focus:ring-gray-700"
                   >
                     Doctors
-                    <span className="text-[10px] text-gray-700 dark:text-gray-300">
+                    <span className="text-[10px] text-gray-700 dark:text-gray-800">
                       ({visibleDoctorIds.length}/{doctorStaff.length})
                     </span>
                   </button>
                   {doctorFilterOpen && (
-                    <div className="absolute z-40 mt-1 w-48 rounded border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-2 shadow-lg">
-                      <div className="mb-1 flex items-center justify-between text-[10px] text-gray-700 dark:text-gray-300">
+                    <div className="absolute z-40 mt-1 w-48 rounded border border-gray-200 dark:border-gray-300 bg-white dark:bg-gray-100 p-2 shadow-lg">
+                      <div className="mb-1 flex items-center justify-between text-[10px] text-gray-700 dark:text-gray-800">
                         <span>Doctors</span>
                         <div className="flex gap-1.5">
                           <button
@@ -1503,10 +1503,10 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                       </div>
                       <div className="max-h-48 space-y-1 overflow-y-auto pr-0.5">
                         {doctorStaff.map((doctor) => (
-                          <label key={doctor._id} className="flex items-center gap-1.5 text-xs text-gray-700 dark:text-gray-300">
+                          <label key={doctor._id} className="flex items-center gap-1.5 text-xs text-gray-700 dark:text-gray-800">
                             <input
                               type="checkbox"
-                              className="h-3 w-3 rounded border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-blue-600 focus:ring-blue-500 dark:focus:ring-blue-400"
+                              className="h-3 w-3 rounded border-gray-300 dark:border-gray-300 bg-white dark:bg-gray-100 text-blue-600 focus:ring-blue-500 dark:focus:ring-blue-500"
                               checked={visibleDoctorIds.includes(doctor._id)}
                               onChange={() => handleToggleDoctorVisibility(doctor._id)}
                             />
@@ -1523,16 +1523,16 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                   <button
                     type="button"
                     onClick={() => setRoomFilterOpen((prev) => !prev)}
-                    className="inline-flex items-center gap-1 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 px-2 py-1 text-xs font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-1 focus:ring-gray-900 dark:focus:ring-gray-100"
+                    className="inline-flex items-center gap-1 rounded border border-gray-300 dark:border-gray-300 bg-white dark:bg-gray-100 px-2 py-1 text-xs font-medium text-gray-700 dark:text-gray-800 hover:bg-gray-50 dark:hover:bg-gray-200 focus:outline-none focus:ring-1 focus:ring-gray-900 dark:focus:ring-gray-700"
                   >
                     Rooms
-                    <span className="text-[10px] text-gray-700 dark:text-gray-300">
+                    <span className="text-[10px] text-gray-700 dark:text-gray-800">
                       ({visibleRoomIds.length}/{rooms.length})
                     </span>
                   </button>
                   {roomFilterOpen && (
-                    <div className="absolute z-40 mt-1 w-48 rounded border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-2 shadow-lg">
-                      <div className="mb-1 flex items-center justify-between text-[10px] text-gray-700 dark:text-gray-300">
+                    <div className="absolute z-40 mt-1 w-48 rounded border border-gray-200 dark:border-gray-300 bg-white dark:bg-gray-100 p-2 shadow-lg">
+                      <div className="mb-1 flex items-center justify-between text-[10px] text-gray-700 dark:text-gray-800">
                         <span>Rooms</span>
                         <div className="flex gap-1.5">
                           <button
@@ -1553,10 +1553,10 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                       </div>
                       <div className="max-h-48 space-y-1 overflow-y-auto pr-0.5">
                         {rooms.map((room) => (
-                          <label key={room._id} className="flex items-center gap-1.5 text-xs text-gray-700 dark:text-gray-300">
+                          <label key={room._id} className="flex items-center gap-1.5 text-xs text-gray-700 dark:text-gray-800">
                             <input
                               type="checkbox"
-                              className="h-3 w-3 rounded border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-blue-600 focus:ring-blue-500 dark:focus:ring-blue-400"
+                              className="h-3 w-3 rounded border-gray-300 dark:border-gray-300 bg-white dark:bg-gray-100 text-blue-600 focus:ring-blue-500 dark:focus:ring-blue-500"
                               checked={visibleRoomIds.includes(room._id)}
                               onChange={() => handleToggleRoomVisibility(room._id)}
                             />
@@ -1575,8 +1575,8 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                   onClick={() => setCustomTimeSlotModalOpen(true)}
                   className={`inline-flex items-center gap-1 rounded border px-2 py-1 text-xs font-medium transition-colors focus:outline-none focus:ring-1 focus:ring-gray-900 dark:focus:ring-gray-100 ${
                     useCustomTimeSlots
-                      ? "border-purple-500 dark:border-purple-400 bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/50"
-                      : "border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600"
+                      ? "border-purple-500 dark:border-purple-400 bg-purple-50 dark:bg-purple-100 text-purple-700 dark:text-purple-800 hover:bg-purple-100 dark:hover:bg-purple-200"
+                      : "border-gray-300 dark:border-gray-300 bg-white dark:bg-gray-100 text-gray-700 dark:text-gray-800 hover:bg-gray-50 dark:hover:bg-gray-200"
                   }`}
                 >
                   <Clock className="w-3 h-3" />
@@ -1594,20 +1594,20 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
 
         {doctorStaff.length === 0 && rooms.length === 0 ? (
           <div className="text-center py-8">
-            <div className="w-8 h-8 mx-auto mb-2 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-gray-400 dark:text-gray-500 text-sm">
+            <div className="w-8 h-8 mx-auto mb-2 rounded-full bg-gray-100 dark:bg-gray-200 flex items-center justify-center text-gray-400 dark:text-gray-600 text-sm">
               👨‍⚕️
             </div>
-            <p className="text-xs text-gray-700 dark:text-gray-300">No doctor staff or rooms available.</p>
-            <p className="text-[10px] text-gray-700 dark:text-gray-400 mt-1">Add doctor staff and rooms to view their schedules.</p>
+            <p className="text-xs text-gray-700 dark:text-gray-800">No doctor staff or rooms available.</p>
+            <p className="text-[10px] text-gray-700 dark:text-gray-700 mt-1">Add doctor staff and rooms to view their schedules.</p>
           </div>
         ) : (
-          <div className="border border-gray-200 dark:border-gray-700 rounded overflow-hidden bg-white dark:bg-gray-800">
+          <div className="border border-gray-200 dark:border-gray-300 rounded overflow-hidden bg-white dark:bg-gray-50">
             {/* Scrollable container */}
             <div className="overflow-x-auto max-h-[75vh] overflow-y-auto">
             {/* Header with doctor names and rooms */}
-              <div className="flex bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-20 min-w-max">
-                <div className="w-20 sm:w-24 flex-shrink-0 border-r border-gray-200 dark:border-gray-700 p-1 sm:p-1.5 bg-white dark:bg-gray-800 sticky left-0 z-30">
-                  <div className="flex items-center gap-1 text-[10px] sm:text-xs font-semibold text-gray-900 dark:text-gray-100">
+              <div className="flex bg-gray-50 dark:bg-gray-200 border-b border-gray-200 dark:border-gray-300 sticky top-0 z-20 min-w-max">
+                <div className="w-20 sm:w-24 flex-shrink-0 border-r border-gray-200 dark:border-gray-300 p-1 sm:p-1.5 bg-white dark:bg-gray-50 sticky left-0 z-30">
+                  <div className="flex items-center gap-1 text-[10px] sm:text-xs font-semibold text-gray-900 dark:text-gray-900">
                     <Clock className="w-3 h-3" />
                   <span>Time</span>
                 </div>
@@ -1622,7 +1622,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                     return (
                       <div
                         key={columnKey}
-                        className={`flex-1 min-w-[120px] sm:min-w-[140px] border-r border-gray-200 dark:border-gray-700 p-1 sm:p-1.5 relative bg-white dark:bg-gray-800 transition-all ${
+                        className={`flex-1 min-w-[120px] sm:min-w-[140px] border-r border-gray-200 dark:border-gray-300 p-1 sm:p-1.5 relative bg-white dark:bg-gray-50 transition-all ${
                           isDragged ? "opacity-50" : ""
                         } ${draggedColumnId ? "cursor-move" : ""}`}
                         draggable
@@ -1641,14 +1641,14 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                         title="Drag to reorder columns"
                 >
                     <div className="flex items-center gap-1.5">
-                      <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 flex items-center justify-center text-blue-700 dark:text-blue-300 font-semibold text-[10px] sm:text-xs flex-shrink-0">
+                      <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-blue-50 dark:bg-blue-100 border border-blue-200 dark:border-blue-300 flex items-center justify-center text-blue-700 dark:text-blue-800 font-semibold text-[10px] sm:text-xs flex-shrink-0">
                       {getInitials(doctor.name)}
                     </div>
                           <div className="min-w-0 flex-1">
-                        <p className="text-[10px] sm:text-xs font-semibold text-gray-900 dark:text-gray-100 truncate">{doctor.name}</p>
+                        <p className="text-[10px] sm:text-xs font-semibold text-gray-900 dark:text-gray-900 truncate">{doctor.name}</p>
                     </div>
                           <div className="flex-shrink-0 cursor-grab active:cursor-grabbing opacity-40 hover:opacity-70 transition-opacity" title="Drag to reorder">
-                            <svg className="w-3 h-3 sm:w-4 sm:h-4 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-3 h-3 sm:w-4 sm:h-4 text-gray-500 dark:text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
                             </svg>
                   </div>
@@ -1660,7 +1660,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                     return (
                       <div
                         key={columnKey}
-                        className={`flex-1 min-w-[120px] sm:min-w-[140px] border-r border-gray-200 dark:border-gray-700 last:border-r-0 p-1 sm:p-1.5 bg-white dark:bg-gray-800 transition-all room-column ${
+                        className={`flex-1 min-w-[120px] sm:min-w-[140px] border-r border-gray-200 dark:border-gray-300 last:border-r-0 p-1 sm:p-1.5 bg-white dark:bg-gray-50 transition-all room-column ${
                           isDragged ? "opacity-50" : ""
                         } ${draggedColumnId ? "cursor-move" : ""}`}
                         draggable
@@ -1677,14 +1677,14 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                         title="Drag to reorder columns"
                 >
                     <div className="flex items-center gap-1.5">
-                      <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-800 flex items-center justify-center text-emerald-700 dark:text-emerald-300 font-semibold text-[10px] sm:text-xs flex-shrink-0">
+                      <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-emerald-50 dark:bg-emerald-100 border border-emerald-200 dark:border-emerald-300 flex items-center justify-center text-emerald-700 dark:text-emerald-800 font-semibold text-[10px] sm:text-xs flex-shrink-0">
                       🏥
                     </div>
                           <div className="min-w-0 flex-1">
-                        <p className="text-[10px] sm:text-xs font-semibold text-gray-900 dark:text-gray-100 truncate">{room.name}</p>
+                        <p className="text-[10px] sm:text-xs font-semibold text-gray-900 dark:text-gray-900 truncate">{room.name}</p>
                     </div>
                           <div className="flex-shrink-0 cursor-grab active:cursor-grabbing opacity-40 hover:opacity-70 transition-opacity" title="Drag to reorder">
-                            <svg className="w-3 h-3 sm:w-4 sm:h-4 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-3 h-3 sm:w-4 sm:h-4 text-gray-500 dark:text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
                             </svg>
                   </div>
@@ -1700,14 +1700,14 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
               {timeSlots.map((slot) => {
                 const rowStartMinutes = timeStringToMinutes(slot.time);
                 return (
-                  <div key={slot.time} className="flex border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50/50 dark:hover:bg-gray-700/50 transition-colors min-w-max">
+                  <div key={slot.time} className="flex border-b border-gray-100 dark:border-gray-300 hover:bg-gray-50/50 dark:hover:bg-gray-100/50 transition-colors min-w-max">
                     {/* Time column */}
                     <div
-                      className="w-20 sm:w-24 flex-shrink-0 border-r border-gray-200 dark:border-gray-700 p-1 sm:p-1.5 bg-white dark:bg-gray-800 relative sticky left-0 z-10"
+                      className="w-20 sm:w-24 flex-shrink-0 border-r border-gray-200 dark:border-gray-300 p-1 sm:p-1.5 bg-white dark:bg-gray-50 relative sticky left-0 z-10"
                       style={{ height: ROW_HEIGHT_PX }}
                     >
-                      <p className="text-[10px] sm:text-xs font-semibold text-gray-900 dark:text-gray-100">{slot.displayTime}</p>
-                      <div className="absolute left-0 right-0 top-1/2 border-t border-gray-200 dark:border-gray-700" />
+                      <p className="text-[10px] sm:text-xs font-semibold text-gray-900 dark:text-gray-900">{slot.displayTime}</p>
+                      <div className="absolute left-0 right-0 top-1/2 border-t border-gray-200 dark:border-gray-300" />
                     </div>
 
                     {/* Unified columns (doctors and rooms in order) */}
@@ -1722,7 +1722,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                       return (
                         <div
                             key={`${slot.time}-doctor-${doctor._id}`}
-                          className={`flex-1 min-w-[120px] sm:min-w-[140px] border-r border-gray-200 dark:border-gray-700 relative bg-white dark:bg-gray-800 transition-colors ${isDragOver ? "bg-blue-50 dark:bg-blue-900/30 border-blue-300 dark:border-blue-600" : ""}`}
+                          className={`flex-1 min-w-[120px] sm:min-w-[140px] border-r border-gray-200 dark:border-gray-300 relative bg-white dark:bg-gray-50 transition-colors ${isDragOver ? "bg-blue-50 dark:bg-blue-100 border-blue-300 dark:border-blue-400" : ""}`}
                           style={{ height: ROW_HEIGHT_PX }}
                           data-doctor-id={doctor._id}
                           onDragOver={(e) => handleDoctorColumnDragOver(e, doctor._id)}
@@ -1758,14 +1758,14 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                                   key={`${slot.time}-${doctor._id}-${offset}`}
                                   className={`flex-1 transition-all ${
                                     isDragOverSlot
-                                      ? "bg-green-200 dark:bg-green-900/40 border-l-2 border-green-500 dark:border-green-400"
+                                      ? "bg-green-200 dark:bg-green-200 border-l-2 border-green-500 dark:border-green-600"
                                       : isSelected
-                                      ? "bg-blue-200 dark:bg-blue-900/40 border-l-2 border-blue-500 dark:border-blue-400 cursor-crosshair"
+                                      ? "bg-blue-200 dark:bg-blue-200 border-l-2 border-blue-500 dark:border-blue-600 cursor-crosshair"
                                       : canBookSlot
-                                      ? "cursor-crosshair hover:bg-blue-50 dark:hover:bg-blue-900/20 border-l-2 border-transparent hover:border-blue-400 dark:hover:border-blue-500"
+                                      ? "cursor-crosshair hover:bg-blue-50 dark:hover:bg-blue-100 border-l-2 border-transparent hover:border-blue-400 dark:hover:border-blue-500"
                                       : isSubSlotOccupied
-                                      ? "bg-gray-50 dark:bg-gray-700/50 cursor-not-allowed"
-                                      : "bg-gray-50 dark:bg-gray-700/50 cursor-not-allowed"
+                                      ? "bg-gray-50 dark:bg-gray-100 cursor-not-allowed"
+                                      : "bg-gray-50 dark:bg-gray-100 cursor-not-allowed"
                                   }`}
                                   style={{ height: SUB_SLOT_HEIGHT_PX }}
                                   title={
@@ -1930,7 +1930,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                       return (
                         <div
                             key={`${slot.time}-room-${room._id}`}
-                          className="flex-1 min-w-[120px] sm:min-w-[140px] border-r border-gray-200 dark:border-gray-700 relative bg-white dark:bg-gray-800"
+                          className="flex-1 min-w-[120px] sm:min-w-[140px] border-r border-gray-200 dark:border-gray-300 relative bg-white dark:bg-gray-50"
                           style={{ height: ROW_HEIGHT_PX }}
                         >
                           <div className="absolute left-0 right-0 top-1/2 border-t border-gray-200 dark:border-gray-700 pointer-events-none" />
@@ -1958,10 +1958,10 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                                   key={`${slot.time}-${room._id}-${offset}`}
                                   className={`flex-1 transition-all ${
                                     canBookSlot
-                                      ? "cursor-pointer hover:bg-emerald-50 dark:hover:bg-emerald-900/20 border-l-2 border-transparent hover:border-emerald-400 dark:hover:border-emerald-500"
+                                      ? "cursor-pointer hover:bg-emerald-50 dark:hover:bg-emerald-100 border-l-2 border-transparent hover:border-emerald-400 dark:hover:border-emerald-500"
                                       : isSubSlotOccupied
-                                      ? "bg-gray-50 dark:bg-gray-700/50 cursor-not-allowed"
-                                      : "bg-gray-50 dark:bg-gray-700/50 cursor-not-allowed"
+                                      ? "bg-gray-50 dark:bg-gray-100 cursor-not-allowed"
+                                      : "bg-gray-50 dark:bg-gray-100 cursor-not-allowed"
                                   }`}
                                   style={{ height: SUB_SLOT_HEIGHT_PX }}
                                   title={
@@ -2081,15 +2081,15 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                                           <div className={`w-1 h-1 rounded-full ${statusColor.bg} ${statusColor.border} border`} />
                                         </div>
                                         <div className="flex-1 min-w-0">
-                                          <p className="truncate font-bold text-[10px] sm:text-xs leading-tight text-gray-900 dark:text-gray-100">{apt.patientName}</p>
+                                          <p className="truncate font-bold text-[10px] sm:text-xs leading-tight text-gray-900 dark:text-gray-900">{apt.patientName}</p>
                                           {!isShortAppointment && apt.patientEmrNumber && (
-                                            <p className="truncate text-[9px] opacity-85 dark:opacity-75 mt-0.5 font-medium text-gray-700 dark:text-gray-300">EMR: {apt.patientEmrNumber}</p>
+                                            <p className="truncate text-[9px] opacity-85 dark:opacity-85 mt-0.5 font-medium text-gray-700 dark:text-gray-800">EMR: {apt.patientEmrNumber}</p>
                                           )}
                                         </div>
                                       </div>
                                       <div className="flex items-center gap-0.5 mt-auto">
-                                        <Clock className="w-2 h-2 opacity-90 dark:opacity-80 flex-shrink-0 text-gray-700 dark:text-gray-300" />
-                                        <p className="truncate text-[9px] font-semibold opacity-95 dark:opacity-85 leading-tight text-gray-700 dark:text-gray-300">
+                                        <Clock className="w-2 h-2 opacity-90 dark:opacity-90 flex-shrink-0 text-gray-700 dark:text-gray-800" />
+                                        <p className="truncate text-[9px] font-semibold opacity-95 dark:opacity-95 leading-tight text-gray-700 dark:text-gray-800">
                                           {formatTime(apt.fromTime)} - {formatTime(apt.toTime)}
                                         </p>
                                       </div>
@@ -2110,7 +2110,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
           </div>
         )}
         {visibleDoctors.length === 0 && visibleRooms.length === 0 && (doctorStaff.length > 0 || rooms.length > 0) && (
-          <div className="mt-2 rounded border border-dashed border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/50 p-2 text-center text-xs text-gray-700 dark:text-gray-300">
+          <div className="mt-2 rounded border border-dashed border-gray-300 dark:border-gray-300 bg-gray-50 dark:bg-gray-100 p-2 text-center text-xs text-gray-700 dark:text-gray-800">
             No doctor or room columns selected. Use the filters above to choose which schedules to display.
           </div>
         )}
@@ -2123,22 +2123,22 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
           onClick={() => setCustomTimeSlotModalOpen(false)}
         >
           <div
-            className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-md w-full p-4 sm:p-6"
+            className="bg-white dark:bg-gray-50 rounded-xl shadow-2xl max-w-md w-full p-4 sm:p-6"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Custom Time Slots</h2>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-900">Custom Time Slots</h2>
               <button
                 onClick={() => setCustomTimeSlotModalOpen(false)}
-                className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors text-gray-900 dark:text-gray-100"
+                className="p-1 hover:bg-gray-100 dark:hover:bg-gray-200 rounded-lg transition-colors text-gray-900 dark:text-gray-900"
               >
-                <X className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+                <X className="w-5 h-5 text-gray-500 dark:text-gray-700" />
               </button>
             </div>
             
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-800 mb-2">
                   Use Custom Time Slots
                 </label>
                 <label className="flex items-center gap-2 cursor-pointer">
@@ -2150,39 +2150,39 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                       // Don't reset custom times when disabled - preserve them for when user re-enables
                       // The time slots will switch back to clinic timings, but custom values are preserved
                     }}
-                    className="w-4 h-4 rounded border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-purple-600 focus:ring-purple-500 dark:focus:ring-purple-400"
+                    className="w-4 h-4 rounded border-gray-300 dark:border-gray-300 bg-white dark:bg-gray-100 text-purple-600 focus:ring-purple-500 dark:focus:ring-purple-500"
                   />
-                  <span className="text-sm text-gray-700 dark:text-gray-300">Enable custom time slots</span>
+                  <span className="text-sm text-gray-700 dark:text-gray-800">Enable custom time slots</span>
                 </label>
               </div>
 
               {useCustomTimeSlots && (
                 <>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-800 mb-2">
                       Start Time
                     </label>
                     <input
                       type="time"
                       value={customStartTime}
                       onChange={(e) => setCustomStartTime(e.target.value)}
-                      className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400 focus:border-purple-500 dark:focus:border-purple-400"
+                      className="w-full border border-gray-300 dark:border-gray-300 bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-500 focus:border-purple-500 dark:focus:border-purple-600"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-800 mb-2">
                       End Time
                     </label>
                     <input
                       type="time"
                       value={customEndTime}
                       onChange={(e) => setCustomEndTime(e.target.value)}
-                      className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400 focus:border-purple-500 dark:focus:border-purple-400"
+                      className="w-full border border-gray-300 dark:border-gray-300 bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-500 focus:border-purple-500 dark:focus:border-purple-600"
                     />
                   </div>
                   {customStartTime && customEndTime && (
-                    <div className="bg-purple-50 dark:bg-purple-900/30 border border-purple-200 dark:border-purple-800 rounded-lg p-3">
-                      <p className="text-sm text-purple-700 dark:text-purple-300">
+                    <div className="bg-purple-50 dark:bg-purple-100 border border-purple-200 dark:border-purple-300 rounded-lg p-3">
+                      <p className="text-sm text-purple-700 dark:text-purple-800">
                         <strong>Preview:</strong> {formatTime(customStartTime)} - {formatTime(customEndTime)}
                       </p>
                     </div>
@@ -2215,7 +2215,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                 </button>
                 <button
                   onClick={() => setCustomTimeSlotModalOpen(false)}
-                  className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 font-medium transition-colors"
+                  className="px-4 py-2 bg-gray-200 dark:bg-gray-200 text-gray-700 dark:text-gray-900 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-300 font-medium transition-colors"
                 >
                   Cancel
                 </button>
@@ -2253,29 +2253,29 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
             left: activeDoctorTooltip.position.left,
           }}
         >
-          <div className="rounded-xl bg-white dark:bg-gray-800 shadow-2xl border border-purple-100 dark:border-purple-900/50 overflow-hidden">
+          <div className="rounded-xl bg-white dark:bg-gray-50 shadow-2xl border border-purple-100 dark:border-purple-200 overflow-hidden">
             <div className="bg-purple-600 dark:bg-purple-700 text-white text-xs font-semibold px-3 py-2 flex items-center gap-2 tracking-wide">
               Doctor Information
             </div>
             <div className="p-3 space-y-3">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center text-purple-700 dark:text-purple-300 font-semibold text-base">
+                <div className="w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-100 flex items-center justify-center text-purple-700 dark:text-purple-800 font-semibold text-base">
                   {getInitials(activeDoctorTooltip.doctorName)}
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-slate-900 dark:text-gray-100">
+                  <p className="text-sm font-semibold text-slate-900 dark:text-gray-900">
                     {activeDoctorTooltip.doctorName}
                   </p>
-                  <p className="text-xs text-gray-700 dark:text-gray-300">{tooltipDoctor?.email || "No email available"}</p>
+                  <p className="text-xs text-gray-700 dark:text-gray-800">{tooltipDoctor?.email || "No email available"}</p>
                 </div>
               </div>
 
-              <div className="space-y-1 text-xs text-gray-700 dark:text-gray-300">
-                <p className="font-semibold text-gray-900 dark:text-gray-100 text-[11px] uppercase tracking-[0.2em]">
+              <div className="space-y-1 text-xs text-gray-700 dark:text-gray-800">
+                <p className="font-semibold text-gray-900 dark:text-gray-900 text-[11px] uppercase tracking-[0.2em]">
                   Departments
                 </p>
                 {tooltipDeptLoading ? (
-                  <div className="flex items-center gap-2 text-gray-700 dark:text-gray-300">
+                  <div className="flex items-center gap-2 text-gray-700 dark:text-gray-800">
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
                     Loading...
                   </div>
@@ -2286,23 +2286,23 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                     {tooltipDeptList.map((dept) => (
                       <span
                         key={dept._id}
-                        className="px-2 py-0.5 rounded-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-[11px] text-gray-700 dark:text-gray-300"
+                        className="px-2 py-0.5 rounded-full bg-white dark:bg-gray-100 border border-gray-200 dark:border-gray-300 text-[11px] text-gray-700 dark:text-gray-800"
                       >
                         {dept.name}
                       </span>
                     ))}
                   </div>
                 ) : (
-                  <p className="text-xs text-gray-700 dark:text-gray-400">Not assigned</p>
+                  <p className="text-xs text-gray-700 dark:text-gray-700">Not assigned</p>
                 )}
               </div>
 
               <div>
-                <p className="text-[11px] font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-[0.2em] mb-1.5">
+                <p className="text-[11px] font-semibold text-gray-700 dark:text-gray-800 uppercase tracking-[0.2em] mb-1.5">
                   Treatments
                 </p>
                 {tooltipLoading ? (
-                  <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                  <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-800">
                     <Loader2 className="w-4 h-4 animate-spin" />
                     Loading treatments...
                   </div>
@@ -2313,13 +2313,13 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                     {tooltipTreatments.map((treatment) => (
                       <div
                         key={treatment._id}
-                        className="rounded-lg border border-gray-100 dark:border-gray-700 bg-gray-50/60 dark:bg-gray-700/60 p-2.5"
+                        className="rounded-lg border border-gray-100 dark:border-gray-300 bg-gray-50/60 dark:bg-gray-100/60 p-2.5"
                       >
-                        <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
+                        <p className="text-sm font-semibold text-gray-900 dark:text-gray-900 truncate">
                           {treatment.treatmentName}
                         </p>
                         {treatment.departmentName && (
-                          <p className="text-xs text-gray-700 dark:text-gray-300 mt-0.5">
+                          <p className="text-xs text-gray-700 dark:text-gray-800 mt-0.5">
                             Department: <span className="font-medium">{treatment.departmentName}</span>
                           </p>
                         )}
@@ -2328,7 +2328,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                             {treatment.subcategories.map((sub, idx) => (
                               <span
                                 key={sub.slug || `${treatment._id}-${idx}`}
-                                className="px-2 py-0.5 rounded-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-[11px] text-gray-700 dark:text-gray-300"
+                                className="px-2 py-0.5 rounded-full bg-white dark:bg-gray-100 border border-gray-200 dark:border-gray-300 text-[11px] text-gray-700 dark:text-gray-800"
                               >
                                 {sub.name}
                               </span>
@@ -2339,7 +2339,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                     ))}
                   </div>
                 ) : (
-                  <p className="text-xs text-gray-700 dark:text-gray-400">No treatments assigned yet.</p>
+                  <p className="text-xs text-gray-700 dark:text-gray-800">No treatments assigned yet.</p>
                 )}
               </div>
             </div>
@@ -2356,11 +2356,11 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
             left: hoveredAppointment.position.left,
           }}
         >
-          <div className="bg-white dark:bg-gray-800 rounded-md shadow-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+          <div className="bg-white dark:bg-gray-50 rounded-md shadow-xl border border-gray-200 dark:border-gray-300 overflow-hidden">
             {/* Header */}
             <div className={`px-2 py-1 ${getStatusColor(hoveredAppointment.appointment.status).bg} ${getStatusColor(hoveredAppointment.appointment.status).text}`}>
               <div className="flex items-center justify-between gap-1">
-                <p className="text-[10px] font-bold truncate text-gray-900 dark:text-gray-100">{hoveredAppointment.appointment.patientName}</p>
+                <p className="text-[10px] font-bold truncate text-gray-900 dark:text-gray-900">{hoveredAppointment.appointment.patientName}</p>
                 <span className="text-[9px] font-semibold opacity-90 dark:opacity-80 ml-1">{hoveredAppointment.appointment.status.toUpperCase()}</span>
               </div>
             </div>
@@ -2369,89 +2369,89 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
             <div className="p-2 space-y-1 max-h-[300px] overflow-y-auto">
               {/* Time */}
               <div className="flex items-center gap-1.5">
-                <Clock className="w-2.5 h-2.5 text-gray-500 dark:text-gray-400 flex-shrink-0" />
-                <p className="text-[10px] text-gray-700 dark:text-gray-300 font-semibold">
+                <Clock className="w-2.5 h-2.5 text-gray-500 dark:text-gray-700 flex-shrink-0" />
+                <p className="text-[10px] text-gray-700 dark:text-gray-800 font-semibold">
                   {formatTime(hoveredAppointment.appointment.fromTime)} - {formatTime(hoveredAppointment.appointment.toTime)}
                 </p>
               </div>
 
               {/* Patient Info */}
-              <div className="space-y-0.5 pt-0.5 border-t border-gray-100 dark:border-gray-700">
+              <div className="space-y-0.5 pt-0.5 border-t border-gray-100 dark:border-gray-300">
                 {hoveredAppointment.appointment.patientEmrNumber && (
                   <div className="flex items-center gap-1">
-                    <span className="text-[9px] text-gray-700 dark:text-gray-300 font-medium">EMR:</span>
-                    <span className="text-[10px] text-gray-700 dark:text-gray-300 truncate">{hoveredAppointment.appointment.patientEmrNumber}</span>
+                    <span className="text-[9px] text-gray-700 dark:text-gray-800 font-medium">EMR:</span>
+                    <span className="text-[10px] text-gray-700 dark:text-gray-800 truncate">{hoveredAppointment.appointment.patientEmrNumber}</span>
                   </div>
                 )}
                 {hoveredAppointment.appointment.patientInvoiceNumber && (
                   <div className="flex items-center gap-1">
-                    <span className="text-[9px] text-gray-700 dark:text-gray-300 font-medium">Inv:</span>
-                    <span className="text-[10px] text-gray-700 dark:text-gray-300 truncate">{hoveredAppointment.appointment.patientInvoiceNumber}</span>
+                    <span className="text-[9px] text-gray-700 dark:text-gray-800 font-medium">Inv:</span>
+                    <span className="text-[10px] text-gray-700 dark:text-gray-800 truncate">{hoveredAppointment.appointment.patientInvoiceNumber}</span>
                   </div>
                 )}
                 {hoveredAppointment.appointment.patientGender && (
                   <div className="flex items-center gap-1">
-                    <span className="text-[9px] text-gray-700 dark:text-gray-300 font-medium">Gender:</span>
-                    <span className="text-[10px] text-gray-700 dark:text-gray-300">{hoveredAppointment.appointment.patientGender}</span>
+                    <span className="text-[9px] text-gray-700 dark:text-gray-800 font-medium">Gender:</span>
+                    <span className="text-[10px] text-gray-700 dark:text-gray-800">{hoveredAppointment.appointment.patientGender}</span>
                   </div>
                 )}
               </div>
 
               {/* Contact Info */}
               {(hoveredAppointment.appointment.patientEmail || hoveredAppointment.appointment.patientMobileNumber) && (
-                <div className="space-y-0.5 pt-0.5 border-t border-gray-100 dark:border-gray-700">
+                <div className="space-y-0.5 pt-0.5 border-t border-gray-100 dark:border-gray-300">
                   {hoveredAppointment.appointment.patientMobileNumber && (
                     <div className="flex items-center gap-1">
-                      <span className="text-[9px] text-gray-700 dark:text-gray-300 font-medium w-12 flex-shrink-0">Mobile:</span>
-                      <span className="text-[10px] text-gray-700 dark:text-gray-300 truncate">{hoveredAppointment.appointment.patientMobileNumber}</span>
+                      <span className="text-[9px] text-gray-700 dark:text-gray-800 font-medium w-12 flex-shrink-0">Mobile:</span>
+                      <span className="text-[10px] text-gray-700 dark:text-gray-800 truncate">{hoveredAppointment.appointment.patientMobileNumber}</span>
                     </div>
                   )}
                   {hoveredAppointment.appointment.patientEmail && (
                     <div className="flex items-center gap-1">
-                      <span className="text-[9px] text-gray-700 dark:text-gray-300 font-medium w-12 flex-shrink-0">Email:</span>
-                      <span className="text-[10px] text-gray-700 dark:text-gray-300 truncate">{hoveredAppointment.appointment.patientEmail}</span>
+                      <span className="text-[9px] text-gray-700 dark:text-gray-800 font-medium w-12 flex-shrink-0">Email:</span>
+                      <span className="text-[10px] text-gray-700 dark:text-gray-800 truncate">{hoveredAppointment.appointment.patientEmail}</span>
                     </div>
                   )}
                 </div>
               )}
 
               {/* Doctor & Room */}
-              <div className="space-y-0.5 pt-0.5 border-t border-gray-100 dark:border-gray-700">
+              <div className="space-y-0.5 pt-0.5 border-t border-gray-100 dark:border-gray-300">
                 <div className="flex items-center gap-1">
-                  <span className="text-[9px] text-gray-700 dark:text-gray-300 font-medium w-12 flex-shrink-0">Dr:</span>
-                  <span className="text-[10px] text-gray-700 dark:text-gray-300 truncate">{hoveredAppointment.appointment.doctorName}</span>
+                  <span className="text-[9px] text-gray-700 dark:text-gray-800 font-medium w-12 flex-shrink-0">Dr:</span>
+                  <span className="text-[10px] text-gray-700 dark:text-gray-800 truncate">{hoveredAppointment.appointment.doctorName}</span>
                 </div>
                 <div className="flex items-center gap-1">
-                  <span className="text-[9px] text-gray-700 dark:text-gray-300 font-medium w-12 flex-shrink-0">Room:</span>
-                  <span className="text-[10px] text-gray-700 dark:text-gray-300 truncate">{hoveredAppointment.appointment.roomName}</span>
+                  <span className="text-[9px] text-gray-700 dark:text-gray-800 font-medium w-12 flex-shrink-0">Room:</span>
+                  <span className="text-[10px] text-gray-700 dark:text-gray-800 truncate">{hoveredAppointment.appointment.roomName}</span>
                 </div>
               </div>
 
               {/* Follow Type */}
               {hoveredAppointment.appointment.followType && (
-                <div className="pt-0.5 border-t border-gray-100 dark:border-gray-700">
+                <div className="pt-0.5 border-t border-gray-100 dark:border-gray-300">
                   <div className="flex items-center gap-1">
-                    <span className="text-[9px] text-gray-700 dark:text-gray-300 font-medium w-12 flex-shrink-0">Follow:</span>
-                    <span className="text-[10px] text-gray-700 dark:text-gray-300">{hoveredAppointment.appointment.followType}</span>
+                    <span className="text-[9px] text-gray-700 dark:text-gray-800 font-medium w-12 flex-shrink-0">Follow:</span>
+                    <span className="text-[10px] text-gray-700 dark:text-gray-800">{hoveredAppointment.appointment.followType}</span>
                   </div>
                 </div>
               )}
 
               {/* Referral */}
               {hoveredAppointment.appointment.referral && (
-                <div className="pt-0.5 border-t border-gray-100 dark:border-gray-700">
+                <div className="pt-0.5 border-t border-gray-100 dark:border-gray-300">
                   <div className="flex items-start gap-1">
-                    <span className="text-[9px] text-gray-700 dark:text-gray-300 font-medium w-12 flex-shrink-0">Ref:</span>
-                    <span className="text-[10px] text-gray-700 dark:text-gray-300">{hoveredAppointment.appointment.referral}</span>
+                    <span className="text-[9px] text-gray-700 dark:text-gray-800 font-medium w-12 flex-shrink-0">Ref:</span>
+                    <span className="text-[10px] text-gray-700 dark:text-gray-800">{hoveredAppointment.appointment.referral}</span>
                   </div>
                 </div>
               )}
 
               {/* Emergency */}
               {hoveredAppointment.appointment.emergency && (
-                <div className="pt-0.5 border-t border-gray-100 dark:border-gray-700">
+                <div className="pt-0.5 border-t border-gray-100 dark:border-gray-300">
                   <div className="flex items-start gap-1">
-                    <span className="text-[9px] text-gray-700 dark:text-gray-300 font-medium w-12 flex-shrink-0">Emer:</span>
+                    <span className="text-[9px] text-gray-700 dark:text-gray-800 font-medium w-12 flex-shrink-0">Emer:</span>
                     <span className="text-[10px] text-red-600 dark:text-red-400 font-semibold">{hoveredAppointment.appointment.emergency}</span>
                   </div>
                 </div>
@@ -2459,9 +2459,9 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
 
               {/* Notes */}
               {hoveredAppointment.appointment.notes && (
-                <div className="pt-0.5 border-t border-gray-100 dark:border-gray-700">
-                  <p className="text-[9px] font-semibold text-gray-700 dark:text-gray-300 uppercase mb-0.5">Notes</p>
-                  <p className="text-[10px] text-gray-700 dark:text-gray-300 leading-tight">{hoveredAppointment.appointment.notes}</p>
+                <div className="pt-0.5 border-t border-gray-100 dark:border-gray-300">
+                  <p className="text-[9px] font-semibold text-gray-700 dark:text-gray-800 uppercase mb-0.5">Notes</p>
+                  <p className="text-[10px] text-gray-700 dark:text-gray-800 leading-tight">{hoveredAppointment.appointment.notes}</p>
                 </div>
               )}
             </div>
