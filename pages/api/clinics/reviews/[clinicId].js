@@ -51,9 +51,9 @@ export default async function handler(req, res) {
       }
       // Admin and unauthenticated users can access any clinic's reviews
 
-      // ✅ Check permission for reading clinic reviews (only for agent, doctorStaff, staff roles)
-      // Clinic and doctor roles have full access by default, admin bypasses
-      if (!isAdmin && userClinicId && userClinicId.toString() === clinicId.toString() && ["agent", "staff", "doctorStaff"].includes(authUser.role)) {
+      // ✅ Check permission for reading clinic reviews (only for agent, doctorStaff roles)
+      // Clinic, doctor, and staff roles have full access by default, admin bypasses
+      if (!isAdmin && userClinicId && userClinicId.toString() === clinicId.toString() && ["agent", "doctorStaff"].includes(authUser.role)) {
         const { checkAgentPermission } = await import("../../agent/permissions-helper");
         const result = await checkAgentPermission(
           authUser._id,

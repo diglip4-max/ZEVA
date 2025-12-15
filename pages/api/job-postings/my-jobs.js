@@ -29,16 +29,38 @@ export default async function handler(req, res) {
     if (!["admin", "clinic", "doctor"].includes(me.role) && clinicId) {
       if (['agent', 'doctorStaff'].includes(me.role)) {
         const { checkAgentPermission } = await import("../agent/permissions-helper");
-        const { hasPermission, error: permissionError } = await checkAgentPermission(
-          me._id,
-          "job_posting", // moduleKey
-          "read", // action
-          null // subModuleName
-        );
+
+        // Support multiple possible module keys for backward compatibility
+        const moduleKeysToTry = [
+          "job_posting",
+          "clinic_job_posting",
+          "clinic_jobs",
+          "jobs",
+        ];
+
+        let hasPermission = false;
+        let permissionError = null;
+
+        for (const moduleKey of moduleKeysToTry) {
+          const result = await checkAgentPermission(
+            me._id,
+            moduleKey,
+            "read",
+            null
+          );
+          if (result.hasPermission) {
+            hasPermission = true;
+            permissionError = null;
+            break;
+          }
+          // Keep last error for context if all fail
+          permissionError = result.error;
+        }
+
         if (!hasPermission) {
           return res.status(403).json({
             success: false,
-            message: permissionError || "You do not have permission to view jobs"
+            message: permissionError || "You do not have permission to view jobs",
           });
         }
       }

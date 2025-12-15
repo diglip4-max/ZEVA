@@ -86,6 +86,13 @@ const AllAppointmentsPage: NextPageWithLayout = ({
 }: {
   contextOverride?: "clinic" | "agent" | null;
 }) => {
+  const [permissions, setPermissions] = useState({
+    canRead: true,
+    canUpdate: true,
+    canCreate: true,
+    canDelete: true,
+  });
+  const [permissionsLoaded, setPermissionsLoaded] = useState(false);
   const [routeContext, setRouteContext] = useState<"clinic" | "agent">(
     (contextOverride || "clinic") as "clinic" | "agent"
   );
@@ -240,13 +247,15 @@ const AllAppointmentsPage: NextPageWithLayout = ({
     if (typeof window === "undefined") return {};
     let token = null;
     if (routeContext === "agent") {
-      // Prioritize userToken for agent context
-      token = localStorage.getItem("userToken") ||
-        sessionStorage.getItem("userToken") ||
+      // Prefer explicit agent tokens; fall back to user tokens
+      token =
         localStorage.getItem("agentToken") ||
-        sessionStorage.getItem("agentToken");
+        sessionStorage.getItem("agentToken") ||
+        localStorage.getItem("userToken") ||
+        sessionStorage.getItem("userToken");
     } else {
-      token = localStorage.getItem("clinicToken") ||
+      token =
+        localStorage.getItem("clinicToken") ||
         sessionStorage.getItem("clinicToken") ||
         localStorage.getItem("agentToken") ||
         sessionStorage.getItem("agentToken") ||
@@ -257,8 +266,77 @@ const AllAppointmentsPage: NextPageWithLayout = ({
     return { Authorization: `Bearer ${token}` };
   }, [routeContext]);
 
+  const getUserRole = useCallback((): string | null => {
+    const headers = getAuthHeaders();
+    const token = headers.Authorization?.replace("Bearer ", "");
+    if (!token) return null;
+    try {
+      const payload = JSON.parse(atob(token.split(".")[1]));
+      return payload.role || null;
+    } catch {
+      return null;
+    }
+  }, [getAuthHeaders]);
+
+  // Fetch permissions for agent/doctorStaff; clinic/doctor have full access
+  useEffect(() => {
+    const fetchPermissions = async () => {
+      const role = getUserRole();
+      if (role === "clinic" || role === "doctor" || role === null) {
+        setPermissions({ canRead: true, canUpdate: true, canCreate: true, canDelete: true });
+        setPermissionsLoaded(true);
+        return;
+      }
+
+      if (!["agent", "doctorStaff"].includes(role)) {
+        setPermissions({ canRead: false, canUpdate: false, canCreate: false, canDelete: false });
+        setPermissionsLoaded(true);
+        return;
+      }
+
+      try {
+        const headers = getAuthHeaders();
+        const res = await axios.get(
+          "/api/agent/get-module-permissions?moduleKey=clinic_ScheduledAppointment",
+          { headers }
+        );
+        if (res.data?.success && res.data.permissions) {
+          const actions = res.data.permissions.actions || {};
+          const canAll =
+            actions.all === true ||
+            actions.all === "true" ||
+            String(actions.all).toLowerCase() === "true";
+          setPermissions({
+            canRead: canAll || actions.read === true,
+            canUpdate: canAll || actions.update === true,
+            canCreate: canAll || actions.create === true,
+            canDelete: canAll || actions.delete === true,
+          });
+        } else {
+          setPermissions({ canRead: false, canUpdate: false, canCreate: false, canDelete: false });
+        }
+      } catch (err) {
+        console.error("Error fetching permissions:", err);
+        setPermissions({ canRead: false, canUpdate: false, canCreate: false, canDelete: false });
+      } finally {
+        setPermissionsLoaded(true);
+      }
+    };
+
+    fetchPermissions();
+  }, [getAuthHeaders, getUserRole]);
+
   // Fetch doctors and rooms for filter dropdowns
   const fetchFilterData = useCallback(async () => {
+    const role = getUserRole();
+    if (
+      permissionsLoaded &&
+      role &&
+      ["agent", "doctorStaff"].includes(role) &&
+      !permissions.canRead
+    ) {
+      return;
+    }
     try {
       const headers = getAuthHeaders();
       if (!headers.Authorization) return;
@@ -270,10 +348,23 @@ const AllAppointmentsPage: NextPageWithLayout = ({
     } catch (err) {
       console.error("Failed to fetch filter data:", err);
     }
-  }, [getAuthHeaders]);
+  }, [getAuthHeaders, getUserRole, permissionsLoaded, permissions.canRead]);
 
   // Fetch appointments with filters
   const fetchAppointments = useCallback(async () => {
+    if (!permissionsLoaded) return;
+    const role = getUserRole();
+    if (
+      role &&
+      ["agent", "doctorStaff"].includes(role) &&
+      !permissions.canRead
+    ) {
+      setAppointments([]);
+      setTotal(0);
+      setTotalPages(1);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError("");
     try {
@@ -314,15 +405,15 @@ const AllAppointmentsPage: NextPageWithLayout = ({
     } finally {
       setLoading(false);
     }
-  }, [filters, page, getAuthHeaders]);
+  }, [filters, page, getAuthHeaders, getUserRole, permissionsLoaded, permissions.canRead]);
 
   useEffect(() => {
     fetchFilterData();
-  }, [fetchFilterData]);
+  }, [fetchFilterData, permissionsLoaded, permissions.canRead]);
 
   useEffect(() => {
     fetchAppointments();
-  }, [fetchAppointments]);
+  }, [fetchAppointments, permissionsLoaded, permissions.canRead]);
 
   // Close action menu when clicking outside
   useEffect(() => {
@@ -440,14 +531,16 @@ const AllAppointmentsPage: NextPageWithLayout = ({
   return (
     <>
       {/* Toast Notification */}
-      {toast && (
+      {toast ? (
         <div className="fixed top-4 right-4 z-[300] animate-slide-in">
-          <div className={`flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg border ${
-            toast.type === 'success' 
-              ? 'bg-green-50 border-green-200 text-green-800' 
-              : 'bg-red-50 border-red-200 text-red-800'
-          }`}>
-            {toast.type === 'success' ? (
+          <div
+            className={`flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg border ${
+              toast.type === "success"
+                ? "bg-green-50 border-green-200 text-green-800"
+                : "bg-red-50 border-red-200 text-red-800"
+            }`}
+          >
+            {toast.type === "success" ? (
               <CheckCircle className="w-5 h-5 flex-shrink-0" />
             ) : (
               <XCircle className="w-5 h-5 flex-shrink-0" />
@@ -461,25 +554,25 @@ const AllAppointmentsPage: NextPageWithLayout = ({
             </button>
           </div>
         </div>
-      )}
+      ) : null}
 
-        <div className="bg-gray-50 min-h-screen" style={{ width: '100%', padding: '0', margin: '0' }}>
-          <div className="p-3 sm:p-4 md:p-6" style={{ width: '100%', minWidth: '100%' }}>
-            <div className="w-full" style={{ width: '100%', overflowX: 'visible' }}>
-              {/* Header - Matching clinic dashboard theme */}
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-3">
-                <div className="max-w-7xl mx-auto px-3 sm:px-4 py-3">
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
-                    <div>
-                      <h1 className="text-lg sm:text-xl font-bold text-gray-900">All Appointments</h1>
-                      <p className="text-xs sm:text-sm text-gray-700 mt-0.5">View and manage all appointment records</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setShowFilters(!showFilters)}
-                        className="inline-flex items-center justify-center gap-1.5 bg-gray-800 hover:bg-gray-900 text-white px-3 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs sm:text-sm font-medium"
-                >
-                        <Filter className="h-4 w-4" />
+      <div className="bg-gray-50 min-h-screen" style={{ width: '100%', padding: '0', margin: '0' }}>
+        <div className="p-3 sm:p-4 md:p-6" style={{ width: '100%', minWidth: '100%' }}>
+          <div className="w-full" style={{ width: '100%', overflowX: 'visible' }}>
+            {/* Header - Matching clinic dashboard theme */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-3">
+              <div className="max-w-7xl mx-auto px-3 sm:px-4 py-3">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
+                  <div>
+                    <h1 className="text-lg sm:text-xl font-bold text-gray-900">All Appointments</h1>
+                    <p className="text-xs sm:text-sm text-gray-700 mt-0.5">View and manage all appointment records</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setShowFilters(!showFilters)}
+                      className="inline-flex items-center justify-center gap-1.5 bg-gray-800 hover:bg-gray-900 text-white px-3 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs sm:text-sm font-medium"
+                    >
+                      <Filter className="h-4 w-4" />
                         <span>{showFilters ? "Hide Filters" : "Show Filters"}</span>
                 </button>
               </div>
@@ -862,7 +955,7 @@ const AllAppointmentsPage: NextPageWithLayout = ({
                             {apt.notes || "No Remarks"}
                           </td>
                           <td className="px-3 py-4 whitespace-nowrap">
-                            {apt.status?.toLowerCase() === "arrived" ? (
+                          {permissions.canCreate && apt.status?.toLowerCase() === "arrived" ? (
                               <button
                                 type="button"
                                 className="w-7 h-7 bg-red-100 text-red-700 rounded-full flex items-center justify-center hover:bg-red-200 transition"
@@ -928,40 +1021,31 @@ const AllAppointmentsPage: NextPageWithLayout = ({
                                   }}
                                 >
                                   <div className="py-1">
-                                    <button
-                                      type="button"
-                                      onMouseDown={(e) => {
-                                        e.preventDefault();
-                                        e.stopPropagation();
-                                        console.log("=== EDIT BUTTON MOUSEDOWN ===");
-                                        console.log("Appointment data:", apt);
-                                        console.log("Appointment ID:", apt._id);
-                                        
-                                        // Store in ref immediately (synchronous)
-                                        appointmentRef.current = apt;
-                                        console.log("Ref set:", appointmentRef.current?._id);
-                                        
-                                        // Close dropdown first
-                                        setOpenActionMenu(null);
-                                        
-                                        // Set state immediately
-                                        setSelectedAppointment(apt);
-                                        console.log("State set, selectedAppointment:", apt._id);
-                                        
-                                        // Open modal immediately
-                                        setEditModalOpen(true);
-                                        console.log("Modal opened, editModalOpen set to true");
-                                      }}
-                                      onClick={(e) => {
-                                        e.preventDefault();
-                                        e.stopPropagation();
-                                        console.log("=== EDIT BUTTON CLICKED ===");
-                                      }}
-                                      className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2 transition cursor-pointer"
-                                    >
-                                      <Edit className="w-4 h-4" />
-                                      Edit
-                                    </button>
+                                    {permissions.canUpdate && (
+                                      <button
+                                        type="button"
+                                        onMouseDown={(e) => {
+                                          e.preventDefault();
+                                          e.stopPropagation();
+                                          console.log("=== EDIT BUTTON MOUSEDOWN ===");
+                                          console.log("Appointment data:", apt);
+                                          console.log("Appointment ID:", apt._id);
+                                          
+                                          appointmentRef.current = apt;
+                                          setOpenActionMenu(null);
+                                          setSelectedAppointment(apt);
+                                          setEditModalOpen(true);
+                                        }}
+                                        onClick={(e) => {
+                                          e.preventDefault();
+                                          e.stopPropagation();
+                                        }}
+                                        className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2 transition cursor-pointer"
+                                      >
+                                        <Edit className="w-4 h-4" />
+                                        Edit
+                                      </button>
+                                    )}
                                     <button
                                       type="button"
                                       onMouseDown={(e) => {
@@ -989,7 +1073,7 @@ const AllAppointmentsPage: NextPageWithLayout = ({
                                       <History className="w-4 h-4" />
                                       Appointment History
                                     </button>
-                                     {apt.status?.toLowerCase() === "arrived" && (
+                                    {permissions.canCreate && apt.status?.toLowerCase() === "arrived" && (
                                        <button
                                          type="button"
                                          onMouseDown={(e) => {
@@ -1009,7 +1093,7 @@ const AllAppointmentsPage: NextPageWithLayout = ({
                                          Report
                                        </button>
                                      )}
-                                     {(apt.status?.toLowerCase() === "arrived" || apt.status?.toLowerCase() === "invoiced") && (
+                                     {permissions.canCreate && (apt.status?.toLowerCase() === "arrived" || apt.status?.toLowerCase() === "invoiced") && (
                                        <button
                                          type="button"
                                          onMouseDown={(e) => {
@@ -1029,22 +1113,24 @@ const AllAppointmentsPage: NextPageWithLayout = ({
                                          Billing
                                        </button>
                                      )}
-                                     <button
-                                      type="button"
-                                      onMouseDown={(e) => {
-                                        e.preventDefault();
-                                        e.stopPropagation();
-                                        handleDeleteClick(apt);
-                                      }}
-                                      onClick={(e) => {
-                                        e.preventDefault();
-                                        e.stopPropagation();
-                                      }}
-                                      className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 transition cursor-pointer"
-                                    >
-                                      <Trash2 className="w-4 h-4" />
-                                      Delete
-                                    </button>
+                                     {permissions.canDelete && (
+                                       <button
+                                        type="button"
+                                        onMouseDown={(e) => {
+                                          e.preventDefault();
+                                          e.stopPropagation();
+                                          handleDeleteClick(apt);
+                                        }}
+                                        onClick={(e) => {
+                                          e.preventDefault();
+                                          e.stopPropagation();
+                                        }}
+                                        className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 transition cursor-pointer"
+                                      >
+                                        <Trash2 className="w-4 h-4" />
+                                        Delete
+                                      </button>
+                                     )}
                                   </div>
                                 </div>
                               </>

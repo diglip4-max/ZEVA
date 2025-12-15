@@ -4,6 +4,7 @@ import Clinic from "../../../../models/Clinic";
 import User from "../../../../models/Users";
 import Room from "../../../../models/Room";
 import { getUserFromReq } from "../../lead-ms/auth";
+import { getClinicIdFromUser } from "../../lead-ms/permissions-helper";
 
 export default async function handler(req, res) {
   await dbConnect();
@@ -18,17 +19,72 @@ export default async function handler(req, res) {
     if (!clinicUser) {
       return res.status(401).json({ success: false, message: "Unauthorized" });
     }
-    if (clinicUser.role !== "clinic") {
+    if (!["clinic", "admin", "agent", "doctor", "doctorStaff", "staff"].includes(clinicUser.role)) {
       return res.status(403).json({ success: false, message: "Access denied. Clinic role required." });
     }
 
-    // Find the clinic associated with this user
-    const clinic = await Clinic.findOne({ owner: clinicUser._id }).lean();
-    if (!clinic) {
+    let { clinicId, error, isAdmin } = await getClinicIdFromUser(clinicUser);
+    if (error && !isAdmin) {
+      return res.status(404).json({ message: error });
+    }
+
+    // Ensure clinicId is set correctly
+    if (!clinicId && clinicUser.role === "clinic") {
+      const clinic = await Clinic.findOne({ owner: clinicUser._id }).select("_id");
+      if (!clinic) {
+        return res.status(404).json({ success: false, message: "Clinic not found" });
+      }
+      clinicId = clinic._id;
+    }
+
+    if (!clinicId) {
       return res.status(404).json({ success: false, message: "Clinic not found" });
     }
 
-    const clinicId = clinic._id;
+    // ✅ Check permission for updating appointments (only for agent, doctorStaff roles)
+    // Clinic, doctor, and staff roles have full access by default, admin bypasses
+    if (!isAdmin && clinicId && ["agent", "doctorStaff"].includes(clinicUser.role)) {
+      const { checkAgentPermission } = await import("../../agent/permissions-helper");
+
+      // Support both legacy and new module keys for appointments
+      const moduleKeysToTry = [
+        "clinic_ScheduledAppointment", // new key used on frontend
+        "clinic_Appointment",          // legacy key
+        "ScheduledAppointment",
+        "Appointment",
+      ];
+
+      let hasPermission = false;
+      let lastError = null;
+
+      for (const moduleKey of moduleKeysToTry) {
+        const result = await checkAgentPermission(
+          clinicUser._id,
+          moduleKey,
+          "update"
+        );
+
+        if (result.hasPermission) {
+          hasPermission = true;
+          lastError = null;
+          break;
+        }
+
+        lastError = result.error;
+
+        // If module not found, continue trying other keys (backward compatibility)
+        if (result.error && result.error.includes("not found in agent permissions")) {
+          continue;
+        }
+      }
+
+      if (!hasPermission) {
+        return res.status(403).json({
+          success: false,
+          message: lastError || "You do not have permission to update appointments",
+        });
+      }
+    }
     const appointmentId = req.query.id;
 
     // Validate appointment ID

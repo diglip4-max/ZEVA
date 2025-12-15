@@ -29,6 +29,27 @@ export default async function handler(req, res) {
       return res.status(403).json({ success: false, message: "Access denied. Clinic role required." });
     }
 
+    // ✅ Check permission for reading appointments (only for agent, doctorStaff roles)
+    // Clinic, doctor, and staff roles have full access by default, admin bypasses
+    if (clinicId && ["agent", "doctorStaff"].includes(clinicUser.role)) {
+      const { checkAgentPermission } = await import("../agent/permissions-helper");
+      const result = await checkAgentPermission(
+        clinicUser._id,
+        "clinic_Appointment",
+        "read"
+      );
+
+      // If module not found in permissions, allow by default (legacy behavior)
+      if (!result.hasPermission && result.error && result.error.includes("not found in agent permissions")) {
+        console.log(`[all-appointments] Module clinic_Appointment not found in permissions for user ${clinicUser._id}, allowing access by default`);
+      } else if (!result.hasPermission) {
+        return res.status(403).json({
+          success: false,
+          message: result.error || "You do not have permission to view appointments"
+        });
+      }
+    }
+
     if (req.method === "GET") {
       const {
         search,

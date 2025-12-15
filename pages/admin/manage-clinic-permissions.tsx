@@ -258,28 +258,20 @@ const ManageClinicPermissionsPage: NextPageWithLayout = () => {
     JSON.stringify(left) === JSON.stringify(right);
 
   const roleOptions = [
-    { label: 'Clinic', value: 'clinic' },
     { label: 'Doctor', value: 'doctor' },
   ] as const;
 
   const [selectedRole, setSelectedRole] = useState<'clinic' | 'doctor'>(roleOptions[0].value);
   const [roleLoading, setRoleLoading] = useState(false);
   const entityOptions = useMemo<EntityOption[]>(() => {
-    if (selectedRole === 'clinic') {
-      return clinics.map(({ _id, name }) => ({
-        id: _id,
-        label: name,
-      }));
-    }
-
     return doctors.map(({ _id, name, email }) => ({
       id: _id,
       label: name || email || 'Unnamed doctor',
     }));
   }, [selectedRole, clinics, doctors]);
-  const entityCardLabel = selectedRole === 'clinic' ? 'Clinics' : 'Doctors';
-  const entitySelectLabel = selectedRole === 'clinic' ? 'Select clinic' : 'Select doctor';
-  const entityPlaceholder = selectedRole === 'clinic' ? 'Choose a clinic...' : 'Choose a doctor...';
+  const entityCardLabel = 'Doctors';
+  const entitySelectLabel = 'Select doctor';
+  const entityPlaceholder = 'Choose a doctor...';
   const entityCount = entityOptions.length;
 
   const fetchClinics = useCallback(async (): Promise<Clinic[]> => {
@@ -718,7 +710,7 @@ const ManageClinicPermissionsPage: NextPageWithLayout = () => {
 
   const getEntityLabel = (entityId: string) => {
     if (!entityId) {
-      return selectedRole === 'clinic' ? 'Unknown Clinic' : 'Unknown Doctor';
+      return 'Unknown Doctor';
     }
 
     const option = entityOptions.find((entity) => entity.id === entityId);
@@ -738,7 +730,7 @@ const ManageClinicPermissionsPage: NextPageWithLayout = () => {
       return permissionMatch.clinicId.name;
     }
 
-    return selectedRole === 'clinic' ? 'Unknown Clinic' : 'Unknown Doctor';
+    return 'Unknown Doctor';
   };
 
   // Check if agent has read permission
@@ -792,7 +784,7 @@ const ManageClinicPermissionsPage: NextPageWithLayout = () => {
                     Clinic Permission Management
                   </h1>
                   <p className="text-gray-700">
-                    Manage and configure permissions for clinics and doctors
+                    Manage and configure permissions for doctors. Note: Clinic role has full access by default and does not require permission management. Only doctorStaff and agent roles need permissions to be set.
                   </p>
                 </div>
               </div>
@@ -930,7 +922,7 @@ const ManageClinicPermissionsPage: NextPageWithLayout = () => {
                 No {selectedRole} selected
               </h3>
               <p className="text-gray-700">
-                Please select a {selectedRole === 'clinic' ? 'clinic' : 'doctor'} from the dropdown above to manage permissions.
+                Please select a doctor from the dropdown above to manage permissions.
               </p>
             </div>
           )}

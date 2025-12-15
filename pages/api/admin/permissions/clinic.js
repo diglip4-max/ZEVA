@@ -177,6 +177,14 @@ export default async function handler(req, res) {
         return res.status(400).json({ success: false, message: 'Invalid role provided' });
       }
 
+      // Prevent setting permissions for clinic role - clinic should have full access by default
+      if (normalizedRole === 'clinic') {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'Permissions cannot be set for clinic role. Clinic role has full access by default. Only doctorStaff and agent roles require permission management.' 
+        });
+      }
+
       console.log('Received clinic permission request:', { clinicId, role: normalizedRole, permissions });
 
       if (!clinicId || !permissions) {
