@@ -70,6 +70,33 @@ const ApplicationsDashboard: React.FC<ApplicationsDashboardProps> = ({
   const [loading, setLoading] = useState<boolean>(true);
   const [showAdvancedFilters, setShowAdvancedFilters] = useState<boolean>(false);
 
+  // Resolve auth token with fallbacks (supports doctorStaff/userToken)
+  const getAuthToken = (): string | null => {
+    if (typeof window === "undefined") return null;
+
+    // 1) Try explicit tokenKey first
+    const primaryToken =
+      localStorage.getItem(tokenKey) || sessionStorage.getItem(tokenKey);
+    if (primaryToken) return primaryToken;
+
+    // 2) Fallbacks: agentToken > userToken > clinicToken > doctorToken > adminToken
+    const fallbackKeys = [
+      "agentToken",
+      "userToken",
+      "clinicToken",
+      "doctorToken",
+      "adminToken",
+    ];
+
+    for (const key of fallbackKeys) {
+      const value =
+        localStorage.getItem(key) || sessionStorage.getItem(key);
+      if (value) return value;
+    }
+
+    return null;
+  };
+
   useEffect(() => {
     const fetchApplications = async () => {
       // Don't fetch if no read permission
@@ -78,7 +105,12 @@ const ApplicationsDashboard: React.FC<ApplicationsDashboardProps> = ({
         return;
       }
 
-      const token = localStorage.getItem(tokenKey);
+      const token = getAuthToken();
+      if (!token) {
+        setApplications([]);
+        setLoading(false);
+        return;
+      }
 
       try {
         setLoading(true);
@@ -115,7 +147,11 @@ const ApplicationsDashboard: React.FC<ApplicationsDashboardProps> = ({
       return;
     }
 
-    const token = localStorage.getItem(tokenKey);
+    const token = getAuthToken();
+    if (!token) {
+      toast.error("Authentication token not found. Please log in again.");
+      return;
+    }
 
     try {
       await axios.put(updateStatusEndpoint, {
@@ -152,7 +188,11 @@ const ApplicationsDashboard: React.FC<ApplicationsDashboardProps> = ({
       return;
     }
 
-    const token = localStorage.getItem(tokenKey);
+    const token = getAuthToken();
+    if (!token) {
+      toast.error("Authentication token not found. Please log in again.");
+      return;
+    }
 
     try {
       await axios.delete(`${deleteEndpoint}/${applicationId}`, {

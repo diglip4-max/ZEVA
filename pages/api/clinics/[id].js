@@ -110,9 +110,9 @@ export default async function handler(req, res) {
           }
         }
 
-        // ✅ Check permission for reading clinic (only for agent, doctorStaff, staff roles)
-        // Clinic and doctor roles have full access by default, admin bypasses
-        if (me.role !== "admin" && clinicId && ["agent", "staff", "doctorStaff"].includes(me.role)) {
+        // ✅ Check permission for reading clinic (only for agent, doctorStaff roles)
+        // Clinic, doctor, and staff roles have full access by default, admin bypasses
+        if (me.role !== "admin" && clinicId && ["agent", "doctorStaff"].includes(me.role)) {
           const { checkAgentPermission } = await import("../agent/permissions-helper");
           const result = await checkAgentPermission(
             me._id,
@@ -220,9 +220,9 @@ export default async function handler(req, res) {
         }
       }
 
-      // ✅ Check permission for updating clinic (only for agent, doctorStaff, staff roles)
-      // Clinic and doctor roles have full access by default, admin bypasses
-      if (me.role !== "admin" && clinicId && ["agent", "staff", "doctorStaff"].includes(me.role)) {
+      // ✅ Check permission for updating clinic (only for agent, doctorStaff roles)
+      // Clinic, doctor, and staff roles have full access by default, admin bypasses
+      if (me.role !== "admin" && clinicId && ["agent", "doctorStaff"].includes(me.role)) {
         const { checkAgentPermission } = await import("../agent/permissions-helper");
         const result = await checkAgentPermission(
           me._id,

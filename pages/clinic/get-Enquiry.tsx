@@ -67,6 +67,7 @@ function ClinicEnquiries({ contextOverride = null }: { contextOverride?: "clinic
     canRead: false,
   });
   const [permissionsLoaded, setPermissionsLoaded] = useState(false);
+  const [accessError, setAccessError] = useState<string | null>(null);
   const [hasAgentToken, setHasAgentToken] = useState(false);
   const [isAgentRoute, setIsAgentRoute] = useState(false);
 
@@ -235,14 +236,18 @@ function ClinicEnquiries({ contextOverride = null }: { contextOverride?: "clinic
           }
         );
 
+        setAccessError(null);
         setEnquiries(res.data.enquiries || []);
         setFilteredEnquiries(res.data.enquiries || []);
       } catch (err: any) {
-        console.error("Error fetching enquiries:", err);
-        // Handle 403 errors gracefully
+        // Gracefully handle permission denials without surfacing axios errors
         if (err.response?.status === 403) {
+          setAccessError("You do not have permission to read the data.");
+          setPermissions({ canRead: false });
           setEnquiries([]);
           setFilteredEnquiries([]);
+        } else {
+          console.error("Error fetching enquiries:", err);
         }
       } finally {
         setLoading(false);
@@ -339,7 +344,7 @@ function ClinicEnquiries({ contextOverride = null }: { contextOverride?: "clinic
   }
 
   // Show access denied message if no permission
-  if (!permissions.canRead) {
+  if (accessError || !permissions.canRead) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-8 text-center max-w-md">
@@ -348,7 +353,7 @@ function ClinicEnquiries({ contextOverride = null }: { contextOverride?: "clinic
           </div>
           <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-2">Access Denied</h3>
           <p className="text-sm text-gray-700 dark:text-gray-400">
-            You do not have permission to view clinic enquiries. Please contact your administrator.
+            {accessError || "You do not have permission to view clinic enquiries. Please contact your administrator."}
           </p>
         </div>
       </div>

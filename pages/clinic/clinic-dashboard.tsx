@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Star, Mail, Settings, Lock, TrendingUp, Users, FileText, Briefcase, MessageSquare, Calendar, CreditCard, BarChart3, Activity, CheckCircle2, XCircle, Crown, Building2, User } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, LabelList, PieChart, Pie, Cell, LineChart, Line, Tooltip, Legend } from 'recharts';
 import Stats from '../../components/Stats';
@@ -103,6 +103,13 @@ const ClinicDashboard: NextPageWithLayout = () => {
   const [statsLoading, setStatsLoading] = useState<boolean>(true);
   const [accessDenied, setAccessDenied] = useState(false);
   const [accessMessage, setAccessMessage] = useState('You do not have permission to view this dashboard.');
+  const [moduleAccess, setModuleAccess] = useState<{ canRead: boolean; canUpdate: boolean; canCreate: boolean }>({
+    canRead: true,
+    canUpdate: true,
+    canCreate: true,
+  });
+  const [permissionsLoaded, setPermissionsLoaded] = useState(false);
+  const [userRole, setUserRole] = useState<string | null>(null);
 
   // Icon mapping
   const iconMap: { [key: string]: React.ReactNode } = {
@@ -175,8 +182,100 @@ const ClinicDashboard: NextPageWithLayout = () => {
     }
   }, [clinicUser]);
 
+  // Token helpers (shared across agent and doctorStaff)
+  const getAuthToken = useCallback((): string | null => {
+    if (typeof window === 'undefined') return null;
+    return (
+      localStorage.getItem('clinicToken') ||
+      sessionStorage.getItem('clinicToken') ||
+      localStorage.getItem('agentToken') ||
+      sessionStorage.getItem('agentToken') ||
+      localStorage.getItem('userToken') ||
+      sessionStorage.getItem('userToken')
+    );
+  }, []);
+
+  const getAuthHeaders = useCallback((): Record<string, string> => {
+    const token = getAuthToken();
+    if (!token) return {};
+    return { Authorization: `Bearer ${token}` };
+  }, [getAuthToken]);
+
+  const getUserRole = useCallback((): string | null => {
+    const token = getAuthToken();
+    if (!token) return null;
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      return payload.role || null;
+    } catch {
+      return null;
+    }
+  }, [getAuthToken]);
+
+  // Fetch module permissions for dashboard (applies to agent and doctorStaff)
+  useEffect(() => {
+    const fetchPermissions = async () => {
+      const role = getUserRole();
+      setUserRole(role);
+
+      if (role === 'clinic' || role === 'doctor' || role === null) {
+        setModuleAccess({ canRead: true, canUpdate: true, canCreate: true });
+        setPermissionsLoaded(true);
+        return;
+      }
+
+      if (!['agent', 'doctorStaff'].includes(role)) {
+        setModuleAccess({ canRead: true, canUpdate: true, canCreate: true });
+        setPermissionsLoaded(true);
+        return;
+      }
+
+      try {
+        const headers = getAuthHeaders();
+        if (!headers.Authorization) {
+          setModuleAccess({ canRead: false, canUpdate: false, canCreate: false });
+          return;
+        }
+
+        const res = await axios.get(
+          '/api/agent/get-module-permissions?moduleKey=clinic_dashboard',
+          { headers }
+        );
+
+        if (res.data?.success && res.data.permissions) {
+          const actions = res.data.permissions.actions || {};
+          const canAll =
+            actions.all === true ||
+            actions.all === 'true' ||
+            String(actions.all).toLowerCase() === 'true';
+          setModuleAccess({
+            canRead: canAll || actions.read === true,
+            canUpdate: canAll || actions.update === true,
+            canCreate: canAll || actions.create === true,
+          });
+        } else {
+          setModuleAccess({ canRead: false, canUpdate: false, canCreate: false });
+        }
+      } catch (error) {
+        console.error('Error fetching dashboard permissions:', error);
+        setModuleAccess({ canRead: false, canUpdate: false, canCreate: false });
+      } finally {
+        setPermissionsLoaded(true);
+      }
+    };
+
+    fetchPermissions();
+  }, [getAuthHeaders, getUserRole]);
+
   // Fetch sidebar navigation items (which already have permissions applied)
   useEffect(() => {
+    if (!permissionsLoaded) return;
+    if (['agent', 'doctorStaff'].includes(userRole || '') && !moduleAccess.canRead) {
+      setAccessDenied(true);
+      setLoading(false);
+      return;
+    }
+
     const fetchNavigationItems = async (): Promise<void> => {
       try {
         // Check for multiple token types (clinicToken, userToken, agentToken, etc.)
@@ -215,10 +314,17 @@ const ClinicDashboard: NextPageWithLayout = () => {
     };
 
     fetchNavigationItems();
-  }, []);
+  }, [permissionsLoaded, moduleAccess.canRead, userRole]);
 
   // Fetch all available modules (to show restricted ones)
   useEffect(() => {
+    if (!permissionsLoaded) return;
+    if (['agent', 'doctorStaff'].includes(userRole || '') && !moduleAccess.canRead) {
+      setAccessDenied(true);
+      setLoading(false);
+      return;
+    }
+
     const fetchAllModules = async (): Promise<void> => {
       try {
         // Check for multiple token types (clinicToken, userToken, agentToken, etc.)
@@ -254,10 +360,17 @@ const ClinicDashboard: NextPageWithLayout = () => {
     };
 
     fetchAllModules();
-  }, []);
+  }, [permissionsLoaded, moduleAccess.canRead, userRole]);
 
   // Fetch stats for each module
   useEffect(() => {
+    if (!permissionsLoaded) return;
+    if (['agent', 'doctorStaff'].includes(userRole || '') && !moduleAccess.canRead) {
+      setModuleStats({});
+      setStatsLoading(false);
+      return;
+    }
+
     const fetchModuleStats = async (): Promise<void> => {
       setStatsLoading(true);
       const token = localStorage.getItem('clinicToken') || sessionStorage.getItem('clinicToken');
@@ -390,9 +503,16 @@ const ClinicDashboard: NextPageWithLayout = () => {
     } else {
       setStatsLoading(false);
     }
-  }, [navigationItems]);
+  }, [navigationItems, permissionsLoaded, moduleAccess.canRead, userRole]);
 
   useEffect(() => {
+    if (!permissionsLoaded) return;
+    if (['agent', 'doctorStaff'].includes(userRole || '') && !moduleAccess.canRead) {
+      setStats({ totalReviews: 0, totalEnquiries: 0, totalClinics: 0 });
+      setLoading(false);
+      return;
+    }
+
     const fetchStats = async (): Promise<void> => {
       try {
         const token = localStorage.getItem('clinicToken') || sessionStorage.getItem('clinicToken');
@@ -424,7 +544,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
     }, 60000);
 
     return () => clearInterval(timeInterval);
-  }, []);
+  }, [permissionsLoaded, moduleAccess.canRead, userRole]);
 
   const getGreeting = (): string => {
     const hour = currentTime.getHours();

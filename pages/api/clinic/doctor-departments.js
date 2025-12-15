@@ -4,6 +4,7 @@ import Department from "../../../models/Department";
 import User from "../../../models/Users";
 import Clinic from "../../../models/Clinic";
 import { getUserFromReq } from "../lead-ms/auth";
+import { getClinicIdFromUser } from "../lead-ms/permissions-helper";
 
 export default async function handler(req, res) {
   await dbConnect();
@@ -22,9 +23,34 @@ export default async function handler(req, res) {
     return res.status(401).json({ success: false, message: "Invalid token" });
   }
 
+  let { clinicId, error, isAdmin } = await getClinicIdFromUser(clinicAdmin);
+  if (error && !isAdmin) {
+    return res.status(404).json({ message: error });
+  }
+
   const { doctorStaffId } = req.query;
 
   if (req.method === "GET") {
+    // ✅ Check permission for reading doctor departments (only for agent, doctorStaff roles)
+    // Clinic, doctor, and staff roles have full access by default, admin bypasses
+    if (!isAdmin && clinicId && ["agent", "doctorStaff"].includes(clinicAdmin.role)) {
+      const { checkAgentPermission } = await import("../agent/permissions-helper");
+      const result = await checkAgentPermission(
+        clinicAdmin._id,
+        "clinic_Appointment",
+        "read"
+      );
+
+      // If module doesn't exist in permissions yet, allow access by default
+      if (!result.hasPermission && result.error && result.error.includes("not found in agent permissions")) {
+        console.log(`[doctor-departments] Module clinic_Appointment not found in permissions for user ${clinicAdmin._id}, allowing access by default`);
+      } else if (!result.hasPermission) {
+        return res.status(403).json({
+          success: false,
+          message: result.error || "You do not have permission to view doctor departments"
+        });
+      }
+    }
     if (!doctorStaffId) {
       return res.status(400).json({ success: false, message: "doctorStaffId is required" });
     }
@@ -77,6 +103,27 @@ export default async function handler(req, res) {
   }
 
   if (req.method === "POST") {
+    // ✅ Check permission for creating doctor departments (only for agent, doctorStaff roles)
+    // Clinic, doctor, and staff roles have full access by default, admin bypasses
+    if (!isAdmin && clinicId && ["agent", "doctorStaff"].includes(clinicAdmin.role)) {
+      const { checkAgentPermission } = await import("../agent/permissions-helper");
+      const result = await checkAgentPermission(
+        clinicAdmin._id,
+        "clinic_Appointment",
+        "create"
+      );
+
+      // If module doesn't exist in permissions yet, allow access by default
+      if (!result.hasPermission && result.error && result.error.includes("not found in agent permissions")) {
+        console.log(`[doctor-departments] Module clinic_Appointment not found in permissions for user ${clinicAdmin._id}, allowing access by default`);
+      } else if (!result.hasPermission) {
+        return res.status(403).json({
+          success: false,
+          message: result.error || "You do not have permission to create doctor departments"
+        });
+      }
+    }
+
     const { doctorStaffId: bodyDoctorStaffId, name, clinicDepartmentId } = req.body;
     const targetDoctorStaffId = doctorStaffId || bodyDoctorStaffId;
 
@@ -172,6 +219,27 @@ export default async function handler(req, res) {
   }
 
   if (req.method === "DELETE") {
+    // ✅ Check permission for deleting doctor departments (only for agent, doctorStaff roles)
+    // Clinic, doctor, and staff roles have full access by default, admin bypasses
+    if (!isAdmin && clinicId && ["agent", "doctorStaff"].includes(clinicAdmin.role)) {
+      const { checkAgentPermission } = await import("../agent/permissions-helper");
+      const result = await checkAgentPermission(
+        clinicAdmin._id,
+        "clinic_Appointment",
+        "delete"
+      );
+
+      // If module doesn't exist in permissions yet, allow access by default
+      if (!result.hasPermission && result.error && result.error.includes("not found in agent permissions")) {
+        console.log(`[doctor-departments] Module clinic_Appointment not found in permissions for user ${clinicAdmin._id}, allowing access by default`);
+      } else if (!result.hasPermission) {
+        return res.status(403).json({
+          success: false,
+          message: result.error || "You do not have permission to delete doctor departments"
+        });
+      }
+    }
+
     const { departmentId } = req.query;
 
     if (!departmentId) {
