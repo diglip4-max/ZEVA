@@ -72,11 +72,33 @@ export default async function handler(req, res) {
       });
     }
 
+    // Normalize actions to ensure booleans for all flags
+    const actions = permissions.actions || {};
+    const toBool = (value) => {
+      if (value === true || value === false) return value;
+      if (typeof value === "string") {
+        const lowered = value.toLowerCase();
+        return lowered === "true" || lowered === "1" || lowered === "yes";
+      }
+      return Boolean(value);
+    };
+
+    const normalizedActions = {
+      all: toBool(actions.all),
+      create: toBool(actions.create),
+      read: toBool(actions.read),
+      update: toBool(actions.update),
+      delete: toBool(actions.delete),
+      print: toBool(actions.print),
+      export: toBool(actions.export),
+      approve: toBool(actions.approve),
+    };
+
     return res.status(200).json({
       success: true,
       permissions: {
         module: permissions.module,
-        actions: permissions.actions || {},
+        actions: normalizedActions,
         subModules: permissions.subModules || []
       },
       error: null,

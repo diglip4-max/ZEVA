@@ -211,8 +211,8 @@ const ManageClinicPermissionsPage: NextPageWithLayout = () => {
   }, [router.pathname]);
   
   // Always call the hook (React rules), but only use it if isAgent is true
-  // Using admin_staff_management module with "Manage Clinic Permissions" submodule
-  const agentPermissionsData: any = useAgentPermissions(isAgent ? "admin_staff_management" : (null as any), "Manage Clinic Permissions");
+  // Use the dedicated manage-clinic-permissions module for agent permission checks
+  const agentPermissionsData: any = useAgentPermissions(isAgent ? "manage-clinic-permissions" : (null as any), "Manage Clinic Permissions");
   const agentPermissions = isAgent ? agentPermissionsData?.permissions : null;
   const permissionsLoading = isAgent ? agentPermissionsData?.loading : false;
 
@@ -702,12 +702,19 @@ const ManageClinicPermissionsPage: NextPageWithLayout = () => {
     newPermissions: ModulePermission[],
     meta?: { trigger?: 'user' | 'sync' }
   ) => {
-    console.log('Permissions changed:', newPermissions);
+    if (
+      isAgent &&
+      !(agentPermissions?.canUpdate === true || agentPermissions?.canAll === true)
+    ) {
+      showToast('You do not have permission to change clinic permissions', 'error');
+      return;
+    }
+
     setPermissions(newPermissions);
     if (meta?.trigger === 'user') {
       autoSavePermissions(newPermissions);
     }
-  }, [autoSavePermissions]);
+  }, [autoSavePermissions, isAgent, agentPermissions, showToast]);
 
   const getEntityLabel = (entityId: string) => {
     if (!entityId) {
@@ -904,7 +911,12 @@ const ManageClinicPermissionsPage: NextPageWithLayout = () => {
                 navigationItems={navigationItems}
                 onPermissionsChange={handlePermissionsChange}
                 isLoading={roleLoading}
-                disabled={roleLoading || saving}
+                disabled={
+                  roleLoading ||
+                  saving ||
+                  (isAgent &&
+                    !(agentPermissions?.canUpdate === true || agentPermissions?.canAll === true))
+                }
                 title="Permission Matrix"
               />
             </div>
