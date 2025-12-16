@@ -30,16 +30,71 @@ export default async function handler(req, res) {
       return res.status(403).json({ message: 'Access denied. Admin or agent role required' });
     }
 
-    // Fetch jobs grouped by status
-    const pendingJobs = await JobPosting.find({ status: 'pending' }).populate('postedBy', 'name email role');
-    const approvedJobs = await JobPosting.find({ status: 'approved' }).populate('postedBy', 'name email role');
-    const declinedJobs = await JobPosting.find({ status: 'declined' }).populate('postedBy', 'name email role');
+    // Get filter parameters from query
+    const { search, jobType, location, department, salaryMin, salaryMax } = req.query;
+    
+    console.log('🔍 API called with filters:', { search, jobType, location, department, salaryMin, salaryMax });
+
+    // Build filter object for each status
+    const buildFilter = (status) => {
+      const filter = { status };
+      
+      // Search filter (jobTitle, companyName, department)
+      if (search?.trim()) {
+        filter.$or = [
+          { jobTitle: { $regex: search.trim(), $options: 'i' } },
+          { companyName: { $regex: search.trim(), $options: 'i' } },
+          { department: { $regex: search.trim(), $options: 'i' } }
+        ];
+      }
+      
+      // Job Type filter
+      if (jobType?.trim()) {
+        filter.jobType = jobType.trim();
+      }
+      
+      // Location filter
+      if (location?.trim()) {
+        filter.location = { $regex: location.trim(), $options: 'i' };
+      }
+      
+      // Department filter
+      if (department?.trim()) {
+        filter.department = { $regex: department.trim(), $options: 'i' };
+      }
+      
+      return filter;
+    };
+
+    // Fetch jobs grouped by status with filters
+    const pendingJobs = await JobPosting.find(buildFilter('pending')).populate('postedBy', 'name email role');
+    const approvedJobs = await JobPosting.find(buildFilter('approved')).populate('postedBy', 'name email role');
+    const declinedJobs = await JobPosting.find(buildFilter('declined')).populate('postedBy', 'name email role');
+
+    // Apply salary filter in memory (since salary is stored as string)
+    const filterBySalary = (jobs) => {
+      if (!salaryMin && !salaryMax) return jobs;
+      
+      const min = salaryMin ? parseInt(salaryMin) : 0;
+      const max = salaryMax ? parseInt(salaryMax) : Infinity;
+      
+      return jobs.filter(job => {
+        if (!job.salary) return false;
+        const salaryStr = job.salary.toLowerCase().replace(/[^0-9.-]/g, '');
+        const salaryNum = parseInt(salaryStr) || 0;
+        return salaryNum >= min && salaryNum <= max;
+      });
+    };
+
+    const filteredPending = filterBySalary(pendingJobs);
+    const filteredApproved = filterBySalary(approvedJobs);
+    const filteredDeclined = filterBySalary(declinedJobs);
 
     res.status(200).json({
       success: true,
-      pending: pendingJobs,
-      approved: approvedJobs,
-      declined: declinedJobs,
+      pending: filteredPending,
+      approved: filteredApproved,
+      declined: filteredDeclined,
     });
   } catch (error) {
     res.status(401).json({ message: 'Invalid token', error: error.message });
