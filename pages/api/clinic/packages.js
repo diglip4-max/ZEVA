@@ -38,9 +38,8 @@ export default async function handler(req, res) {
       // Check read permission
       const { hasPermission, error: permError } = await checkClinicPermission(
         clinicId,
-        "clinic_staff_management",
-        "read",
-        "Add Room"
+        "clinic_addRoom",
+        "read"
       );
 
       if (!hasPermission) {
@@ -83,9 +82,8 @@ export default async function handler(req, res) {
       // Check create permission
       const { hasPermission, error: permError } = await checkClinicPermission(
         clinicId,
-        "clinic_staff_management",
+        "clinic_addRoom",
         "create",
-        "Add Room"
       );
 
       if (!hasPermission) {
@@ -174,9 +172,8 @@ export default async function handler(req, res) {
       // Check update permission
       const { hasPermission, error: permError } = await checkClinicPermission(
         clinicId,
-        "clinic_staff_management",
+        "clinic_addRoom",
         "update",
-        "Add Room"
       );
 
       if (!hasPermission) {
@@ -268,9 +265,8 @@ export default async function handler(req, res) {
       // Check delete permission
       const { hasPermission, error: permError } = await checkClinicPermission(
         clinicId,
-        "clinic_staff_management",
+        "clinic_addRoom",
         "delete",
-        "Add Room"
       );
 
       if (!hasPermission) {

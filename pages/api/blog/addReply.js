@@ -1,7 +1,9 @@
 import dbConnect from '../../../lib/database';
 import Blog from '../../../models/Blog';
+import User from '../../../models/Users';
 import Clinic from '../../../models/Clinic';
 import { getUserFromReq, requireRole } from '../lead-ms/auth';
+import { getClinicIdFromUser, checkClinicPermission } from '../lead-ms/permissions-helper';
 import Notification from "../../../models/Notification";
 import { emitNotificationToUser } from "../push-notification/socketio";
 
@@ -14,7 +16,7 @@ export default async function handler(req, res) {
 
   try {
     const me = await getUserFromReq(req);
-    if (!me || !requireRole(me, ["clinic", "doctor", "admin"])) {
+    if (!me || !requireRole(me, ["clinic", "doctor", "doctorStaff", "agent", "admin"])) {
       return res.status(403).json({ success: false, message: "Access denied" });
     }
 
@@ -28,36 +30,55 @@ export default async function handler(req, res) {
       return res.status(404).json({ success: false, error: 'Blog not found' });
     }
 
-    // ✅ Check if user owns the blog (only blog author can reply to comments on their blog)
-    // For clinic users, also check permission
-    if (blog.postedBy.toString() === me._id.toString()) {
-      // Blog author - check permission for updating analytics (only for clinic, admin bypasses)
-      if (me.role === "clinic") {
-        const clinic = await Clinic.findOne({ owner: me._id }).select("_id");
-        if (clinic) {
-          const { checkClinicPermission } = await import("../lead-ms/permissions-helper");
-          const { hasPermission, error } = await checkClinicPermission(
-            clinic._id,
-            "blogs",
-            "update",
-            "Analytics of blog" // Check "Analytics of blog" submodule permission for updating (replying)
-          );
-          if (!hasPermission) {
-            return res.status(403).json({
-              success: false,
-              message: error || "You do not have permission to reply to comments"
-            });
-          }
+    // ✅ Check if user owns the blog or is from the same clinic (for agent/doctorStaff)
+    const { clinicId, error, isAdmin } = await getClinicIdFromUser(me);
+    const isDoctor = me.role === "doctor";
+    const isDoctorStaff = me.role === "doctorStaff";
+    const isAgent = me.role === "agent";
+    
+    const isBlogAuthor = blog.postedBy.toString() === me._id.toString();
+    
+    // For agent/doctorStaff, check if blog is from their clinic
+    let isClinicBlog = false;
+    if ((isAgent || isDoctorStaff) && clinicId && !isBlogAuthor) {
+      const clinic = await Clinic.findById(clinicId).select("owner");
+      if (clinic) {
+        const clinicUsers = await User.find({
+          $or: [
+            { _id: clinic.owner },
+            { clinicId: clinicId, role: "doctor" },
+          ],
+        }).select("_id");
+        const clinicUserIds = clinicUsers.map(u => u._id.toString());
+        isClinicBlog = clinicUserIds.includes(blog.postedBy.toString());
+      }
+    }
+    
+    // Only blog author, clinic users (agent/doctorStaff) with permission, or admin can reply
+    if (isBlogAuthor || isClinicBlog || isAdmin) {
+      // Check permission for updating (replying to comments)
+      if (!isAdmin && !isDoctor && clinicId) {
+        const roleForPermission = isDoctorStaff ? "doctorStaff" : isAgent ? "agent" : me.role === "clinic" ? "clinic" : null;
+        const { hasPermission, error: permError } = await checkClinicPermission(
+          clinicId,
+          "write_blog", // Check "write_blog" module permission
+          "update",
+          null, // Module-level check
+          roleForPermission
+        );
+        if (!hasPermission) {
+          return res.status(403).json({
+            success: false,
+            message: permError || "You do not have permission to reply to comments"
+          });
         }
       }
     } else {
-      // Not blog author - only allow if user is admin or has permission
-      if (me.role !== "admin") {
-        return res.status(403).json({
-          success: false,
-          message: "Only blog authors can reply to comments on their blogs"
-        });
-      }
+      // Not blog author or clinic user - deny access
+      return res.status(403).json({
+        success: false,
+        message: "Only blog authors or clinic members can reply to comments on their clinic's blogs"
+      });
     }
 
     const comment = blog.comments.id(commentId);

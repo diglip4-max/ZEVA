@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/router";
 import axios from "axios";
 import {
   Search,
@@ -17,6 +18,7 @@ import {
 import ClinicLayout from "../../components/ClinicLayout";
 import type { NextPageWithLayout } from "../_app";
 import withClinicAuth from "../../components/withClinicAuth";
+import { useAgentPermissions } from '../../hooks/useAgentPermissions';
 
 interface Enquiry {
   _id: string;
@@ -31,7 +33,28 @@ interface EnquiriesResponse {
   enquiries: Enquiry[];
 }
 
+const TOKEN_PRIORITY = [
+  "clinicToken",
+  "doctorToken",
+  "agentToken",
+  "staffToken",
+  "userToken",
+  "adminToken",
+];
+
+const getStoredToken = () => {
+  if (typeof window === "undefined") return null;
+  for (const key of TOKEN_PRIORITY) {
+    const value =
+      window.localStorage.getItem(key) ||
+      window.sessionStorage.getItem(key);
+    if (value) return value;
+  }
+  return null;
+};
+
 function ClinicEnquiries({ contextOverride = null }: { contextOverride?: "clinic" | "agent" | null }) {
+  const router = useRouter();
   const [enquiries, setEnquiries] = useState<Enquiry[]>([]);
   const [filteredEnquiries, setFilteredEnquiries] = useState<Enquiry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -40,10 +63,36 @@ function ClinicEnquiries({ contextOverride = null }: { contextOverride?: "clinic
     "all"
   );
   const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
+  const [permissions, setPermissions] = useState({
+    canRead: false,
+  });
+  const [permissionsLoaded, setPermissionsLoaded] = useState(false);
+  const [accessError, setAccessError] = useState<string | null>(null);
+  const [hasAgentToken, setHasAgentToken] = useState(false);
+  const [isAgentRoute, setIsAgentRoute] = useState(false);
 
   const [routeContext, setRouteContext] = useState<"clinic" | "agent">(
     contextOverride || "clinic"
   );
+
+  // Detect agent route and token
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const syncTokens = () => {
+      setHasAgentToken(Boolean(localStorage.getItem("agentToken")));
+    };
+    syncTokens();
+    window.addEventListener("storage", syncTokens);
+    return () => window.removeEventListener("storage", syncTokens);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const agentPath =
+      router?.pathname?.startsWith("/agent/") ||
+      window.location.pathname?.startsWith("/agent/");
+    setIsAgentRoute(agentPath && hasAgentToken);
+  }, [router.pathname, hasAgentToken]);
 
   useEffect(() => {
     if (contextOverride) {
@@ -59,21 +108,116 @@ function ClinicEnquiries({ contextOverride = null }: { contextOverride?: "clinic
     }
   }, [contextOverride]);
 
+  // Use agent permissions hook for agent routes
+  const agentPermissionsHook: any = useAgentPermissions(isAgentRoute ? "clinic_enquiry" : null);
+  const agentPermissions = agentPermissionsHook?.permissions || {
+    canRead: false,
+    canAll: false,
+  };
+  const agentPermissionsLoading = agentPermissionsHook?.loading || false;
+
+  // Handle agent permissions
   useEffect(() => {
+    if (!isAgentRoute) return;
+    if (agentPermissionsLoading) return;
+    
+    const newPermissions = {
+      canRead: Boolean(agentPermissions.canAll || agentPermissions.canRead),
+    };
+    
+    setPermissions(newPermissions);
+    setPermissionsLoaded(true);
+  }, [isAgentRoute, agentPermissions, agentPermissionsLoading]);
+
+  // Handle clinic permissions - clinic, doctor, and staff have full access by default
+  useEffect(() => {
+    if (isAgentRoute) return;
+    let isMounted = true;
+    
+    // Check which token type is being used
+    const clinicToken = typeof window !== "undefined" ? 
+      (localStorage.getItem("clinicToken") || sessionStorage.getItem("clinicToken")) : null;
+    const doctorToken = typeof window !== "undefined" ? 
+      (localStorage.getItem("doctorToken") || sessionStorage.getItem("doctorToken")) : null;
+    const agentToken = typeof window !== "undefined" ? 
+      (localStorage.getItem("agentToken") || sessionStorage.getItem("agentToken")) : null;
+    const staffToken = typeof window !== "undefined" ? 
+      (localStorage.getItem("staffToken") || sessionStorage.getItem("staffToken")) : null;
+
+    // ✅ Clinic, doctor, and staff roles have full access by default - skip permission check
+    if (clinicToken || doctorToken || staffToken) {
+      if (!isMounted) return;
+      setPermissions({ canRead: true });
+      setPermissionsLoaded(true);
+      return;
+    }
+
+    // For agent/doctorStaff tokens (when not on agent route), check permissions
+    const token = getStoredToken();
+    if (!token) {
+      setPermissions({ canRead: false });
+      setPermissionsLoaded(true);
+      return;
+    }
+
+    // Only check permissions for agent/doctorStaff roles when not on agent route
+    if (agentToken) {
+      const fetchPermissions = async () => {
+        try {
+          setPermissionsLoaded(false);
+          // Use agent permissions API for agent/doctorStaff
+          const res = await axios.get("/api/agent/get-module-permissions", {
+            params: { moduleKey: "clinic_enquiry" },
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          const data = res.data;
+          
+          if (!isMounted) return;
+          if (data.success && data.data) {
+            const moduleActions = data.data.moduleActions || {};
+            setPermissions({
+              canRead: Boolean(moduleActions.all || moduleActions.read),
+            });
+          } else {
+            setPermissions({ canRead: false });
+          }
+        } catch (err) {
+          console.error("Error fetching agent permissions:", err);
+          setPermissions({ canRead: false });
+        } finally {
+          if (isMounted) {
+            setPermissionsLoaded(true);
+          }
+        }
+      };
+
+      fetchPermissions();
+    } else {
+      // Unknown token type - default to full access (likely clinic/doctor)
+      if (!isMounted) return;
+      setPermissions({ canRead: true });
+      setPermissionsLoaded(true);
+    }
+
+    return () => { isMounted = false; };
+  }, [isAgentRoute]);
+
+  // Fetch enquiries only if permissions are loaded and user has read permission
+  useEffect(() => {
+    if (!permissionsLoaded) return;
+    
+    // ✅ Only fetch enquiries if user has read permission
+    if (!permissions.canRead) {
+      setEnquiries([]);
+      setFilteredEnquiries([]);
+      setLoading(false);
+      return;
+    }
+
     const fetchEnquiries = async () => {
       try {
         if (typeof window === "undefined") return;
-        const agentToken =
-          localStorage.getItem("agentToken") ||
-          sessionStorage.getItem("agentToken") ||
-          localStorage.getItem("userToken") ||
-          sessionStorage.getItem("userToken");
-
-        const clinicToken =
-          localStorage.getItem("clinicToken") ||
-          sessionStorage.getItem("clinicToken");
-
-        const token = routeContext === "agent" ? agentToken : clinicToken;
+        const token = getStoredToken();
         if (!token) {
           setEnquiries([]);
           setFilteredEnquiries([]);
@@ -92,17 +236,26 @@ function ClinicEnquiries({ contextOverride = null }: { contextOverride?: "clinic
           }
         );
 
+        setAccessError(null);
         setEnquiries(res.data.enquiries || []);
         setFilteredEnquiries(res.data.enquiries || []);
-      } catch (err) {
-        console.error("Error fetching enquiries:", err);
+      } catch (err: any) {
+        // Gracefully handle permission denials without surfacing axios errors
+        if (err.response?.status === 403) {
+          setAccessError("You do not have permission to read the data.");
+          setPermissions({ canRead: false });
+          setEnquiries([]);
+          setFilteredEnquiries([]);
+        } else {
+          console.error("Error fetching enquiries:", err);
+        }
       } finally {
         setLoading(false);
       }
     };
 
     fetchEnquiries();
-  }, [routeContext]);
+  }, [routeContext, permissionsLoaded, permissions.canRead]);
 
   const isToday = (dateString: string) => {
     const date = new Date(dateString);
@@ -179,12 +332,29 @@ function ClinicEnquiries({ contextOverride = null }: { contextOverride?: "clinic
         })
       : "No enquiries yet";
 
-  if (loading) {
+  if (loading || !permissionsLoaded) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">
         <div className="text-center">
           <div className="animate-spin rounded-full h-10 w-10 border-3 border-gray-200 dark:border-gray-700 border-t-gray-800 dark:border-t-blue-500 mx-auto mb-3"></div>
           <p className="text-gray-700 dark:text-gray-300 font-medium text-sm">Loading enquiries...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show access denied message if no permission
+  if (accessError || !permissions.canRead) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-8 text-center max-w-md">
+          <div className="w-16 h-16 bg-yellow-100 dark:bg-yellow-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+            <MessageSquare className="w-8 h-8 text-yellow-600 dark:text-yellow-400" />
+          </div>
+          <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-2">Access Denied</h3>
+          <p className="text-sm text-gray-700 dark:text-gray-400">
+            {accessError || "You do not have permission to view clinic enquiries. Please contact your administrator."}
+          </p>
         </div>
       </div>
     );

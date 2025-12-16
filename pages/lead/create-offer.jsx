@@ -91,12 +91,22 @@ function OffersPage() {
   useEffect(() => {
     if (!isAgentRoute) return;
     if (agentPermissionsLoading) return;
-    setPermissions({
-      canCreate: agentPermissions.canAll || agentPermissions.canCreate,
-      canUpdate: agentPermissions.canAll || agentPermissions.canUpdate,
-      canDelete: agentPermissions.canAll || agentPermissions.canDelete,
-      canRead: agentPermissions.canAll || agentPermissions.canRead,
+    
+    // ✅ Ensure permissions are properly set from hook response
+    const newPermissions = {
+      canCreate: Boolean(agentPermissions.canAll || agentPermissions.canCreate),
+      canUpdate: Boolean(agentPermissions.canAll || agentPermissions.canUpdate),
+      canDelete: Boolean(agentPermissions.canAll || agentPermissions.canDelete),
+      canRead: Boolean(agentPermissions.canAll || agentPermissions.canRead),
+    };
+    
+    console.log('Setting permissions from agentPermissions:', {
+      agentPermissions,
+      newPermissions,
+      hasAnyPermission: newPermissions.canCreate || newPermissions.canRead || newPermissions.canUpdate || newPermissions.canDelete
     });
+    
+    setPermissions(newPermissions);
     setPermissionsLoaded(true);
   }, [isAgentRoute, agentPermissions, agentPermissionsLoading]);
 
@@ -189,9 +199,15 @@ function OffersPage() {
     // Wait for permissions to load
     if (!permissionsLoaded) return;
     
-    // Check if user has read permission
-    if (permissions.canRead === false) {
+    // ✅ Strict check: If user doesn't have read permission, don't make API call
+    if (permissions.canRead !== true) {
       setOffers([]);
+      // Clear cache if no read permission
+      if (typeof window !== "undefined") {
+        try {
+          sessionStorage.removeItem("offersCache");
+        } catch {}
+      }
       return;
     }
 
@@ -214,6 +230,19 @@ function OffersPage() {
         },
       });
       const data = await res.json();
+      
+      // ✅ Handle 403 permission denied explicitly
+      if (res.status === 403 || (data.message && data.message.toLowerCase().includes("permission"))) {
+        setOffers([]);
+        // Clear cache on permission denial
+        if (typeof window !== "undefined") {
+          try {
+            sessionStorage.removeItem("offersCache");
+          } catch {}
+        }
+        return;
+      }
+      
       if (data.success) {
         const next = data.offers || [];
         setOffers(next);
@@ -247,7 +276,8 @@ function OffersPage() {
       toast.error("Not authorized!");
       return;
     }
-    if (!permissions.canUpdate) {
+    // ✅ Strict check: Must have update permission
+    if (permissions.canUpdate !== true) {
       toast.error("You do not have permission to update offers");
       return;
     }
@@ -259,6 +289,14 @@ function OffersPage() {
         headers: { Authorization: `Bearer ${storedToken}` },
       });
       const data = await res.json();
+      
+      // ✅ Handle 403 permission denied explicitly
+      if (res.status === 403 || (data.message && data.message.toLowerCase().includes("permission"))) {
+        toast.error(data.message || "You do not have permission to update offers");
+        setModalOpen(false);
+        return;
+      }
+      
       if (data.success) {
         setEditingOfferData(data.offer);
       } else {
@@ -281,7 +319,8 @@ function OffersPage() {
   };
 
   const requestDeleteOffer = (offer) => {
-    if (!permissions.canDelete) {
+    // ✅ Strict check: Must have delete permission
+    if (permissions.canDelete !== true) {
       toast.error("You do not have permission to delete offers");
       return;
     }
@@ -300,12 +339,27 @@ function OffersPage() {
       return;
     }
 
+    // ✅ Double-check permission before making API call
+    if (permissions.canDelete !== true) {
+      toast.error("You do not have permission to delete offers");
+      setConfirmModal({ isOpen: false, offerId: null, offerTitle: "" });
+      return;
+    }
+
     try {
       const res = await fetch(`/api/lead-ms/delete-create-offer?id=${confirmModal.offerId}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${storedToken}` },
       });
       const data = await res.json();
+      
+      // ✅ Handle 403 permission denied explicitly
+      if (res.status === 403 || (data.message && data.message.toLowerCase().includes("permission"))) {
+        toast.error(data.message || "You do not have permission to delete offers");
+        setConfirmModal({ isOpen: false, offerId: null, offerTitle: "" });
+        return;
+      }
+      
       if (data.success) {
         setOffers((prev) => prev.filter((o) => o._id !== confirmModal.offerId));
         toast.success("Offer deleted successfully");
@@ -365,7 +419,7 @@ function OffersPage() {
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 text-center">
             <p className="text-xs sm:text-sm text-gray-700 font-medium">Loading permissions...</p>
           </div>
-        ) : permissions.canRead === false ? (
+        ) : !permissions.canCreate && !permissions.canRead && !permissions.canUpdate && !permissions.canDelete ? (
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 sm:p-8 text-center space-y-2">
             <div className="inline-flex items-center justify-center w-12 h-12 bg-red-50 rounded-lg">
               <Package className="w-6 h-6 text-red-600" />
@@ -385,7 +439,7 @@ function OffersPage() {
                   <h1 className="text-lg sm:text-xl font-bold text-gray-900 mb-0.5">Offers Management</h1>
                   <p className="text-[10px] sm:text-xs text-gray-600">Create and manage promotional offers for your clinic</p>
                 </div>
-                {permissions.canCreate && (
+                {permissions.canCreate === true && (
                   <button
                     onClick={() => {
                       setEditingOfferId(null);
@@ -493,8 +547,12 @@ function OffersPage() {
                       <Package className="h-5 w-5 text-gray-800" />
                     </div>
                     <h3 className="text-sm font-bold text-gray-900 mb-1">No offers yet</h3>
-                    <p className="text-gray-600 text-xs mb-3">Get started by creating your first promotional offer</p>
-                    {permissions.canCreate && (
+                    {permissions.canRead === true ? (
+                      <p className="text-gray-600 text-xs mb-3">Get started by creating your first promotional offer</p>
+                    ) : (
+                      <p className="text-gray-600 text-xs mb-3">You don't have permission to view offers, but you can create new ones</p>
+                    )}
+                    {permissions.canCreate === true && (
                       <button
                         onClick={() => {
                           setEditingOfferId(null);
@@ -507,7 +565,7 @@ function OffersPage() {
                         <span>Create Your First Offer</span>
                       </button>
                     )}
-                    {!permissions.canCreate && (
+                    {permissions.canCreate !== true && (
                       <p className="text-red-500 text-xs">You do not have permission to create offers</p>
                     )}
                   </div>
@@ -602,7 +660,7 @@ function OffersPage() {
                               </td>
                               <td className="px-2 py-2">
                                 <div className="flex items-center justify-end gap-1">
-                                  {permissions.canUpdate && (
+                                  {permissions.canUpdate === true && (
                                     <button
                                       onClick={() => openEditModal(offer._id)}
                                       className="inline-flex items-center justify-center w-6 h-6 rounded bg-gray-100 text-gray-800 hover:bg-gray-200 transition-colors"
@@ -611,7 +669,7 @@ function OffersPage() {
                                       <Edit className="h-3 w-3" />
                                     </button>
                                   )}
-                                  {permissions.canDelete && (
+                                  {permissions.canDelete === true && (
                                     <button
                                       onClick={() => requestDeleteOffer(offer)}
                                       className="inline-flex items-center justify-center w-6 h-6 rounded bg-red-50 text-red-600 hover:bg-red-100 transition-colors"

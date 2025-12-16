@@ -37,6 +37,27 @@ export default async function handler(req, res) {
         return res.status(403).json({ success: false, message: "Access denied. User not linked to a clinic." });
       }
     }
+
+    // ✅ Check permission for reading appointments (only for agent, doctorStaff roles)
+    // Clinic and doctor roles have full access by default
+    if (clinicId && ["agent", "doctorStaff"].includes(clinicUser.role)) {
+      const { checkAgentPermission } = await import("../../agent/permissions-helper");
+      const result = await checkAgentPermission(
+        clinicUser._id,
+        "clinic_Appointment",
+        "read"
+      );
+
+      if (!result.hasPermission && result.error && result.error.includes("not found in agent permissions")) {
+        console.log(`[patient-appointment-history] Module clinic_Appointment not found in permissions for user ${clinicUser._id}, allowing access by default`);
+      } else if (!result.hasPermission) {
+        return res.status(403).json({
+          success: false,
+          message: result.error || "You do not have permission to view appointment history"
+        });
+      }
+    }
+
     const patientId = req.query.patientId;
 
     // Validate patient ID

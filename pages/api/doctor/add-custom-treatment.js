@@ -1,6 +1,7 @@
 import dbConnect from "../../../lib/database";
 import Treatment from "../../../models/Treatment";
 import { getUserFromReq } from "../lead-ms/auth";
+import { getClinicIdFromUser, checkClinicPermission } from "../lead-ms/permissions-helper";
 
 export default async function handler(req, res) {
   await dbConnect();
@@ -10,12 +11,32 @@ export default async function handler(req, res) {
       // Verify authentication
       const authUser = await getUserFromReq(req);
       if (!authUser) {
-      return res.status(401).json({ message: "Unauthorized" });
-    }
+        return res.status(401).json({ message: "Unauthorized" });
+      }
 
       // Allow doctor, lead, clinic, agent, doctorStaff, and staff roles
       if (!["doctor", "lead", "clinic", "agent", "doctorStaff", "staff"].includes(authUser.role)) {
         return res.status(403).json({ message: "Access denied" });
+      }
+
+      // ✅ Check permission for creating custom treatment (only for agent, doctorStaff, staff roles)
+      // Clinic and doctor roles have full access by default, admin bypasses
+      const { clinicId, error, isAdmin } = await getClinicIdFromUser(authUser);
+      
+      if (!isAdmin && clinicId && ["agent", "staff", "doctorStaff"].includes(authUser.role)) {
+        const { checkAgentPermission } = await import("../agent/permissions-helper");
+        const result = await checkAgentPermission(
+          authUser._id,
+          "add_treatment",
+          "create"
+        );
+
+        if (!result.hasPermission) {
+          return res.status(403).json({
+            success: false,
+            message: result.error || "You do not have permission to add custom treatments"
+          });
+        }
       }
     } catch (error) {
       console.error("Auth error:", error);

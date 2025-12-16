@@ -9,6 +9,7 @@ import { getUserFromReq, requireRole } from "./auth";
 import csv from "csvtojson";
 import multer from "multer";
 import * as XLSX from "xlsx";
+import { importLeadsFromFileQueue } from "../../../bullmq/queue.js";
 
 // Multer setup
 const upload = multer({ storage: multer.memoryStorage() });
@@ -181,12 +182,10 @@ export default async function handler(req, res) {
       const sheetName = workbook.SheetNames[0];
       jsonArray = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
     } else {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "Unsupported file format. Upload CSV or Excel.",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "Unsupported file format. Upload CSV or Excel.",
+      });
     }
 
     if (!jsonArray || jsonArray.length === 0) {
@@ -549,34 +548,39 @@ export default async function handler(req, res) {
     let batchFailedCount = 0;
     const batchFailedRecords = [];
 
-    for (let i = 0; i < leadsToInsert.length; i += BATCH_SIZE) {
-      const batch = leadsToInsert.slice(i, i + BATCH_SIZE);
+    // for (let i = 0; i < leadsToInsert.length; i += BATCH_SIZE) {
+    //   const batch = leadsToInsert.slice(i, i + BATCH_SIZE);
 
-      try {
-        await Lead.insertMany(batch, { ordered: false });
-        importedCount += batch.length;
-      } catch (batchError) {
-        console.error(
-          `Error importing batch ${Math.floor(i / BATCH_SIZE) + 1}:`,
-          batchError
-        );
+    //   try {
+    //     await Lead.insertMany(batch, { ordered: false });
+    //     importedCount += batch.length;
+    //   } catch (batchError) {
+    //     console.error(
+    //       `Error importing batch ${Math.floor(i / BATCH_SIZE) + 1}:`,
+    //       batchError
+    //     );
 
-        // Try to import each lead individually in this batch
-        for (const lead of batch) {
-          try {
-            await Lead.create(lead);
-            importedCount += 1;
-          } catch (individualError) {
-            batchFailedCount += 1;
-            batchFailedRecords.push({
-              name: lead.name,
-              phone: lead.phone,
-              error: individualError.message,
-            });
-          }
-        }
-      }
-    }
+    //     // Try to import each lead individually in this batch
+    //     for (const lead of batch) {
+    //       try {
+    //         await Lead.create(lead);
+    //         importedCount += 1;
+    //       } catch (individualError) {
+    //         batchFailedCount += 1;
+    //         batchFailedRecords.push({
+    //           name: lead.name,
+    //           phone: lead.phone,
+    //           error: individualError.message,
+    //         });
+    //       }
+    //     }
+    //   }
+    // }
+
+    // add import leads job to queue for background processing
+    await importLeadsFromFileQueue.add("import-leads", {
+      leadsToInsert,
+    });
 
     // Combine all failed records
     const allFailedRecords = [

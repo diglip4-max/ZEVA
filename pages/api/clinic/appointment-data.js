@@ -3,6 +3,7 @@ import Clinic from "../../../models/Clinic";
 import User from "../../../models/Users";
 import Room from "../../../models/Room";
 import { getUserFromReq } from "../lead-ms/auth";
+import { getClinicIdFromUser } from "../lead-ms/permissions-helper";
 
 export default async function handler(req, res) {
   await dbConnect();
@@ -18,26 +19,56 @@ export default async function handler(req, res) {
       return res.status(401).json({ success: false, message: "Unauthorized" });
     }
 
-    let clinicId = null;
-    let clinic = null;
+    // Allow clinic, admin, agent, doctor, doctorStaff, and staff roles
+    if (!["clinic", "admin", "agent", "doctor", "doctorStaff", "staff"].includes(authUser.role)) {
+      return res.status(403).json({ success: false, message: "Access denied" });
+    }
 
-    if (authUser.role === "clinic") {
-      clinic = await Clinic.findOne({ owner: authUser._id }).lean();
+    let { clinicId, error, isAdmin } = await getClinicIdFromUser(authUser);
+    if (error && !isAdmin) {
+      return res.status(404).json({ message: error });
+    }
+
+    // ✅ Check permission for reading appointment data (only for agent, doctorStaff roles)
+    // Clinic, doctor, and staff roles have full access by default, admin bypasses
+    if (!isAdmin && clinicId && ["agent", "doctorStaff"].includes(authUser.role)) {
+      const { checkAgentPermission } = await import("../agent/permissions-helper");
+      const result = await checkAgentPermission(
+        authUser._id,
+        "clinic_Appointment",
+        "read"
+      );
+
+      // If module doesn't exist in permissions yet, allow access by default
+      // This handles the case where permissions haven't been set up for this module
+      if (!result.hasPermission && result.error && result.error.includes("not found in agent permissions")) {
+        // Module not set up yet - allow access by default for agent/doctorStaff
+        console.log(`[appointment-data] Module clinic_Appointment not found in permissions for user ${authUser._id}, allowing access by default`);
+      } else if (!result.hasPermission) {
+        // Permission explicitly denied
+        return res.status(403).json({
+          success: false,
+          message: result.error || "You do not have permission to view appointment data"
+        });
+      }
+    }
+
+    // Ensure clinicId is set correctly
+    if (!clinicId && authUser.role === "clinic") {
+      const clinic = await Clinic.findOne({ owner: authUser._id }).select("_id");
       if (!clinic) {
         return res.status(404).json({ success: false, message: "Clinic not found" });
       }
       clinicId = clinic._id;
-    } else if (["agent", "doctor", "doctorStaff", "staff"].includes(authUser.role)) {
-      clinicId = authUser.clinicId;
-      if (!clinicId) {
-        return res.status(403).json({ success: false, message: "Access denied. User not linked to a clinic." });
-      }
-      clinic = await Clinic.findById(clinicId).lean();
-      if (!clinic) {
-        return res.status(404).json({ success: false, message: "Clinic not found" });
-      }
-    } else {
-      return res.status(403).json({ success: false, message: "Access denied." });
+    }
+
+    if (!clinicId) {
+      return res.status(404).json({ success: false, message: "Clinic not found" });
+    }
+
+    const clinic = await Clinic.findById(clinicId).lean();
+    if (!clinic) {
+      return res.status(404).json({ success: false, message: "Clinic not found" });
     }
 
     // Fetch all doctorStaff for this clinic

@@ -1044,10 +1044,21 @@ function ClinicManagementDashboard() {
         }
 
         const userRole = getUserRole();
-        let permissionsData = null;
+        
+        // Clinic and doctor roles have full access by default - no need to check permissions
+        if (userRole === "clinic" || userRole === "doctor") {
+          setPermissions({
+            canRead: true,
+            canUpdate: true,
+            canDelete: true,
+          });
+          setPermissionsLoaded(true);
+          return;
+        }
 
         // For agents, staff, and doctorStaff, fetch from /api/agent/permissions
         if (["agent", "staff", "doctorStaff"].includes(userRole || "")) {
+          let permissionsData = null;
           try {
             // Get agentId from token
             const token = getStoredToken();
@@ -1068,48 +1079,42 @@ function ClinicManagementDashboard() {
           } catch (err: any) {
             console.error("Error fetching agent permissions:", err);
           }
-        } else {
-          // For clinic and doctor, fetch from /api/clinic/permissions
-          try {
-            const res = await axios.get("/api/clinic/permissions", {
-              headers: authHeaders,
+
+          if (permissionsData && permissionsData.permissions) {
+            const modulePermission = permissionsData.permissions.find((p: any) => {
+              if (!p?.module) return false;
+              if (p.module === "health_center") return true;
+              if (p.module === "clinic_health_center") return true;
+              if (p.module.startsWith("clinic_") && p.module.slice(7) === "health_center") {
+                return true;
+              }
+              return false;
             });
-            
-            if (res.data.success && res.data.data) {
-              permissionsData = res.data.data;
+
+            if (modulePermission) {
+              const actions = modulePermission.actions || {};
+              
+              // Module-level "all" grants all permissions
+              const moduleAll = actions.all === true || actions.all === "true" || String(actions.all).toLowerCase() === "true";
+              const moduleRead = actions.read === true || actions.read === "true" || String(actions.read).toLowerCase() === "true";
+              const moduleUpdate = actions.update === true || actions.update === "true" || String(actions.update).toLowerCase() === "true";
+              const moduleDelete = actions.delete === true || actions.delete === "true" || String(actions.delete).toLowerCase() === "true";
+
+              setPermissions({
+                canRead: moduleAll || moduleRead,
+                canUpdate: moduleAll || moduleUpdate,
+                canDelete: moduleAll || moduleDelete,
+              });
+            } else {
+              // No permissions found for this module, default to false
+              setPermissions({
+                canRead: false,
+                canUpdate: false,
+                canDelete: false,
+              });
             }
-          } catch (err: any) {
-            console.error("Error fetching clinic permissions:", err);
-          }
-        }
-
-        if (permissionsData && permissionsData.permissions) {
-          const modulePermission = permissionsData.permissions.find((p: any) => {
-            if (!p?.module) return false;
-            if (p.module === "health_center") return true;
-            if (p.module === "clinic_health_center") return true;
-            if (p.module.startsWith("clinic_") && p.module.slice(7) === "health_center") {
-              return true;
-            }
-            return false;
-          });
-
-          if (modulePermission) {
-            const actions = modulePermission.actions || {};
-            
-            // Module-level "all" grants all permissions
-            const moduleAll = actions.all === true || actions.all === "true" || String(actions.all).toLowerCase() === "true";
-            const moduleRead = actions.read === true || actions.read === "true" || String(actions.read).toLowerCase() === "true";
-            const moduleUpdate = actions.update === true || actions.update === "true" || String(actions.update).toLowerCase() === "true";
-            const moduleDelete = actions.delete === true || actions.delete === "true" || String(actions.delete).toLowerCase() === "true";
-
-            setPermissions({
-              canRead: moduleAll || moduleRead,
-              canUpdate: moduleAll || moduleUpdate,
-              canDelete: moduleAll || moduleDelete,
-            });
           } else {
-            // No permissions found for this module, default to false
+            // API failed or no permissions data, default to false
             setPermissions({
               canRead: false,
               canUpdate: false,
@@ -1117,7 +1122,7 @@ function ClinicManagementDashboard() {
             });
           }
         } else {
-          // API failed or no permissions data, default to false
+          // Unknown role, default to false
           setPermissions({
             canRead: false,
             canUpdate: false,
@@ -1145,9 +1150,11 @@ function ClinicManagementDashboard() {
       // Wait for permissions to load
       if (!permissionsLoaded) return;
 
-      // ✅ Don't make API call if we already know user doesn't have read permission
-      // This prevents the 403 error from happening in the first place
-      if (!permissions.canRead) {
+      const userRole = getUserRole();
+      
+      // ✅ Clinic and doctor roles have full access - always make API call
+      // For agent and doctorStaff, check permissions first
+      if (userRole !== "clinic" && userRole !== "doctor" && !permissions.canRead) {
         setClinics([]);
         setLoading(false);
         return;
@@ -1170,10 +1177,13 @@ function ClinicManagementDashboard() {
         // Check if response is 403
         if (res.status === 403) {
           // Handle 403 silently - this is expected when permissions are not granted
-          setPermissions(prev => ({
-            ...prev,
-            canRead: false,
-          }));
+          // But only update permissions for agent/doctorStaff roles, not clinic/doctor
+          if (userRole !== "clinic" && userRole !== "doctor") {
+            setPermissions(prev => ({
+              ...prev,
+              canRead: false,
+            }));
+          }
           setClinics([]);
           setLoading(false);
           return;
@@ -1214,7 +1224,16 @@ function ClinicManagementDashboard() {
   // Fetch clinic statistics
   useEffect(() => {
     const fetchClinicStats = async () => {
-      if (!permissionsLoaded || !permissions.canRead) {
+      if (!permissionsLoaded) {
+        setStatsLoading(false);
+        return;
+      }
+
+      const userRole = getUserRole();
+      
+      // ✅ Clinic and doctor roles have full access - always make API call
+      // For agent and doctorStaff, check permissions first
+      if (userRole !== "clinic" && userRole !== "doctor" && !permissions.canRead) {
         setStatsLoading(false);
         return;
       }
@@ -1841,164 +1860,336 @@ function ClinicManagementDashboard() {
           </div>
         ) : (
           <div className="w-full">
-            {/* Show permission denied message if no read permission */}
-            {!permissions.canRead ? (
-              <div className="bg-white rounded-lg p-6 sm:p-8 border border-gray-200 shadow-sm">
-                <div className="text-center max-w-md mx-auto">
-                  <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center mx-auto mb-3">
-                    <Building2 className="w-6 h-6 text-red-600" />
-                  </div>
-                  <h3 className="text-lg font-bold text-gray-900 mb-2">
-                    Access Denied
-                  </h3>
-                  <p className="text-sm text-gray-700 mb-3">
-                    You do not have permission to view clinic information.
-                  </p>
-                  <p className="text-xs text-gray-600">
-                    Please contact your administrator to request access to the Health Center Management module.
-                  </p>
-                </div>
-              </div>
-            ) : clinics.length === 0 ? (
-              <div className="bg-white rounded-lg p-6 sm:p-8 border border-gray-200 shadow-sm">
-                <div className="text-center max-w-md mx-auto">
-                  <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center mx-auto mb-3">
-                    <Building2 className="w-6 h-6 text-gray-800" />
-                  </div>
-                  <h3 className="text-lg font-bold text-gray-900 mb-2">
-                    No Clinics Found
-                  </h3>
-                  <p className="text-sm text-gray-700">
-                    Start by adding your first clinic
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <div className="w-full space-y-3 sm:space-y-4">
-                {clinics.map((clinic) => (
-                  <ClinicCard
-                    key={clinic._id}
-                    clinic={clinic}
-                    onEdit={handleEdit}
-                    getImagePath={getImagePath}
-                    canUpdate={permissions.canUpdate}
-                    stats={clinicStats}
-                    statsLoading={statsLoading}
-                  />
-                ))}
-                
-                {/* Statistics Charts Section - Compact */}
-                {clinics.length > 0 && (
-                  <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
-                    <div className="flex items-center gap-2 mb-3">
-                      <TrendingUp className="w-5 h-5 text-gray-700" />
-                      <h2 className="text-lg sm:text-xl font-bold text-gray-900">Analytics & Insights</h2>
-                    </div>
-
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
-                      {/* Bar Chart - Reviews vs Enquiries */}
-                      <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
-                        <h3 className="text-xs font-semibold text-gray-700 mb-2">Reviews & Enquiries</h3>
-                        <ResponsiveContainer width="100%" height={180}>
-                          <BarChart data={[
-                            { name: 'Reviews', value: clinicStats.totalReviews },
-                            { name: 'Enquiries', value: clinicStats.totalEnquiries },
-                          ]}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                            <XAxis dataKey="name" stroke="#6b7280" fontSize={11} />
-                            <YAxis stroke="#6b7280" fontSize={11} />
-                            <Tooltip 
-                              contentStyle={{ 
-                                backgroundColor: '#fff', 
-                                border: '1px solid #e5e7eb',
-                                borderRadius: '6px',
-                                fontSize: '11px'
-                              }}
-                            />
-                            <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-                              <Cell fill="#1f2937" />
-                              <Cell fill="#6b7280" />
-                            </Bar>
-                          </BarChart>
-                        </ResponsiveContainer>
+            {/* Show permission denied message if no read permission (only for agent/doctorStaff, not clinic/doctor) */}
+            {(() => {
+              const userRole = getUserRole();
+              // Clinic and doctor roles always have access - don't show access denied
+              if (userRole === "clinic" || userRole === "doctor") {
+                return null;
+              }
+              // For other roles, check permissions
+              if (!permissions.canRead) {
+                return (
+                  <div className="bg-white rounded-lg p-6 sm:p-8 border border-gray-200 shadow-sm">
+                    <div className="text-center max-w-md mx-auto">
+                      <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center mx-auto mb-3">
+                        <Building2 className="w-6 h-6 text-red-600" />
                       </div>
-
-                      {/* Column Chart - Services Distribution */}
-                      <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
-                        <h3 className="text-xs font-semibold text-gray-700 mb-2">Services Distribution</h3>
-                        <ResponsiveContainer width="100%" height={180}>
-                          <BarChart
-                            data={[
-                              { name: 'Treatments', value: clinicStats.totalTreatments },
-                              { name: 'Services', value: clinicStats.totalServices },
-                              { name: 'Sub-Treatments', value: clinicStats.totalSubTreatments },
-                            ]}
-                            margin={{ top: 10, right: 20, left: 10, bottom: 5 }}
-                          >
-                            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                            <XAxis 
-                              dataKey="name" 
-                              stroke="#6b7280" 
-                              fontSize={10}
-                              tick={{ fill: '#6b7280' }}
-                              angle={-15}
-                              textAnchor="end"
-                              height={40}
-                            />
-                            <YAxis 
-                              stroke="#6b7280" 
-                              fontSize={11}
-                              tick={{ fill: '#6b7280' }}
-                            />
-                            <Tooltip 
-                              contentStyle={{ 
-                                backgroundColor: '#fff', 
-                                border: '1px solid #e5e7eb',
-                                borderRadius: '6px',
-                                fontSize: '11px'
-                              }}
-                            />
-                            <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-                              <Cell fill="#1f2937" />
-                              <Cell fill="#6b7280" />
-                              <Cell fill="#9ca3af" />
-                            </Bar>
-                          </BarChart>
-                        </ResponsiveContainer>
+                      <h3 className="text-lg font-bold text-gray-900 mb-2">
+                        Access Denied
+                      </h3>
+                      <p className="text-sm text-gray-700 mb-3">
+                        You do not have permission to view clinic information.
+                      </p>
+                      <p className="text-xs text-gray-600">
+                        Please contact your administrator to request access to the Health Center Management module.
+                      </p>
+                    </div>
+                  </div>
+                );
+              }
+              return null;
+            })()}
+            {(() => {
+              const userRole = getUserRole();
+              // If clinic/doctor role, always show content (they have full access)
+              if (userRole === "clinic" || userRole === "doctor") {
+                // Show clinics or empty state
+                if (clinics.length === 0) {
+                  return (
+                    <div className="bg-white rounded-lg p-6 sm:p-8 border border-gray-200 shadow-sm">
+                      <div className="text-center max-w-md mx-auto">
+                        <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center mx-auto mb-3">
+                          <Building2 className="w-6 h-6 text-gray-800" />
+                        </div>
+                        <h3 className="text-lg font-bold text-gray-900 mb-2">
+                          No Clinics Found
+                        </h3>
+                        <p className="text-sm text-gray-700">
+                          Start by adding your first clinic
+                        </p>
                       </div>
                     </div>
+                  );
+                }
+                // Show clinics
+                return (
+                  <div className="w-full space-y-3 sm:space-y-4">
+                    {clinics.map((clinic) => (
+                      <ClinicCard
+                        key={clinic._id}
+                        clinic={clinic}
+                        onEdit={handleEdit}
+                        getImagePath={getImagePath}
+                        canUpdate={permissions.canUpdate}
+                        stats={clinicStats}
+                        statsLoading={statsLoading}
+                      />
+                    ))}
+                    
+                    {/* Statistics Charts Section - Compact */}
+                    {clinics.length > 0 && (
+                      <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                        <div className="flex items-center gap-2 mb-3">
+                          <TrendingUp className="w-5 h-5 text-gray-700" />
+                          <h2 className="text-lg sm:text-xl font-bold text-gray-900">Analytics & Insights</h2>
+                        </div>
 
-                    {/* Summary Cards - Compact */}
-                    <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 mt-3 sm:mt-4">
-                      <SummaryCard
-                        title="Total Engagement"
-                        value={clinicStats.totalReviews + clinicStats.totalEnquiries}
-                        icon={<Users className="w-4 h-4" />}
-                        color="blue"
-                      />
-                      <SummaryCard
-                        title="Average Rating"
-                        value={clinicStats.averageRating > 0 ? `${clinicStats.averageRating.toFixed(1)} ⭐` : "No ratings"}
-                        icon={<Star className="w-4 h-4" />}
-                        color="yellow"
-                      />
-                      <SummaryCard
-                        title="Total Offerings"
-                        value={clinicStats.totalTreatments + clinicStats.totalServices}
-                        icon={<Heart className="w-4 h-4" />}
-                        color="rose"
-                      />
-                      <SummaryCard
-                        title="Activity Score"
-                        value={clinicStats.totalSubTreatments > 0 ? "Active" : "Setup"}
-                        icon={<Activity className="w-4 h-4" />}
-                        color="green"
-                      />
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
+                          {/* Bar Chart - Reviews vs Enquiries */}
+                          <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                            <h3 className="text-xs font-semibold text-gray-700 mb-2">Reviews & Enquiries</h3>
+                            <ResponsiveContainer width="100%" height={180}>
+                              <BarChart data={[
+                                { name: 'Reviews', value: clinicStats.totalReviews },
+                                { name: 'Enquiries', value: clinicStats.totalEnquiries },
+                              ]}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                                <XAxis dataKey="name" stroke="#6b7280" fontSize={11} />
+                                <YAxis stroke="#6b7280" fontSize={11} />
+                                <Tooltip 
+                                  contentStyle={{ 
+                                    backgroundColor: '#fff', 
+                                    border: '1px solid #e5e7eb',
+                                    borderRadius: '6px',
+                                    fontSize: '11px'
+                                  }}
+                                />
+                                <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                                  <Cell fill="#1f2937" />
+                                  <Cell fill="#6b7280" />
+                                </Bar>
+                              </BarChart>
+                            </ResponsiveContainer>
+                          </div>
+
+                          {/* Column Chart - Services Distribution */}
+                          <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                            <h3 className="text-xs font-semibold text-gray-700 mb-2">Services Distribution</h3>
+                            <ResponsiveContainer width="100%" height={180}>
+                              <BarChart
+                                data={[
+                                  { name: 'Treatments', value: clinicStats.totalTreatments },
+                                  { name: 'Services', value: clinicStats.totalServices },
+                                  { name: 'Sub-Treatments', value: clinicStats.totalSubTreatments },
+                                ]}
+                                margin={{ top: 10, right: 20, left: 10, bottom: 5 }}
+                              >
+                                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                                <XAxis 
+                                  dataKey="name" 
+                                  stroke="#6b7280" 
+                                  fontSize={10}
+                                  tick={{ fill: '#6b7280' }}
+                                  angle={-15}
+                                  textAnchor="end"
+                                  height={40}
+                                />
+                                <YAxis 
+                                  stroke="#6b7280" 
+                                  fontSize={11}
+                                  tick={{ fill: '#6b7280' }}
+                                />
+                                <Tooltip 
+                                  contentStyle={{ 
+                                    backgroundColor: '#fff', 
+                                    border: '1px solid #e5e7eb',
+                                    borderRadius: '6px',
+                                    fontSize: '11px'
+                                  }}
+                                />
+                                <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                                  <Cell fill="#1f2937" />
+                                  <Cell fill="#6b7280" />
+                                  <Cell fill="#9ca3af" />
+                                </Bar>
+                              </BarChart>
+                            </ResponsiveContainer>
+                          </div>
+                        </div>
+
+                        {/* Summary Cards - Compact */}
+                        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 mt-3 sm:mt-4">
+                          <SummaryCard
+                            title="Total Engagement"
+                            value={clinicStats.totalReviews + clinicStats.totalEnquiries}
+                            icon={<Users className="w-4 h-4" />}
+                            color="blue"
+                          />
+                          <SummaryCard
+                            title="Average Rating"
+                            value={clinicStats.averageRating > 0 ? `${clinicStats.averageRating.toFixed(1)} ⭐` : "No ratings"}
+                            icon={<Star className="w-4 h-4" />}
+                            color="yellow"
+                          />
+                          <SummaryCard
+                            title="Total Offerings"
+                            value={clinicStats.totalTreatments + clinicStats.totalServices}
+                            icon={<Heart className="w-4 h-4" />}
+                            color="rose"
+                          />
+                          <SummaryCard
+                            title="Activity Score"
+                            value={clinicStats.totalSubTreatments > 0 ? "Active" : "Setup"}
+                            icon={<Activity className="w-4 h-4" />}
+                            color="green"
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+              // For agent/doctorStaff, check permissions
+              if (!permissions.canRead) {
+                return null; // Already shown access denied above
+              }
+              // Show clinics or empty state for agent/doctorStaff
+              if (clinics.length === 0) {
+                return (
+                  <div className="bg-white rounded-lg p-6 sm:p-8 border border-gray-200 shadow-sm">
+                    <div className="text-center max-w-md mx-auto">
+                      <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center mx-auto mb-3">
+                        <Building2 className="w-6 h-6 text-gray-800" />
+                      </div>
+                      <h3 className="text-lg font-bold text-gray-900 mb-2">
+                        No Clinics Found
+                      </h3>
+                      <p className="text-sm text-gray-700">
+                        Start by adding your first clinic
+                      </p>
                     </div>
                   </div>
-                )}
-              </div>
-            )}
+                );
+              }
+              // Show clinics for agent/doctorStaff
+              return (
+                <div className="w-full space-y-3 sm:space-y-4">
+                  {clinics.map((clinic) => (
+                    <ClinicCard
+                      key={clinic._id}
+                      clinic={clinic}
+                      onEdit={handleEdit}
+                      getImagePath={getImagePath}
+                      canUpdate={permissions.canUpdate}
+                      stats={clinicStats}
+                      statsLoading={statsLoading}
+                    />
+                  ))}
+                  
+                  {/* Statistics Charts Section - Compact */}
+                  {clinics.length > 0 && (
+                    <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                      <div className="flex items-center gap-2 mb-3">
+                        <TrendingUp className="w-5 h-5 text-gray-700" />
+                        <h2 className="text-lg sm:text-xl font-bold text-gray-900">Analytics & Insights</h2>
+                      </div>
+
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
+                        {/* Bar Chart - Reviews vs Enquiries */}
+                        <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                          <h3 className="text-xs font-semibold text-gray-700 mb-2">Reviews & Enquiries</h3>
+                          <ResponsiveContainer width="100%" height={180}>
+                            <BarChart data={[
+                              { name: 'Reviews', value: clinicStats.totalReviews },
+                              { name: 'Enquiries', value: clinicStats.totalEnquiries },
+                            ]}>
+                              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                              <XAxis dataKey="name" stroke="#6b7280" fontSize={11} />
+                              <YAxis stroke="#6b7280" fontSize={11} />
+                              <Tooltip 
+                                contentStyle={{ 
+                                  backgroundColor: '#fff', 
+                                  border: '1px solid #e5e7eb',
+                                  borderRadius: '6px',
+                                  fontSize: '11px'
+                                }}
+                              />
+                              <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                                <Cell fill="#1f2937" />
+                                <Cell fill="#6b7280" />
+                              </Bar>
+                            </BarChart>
+                          </ResponsiveContainer>
+                        </div>
+
+                        {/* Column Chart - Services Distribution */}
+                        <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                          <h3 className="text-xs font-semibold text-gray-700 mb-2">Services Distribution</h3>
+                          <ResponsiveContainer width="100%" height={180}>
+                            <BarChart
+                              data={[
+                                { name: 'Treatments', value: clinicStats.totalTreatments },
+                                { name: 'Services', value: clinicStats.totalServices },
+                                { name: 'Sub-Treatments', value: clinicStats.totalSubTreatments },
+                              ]}
+                              margin={{ top: 10, right: 20, left: 10, bottom: 5 }}
+                            >
+                              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                              <XAxis 
+                                dataKey="name" 
+                                stroke="#6b7280" 
+                                fontSize={10}
+                                tick={{ fill: '#6b7280' }}
+                                angle={-15}
+                                textAnchor="end"
+                                height={40}
+                              />
+                              <YAxis 
+                                stroke="#6b7280" 
+                                fontSize={11}
+                                tick={{ fill: '#6b7280' }}
+                              />
+                              <Tooltip 
+                                contentStyle={{ 
+                                  backgroundColor: '#fff', 
+                                  border: '1px solid #e5e7eb',
+                                  borderRadius: '6px',
+                                  fontSize: '11px'
+                                }}
+                              />
+                              <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                                <Cell fill="#1f2937" />
+                                <Cell fill="#6b7280" />
+                                <Cell fill="#9ca3af" />
+                              </Bar>
+                            </BarChart>
+                          </ResponsiveContainer>
+                        </div>
+                      </div>
+
+                      {/* Summary Cards - Compact */}
+                      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 mt-3 sm:mt-4">
+                        <SummaryCard
+                          title="Total Engagement"
+                          value={clinicStats.totalReviews + clinicStats.totalEnquiries}
+                          icon={<Users className="w-4 h-4" />}
+                          color="blue"
+                        />
+                        <SummaryCard
+                          title="Average Rating"
+                          value={clinicStats.averageRating > 0 ? `${clinicStats.averageRating.toFixed(1)} ⭐` : "No ratings"}
+                          icon={<Star className="w-4 h-4" />}
+                          color="yellow"
+                        />
+                        <SummaryCard
+                          title="Total Offerings"
+                          value={clinicStats.totalTreatments + clinicStats.totalServices}
+                          icon={<Heart className="w-4 h-4" />}
+                          color="rose"
+                        />
+                        <SummaryCard
+                          title="Activity Score"
+                          value={clinicStats.totalSubTreatments > 0 ? "Active" : "Setup"}
+                          icon={<Activity className="w-4 h-4" />}
+                          color="green"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </div>
         )}
       </div>

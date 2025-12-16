@@ -3,6 +3,7 @@ import dbConnect from "../../../../lib/database";
 import Review from "../../../../models/Review";
 import User from "../../../../models/Users";
 import { getUserFromReq } from "../../lead-ms/auth";
+import { getClinicIdFromUser, checkClinicPermission } from "../../lead-ms/permissions-helper";
 
 export default async function handler(req, res) {
   await dbConnect();
@@ -29,6 +30,9 @@ export default async function handler(req, res) {
     
     if (authUser) {
       // If user is authenticated, verify they have access to this clinic
+      const { clinicId: userClinicId, error, isAdmin } = await getClinicIdFromUser(authUser);
+      
+      // Verify clinic access
       if (authUser.role === "clinic") {
         try {
           const Clinic = (await import("../../../../models/Clinic")).default;
@@ -41,11 +45,29 @@ export default async function handler(req, res) {
           // Allow access if clinic check fails (fallback)
         }
       } else if (["agent", "doctor", "doctorStaff", "staff"].includes(authUser.role)) {
-        if (!authUser.clinicId || authUser.clinicId.toString() !== clinicId.toString()) {
+        if (!userClinicId || userClinicId.toString() !== clinicId.toString()) {
           return res.status(403).json({ success: false, message: "Access denied" });
         }
       }
       // Admin and unauthenticated users can access any clinic's reviews
+
+      // ✅ Check permission for reading clinic reviews (only for agent, doctorStaff roles)
+      // Clinic, doctor, and staff roles have full access by default, admin bypasses
+      if (!isAdmin && userClinicId && userClinicId.toString() === clinicId.toString() && ["agent", "doctorStaff"].includes(authUser.role)) {
+        const { checkAgentPermission } = await import("../../agent/permissions-helper");
+        const result = await checkAgentPermission(
+          authUser._id,
+          "clinic_health_center",
+          "read"
+        );
+
+        if (!result.hasPermission) {
+          return res.status(403).json({
+            success: false,
+            message: result.error || "You do not have permission to view clinic reviews"
+          });
+        }
+      }
     }
     // Fetch all reviews for the clinic
     const reviews = await Review.find({ clinicId })
