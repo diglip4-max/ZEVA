@@ -168,6 +168,9 @@ const RegisterClinic: React.FC & {
   });
   const [addressDebounceTimer, setAddressDebounceTimer] =
     useState<NodeJS.Timeout | null>(null);
+  const [locationDebounceTimer, setLocationDebounceTimer] =
+    useState<NodeJS.Timeout | null>(null);
+  const [locationInput, setLocationInput] = useState<string>("");
   const [geocoder, setGeocoder] = useState<google.maps.Geocoder | null>(null);
   const [showSuccessPopup, setShowSuccessPopup] = useState<boolean>(false);
   const [errors, setErrors] = useState<Errors>({});
@@ -274,17 +277,40 @@ const RegisterClinic: React.FC & {
             longitude: location.lng(),
           }));
           showToastMessage("Address located on map automatically!", "success");
-          if (errors.location)
-            setErrors((prev) => ({ ...prev, location: undefined }));
+          setErrors((prev) => ({ ...prev, location: undefined }));
         } else {
-          showToastMessage(
-            "Could not locate address automatically. Please click on the map to set location.",
-            "info"
-          );
+          // Don't show error message - user can click on map to set location
+          // Silent failure - let user manually set location on map
         }
       });
     },
-    [geocoder, errors.location]
+    [geocoder]
+  );
+
+  const geocodeLocation = useCallback(
+    (location: string) => {
+      if (!geocoder || !location.trim()) {
+        return;
+      }
+      geocoder.geocode({ address: location }, (results, status) => {
+        if (status === "OK" && results && results[0]) {
+          const loc = results[0].geometry.location;
+          setForm((f) => ({
+            ...f,
+            latitude: loc.lat(),
+            longitude: loc.lng(),
+          }));
+          showToastMessage("Location updated on map!", "success");
+          setErrors((prev) => ({ ...prev, location: undefined }));
+        } else {
+          // Don't show error - user can still click on map to set location
+          // Don't show any toast message - let user click on map instead
+          // Clear any existing location errors
+          setErrors((prev) => ({ ...prev, location: undefined }));
+        }
+      });
+    },
+    [geocoder]
   );
 
   const handleAddressChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -296,6 +322,23 @@ const RegisterClinic: React.FC & {
       if (newAddress.trim().length > 10) geocodeAddress(newAddress);
     }, 1000);
     setAddressDebounceTimer(timer);
+  };
+
+  const handleLocationChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newLocation = e.target.value;
+    setLocationInput(newLocation);
+    // Clear location error when user types
+    if (errors.location) setErrors((prev) => ({ ...prev, location: undefined }));
+    if (locationDebounceTimer) clearTimeout(locationDebounceTimer);
+    const timer = setTimeout(() => {
+      if (newLocation.trim().length > 5) {
+        geocodeLocation(newLocation);
+      } else if (newLocation.trim().length === 0) {
+        // Clear location if input is empty
+        setForm((f) => ({ ...f, latitude: 0, longitude: 0 }));
+      }
+    }, 800);
+    setLocationDebounceTimer(timer);
   };
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -340,6 +383,7 @@ const RegisterClinic: React.FC & {
     }
     return () => {
       if (addressDebounceTimer) clearTimeout(addressDebounceTimer);
+      if (locationDebounceTimer) clearTimeout(locationDebounceTimer);
     };
   }, []);
 
@@ -357,8 +401,19 @@ const RegisterClinic: React.FC & {
     showToastMessage("Verification link sent! Check your inbox.", "success");
   };
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
+  const handleSubmit = async (e?: React.FormEvent<HTMLFormElement>) => {
+    if (e) {
+      e.preventDefault();
+    }
+    
+    // Validate step 2 (clinic details) first
+    const step2Valid = validateStep(2);
+    if (!step2Valid) {
+      setCurrentStep(2);
+      return;
+    }
+    
+    // Validate step 3 (contact information)
     const isValid = validateForm();
     if (!isValid) return;
 
@@ -446,8 +501,14 @@ const RegisterClinic: React.FC & {
       await axios.post("/api/clinics/register", data);
       setShowSuccessPopup(true);
       showToastMessage("Clinic registered successfully!", "success");
-    } catch (err) {
-      showToastMessage("Clinic registration failed", "error");
+    } catch (err: any) {
+      const errorMessage = err?.response?.data?.message || "Clinic registration failed";
+      // Don't show "Invalid address" error if location is already set
+      if (errorMessage.toLowerCase().includes("invalid address") && form.latitude !== 0 && form.longitude !== 0) {
+        showToastMessage("Registration failed. Please check all fields.", "error");
+      } else {
+        showToastMessage(errorMessage, "error");
+      }
     }
   };
 
@@ -948,7 +1009,15 @@ const RegisterClinic: React.FC & {
                           <label className="block text-xs font-semibold text-gray-700 mb-1">
                             Location <span className="text-red-500">*</span>
                           </label>
-                          <p className="text-xs text-gray-500 mb-1">Click map to pin location</p>
+                          <input
+                            type="text"
+                            placeholder="Type address or location (e.g., Noida Sector 5)"
+                            className={`text-black w-full px-3 py-2 border-2 rounded-lg focus:outline-none bg-gray-50 focus:bg-white text-sm mb-2 ${errors.location ? "border-red-400" : "border-gray-200 focus:border-[#00b480]"
+                              }`}
+                            value={locationInput}
+                            onChange={handleLocationChange}
+                          />
+                          <p className="text-xs text-gray-500 mb-1">Or click map to pin location</p>
                           <div className={`h-44 border-2 rounded-lg overflow-hidden ${errors.location ? "border-red-400" : "border-gray-200"}`}>
                             <GoogleMap
                               zoom={form.latitude !== 0 ? 15 : 12}
@@ -960,8 +1029,24 @@ const RegisterClinic: React.FC & {
                               onLoad={onMapLoad}
                               onClick={(e) => {
                                 if (e.latLng) {
-                                  setForm((f) => ({ ...f, latitude: e.latLng!.lat(), longitude: e.latLng!.lng() }));
-                                  if (errors.location) setErrors((prev) => ({ ...prev, location: undefined }));
+                                  setForm((f) => ({ 
+                                    ...f, 
+                                    latitude: e.latLng!.lat(), 
+                                    longitude: e.latLng!.lng() 
+                                  }));
+                                  // Clear any location errors
+                                  setErrors((prev) => ({ ...prev, location: undefined }));
+                                  // Reverse geocode to update location input
+                                  if (geocoder) {
+                                    geocoder.geocode({ location: e.latLng }, (results, status) => {
+                                      if (status === "OK" && results && results[0]) {
+                                        setLocationInput(results[0].formatted_address);
+                                        showToastMessage("Location set successfully!", "success");
+                                      }
+                                    });
+                                  } else {
+                                    showToastMessage("Location set successfully!", "success");
+                                  }
                                 }
                               }}
                             >
@@ -1077,8 +1162,11 @@ const RegisterClinic: React.FC & {
                       <ChevronLeft size={18} /> Back
                     </button>
                     <button
-                      type="submit"
-                      onClick={() => setCurrentStep(2)}
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        handleSubmit();
+                      }}
                       className="px-6 py-2.5 rounded-lg font-bold transition-all bg-gradient-to-r from-[#00b480] to-[#008f66] text-white flex items-center gap-2 text-sm"
                     >
                       <Heart className="w-4 h-4" />

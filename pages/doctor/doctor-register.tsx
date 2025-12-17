@@ -1,9 +1,10 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import axios from "axios";
 import { ChangeEvent, FormEvent } from "react";
 import React from "react";
 import type { KeyboardEvent } from "react";
 import Layout from "@/components/Layout";
+import { GoogleMap, Marker } from "@react-google-maps/api";
 
 export default function DoctorRegister() {
   const searchRef = useRef<HTMLDivElement>(null);
@@ -23,6 +24,8 @@ export default function DoctorRegister() {
     experience: string;
     address: string;
     resume: File | null;
+    latitude: number;
+    longitude: number;
   }>({
     name: "",
     phone: "",
@@ -32,6 +35,8 @@ export default function DoctorRegister() {
     experience: "",
     address: "",
     resume: null,
+    latitude: 0,
+    longitude: 0,
   });
 
   const [resumeFileName, setResumeFileName] = useState("");
@@ -44,6 +49,10 @@ export default function DoctorRegister() {
     message: "",
     type: 'info'
   });
+  const [locationInput, setLocationInput] = useState<string>("");
+  const [locationDebounceTimer, setLocationDebounceTimer] = useState<NodeJS.Timeout | null>(null);
+  const [geocoder, setGeocoder] = useState<google.maps.Geocoder | null>(null);
+  const [locationError, setLocationError] = useState<string>("");
 
   // Fetch treatments from backend API
   useEffect(() => {
@@ -74,8 +83,9 @@ export default function DoctorRegister() {
     document.addEventListener("mousedown", handleClickOutside);
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
+      if (locationDebounceTimer) clearTimeout(locationDebounceTimer);
     };
-  }, []);
+  }, [locationDebounceTimer]);
 
   // Toast notification function
   const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
@@ -83,6 +93,80 @@ export default function DoctorRegister() {
     setTimeout(() => {
       setToast({ show: false, message: "", type: 'info' });
     }, 5000);
+  };
+
+  // Map load callback
+  const onMapLoad = useCallback(() => {
+    if (typeof window !== 'undefined' && window.google) {
+      const geocoderInstance = new window.google.maps.Geocoder();
+      setGeocoder(geocoderInstance);
+    }
+  }, []);
+
+  // Geocode location function
+  const geocodeLocation = useCallback(
+    (location: string) => {
+      if (!geocoder || !location.trim()) {
+        setLocationError("");
+        return;
+      }
+      
+      // Try with the location input first
+      geocoder.geocode({ address: location }, (results, status) => {
+        if (status === "OK" && results && results[0]) {
+          const loc = results[0].geometry.location;
+          setForm((f) => ({
+            ...f,
+            latitude: loc.lat(),
+            longitude: loc.lng(),
+          }));
+          showToast("Location updated on map!", "success");
+          setLocationError("");
+        } else if (status === "ZERO_RESULTS") {
+          // If location input fails, try with address field
+          if (form.address && form.address.trim().length > 5) {
+            geocoder.geocode({ address: form.address }, (addressResults, addressStatus) => {
+              if (addressStatus === "OK" && addressResults && addressResults[0]) {
+                const loc = addressResults[0].geometry.location;
+                setForm((f) => ({
+                  ...f,
+                  latitude: loc.lat(),
+                  longitude: loc.lng(),
+                }));
+                showToast("Location updated using address field!", "success");
+                setLocationError("");
+              } else {
+                setLocationError("");
+                // Don't show error toast if user is still typing
+              }
+            });
+          } else {
+            setLocationError("");
+            // Don't show error if user is still typing
+          }
+        } else {
+          setLocationError("");
+          // Don't show persistent error - let user click on map instead
+        }
+      });
+    },
+    [geocoder, form.address]
+  );
+
+  // Handle location input change
+  const handleLocationChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newLocation = e.target.value;
+    setLocationInput(newLocation);
+    setLocationError(""); // Clear error when user types
+    if (locationDebounceTimer) clearTimeout(locationDebounceTimer);
+    const timer = setTimeout(() => {
+      if (newLocation.trim().length > 3) {
+        geocodeLocation(newLocation);
+      } else {
+        setLocationError("");
+      }
+    }, 1000); // Increased debounce time for better results
+    setLocationDebounceTimer(timer);
   };
 
   const handleChange = (
@@ -101,6 +185,33 @@ export default function DoctorRegister() {
         setForm((prev) => ({ ...prev, [name]: onlyNums }));
       } else {
         setForm((prev) => ({ ...prev, [name]: value }));
+        
+        // Auto-geocode address field if location is not set
+        if (name === "address" && value.trim().length > 10) {
+          if (locationDebounceTimer) clearTimeout(locationDebounceTimer);
+          const timer = setTimeout(() => {
+            // Check current form state before geocoding
+            setForm((currentForm) => {
+              // Only geocode if location is not already set
+              if ((currentForm.latitude === 0 || currentForm.longitude === 0) && geocoder) {
+                geocoder.geocode({ address: value }, (results, status) => {
+                  if (status === "OK" && results && results[0]) {
+                    const loc = results[0].geometry.location;
+                    setForm((f) => ({
+                      ...f,
+                      latitude: loc.lat(),
+                      longitude: loc.lng(),
+                    }));
+                    setLocationInput(value);
+                    setLocationError("");
+                  }
+                });
+              }
+              return currentForm;
+            });
+          }, 1500);
+          setLocationDebounceTimer(timer);
+        }
       }
     }
   };
@@ -112,13 +223,29 @@ export default function DoctorRegister() {
       showToast("Please enter a valid 10-digit phone number.", 'error');
       return;
     }
+    // Location validation
+    if (form.latitude === 0 && form.longitude === 0) {
+      showToast("Please set location on map by typing address or clicking on map.", 'error');
+      setLocationError("Location is required");
+      return;
+    }
     const data = new FormData();
     Object.entries(form).forEach(([key, value]) => {
       // Only append if value is not null or undefined
       if (value !== null && value !== undefined) {
-        data.append(key, value as string | Blob);
+        // Convert numbers to strings for FormData
+        if (typeof value === 'number') {
+          data.append(key, value.toString());
+        } else {
+          data.append(key, value as string | Blob);
+        }
       }
     });
+    // Explicitly ensure latitude and longitude are sent
+    if (form.latitude !== 0 && form.longitude !== 0) {
+      data.append('latitude', form.latitude.toString());
+      data.append('longitude', form.longitude.toString());
+    }
     try {
       await axios.post("/api/doctor/register", data, {
         headers: {
@@ -136,8 +263,11 @@ export default function DoctorRegister() {
         experience: "",
         address: "",
         resume: null,
+        latitude: 0,
+        longitude: 0,
       });
       setResumeFileName("");
+      setLocationInput("");
       setTimeout(() => {
         window.location.href = '/';
       }, 6000);
@@ -415,6 +545,64 @@ return (
                     value={form.address || ""}
                     required
                   ></textarea>
+                </div>
+
+                {/* Location with Map */}
+                <div>
+                  <label className="block text-sm font-medium text-black mb-2">
+                    Location <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Type address or location (e.g., Noida Sector 5)"
+                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[#2D9AA5]/20 transition-all text-black placeholder-black/50 outline-none mb-2 ${
+                      locationError ? "border-red-400 focus:border-red-500" : "border-gray-300 focus:border-[#2D9AA5]"
+                    }`}
+                    value={locationInput}
+                    onChange={handleLocationChange}
+                  />
+                  <p className="text-xs text-gray-500 mb-2">Or click map to pin location</p>
+                  <div className={`h-64 border-2 rounded-lg overflow-hidden ${
+                    locationError ? "border-red-400" : "border-gray-300"
+                  }`}>
+                    <GoogleMap
+                      zoom={form.latitude !== 0 ? 15 : 12}
+                      center={{
+                        lat: form.latitude !== 0 ? form.latitude : 28.61,
+                        lng: form.longitude !== 0 ? form.longitude : 77.2,
+                      }}
+                      mapContainerStyle={{ width: "100%", height: "100%" }}
+                      onLoad={onMapLoad}
+                      onClick={(e) => {
+                        if (e.latLng) {
+                          setForm((f) => ({
+                            ...f,
+                            latitude: e.latLng!.lat(),
+                            longitude: e.latLng!.lng(),
+                          }));
+                          setLocationError("");
+                          // Reverse geocode to update location input
+                          if (geocoder) {
+                            geocoder.geocode({ location: e.latLng }, (results, status) => {
+                              if (status === "OK" && results && results[0]) {
+                                setLocationInput(results[0].formatted_address);
+                              }
+                            });
+                          }
+                        }
+                      }}
+                    >
+                      {form.latitude !== 0 && (
+                        <Marker position={{ lat: form.latitude, lng: form.longitude }} />
+                      )}
+                    </GoogleMap>
+                  </div>
+                  {locationError && form.latitude === 0 && form.longitude === 0 && (
+                    <p className="text-xs text-red-500 mt-1">{locationError}</p>
+                  )}
+                  {form.latitude !== 0 && form.longitude !== 0 && (
+                    <p className="text-xs text-green-600 mt-1">✓ Location set successfully</p>
+                  )}
                 </div>
 
                 {/* File Upload */}
