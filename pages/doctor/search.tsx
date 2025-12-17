@@ -14,6 +14,7 @@ import {
   X,
   BadgeIndianRupee,
   Clock,
+  HeartPulse,
 } from "lucide-react";
 import AuthModal from "../../components/AuthModal";
 import dayjs from "dayjs";
@@ -1065,12 +1066,28 @@ export default function FindDoctor() {
 
 
           {/* Professional Search Interface */}
-          <div className="w-full max-w-6xl mx-auto">
-            <div className="rounded-2xl p-4 sm:p-5 shadow-lg border border-[#e2e8f0] bg-white backdrop-blur-sm mb-6">
+          <div className="w-full max-w-6xl mx-auto" style={{ position: 'relative', zIndex: 100 }}>
+            {/* Quick Filter Chips */}
+            <div className="mb-3 flex flex-wrap gap-2">
+              {['General Physician', 'Cardiologist', 'Dermatologist', 'Orthopedic', 'Pediatrician', 'Gynecologist'].map((specialty) => (
+                <button
+                  key={specialty}
+                  onClick={() => {
+                    setQuery(specialty);
+                    fetchSuggestions(specialty);
+                  }}
+                  className="px-3 py-1.5 text-[10px] font-medium rounded-full bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 text-blue-700 hover:from-blue-100 hover:to-purple-100 hover:border-blue-300 transition-all shadow-sm hover:shadow"
+                >
+                  {specialty}
+                </button>
+              ))}
+            </div>
+            
+            <div className="rounded-2xl p-4 sm:p-5 shadow-lg border border-[#e2e8f0] bg-white backdrop-blur-sm mb-6" style={{ position: 'relative', zIndex: 100 }}>
                 {/* Desktop Layout */}
               <div className="hidden md:flex gap-3 items-center">
                 {/* Search Input */}
-                <div className="relative flex-1 max-w-lg">
+                <div className="relative flex-1 max-w-lg" style={{ zIndex: 10001 }}>
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none z-10">
                     <Search className="h-5 w-5 text-[#0284c7]" />
                     </div>
@@ -1089,14 +1106,15 @@ export default function FindDoctor() {
                     {/* Desktop Suggestions Dropdown */}
                     {suggestions.length > 0 && (
                       <div
-                      className="absolute top-full left-0 right-0 z-50 mt-2 bg-white border border-[#e2e8f0] rounded-xl shadow-lg max-h-80 overflow-auto"
+                      className="absolute top-full left-0 right-0 mt-1 bg-white border border-[#e2e8f0] rounded-lg shadow-lg max-h-64 overflow-y-auto"
                         ref={suggestionsDropdownRef}
+                        style={{ position: 'absolute', zIndex: 10002 }}
                       >
-                        <div className="p-2">
+                        <div className="p-1">
                           {suggestions.map((s, i) => (
                             <div
                               key={i}
-                              className="flex items-center px-4 py-4 hover:bg-[#2D9AA5]/10 cursor-pointer transition-all duration-200 border-b border-gray-100/50 last:border-b-0 rounded-xl mx-1 group"
+                              className="flex items-center px-3 py-2.5 hover:bg-[#f0f7ff] cursor-pointer transition-colors border-b border-[#f1f5f9] last:border-b-0 rounded group"
                               onClick={(e) => {
                                 e.preventDefault();
                                 e.stopPropagation();
@@ -1112,20 +1130,14 @@ export default function FindDoctor() {
                                 }
                               }}
                             >
-                              <div className="flex-shrink-0 w-10 h-10 rounded-2xl bg-gradient-to-br from-[#2D9AA5]/20 to-[#2D9AA5]/30 flex items-center justify-center mr-4">
-                                <span className="text-lg">
-                                  {s.type === "clinic"
-                                    ? "🏥"
-                                    : s.type === "treatment"
-                                      ? "💊"
-                                      : "👨‍⚕️"}
-                                </span>
+                              <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-gradient-to-br from-purple-100 to-purple-200 flex items-center justify-center mr-3">
+                                <HeartPulse className="w-4 h-4 text-purple-600" />
                               </div>
                               <div className="flex-1 min-w-0">
-                                <p className="font-semibold text-gray-900 group-hover:text-[#2D9AA5] transition-colors text-sm xl:text-base truncate">
+                                <p className="font-semibold text-[#1e293b] group-hover:text-[#0284c7] transition-colors text-sm truncate">
                                   {s.value}
                                 </p>
-                                <p className="text-xs xl:text-sm text-gray-500 capitalize font-medium">
+                                <p className="text-xs text-gray-500 capitalize mt-0.5">
                                   {s.type}
                                 </p>
                               </div>
@@ -1177,7 +1189,7 @@ export default function FindDoctor() {
               <div className="md:hidden space-y-3">
                 {/* Search Input with Near Me */}
                   <div className="flex items-center gap-2">
-                    <div className="relative flex-1">
+                    <div className="relative flex-1" style={{ zIndex: 10001 }}>
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none z-10">
                       <Search className="h-5 w-5 text-[#0284c7]" />
                       </div>
@@ -1196,14 +1208,15 @@ export default function FindDoctor() {
                       {/* Mobile Suggestions Dropdown */}
                       {suggestions.length > 0 && (
                         <div
-                        className="absolute top-full left-0 right-0 z-[9999] mt-2 bg-white border border-[#e2e8f0] rounded-xl shadow-lg max-h-60 overflow-auto"
+                        className="absolute top-full left-0 right-0 mt-1 bg-white border border-[#e2e8f0] rounded-lg shadow-lg max-h-64 overflow-y-auto"
                           ref={suggestionsDropdownRef}
+                          style={{ position: 'absolute', zIndex: 10002 }}
                         >
-                          <div className="p-1 sm:p-2">
+                          <div className="p-1">
                             {suggestions.map((s, i) => (
                               <div
                                 key={i}
-                              className="flex items-center px-3 py-3 hover:bg-[#f0f7ff] cursor-pointer transition-all border-b border-[#f1f5f9] last:border-b-0 rounded-lg mx-1"
+                              className="flex items-center px-3 py-2.5 hover:bg-[#f0f7ff] cursor-pointer transition-colors border-b border-[#f1f5f9] last:border-b-0 rounded group"
                               onClick={(e) => {
                                 e.preventDefault();
                                 e.stopPropagation();
@@ -1219,11 +1232,14 @@ export default function FindDoctor() {
                                 }
                               }}
                             >
+                                <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-gradient-to-br from-purple-100 to-purple-200 flex items-center justify-center mr-3">
+                                  <HeartPulse className="w-4 h-4 text-purple-600" />
+                                </div>
                                 <div className="flex-1 min-w-0">
-                                <p className="font-semibold text-[#1e293b] text-sm truncate">
+                                <p className="font-semibold text-[#1e293b] group-hover:text-[#0284c7] transition-colors text-sm truncate">
                                     {s.value}
                                   </p>
-                                <p className="text-xs text-[#64748b] capitalize">
+                                <p className="text-xs text-gray-500 capitalize mt-0.5">
                                     {s.type}
                                   </p>
                                 </div>
@@ -1279,7 +1295,7 @@ export default function FindDoctor() {
             <div className="flex flex-col lg:flex-row gap-4">
             {/* Filters Sidebar */}
             <div className="lg:w-1/4">
-                <div className="bg-white rounded-xl shadow-md border-2 border-[#e2e8f0] p-4 sticky top-4">
+                <div className="bg-white rounded-xl shadow-md border-2 border-[#e2e8f0] p-4 sticky top-4" style={{ zIndex: 10 }}>
                 {/* Price Range Filter */}
                   <div className="mb-4">
                     <h3 className="text-sm font-bold text-[#1e293b] mb-3 flex items-center">
@@ -1357,13 +1373,13 @@ export default function FindDoctor() {
                   </div>
                 </div>
 
-                {/* Sort By Filter */}
+                {/* Sort By Filter - Compact */}
                 <div className="mb-4">
-                    <h3 className="text-sm font-bold text-[#1e293b] mb-3 flex items-center">
-                      <Clock className="w-4 h-4 mr-1.5 text-[#0284c7]" />
+                    <h3 className="text-xs font-bold text-[#1e293b] mb-2.5 flex items-center">
+                      <Clock className="w-3.5 h-3.5 mr-1.5 text-[#0284c7]" />
                       Sort By
                     </h3>
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     {[
                       { value: 'relevance', label: 'Relevance' },
                       { value: 'price-low-high', label: 'Price: Low to High' },
@@ -1371,7 +1387,7 @@ export default function FindDoctor() {
                         { value: 'rating-high-low', label: 'Highest Rated' },
                         { value: 'experience-high-low', label: 'Most Experienced' }
                     ].map((option) => (
-                        <label key={option.value} className="flex items-center cursor-pointer hover:bg-[#f8fafc] p-1.5 rounded transition-colors">
+                        <label key={option.value} className="flex items-center cursor-pointer hover:bg-[#f8fafc] p-1 rounded transition-colors">
                         <input
                           type="radio"
                           name="sortBy"
@@ -1386,55 +1402,55 @@ export default function FindDoctor() {
                   </div>
                 </div>
 
-                {/* Star Rating Filter */}
+                {/* Star Rating Filter - Compact */}
                   <div className="mb-4">
-                    <h3 className="text-sm font-bold text-[#1e293b] mb-3 flex items-center">
-                      <Star className="w-4 h-4 mr-1.5 text-[#0284c7]" />
+                    <h3 className="text-xs font-bold text-[#1e293b] mb-2.5 flex items-center">
+                      <Star className="w-3.5 h-3.5 mr-1.5 text-[#0284c7]" />
                       Minimum Rating
                     </h3>
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                       {[5, 4, 3].map((rating) => (
-                        <label key={rating} className="flex items-center cursor-pointer hover:bg-[#f8fafc] p-1.5 rounded transition-colors">
+                        <label key={rating} className="flex items-center cursor-pointer hover:bg-[#f8fafc] p-1 rounded transition-colors">
                         <input
                           type="radio"
                           name="rating"
                           value={rating}
                           checked={starFilter === rating}
                           onChange={(e) => setStarFilter(parseInt(e.target.value))}
-                            className="w-4 h-4 text-[#0284c7] bg-white border-[#cbd5e1] focus:ring-[#0284c7] focus:ring-2"
+                            className="w-3.5 h-3.5 text-[#0284c7] bg-white border-[#cbd5e1] focus:ring-[#0284c7] focus:ring-1"
                         />
-                        <div className="ml-2 flex items-center">
+                        <div className="ml-1.5 flex items-center">
                           <div className="flex">
                             {[...Array(5)].map((_, i) => (
                               <Star
                                 key={i}
-                                  className={`w-3.5 h-3.5 ${i < rating ? 'text-yellow-400 fill-current' : 'text-[#cbd5e1]'}`}
+                                  className={`w-3 h-3 ${i < rating ? 'text-yellow-400 fill-current' : 'text-[#cbd5e1]'}`}
                               />
                             ))}
                           </div>
-                            <span className="ml-2 text-xs text-[#475569] font-medium">& above</span>
+                            <span className="ml-1.5 text-[10px] text-[#475569] font-medium">& above</span>
                         </div>
                       </label>
                     ))}
-                      <label className="flex items-center cursor-pointer hover:bg-[#f8fafc] p-1.5 rounded transition-colors">
+                      <label className="flex items-center cursor-pointer hover:bg-[#f8fafc] p-1 rounded transition-colors">
                       <input
                         type="radio"
                         name="rating"
                         value={0}
                         checked={starFilter === 0}
                         onChange={(e) => setStarFilter(parseInt(e.target.value))}
-                          className="w-4 h-4 text-[#0284c7] bg-white border-[#cbd5e1] focus:ring-[#0284c7] focus:ring-2"
+                          className="w-3.5 h-3.5 text-[#0284c7] bg-white border-[#cbd5e1] focus:ring-[#0284c7] focus:ring-1"
                       />
-                        <span className="ml-2 text-xs text-[#475569] font-medium">All Ratings</span>
+                        <span className="ml-1.5 text-[10px] text-[#475569] font-medium">All Ratings</span>
                     </label>
                   </div>
                 </div>
 
-                {/* Clear Filters Button */}
-                  <div className="pt-3 border-t border-[#e2e8f0]">
+                {/* Clear Filters Button - Compact */}
+                  <div className="pt-2 border-t border-[#e2e8f0]">
                   <button
                     onClick={clearFilters}
-                      className="w-full px-4 py-2 bg-[#dc2626] text-white rounded-lg hover:bg-[#b91c1c] transition-all text-xs font-semibold shadow-sm hover:shadow"
+                      className="w-full px-3 py-1.5 bg-[#dc2626] text-white rounded-lg hover:bg-[#b91c1c] transition-all text-[10px] font-semibold shadow-sm hover:shadow"
                   >
                       Clear All Filters
                   </button>
