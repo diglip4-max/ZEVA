@@ -117,9 +117,11 @@ interface BlogEditorProps {
   tokenKey: "clinicToken" | "doctorToken" | "agentToken";
   skipLandingPage?: boolean;
   onClose?: () => void;
+  editBlogId?: string;
+  editDraftId?: string;
 }
 
-const BlogEditor: React.FC<BlogEditorProps> = ({ tokenKey, skipLandingPage = false, onClose }) => {
+const BlogEditor: React.FC<BlogEditorProps> = ({ tokenKey, skipLandingPage = false, onClose, editBlogId, editDraftId }) => {
   const [title, setTitle] = useState<string>("");
   const [isParamlinkEditable, setIsParamlinkEditable] = useState(false);
   const [content, setContent] = useState<string>("");
@@ -166,7 +168,8 @@ const BlogEditor: React.FC<BlogEditorProps> = ({ tokenKey, skipLandingPage = fal
   const [videoUrl, setVideoUrl] = useState<string>("");
   const [videoType, setVideoType] = useState<"youtube" | "drive">("youtube");
   // Open/close main editor modal
-  const [showEditor, setShowEditor] = useState<boolean>(skipLandingPage);
+  // If edit props are provided, show editor immediately
+  const [showEditor, setShowEditor] = useState<boolean>(skipLandingPage || !!editBlogId || !!editDraftId);
   // Close confirmation modal for editor
   const [showCloseConfirm, setShowCloseConfirm] = useState<boolean>(false);
   const [showResetConfirm, setShowResetConfirm] = useState<boolean>(false);
@@ -240,10 +243,18 @@ const BlogEditor: React.FC<BlogEditorProps> = ({ tokenKey, skipLandingPage = fal
   // Skip loading from router.query if skipLandingPage is true (opened from modal)
   const router = useRouter();
   useEffect(() => {
-    // Don't load from router.query if opened from modal (skipLandingPage = true)
+    // If opened from modal with edit props, load the blog/draft
     if (skipLandingPage) {
+      if (editDraftId) {
+        loadDraft(editDraftId);
+        setShowEditor(true);
+      } else if (editBlogId) {
+        loadPublishedBlog(editBlogId);
+        setShowEditor(true);
+      }
       return;
     }
+    // Otherwise, load from router.query (standalone page mode)
     const { draftId, blogId } = router.query as {
       draftId?: string;
       blogId?: string;
@@ -255,7 +266,7 @@ const BlogEditor: React.FC<BlogEditorProps> = ({ tokenKey, skipLandingPage = fal
       loadPublishedBlog(blogId);
       setShowEditor(true);
     }
-  }, [router.query, skipLandingPage]);
+  }, [router.query, skipLandingPage, editBlogId, editDraftId]);
 
   // Ask to save as draft when trying to close editor with content
   const requestCloseEditor = () => {
@@ -1837,7 +1848,13 @@ const BlogEditor: React.FC<BlogEditorProps> = ({ tokenKey, skipLandingPage = fal
                   <span>{selectedPublished ? "Update" : "Publish"}</span>
                 </button>
                 <button
-                  onClick={requestCloseEditor}
+                  onClick={() => {
+                    if (onClose) {
+                      onClose();
+                    } else {
+                      requestCloseEditor();
+                    }
+                  }}
                   className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
                   title="Close editor"
                 >

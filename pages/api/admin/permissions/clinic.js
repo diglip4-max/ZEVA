@@ -117,26 +117,39 @@ export default async function handler(req, res) {
     try {
       const { clinicId, role, includeAdmin } = req.query;
 
-      const baseFilter = {};
+      // Build base filter with isActive and optional clinicId
+      const baseConditions = { isActive: true };
       if (clinicId) {
-        baseFilter.clinicId = clinicId;
+        baseConditions.clinicId = clinicId;
       }
 
-      let roleFilter = null;
+      let combinedFilter = { ...baseConditions };
+
       if (role) {
         const normalizedRole = String(role).toLowerCase();
         if (!allowedRoles.includes(normalizedRole)) {
           return res.status(400).json({ success: false, message: 'Invalid role parameter' });
         }
-        roleFilter =
-          normalizedRole === 'clinic'
-            ? { $or: [{ role: normalizedRole }, { role: { $exists: false } }] }
-            : { role: normalizedRole };
+        
+        // For clinic role, also include legacy documents without role field
+        if (normalizedRole === 'clinic') {
+          // Build $or condition that includes role='clinic' OR legacy documents (no role field)
+          // Each condition must also match baseConditions (isActive and clinicId if provided)
+          const clinicRoleCondition = { ...baseConditions, role: normalizedRole };
+          const legacyCondition1 = { ...baseConditions, role: { $exists: false } };
+          const legacyCondition2 = { ...baseConditions, role: null };
+          
+          combinedFilter = {
+            $or: [clinicRoleCondition, legacyCondition1, legacyCondition2]
+          };
+        } else {
+          // For doctor or admin role, simple filter
+          combinedFilter = { ...baseConditions, role: normalizedRole };
+        }
       } else if (includeAdmin !== 'true') {
-        roleFilter = { role: { $ne: 'admin' } };
+        // Exclude admin role, include clinic and doctor
+        combinedFilter = { ...baseConditions, role: { $ne: 'admin' } };
       }
-
-      const combinedFilter = roleFilter ? { ...baseFilter, ...roleFilter } : baseFilter;
 
       if (clinicId) {
         // Get specific clinic permissions
@@ -144,7 +157,7 @@ export default async function handler(req, res) {
         return res.status(200).json({ success: true, data: permissions });
       } else {
         // Get all clinic permissions
-        const permissions = await ClinicPermission.find({ isActive: true, ...combinedFilter })
+        const permissions = await ClinicPermission.find(combinedFilter)
           .populate('clinicId', 'name')
           .populate('grantedBy', 'name email');
         return res.status(200).json({ success: true, data: permissions });
@@ -177,13 +190,8 @@ export default async function handler(req, res) {
         return res.status(400).json({ success: false, message: 'Invalid role provided' });
       }
 
-      // Prevent setting permissions for clinic role - clinic should have full access by default
-      if (normalizedRole === 'clinic') {
-        return res.status(400).json({ 
-          success: false, 
-          message: 'Permissions cannot be set for clinic role. Clinic role has full access by default. Only doctorStaff and agent roles require permission management.' 
-        });
-      }
+      // Note: Clinic role permissions can now be managed. 
+      // If you want clinic to have full access by default, ensure permissions are set accordingly.
 
       console.log('Received clinic permission request:', { clinicId, role: normalizedRole, permissions });
 
