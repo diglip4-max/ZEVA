@@ -22,21 +22,8 @@ import {
   AlignLeft,
   AlignCenter,
   AlignRight,
-  AlignJustify,
-  List,
-  ListOrdered,
-  Quote,
-  Code,
-  Indent,
-  Outdent,
-  Undo,
-  Redo,
-  Type,
   Palette,
   Highlighter,
-  Image as ImageIcon,
-  Film,
-  Eraser,
 } from "lucide-react";
 // Minimal local types to avoid importing quill types
 type QuillRange = { index: number; length: number } | null;

@@ -14,11 +14,6 @@ import {
   Filter,
   Calendar,
   Clock,
-  Grid3x3,
-  List,
-  SortAsc,
-  SortDesc,
-  MoreVertical,
   Settings
 } from "lucide-react";
 

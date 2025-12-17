@@ -1,21 +1,16 @@
 "use client";
-import React, { useState } from 'react';
+import React from 'react';
 import BlogEditor from './createBlog';
 import { X } from 'lucide-react';
 
 interface CreateBlogModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onBlogCreated: () => void;
   tokenKey: "clinicToken" | "doctorToken";
 }
 
-const CreateBlogModal: React.FC<CreateBlogModalProps> = ({ isOpen, onClose, onBlogCreated }) => {
+const CreateBlogModal: React.FC<CreateBlogModalProps> = ({ isOpen, onClose, tokenKey }) => {
   if (!isOpen) return null;
-
-  const handleBlogCreated = () => {
-    onBlogCreated();
-  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-0 bg-black bg-opacity-50 backdrop-blur-sm">
@@ -33,7 +28,7 @@ const CreateBlogModal: React.FC<CreateBlogModalProps> = ({ isOpen, onClose, onBl
 
         {/* Blog Editor - Full Screen */}
         <div className="flex-1 overflow-hidden">
-          <BlogEditor tokenKey="clinicToken" />
+          <BlogEditor tokenKey={tokenKey} />
         </div>
       </div>
     </div>

@@ -368,7 +368,7 @@ const AdminStats: React.FC<AdminStatsProps> = () => {
                   label={CustomPieLabel}
                   isAnimationActive={false}
                 >
-                  {jobStatusPieData.map((entry, index) => (
+                  {jobStatusPieData.map((_, index) => (
                     <Cell key={`cell-${index}`} fill={pieColors[index % pieColors.length]} />
                   ))}
                 </Pie>

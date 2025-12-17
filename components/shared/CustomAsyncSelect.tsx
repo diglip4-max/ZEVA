@@ -1,11 +1,20 @@
 import React, { forwardRef } from "react";
-import AsyncSelect from "react-select/async";
-import {
-  StylesConfig,
-  MultiValue,
-  SingleValue,
-  ActionMeta,
-} from "react-select";
+
+// Define types locally since react-select types may not be available
+type StylesConfig<Option, IsMulti extends boolean> = any;
+type MultiValue<Option> = Option[];
+type SingleValue<Option> = Option | null;
+type ActionMeta<Option> = {
+  action: string;
+  name?: string;
+  option?: Option;
+  removedValue?: Option;
+  removedValues?: Option[];
+};
+
+// Import AsyncSelect using require to avoid TypeScript module resolution issues
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const AsyncSelect = require("react-select/async").default as React.ComponentType<any>;
 
 // Types for the component props
 export interface OptionType {

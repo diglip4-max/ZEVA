@@ -7,14 +7,12 @@ import {
   HomeIcon,
   CheckCircleIcon,
   UserGroupIcon,
-  DocumentTextIcon,
   NewspaperIcon,
   ChartBarIcon,
   PhoneIcon,
   BriefcaseIcon,
   UserPlusIcon,
   Cog6ToothIcon,
-  WrenchScrewdriverIcon,
   BuildingOfficeIcon,
   DocumentIcon,
   ClipboardDocumentListIcon,
@@ -28,14 +26,12 @@ import {
   HomeIcon as HomeIconSolid,
   CheckCircleIcon as CheckCircleIconSolid,
   UserGroupIcon as UserGroupIconSolid,
-  DocumentTextIcon as DocumentTextIconSolid,
   NewspaperIcon as NewspaperIconSolid,
   ChartBarIcon as ChartBarIconSolid,
   PhoneIcon as PhoneIconSolid,
   BriefcaseIcon as BriefcaseIconSolid,
   UserPlusIcon as UserPlusIconSolid,
   Cog6ToothIcon as Cog6ToothIconSolid,
-  WrenchScrewdriverIcon as WrenchScrewdriverIconSolid,
   BuildingOfficeIcon as BuildingOfficeIconSolid,
   DocumentIcon as DocumentIconSolid,
   ClipboardDocumentListIcon as ClipboardDocumentListIconSolid,
@@ -200,11 +196,9 @@ interface AdminSidebarProps {
 
 const AdminSidebar: FC<AdminSidebarProps> = ({ className, onItemsChange }) => {
   const router = useRouter();
-  const [hoveredItem, setHoveredItem] = useState<string | null>(null);
   const [isDesktopHidden, setIsDesktopHidden] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
-  const [selectedItem, setSelectedItem] = useState<string | null>(null);
 
   // Notify parent component of sidebar items for search
   useEffect(() => {
@@ -238,10 +232,9 @@ const AdminSidebar: FC<AdminSidebarProps> = ({ className, onItemsChange }) => {
     };
   }, [isMobileOpen]);
 
-  const handleRegularItemClick = (label: string) => {
+  const handleRegularItemClick = () => {
     setIsMobileOpen(false);
     setOpenDropdown(null);
-    setSelectedItem(label);
   };
 
   const handleToggleDesktop = () => {
@@ -359,7 +352,6 @@ const AdminSidebar: FC<AdminSidebarProps> = ({ className, onItemsChange }) => {
               {navItems.map((item) => {
                 const isActive = router.pathname === item.path;
                 const isDropdownOpen = openDropdown === item.label;
-                const hasChildren = item.children && item.children.length > 0;
 
                 // If item has children => Dropdown
                 if (item.children) {
@@ -375,7 +367,6 @@ const AdminSidebar: FC<AdminSidebarProps> = ({ className, onItemsChange }) => {
                         )}
                         onClick={() => {
                           setOpenDropdown(isDropdownOpen ? null : item.label);
-                          setSelectedItem(item.label);
                         }}
                       >
                         <div className="flex items-center space-x-3">
@@ -485,7 +476,7 @@ const AdminSidebar: FC<AdminSidebarProps> = ({ className, onItemsChange }) => {
                         "hover:bg-gray-50 text-gray-700": !isActive,
                       }
                     )}
-                    onClick={() => handleRegularItemClick(item.label)}
+                    onClick={handleRegularItemClick}
                   >
                     {isActive && (
                       <div className="absolute left-0 top-1/2 transform -translate-y-1/2 w-1 h-5 bg-white rounded-r-full"></div>

@@ -31,10 +31,10 @@ interface ClinicHeaderProps {
 }
 
 const ClinicHeader: React.FC<ClinicHeaderProps> = ({
-  handleToggleDesktop,
-  handleToggleMobile,
-  isDesktopHidden,
-  isMobileOpen
+  handleToggleDesktop: _handleToggleDesktop,
+  handleToggleMobile: _handleToggleMobile,
+  isDesktopHidden: _isDesktopHidden,
+  isMobileOpen: _isMobileOpen
 }) => {
   const router = useRouter();
   const [navigationItems, setNavigationItems] = useState<NavigationItem[]>([]);
@@ -174,14 +174,6 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
       return clinicUser?.name || '';
     }
   }, [clinicUser]);
-
-  const [now, setNow] = useState<string>('');
-  useEffect(() => {
-    const fmt = () => new Date().toLocaleString();
-    setNow(fmt());
-    const id = setInterval(() => setNow(fmt()), 1000);
-    return () => clearInterval(id);
-  }, []);
 
   const getInitials = (name: string) => {
     return name

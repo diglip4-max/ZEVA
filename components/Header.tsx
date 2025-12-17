@@ -7,14 +7,6 @@ import {
   KeyIcon
 } from "@heroicons/react/24/solid";
 
-interface NavItem {
-  name: string;
-  href: string;
-  icon: string | React.ComponentType<{ className?: string }>;
-  color: string;
-  action?: () => void;
-}
-
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);

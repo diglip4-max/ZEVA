@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-import { X, Search, Plus, Loader2, Calendar, Clock, User, Building2, Stethoscope, AlertCircle } from "lucide-react";
+import { X, Search, Plus, Loader2, Calendar, Building2, Stethoscope, AlertCircle } from "lucide-react";
 
 interface AppointmentBookingModalProps {
   isOpen: boolean;
@@ -56,7 +56,7 @@ export default function AppointmentBookingModal({
   doctorId,
   doctorName,
   slotTime,
-  slotDisplayTime,
+  slotDisplayTime: _slotDisplayTime,
   defaultDate,
   defaultRoomId,
   bookedFrom, // No default - use the prop value directly

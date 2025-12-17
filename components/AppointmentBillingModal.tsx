@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import axios from "axios";
-import { X, Search, ChevronDown, Loader2, AlertCircle, ClipboardList } from "lucide-react";
+import { X, Search, ChevronDown, Loader2, AlertCircle } from "lucide-react";
 
 interface Appointment {
   _id: string;

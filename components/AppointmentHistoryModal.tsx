@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-import { X, Loader2, Calendar, Clock, Building2, Stethoscope, AlertCircle } from "lucide-react";
+import { X, Loader2, AlertCircle } from "lucide-react";
 
 interface AppointmentHistoryModalProps {
   isOpen: boolean;
