@@ -349,10 +349,10 @@ function ClinicJobPostingPage({ contextOverride = null }: { contextOverride?: Ro
 
       {/* Compact Tabs */}
       <div className="max-w-7xl mx-auto">
-        <div className="bg-white rounded-lg border border-gray-200 p-1 mb-3 inline-flex">
+        <div className="bg-white rounded-lg border mt-1  border-gray-200 p-2 mb-1 inline-flex">
           <button
             onClick={() => setActiveTab('jobs')}
-            className={`px-4 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors ${
+            className={`px-2 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors ${
               activeTab === 'jobs'
                 ? 'bg-gray-800 text-white'
                 : 'text-gray-700 hover:text-gray-900 hover:bg-gray-50'
@@ -362,7 +362,7 @@ function ClinicJobPostingPage({ contextOverride = null }: { contextOverride?: Ro
           </button>
           <button
             onClick={() => setActiveTab('applicants')}
-            className={`px-4 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors ${
+            className={`px-2 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors ${
               activeTab === 'applicants'
                 ? 'bg-gray-800 text-white'
                 : 'text-gray-700 hover:text-gray-900 hover:bg-gray-50'
@@ -373,7 +373,7 @@ function ClinicJobPostingPage({ contextOverride = null }: { contextOverride?: Ro
         </div>
 
         {/* Compact Tab Content */}
-        <div className="mt-3">
+        <div className="mt-1">
           {activeTab === 'jobs' ? (
             !permissions.canRead ? (
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 sm:p-8 text-center">

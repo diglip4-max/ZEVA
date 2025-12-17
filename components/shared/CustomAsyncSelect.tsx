@@ -1,20 +1,24 @@
-import React, { forwardRef } from "react";
+import React, { forwardRef, useState, useEffect } from "react";
+import dynamic from "next/dynamic";
+import type {
+  StylesConfig,
+  MultiValue,
+  SingleValue,
+  ActionMeta,
+} from "react-select";
 
-// Define types locally since react-select types may not be available
-type StylesConfig<Option, IsMulti extends boolean> = any;
-type MultiValue<Option> = Option[];
-type SingleValue<Option> = Option | null;
-type ActionMeta<Option> = {
-  action: string;
-  name?: string;
-  option?: Option;
-  removedValue?: Option;
-  removedValues?: Option[];
-};
-
-// Import AsyncSelect using require to avoid TypeScript module resolution issues
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const AsyncSelect = require("react-select/async").default as React.ComponentType<any>;
+// Dynamic import for AsyncSelect to avoid build issues with Next.js/Turbopack
+const AsyncSelect = dynamic(
+  () => import("react-select/async").then((mod) => mod.default),
+  { 
+    ssr: false,
+    loading: () => (
+      <div className="w-full border border-gray-300 rounded-md px-2 py-1.5 text-xs bg-gray-50 text-gray-500">
+        Loading...
+      </div>
+    )
+  }
+);
 
 // Types for the component props
 export interface OptionType {

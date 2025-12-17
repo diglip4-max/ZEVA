@@ -582,7 +582,7 @@ export default function AppointmentBookingModal({
           </div>
 
           {/* Room, Doctor, Status - 3 fields in one row */}
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-3 gap-4 pb-16 relative z-10">
             {/* Room Field */}
             <div>
               <label htmlFor="room-select" className="block text-xs font-medium text-gray-700 dark:text-gray-800 mb-1.5">
@@ -600,6 +600,7 @@ export default function AppointmentBookingModal({
                 className={`w-full border rounded-lg px-3 py-2.5 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 border-gray-300 dark:border-gray-300 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm ${
                   fieldErrors.roomId ? "border-red-500 dark:border-red-500 ring-2 ring-red-200 dark:ring-red-300" : ""
                 }`}
+                style={{ zIndex: 1001, position: 'relative' }}
                 required
                 aria-invalid={!!fieldErrors.roomId}
                 aria-describedby={fieldErrors.roomId ? "room-error" : undefined}
@@ -633,6 +634,7 @@ export default function AppointmentBookingModal({
                 className={`w-full border rounded-lg px-3 py-2.5 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 border-gray-300 dark:border-gray-300 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm ${
                   fieldErrors.doctorId ? "border-red-500 dark:border-red-500 ring-2 ring-red-200 dark:ring-red-300" : ""
                 }`}
+                style={{ zIndex: 1000, position: 'relative' }}
                 required
                 aria-invalid={!!fieldErrors.doctorId}
                 aria-describedby={fieldErrors.doctorId ? "doctor-error" : undefined}
@@ -665,6 +667,7 @@ export default function AppointmentBookingModal({
                 className={`w-full border rounded-lg px-3 py-2.5 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 border-gray-300 dark:border-gray-300 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm ${
                   fieldErrors.status ? "border-red-500 dark:border-red-500 ring-2 ring-red-200 dark:ring-red-300" : ""
                 }`}
+                style={{ zIndex: 999, position: 'relative' }}
                 required
                 aria-invalid={!!fieldErrors.status}
                 aria-describedby={fieldErrors.status ? "status-error" : undefined}
@@ -802,47 +805,47 @@ export default function AppointmentBookingModal({
 
           {/* Add Patient Form */}
           {showAddPatient && (
-            <div className="border-2 border-gray-200 dark:border-gray-300 rounded-xl p-5 space-y-4 bg-gray-50 dark:bg-gray-100 shadow-lg animate-in slide-in-from-top-2 fade-in">
-              <h3 className="text-xs font-medium text-gray-900 dark:text-gray-900">Add New Patient</h3>
-              <div className="grid grid-cols-3 gap-4">
+            <div className="border-2 border-gray-200 dark:border-gray-300 rounded-lg p-2.5 space-y-2 bg-gray-50 dark:bg-gray-100 shadow-md animate-in slide-in-from-top-2 fade-in">
+              <h3 className="text-[10px] font-medium text-gray-900 dark:text-gray-900">Add New Patient</h3>
+              <div className="grid grid-cols-4 gap-2">
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-800 mb-1">EMR Number</label>
+                  <label className="block text-[10px] font-medium text-gray-700 dark:text-gray-800 mb-0.5">EMR Number</label>
                   <input
                     type="text"
                     value={addPatientForm.emrNumber}
                     onChange={(e) => setAddPatientForm({ ...addPatientForm, emrNumber: e.target.value })}
-                    className="w-full border border-gray-300 dark:border-gray-300 rounded-lg px-3 py-2.5 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm"
+                    className="w-full border border-gray-300 dark:border-gray-300 rounded-lg px-2 py-1.5 text-[10px] bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-800 mb-1">
+                  <label className="block text-[10px] font-medium text-gray-700 dark:text-gray-800 mb-0.5">
                     First Name <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
                     value={addPatientForm.firstName}
                     onChange={(e) => setAddPatientForm({ ...addPatientForm, firstName: e.target.value })}
-                    className="w-full border border-gray-300 dark:border-gray-300 rounded-lg px-3 py-2.5 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm"
+                    className="w-full border border-gray-300 dark:border-gray-300 rounded-lg px-2 py-1.5 text-[10px] bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm"
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-800 mb-1">Last Name</label>
+                  <label className="block text-[10px] font-medium text-gray-700 dark:text-gray-800 mb-0.5">Last Name</label>
                   <input
                     type="text"
                     value={addPatientForm.lastName}
                     onChange={(e) => setAddPatientForm({ ...addPatientForm, lastName: e.target.value })}
-                    className="w-full border border-gray-300 dark:border-gray-300 rounded-lg px-3 py-2.5 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm"
+                    className="w-full border border-gray-300 dark:border-gray-300 rounded-lg px-2 py-1.5 text-[10px] bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-800 mb-1">
+                  <label className="block text-[10px] font-medium text-gray-700 dark:text-gray-800 mb-0.5">
                     Gender <span className="text-red-500">*</span>
                   </label>
                   <select
                     value={addPatientForm.gender}
                     onChange={(e) => setAddPatientForm({ ...addPatientForm, gender: e.target.value })}
-                    className="w-full border border-gray-300 dark:border-gray-300 rounded-lg px-3 py-2.5 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm"
+                    className="w-full border border-gray-300 dark:border-gray-300 rounded-lg px-2 py-1.5 text-[10px] bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm"
                     required
                   >
                     <option value="">Select</option>
@@ -852,61 +855,63 @@ export default function AppointmentBookingModal({
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-800 mb-1">Email</label>
+                  <label className="block text-[10px] font-medium text-gray-700 dark:text-gray-800 mb-0.5">Email</label>
                   <input
                     type="email"
                     value={addPatientForm.email}
                     onChange={(e) => setAddPatientForm({ ...addPatientForm, email: e.target.value })}
-                    className="w-full border border-gray-300 dark:border-gray-300 rounded-lg px-3 py-2.5 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm"
+                    className="w-full border border-gray-300 dark:border-gray-300 rounded-lg px-2 py-1.5 text-[10px] bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-800 mb-1">
+                  <label className="block text-[10px] font-medium text-gray-700 dark:text-gray-800 mb-0.5">
                     Mobile Number <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="tel"
                     value={addPatientForm.mobileNumber}
                     onChange={(e) => setAddPatientForm({ ...addPatientForm, mobileNumber: e.target.value })}
-                    className="w-full border border-gray-300 dark:border-gray-300 rounded-lg px-3 py-2.5 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm"
+                    className="w-full border border-gray-300 dark:border-gray-300 rounded-lg px-2 py-1.5 text-[10px] bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm"
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-800 mb-1">Referred By</label>
+                  <label className="block text-[10px] font-medium text-gray-700 dark:text-gray-800 mb-0.5">Referred By</label>
                   <input
                     type="text"
                     value={addPatientForm.referredBy}
                     onChange={(e) => setAddPatientForm({ ...addPatientForm, referredBy: e.target.value })}
-                    className="w-full border border-gray-300 dark:border-gray-300 rounded-lg px-3 py-2.5 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm"
+                    className="w-full border border-gray-300 dark:border-gray-300 rounded-lg px-2 py-1.5 text-[10px] bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-800 mb-1">Patient Type</label>
+                  <label className="block text-[10px] font-medium text-gray-700 dark:text-gray-800 mb-0.5">Patient Type</label>
                   <select
                     value={addPatientForm.patientType}
                     onChange={(e) => setAddPatientForm({ ...addPatientForm, patientType: e.target.value })}
-                    className="w-full border border-gray-300 dark:border-gray-300 rounded-lg px-3 py-2.5 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm"
+                    className="w-full border border-gray-300 dark:border-gray-300 rounded-lg px-2 py-1.5 text-[10px] bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm"
                   >
                     <option value="New">New</option>
                     <option value="Old">Old</option>
                   </select>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={handleAddPatient}
-                disabled={addingPatient}
-                className="w-full bg-gray-700 dark:bg-gray-600 hover:bg-gray-800 dark:hover:bg-gray-700 text-white py-3 rounded-xl text-xs font-semibold disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105 active:scale-95 disabled:hover:scale-100"
-              >
-                {addingPatient && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                {addingPatient ? "Adding..." : "Add Patient"}
-              </button>
+              <div className="flex justify-center mt-2">
+                <button
+                  type="button"
+                  onClick={handleAddPatient}
+                  disabled={addingPatient}
+                  className="bg-gray-700 dark:bg-gray-600 hover:bg-gray-800 dark:hover:bg-gray-700 text-white px-4 py-1.5 rounded-lg text-[10px] font-semibold disabled:opacity-50 flex items-center justify-center gap-1.5 shadow-md hover:shadow-lg transition-all duration-200 hover:scale-105 active:scale-95 disabled:hover:scale-100"
+                >
+                  {addingPatient && <Loader2 className="w-3 h-3 animate-spin" />}
+                  {addingPatient ? "Adding..." : "Add Patient"}
+                </button>
+              </div>
             </div>
           )}
 
           {/* Follow Type, Referral, Emergency - 3 fields in one row */}
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-3 gap-4 pb-16 relative z-10">
             {/* Follow Type */}
             <div>
               <label className="block text-xs font-medium text-gray-700 dark:text-gray-800 mb-1.5">
@@ -923,6 +928,7 @@ export default function AppointmentBookingModal({
                 className={`w-full border rounded-lg px-3 py-2.5 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 border-gray-300 dark:border-gray-300 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm ${
                   fieldErrors.followType ? "border-red-500 dark:border-red-500 ring-2 ring-red-200 dark:ring-red-300" : ""
                 }`}
+                style={{ zIndex: 1001, position: 'relative' }}
                 required
               >
                 <option value="first time">First Time</option>
@@ -941,6 +947,7 @@ export default function AppointmentBookingModal({
                 value={referral}
                 onChange={(e) => setReferral(e.target.value)}
                 className="w-full border border-gray-300 dark:border-gray-300 rounded-lg px-3 py-2.5 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm"
+                style={{ zIndex: 1000, position: 'relative' }}
               >
                 <option value="direct">Direct</option>
                 <option value="referral">Referral</option>
@@ -954,6 +961,7 @@ export default function AppointmentBookingModal({
                 value={emergency}
                 onChange={(e) => setEmergency(e.target.value)}
                 className="w-full border border-gray-300 dark:border-gray-300 rounded-lg px-3 py-2.5 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm"
+                style={{ zIndex: 999, position: 'relative' }}
               >
                 <option value="no">No</option>
                 <option value="yes">Yes</option>

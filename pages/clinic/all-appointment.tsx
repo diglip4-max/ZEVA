@@ -538,8 +538,8 @@
           </div>
         ) : null}
 
-        <div className="bg-gray-50 min-h-screen" style={{ width: '100%', padding: '0', margin: '0' }}>
-          <div className="p-2 sm:p-4 md:p-6 lg:p-8" style={{ width: '100%', minWidth: '100%' }}>
+        <div className="bg-gray-50" style={{ width: '100%', padding: '0', margin: '0' }}>
+          <div className="p-1 sm:p-2 md:p-3" style={{ width: '100%', minWidth: '100%' }}>
             <div className="w-full" style={{ width: '100%', overflowX: 'visible' }}>
               {/* Header - Matching clinic dashboard theme */}
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-2 sm:mb-3">
