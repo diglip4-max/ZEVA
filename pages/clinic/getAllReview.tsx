@@ -100,9 +100,9 @@ function ClinicReviews() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const agentPath =
-      router?.pathname?.startsWith("/agent/") ||
-      window.location.pathname?.startsWith("/agent/");
+    // Check both router pathname and actual window location
+    const currentPath = window.location.pathname || router?.pathname || "";
+    const agentPath = currentPath.startsWith("/agent/");
     setIsAgentRoute(agentPath && hasAgentToken);
   }, [router.pathname, hasAgentToken]);
 
@@ -119,12 +119,27 @@ function ClinicReviews() {
     if (!isAgentRoute) return;
     if (agentPermissionsLoading) return;
     
+    // Check if permissions are actually available
+    const hasReadPermission = Boolean(
+      agentPermissions?.canAll === true || 
+      agentPermissions?.canRead === true
+    );
+    
     const newPermissions = {
-      canRead: Boolean(agentPermissions.canAll || agentPermissions.canRead),
+      canRead: hasReadPermission,
     };
     
     setPermissions(newPermissions);
     setPermissionsLoaded(true);
+    
+    // Debug logging
+    console.log('Agent Route Permissions:', {
+      isAgentRoute,
+      agentPermissions,
+      hasReadPermission,
+      canAll: agentPermissions?.canAll,
+      canRead: agentPermissions?.canRead
+    });
   }, [isAgentRoute, agentPermissions, agentPermissionsLoading]);
 
   // Handle clinic permissions - clinic and doctor have full access by default
@@ -174,12 +189,30 @@ function ClinicReviews() {
           const data = res.data;
           
           if (!isMounted) return;
-          if (data.success && data.data) {
-            const moduleActions = data.data.moduleActions || {};
+          
+          // Fix: Use correct response structure - data.permissions.actions, not data.data.moduleActions
+          if (data.success && data.permissions) {
+            const moduleActions = data.permissions.actions || {};
+            const hasReadPermission = Boolean(
+              moduleActions.all === true || 
+              moduleActions.read === true
+            );
+            
             setPermissions({
-              canRead: Boolean(moduleActions.all || moduleActions.read),
+              canRead: hasReadPermission,
+            });
+            
+            // Debug logging
+            console.log('Non-Agent Route Permissions:', {
+              success: data.success,
+              permissions: data.permissions,
+              moduleActions,
+              hasReadPermission,
+              all: moduleActions.all,
+              read: moduleActions.read
             });
           } else {
+            console.warn('No permissions found in response:', data);
             setPermissions({ canRead: false });
           }
         } catch (err) {
@@ -218,10 +251,18 @@ function ClinicReviews() {
     if (!permissionsLoaded) return;
     
     // ✅ Only fetch reviews if user has read permission
+    // Clear any previous error first
     if (!permissions.canRead) {
       setError("You do not have permission to view clinic reviews");
       setLoading(false);
+      setReviews([]);
+      setFilteredReviews([]);
       return;
+    }
+    
+    // Clear error if permission is granted
+    if (permissions.canRead && error === "You do not have permission to view clinic reviews") {
+      setError("");
     }
 
     const fetchReviews = async () => {

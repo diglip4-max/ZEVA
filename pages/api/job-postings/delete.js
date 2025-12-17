@@ -41,55 +41,67 @@ export default async function handler(req, res) {
         return res.status(404).json({ success: false, message: "Clinic not found for this user" });
       }
       clinicId = clinic._id;
-    } else if (me.role === "agent" || me.role === "doctorStaff" || me.role === "doctor") {
+    } else if (me.role === "agent" || me.role === "doctorStaff") {
       // Fetch fresh user data to ensure we have the latest clinicId
       const freshUser = await User.findById(me._id).select('clinicId');
       if (!freshUser || !freshUser.clinicId) {
         return res.status(403).json({ 
           success: false, 
-          message: `${me.role === "doctor" ? "Doctor" : me.role === "agent" ? "Agent" : "Doctor staff"} not linked to a clinic` 
+          message: `${me.role === "agent" ? "Agent" : "Doctor staff"} not linked to a clinic` 
         });
       }
       clinicId = freshUser.clinicId;
+    } else if (me.role === "doctor") {
+      // Doctors can operate independently without clinicId
+      // Skip clinicId check for doctors
     }
 
-    // ✅ Verify job access: Allow if user is admin, posted the job, or job belongs to their clinic
+    // ✅ Verify job access: Allow if user is admin, posted the job, job belongs to their clinic, or (for doctors) doctorId matches
     if (me.role !== "admin") {
-      const isJobOwner = job.postedBy.toString() === me._id.toString();
-      
-      // Get the job's clinicId (from job.clinicId or from job poster's clinicId)
-      let jobClinicId = null;
-      if (job.clinicId) {
-        jobClinicId = job.clinicId;
+      if (me.role === "doctor") {
+        // For doctors, check if they own the job via doctorId or postedBy
+        const isJobOwner = job.postedBy.toString() === me._id.toString() || 
+                          (job.doctorId && job.doctorId.toString() === me._id.toString());
+        if (!isJobOwner) {
+          return res.status(403).json({ success: false, message: "Not allowed to access this job" });
+        }
       } else {
-        // If job.clinicId is not set, get it from the job poster
-        const jobPoster = await User.findById(job.postedBy).select('clinicId role');
-        if (jobPoster) {
-          if (jobPoster.clinicId) {
-            jobClinicId = jobPoster.clinicId;
-          } else if (jobPoster.role === "clinic") {
-            // If job poster is clinic role, find their clinic
-            const posterClinic = await Clinic.findOne({ owner: jobPoster._id }).select("_id");
-            if (posterClinic) {
-              jobClinicId = posterClinic._id;
+        const isJobOwner = job.postedBy.toString() === me._id.toString();
+        
+        // Get the job's clinicId (from job.clinicId or from job poster's clinicId)
+        let jobClinicId = null;
+        if (job.clinicId) {
+          jobClinicId = job.clinicId;
+        } else {
+          // If job.clinicId is not set, get it from the job poster
+          const jobPoster = await User.findById(job.postedBy).select('clinicId role');
+          if (jobPoster) {
+            if (jobPoster.clinicId) {
+              jobClinicId = jobPoster.clinicId;
+            } else if (jobPoster.role === "clinic") {
+              // If job poster is clinic role, find their clinic
+              const posterClinic = await Clinic.findOne({ owner: jobPoster._id }).select("_id");
+              if (posterClinic) {
+                jobClinicId = posterClinic._id;
+              }
             }
           }
         }
-      }
-      
-      // Verify clinic membership - ensure both clinicIds are compared as strings
-      let hasAccess = false;
-      if (isJobOwner) {
-        hasAccess = true;
-      } else if (clinicId && jobClinicId) {
-        // Check if job's clinicId matches user's clinicId (compare as strings)
-        const userClinicIdStr = clinicId.toString();
-        const jobClinicIdStr = jobClinicId.toString();
-        hasAccess = userClinicIdStr === jobClinicIdStr;
-      }
-      
-      if (!hasAccess) {
-        return res.status(403).json({ success: false, message: "Not allowed to access this job" });
+        
+        // Verify clinic membership - ensure both clinicIds are compared as strings
+        let hasAccess = false;
+        if (isJobOwner) {
+          hasAccess = true;
+        } else if (clinicId && jobClinicId) {
+          // Check if job's clinicId matches user's clinicId (compare as strings)
+          const userClinicIdStr = clinicId.toString();
+          const jobClinicIdStr = jobClinicId.toString();
+          hasAccess = userClinicIdStr === jobClinicIdStr;
+        }
+        
+        if (!hasAccess) {
+          return res.status(403).json({ success: false, message: "Not allowed to access this job" });
+        }
       }
     }
 

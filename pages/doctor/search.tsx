@@ -137,6 +137,55 @@ export default function FindDoctor() {
   const router = useRouter();
   // const { isAuthenticated, user } = useAuth();
 
+  // Helper function to convert text to slug
+  const textToSlug = (text: string) => {
+    if (!text) return '';
+    return text
+      .toLowerCase()
+      .trim()
+      .replace(/[^\w\s-]/g, '') // Remove special characters
+      .replace(/\s+/g, '-') // Replace spaces with hyphens
+      .replace(/-+/g, '-'); // Replace multiple hyphens with single hyphen
+  };
+
+  // Helper function to convert slug back to readable text
+  const slugToText = (slug: string) => {
+    if (!slug) return '';
+    return slug
+      .split('-')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  };
+
+  // Update URL with search parameters - ALWAYS use values from input fields
+  const updateURL = (treatment: string, location: string) => {
+    // Set flag to prevent useEffect from interfering
+    isUpdatingURL.current = true;
+    
+    const params = new URLSearchParams();
+    if (treatment) {
+      params.set('treatment', textToSlug(treatment));
+    }
+    if (location) {
+      // Always use the actual location value from input - no special handling
+      params.set('location', textToSlug(location));
+    }
+    const newUrl = params.toString() 
+      ? `${router.pathname}?${params.toString()}`
+      : router.pathname;
+    
+    router.replace(newUrl, undefined, { shallow: true });
+    
+    // Reset flag after a short delay to allow URL to update
+    setTimeout(() => {
+      isUpdatingURL.current = false;
+    }, 100);
+  };
+
+  // Flag to prevent useEffect from interfering during URL updates
+  const isUpdatingURL = useRef(false);
+  const hasSearchedFromURL = useRef(false);
+
   // Add state for dynamic available times
   const [dynamicAvailableTimes, setDynamicAvailableTimes] = useState<string[]>([]);
   // Function to extract available times from doctor time slots
@@ -262,10 +311,50 @@ export default function FindDoctor() {
         }
       } catch {
         // console.error("Error loading persisted state:", error);
-        clearPersistedState();
       }
     }
   }, []);
+
+  // Separate useEffect for URL query parameters to avoid conflicts with localStorage
+  useEffect(() => {
+    if (!router.isReady || hasSearchedFromURL.current || isUpdatingURL.current) return;
+    
+    const { treatment, location } = router.query;
+    if (treatment || location) {
+      const treatmentText = treatment ? slugToText(String(treatment)) : '';
+      const locationText = location ? slugToText(String(location)) : '';
+      
+      // Check if current form values don't match URL params (to avoid overwriting manual input)
+      const currentTreatmentMatches = !treatmentText || (query.trim().toLowerCase() === treatmentText.toLowerCase() || selectedService.toLowerCase() === treatmentText.toLowerCase());
+      const currentLocationMatches = !locationText || manualPlace.trim().toLowerCase() === locationText.toLowerCase();
+      
+      if (locationText && locationText !== 'near-me' && !currentLocationMatches) {
+        hasSearchedFromURL.current = true;
+        
+        // Set the form values
+        if (treatmentText) {
+          setQuery(treatmentText);
+          setSelectedService(treatmentText);
+        }
+        setManualPlace(locationText);
+
+        // Auto-search with a small delay to ensure state is set
+        setTimeout(() => {
+          searchByPlaceFromURL(locationText, treatmentText || null);
+        }, 300);
+      } else if (locationText === 'near-me' && treatmentText) {
+        hasSearchedFromURL.current = true;
+        
+        // Handle near-me case
+        setQuery(treatmentText);
+        setSelectedService(treatmentText);
+        // Trigger locateMe after a delay
+        setTimeout(() => {
+          locateMe();
+        }, 300);
+      }
+    }
+  }, [router.isReady, router.query.treatment, router.query.location]);
 
   // Save search state to localStorage whenever it changes
   useEffect(() => {
@@ -485,12 +574,25 @@ export default function FindDoctor() {
 
   // Update locateMe to pass selectedService
   const locateMe = () => {
+    // Reset URL search flag so manual searches work
+    hasSearchedFromURL.current = false;
+    
     setLoading(true);
     clearPersistedState(); // Clear old state when starting new search
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const { latitude, longitude } = pos.coords;
         setCoords({ lat: latitude, lng: longitude });
+        
+        // Get values from input fields
+        const treatmentValue = query.trim();
+        const locationValue = manualPlace.trim();
+        const serviceToUse = selectedService || treatmentValue;
+        
+        // Update URL with values from input fields (if location is empty, use "near-me")
+        const locationForURL = locationValue || 'near-me';
+        updateURL(serviceToUse || treatmentValue, locationForURL);
+        
         fetchDoctors(latitude, longitude, selectedService);
       },
       () => {
@@ -502,15 +604,25 @@ export default function FindDoctor() {
 
   // Update searchByPlace to pass selectedService
   const searchByPlace = async () => {
-    if (!manualPlace.trim()) return;
+    // ALWAYS get location value directly from input field
+    const placeQuery = manualPlace.trim();
+    if (!placeQuery) return;
 
     setLoading(true);
     clearPersistedState(); // Clear old state when starting new search
     try {
       const res = await axios.get("/api/doctor/geocode", {
-        params: { place: manualPlace },
+        params: { place: placeQuery },
       });
       setCoords({ lat: res.data.lat, lng: res.data.lng });
+      
+      // Get values from input fields for URL update
+      const treatmentValue = query.trim();
+      const serviceToUse = selectedService || treatmentValue;
+      
+      // Update URL with values from input fields - always use actual input values
+      updateURL(serviceToUse || treatmentValue, placeQuery);
+      
       fetchDoctors(res.data.lat, res.data.lng, selectedService);
     } catch {
       // console.error("Error in manual place search:", err);
@@ -518,14 +630,54 @@ export default function FindDoctor() {
     }
   };
 
+  // Separate function for URL-based searches (to avoid infinite loops)
+  const searchByPlaceFromURL = async (locationText: string, serviceText: string | null = null) => {
+    if (!locationText) return;
+
+    setLoading(true);
+    clearPersistedState();
+    try {
+      const res = await axios.get("/api/doctor/geocode", {
+        params: { place: locationText },
+      });
+
+      setCoords({ lat: res.data.lat, lng: res.data.lng });
+      setManualPlace(locationText);
+      
+      // Use the service from URL if provided
+      const serviceToUse = serviceText || selectedService || query.trim();
+      if (serviceText) {
+        setQuery(serviceText);
+        setSelectedService(serviceText);
+      }
+      
+      fetchDoctors(res.data.lat, res.data.lng, serviceText || undefined);
+    } catch {
+      // console.error("Error in URL-based place search:", err);
+      setLoading(false);
+    }
+  };
 
   // Update handleSearch to pass query as service
   const handleSearch = async () => {
-    if (query.trim() && coords) {
+    // Reset URL search flag so manual searches work
+    hasSearchedFromURL.current = false;
+    
+    // ALWAYS get values directly from input fields
+    const treatmentValue = query.trim();
+    const locationValue = manualPlace.trim();
+    
+    if (treatmentValue && coords) {
       clearPersistedState(); // Clear old state when starting new search
-      setSelectedService(query);
-      fetchDoctors(coords.lat, coords.lng, query);
-    } else if (manualPlace.trim()) {
+      setSelectedService(treatmentValue);
+      
+      // Update URL with values from input fields
+      updateURL(treatmentValue, locationValue || 'near-me');
+      
+      fetchDoctors(coords.lat, coords.lng, treatmentValue);
+    } else if (locationValue) {
+      // Update URL before searching
+      updateURL(treatmentValue, locationValue);
       searchByPlace();
     }
   };
@@ -533,8 +685,56 @@ export default function FindDoctor() {
   const filteredDoctors = getSortedDoctors(
     doctors.filter(doctor => {
       // Existing filters...
-      const matchesService = !selectedService ||
-        (doctor.degree && doctor.degree.toLowerCase().includes(selectedService.toLowerCase()));
+      // Check if service matches in degree OR in treatments array
+      const matchesService = !selectedService || (() => {
+        const serviceLower = selectedService.toLowerCase();
+        
+        // Check degree field
+        if (doctor.degree && doctor.degree.toLowerCase().includes(serviceLower)) {
+          return true;
+        }
+        
+        // Check treatments array
+        if (doctor.treatments && Array.isArray(doctor.treatments)) {
+          return doctor.treatments.some((treatment: any) => {
+            // Check mainTreatment
+            if (treatment.mainTreatment && 
+                treatment.mainTreatment.toLowerCase().includes(serviceLower)) {
+              return true;
+            }
+            // Check mainTreatmentSlug
+            if (treatment.mainTreatmentSlug && 
+                treatment.mainTreatmentSlug.toLowerCase() === serviceLower) {
+              return true;
+            }
+            // Check subTreatments
+            if (treatment.subTreatments && Array.isArray(treatment.subTreatments)) {
+              return treatment.subTreatments.some((sub: any) => {
+                if (sub.name && sub.name.toLowerCase().includes(serviceLower)) {
+                  return true;
+                }
+                if (sub.slug && sub.slug.toLowerCase() === serviceLower) {
+                  return true;
+                }
+                return false;
+              });
+            }
+            return false;
+          });
+        }
+        
+        // Check legacy treatment field (backward compatibility)
+        if (doctor.treatment) {
+          const treatmentArray = Array.isArray(doctor.treatment) 
+            ? doctor.treatment 
+            : [doctor.treatment];
+          return treatmentArray.some((t: string) => 
+            t.toLowerCase().includes(serviceLower)
+          );
+        }
+        
+        return false;
+      })();
 
       const matchesStars = starFilter === 0 ||
         (doctorReviews[doctor._id]?.averageRating >= starFilter);
@@ -1545,7 +1745,7 @@ export default function FindDoctor() {
 
                             {/* View Full Details */}
                             <a
-                              href={`/doctor/${doctor._id}`}
+                              href={`/doctor/${textToSlug(doctor.user.name)}?d=${doctor._id}`}
                               className="flex-1 flex items-center justify-center px-3 py-1.5 bg-gradient-to-r from-[#0284c7] to-[#0ea5e9] hover:from-[#0369a1] hover:to-[#0284c7] text-white rounded-lg transition-all text-xs font-medium shadow-sm hover:shadow"
                             >
                               View Details

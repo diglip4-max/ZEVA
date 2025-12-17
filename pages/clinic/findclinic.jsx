@@ -41,6 +41,51 @@ export default function Home() {
 
     const [clinicReviews, setClinicReviews] = useState({});
 
+    // Helper function to convert text to slug
+    const textToSlug = (text) => {
+        if (!text) return '';
+        return text
+            .toLowerCase()
+            .trim()
+            .replace(/[^\w\s-]/g, '') // Remove special characters
+            .replace(/\s+/g, '-') // Replace spaces with hyphens
+            .replace(/-+/g, '-'); // Replace multiple hyphens with single hyphen
+    };
+
+    // Helper function to convert slug back to readable text
+    const slugToText = (slug) => {
+        if (!slug) return '';
+        return slug
+            .split('-')
+            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+            .join(' ');
+    };
+
+    // Update URL with search parameters - ALWAYS use values from input fields
+    const updateURL = (treatment, location) => {
+        // Set flag to prevent useEffect from interfering
+        isUpdatingURL.current = true;
+        
+        const params = new URLSearchParams();
+        if (treatment) {
+            params.set('treatment', textToSlug(treatment));
+        }
+        if (location) {
+            // Always use the actual location value from input - no special handling
+            params.set('location', textToSlug(location));
+        }
+        const newUrl = params.toString() 
+            ? `${router.pathname}?${params.toString()}`
+            : router.pathname;
+        
+        router.replace(newUrl, undefined, { shallow: true });
+        
+        // Reset flag after a short delay to allow URL to update
+        setTimeout(() => {
+            isUpdatingURL.current = false;
+        }, 100);
+    };
+
     const [isVisible, setIsVisible] = useState(false);
 
     // Add missing state variables for filters
@@ -55,6 +100,8 @@ export default function Home() {
         budgetFriendly: false,
     });
     const loadingToastId = useRef(null);
+    const hasSearchedFromURL = useRef(false);
+    const isUpdatingURL = useRef(false); // Flag to prevent useEffect from interfering during URL updates
 
     // Add the clearFilters function
     const clearFilters = () => {
@@ -223,6 +270,48 @@ export default function Home() {
 
         loadPersistedState();
     }, []);
+
+    // Separate useEffect for URL query parameters to avoid conflicts with localStorage
+    useEffect(() => {
+        if (!router.isReady || hasSearchedFromURL.current || isUpdatingURL.current) return; // Wait for router to be ready and prevent duplicate searches, and don't interfere during URL updates
+        
+        const { treatment, location } = router.query;
+        if (treatment || location) {
+            const treatmentText = treatment ? slugToText(String(treatment)) : '';
+            const locationText = location ? slugToText(String(location)) : '';
+            
+            // Only proceed if we have at least a location and haven't searched yet
+            // Also check if the current form values don't match URL params (to avoid overwriting manual input)
+            const currentTreatmentMatches = !treatmentText || (query.trim().toLowerCase() === treatmentText.toLowerCase() || selectedService.toLowerCase() === treatmentText.toLowerCase());
+            const currentLocationMatches = !locationText || manualPlace.trim().toLowerCase() === locationText.toLowerCase();
+            
+            if (locationText && locationText !== 'near-me' && !hasSearched && !currentLocationMatches) {
+                hasSearchedFromURL.current = true;
+                
+                // Set the form values
+                if (treatmentText) {
+                    setQuery(treatmentText);
+                    setSelectedService(treatmentText);
+                }
+                setManualPlace(locationText);
+
+                // Auto-search with a small delay to ensure state is set
+                setTimeout(() => {
+                    searchByPlaceFromURL(locationText, treatmentText || null);
+                }, 300);
+            } else if (locationText === 'near-me' && treatmentText && !hasSearched && !currentTreatmentMatches) {
+                hasSearchedFromURL.current = true;
+                
+                // Handle near-me case
+                setQuery(treatmentText);
+                setSelectedService(treatmentText);
+                // Trigger locateMe after a delay
+                setTimeout(() => {
+                    locateMe();
+                }, 300);
+            }
+        }
+    }, [router.isReady, router.query.treatment, router.query.location, hasSearched]);
 
     // Save search state to localStorage whenever it changes
     useEffect(() => {
@@ -397,11 +486,30 @@ export default function Home() {
 
     const handleSearch = () => {
         if (!validateSearchInputs()) return;
+        // Reset URL search flag so manual searches work
+        hasSearchedFromURL.current = false;
+        
+        // ALWAYS get values directly from input fields
+        const treatmentValue = query.trim();
+        const locationValue = manualPlace.trim();
+        
         // If query has value but selectedService doesn't, set selectedService to query
-        if (query.trim() && !selectedService) {
-            setSelectedService(query.trim());
+        const serviceToUse = treatmentValue && !selectedService ? treatmentValue : selectedService;
+        if (treatmentValue && !selectedService) {
+            setSelectedService(treatmentValue);
         }
-        searchByPlace();
+        
+        // Make sure we have a valid location
+        if (!locationValue) {
+            toast.error("Please enter a valid location");
+            return;
+        }
+        
+        // Update URL immediately with values from input fields
+        updateURL(serviceToUse || treatmentValue, locationValue);
+        
+        // Then proceed with search
+        searchByPlace(serviceToUse);
     };
 
     const toggleQuickFilter = (filterKey) => {
@@ -510,6 +618,9 @@ export default function Home() {
     };
 
     const locateMe = () => {
+        // Reset URL search flag so manual searches work
+        hasSearchedFromURL.current = false;
+        
         setLoading(true);
         clearPersistedState(); // Clear old state when starting new search
         if (typeof window === "undefined" || !navigator.geolocation) {
@@ -517,12 +628,23 @@ export default function Home() {
             setLoading(false);
             return;
         }
+        
+        // Get values from input fields
+        const treatmentValue = query.trim();
+        const locationValue = manualPlace.trim();
+        const serviceToUse = selectedService || treatmentValue;
+        
+        // Update URL with values from input fields (if location is empty, use "near-me")
+        const locationForURL = locationValue || 'near-me';
+        updateURL(serviceToUse || treatmentValue, locationForURL);
+        
         const locatingToast = toast.loading("Locating you...");
         navigator.geolocation.getCurrentPosition(
             (pos) => {
                 const { latitude, longitude } = pos.coords;
                 setCoords({ lat: latitude, lng: longitude });
                 setHasSearched(true);
+                
                 fetchClinics(latitude, longitude);
                 toast.success("Location detected");
                 toast.dismiss(locatingToast);
@@ -535,7 +657,8 @@ export default function Home() {
         );
     };
 
-    const searchByPlace = async () => {
+    const searchByPlace = async (serviceOverride = null) => {
+        // ALWAYS get location value directly from input field
         const placeQuery = manualPlace.trim();
         if (!placeQuery) {
             setFormErrors((prev) => ({ ...prev, location: "Please add a location" }));
@@ -555,7 +678,42 @@ export default function Home() {
             setFormErrors((prev) => ({ ...prev, location: "" }));
             toast.success(`Location pinned: ${placeQuery}`);
             setHasSearched(true);
-            fetchClinics(res.data.lat, res.data.lng);
+            
+            // Get values from input fields for URL update
+            const treatmentValue = query.trim();
+            const serviceToUse = serviceOverride || selectedService || treatmentValue;
+            
+            // Update URL with values from input fields - always use actual input values
+            updateURL(serviceToUse || treatmentValue, placeQuery);
+            
+            fetchClinics(res.data.lat, res.data.lng, serviceOverride);
+        } catch {
+            toast.error("We couldn't find that place. Try a nearby landmark.");
+            setLoading(false);
+        } finally {
+            toast.dismiss(geocodeToastId);
+        }
+    };
+
+    // Separate function for URL-based searches (to avoid infinite loops)
+    const searchByPlaceFromURL = async (locationText, serviceText = null) => {
+        if (!locationText) return;
+
+        setLoading(true);
+        clearPersistedState();
+        const geocodeToastId = toast.loading("Validating location...");
+        try {
+            const res = await axios.get("/api/clinics/geocode", {
+                params: { place: locationText },
+            });
+
+            setCoords({ lat: res.data.lat, lng: res.data.lng });
+            setFormErrors((prev) => ({ ...prev, location: "" }));
+            setHasSearched(true);
+            
+            // Use the service from URL if provided
+            const serviceToUse = serviceText || selectedService || query.trim();
+            fetchClinics(res.data.lat, res.data.lng, serviceText);
         } catch {
             toast.error("We couldn't find that place. Try a nearby landmark.");
             setLoading(false);

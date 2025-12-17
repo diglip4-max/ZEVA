@@ -1,6 +1,7 @@
-import React, { useEffect, useState, ChangeEvent } from "react";
+import React, { useEffect, useState, ChangeEvent, useRef } from "react";
 import axios from "axios";
 import Link from "next/link";
+import { useRouter } from "next/router";
 
 type Job = {
   _id: string;
@@ -27,6 +28,7 @@ type Filters = {
 };
 
 const AllJobs: React.FC = () => {
+  const router = useRouter();
   const [jobs, setJobs] = useState<Job[]>([]);
   const [filters, setFilters] = useState<Filters>({
     location: "",
@@ -40,6 +42,71 @@ const AllJobs: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const jobsPerPage = 6;
+
+  // Helper: convert text to URL-friendly slug
+  // Special handling for values that should stay as-is (like "week", "1-2", etc.)
+  const textToSlug = (text: string, key?: string) => {
+    if (!text) return "";
+    
+    // For time filter, keep "week" as-is (already URL-safe)
+    if (key === "time" && text.toLowerCase() === "week") {
+      return "week";
+    }
+    
+    // For experience filter, keep values like "1-2", "2-4", "7+", "fresher" as-is
+    if (key === "experience") {
+      const expValues = ["fresher", "1-2", "2-4", "4-6", "7+"];
+      if (expValues.includes(text.toLowerCase())) {
+        return text.toLowerCase();
+      }
+    }
+    
+    // For other values, convert to slug
+    return text
+      .toLowerCase()
+      .trim()
+      .replace(/[^\w\s-]/g, "") // remove special chars
+      .replace(/\s+/g, "-") // spaces -> hyphen
+      .replace(/-+/g, "-"); // collapse multiple hyphens
+  };
+
+  // Helper: convert slug back to readable text
+  // Special handling to preserve original format for certain values
+  const slugToText = (slug: string, key?: string) => {
+    if (!slug) return "";
+    
+    // For time filter, keep "week" as-is
+    if (key === "time" && slug.toLowerCase() === "week") {
+      return "week";
+    }
+    
+    // For experience filter, preserve original format
+    if (key === "experience") {
+      const expValues: { [key: string]: string } = {
+        "fresher": "fresher",
+        "1-2": "1-2",
+        "2-4": "2-4",
+        "4-6": "4-6",
+        "7+": "7+",
+        "1 2": "1-2", // handle if it was converted
+        "2 4": "2-4",
+        "4 6": "4-6",
+      };
+      const normalized = slug.toLowerCase();
+      if (expValues[normalized]) {
+        return expValues[normalized];
+      }
+    }
+    
+    // For other values, convert slug back to readable text
+    return slug
+      .split("-")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ");
+  };
+
+  // Flag to avoid infinite loops between URL <-> state sync
+  const isSyncingURL = useRef(false);
 
   const fetchJobs = async () => {
     try {
@@ -130,6 +197,60 @@ const AllJobs: React.FC = () => {
 
     return pages;
   };
+
+  // On first load, read filters/search from URL (slugs) and hydrate state
+  useEffect(() => {
+    if (!router.isReady) return;
+
+    const query = router.query;
+
+    const initialFilters: Filters = {
+      location: query.location ? slugToText(String(query.location), "location") : "",
+      jobType: query.jobType ? slugToText(String(query.jobType), "jobType") : "",
+      department: query.department ? slugToText(String(query.department), "department") : "",
+      skills: query.skills ? slugToText(String(query.skills), "skills") : "",
+      salary: query.salary ? slugToText(String(query.salary), "salary") : "",
+      time: query.time ? slugToText(String(query.time), "time") : "",
+      experience: query.experience ? slugToText(String(query.experience), "experience") : "",
+    };
+
+    const initialSearch = query.search
+      ? slugToText(String(query.search))
+      : "";
+
+    setFilters((prev) => ({ ...prev, ...initialFilters }));
+    setSearchQuery(initialSearch);
+  }, [router.isReady, router.query]);
+
+  // Whenever filters/search change, sync them to URL as slugs
+  useEffect(() => {
+    if (!router.isReady) return;
+    if (isSyncingURL.current) return;
+
+    isSyncingURL.current = true;
+
+    const params = new URLSearchParams();
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value) {
+        params.set(key, textToSlug(String(value), key as keyof Filters));
+      }
+    });
+
+    if (searchQuery.trim()) {
+      params.set("search", textToSlug(searchQuery.trim(), "search"));
+    }
+
+    const newUrl = params.toString()
+      ? `${router.pathname}?${params.toString()}`
+      : router.pathname;
+
+    router.replace(newUrl, undefined, { shallow: true });
+
+    // allow future syncs
+    setTimeout(() => {
+      isSyncingURL.current = false;
+    }, 50);
+  }, [filters, searchQuery, router.isReady, router.pathname]);
 
   useEffect(() => {
     fetchJobs();

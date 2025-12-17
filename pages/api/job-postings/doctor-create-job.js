@@ -30,6 +30,7 @@ export default async function handler(req, res) {
     const newJob = await JobPosting.create({
       ...req.body,
       postedBy: userId,
+      doctorId: userId, // Set doctorId to the logged-in doctor's userId
       role: 'doctor',
     });
 

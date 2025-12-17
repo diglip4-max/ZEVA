@@ -34,6 +34,29 @@ export default function BlogList() {
   const { isAuthenticated, user } = useAuth();
   const router = useRouter();
 
+  // Helper: convert text to URL-friendly slug
+  const textToSlug = (text: string) => {
+    if (!text) return "";
+    return text
+      .toLowerCase()
+      .trim()
+      .replace(/[^\w\s-]/g, "") // remove special chars
+      .replace(/\s+/g, "-") // spaces -> hyphen
+      .replace(/-+/g, "-"); // collapse multiple hyphens
+  };
+
+  // Helper: convert slug back to readable text
+  const slugToText = (slug: string) => {
+    if (!slug) return "";
+    return slug
+      .split("-")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ");
+  };
+
+  // Flag to avoid infinite loops between URL <-> state sync
+  const isSyncingURL = useRef(false);
+
   // Modal state
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authModalMode, setAuthModalMode] = useState<"login" | "register">(
@@ -43,6 +66,49 @@ export default function BlogList() {
   // Action retry refs
   const pendingLikeBlogId = useRef<string | null>(null);
   const pendingComment = useRef<{ blogId: string; text: string } | null>(null);
+
+  // On first load, read search term from URL (slug) and hydrate state
+  useEffect(() => {
+    if (!router.isReady) return;
+
+    const query = router.query;
+    if (query.search) {
+      const initialSearch = slugToText(String(query.search));
+      setSearchTerm(initialSearch);
+    }
+  }, [router.isReady, router.query.search]);
+
+  // Debounced URL update - only update URL when user stops typing (after 800ms)
+  useEffect(() => {
+    if (!router.isReady) return;
+    if (isSyncingURL.current) return;
+
+    // Set a timer to update URL after user stops typing
+    const debounceTimer = setTimeout(() => {
+      isSyncingURL.current = true;
+
+      const params = new URLSearchParams();
+      if (searchTerm.trim()) {
+        params.set("search", textToSlug(searchTerm.trim()));
+      }
+
+      const newUrl = params.toString()
+        ? `${router.pathname}?${params.toString()}`
+        : router.pathname;
+
+      router.replace(newUrl, undefined, { shallow: true });
+
+      // Allow future syncs
+      setTimeout(() => {
+        isSyncingURL.current = false;
+      }, 50);
+    }, 800); // Wait 800ms after user stops typing
+
+    // Cleanup: clear timer if searchTerm changes before timeout
+    return () => {
+      clearTimeout(debounceTimer);
+    };
+  }, [searchTerm, router.isReady, router.pathname]);
 
   useEffect(() => {
     async function fetchBlogs() {
@@ -203,6 +269,10 @@ export default function BlogList() {
   const handleClearSearch = () => {
     setSearchTerm("");
     setCurrentPage(1);
+    // Clear URL search parameter
+    if (router.isReady) {
+      router.replace(router.pathname, undefined, { shallow: true });
+    }
   };
 
   // Pagination calculations

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import axios from "axios";
 import { useRouter } from "next/router";
 import withClinicAuth from "../../components/withClinicAuth";
@@ -108,6 +108,7 @@ function AddRoomPage({ contextOverride = null }) {
     onConfirm: () => {},
     type: "room",
   });
+  const hasLoadedInitialData = useRef(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -266,66 +267,84 @@ function AddRoomPage({ contextOverride = null }) {
     return headers;
   };
 
-  const loadRooms = async () => {
+  const loadRooms = async (showToast = true) => {
     const headers = getHeadersOrNotify();
     if (!headers) return;
     try {
       const res = await axios.get("/api/clinic/rooms", { headers });
       if (res.data.success) {
         setRooms(res.data.rooms || []);
-        toast.success(`Loaded ${res.data.rooms?.length || 0} room(s)`, { duration: 2000 });
+        if (showToast) {
+          toast.success(`Loaded ${res.data.rooms?.length || 0} room(s)`, { duration: 2000 });
+        }
       } else {
         const errorMsg = res.data.message || "Failed to load rooms";
         setMessage({ type: "error", text: errorMsg });
-        toast.error(errorMsg, { duration: 3000 });
+        if (showToast) {
+          toast.error(errorMsg, { duration: 3000 });
+        }
       }
     } catch (error) {
       console.error("Error loading rooms", error);
       const errorMessage = error.response?.data?.message || "Failed to load rooms";
       setMessage({ type: "error", text: errorMessage });
-      toast.error(errorMessage, { duration: 3000 });
+      if (showToast) {
+        toast.error(errorMessage, { duration: 3000 });
+      }
     }
   };
 
-  const loadDepartments = async () => {
+  const loadDepartments = async (showToast = true) => {
     const headers = getHeadersOrNotify();
     if (!headers) return;
     try {
       const res = await axios.get("/api/clinic/departments", { headers });
       if (res.data.success) {
         setDepartments(res.data.departments || []);
-        toast.success(`Loaded ${res.data.departments?.length || 0} department(s)`, { duration: 2000 });
+        if (showToast) {
+          toast.success(`Loaded ${res.data.departments?.length || 0} department(s)`, { duration: 2000 });
+        }
       } else {
         const errorMsg = res.data.message || "Failed to load departments";
         setMessage({ type: "error", text: errorMsg });
-        toast.error(errorMsg, { duration: 3000 });
+        if (showToast) {
+          toast.error(errorMsg, { duration: 3000 });
+        }
       }
     } catch (error) {
       console.error("Error loading departments", error);
       const errorMessage = error.response?.data?.message || "Failed to load departments";
       setMessage({ type: "error", text: errorMessage });
-      toast.error(errorMessage, { duration: 3000 });
+      if (showToast) {
+        toast.error(errorMessage, { duration: 3000 });
+      }
     }
   };
 
-  const loadPackages = async () => {
+  const loadPackages = async (showToast = true) => {
     const headers = getHeadersOrNotify();
     if (!headers) return;
     try {
       const res = await axios.get("/api/clinic/packages", { headers });
       if (res.data.success) {
         setPackages(res.data.packages || []);
-        toast.success(`Loaded ${res.data.packages?.length || 0} package(s)`, { duration: 2000 });
+        if (showToast) {
+          toast.success(`Loaded ${res.data.packages?.length || 0} package(s)`, { duration: 2000 });
+        }
       } else {
         const errorMsg = res.data.message || "Failed to load packages";
         setMessage({ type: "error", text: errorMsg });
-        toast.error(errorMsg, { duration: 3000 });
+        if (showToast) {
+          toast.error(errorMsg, { duration: 3000 });
+        }
       }
     } catch (error) {
       console.error("Error loading packages", error);
       const errorMessage = error.response?.data?.message || "Failed to load packages";
       setMessage({ type: "error", text: errorMessage });
-      toast.error(errorMessage, { duration: 3000 });
+      if (showToast) {
+        toast.error(errorMessage, { duration: 3000 });
+      }
     }
   };
 
@@ -378,11 +397,32 @@ function AddRoomPage({ contextOverride = null }) {
     let cancelled = false;
     const loadData = async () => {
       setLoading(true);
-      await Promise.all([loadRooms(), loadDepartments(), loadPackages(), loadTreatments()]);
-      if (!cancelled) {
-      setLoading(false);
-    }
-  };
+      // Dismiss any existing toasts before loading
+      toast.dismiss();
+      try {
+        await Promise.all([
+          loadRooms(false), 
+          loadDepartments(false), 
+          loadPackages(false), 
+          loadTreatments()
+        ]);
+        if (!cancelled) {
+          // Only show success toast on initial load
+          if (!hasLoadedInitialData.current) {
+            toast.success("Data loaded successfully", { duration: 2000 });
+            hasLoadedInitialData.current = true;
+          }
+          setLoading(false);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          if (!hasLoadedInitialData.current) {
+            toast.error("Failed to load some data", { duration: 3000 });
+          }
+          setLoading(false);
+        }
+      }
+    };
 
     loadData();
 
