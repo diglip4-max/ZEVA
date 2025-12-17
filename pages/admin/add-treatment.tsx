@@ -138,6 +138,21 @@ const AddTreatment: NextPageWithLayout = () => {
   const agentPermissions = isAgent ? agentPermissionsData?.permissions : null;
   const permissionsLoading = isAgent ? agentPermissionsData?.loading : false;
 
+  // Helper: detect "read-only" agent (has only read, no other actions)
+  const isAgentReadOnly =
+    !isAdmin &&
+    isAgent &&
+    !permissionsLoading &&
+    agentPermissions &&
+    agentPermissions.canRead === true &&
+    !agentPermissions.canAll &&
+    !agentPermissions.canCreate &&
+    !agentPermissions.canUpdate &&
+    !agentPermissions.canDelete &&
+    !agentPermissions.canApprove &&
+    !agentPermissions.canPrint &&
+    !agentPermissions.canExport;
+
   const fetchTreatments = async () => {
     setFetching(true);
     try {
@@ -163,10 +178,20 @@ const AddTreatment: NextPageWithLayout = () => {
   };
 
   useEffect(() => {
-    if (isAdmin || !isAgent || !permissionsLoading) {
+    // Admins and non-agent routes always fetch
+    if (isAdmin || !isAgent) {
       fetchTreatments();
+      return;
     }
-  }, [isAdmin, isAgent, permissionsLoading]);
+
+    // For agents, wait until permissions are loaded
+    if (!permissionsLoading && agentPermissions) {
+      // If agent is read-only, do NOT fetch (no need to show All Treatments)
+      if (!isAgentReadOnly) {
+        fetchTreatments();
+      }
+    }
+  }, [isAdmin, isAgent, permissionsLoading, agentPermissions, isAgentReadOnly]);
 
   // Update available sub-treatments when treatments or selectedMainTreatment changes
   useEffect(() => {
@@ -477,8 +502,21 @@ const AddTreatment: NextPageWithLayout = () => {
     .slice(0, 5);
   const maxSubCount = Math.max(...topTreatments.map((t) => t.subCount), 1);
 
-  // Show access denied message only for agents without read permission
-  if (!isAdmin && isAgent && !permissionsLoading && agentPermissions && !agentPermissions.canRead && !agentPermissions.canAll) {
+  // Show access denied only when agent has NO permissions at all for this module
+  if (
+    !isAdmin &&
+    isAgent &&
+    !permissionsLoading &&
+    agentPermissions &&
+    !agentPermissions.canAll &&
+    !agentPermissions.canRead &&
+    !agentPermissions.canCreate &&
+    !agentPermissions.canUpdate &&
+    !agentPermissions.canDelete &&
+    !agentPermissions.canApprove &&
+    !agentPermissions.canPrint &&
+    !agentPermissions.canExport
+  ) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-lg shadow-sm p-6 max-w-sm w-full text-center">
@@ -532,21 +570,23 @@ const AddTreatment: NextPageWithLayout = () => {
           </div>
         </div>
 
-        {/* Compact Stats */}
-        <div className="grid grid-cols-3 gap-3">
-          <div className="bg-white rounded-lg border border-gray-200 p-3">
-            <p className="text-xs text-gray-700 mb-1">Main</p>
-            <p className="text-xl font-bold text-gray-900">{treatments.length}</p>
-          </div>
-          <div className="bg-white rounded-lg border border-gray-200 p-3">
-            <p className="text-xs text-gray-700 mb-1">Sub</p>
-            <p className="text-xl font-bold text-gray-900">{totalSubTreatments}</p>
-          </div>
-          <div className="bg-white rounded-lg border border-gray-200 p-3">
-            <p className="text-xs text-gray-700 mb-1">Total</p>
-            <p className="text-xl font-bold text-gray-900">{treatments.length + totalSubTreatments}</p>
-          </div>
-        </div>
+         {/* Compact Stats - hidden for read-only agents */}
+         {(!isAgentReadOnly || isAdmin) && (
+           <div className="grid grid-cols-3 gap-3">
+             <div className="bg-white rounded-lg border border-gray-200 p-3">
+               <p className="text-xs text-gray-700 mb-1">Main</p>
+               <p className="text-xl font-bold text-gray-900">{treatments.length}</p>
+             </div>
+             <div className="bg-white rounded-lg border border-gray-200 p-3">
+               <p className="text-xs text-gray-700 mb-1">Sub</p>
+               <p className="text-xl font-bold text-gray-900">{totalSubTreatments}</p>
+             </div>
+             <div className="bg-white rounded-lg border border-gray-200 p-3">
+               <p className="text-xs text-gray-700 mb-1">Total</p>
+               <p className="text-xl font-bold text-gray-900">{treatments.length + totalSubTreatments}</p>
+             </div>
+           </div>
+         )}
 
      
 
@@ -676,73 +716,71 @@ const AddTreatment: NextPageWithLayout = () => {
             </div>
           </div>
 
-          {/* Treatment List */}
-          <div className="bg-white rounded-lg border border-gray-200 p-4">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-sm font-semibold text-gray-900">All Treatments</h2>
-              <span className="text-xs text-gray-700 bg-gray-100 px-2 py-0.5 rounded">
-                {treatments.length}
-              </span>
-            </div>
+           {/* Treatment List - hidden for read-only agents */}
+           {(!isAgentReadOnly || isAdmin) && (
+             <div className="bg-white rounded-lg border border-gray-200 p-4">
+               <div className="flex items-center justify-between mb-4">
+                 <h2 className="text-sm font-semibold text-gray-900">All Treatments</h2>
+                 <span className="text-xs text-gray-700 bg-gray-100 px-2 py-0.5 rounded">
+                   {treatments.length}
+                 </span>
+               </div>
 
-            <div className="max-h-[500px] overflow-y-auto space-y-2">
-              {treatments.length === 0 ? (
-                <div className="text-center py-8">
-                  <BeakerIcon className="w-10 h-10 text-gray-400 mx-auto mb-2" />
-                  <p className="text-xs text-gray-700">No treatments yet</p>
-                </div>
-              ) : (
-                treatments.map((treatment, index) => {
-                  const adminTokenExists = typeof window !== 'undefined' ? !!localStorage.getItem('adminToken') : false;
-                  const agentTokenExists = typeof window !== 'undefined' ? !!localStorage.getItem('agentToken') : false;
-                  const isAgentRoute = router.pathname?.startsWith('/agent/') || (typeof window !== 'undefined' && window.location.pathname?.startsWith('/agent/'));
-                  
-                  const canDelete = isAdmin || (isAgent && !permissionsLoading && agentPermissions && (agentPermissions.canDelete || agentPermissions.canAll));
-                  
-                  return (
-                    <div
-                      key={treatment._id}
-                      className="bg-gray-50 rounded-lg p-3 border border-gray-200 hover:border-gray-300 transition-colors"
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex items-start gap-2 flex-1 min-w-0">
-                          <span className="text-xs text-gray-700 font-medium pt-0.5">
-                            {index + 1}.
-                          </span>
-                          <div className="flex-1 min-w-0">
-                            <h4 className="text-sm font-medium text-gray-900 mb-1">
-                              {treatment.name}
-                            </h4>
-                            {treatment.subcategories && treatment.subcategories.length > 0 && (
-                              <div className="flex flex-wrap gap-1 mt-1.5">
-                                {treatment.subcategories.map((sub, subIndex) => (
-                                  <span
-                                    key={subIndex}
-                                    className="text-xs text-gray-700 bg-white border border-gray-300 px-2 py-0.5 rounded"
-                                  >
-                                    {sub.name}
-                                  </span>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                        {canDelete && (
-                          <button
-                            onClick={() => handleDeleteClick(treatment._id, treatment.name)}
-                            className="text-red-500 hover:text-red-700 hover:bg-red-50 p-1.5 rounded transition-colors flex-shrink-0"
-                            title="Delete"
-                          >
-                            <TrashIcon className="w-4 h-4" />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </div>
+               <div className="max-h-[500px] overflow-y-auto space-y-2">
+                 {treatments.length === 0 ? (
+                   <div className="text-center py-8">
+                     <BeakerIcon className="w-10 h-10 text-gray-400 mx-auto mb-2" />
+                     <p className="text-xs text-gray-700">No treatments yet</p>
+                   </div>
+                 ) : (
+                   treatments.map((treatment, index) => {
+                     const canDelete = isAdmin || (isAgent && !permissionsLoading && agentPermissions && (agentPermissions.canDelete || agentPermissions.canAll));
+                     
+                     return (
+                       <div
+                         key={treatment._id}
+                         className="bg-gray-50 rounded-lg p-3 border border-gray-200 hover:border-gray-300 transition-colors"
+                       >
+                         <div className="flex items-start justify-between gap-2">
+                           <div className="flex items-start gap-2 flex-1 min-w-0">
+                             <span className="text-xs text-gray-700 font-medium pt-0.5">
+                               {index + 1}.
+                             </span>
+                             <div className="flex-1 min-w-0">
+                               <h4 className="text-sm font-medium text-gray-900 mb-1">
+                                 {treatment.name}
+                               </h4>
+                               {treatment.subcategories && treatment.subcategories.length > 0 && (
+                                 <div className="flex flex-wrap gap-1 mt-1.5">
+                                   {treatment.subcategories.map((sub, subIndex) => (
+                                     <span
+                                       key={subIndex}
+                                       className="text-xs text-gray-700 bg-white border border-gray-300 px-2 py-0.5 rounded"
+                                     >
+                                       {sub.name}
+                                     </span>
+                                   ))}
+                                 </div>
+                               )}
+                             </div>
+                           </div>
+                           {canDelete && (
+                             <button
+                               onClick={() => handleDeleteClick(treatment._id, treatment.name)}
+                               className="text-red-500 hover:text-red-700 hover:bg-red-50 p-1.5 rounded transition-colors flex-shrink-0"
+                               title="Delete"
+                             >
+                               <TrashIcon className="w-4 h-4" />
+                             </button>
+                           )}
+                         </div>
+                       </div>
+                     );
+                   })
+                 )}
+               </div>
+             </div>
+           )}
         </div>
       </div>
 

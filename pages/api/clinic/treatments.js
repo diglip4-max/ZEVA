@@ -1,6 +1,7 @@
 import dbConnect from "../../../lib/database";
 import Clinic from "../../../models/Clinic";
 import { getUserFromReq } from "../lead-ms/auth";
+import { getClinicIdFromUser, checkClinicPermission } from "../lead-ms/permissions-helper";
 
 export default async function handler(req, res) {
   await dbConnect();
@@ -9,25 +10,47 @@ export default async function handler(req, res) {
     return res.status(405).json({ success: false, message: "Method not allowed" });
   }
 
+  // Verify authentication
+  let user;
   try {
-    const clinicUser = await getUserFromReq(req);
-    if (!clinicUser) {
+    user = await getUserFromReq(req);
+    if (!user) {
       return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
+    // Allow clinic, doctor, agent, doctorStaff, and staff roles
+    if (!["clinic", "doctor", "agent", "doctorStaff", "staff"].includes(user.role)) {
+      return res.status(403).json({ success: false, message: "Access denied" });
+    }
+  } catch (error) {
+    return res.status(401).json({ success: false, message: "Invalid token" });
+  }
+
+  // Get clinic ID from user
+  const { clinicId, error: clinicError } = await getClinicIdFromUser(user);
+  if (clinicError || !clinicId) {
+    return res.status(403).json({ 
+      success: false,
+      message: clinicError || "Unable to determine clinic access" 
+    });
+  }
+
+  try {
+    // Check read permission
+    const { hasPermission, error: permError } = await checkClinicPermission(
+      clinicId,
+      "clinic_addRoom",
+      "read"
+    );
+
+    if (!hasPermission) {
+      return res.status(403).json({
+        success: false,
+        message: permError || "You do not have permission to view treatments",
+      });
     }
 
     // Find the clinic
-    let clinic;
-    if (clinicUser.role === "clinic") {
-      clinic = await Clinic.findOne({ owner: clinicUser._id }).lean();
-    } else if (["agent", "doctorStaff", "staff"].includes(clinicUser.role)) {
-      if (!clinicUser.clinicId) {
-        return res.status(403).json({ success: false, message: "User not linked to a clinic" });
-      }
-      clinic = await Clinic.findById(clinicUser.clinicId).lean();
-    } else {
-      return res.status(403).json({ success: false, message: "Access denied" });
-    }
-
+    const clinic = await Clinic.findById(clinicId).lean();
     if (!clinic) {
       return res.status(404).json({ success: false, message: "Clinic not found" });
     }

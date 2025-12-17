@@ -1,7 +1,7 @@
 "use client";
 
 import axios from "axios";
-import React, { useEffect, useState, useMemo, useCallback } from "react";
+import React, { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { useRouter } from "next/router";
 
 import AdminLayout from "../../components/AdminLayout";
@@ -147,6 +147,13 @@ function AdminJobs() {
     declined: [],
   });
 
+  // Store all unfiltered jobs for filter options (location, jobType, department)
+  const [allJobsForFilters, setAllJobsForFilters] = useState<JobsData>({
+    pending: [],
+    approved: [],
+    declined: [],
+  });
+
   const [activeTab, setActiveTab] = useState<"pending" | "approved" | "declined">("pending");
   const [currentPage, setCurrentPage] = useState(1);
   const [filters, setFilters] = useState<Filters>({
@@ -169,6 +176,9 @@ function AdminJobs() {
   });
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [showJobDetails, setShowJobDetails] = useState(false);
+  
+  // Track if initial load has completed
+  const initialLoadDone = useRef(false);
   
   // Check if user is an admin or agent - use state to ensure reactivity
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
@@ -211,50 +221,116 @@ function AdminJobs() {
   const agentPermissions = isAgent ? agentPermissionsData?.permissions : null;
   const permissionsLoading = isAgent ? agentPermissionsData?.loading : false;
 
-  useEffect(() => {
-    const fetchJobs = async () => {
-      try {
-        const adminToken = typeof window !== 'undefined' ? localStorage.getItem('adminToken') : null;
-        const agentToken = typeof window !== 'undefined' ? localStorage.getItem('agentToken') : null;
-        const token = adminToken || agentToken;
-        
-        if (!token) {
-          setIsLoading(false);
-          showToast('No authentication token found', 'error');
-          return;
-        }
-        
-        setIsLoading(true);
-        const res = await axios.get<JobsData>("/api/admin/job-manage", {
-          headers: { Authorization: `Bearer ${token}` },
-        }).catch(err => {
-          if (err.response?.status === 403) {
-            showToast('Permission denied: You do not have access to view jobs', 'error');
-            return { data: { pending: [], approved: [], declined: [] } };
-          }
-          throw err;
-        });
-        
-        setJobs(res.data || { pending: [], approved: [], declined: [] });
-        showToast(`Loaded ${(res.data?.pending?.length || 0) + (res.data?.approved?.length || 0) + (res.data?.declined?.length || 0)} jobs successfully`, 'success');
-      } catch (error: any) {
-        console.error('Failed to fetch jobs:', error);
-        if (error.response?.status === 403) {
-          setJobs({ pending: [], approved: [], declined: [] });
-        } else {
-          showToast(error.response?.data?.message || 'Failed to fetch jobs', 'error');
-        }
-      } finally {
-        setIsLoading(false);
+  // Fetch all unfiltered jobs for filter options
+  const fetchAllJobsForFilters = useCallback(async () => {
+    try {
+      const adminToken = typeof window !== 'undefined' ? localStorage.getItem('adminToken') : null;
+      const agentToken = typeof window !== 'undefined' ? localStorage.getItem('agentToken') : null;
+      const token = adminToken || agentToken;
+      
+      if (!token) return;
+      
+      const res = await axios.get<{ success: boolean; pending: Job[]; approved: Job[]; declined: Job[] }>("/api/admin/job-manage", {
+        headers: { Authorization: `Bearer ${token}` },
+      }).catch(() => null);
+      
+      if (res?.data) {
+        const allJobsData: JobsData = {
+          pending: res.data.pending || [],
+          approved: res.data.approved || [],
+          declined: res.data.declined || [],
+        };
+        setAllJobsForFilters(allJobsData);
       }
-    };
+    } catch (error) {
+      console.error('Failed to fetch all jobs for filters:', error);
+    }
+  }, []);
 
+  // Fetch jobs function with filter support
+  const fetchJobs = useCallback(async (filterParams?: Filters) => {
+    try {
+      const adminToken = typeof window !== 'undefined' ? localStorage.getItem('adminToken') : null;
+      const agentToken = typeof window !== 'undefined' ? localStorage.getItem('agentToken') : null;
+      const token = adminToken || agentToken;
+      
+      if (!token) {
+        setIsLoading(false);
+        showToast('No authentication token found', 'error');
+        return;
+      }
+      
+      setIsLoading(true);
+      
+      // Build query parameters from filters
+      const queryParams = new URLSearchParams();
+      if (filterParams) {
+        if (filterParams.search) queryParams.append('search', filterParams.search);
+        if (filterParams.jobType) queryParams.append('jobType', filterParams.jobType);
+        if (filterParams.location) queryParams.append('location', filterParams.location);
+        if (filterParams.department) queryParams.append('department', filterParams.department);
+        if (filterParams.salaryMin) queryParams.append('salaryMin', filterParams.salaryMin);
+        if (filterParams.salaryMax) queryParams.append('salaryMax', filterParams.salaryMax);
+      }
+      
+      const url = `/api/admin/job-manage${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+      
+      console.log('🔍 Fetching jobs with filters:', filterParams, 'URL:', url);
+      
+      const res = await axios.get<{ success: boolean; pending: Job[]; approved: Job[]; declined: Job[] }>(url, {
+        headers: { Authorization: `Bearer ${token}` },
+      }).catch(err => {
+        if (err.response?.status === 403) {
+          showToast('Permission denied: You do not have access to view jobs', 'error');
+          return { data: { success: true, pending: [], approved: [], declined: [] } };
+        }
+        throw err;
+      });
+      
+      // Extract jobs data from response (response has success field)
+      const jobsData: JobsData = {
+        pending: res.data?.pending || [],
+        approved: res.data?.approved || [],
+        declined: res.data?.declined || [],
+      };
+      
+      console.log('📦 Jobs data received:', jobsData);
+      setJobs(jobsData);
+      
+      // If no filters, also update allJobsForFilters (for filter options)
+      if (!filterParams || !Object.values(filterParams).some(f => f)) {
+        setAllJobsForFilters(jobsData);
+      }
+      
+      const totalJobs = (jobsData.pending?.length || 0) + (jobsData.approved?.length || 0) + (jobsData.declined?.length || 0);
+      if (filterParams && Object.values(filterParams).some(f => f)) {
+        showToast(`Found ${totalJobs} jobs matching your filters`, 'success');
+      } else {
+        showToast(`Loaded ${totalJobs} jobs successfully`, 'success');
+      }
+    } catch (error: any) {
+      console.error('Failed to fetch jobs:', error);
+      if (error.response?.status === 403) {
+        setJobs({ pending: [], approved: [], declined: [] });
+      } else {
+        showToast(error.response?.data?.message || 'Failed to fetch jobs', 'error');
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  }, [showToast]);
+
+  useEffect(() => {
     if (isAdmin) {
       fetchJobs();
+      fetchAllJobsForFilters(); // Also fetch all jobs for filter options
+      initialLoadDone.current = true;
     } else if (isAgent) {
       if (!permissionsLoading) {
         if (agentPermissions && (agentPermissions.canRead === true || agentPermissions.canAll === true)) {
           fetchJobs();
+          fetchAllJobsForFilters(); // Also fetch all jobs for filter options
+          initialLoadDone.current = true;
         } else {
           setIsLoading(false);
         }
@@ -262,7 +338,9 @@ function AdminJobs() {
     } else {
       setIsLoading(false);
     }
-  }, [isAdmin, isAgent, permissionsLoading, agentPermissions, showToast]);
+  }, [isAdmin, isAgent, permissionsLoading, agentPermissions, fetchJobs, fetchAllJobsForFilters]);
+
+  // Removed auto-apply - filters will only be applied when "Apply Filters" button is clicked
 
   const deleteJob = async (jobId: string) => {
     const adminTokenExists = typeof window !== 'undefined' ? !!localStorage.getItem('adminToken') : false;
@@ -288,11 +366,10 @@ function AdminJobs() {
         headers: { Authorization: `Bearer ${token}` },
       });
       showToast('Job deleted successfully', 'success');
-      // Refetch jobs
-      const res = await axios.get<JobsData>("/api/admin/job-manage", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setJobs(res.data || { pending: [], approved: [], declined: [] });
+      // Refetch jobs with current filters
+      fetchJobs(filters);
+      // Also refresh filter options
+      fetchAllJobsForFilters();
     } catch (err: any) {
       console.error(err);
       showToast(err.response?.data?.message || 'Failed to delete job', 'error');
@@ -325,11 +402,10 @@ function AdminJobs() {
         { headers: { Authorization: `Bearer ${token}` } }
       );
       showToast(`Job ${status} successfully`, 'success');
-      // Refetch jobs
-      const res = await axios.get<JobsData>("/api/admin/job-manage", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setJobs(res.data || { pending: [], approved: [], declined: [] });
+      // Refetch jobs with current filters
+      fetchJobs(filters);
+      // Also refresh filter options
+      fetchAllJobsForFilters();
     } catch (err: any) {
       console.error(err);
       showToast(err.response?.data?.message || `Failed to ${status} job`, 'error');
@@ -368,46 +444,24 @@ function AdminJobs() {
     closeConfirmationModal();
   };
 
-  // Extract unique values for filter options
+  // Extract unique values for filter options from ALL unfiltered jobs
+  // This ensures filter options always show all available options, not just filtered ones
   const filterOptions = useMemo(() => {
-    const allJobs = [...jobs.pending, ...jobs.approved, ...jobs.declined];
+    const allJobs = [...allJobsForFilters.pending, ...allJobsForFilters.approved, ...allJobsForFilters.declined];
 
     return {
-      jobTypes: [...new Set(allJobs.map(job => job.jobType))].filter(Boolean),
-      locations: [...new Set(allJobs.map(job => job.location))].filter(Boolean),
-      departments: [...new Set(allJobs.map(job => job.department))].filter(Boolean),
+      jobTypes: [...new Set(allJobs.map(job => job.jobType))].filter(Boolean).sort(),
+      locations: [...new Set(allJobs.map(job => job.location))].filter(Boolean).sort(),
+      departments: [...new Set(allJobs.map(job => job.department))].filter(Boolean).sort(),
     };
-  }, [jobs]);
+  }, [allJobsForFilters]);
 
-  // Filter and search logic
+  // Filter and search logic - now jobs are already filtered from API, so just use them directly
   const filteredJobs = useMemo(() => {
-    const currentJobs = jobs[activeTab];
-
-    return currentJobs.filter(job => {
-      const matchesSearch = !filters.search ||
-        job.jobTitle.toLowerCase().includes(filters.search.toLowerCase()) ||
-        job.companyName.toLowerCase().includes(filters.search.toLowerCase()) ||
-        job.department.toLowerCase().includes(filters.search.toLowerCase());
-
-      const matchesJobType = !filters.jobType || job.jobType === filters.jobType;
-      const matchesLocation = !filters.location || job.location === filters.location;
-      const matchesDepartment = !filters.department || job.department === filters.department;
-
-      const matchesSalary = () => {
-        if (!filters.salaryMin && !filters.salaryMax) return true;
-
-        const salaryStr = job.salary?.toLowerCase().replace(/[^0-9.-]/g, '') ?? '';
-        const salaryNum = parseInt(salaryStr) || 0;
-
-        const minSalary = filters.salaryMin ? parseInt(filters.salaryMin) : 0;
-        const maxSalary = filters.salaryMax ? parseInt(filters.salaryMax) : Infinity;
-
-        return salaryNum >= minSalary && salaryNum <= maxSalary;
-      };
-
-      return matchesSearch && matchesJobType && matchesLocation && matchesDepartment && matchesSalary();
-    });
-  }, [jobs, activeTab, filters]);
+    const result = jobs[activeTab] || [];
+    console.log(`📊 Filtered jobs for ${activeTab}:`, result.length, result);
+    return result;
+  }, [jobs, activeTab]);
 
   // Pagination logic
   const totalPages = Math.ceil(filteredJobs.length / JOBS_PER_PAGE);
@@ -423,16 +477,39 @@ function AdminJobs() {
     setFilters(prev => ({ ...prev, [key]: value || "" }));
   };
 
+  const applyFilters = useCallback(() => {
+    console.log('🔍 Apply Filters clicked with filters:', filters);
+    // Check if user has permission
+    if (isAdmin) {
+      fetchJobs(filters);
+    } else if (isAgent) {
+      if (!permissionsLoading && agentPermissions && (agentPermissions.canRead === true || agentPermissions.canAll === true)) {
+        fetchJobs(filters);
+      }
+    } else {
+      showToast('You do not have permission to apply filters', 'error');
+    }
+  }, [filters, isAdmin, isAgent, permissionsLoading, agentPermissions, fetchJobs, showToast]);
+
   const clearFilters = () => {
-    setFilters({
+    const emptyFilters = {
       search: "",
       jobType: "",
       location: "",
       salaryMin: "",
       salaryMax: "",
       department: "",
-    });
+    };
+    setFilters(emptyFilters);
     showToast('Filters cleared', 'info');
+    // Refetch without filters
+    if (isAdmin) {
+      fetchJobs(emptyFilters);
+    } else if (isAgent) {
+      if (!permissionsLoading && agentPermissions && (agentPermissions.canRead === true || agentPermissions.canAll === true)) {
+        fetchJobs(emptyFilters);
+      }
+    }
   };
 
   // Close custom selects on outside click
@@ -596,16 +673,9 @@ function AdminJobs() {
 
         {/* Filters */}
         {showFilters && (
-          <div className="bg-white/95 backdrop-blur-sm rounded-xl shadow-sm border border-gray-200/50 p-4">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-3">
-            <h3 className="text-sm font-semibold text-gray-900 mb-3 lg:mb-0">Filters & Search</h3>
-            <button
-              onClick={clearFilters}
-                className="flex items-center gap-1.5 text-gray-600 hover:text-gray-900 text-xs font-medium transition-colors duration-200"
-            >
-                <ArrowPathIcon className="w-3.5 h-3.5" />
-              Clear all filters
-            </button>
+          <div className="bg-white/95 backdrop-blur-sm rounded-xl shadow-sm border border-gray-200/50 p-3">
+          <div className="mb-2">
+            <h3 className="text-sm font-semibold text-gray-900">Filters & Search</h3>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
@@ -768,22 +838,30 @@ function AdminJobs() {
             {/* Salary Range */}
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-1">Salary Range</label>
-              <div className="flex space-x-2">
-                <input
-                  type="number"
-                  value={filters.salaryMin}
-                  onChange={(e) => handleFilterChange('salaryMin', e.target.value)}
-                  placeholder="Min salary"
-                    className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-800 focus:border-transparent"
-                />
-                  <span className="flex items-center text-gray-700">to</span>
-                <input
-                  type="number"
-                  value={filters.salaryMax}
-                  onChange={(e) => handleFilterChange('salaryMax', e.target.value)}
-                  placeholder="Max salary"
-                    className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-800 focus:border-transparent"
-                />
+              <div className="flex items-end gap-10">
+                <div className="flex space-x-2 flex-1">
+                  <input
+                    type="number"
+                    value={filters.salaryMin}
+                    onChange={(e) => handleFilterChange('salaryMin', e.target.value)}
+                    placeholder="Min salary"
+                      className="flex-1 px-2 py-2 text-sm border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-800 focus:border-transparent"
+                  />
+                    <span className="flex items-center text-gray-700">to</span>
+                  <input
+                    type="number"
+                    value={filters.salaryMax}
+                    onChange={(e) => handleFilterChange('salaryMax', e.target.value)}
+                    placeholder="Max salary"
+                      className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-800 focus:border-transparent"
+                  />
+                </div>
+                <button
+                  onClick={applyFilters}
+                  className="flex items-center px-3 py-2 bg-gray-800 hover:bg-gray-700 text-white text-sm font-medium rounded-lg transition-colors duration-200 whitespace-nowrap"
+                >
+                  Apply Filters
+                </button>
               </div>
             </div>
           </div>

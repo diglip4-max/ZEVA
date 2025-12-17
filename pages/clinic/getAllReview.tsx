@@ -1,10 +1,13 @@
 import React from "react";
 
 import { useEffect, useState, useMemo } from "react";
+import { useRouter } from "next/router";
+import axios from "axios";
 import { Search, Star, Filter, Calendar, User, TrendingUp, MessageSquare, Activity, BarChart3 } from "lucide-react";
 import ClinicLayout from '../../components/ClinicLayout';
 import withClinicAuth from '../../components/withClinicAuth';
 import type { NextPageWithLayout } from '../_app';
+import { useAgentPermissions } from '../../hooks/useAgentPermissions';
 import { 
   LineChart, 
   Line, 
@@ -45,7 +48,28 @@ interface RatingStats {
   [key: number]: number;
 }
 
+const TOKEN_PRIORITY = [
+  "clinicToken",
+  "doctorToken",
+  "agentToken",
+  "staffToken",
+  "userToken",
+  "adminToken",
+];
+
+const getStoredToken = () => {
+  if (typeof window === "undefined") return null;
+  for (const key of TOKEN_PRIORITY) {
+    const value =
+      window.localStorage.getItem(key) ||
+      window.sessionStorage.getItem(key);
+    if (value) return value;
+  }
+  return null;
+};
+
 function ClinicReviews() {
+  const router = useRouter();
   const [reviews, setReviews] = useState<Review[]>([]);
   const [filteredReviews, setFilteredReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -56,6 +80,128 @@ function ClinicReviews() {
   const reviewsPerPage = 30;
   const [showModal, setShowModal] = useState(false);
   const [modalComment, setModalComment] = useState("");
+  const [permissions, setPermissions] = useState({
+    canRead: false,
+  });
+  const [permissionsLoaded, setPermissionsLoaded] = useState(false);
+  const [hasAgentToken, setHasAgentToken] = useState(false);
+  const [isAgentRoute, setIsAgentRoute] = useState(false);
+
+  // Detect agent route and token
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const syncTokens = () => {
+      setHasAgentToken(Boolean(localStorage.getItem("agentToken")));
+    };
+    syncTokens();
+    window.addEventListener("storage", syncTokens);
+    return () => window.removeEventListener("storage", syncTokens);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const agentPath =
+      router?.pathname?.startsWith("/agent/") ||
+      window.location.pathname?.startsWith("/agent/");
+    setIsAgentRoute(agentPath && hasAgentToken);
+  }, [router.pathname, hasAgentToken]);
+
+  // Use agent permissions hook for agent routes
+  const agentPermissionsHook: any = useAgentPermissions(isAgentRoute ? "clinic_review" : null);
+  const agentPermissions = agentPermissionsHook?.permissions || {
+    canRead: false,
+    canAll: false,
+  };
+  const agentPermissionsLoading = agentPermissionsHook?.loading || false;
+
+  // Handle agent permissions
+  useEffect(() => {
+    if (!isAgentRoute) return;
+    if (agentPermissionsLoading) return;
+    
+    const newPermissions = {
+      canRead: Boolean(agentPermissions.canAll || agentPermissions.canRead),
+    };
+    
+    setPermissions(newPermissions);
+    setPermissionsLoaded(true);
+  }, [isAgentRoute, agentPermissions, agentPermissionsLoading]);
+
+  // Handle clinic permissions - clinic and doctor have full access by default
+  useEffect(() => {
+    if (isAgentRoute) return;
+    let isMounted = true;
+    
+    // Check which token type is being used
+    const clinicToken = typeof window !== "undefined" ? 
+      (localStorage.getItem("clinicToken") || sessionStorage.getItem("clinicToken")) : null;
+    const doctorToken = typeof window !== "undefined" ? 
+      (localStorage.getItem("doctorToken") || sessionStorage.getItem("doctorToken")) : null;
+    const agentToken = typeof window !== "undefined" ? 
+      (localStorage.getItem("agentToken") || sessionStorage.getItem("agentToken")) : null;
+    const staffToken = typeof window !== "undefined" ? 
+      (localStorage.getItem("staffToken") || sessionStorage.getItem("staffToken")) : null;
+
+    // ✅ Clinic, doctor, and staff roles have full access by default - skip permission check
+    if (clinicToken || doctorToken || staffToken) {
+      if (!isMounted) return;
+      setPermissions({ canRead: true });
+      setPermissionsLoaded(true);
+      return;
+    }
+
+    // For agent/doctorStaff tokens (when not on agent route), check permissions
+    // Note: doctorStaff typically uses agentToken, so checking agentToken covers both
+    const token = getStoredToken();
+    if (!token) {
+      setPermissions({ canRead: false });
+      setPermissionsLoaded(true);
+      return;
+    }
+
+    // Only check permissions for agent/doctorStaff roles when not on agent route
+    // doctorStaff is handled by agent route logic when on /agent/ routes
+    // Here we handle agent/doctorStaff when accessing /clinic/ routes
+    if (agentToken) {
+      const fetchPermissions = async () => {
+        try {
+          setPermissionsLoaded(false);
+          // Use agent permissions API for agent/doctorStaff
+          const res = await axios.get("/api/agent/get-module-permissions", {
+            params: { moduleKey: "clinic_review" },
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          const data = res.data;
+          
+          if (!isMounted) return;
+          if (data.success && data.data) {
+            const moduleActions = data.data.moduleActions || {};
+            setPermissions({
+              canRead: Boolean(moduleActions.all || moduleActions.read),
+            });
+          } else {
+            setPermissions({ canRead: false });
+          }
+        } catch (err) {
+          console.error("Error fetching agent permissions:", err);
+          setPermissions({ canRead: false });
+        } finally {
+          if (isMounted) {
+            setPermissionsLoaded(true);
+          }
+        }
+      };
+
+      fetchPermissions();
+    } else {
+      // Unknown token type - default to full access (likely clinic/doctor)
+      if (!isMounted) return;
+      setPermissions({ canRead: true });
+      setPermissionsLoaded(true);
+    }
+
+    return () => { isMounted = false; };
+  }, [isAgentRoute]);
 
   // Pagination logic
   const totalPages = Math.ceil(filteredReviews.length / reviewsPerPage);
@@ -67,20 +213,24 @@ function ClinicReviews() {
     if (page >= 1 && page <= totalPages) setCurrentPage(page);
   };
 
+  // Fetch reviews only if permissions are loaded and user has read permission
   useEffect(() => {
+    if (!permissionsLoaded) return;
+    
+    // ✅ Only fetch reviews if user has read permission
+    if (!permissions.canRead) {
+      setError("You do not have permission to view clinic reviews");
+      setLoading(false);
+      return;
+    }
+
     const fetchReviews = async () => {
       try {
-        // Check for tokens in priority order: clinicToken, agentToken, then userToken
-        let token =
-          localStorage.getItem("clinicToken") ||
-          sessionStorage.getItem("clinicToken") ||
-          localStorage.getItem("agentToken") ||
-          sessionStorage.getItem("agentToken") ||
-          localStorage.getItem("userToken") ||
-          sessionStorage.getItem("userToken");
+        const token = getStoredToken();
 
         if (!token) {
           setError("No authentication token found");
+          setLoading(false);
           return;
         }
 
@@ -95,7 +245,7 @@ function ClinicReviews() {
           setReviews(data.reviews || []);
           setFilteredReviews(data.reviews || []);
         } else {
-          setError("Failed to fetch reviews");
+          setError(data.message || "Failed to fetch reviews");
         }
       } catch (error: unknown) {
         console.error(error);
@@ -109,7 +259,7 @@ function ClinicReviews() {
     };
 
     fetchReviews();
-  }, []);
+  }, [permissionsLoaded, permissions.canRead]);
 
   useEffect(() => {
     let filtered = reviews;
@@ -277,10 +427,21 @@ function ClinicReviews() {
         </div>
       </div>
 
-      {/* Error */}
+      {/* Error or Permission Denied */}
       {error && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-2.5">
           <p className="text-xs sm:text-sm text-red-700">{error}</p>
+        </div>
+      )}
+
+      {/* Permission Denied Message */}
+      {permissionsLoaded && !permissions.canRead && !error && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-center">
+          <div className="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-3">
+            <MessageSquare className="w-6 h-6 text-yellow-600" />
+          </div>
+          <h3 className="text-sm font-semibold text-yellow-900 mb-1">Access Denied</h3>
+          <p className="text-xs text-yellow-700">You do not have permission to view clinic reviews. Please contact your administrator.</p>
         </div>
       )}
 

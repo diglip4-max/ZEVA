@@ -148,6 +148,34 @@ const JobManagement: React.FC<JobManagementProps> = ({
   const [isEditing, setIsEditing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Resolve auth token with fallbacks so doctorStaff/userToken also work
+  const getAuthToken = useCallback((): string | null => {
+    if (typeof window === "undefined") return null;
+
+    // 1) Try explicit tokenKey from config (clinicToken/agentToken)
+    const primaryToken =
+      localStorage.getItem(config.tokenKey) ||
+      sessionStorage.getItem(config.tokenKey);
+    if (primaryToken) return primaryToken;
+
+    // 2) Fallbacks: agentToken > userToken > clinicToken > doctorToken > adminToken
+    const fallbackKeys = [
+      "agentToken",
+      "userToken",
+      "clinicToken",
+      "doctorToken",
+      "adminToken",
+    ];
+
+    for (const key of fallbackKeys) {
+      const value =
+        localStorage.getItem(key) || sessionStorage.getItem(key);
+      if (value) return value;
+    }
+
+    return null;
+  }, [config.tokenKey]);
+
   const fetchJobs = useCallback(async (): Promise<void> => {
     // Don't fetch if no read permission
     if (!permissions.canRead) {
@@ -157,7 +185,12 @@ const JobManagement: React.FC<JobManagementProps> = ({
 
     try {
       setLoading(true);
-      const token = localStorage.getItem(config.tokenKey);
+      const token = getAuthToken();
+      if (!token) {
+        setJobs([]);
+        setLoading(false);
+        return;
+      }
       const res = await axios.get<{ jobs: Job[] }>('/api/job-postings/my-jobs', {
         headers: { Authorization: `Bearer ${token}` },
         validateStatus: (status) => status === 200 || status === 403,
@@ -174,7 +207,7 @@ const JobManagement: React.FC<JobManagementProps> = ({
     } finally {
       setLoading(false);
     }
-  }, [config.tokenKey, permissions.canRead]);
+  }, [config.tokenKey, permissions.canRead, getAuthToken]);
 
   useEffect(() => {
     fetchJobs();
@@ -260,7 +293,11 @@ const JobManagement: React.FC<JobManagementProps> = ({
   const executeAction = async (): Promise<void> => {
     if (!confirmAction) return;
     
-    const token = localStorage.getItem(config.tokenKey);
+    const token = getAuthToken();
+    if (!token) {
+      toast.error("Authentication token not found. Please log in again.");
+      return;
+    }
     
     try {
       if (confirmAction.type === 'toggle') {
@@ -296,7 +333,11 @@ const JobManagement: React.FC<JobManagementProps> = ({
 
     setIsSubmitting(true);
     try {
-      const token = localStorage.getItem(config.tokenKey);
+      const token = getAuthToken();
+      if (!token) {
+        toast.error("Authentication token not found. Please log in again.");
+        throw new Error("Missing auth token");
+      }
       await axios.put(`/api/job-postings/update?jobId=${editJob._id}`, formData, {
         headers: { Authorization: `Bearer ${token}` },
       });

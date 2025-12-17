@@ -3,6 +3,8 @@ import Enquiry from '../../../models/Enquiry';
 import Review from '../../../models/Review';
 import Clinic from '../../../models/Clinic';
 import jwt from 'jsonwebtoken';
+import { getUserFromReq } from '../lead-ms/auth';
+import { getClinicIdFromUser, checkClinicPermission } from '../lead-ms/permissions-helper';
 
 export default async function handler(req, res) {
   await dbConnect();
@@ -12,7 +14,6 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { getUserFromReq } = await import('../lead-ms/auth');
     const authUser = await getUserFromReq(req);
     
     if (!authUser) {
@@ -24,32 +25,37 @@ export default async function handler(req, res) {
       return res.status(403).json({ success: false, message: 'Access denied' });
     }
 
-    let clinicId = null;
-    let clinic = null;
+    const { clinicId, error, isAdmin } = await getClinicIdFromUser(authUser);
+    if (error && !isAdmin) {
+      return res.status(404).json({ success: false, message: error });
+    }
 
-    // Get the clinic based on user role
+    // ✅ Check permission for reading clinic stats (only for agent, doctorStaff roles)
+    // Clinic, doctor, and staff roles have full access by default, admin bypasses
+    if (!isAdmin && clinicId && ["agent", "doctorStaff"].includes(authUser.role)) {
+      const { checkAgentPermission } = await import("../agent/permissions-helper");
+      const result = await checkAgentPermission(
+        authUser._id,
+        "clinic_health_center",
+        "read"
+      );
+
+      if (!result.hasPermission) {
+        return res.status(403).json({
+          success: false,
+          message: result.error || "You do not have permission to view clinic statistics"
+        });
+      }
+    }
+
+    // Get clinic for additional checks
+    let clinic = null;
     if (authUser.role === "clinic") {
       clinic = await Clinic.findOne({ owner: authUser._id });
       if (!clinic) {
         return res.status(404).json({ success: false, message: 'Clinic not found' });
       }
-      clinicId = clinic._id;
-    } else if (authUser.role === "admin") {
-      // Admin users need clinicId - use their linked clinicId if available
-      if (!authUser.clinicId) {
-        return res.status(400).json({ success: false, message: 'Admin must be linked to a clinic' });
-      }
-      clinicId = authUser.clinicId;
-      clinic = await Clinic.findById(clinicId);
-      if (!clinic) {
-        return res.status(404).json({ success: false, message: 'Clinic not found' });
-      }
-    } else if (["agent", "doctor", "doctorStaff", "staff"].includes(authUser.role)) {
-      // For agent, doctor, doctorStaff, and staff, use their clinicId
-      if (!authUser.clinicId) {
-        return res.status(403).json({ success: false, message: 'User not linked to a clinic' });
-      }
-      clinicId = authUser.clinicId;
+    } else if (clinicId) {
       clinic = await Clinic.findById(clinicId);
       if (!clinic) {
         return res.status(404).json({ success: false, message: 'Clinic not found' });

@@ -114,7 +114,7 @@ interface ConfirmAction {
 }
 
 interface BlogEditorProps {
-  tokenKey: "clinicToken" | "doctorToken";
+  tokenKey: "clinicToken" | "doctorToken" | "agentToken";
   skipLandingPage?: boolean;
   onClose?: () => void;
 }

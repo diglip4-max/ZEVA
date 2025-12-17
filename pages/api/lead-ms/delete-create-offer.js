@@ -41,12 +41,12 @@ export default async function handler(req, res) {
     const filter = { _id: new mongoose.Types.ObjectId(id) };
     let clinic = null;
 
-    if (user.role === "clinic" || user.role === "agent" || user.role === "doctor") {
+    if (user.role === "clinic" || user.role === "agent" || user.role === "doctor" || user.role === "doctorStaff") {
       if (user.role === "clinic") {
         clinic = await Clinic.findOne({ owner: user._id }).select("_id");
-      } else if (user.role === "agent") {
+      } else if (user.role === "agent" || user.role === "doctorStaff") {
         if (!user.clinicId) {
-          return res.status(403).json({ success: false, message: "No clinic linked to this user" });
+          return res.status(403).json({ success: false, message: "User not linked to a clinic" });
         }
         clinic = await Clinic.findById(user.clinicId).select("_id");
       } else if (user.role === "doctor") {
@@ -67,35 +67,25 @@ export default async function handler(req, res) {
 
       filter.clinicId = clinic._id;
 
-      // ✅ Check permission for deleting offers (only for clinic and agent, admin bypasses)
-      // First check if clinic has delete permission
-      const { hasPermission: clinicHasPermission, error: clinicError } = await checkClinicPermission(
-        clinic._id,
-        "create_offers",
-        "delete"
-      );
+      // ✅ Check permission for deleting offers (only for doctorStaff and agent, clinic/admin/doctor bypass)
+      if (!["admin", "clinic", "doctor"].includes(user.role)) {
+        // If user is doctorStaff or agent, check delete permission for create_offers module
+        if (['agent', 'doctorStaff'].includes(user.role)) {
+          const { hasPermission, error: permissionError } = await checkAgentPermission(
+            user._id,
+            "create_offers", // moduleKey
+            "delete", // action
+            null // subModuleName
+          );
 
-      if (!clinicHasPermission) {
-        return res.status(403).json({
-          success: false,
-          message: clinicError || "You do not have permission to delete offers"
-        });
-      }
-
-      // If user is an agent, also check agent-specific permissions
-      if (user.role === "agent") {
-        const { hasPermission: agentHasPermission, error: agentError } = await checkAgentPermission(
-          user._id,
-          "create_offers",
-          "delete"
-        );
-
-        if (!agentHasPermission) {
-          return res.status(403).json({
-            success: false,
-            message: agentError || "You do not have permission to delete offers"
-          });
+          if (!hasPermission) {
+            return res.status(403).json({
+              success: false,
+              message: permissionError || "You do not have permission to delete offers"
+            });
+          }
         }
+        // Clinic, admin, and doctor users bypass permission checks
       }
     } else if (user.role === "admin") {
       // Admin can delete any offer

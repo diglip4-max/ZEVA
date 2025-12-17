@@ -9,6 +9,7 @@ import CreateJobModal from "../../components/CreateJobModal";
 import axios from 'axios';
 import { PlusCircle } from 'lucide-react';
 import { Toaster } from 'react-hot-toast';
+import { useAgentPermissions } from "../../hooks/useAgentPermissions";
 
 type TabType = 'jobs' | 'applicants';
 type RouteContext = "clinic" | "agent";
@@ -25,6 +26,7 @@ function ClinicJobPostingPage({ contextOverride = null }: { contextOverride?: Ro
     setRouteContext(isAgentRoute ? "agent" : "clinic");
   }, [contextOverride]);
   const tokenKey = routeContext === "agent" ? "agentToken" : "clinicToken";
+  const isAgentRoute = routeContext === "agent";
 
   const getToken = () => {
     if (typeof window === "undefined") return null;
@@ -38,6 +40,20 @@ function ClinicJobPostingPage({ contextOverride = null }: { contextOverride?: Ro
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
+  // ✅ Use useAgentPermissions hook for agent routes
+  const agentPermissionsResult: any = useAgentPermissions(isAgentRoute ? "job_posting" : null);
+  const agentPermissions = agentPermissionsResult?.permissions || {
+    canCreate: false,
+    canRead: false,
+    canUpdate: false,
+    canDelete: false,
+    canApprove: false,
+    canPrint: false,
+    canExport: false,
+    canAll: false,
+  };
+  const agentPermissionsLoading = agentPermissionsResult?.loading || false;
+
   // Permission state
   const [permissions, setPermissions] = useState({
     canCreate: false,
@@ -50,8 +66,36 @@ function ClinicJobPostingPage({ contextOverride = null }: { contextOverride?: Ro
   });
   const [permissionsLoaded, setPermissionsLoaded] = useState(false);
 
-  // Fetch permissions
+  // ✅ Handle agent permissions from useAgentPermissions hook
   useEffect(() => {
+    if (!isAgentRoute) return;
+    if (agentPermissionsLoading) return;
+    
+    // ✅ Ensure permissions are properly set from hook response
+    const newPermissions = {
+      canCreate: Boolean(agentPermissions.canAll || agentPermissions.canCreate),
+      canUpdate: Boolean(agentPermissions.canAll || agentPermissions.canUpdate),
+      canDelete: Boolean(agentPermissions.canAll || agentPermissions.canDelete),
+      canRead: Boolean(agentPermissions.canAll || agentPermissions.canRead),
+      canReadApplicants: Boolean(agentPermissions.canAll || agentPermissions.canRead),
+      canUpdateApplicants: Boolean(agentPermissions.canAll || agentPermissions.canUpdate),
+      canDeleteApplicants: Boolean(agentPermissions.canAll || agentPermissions.canDelete),
+    };
+    
+    console.log('[Job Posting] Setting permissions from agentPermissions:', {
+      agentPermissions,
+      newPermissions,
+      hasAnyPermission: newPermissions.canCreate || newPermissions.canRead || newPermissions.canUpdate || newPermissions.canDelete
+    });
+    
+    setPermissions(newPermissions);
+    setPermissionsLoaded(true);
+  }, [isAgentRoute, agentPermissions, agentPermissionsLoading]);
+
+  // ✅ Fetch clinic permissions for clinic routes
+  useEffect(() => {
+    if (isAgentRoute) return; // Skip if agent route (handled by useAgentPermissions hook)
+    
     const fetchPermissions = async () => {
       try {
         const token = getToken();
@@ -67,6 +111,40 @@ function ClinicJobPostingPage({ contextOverride = null }: { contextOverride?: Ro
           });
           setPermissionsLoaded(true);
           return;
+        }
+
+        // ✅ For clinic/admin/doctor roles, grant full access (bypass permission checks)
+        // Try to get role from token or localStorage
+        let userRole: string | null = null;
+        try {
+          // Try to get from localStorage/sessionStorage
+          userRole = localStorage.getItem('role') || sessionStorage.getItem('role') || 
+                     localStorage.getItem('userRole') || sessionStorage.getItem('userRole');
+          
+          // If not found, try to decode from token
+          if (!userRole && token) {
+            const tokenParts = token.split('.');
+            if (tokenParts.length === 3) {
+              const payload = JSON.parse(atob(tokenParts[1]));
+              userRole = payload?.role || payload?.userRole;
+            }
+          }
+        } catch (e) {
+          console.error('Error getting user role:', e);
+        }
+        
+        if (["clinic", "admin", "doctor"].includes(userRole || "")) {
+          setPermissions({
+            canCreate: true,
+            canRead: true,
+            canUpdate: true,
+            canDelete: true,
+            canReadApplicants: true,
+            canUpdateApplicants: true,
+            canDeleteApplicants: true,
+          });
+          setPermissionsLoaded(true);
+          return; // Skip API calls for these roles
         }
 
         const res = await axios.get("/api/clinic/permissions", {
@@ -186,7 +264,7 @@ function ClinicJobPostingPage({ contextOverride = null }: { contextOverride?: Ro
     };
 
     fetchPermissions();
-  }, [tokenKey]);
+  }, [isAgentRoute, tokenKey]);
 
   const handleJobCreated = () => {
     setRefreshKey(prev => prev + 1);

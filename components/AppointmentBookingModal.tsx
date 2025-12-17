@@ -468,15 +468,15 @@ export default function AppointmentBookingModal({
       aria-labelledby="modal-title"
     >
       <div 
-        className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-5xl w-full max-h-[95vh] overflow-hidden flex flex-col transform transition-all duration-200 scale-100 opacity-100"
+        className="bg-white dark:bg-gray-50 rounded-xl shadow-2xl max-w-5xl w-full max-h-[95vh] overflow-hidden flex flex-col transform transition-all duration-200 scale-100 opacity-100"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex items-center justify-between z-10">
-          <h2 id="modal-title" className="text-base font-semibold text-gray-900 dark:text-gray-100">Book Appointment</h2>
+        <div className="sticky top-0 bg-white dark:bg-gray-50 border-b border-gray-200 dark:border-gray-300 px-6 py-4 flex items-center justify-between z-10">
+          <h2 id="modal-title" className="text-base font-semibold text-gray-900 dark:text-gray-900">Book Appointment</h2>
           <button
             onClick={onClose}
-            className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100 text-gray-900 dark:text-gray-100"
+            className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-200 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-700 text-gray-900 dark:text-gray-900"
             aria-label="Close modal"
           >
             <X className="w-4 h-4" />
@@ -486,47 +486,47 @@ export default function AppointmentBookingModal({
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-6 space-y-5 overflow-y-auto flex-1 pb-6">
           {error && (
-            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3 flex items-start gap-2 text-red-700 dark:text-red-300" role="alert">
+            <div className="bg-red-50 dark:bg-red-100 border border-red-200 dark:border-red-300 rounded-lg p-3 flex items-start gap-2 text-red-700 dark:text-red-900" role="alert">
               <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
               <p className="text-xs">{error}</p>
             </div>
           )}
 
-          <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gradient-to-br from-blue-50/50 to-indigo-50/30 dark:from-blue-900/20 dark:to-indigo-900/20 p-4">
+          <div className="rounded-lg border border-gray-200 dark:border-gray-300 bg-gradient-to-br from-blue-50/50 to-indigo-50/30 dark:from-blue-100/50 dark:to-indigo-100/50 p-4">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div className="flex-1 min-w-0">
-                <p className="text-[10px] font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide mb-1">
+                <p className="text-[10px] font-semibold text-gray-600 dark:text-gray-700 uppercase tracking-wide mb-1">
                   Doctor
                 </p>
-                <p className="text-xs font-semibold text-gray-900 dark:text-gray-100 truncate">
+                <p className="text-xs font-semibold text-gray-900 dark:text-gray-900 truncate">
                   {selectedDoctor?.name || doctorName || "Select a doctor"}
                 </p>
                 {selectedDoctor?.email && (
-                  <p className="text-[10px] text-gray-600 dark:text-gray-400 truncate">{selectedDoctor.email}</p>
+                  <p className="text-[10px] text-gray-600 dark:text-gray-700 truncate">{selectedDoctor.email}</p>
                 )}
               </div>
-              <div className="text-[10px] text-gray-700 dark:text-gray-300">
-                <p className="font-semibold text-gray-900 dark:text-gray-100 mb-1.5">Departments</p>
+              <div className="text-[10px] text-gray-700 dark:text-gray-800">
+                <p className="font-semibold text-gray-900 dark:text-gray-900 mb-1.5">Departments</p>
                 {doctorDeptLoading ? (
-                  <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+                  <div className="flex items-center gap-2 text-gray-600 dark:text-gray-700">
                     <Loader2 className="w-3 h-3 animate-spin" />
                     <span className="text-[10px]">Loading...</span>
                   </div>
                 ) : doctorDeptError ? (
-                  <p className="text-red-600 dark:text-red-400 text-[10px]">{doctorDeptError}</p>
+                  <p className="text-red-600 dark:text-red-700 text-[10px]">{doctorDeptError}</p>
                 ) : departmentNames.length > 0 ? (
                   <div className="flex flex-wrap gap-1">
                     {departmentNames.map((name, idx) => (
                       <span
                         key={`${name}-${idx}`}
-                        className="px-1.5 py-0.5 rounded bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-[9px] text-gray-700 dark:text-gray-300"
+                        className="px-1.5 py-0.5 rounded bg-white dark:bg-gray-100 border border-gray-200 dark:border-gray-300 text-[9px] text-gray-700 dark:text-gray-800"
                       >
                         {name}
                       </span>
                     ))}
                   </div>
                 ) : (
-                  <p className="text-gray-600 dark:text-gray-400 text-[10px]">No departments</p>
+                  <p className="text-gray-600 dark:text-gray-800 text-[10px]">No departments</p>
                 )}
               </div>
             </div>
@@ -536,7 +536,7 @@ export default function AppointmentBookingModal({
           <div className="grid grid-cols-3 gap-4">
             {/* Room Field */}
             <div>
-              <label htmlFor="room-select" className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+              <label htmlFor="room-select" className="block text-xs font-medium text-gray-700 dark:text-gray-800 mb-1.5">
                 Room <span className="text-red-500">*</span>
               </label>
               <select
@@ -548,7 +548,7 @@ export default function AppointmentBookingModal({
                     setFieldErrors({ ...fieldErrors, roomId: "" });
                   }
                 }}
-                className={`w-full border rounded-lg px-3 py-2 text-xs bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 border-gray-300 dark:border-gray-600 focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100 focus:border-gray-900 dark:focus:border-gray-100 transition-all ${
+                className={`w-full border rounded-lg px-3 py-2 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 border-gray-300 dark:border-gray-300 focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-700 focus:border-gray-900 dark:focus:border-gray-700 transition-all ${
                   fieldErrors.roomId ? "border-red-500 dark:border-red-500" : ""
                 }`}
                 required
@@ -563,13 +563,13 @@ export default function AppointmentBookingModal({
                 ))}
               </select>
               {fieldErrors.roomId && (
-                <p id="room-error" className="mt-1 text-[10px] text-red-600 dark:text-red-400" role="alert">{fieldErrors.roomId}</p>
+                <p id="room-error" className="mt-1 text-[10px] text-red-600 dark:text-red-700" role="alert">{fieldErrors.roomId}</p>
               )}
             </div>
 
             {/* Doctor Field */}
             <div>
-              <label htmlFor="doctor-select" className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+              <label htmlFor="doctor-select" className="block text-xs font-medium text-gray-700 dark:text-gray-800 mb-1.5">
                 Doctor <span className="text-red-500">*</span>
               </label>
               <select
@@ -581,7 +581,7 @@ export default function AppointmentBookingModal({
                     setFieldErrors({ ...fieldErrors, doctorId: "" });
                   }
                 }}
-                className={`w-full border rounded-lg px-3 py-2 text-xs bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 border-gray-300 dark:border-gray-600 focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100 focus:border-gray-900 dark:focus:border-gray-100 transition-all ${
+                className={`w-full border rounded-lg px-3 py-2 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 border-gray-300 dark:border-gray-300 focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-700 focus:border-gray-900 dark:focus:border-gray-700 transition-all ${
                   fieldErrors.doctorId ? "border-red-500 dark:border-red-500" : ""
                 }`}
                 required
@@ -595,13 +595,13 @@ export default function AppointmentBookingModal({
                 ))}
               </select>
               {fieldErrors.doctorId && (
-                <p id="doctor-error" className="mt-1 text-[10px] text-red-600 dark:text-red-400" role="alert">{fieldErrors.doctorId}</p>
+                <p id="doctor-error" className="mt-1 text-[10px] text-red-600 dark:text-red-700" role="alert">{fieldErrors.doctorId}</p>
               )}
             </div>
 
             {/* Status Field */}
             <div>
-              <label htmlFor="status-select" className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+              <label htmlFor="status-select" className="block text-xs font-medium text-gray-700 dark:text-gray-800 mb-1.5">
                 Status <span className="text-red-500">*</span>
               </label>
               <select
@@ -613,7 +613,7 @@ export default function AppointmentBookingModal({
                     setFieldErrors({ ...fieldErrors, status: "" });
                   }
                 }}
-                className={`w-full border rounded-lg px-3 py-2 text-xs bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 border-gray-300 dark:border-gray-600 focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100 focus:border-gray-900 dark:focus:border-gray-100 transition-all ${
+                className={`w-full border rounded-lg px-3 py-2 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 border-gray-300 dark:border-gray-300 focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-700 focus:border-gray-900 dark:focus:border-gray-700 transition-all ${
                   fieldErrors.status ? "border-red-500 dark:border-red-500" : ""
                 }`}
                 required
@@ -625,18 +625,18 @@ export default function AppointmentBookingModal({
                 <option value="discharge">Discharge</option>
               </select>
               {fieldErrors.status && (
-                <p id="status-error" className="mt-1 text-[10px] text-red-600 dark:text-red-400" role="alert">{fieldErrors.status}</p>
+                <p id="status-error" className="mt-1 text-[10px] text-red-600 dark:text-red-700" role="alert">{fieldErrors.status}</p>
               )}
             </div>
           </div>
 
           {/* Search Patient */}
           <div>
-            <label htmlFor="patient-search" className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+            <label htmlFor="patient-search" className="block text-xs font-medium text-gray-700 dark:text-gray-800 mb-1.5">
               Search Patient <span className="text-red-500">*</span>
             </label>
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-3.5 h-3.5 text-gray-400 dark:text-gray-500" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-3.5 h-3.5 text-gray-400 dark:text-gray-600" />
               <input
                 id="patient-search"
                 type="text"
@@ -648,23 +648,23 @@ export default function AppointmentBookingModal({
                   }
                 }}
                 placeholder="Search by name, mobile, email, or EMR number..."
-                className={`w-full border rounded-lg pl-9 pr-9 py-2 text-xs bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 border-gray-300 dark:border-gray-600 focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100 focus:border-gray-900 dark:focus:border-gray-100 transition-all ${
+                className={`w-full border rounded-lg pl-9 pr-9 py-2 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 placeholder-gray-400 dark:placeholder-gray-600 border-gray-300 dark:border-gray-300 focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-700 focus:border-gray-900 dark:focus:border-gray-700 transition-all ${
                   fieldErrors.patientId ? "border-red-500 dark:border-red-500" : ""
                 }`}
                 aria-invalid={!!fieldErrors.patientId}
                 aria-describedby={fieldErrors.patientId ? "patient-error" : undefined}
               />
               {searching && (
-                <Loader2 className="absolute right-3 top-1/2 transform -translate-y-1/2 w-3.5 h-3.5 text-gray-400 dark:text-gray-500 animate-spin" />
+                <Loader2 className="absolute right-3 top-1/2 transform -translate-y-1/2 w-3.5 h-3.5 text-gray-400 dark:text-gray-600 animate-spin" />
               )}
             </div>
             {fieldErrors.patientId && (
-              <p id="patient-error" className="mt-1 text-[10px] text-red-600 dark:text-red-400" role="alert">{fieldErrors.patientId}</p>
+              <p id="patient-error" className="mt-1 text-[10px] text-red-600 dark:text-red-700" role="alert">{fieldErrors.patientId}</p>
             )}
 
             {/* Search Results */}
             {searchResults.length > 0 && (
-              <div className="mt-2 border border-gray-200 dark:border-gray-700 rounded-lg max-h-48 overflow-y-auto bg-white dark:bg-gray-800">
+              <div className="mt-2 border border-gray-200 dark:border-gray-300 rounded-lg max-h-48 overflow-y-auto bg-white dark:bg-gray-50">
                 {searchResults.map((patient) => (
                   <div
                     key={patient._id}
@@ -673,10 +673,10 @@ export default function AppointmentBookingModal({
                       setPatientSearch(patient.fullName);
                       setSearchResults([]);
                     }}
-                    className="p-2.5 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer border-b border-gray-100 dark:border-gray-700 last:border-b-0"
+                    className="p-2.5 hover:bg-gray-50 dark:hover:bg-gray-200 cursor-pointer border-b border-gray-100 dark:border-gray-300 last:border-b-0"
                   >
-                    <p className="font-medium text-xs text-gray-900 dark:text-gray-100">{patient.fullName}</p>
-                    <p className="text-[10px] text-gray-500 dark:text-gray-400">{patient.mobileNumber} • {patient.email || "No email"}</p>
+                    <p className="font-medium text-xs text-gray-900 dark:text-gray-900">{patient.fullName}</p>
+                    <p className="text-[10px] text-gray-500 dark:text-gray-700">{patient.mobileNumber} • {patient.email || "No email"}</p>
                   </div>
                 ))}
               </div>
@@ -684,8 +684,8 @@ export default function AppointmentBookingModal({
 
             {/* Selected Patient */}
             {selectedPatient && (
-              <div className="mt-2 p-2.5 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-lg">
-                <p className="text-xs font-medium text-blue-900 dark:text-blue-200">Selected: {selectedPatient.fullName}</p>
+              <div className="mt-2 p-2.5 bg-blue-50 dark:bg-blue-100 border border-blue-200 dark:border-blue-300 rounded-lg">
+                <p className="text-xs font-medium text-blue-900 dark:text-blue-800">Selected: {selectedPatient.fullName}</p>
               </div>
             )}
 
@@ -693,7 +693,7 @@ export default function AppointmentBookingModal({
             <button
               type="button"
               onClick={() => setShowAddPatient(!showAddPatient)}
-              className="mt-2 flex items-center gap-2 text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 text-xs font-medium"
+              className="mt-2 flex items-center gap-2 text-blue-600 dark:text-blue-700 hover:text-blue-700 dark:hover:text-blue-800 text-xs font-medium"
             >
               <Plus className="w-3.5 h-3.5" />
               Add New Patient
@@ -702,47 +702,47 @@ export default function AppointmentBookingModal({
 
           {/* Add Patient Form */}
           {showAddPatient && (
-            <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 space-y-4 bg-gray-50 dark:bg-gray-800/50">
-              <h3 className="text-xs font-medium text-gray-900 dark:text-gray-100">Add New Patient</h3>
+            <div className="border border-gray-200 dark:border-gray-300 rounded-lg p-4 space-y-4 bg-gray-50 dark:bg-gray-100">
+              <h3 className="text-xs font-medium text-gray-900 dark:text-gray-900">Add New Patient</h3>
               <div className="grid grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">EMR Number</label>
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-800 mb-1">EMR Number</label>
                   <input
                     type="text"
                     value={addPatientForm.emrNumber}
                     onChange={(e) => setAddPatientForm({ ...addPatientForm, emrNumber: e.target.value })}
-                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-xs bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                    className="w-full border border-gray-300 dark:border-gray-300 rounded-lg px-3 py-2 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-800 mb-1">
                     First Name <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
                     value={addPatientForm.firstName}
                     onChange={(e) => setAddPatientForm({ ...addPatientForm, firstName: e.target.value })}
-                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-xs bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                    className="w-full border border-gray-300 dark:border-gray-300 rounded-lg px-3 py-2 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900"
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Last Name</label>
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-800 mb-1">Last Name</label>
                   <input
                     type="text"
                     value={addPatientForm.lastName}
                     onChange={(e) => setAddPatientForm({ ...addPatientForm, lastName: e.target.value })}
-                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-xs bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                    className="w-full border border-gray-300 dark:border-gray-300 rounded-lg px-3 py-2 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-800 mb-1">
                     Gender <span className="text-red-500">*</span>
                   </label>
                   <select
                     value={addPatientForm.gender}
                     onChange={(e) => setAddPatientForm({ ...addPatientForm, gender: e.target.value })}
-                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-xs bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                    className="w-full border border-gray-300 dark:border-gray-300 rounded-lg px-3 py-2 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900"
                     required
                   >
                     <option value="">Select</option>
@@ -752,41 +752,41 @@ export default function AppointmentBookingModal({
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-800 mb-1">Email</label>
                   <input
                     type="email"
                     value={addPatientForm.email}
                     onChange={(e) => setAddPatientForm({ ...addPatientForm, email: e.target.value })}
-                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-xs bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                    className="w-full border border-gray-300 dark:border-gray-300 rounded-lg px-3 py-2 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-800 mb-1">
                     Mobile Number <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="tel"
                     value={addPatientForm.mobileNumber}
                     onChange={(e) => setAddPatientForm({ ...addPatientForm, mobileNumber: e.target.value })}
-                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-xs bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                    className="w-full border border-gray-300 dark:border-gray-300 rounded-lg px-3 py-2 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900"
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Referred By</label>
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-800 mb-1">Referred By</label>
                   <input
                     type="text"
                     value={addPatientForm.referredBy}
                     onChange={(e) => setAddPatientForm({ ...addPatientForm, referredBy: e.target.value })}
-                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-xs bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                    className="w-full border border-gray-300 dark:border-gray-300 rounded-lg px-3 py-2 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Patient Type</label>
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-800 mb-1">Patient Type</label>
                   <select
                     value={addPatientForm.patientType}
                     onChange={(e) => setAddPatientForm({ ...addPatientForm, patientType: e.target.value })}
-                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-xs bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                    className="w-full border border-gray-300 dark:border-gray-300 rounded-lg px-3 py-2 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900"
                   >
                     <option value="New">New</option>
                     <option value="Old">Old</option>
@@ -809,7 +809,7 @@ export default function AppointmentBookingModal({
           <div className="grid grid-cols-3 gap-4">
             {/* Follow Type */}
             <div>
-              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-800 mb-1.5">
                 Follow Type <span className="text-red-500">*</span>
               </label>
               <select
@@ -820,7 +820,7 @@ export default function AppointmentBookingModal({
                     setFieldErrors({ ...fieldErrors, followType: "" });
                   }
                 }}
-                className={`w-full border rounded-lg px-3 py-2 text-xs bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 border-gray-300 dark:border-gray-600 focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100 focus:border-gray-900 dark:focus:border-gray-100 ${
+                className={`w-full border rounded-lg px-3 py-2 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 border-gray-300 dark:border-gray-300 focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-700 focus:border-gray-900 dark:focus:border-gray-700 ${
                   fieldErrors.followType ? "border-red-500 dark:border-red-500" : ""
                 }`}
                 required
@@ -830,17 +830,17 @@ export default function AppointmentBookingModal({
                 <option value="repeat">Repeat</option>
               </select>
               {fieldErrors.followType && (
-                <p className="mt-1 text-[10px] text-red-600 dark:text-red-400">{fieldErrors.followType}</p>
+                <p className="mt-1 text-[10px] text-red-600 dark:text-red-700">{fieldErrors.followType}</p>
               )}
             </div>
 
             {/* Referral */}
             <div>
-              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">Referral</label>
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-800 mb-1.5">Referral</label>
               <select
                 value={referral}
                 onChange={(e) => setReferral(e.target.value)}
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-xs bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100 focus:border-gray-900 dark:focus:border-gray-100"
+                className="w-full border border-gray-300 dark:border-gray-300 rounded-lg px-3 py-2 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-700 focus:border-gray-900 dark:focus:border-gray-700"
               >
                 <option value="direct">Direct</option>
                 <option value="referral">Referral</option>
@@ -849,11 +849,11 @@ export default function AppointmentBookingModal({
 
             {/* Emergency */}
             <div>
-              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">Emergency</label>
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-800 mb-1.5">Emergency</label>
               <select
                 value={emergency}
                 onChange={(e) => setEmergency(e.target.value)}
-                className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-xs bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100 focus:border-gray-900 dark:focus:border-gray-100"
+                className="w-full border border-gray-300 dark:border-gray-300 rounded-lg px-3 py-2 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-700 focus:border-gray-900 dark:focus:border-gray-700"
               >
                 <option value="no">No</option>
                 <option value="yes">Yes</option>
@@ -864,7 +864,7 @@ export default function AppointmentBookingModal({
           {/* Date and Time Fields - 3 fields in one row */}
           <div className="grid grid-cols-3 gap-4">
             <div>
-              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-800 mb-1.5">
                 Start Date <span className="text-red-500">*</span>
               </label>
               <input
@@ -876,34 +876,34 @@ export default function AppointmentBookingModal({
                     setFieldErrors({ ...fieldErrors, startDate: "" });
                   }
                 }}
-                className={`w-full border rounded-lg px-3 py-2 text-xs bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 border-gray-300 dark:border-gray-600 focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100 focus:border-gray-900 dark:focus:border-gray-100 ${
+                className={`w-full border rounded-lg px-3 py-2 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 border-gray-300 dark:border-gray-300 focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-700 focus:border-gray-900 dark:focus:border-gray-700 ${
                   fieldErrors.startDate ? "border-red-500 dark:border-red-500" : ""
                 }`}
                 required
               />
               {fieldErrors.startDate && (
-                <p className="mt-1 text-[10px] text-red-600 dark:text-red-400">{fieldErrors.startDate}</p>
+                <p className="mt-1 text-[10px] text-red-600 dark:text-red-700">{fieldErrors.startDate}</p>
               )}
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-800 mb-1.5">
                 From Time <span className="text-red-500">*</span>
               </label>
               <input
                 type="time"
                 value={fromTime}
                 onChange={(e) => handleFromTimeChange(e.target.value)}
-                className={`w-full border rounded-lg px-3 py-2 text-xs bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 border-gray-300 dark:border-gray-600 focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100 focus:border-gray-900 dark:focus:border-gray-100 ${
+                className={`w-full border rounded-lg px-3 py-2 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 border-gray-300 dark:border-gray-300 focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-700 focus:border-gray-900 dark:focus:border-gray-700 ${
                   fieldErrors.fromTime ? "border-red-500 dark:border-red-500" : ""
                 }`}
                 required
               />
               {fieldErrors.fromTime && (
-                <p className="mt-1 text-[10px] text-red-600 dark:text-red-400">{fieldErrors.fromTime}</p>
+                <p className="mt-1 text-[10px] text-red-600 dark:text-red-700">{fieldErrors.fromTime}</p>
               )}
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+              <label className="block text-xs font-medium text-gray-700 dark:text-gray-800 mb-1.5">
                 To Time <span className="text-red-500">*</span>
               </label>
               <input
@@ -915,37 +915,37 @@ export default function AppointmentBookingModal({
                     setFieldErrors({ ...fieldErrors, toTime: "" });
                   }
                 }}
-                className={`w-full border rounded-lg px-3 py-2 text-xs bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 border-gray-300 dark:border-gray-600 focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100 focus:border-gray-900 dark:focus:border-gray-100 ${
+                className={`w-full border rounded-lg px-3 py-2 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 border-gray-300 dark:border-gray-300 focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-700 focus:border-gray-900 dark:focus:border-gray-700 ${
                   fieldErrors.toTime ? "border-red-500 dark:border-red-500" : ""
                 }`}
                 required
               />
               {fieldErrors.toTime && (
-                <p className="mt-1 text-[10px] text-red-600 dark:text-red-400">{fieldErrors.toTime}</p>
+                <p className="mt-1 text-[10px] text-red-600 dark:text-red-700">{fieldErrors.toTime}</p>
               )}
             </div>
           </div>
 
           {/* Notes */}
           <div>
-            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">Notes</label>
+            <label className="block text-xs font-medium text-gray-700 dark:text-gray-800 mb-1.5">Notes</label>
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               rows={3}
-              className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-xs bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100 focus:border-gray-900 dark:focus:border-gray-100"
+              className="w-full border border-gray-300 dark:border-gray-300 rounded-lg px-3 py-2 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 placeholder-gray-400 dark:placeholder-gray-600 focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-700 focus:border-gray-900 dark:focus:border-gray-700"
               placeholder="Additional notes..."
             />
           </div>
         </form>
 
         {/* Actions - Fixed at bottom outside form */}
-        <div className="sticky bottom-0 left-0 right-0 z-30 pt-4 pb-4 px-6 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1),0_-2px_4px_-1px_rgba(0,0,0,0.06)] dark:shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.3),0_-2px_4px_-1px_rgba(0,0,0,0.2)]">
+        <div className="sticky bottom-0 left-0 right-0 z-30 pt-4 pb-4 px-6 border-t border-gray-200 dark:border-gray-300 bg-white dark:bg-gray-50 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1),0_-2px_4px_-1px_rgba(0,0,0,0.06)] dark:shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1),0_-2px_4px_-1px_rgba(0,0,0,0.06)]">
           <div className="flex gap-3">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-lg text-xs font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100 transition-colors"
+              className="flex-1 px-4 py-2.5 border border-gray-300 dark:border-gray-300 rounded-lg text-xs font-medium text-gray-700 dark:text-gray-900 bg-white dark:bg-gray-100 hover:bg-gray-50 dark:hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-700 transition-colors"
             >
               Cancel
             </button>
@@ -969,7 +969,7 @@ export default function AppointmentBookingModal({
                 !fromTime || 
                 !toTime
               }
-              className="flex-1 px-4 py-2.5 bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded-lg text-xs font-medium hover:bg-gray-800 dark:hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-100 focus:ring-offset-2 dark:focus:ring-offset-gray-800 transition-colors"
+              className="flex-1 px-4 py-2.5 bg-gray-900 dark:bg-gray-700 text-white dark:text-white rounded-lg text-xs font-medium hover:bg-gray-800 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-700 focus:ring-offset-2 dark:focus:ring-offset-gray-100 transition-colors"
             >
               {loading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
               {loading ? "Booking..." : "Book Appointment"}

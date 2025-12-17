@@ -14,7 +14,7 @@ type Blog = {
 };
 
 interface PublishedBlogsProps {
-  tokenKey: "clinicToken" | "doctorToken";
+  tokenKey: "clinicToken" | "doctorToken" | "agentToken";
   permissions?: {
     canRead?: boolean;
     canUpdate?: boolean;

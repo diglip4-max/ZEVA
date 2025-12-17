@@ -26,33 +26,24 @@ export default async function handler(req, res) {
       return res.status(404).json({ success: false, message: error });
     }
 
-    // ✅ Check permission for reading job applications (only for clinic, doctor, staff, agent, doctorStaff, admin bypasses)
-    if (!isAdmin && clinicId) {
-      // Determine which role to check permissions for
-      let roleForPermission = null;
-      if (me.role === "doctor") {
-        roleForPermission = "doctor";
-      } else if (me.role === "clinic") {
-        roleForPermission = "clinic";
-      } else if (me.role === "staff" || me.role === "agent" || me.role === "doctorStaff") {
-        // Staff, agent, and doctorStaff should check clinic-level permissions
-        roleForPermission = "clinic";
+    // ✅ Check permission for reading job applications (only for doctorStaff and agent, clinic/admin/doctor bypass)
+    if (!["admin", "clinic", "doctor"].includes(me.role) && clinicId) {
+      if (['agent', 'doctorStaff'].includes(me.role)) {
+        const { checkAgentPermission } = await import("../agent/permissions-helper");
+        const { hasPermission, error: permissionError } = await checkAgentPermission(
+          me._id,
+          "job_posting", // moduleKey
+          "read", // action
+          null // subModuleName
+        );
+        if (!hasPermission) {
+          return res.status(403).json({
+            success: false,
+            message: permissionError || "You do not have permission to view job applicants"
+          });
+        }
       }
-
-      const { hasPermission, error: permError } = await checkClinicPermission(
-        clinicId,
-        "job_posting", // Check "job_posting" module permission
-        "read",
-        null, // No submodule - this is a module-level check
-        roleForPermission
-      );
-
-      if (!hasPermission) {
-        return res.status(403).json({
-          success: false,
-          message: permError || "You do not have permission to view job applicants"
-        });
-      }
+      // Clinic, admin, and doctor users bypass permission checks
     }
 
     // Get jobs posted by this user or any user from the same clinic

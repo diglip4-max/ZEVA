@@ -48,7 +48,7 @@ export default async function handler(req, res) {
               roleForPermission = "clinic";
             }
 
-            // Check clinic permission for add_treatment module
+            // Check clinic permission for add_treatment module (read access)
             const { hasPermission, error: permissionError } = await checkClinicPermission(
               clinicId,
               "add_treatment", // moduleKey
@@ -57,9 +57,32 @@ export default async function handler(req, res) {
               roleForPermission
             );
 
-            console.log("getTreatment - Permission result:", { hasPermission, error: permissionError });
+            console.log("getTreatment - Permission result (clinic):", { hasPermission, error: permissionError });
 
-            if (!hasPermission) {
+            // If read is not granted, allow access when create OR delete is granted
+            let canAccess = hasPermission;
+            if (!canAccess) {
+              const { hasPermission: hasCreate } = await checkClinicPermission(
+                clinicId,
+                "add_treatment",
+                "create",
+                null,
+                roleForPermission
+              );
+              canAccess = hasCreate;
+            }
+            if (!canAccess) {
+              const { hasPermission: hasDelete } = await checkClinicPermission(
+                clinicId,
+                "add_treatment",
+                "delete",
+                null,
+                roleForPermission
+              );
+              canAccess = hasDelete;
+            }
+
+            if (!canAccess) {
               return res.status(403).json({
                 success: false,
                 message: permissionError || "You do not have permission to view treatments",
@@ -76,7 +99,28 @@ export default async function handler(req, res) {
                 null // subModuleName
               );
 
-              if (!hasPermission) {
+              // If read is not granted, allow access when create OR delete is granted
+              let canAccess = hasPermission;
+              if (!canAccess) {
+                const { hasPermission: hasCreate } = await checkAgentPermission(
+                  me._id,
+                  "add_treatment",
+                  "create",
+                  null
+                );
+                canAccess = hasCreate;
+              }
+              if (!canAccess) {
+                const { hasPermission: hasDelete } = await checkAgentPermission(
+                  me._id,
+                  "add_treatment",
+                  "delete",
+                  null
+                );
+                canAccess = hasDelete;
+              }
+
+              if (!canAccess) {
                 return res.status(403).json({
                   success: false,
                   message: permissionError || "You do not have permission to view treatments",
