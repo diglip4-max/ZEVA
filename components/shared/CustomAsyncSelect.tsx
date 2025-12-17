@@ -1,4 +1,4 @@
-import React, { forwardRef, useState, useEffect } from "react";
+import React, { forwardRef } from "react";
 import dynamic from "next/dynamic";
 import type {
   StylesConfig,
@@ -18,7 +18,7 @@ const AsyncSelect = dynamic(
       </div>
     )
   }
-);
+) as React.ComponentType<any>;
 
 // Types for the component props
 export interface OptionType {

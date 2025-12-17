@@ -1,5 +1,5 @@
 'use client';
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import axios from 'axios';
 import AdminLayout from '../../components/AdminLayout';
@@ -7,7 +7,6 @@ import withAdminAuth from '../../components/withAdminAuth';
 import { useAgentPermissions } from '../../hooks/useAgentPermissions';
 import {
   BeakerIcon,
-  PlusIcon,
   CheckCircleIcon,
   XCircleIcon,
   InformationCircleIcon,
