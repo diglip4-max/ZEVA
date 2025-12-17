@@ -10,7 +10,6 @@ export default async function handler(req, res) {
       res.setHeader("Allow", ["GET"]);
       return res.status(405).end(`Method ${req.method} Not Allowed`);
     }
-    console.log({ p: req.query });
 
     const me = await getUserFromReq(req);
     if (!me || !requireRole(me, ["clinic", "agent", "admin", "doctor"])) {
@@ -20,8 +19,6 @@ export default async function handler(req, res) {
     const { segmentId } = req.query;
     // ✅ First, get the lead to determine which clinic it belongs to
     const segment = await Segment.findById(segmentId);
-    const sgs = await Segment.find();
-    console.log({ segment, segmentId, sgs });
     if (!segment) {
       return res
         .status(404)

@@ -10,7 +10,6 @@ export default async function handler(req, res) {
       res.setHeader("Allow", ["DELETE"]);
       return res.status(405).end(`Method ${req.method} Not Allowed`);
     }
-    console.log({ p: req.query });
 
     const me = await getUserFromReq(req);
     if (!me || !requireRole(me, ["clinic", "agent", "admin", "doctor"])) {
