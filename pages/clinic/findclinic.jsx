@@ -1614,7 +1614,7 @@ export default function Home() {
                                                                 </a>
                                                             )}
                                                             <a
-                                                                href={`/clinics/${clinic._id}`}
+                                                                href={`/clinics/${textToSlug(clinic.name)}?c=${clinic._id}`}
                                                                 className="px-2.5 py-1 text-xs text-white bg-gradient-to-r from-[#0284c7] to-[#0ea5e9] hover:from-[#0369a1] hover:to-[#0284c7] rounded-lg font-medium transition-all shadow-sm hover:shadow whitespace-nowrap"
                                                             >
                                                                 View Details
