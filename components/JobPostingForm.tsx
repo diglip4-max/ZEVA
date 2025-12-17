@@ -503,17 +503,17 @@ const JobPostingForm: React.FC<JobPostingFormProps> = ({
   const QuillAny: any = ReactQuill as any;
 
   // Compact mode styles
-  const containerClass = isCompact ? "p-4" : "min-h-screen bg-gray-50 p-2 sm:p-3 md:p-4 lg:p-6";
+  const containerClass = isCompact ? "p-2" : "min-h-screen bg-gray-50 p-2 sm:p-3 md:p-4 lg:p-6";
   const wrapperClass = isCompact ? "w-full" : "max-w-xs sm:max-w-sm md:max-w-2xl lg:max-w-4xl xl:max-w-5xl mx-auto";
-  const headerClass = isCompact ? "mb-3" : "mb-4 sm:mb-6 lg:mb-8";
-  const formClass = isCompact ? "bg-white p-4" : "bg-white rounded-lg shadow-sm border border-gray-200 p-3 sm:p-4 md:p-6 lg:p-8";
-  const stepIndicatorClass = isCompact ? "mb-3" : "mb-4 sm:mb-6";
-  const stepSize = isCompact ? "w-6 h-6 text-xs" : "w-6 h-6 sm:w-8 sm:h-8 text-xs sm:text-sm";
-  const stepLabelClass = isCompact ? "text-[10px] mt-0.5" : "text-xs sm:text-sm mt-1";
-  const sectionTitleClass = isCompact ? "text-base mb-3" : "text-lg sm:text-xl mb-4 sm:mb-6";
-  const gridGap = isCompact ? "gap-3" : "gap-4 sm:gap-6";
-  const inputPadding = isCompact ? "px-3 py-2 text-sm" : "px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm md:text-base";
-  const labelClass = isCompact ? "text-xs mb-1" : "text-xs sm:text-sm mb-1 sm:mb-2";
+  const headerClass = isCompact ? "mb-2" : "mb-4 sm:mb-6 lg:mb-8";
+  const formClass = isCompact ? "bg-white p-2" : "bg-white rounded-lg shadow-sm border border-gray-200 p-3 sm:p-4 md:p-6 lg:p-8";
+  const stepIndicatorClass = isCompact ? "mb-2" : "mb-4 sm:mb-6";
+  const stepSize = isCompact ? "w-5 h-5 text-[9px]" : "w-6 h-6 sm:w-8 sm:h-8 text-xs sm:text-sm";
+  const stepLabelClass = isCompact ? "text-[8px] mt-0.5" : "text-xs sm:text-sm mt-1";
+  const sectionTitleClass = isCompact ? "text-sm mb-2" : "text-lg sm:text-xl mb-4 sm:mb-6";
+  const gridGap = isCompact ? "gap-2" : "gap-4 sm:gap-6";
+  const inputPadding = isCompact ? "px-2 py-1.5 text-[10px]" : "px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm md:text-base";
+  const labelClass = isCompact ? "text-[9px] mb-0.5" : "text-xs sm:text-sm mb-1 sm:mb-2";
 
   return (
     <div className={containerClass}>
@@ -577,7 +577,7 @@ const JobPostingForm: React.FC<JobPostingFormProps> = ({
               <div className={`w-full ${isCompact ? 'bg-white' : 'bg-white rounded-xl shadow-sm border border-gray-200'} ${isCompact ? 'p-0' : 'p-3 sm:p-4 md:p-6 lg:p-8'}`}>
                 <h3 className={`${sectionTitleClass} font-semibold text-gray-900`}>Basic Information</h3>
 
-                <div className={`grid grid-cols-1 md:grid-cols-2 ${gridGap}`}>
+                <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 ${gridGap}`}>
                   <div className="col-span-1">
                     <label className={`block ${labelClass} font-medium text-gray-700`}>
                       Company Name <span className="text-red-500">*</span>
@@ -590,7 +590,7 @@ const JobPostingForm: React.FC<JobPostingFormProps> = ({
                       className={`w-full rounded-lg border border-gray-300 bg-white ${inputPadding} text-gray-900 placeholder-gray-500 focus:border-gray-900 focus:ring-2 focus:ring-gray-900 transition`}
                     />
                     {touched.companyName && errors.companyName && (
-                      <p className="mt-1 text-xs text-red-600">{errors.companyName}</p>
+                      <p className="mt-1 text-[9px] text-red-600">{errors.companyName}</p>
                     )}
                   </div>
 
@@ -606,11 +606,11 @@ const JobPostingForm: React.FC<JobPostingFormProps> = ({
                       className={`w-full rounded-lg border border-gray-300 bg-white ${inputPadding} text-gray-900 placeholder-gray-500 focus:border-gray-900 focus:ring-2 focus:ring-gray-900 transition`}
                     />
                     {touched.establishment && errors.establishment && (
-                      <p className="mt-1 text-xs text-red-600">{errors.establishment}</p>
+                      <p className="mt-1 text-[9px] text-red-600">{errors.establishment}</p>
                     )}
                   </div>
 
-                  <div className="col-span-1 md:col-span-2 lg:col-span-1">
+                  <div className="col-span-1">
                     <label className={`block ${labelClass} font-medium text-gray-700`}>
                       Job Title <span className="text-red-500">*</span>
                     </label>
@@ -622,11 +622,11 @@ const JobPostingForm: React.FC<JobPostingFormProps> = ({
                       className={`w-full rounded-lg border border-gray-300 bg-white ${inputPadding} text-gray-900 placeholder-gray-500 focus:border-gray-900 focus:ring-2 focus:ring-gray-900 transition`}
                     />
                     {touched.jobTitle && errors.jobTitle && (
-                      <p className="mt-1 text-xs text-red-600">{errors.jobTitle}</p>
+                      <p className="mt-1 text-[9px] text-red-600">{errors.jobTitle}</p>
                     )}
                   </div>
 
-                  <div className="col-span-1 md:col-span-2 lg:col-span-1">
+                  <div className="col-span-1">
                     <label className={`block ${labelClass} font-medium text-gray-700`}>
                       Department <span className="text-red-500">*</span>
                     </label>
@@ -644,11 +644,11 @@ const JobPostingForm: React.FC<JobPostingFormProps> = ({
                       ))}
                     </select>
                     {touched.department && errors.department && (
-                      <p className="mt-1 text-xs text-red-600">{errors.department}</p>
+                      <p className="mt-1 text-[9px] text-red-600">{errors.department}</p>
                     )}
                   </div>
 
-                  <div className="col-span-1 md:col-span-2 lg:col-span-1">
+                  <div className="col-span-1">
                     <label className={`block ${labelClass} font-medium text-gray-700`}>
                       Required Qualification
                     </label>
@@ -666,11 +666,11 @@ const JobPostingForm: React.FC<JobPostingFormProps> = ({
                       ))}
                     </select>
                     {touched.qualification && errors.qualification && (
-                      <p className="mt-1 text-xs text-red-600">{errors.qualification}</p>
+                      <p className="mt-1 text-[9px] text-red-600">{errors.qualification}</p>
                     )}
                   </div>
 
-                  <div className="col-span-1 md:col-span-2 lg:col-span-1">
+                  <div className="col-span-1">
                     <label className={`block ${labelClass} font-medium text-gray-700`}>
                       Job Type <span className="text-red-500">*</span>
                     </label>
@@ -688,11 +688,11 @@ const JobPostingForm: React.FC<JobPostingFormProps> = ({
                       ))}
                     </select>
                     {touched.jobType && errors.jobType && (
-                      <p className="mt-1 text-xs text-red-600">{errors.jobType}</p>
+                      <p className="mt-1 text-[9px] text-red-600">{errors.jobType}</p>
                     )}
                   </div>
 
-                  <div className="col-span-1 md:col-span-2 lg:col-span-1">
+                  <div className="col-span-1">
                     <label className={`block ${labelClass} font-medium text-gray-700`}>
                       Location
                     </label>
@@ -704,7 +704,7 @@ const JobPostingForm: React.FC<JobPostingFormProps> = ({
                       className={`w-full rounded-lg border border-gray-300 bg-white ${inputPadding} text-gray-900 placeholder-gray-500 focus:border-gray-900 focus:ring-2 focus:ring-gray-900 transition`}
                     />
                     {touched.location && errors.location && (
-                      <p className="mt-1 text-xs text-red-600">{errors.location}</p>
+                      <p className="mt-1 text-[9px] text-red-600">{errors.location}</p>
                     )}
                   </div>
                 </div>
@@ -713,7 +713,7 @@ const JobPostingForm: React.FC<JobPostingFormProps> = ({
               {/* Section 2: Job Details */}
               <div className={`w-full ${isCompact ? 'bg-white' : 'bg-white rounded-xl shadow-sm border border-gray-200'} ${isCompact ? 'p-0' : 'p-3 sm:p-4 md:p-6 lg:p-8'}`}>
                 <h3 className={`${sectionTitleClass} font-semibold text-gray-900`}>Job Details</h3>
-                <div className={`grid grid-cols-1 md:grid-cols-2 ${gridGap}`}>
+                <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 ${gridGap}`}>
                   <div className="col-span-1">
                     <label className={`block ${labelClass} font-medium text-gray-700`}>
                       Job Timing
@@ -725,7 +725,7 @@ const JobPostingForm: React.FC<JobPostingFormProps> = ({
                       onChange={handleChange}
                       className={`w-full rounded-lg border border-gray-300 bg-white ${inputPadding} text-gray-900 placeholder-gray-500 focus:border-gray-900 focus:ring-2 focus:ring-gray-900 transition`}
                     />
-                    {touched.jobTiming && errors.jobTiming && <p className="mt-1 text-xs text-red-600">{errors.jobTiming}</p>}
+                    {touched.jobTiming && errors.jobTiming && <p className="mt-1 text-[9px] text-red-600">{errors.jobTiming}</p>}
                   </div>
 
                   <div className="col-span-1">
@@ -739,14 +739,14 @@ const JobPostingForm: React.FC<JobPostingFormProps> = ({
                       onChange={handleChange}
                       className={`w-full rounded-lg border border-gray-300 bg-white ${inputPadding} text-gray-900 placeholder-gray-500 focus:border-gray-900 focus:ring-2 focus:ring-gray-900 transition`}
                     />
-                    {touched.workingDays && errors.workingDays && <p className="mt-1 text-xs text-red-600">{errors.workingDays}</p>}
+                    {touched.workingDays && errors.workingDays && <p className="mt-1 text-[9px] text-red-600">{errors.workingDays}</p>}
                   </div>
 
-                  <div className="col-span-1 md:col-span-2">
+                  <div className="col-span-1 sm:col-span-2 lg:col-span-1">
                     <label className={`block ${labelClass} font-medium text-gray-700`}>
                       Salary
                     </label>
-                    <div className="flex flex-col sm:flex-row gap-2">
+                    <div className="flex flex-col sm:flex-row gap-1.5">
                       <input
                         type="text"
                         name="salary"
@@ -771,13 +771,13 @@ const JobPostingForm: React.FC<JobPostingFormProps> = ({
                             setErrors(prev => ({ ...prev, salary: salaryError, salaryType: salaryTypeError }));
                           }
                         }}
-                        className="flex-1 rounded-lg border border-gray-300 bg-white px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm md:text-base text-gray-900 placeholder-gray-500 focus:border-gray-900 focus:ring-2 focus:ring-gray-900 transition"
+                        className={`flex-1 rounded-lg border border-gray-300 bg-white ${inputPadding} text-gray-900 placeholder-gray-500 focus:border-gray-900 focus:ring-2 focus:ring-gray-900 transition`}
                       />
                       <select
                         name="salaryType"
                         value={formData.salaryType}
                         onChange={handleChange}
-                        className="w-full sm:w-auto sm:min-w-[140px] rounded-lg border border-gray-300 bg-white px-3 py-2 sm:py-3 text-xs sm:text-sm md:text-base text-gray-900 focus:border-gray-900 focus:ring-2 focus:ring-gray-900 transition"
+                        className={`${isCompact ? 'w-full sm:w-auto sm:min-w-[100px]' : 'w-full sm:w-auto sm:min-w-[120px]'} rounded-lg border border-gray-300 bg-white ${inputPadding} text-gray-900 focus:border-gray-900 focus:ring-2 focus:ring-gray-900 transition`}
                       >
                         <option value="">Select</option>
                         <option value="month">Per Month</option>
@@ -785,10 +785,10 @@ const JobPostingForm: React.FC<JobPostingFormProps> = ({
                       </select>
                     </div>
                     {touched.salary && errors.salary && (
-                      <p className="mt-1 text-xs text-red-600">{errors.salary}</p>
+                      <p className="mt-1 text-[9px] text-red-600">{errors.salary}</p>
                     )}
                     {touched.salaryType && errors.salaryType && (
-                      <p className="mt-1 text-xs text-red-600">{errors.salaryType}</p>
+                      <p className="mt-1 text-[9px] text-red-600">{errors.salaryType}</p>
                     )}
                   </div>
 
@@ -801,10 +801,10 @@ const JobPostingForm: React.FC<JobPostingFormProps> = ({
                       value={formData.experience}
                       placeholder="Enter Experience"
                       onChange={handleChange}
-                      className="text-black w-full px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 transition-colors text-xs sm:text-sm md:text-base placeholder-gray-500"
+                      className={`w-full rounded-lg border border-gray-300 bg-white ${inputPadding} text-gray-900 placeholder-gray-500 focus:border-gray-900 focus:ring-2 focus:ring-gray-900 transition`}
                     />
                     {touched.experience && errors.experience && (
-                      <p className="mt-1 text-xs text-red-600">{errors.experience}</p>
+                      <p className="mt-1 text-[9px] text-red-600">{errors.experience}</p>
                     )}
                   </div>
 
@@ -820,7 +820,7 @@ const JobPostingForm: React.FC<JobPostingFormProps> = ({
                       onChange={handleChange}
                       className={`w-full rounded-lg border border-gray-300 bg-white ${inputPadding} text-gray-900 placeholder-gray-500 focus:border-gray-900 focus:ring-2 focus:ring-gray-900 transition`}
                     />
-                    {touched.noOfOpenings && errors.noOfOpenings && <p className="mt-1 text-xs text-red-600">{errors.noOfOpenings}</p>}
+                    {touched.noOfOpenings && errors.noOfOpenings && <p className="mt-1 text-[9px] text-red-600">{errors.noOfOpenings}</p>}
                   </div>
                 </div>
               </div>
@@ -958,18 +958,18 @@ const JobPostingForm: React.FC<JobPostingFormProps> = ({
                       </div>
                     )}
                   </div>
-                  {touched.description && errors.description && <p className="mt-1 text-xs text-red-600">{errors.description}</p>}
+                  {touched.description && errors.description && <p className="mt-1 text-[9px] text-red-600">{errors.description}</p>}
                 </div>
               </div>
 
               {/* Section 4: Additional Requirements */}
               <div className={`w-full ${isCompact ? 'bg-white' : 'bg-white rounded-xl shadow-sm border border-gray-200'} ${isCompact ? 'p-0' : 'p-3 sm:p-4 md:p-6 lg:p-8'}`}>
                 <h3 className={`${sectionTitleClass} font-semibold text-gray-900`}>Additional Requirements</h3>
-                <div className={isCompact ? "space-y-3" : "space-y-4 sm:space-y-6"}>
-                  <div>
+                <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 ${gridGap}`}>
+                  <div className="col-span-1 sm:col-span-2 lg:col-span-1">
                     <label className={`block ${labelClass} font-medium text-gray-700`}>
                       Required Skills
-                      <span className="text-gray-700 text-xs ml-1">(comma separated)</span>
+                      <span className={`text-gray-700 ${isCompact ? 'text-[8px]' : 'text-xs'} ml-1`}>(comma separated)</span>
                     </label>
                     <input
                       name="skills"
@@ -978,13 +978,13 @@ const JobPostingForm: React.FC<JobPostingFormProps> = ({
                       onChange={handleChange}
                       className={`w-full rounded-lg border border-gray-300 bg-white ${inputPadding} text-gray-900 placeholder-gray-500 focus:border-gray-900 focus:ring-2 focus:ring-gray-900 transition`}
                     />
-                    {touched.skills && errors.skills && <p className="mt-1 text-xs text-red-600">{errors.skills}</p>}
+                    {touched.skills && errors.skills && <p className="mt-1 text-[9px] text-red-600">{errors.skills}</p>}
                   </div>
 
-                  <div>
+                  <div className="col-span-1 sm:col-span-2 lg:col-span-1">
                     <label className={`block ${labelClass} font-medium text-gray-700`}>
                       Perks & Benefits
-                      <span className="text-gray-700 text-xs ml-1">(comma separated)</span>
+                      <span className={`text-gray-700 ${isCompact ? 'text-[8px]' : 'text-xs'} ml-1`}>(comma separated)</span>
                     </label>
                     <input
                       name="perks"
@@ -993,13 +993,13 @@ const JobPostingForm: React.FC<JobPostingFormProps> = ({
                       onChange={handleChange}
                       className={`w-full rounded-lg border border-gray-300 bg-white ${inputPadding} text-gray-900 placeholder-gray-500 focus:border-gray-900 focus:ring-2 focus:ring-gray-900 transition`}
                     />
-                    {touched.perks && errors.perks && <p className="mt-1 text-xs text-red-600">{errors.perks}</p>}
+                    {touched.perks && errors.perks && <p className="mt-1 text-[9px] text-red-600">{errors.perks}</p>}
                   </div>
 
-                  <div>
+                  <div className="col-span-1 sm:col-span-2 lg:col-span-1">
                     <label className={`block ${labelClass} font-medium text-gray-700`}>
                       Preferred Languages
-                      <span className="text-gray-700 text-xs ml-1">(comma separated)</span>
+                      <span className={`text-gray-700 ${isCompact ? 'text-[8px]' : 'text-xs'} ml-1`}>(comma separated)</span>
                     </label>
                     <input
                       name="languagesPreferred"
@@ -1008,7 +1008,7 @@ const JobPostingForm: React.FC<JobPostingFormProps> = ({
                       onChange={handleChange}
                       className={`w-full rounded-lg border border-gray-300 bg-white ${inputPadding} text-gray-900 placeholder-gray-500 focus:border-gray-900 focus:ring-2 focus:ring-gray-900 transition`}
                     />
-                    {touched.languagesPreferred && errors.languagesPreferred && <p className="mt-1 text-xs text-red-600">{errors.languagesPreferred}</p>}
+                    {touched.languagesPreferred && errors.languagesPreferred && <p className="mt-1 text-[9px] text-red-600">{errors.languagesPreferred}</p>}
                   </div>
                 </div>
               </div>
@@ -1045,82 +1045,82 @@ const JobPostingForm: React.FC<JobPostingFormProps> = ({
 
       {/* Confirmation Modal - Compact */}
       {showConfirmModal && (
-        <div className="fixed inset-0 backdrop-blur-md bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className={`bg-white rounded-xl shadow-2xl ${isCompact ? 'max-w-xl' : 'max-w-2xl'} w-full max-h-[85vh] overflow-y-auto border border-gray-200`}>
-            <div className={isCompact ? "p-4" : "p-6"}>
-              <div className={`flex items-center justify-between ${isCompact ? 'mb-4' : 'mb-6'}`}>
-                <div className="flex items-center gap-2">
-                  <div className={`${isCompact ? 'w-8 h-8' : 'w-10 h-10'} bg-orange-100 rounded-lg flex items-center justify-center`}>
-                    <svg className={`${isCompact ? 'w-4 h-4' : 'w-5 h-5'} text-orange-600`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className="fixed inset-0 backdrop-blur-md bg-black/50 flex items-center justify-center z-50 p-2">
+          <div className={`bg-white rounded-lg shadow-2xl ${isCompact ? 'max-w-lg' : 'max-w-xl'} w-full max-h-[90vh] overflow-y-auto border border-gray-200`}>
+            <div className={isCompact ? "p-3" : "p-4"}>
+              <div className={`flex items-center justify-between ${isCompact ? 'mb-3' : 'mb-4'}`}>
+                <div className="flex items-center gap-1.5">
+                  <div className={`${isCompact ? 'w-6 h-6' : 'w-8 h-8'} bg-orange-100 rounded-md flex items-center justify-center`}>
+                    <svg className={`${isCompact ? 'w-3 h-3' : 'w-4 h-4'} text-orange-600`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
                     </svg>
                   </div>
                   <div>
-                    <h3 className={`${isCompact ? 'text-base' : 'text-lg'} font-semibold text-gray-900`}>Confirm Job Posting</h3>
-                    <p className={`${isCompact ? 'text-xs' : 'text-sm'} text-gray-700`}>Please review your job details before posting</p>
+                    <h3 className={`${isCompact ? 'text-sm' : 'text-base'} font-bold text-gray-900`}>Confirm Job Posting</h3>
+                    <p className={`${isCompact ? 'text-[9px]' : 'text-[10px]'} text-gray-700`}>Please review your job details before posting</p>
                   </div>
                 </div>
                 <button
                   onClick={() => setShowConfirmModal(false)}
-                  className="text-gray-400 hover:text-gray-700 transition-colors p-1 rounded-lg hover:bg-gray-100"
+                  className="text-gray-400 hover:text-gray-700 transition-colors p-1 rounded hover:bg-gray-100"
                 >
-                  <svg className={`${isCompact ? 'w-4 h-4' : 'w-6 h-6'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className={`${isCompact ? 'w-3 h-3' : 'w-4 h-4'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
               </div>
 
-              <div className={`${isCompact ? 'space-y-2 mb-4' : 'space-y-4 mb-6'}`}>
-                <div className={`grid grid-cols-1 sm:grid-cols-2 ${isCompact ? 'gap-2' : 'gap-4'}`}>
-                  <div className={`bg-gray-50 p-2 rounded-lg border border-gray-200 ${isCompact ? 'text-xs' : ''}`}>
-                    <label className="text-xs font-medium text-gray-700 uppercase tracking-wide">Company Name</label>
-                    <p className={`${isCompact ? 'text-xs' : 'text-sm'} font-medium text-gray-900 mt-0.5`}>{formData.companyName || 'Not specified'}</p>
+              <div className={`${isCompact ? 'space-y-1.5 mb-3' : 'space-y-2 mb-4'}`}>
+                <div className={`grid grid-cols-1 sm:grid-cols-2 ${isCompact ? 'gap-1.5' : 'gap-2'}`}>
+                  <div className={`bg-gray-50 ${isCompact ? 'p-1.5' : 'p-2'} rounded-md border border-gray-200`}>
+                    <label className="text-[9px] font-bold text-gray-700 uppercase tracking-wide">Company Name</label>
+                    <p className={`${isCompact ? 'text-[10px]' : 'text-[11px]'} font-semibold text-gray-900 mt-0.5`}>{formData.companyName || 'Not specified'}</p>
                   </div>
-                  <div className={`bg-gray-50 p-2 rounded-lg border border-gray-200 ${isCompact ? 'text-xs' : ''}`}>
-                    <label className="text-xs font-medium text-gray-700 uppercase tracking-wide">Job Title</label>
-                    <p className={`${isCompact ? 'text-xs' : 'text-sm'} font-medium text-gray-900 mt-0.5`}>{formData.jobTitle || 'Not specified'}</p>
+                  <div className={`bg-gray-50 ${isCompact ? 'p-1.5' : 'p-2'} rounded-md border border-gray-200`}>
+                    <label className="text-[9px] font-bold text-gray-700 uppercase tracking-wide">Job Title</label>
+                    <p className={`${isCompact ? 'text-[10px]' : 'text-[11px]'} font-semibold text-gray-900 mt-0.5`}>{formData.jobTitle || 'Not specified'}</p>
                   </div>
-                  <div className={`bg-gray-50 p-2 rounded-lg border border-gray-200 ${isCompact ? 'text-xs' : ''}`}>
-                    <label className="text-xs font-medium text-gray-700 uppercase tracking-wide">Department</label>
-                    <p className={`${isCompact ? 'text-xs' : 'text-sm'} font-medium text-gray-900 mt-0.5`}>{formData.department || 'Not specified'}</p>
+                  <div className={`bg-gray-50 ${isCompact ? 'p-1.5' : 'p-2'} rounded-md border border-gray-200`}>
+                    <label className="text-[9px] font-bold text-gray-700 uppercase tracking-wide">Department</label>
+                    <p className={`${isCompact ? 'text-[10px]' : 'text-[11px]'} font-semibold text-gray-900 mt-0.5`}>{formData.department || 'Not specified'}</p>
                   </div>
-                  <div className={`bg-gray-50 p-2 rounded-lg border border-gray-200 ${isCompact ? 'text-xs' : ''}`}>
-                    <label className="text-xs font-medium text-gray-700 uppercase tracking-wide">Job Type</label>
-                    <p className={`${isCompact ? 'text-xs' : 'text-sm'} font-medium text-gray-900 mt-0.5`}>{formData.jobType || 'Not specified'}</p>
+                  <div className={`bg-gray-50 ${isCompact ? 'p-1.5' : 'p-2'} rounded-md border border-gray-200`}>
+                    <label className="text-[9px] font-bold text-gray-700 uppercase tracking-wide">Job Type</label>
+                    <p className={`${isCompact ? 'text-[10px]' : 'text-[11px]'} font-semibold text-gray-900 mt-0.5`}>{formData.jobType || 'Not specified'}</p>
                   </div>
-                  <div className={`bg-gray-50 p-2 rounded-lg border border-gray-200 ${isCompact ? 'text-xs' : ''}`}>
-                    <label className="text-xs font-medium text-gray-700 uppercase tracking-wide">Salary</label>
-                    <p className={`${isCompact ? 'text-xs' : 'text-sm'} font-medium text-gray-900 mt-0.5`}>{formData.salary || 'Not specified'}</p>
+                  <div className={`bg-gray-50 ${isCompact ? 'p-1.5' : 'p-2'} rounded-md border border-gray-200`}>
+                    <label className="text-[9px] font-bold text-gray-700 uppercase tracking-wide">Salary</label>
+                    <p className={`${isCompact ? 'text-[10px]' : 'text-[11px]'} font-semibold text-gray-900 mt-0.5`}>{formData.salary || 'Not specified'}</p>
                   </div>
-                  <div className={`bg-gray-50 p-2 rounded-lg border border-gray-200 ${isCompact ? 'text-xs' : ''}`}>
-                    <label className="text-xs font-medium text-gray-700 uppercase tracking-wide">Experience</label>
-                    <p className={`${isCompact ? 'text-xs' : 'text-sm'} font-medium text-gray-900 mt-0.5`}>{formData.experience || 'Not specified'}</p>
+                  <div className={`bg-gray-50 ${isCompact ? 'p-1.5' : 'p-2'} rounded-md border border-gray-200`}>
+                    <label className="text-[9px] font-bold text-gray-700 uppercase tracking-wide">Experience</label>
+                    <p className={`${isCompact ? 'text-[10px]' : 'text-[11px]'} font-semibold text-gray-900 mt-0.5`}>{formData.experience || 'Not specified'}</p>
                   </div>
                 </div>
 
                 {formData.description && (
-                  <div className={`bg-gray-50 p-2 rounded-lg border border-gray-200 ${isCompact ? 'text-xs' : ''}`}>
-                    <label className="text-xs font-medium text-gray-700 uppercase tracking-wide">Job Description</label>
-                    <div className={`${isCompact ? 'text-xs' : 'text-sm'} text-gray-900 mt-0.5 prose max-w-none line-clamp-3`} dangerouslySetInnerHTML={{ __html: formData.description }} />
+                  <div className={`bg-gray-50 ${isCompact ? 'p-1.5' : 'p-2'} rounded-md border border-gray-200`}>
+                    <label className="text-[9px] font-bold text-gray-700 uppercase tracking-wide">Job Description</label>
+                    <div className={`${isCompact ? 'text-[10px]' : 'text-[11px]'} text-gray-900 mt-0.5 prose max-w-none line-clamp-3`} dangerouslySetInnerHTML={{ __html: formData.description }} />
                   </div>
                 )}
               </div>
 
-              <div className={`flex flex-col sm:flex-row ${isCompact ? 'gap-2' : 'gap-3'} justify-end`}>
+              <div className={`flex flex-col sm:flex-row ${isCompact ? 'gap-1.5' : 'gap-2'} justify-end`}>
                 <button
                   onClick={() => setShowConfirmModal(false)}
-                  className={`${isCompact ? 'px-3 py-1.5 text-xs' : 'px-4 py-2 text-sm'} text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-all duration-200 font-medium border border-gray-200`}
+                  className={`${isCompact ? 'px-2.5 py-1 text-[9px]' : 'px-3 py-1.5 text-[10px]'} text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-all duration-200 font-medium border border-gray-200`}
                 >
                   Go Back & Edit
                 </button>
                 <button
                   onClick={confirmSubmit}
                   disabled={isSubmitting}
-                  className={`${isCompact ? 'px-4 py-1.5 text-xs' : 'px-6 py-2 text-sm'} bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg`}
+                  className={`${isCompact ? 'px-3 py-1 text-[9px]' : 'px-4 py-1.5 text-[10px]'} bg-gray-900 text-white rounded-md hover:bg-gray-800 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1.5 shadow-lg`}
                 >
                   {isSubmitting ? (
                     <>
-                      <svg className={`animate-spin ${isCompact ? 'h-3 w-3' : 'h-4 w-4'} text-white`} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <svg className={`animate-spin ${isCompact ? 'h-2.5 w-2.5' : 'h-3 w-3'} text-white`} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                       </svg>

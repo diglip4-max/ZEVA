@@ -1,11 +1,24 @@
-import React, { forwardRef } from "react";
-import AsyncSelect from "react-select/async";
-import {
+import React, { forwardRef, useState, useEffect } from "react";
+import dynamic from "next/dynamic";
+import type {
   StylesConfig,
   MultiValue,
   SingleValue,
   ActionMeta,
 } from "react-select";
+
+// Dynamic import for AsyncSelect to avoid build issues with Next.js/Turbopack
+const AsyncSelect = dynamic(
+  () => import("react-select/async").then((mod) => mod.default),
+  { 
+    ssr: false,
+    loading: () => (
+      <div className="w-full border border-gray-300 rounded-md px-2 py-1.5 text-xs bg-gray-50 text-gray-500">
+        Loading...
+      </div>
+    )
+  }
+);
 
 // Types for the component props
 export interface OptionType {

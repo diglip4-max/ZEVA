@@ -215,16 +215,17 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
         />
       )}
 
+      {/* Desktop Sidebar */}
       <aside
         className={clsx(
-          "transition-all duration-300 ease-in-out bg-white border-r border-slate-200 shadow-sm flex-col min-h-screen w-64 hidden lg:flex",
+          "transition-all duration-300 ease-in-out bg-white border-r border-slate-200 shadow-sm flex-col w-64 hidden lg:flex flex-shrink-0",
           {
             "lg:flex": !isDesktopHidden,
             "lg:hidden": isDesktopHidden,
           },
           className
         )}
-        style={{ height: "100vh" }}
+        style={{ height: "100vh", position: "fixed", left: 0, top: 0, zIndex: 30 }}
       >
         <div className="flex flex-col h-full">
           <div className="p-4 border-b border-slate-200 flex-shrink-0 relative">
@@ -461,14 +462,14 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
 
       <div
         className={clsx(
-          "fixed inset-0 z-50 lg:hidden transition-transform duration-300 ease-in-out",
+          "fixed inset-0 z-50 lg:hidden transition-transform duration-300 ease-in-out pointer-events-none",
           {
             "translate-x-0": isMobileOpen,
             "-translate-x-full": !isMobileOpen,
           }
         )}
       >
-        <aside className="w-full max-w-xs h-full bg-white shadow-xl border-r border-slate-200 flex flex-col">
+        <aside className="w-full max-w-xs h-full bg-white shadow-xl border-r border-slate-200 flex flex-col pointer-events-auto">
           <div className="flex flex-col h-full">
             <div className="p-4 border-b border-slate-200 relative flex-shrink-0">
               <button
