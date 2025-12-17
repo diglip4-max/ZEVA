@@ -40,7 +40,10 @@ interface Clinic {
 
 export default function ClinicDetail() {
   const router = useRouter();
-  const { id } = router.query as { id?: string };
+  // 'id' from path will be the slug (clinic name)
+  const slug = router.query.id as string | undefined;
+  // Get the actual clinic ID from query parameter (passed as ?c=... in URL to avoid conflict)
+  const clinicId = router.query.c as string | undefined;
 
   const { isAuthenticated } = useAuth(); // ✅ Auth context
 
@@ -60,12 +63,20 @@ export default function ClinicDetail() {
   const navigateToReview = useRef(false);
 
   useEffect(() => {
-    if (!id) return;
+    if (!router.isReady) return;
+    
+    // Get clinic ID from query parameter (passed as ?c=... in URL)
+    // If no query param, check if the path param is actually an ObjectId (24 hex chars) for backward compatibility
+    const isObjectId = slug && /^[0-9a-fA-F]{24}$/.test(slug);
+    // Use query param 'c' if available, otherwise use slug if it's an ObjectId (backward compatibility)
+    const idToUse = clinicId || (isObjectId ? slug : null);
+    
+    if (!idToUse) return;
     const fetchClinic = async () => {
       try {
         setLoading(true);
         setError(null);
-        const res = await axios.get(`/api/clinics/${id}`);
+        const res = await axios.get(`/api/clinics/${idToUse}`);
         setClinic(res.data?.clinic || res.data?.data || res.data);
       } catch {
         setError("Failed to load clinic");
@@ -74,7 +85,7 @@ export default function ClinicDetail() {
       }
     };
     fetchClinic();
-  }, [id]);
+  }, [slug, clinicId, router.isReady]);
 
   useEffect(() => {
     if (!clinic?._id) return;
