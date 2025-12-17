@@ -4,10 +4,18 @@ import ClinicLayout from '../../components/ClinicLayout';
 import withClinicAuth from '../../components/withClinicAuth';
 import CreateLeadModal from '../../components/CreateLeadModal';
 import LeadViewModal from '../../components/LeadViewModal';
-import { PlusCircle } from "lucide-react";
+import { Grid3x3, PlusCircle, Tag } from "lucide-react";
 import ImportLeadsModal from "@/components/ImportLeadsModal";
+import Link from "next/link";
+import CustomAsyncSelect from "@/components/shared/CustomAsyncSelect";
+import { loadSegmentOptions } from "@/lib/helper";
+import { useRouter } from "next/router";
+import useSegment from "@/hooks/useSegment";
 
 function LeadsPage() {
+  const router = useRouter();
+  const { segment: segmentId } = router.query;
+  const { segment } = useSegment({ segmentId })
   const [leads, setLeads] = useState([]);
   const [agents, setAgents] = useState([]);
   const [modalOpen, setModalOpen] = useState(false);
@@ -38,6 +46,11 @@ function LeadsPage() {
   const [totalPages, setTotalPages] = useState(1)
   const [totalLeads, setTotalLeads] = useState(0)
   const leadsPerPage = 9;
+
+  const [selectedSegment, setSelectedSegment] = useState(
+    null
+  );
+  console.log({ segment })
 
   const token = typeof window !== "undefined" ? localStorage.getItem("clinicToken") : null;
 
@@ -163,7 +176,7 @@ function LeadsPage() {
 
     try {
       const res = await axios.get("/api/lead-ms/leadFilter", {
-        params: { ...filters, page: currentPage, limit: leadsPerPage },
+        params: { ...filters, page: currentPage, limit: leadsPerPage, segmentId: selectedSegment?.value, },
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.data.success) {
@@ -195,6 +208,13 @@ function LeadsPage() {
   };
 
   useEffect(() => {
+    if (segment) {
+      setSelectedSegment({ label: segment?.name, value: segment?._id })
+    }
+
+  }, [segment])
+
+  useEffect(() => {
     fetchPermissions();
   }, [token]);
 
@@ -204,7 +224,7 @@ function LeadsPage() {
       fetchLeads();
       fetchAgents();
     }
-  }, [permissionsLoaded, permissions.canRead, filters, currentPage]);
+  }, [permissionsLoaded, permissions.canRead, filters, currentPage, selectedSegment]);
 
   const assignLead = async () => {
     if (!selectedLead || !selectedAgent) {
@@ -273,6 +293,16 @@ function LeadsPage() {
               <p className="text-[10px] sm:text-xs text-gray-500">Filter, review, and assign leads to your team</p>
             </div>
             <div className="flex items-center gap-2.5">
+              {permissions.canCreate && (
+                <Link
+                  href="/lead/segments"
+                  className="inline-flex items-center justify-center cursor-pointer gap-1.5 border border-gray-800 text-gray-800 bg-transparent hover:bg-gray-800 hover:text-white px-3 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs sm:text-sm font-medium"
+                >
+                  <Tag className="h-3.5 w-3.5" />
+                  <span>Manage Segments</span>
+                </Link>
+              )}
+
               {permissions.canCreate && (
                 <button
                   onClick={() => setModalOpen(true)}
@@ -352,9 +382,19 @@ function LeadsPage() {
               onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
               className="w-full rounded-lg border border-gray-200 bg-white p-2 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
             />
+            <CustomAsyncSelect
+              label=""
+              name="chooseSegment"
+              loadOptions={(inputValue) =>
+                loadSegmentOptions(inputValue, token)
+              }
+              value={selectedSegment}
+              onChange={(value) => setSelectedSegment(value)}
+              placeholder="Select a segment..."
+            />
             <button
               onClick={fetchLeads}
-              className="inline-flex items-center justify-center bg-gray-800 hover:bg-gray-900 text-white px-3 py-2 rounded-lg text-xs sm:text-sm font-medium shadow-sm hover:shadow-md transition-all"
+              className="inline-flex cursor-pointer items-center justify-center bg-gray-800 hover:bg-gray-900 text-white px-3 py-2 rounded-lg text-xs sm:text-sm font-medium shadow-sm hover:shadow-md transition-all"
             >
               Apply Filters
             </button>
@@ -363,61 +403,197 @@ function LeadsPage() {
 
         {/* Compact Leads Cards - Only show if user has read permission */}
         {permissions.canRead ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3">
-            {leads.length > 0 ? (
-              leads.map((lead) => (
-                <div key={lead._id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 flex flex-col gap-2.5">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-bold text-gray-900 truncate">{lead.name || 'Unnamed'}</p>
-                      <p className="text-xs text-gray-600 truncate">{lead.phone}</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+            {leads?.length > 0 ? (
+              leads?.map((lead) => (
+                <div
+                  key={lead._id}
+                  className="bg-white flex flex-col justify-between rounded-xl shadow-md hover:shadow-lg transition-shadow duration-300 border border-gray-100 hover:border-gray-400 overflow-hidden group"
+                >
+                  <div className="">
+                    {/* Card Header with Avatar */}
+                    <div className="px-5 pt-5 pb-4 border-b border-gray-50">
+                      <div className="flex items-start gap-3">
+                        {/* Avatar with First Letter */}
+                        <div className="flex-shrink-0">
+                          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-gray-600 to-gray-800 flex items-center justify-center shadow-md">
+                            <span className="text-white font-bold text-lg">
+                              {lead.name ? lead.name.charAt(0).toUpperCase() : 'U'}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Lead Info */}
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center justify-between mb-1">
+                            <h3 className="text-base font-semibold text-gray-900 truncate">
+                              {lead?.name || 'Unnamed Lead'}
+                            </h3>
+                            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${lead.status === 'Booked' || lead.status === 'Visited'
+                              ? 'bg-green-50 text-green-700 border border-green-100'
+                              : lead.status === 'Not Interested'
+                                ? 'bg-red-50 text-red-700 border border-red-100'
+                                : 'bg-gray-50 text-gray-700 border border-gray-100'
+                              }`}>
+                              {lead.status || '—'}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-2 text-sm">
+                            <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                            </svg>
+                            <a
+                              href={`tel:${lead.phone}`}
+                              className="text-gray-600 hover:text-blue-600 transition-colors"
+                            >
+                              {lead.phone}
+                            </a>
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold flex-shrink-0 ${lead.status === 'Booked' || lead.status === 'Visited' ? 'bg-green-100 text-green-700' : lead.status === 'Not Interested' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-700'}`}>{lead.status || '—'}</span>
+
+                    {/* Lead Details */}
+                    <div className="px-5 py-4 space-y-3">
+                      {/* Treatment Info */}
+                      {lead.treatments?.length > 0 && (
+                        <div className="flex items-start gap-2">
+                          <svg className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          <div className="flex-1">
+                            <p className="text-xs font-medium text-gray-500 mb-1">Treatment</p>
+                            <div className="flex flex-wrap gap-1">
+                              {lead.treatments.map((t, index) => (
+                                <span
+                                  key={index}
+                                  className="inline-block px-2 py-1 bg-blue-50 text-blue-700 rounded-md text-xs font-medium"
+                                >
+                                  {t.subTreatment ? `${t.subTreatment}` : t.treatment?.name}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Source & Offer */}
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <p className="text-xs font-medium text-gray-500 mb-1">Source</p>
+                          <span className="inline-flex items-center px-2.5 py-1 bg-gray-100 text-gray-800 rounded-lg text-xs font-medium">
+                            {lead.source || '—'}
+                          </span>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-gray-500 mb-1">Offer</p>
+                          <span className="inline-flex items-center px-2.5 py-1 bg-amber-50 text-amber-700 rounded-lg text-xs font-medium border border-amber-100">
+                            {lead.offerTag || '—'}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Notes */}
+                      {lead.notes?.length > 0 && (
+                        <div>
+                          <p className="text-xs font-medium text-gray-500 mb-1">Notes</p>
+                          <p className="text-sm text-gray-700 line-clamp-2">
+                            {lead.notes.map(n => n.text).join(', ')}
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Assigned To */}
+                      {lead.assignedTo?.length > 0 && (
+                        <div className="flex items-center gap-2">
+                          <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                          </svg>
+                          <div>
+                            <p className="text-xs font-medium text-gray-500">Assigned to</p>
+                            <p className="text-sm font-medium text-gray-900">
+                              {lead.assignedTo.map(a => a.user?.name).join(', ')}
+                            </p>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Follow-ups */}
+                      {lead.followUps?.length > 0 && (
+                        <div className="flex items-center gap-2">
+                          <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          <div>
+                            <p className="text-xs font-medium text-gray-500">Next follow-up</p>
+                            <p className="text-sm font-medium text-gray-900">
+                              {new Date(lead.followUps[0].date).toLocaleDateString('en-US', {
+                                weekday: 'short',
+                                month: 'short',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
 
-                  <div className="text-[10px] sm:text-xs text-gray-700 space-y-1">
-                    <p className="truncate"><span className="text-gray-500">Treatment:</span> {lead.treatments?.map((t) => (t.subTreatment ? `${t.subTreatment} (${t.treatment?.name || 'Unknown'})` : t.treatment?.name)).join(', ') || '—'}</p>
-                    <p><span className="text-gray-500">Source:</span> <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-gray-100 text-gray-800 text-[10px]">{lead.source || '—'}</span></p>
-                    <p className="truncate"><span className="text-gray-500">Offer:</span> {lead.offerTag || '—'}</p>
-                    <p className="truncate"><span className="text-gray-500">Notes:</span> {lead.notes?.map((n) => n.text).join(', ') || 'No Notes'}</p>
-                    <p className="truncate"><span className="text-gray-500">Assigned:</span> {lead.assignedTo?.map((a) => a.user?.name).join(', ') || 'Not Assigned'}</p>
-                    <p className="truncate"><span className="text-gray-500">Follow-ups:</span> {lead.followUps?.map((f) => new Date(f.date).toLocaleString()).join(', ') || 'None'}</p>
-                  </div>
+                  {/* Action Buttons */}
+                  <div className="px-5 py-4 border-t border-gray-50 bg-gray-50/50">
+                    <div className="flex justify-end gap-2">
+                      <button
+                        onClick={() => setViewLead(lead)}
+                        className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 hover:border-gray-400 transition-colors shadow-sm"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        </svg>
+                        View
+                      </button>
 
-                  <div className="flex justify-end gap-1.5 pt-1 border-t border-gray-100">
-                    <button
-                      onClick={() => setViewLead(lead)}
-                      className="inline-flex items-center justify-center cursor-pointer bg-white border border-gray-200 text-gray-800 px-2.5 py-1.5 rounded-md text-[10px] sm:text-xs font-medium shadow-sm hover:bg-gray-50 transition-all"
-                    >
-                      View
-                    </button>
-                    {permissions.canAssign && (
-                      <button
-                        onClick={() => setSelectedLead(lead._id)}
-                        className="inline-flex items-center justify-center cursor-pointer bg-gray-800 hover:bg-gray-900 text-white px-2.5 py-1.5 rounded-md text-[10px] sm:text-xs font-medium shadow-sm hover:shadow-md transition-all"
-                      >
-                        ReAssign
-                      </button>
-                    )}
-                    {permissions.canDelete && (
-                      <button
-                        onClick={() => deleteLead(lead._id)}
-                        className="inline-flex items-center justify-center cursor-pointer bg-red-600 hover:bg-red-700 text-white px-2.5 py-1.5 rounded-md text-[10px] sm:text-xs font-medium shadow-sm hover:shadow-md transition-all"
-                      >
-                        Delete
-                      </button>
-                    )}
+                      {permissions.canAssign && (
+                        <button
+                          onClick={() => setSelectedLead(lead._id)}
+                          className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-2 bg-gray-700 text-white rounded-lg text-sm font-medium hover:bg-gray-800 transition-colors shadow-sm"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                          </svg>
+                          Reassign
+                        </button>
+                      )}
+
+                      {permissions.canDelete && (
+                        <button
+                          onClick={() => deleteLead(lead._id)}
+                          className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-2 bg-red-50 text-red-700 border border-red-200 rounded-lg text-sm font-medium hover:bg-red-100 transition-colors"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                          Delete
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))
             ) : (
-              <div className="col-span-full bg-white rounded-lg border border-gray-200 p-6 text-center">
-                <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-2">
-                  <svg className="w-5 h-5 text-gray-800" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="col-span-full bg-white rounded-2xl border-2 border-dashed border-gray-200 p-12 text-center">
+                <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <svg className="w-10 h-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
                 </div>
-                <p className="text-sm text-gray-600">No leads found</p>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">No leads found</h3>
+                <p className="text-gray-600 max-w-sm mx-auto">
+                  Start by adding your first lead or adjust your filters to see more results
+                </p>
               </div>
             )}
           </div>
@@ -439,7 +615,6 @@ function LeadsPage() {
         )}
 
         {/* Pagination */}
-
         {permissions.canRead &&
           totalPages > 1 && (
             <div className="mt-4 flex flex-col gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm text-gray-700 shadow-sm sm:flex-row sm:items-center sm:justify-between">

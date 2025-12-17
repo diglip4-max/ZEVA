@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import * as XLSX from "xlsx";
 import Papa from "papaparse";
+import CustomAsyncSelect, { OptionType } from "./shared/CustomAsyncSelect";
+import { loadSegmentOptions } from "@/lib/helper";
 
 interface Props {
   isOpen: boolean;
@@ -61,6 +63,9 @@ export default function ImportLeadsModal({
   const [noteType, setNoteType] = useState("");
   const [customNote, setCustomNote] = useState("");
   const [followUpDate, setFollowUpDate] = useState("");
+  const [selectedSegment, setSelectedSegment] = useState<OptionType | null>(
+    null
+  );
 
   // Validation state
   const [validationStats, setValidationStats] = useState({
@@ -268,7 +273,7 @@ export default function ImportLeadsModal({
     }
   };
 
-  const processUploadedData = (data: any[], fileName: string) => {
+  const processUploadedData = (data: any[], _fileName: string) => {
     if (!data || data.length === 0) {
       alert("No data found in the file.");
       setLoading(false);
@@ -599,6 +604,7 @@ export default function ImportLeadsModal({
         followUpDate: followUpDate || "",
         assignedTo: additionalData.assignedTo,
         columnMapping: columnMapping, // Send mapping to API
+        segmentId: selectedSegment?.value,
       };
 
       formData.append("data", JSON.stringify(additionalDataToSend));
@@ -1447,6 +1453,17 @@ export default function ImportLeadsModal({
                       ))}
                     </select>
                   </div>
+
+                  <CustomAsyncSelect
+                    label="Segment"
+                    name="chooseSegment"
+                    loadOptions={(inputValue) =>
+                      loadSegmentOptions(inputValue, token)
+                    }
+                    value={selectedSegment}
+                    onChange={(value) => setSelectedSegment(value as any)}
+                    placeholder="Select a segment..."
+                  />
                 </div>
 
                 {/* Import Results (if any) */}

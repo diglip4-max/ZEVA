@@ -11,7 +11,16 @@ export default async function handler(req, res) {
   await dbConnect();
 
   const me = await getUserFromReq(req);
-  if (!requireRole(me, ["clinic", "agent", "admin", "doctor", "doctorStaff", "staff"])) {
+  if (
+    !requireRole(me, [
+      "clinic",
+      "agent",
+      "admin",
+      "doctor",
+      "doctorStaff",
+      "staff",
+    ])
+  ) {
     return res.status(403).json({ success: false, message: "Access denied" });
   }
 
@@ -37,7 +46,9 @@ export default async function handler(req, res) {
   } else if (me.role === "doctorStaff" || me.role === "staff") {
     // DoctorStaff/Staff uses their clinicId if they have one
     if (!me.clinicId) {
-      return res.status(403).json({ success: false, message: "Staff not linked to any clinic" });
+      return res
+        .status(403)
+        .json({ success: false, message: "Staff not linked to any clinic" });
     }
     clinic = await Clinic.findById(me.clinicId);
   } else if (me.role === "admin") {
@@ -132,6 +143,7 @@ export default async function handler(req, res) {
         endDate,
         page: pageQuery,
         limit: limitQuery,
+        segmentId,
       } = req.query;
 
       const filter = { clinicId: clinic._id };
@@ -146,6 +158,10 @@ export default async function handler(req, res) {
           $gte: new Date(startDate),
           $lte: new Date(endDate),
         };
+      }
+      if (segmentId) {
+        filter.segments = { $in: [segmentId] };
+        // This finds leads where segments array contains the segmentId
       }
 
       // Pagination defaults & sanitization
