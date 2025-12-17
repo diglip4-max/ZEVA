@@ -138,6 +138,7 @@ export default async function handler(req, res) {
       followUpDate = "",
       assignedTo = [],
       columnMapping = {}, // Get column mapping from frontend
+      segmentId,
     } = body;
 
     if (!req.file) {
@@ -521,6 +522,7 @@ export default async function handler(req, res) {
           notes: notesArray,
           followUps: followUpsArray,
           assignedTo: assignedArray,
+          segments: segmentId ? [segmentId] : [],
         };
 
         leadsToInsert.push(lead);
@@ -580,6 +582,7 @@ export default async function handler(req, res) {
     // add import leads job to queue for background processing
     await importLeadsFromFileQueue.add("import-leads", {
       leadsToInsert,
+      segmentId,
     });
 
     // Combine all failed records
