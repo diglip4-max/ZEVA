@@ -1,7 +1,6 @@
 'use client';
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import toast from 'react-hot-toast';
 
 interface SubModule {
   name: string;
@@ -241,11 +240,14 @@ const AgentPermissionModal: React.FC<AgentPermissionModalProps> = ({
         }
 
         setNavigationItems(items);
-        // Auto-expand modules with sub-modules
-        const modulesWithSubModules = items.filter((item: NavigationItem) =>
-          item.subModules && item.subModules.length > 0
-        );
-        setExpandedModules(new Set(modulesWithSubModules.map((item: NavigationItem) => item.moduleKey)));
+        // ISSUE FIXED: Removed auto-expansion of modules with submodules
+        // Previously, all modules with submodules were automatically expanded on load
+        // Now modules will only expand when user clicks on them
+        // The removed code was:
+        // const modulesWithSubModules = items.filter((item: NavigationItem) =>
+        //   item.subModules && item.subModules.length > 0
+        // );
+        // setExpandedModules(new Set(modulesWithSubModules.map((item: NavigationItem) => item.moduleKey)));
       }
     } catch (err) {
       console.error('Error fetching navigation items:', err);

@@ -22,13 +22,15 @@ export default async function handler(req, res) {
 
     const { search } = req.query;
 
-    if (!search || search.trim().length < 2) {
+    // Allow single character search for better UX
+    if (!search || search.trim().length < 1) {
       return res.status(200).json({ success: true, patients: [] });
     }
 
     const searchTerm = search.trim();
 
-    // Search by firstName, lastName, mobileNumber, or email
+    // Search by firstName, lastName, mobileNumber, email, or EMR number
+    // Using case-insensitive regex for partial matching
     const patients = await PatientRegistration.find({
       $or: [
         { firstName: { $regex: searchTerm, $options: "i" } },
@@ -36,10 +38,12 @@ export default async function handler(req, res) {
         { mobileNumber: { $regex: searchTerm, $options: "i" } },
         { email: { $regex: searchTerm, $options: "i" } },
         { emrNumber: { $regex: searchTerm, $options: "i" } },
+        // Also search in full name combination
+        { $expr: { $regexMatch: { input: { $concat: ["$firstName", " ", "$lastName"] }, regex: searchTerm, options: "i" } } },
       ],
     })
       .select("_id firstName lastName mobileNumber email emrNumber gender")
-      .limit(20)
+      .limit(30) // Increased limit for better results
       .sort({ createdAt: -1 })
       .lean();
 

@@ -3,7 +3,12 @@ import mongoose from "mongoose";
 
 const LeadSchema = new mongoose.Schema(
   {
-    clinicId: { type: mongoose.Schema.Types.ObjectId,  ref: "Clinic",  required: true, index: true }, // ✅ Clinic that owns this lead
+    clinicId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Clinic",
+      required: true,
+      index: true,
+    }, // ✅ Clinic that owns this lead
 
     name: { type: String, required: true },
     phone: { type: String, required: true, index: true },
@@ -12,7 +17,11 @@ const LeadSchema = new mongoose.Schema(
 
     treatments: [
       {
-        treatment: { type: mongoose.Schema.Types.ObjectId, ref: "Treatment", required: true },
+        treatment: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Treatment",
+          required: true,
+        },
         subTreatment: { type: String },
       },
     ],
@@ -29,7 +38,15 @@ const LeadSchema = new mongoose.Schema(
 
     status: {
       type: String,
-      enum: ["New", "Contacted", "Booked", "Visited", "Follow-up", "Not Interested", "Other"],
+      enum: [
+        "New",
+        "Contacted",
+        "Booked",
+        "Visited",
+        "Follow-up",
+        "Not Interested",
+        "Other",
+      ],
       default: "New",
       index: true,
     },
@@ -38,24 +55,40 @@ const LeadSchema = new mongoose.Schema(
     notes: [
       {
         text: { type: String, required: true },
-        addedBy: { type: mongoose.Schema.Types.ObjectId, ref: "Clinic", required: true },
+        addedBy: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Clinic",
+          required: true,
+        },
         createdAt: { type: Date, default: Date.now },
       },
     ],
 
     assignedTo: [
       {
-        user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+        user: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "User",
+          required: true,
+        },
         assignedAt: { type: Date, default: Date.now },
       },
     ],
 
     followUps: [{ date: { type: Date } }],
     nextFollowUps: [{ date: { type: Date } }],
+
+    // segments
+    segments: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Segment",
+      },
+    ],
   },
   { timestamps: true }
 );
 
-delete mongoose.models.Lead; 
+delete mongoose.models.Lead;
 
 export default mongoose.models.Lead || mongoose.model("Lead", LeadSchema);

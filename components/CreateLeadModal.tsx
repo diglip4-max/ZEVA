@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
+import CustomAsyncSelect, { OptionType } from "./shared/CustomAsyncSelect";
+import { loadSegmentOptions } from "@/lib/helper";
 
 interface Props {
   isOpen: boolean;
@@ -38,6 +40,9 @@ export default function CreateLeadModal({
   const [customNote, setCustomNote] = useState("");
   const [followUpDate, setFollowUpDate] = useState("");
   const [canCreate, setCanCreate] = useState(false);
+  const [selectedSegment, setSelectedSegment] = useState<OptionType | null>(
+    null
+  );
 
   useEffect(() => {
     if (!isOpen) return;
@@ -204,6 +209,7 @@ export default function CreateLeadModal({
           notes: notesToSend,
           followUps: followUpsToSend,
           mode: "manual",
+          segmentId: selectedSegment?.value,
         },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -570,6 +576,17 @@ export default function CreateLeadModal({
                   ))}
                 </select>
               </div>
+
+              <CustomAsyncSelect
+                label="Segment"
+                name="chooseSegment"
+                loadOptions={(inputValue) =>
+                  loadSegmentOptions(inputValue, token)
+                }
+                value={selectedSegment}
+                onChange={(value) => setSelectedSegment(value as any)}
+                placeholder="Select a segment..."
+              />
             </div>
           </div>
 

@@ -40,51 +40,6 @@ interface DoctorSidebarProps {
   handleItemClick: () => void;
 }
 
-const navigationItems: NavItem[] = [
-  {
-    label: "Manage Profile",
-    path: "/doctor/manageDoctor",
-    icon: "👤",
-    description: "Manage Profile",
-  },
-  {
-    label: "All users Review",
-    path: "/doctor/getReview",
-    icon: "📅",
-    description: "See All Users Reviews",
-  },
-  {
-    label: "Write Article",
-    path: "/doctor/BlogForm",
-    icon: "📝",
-    description: "Blog Management",
-  },
-  {
-    label: "Post Job",
-    path: "/doctor/create-job",
-    icon: "📢",
-    description: "Job Management",
-  },
-  {
-    label: "Prescription Requests",
-    path: "/doctor/prescription-requests",
-    icon: "📋",
-    description: "View all prescription requests",
-  },
-  {
-    label: "Create Offers",
-    path: "/doctor/create-offer",
-    icon: "🤑",
-    description: "Manage promotional offers",
-  },
-  {
-    label: "Create Agent",
-    path: "/doctor/create-agent",
-    icon: "👤",
-    description: "Create agent account",
-  },
-];
-
 const DoctorSidebar: FC<DoctorSidebarProps> = ({
   isDesktopHidden,
   isMobileOpen,

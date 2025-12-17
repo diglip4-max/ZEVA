@@ -120,12 +120,16 @@ const ClinicPermissionManagerNew: React.FC<ClinicPermissionManagerProps> = ({
     permissions.map(sanitizeModulePermission)
   );
 
-  useEffect(() => {
-    const autoExpanded = navigationItems
-      .filter((item) => item.subModules?.length)
-      .map((item) => item.moduleKey);
-    setExpandedModules(new Set(autoExpanded));
-  }, [navigationItems]);
+  // ISSUE FIXED: Removed auto-expansion of modules with submodules
+  // Previously, all modules with submodules were automatically expanded on load
+  // Now modules will only expand when user clicks on them
+  // The removed code was:
+  // useEffect(() => {
+  //   const autoExpanded = navigationItems
+  //     .filter((item) => item.subModules?.length)
+  //     .map((item) => item.moduleKey);
+  //   setExpandedModules(new Set(autoExpanded));
+  // }, [navigationItems]);
 
   useEffect(() => {
     const sanitized = permissions.map(sanitizeModulePermission);

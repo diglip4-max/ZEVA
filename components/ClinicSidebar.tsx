@@ -20,8 +20,6 @@ import {
   Stethoscope,
   Building2,
   UserCircle,
-  ChevronRight,
-  X,
   Menu,
   Inbox,
   UserPlus,
@@ -74,7 +72,6 @@ import {
   Edit,
   Trash2,
   Save,
-  Check,
   XCircle,
   AlertCircle,
   Info,
@@ -89,11 +86,9 @@ import {
   ShoppingCart,
   Tag,
   Percent,
-  FolderOpen,
   Archive,
   HardDrive,
   Globe2,
-  MapPin,
 } from "lucide-react";
 
 interface NavItemChild {
@@ -201,7 +196,6 @@ const iconMap: { [key: string]: React.ReactNode } = {
   '✍️': <PenTool className="w-4 h-4" />,
   'documents': <FileText className="w-4 h-4" />,
   'files': <File className="w-4 h-4" />,
-  'reports': <FileText className="w-4 h-4" />,
   'records': <ClipboardCheck className="w-4 h-4" />,
   'prescriptions': <FileText className="w-4 h-4" />,
   'notes': <FileEdit className="w-4 h-4" />,
@@ -351,7 +345,6 @@ const iconMap: { [key: string]: React.ReactNode } = {
   'opportunities': <Zap className="w-4 h-4" />,
   
   // Analytics & Reports
-  'analytics': <BarChart3 className="w-4 h-4" />,
   'statistics': <BarChart3 className="w-4 h-4" />,
   'charts': <BarChart3 className="w-4 h-4" />,
   'insights': <TrendingUp className="w-4 h-4" />,
@@ -364,7 +357,6 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({ className }) => {
   const router = useRouter();
   const [isDesktopHidden, setIsDesktopHidden] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
-  const [hoveredItem, setHoveredItem] = useState<string | null>(null);
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const [selectedItem, setSelectedItem] = useState<string | null>(null);
   const [items, setItems] = useState<NavItem[]>([]);
@@ -547,12 +539,6 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({ className }) => {
     setIsMobileOpen(false);
   };
 
-  const handleRegularItemClick = (label: string) => {
-    setIsMobileOpen(false);
-    setOpenDropdown(null); // Close dropdown when regular items are clicked
-    setSelectedItem(label); // Mark this item as selected
-  };
-
   // Avoid click firing after drag
   const safeClick = (handler?: () => void) => (e: React.MouseEvent) => {
     if (isDraggingRef.current) {
@@ -710,7 +696,6 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({ className }) => {
                 const isActive = selectedItem 
                   ? selectedItem === item.label 
                   : router.pathname === item.path;
-                const isHovered = hoveredItem === item.path;
 
                 // If item has children => Dropdown
                 if (item.children) {
@@ -799,8 +784,6 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({ className }) => {
                                       "hover:bg-gray-50 text-gray-700": !childActive,
                                     }
                                   )}
-                                  onMouseEnter={() => setHoveredItem(child.path!)}
-                                  onMouseLeave={() => setHoveredItem(null)}
                                   onClick={safeClick(() => {
                                     setSelectedItem(child.label);
                                   })}

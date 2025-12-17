@@ -21,8 +21,12 @@ import {
   Clock,
   AlertCircle,
   RefreshCw,
+  BookOpen,
+  FileText,
 } from "lucide-react";
 import parse from "html-react-parser";
+import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
+import axios from "axios";
 
 type CommentReply = {
   _id: string;
@@ -696,6 +700,7 @@ const BlogAnalytics: React.FC<Props> = ({
 }) => {
   const [blogs, setBlogs] = useState<Blog[]>([]);
   const [filteredBlogs, setFilteredBlogs] = useState<Blog[]>([]);
+  const [drafts, setDrafts] = useState<any[]>([]);
   // const [selectedBlog, setSelectedBlog] = useState<Blog | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -713,6 +718,7 @@ const BlogAnalytics: React.FC<Props> = ({
   const [detailsBlog, setDetailsBlog] = useState<Blog | null>(null);
   const [, setDetailsLoading] = useState(false);
   const blogsPerPage = 12;
+  const PRIMARY_COLOR = "#2D9AA5";
 
   const fetchBlogs = useCallback(async () => {
     // Don't fetch if no read permission
@@ -731,19 +737,33 @@ const BlogAnalytics: React.FC<Props> = ({
     }
 
     try {
-      const res = await fetch("/api/blog/getAuthorCommentsAndLikes", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await res.json();
+      const [blogsRes, draftsRes] = await Promise.all([
+        fetch("/api/blog/getAuthorCommentsAndLikes", {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        axios.get("/api/blog/draft", {
+          headers: { Authorization: `Bearer ${token}` },
+          validateStatus: (status) => status === 200 || status === 403,
+        }),
+      ]);
 
-      if (!data.success) {
-        if (res.status === 403) {
+      const blogsData = await blogsRes.json();
+
+      if (!blogsData.success) {
+        if (blogsRes.status === 403) {
           setBlogs([]);
-          return;
+        } else {
+          setError(blogsData.error || "Failed to fetch blogs");
         }
-        setError(data.error || "Failed to fetch blogs");
       } else {
-        setBlogs(data.blogs);
+        setBlogs(blogsData.blogs);
+      }
+
+      // Handle drafts
+      if (draftsRes.status === 403) {
+        setDrafts([]);
+      } else {
+        setDrafts(draftsRes.data?.drafts || draftsRes.data || []);
       }
     } catch {
       setError("Network error while fetching blogs");
@@ -994,6 +1014,11 @@ const BlogAnalytics: React.FC<Props> = ({
     blogs.length > 0 ? (totalLikes + totalComments) / blogs.length : 0;
   const avgEngagement = avgEngagementNumber.toFixed(1);
 
+  const chartData = [
+    { name: 'Published', value: blogs.length, color: PRIMARY_COLOR },
+    { name: 'Drafts', value: drafts.length, color: '#6B7280' }
+  ];
+
   const indexOfLastBlog = currentPage * blogsPerPage;
   const indexOfFirstBlog = indexOfLastBlog - blogsPerPage;
   const currentBlogs = filteredBlogs.slice(indexOfFirstBlog, indexOfLastBlog);
@@ -1153,6 +1178,61 @@ const BlogAnalytics: React.FC<Props> = ({
             // trend="+5% from last month"
             trendUp={true}
           />
+        </div>
+
+        {/* Blog Statistics Chart */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+          <div className="lg:col-span-1">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Blog Statistics</h3>
+              <div className="h-48">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={chartData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={40}
+                      outerRadius={70}
+                      dataKey="value"
+                    >
+                      {chartData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          </div>
+
+          <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-6">
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+              <div className="flex items-center gap-3">
+                <div className="p-3 rounded-lg" style={{ backgroundColor: `${PRIMARY_COLOR}20` }}>
+                  <BookOpen className="w-6 h-6" style={{ color: PRIMARY_COLOR }} />
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">Published Blogs</p>
+                  <p className="text-3xl font-bold text-gray-900">{blogs.length}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-gray-100 rounded-lg">
+                  <FileText className="w-6 h-6 text-gray-600" />
+                </div>
+                <div>
+                  <p className="text-sm text-gray-600">Draft Blogs</p>
+                  <p className="text-3xl font-bold text-gray-900">{drafts.length}</p>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Engagement Chart */}

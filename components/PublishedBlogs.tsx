@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useMemo, useCallback } from "react";
 import axios from "axios";
 import { Search, Edit2, ExternalLink, Trash2, FileText, BookOpen, ChevronLeft, ChevronRight, X, Edit3, Link, Save, AlertCircle } from "lucide-react";
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
 import SocialMediaShare from "./SocialMediaShare";
 
 type Blog = {
@@ -20,6 +19,7 @@ interface PublishedBlogsProps {
     canUpdate?: boolean;
     canDelete?: boolean;
   };
+  onEditBlog?: (blogId: string, type: 'published' | 'drafts') => void;
 }
 
 const ITEMS_PER_PAGE = 10;
@@ -31,7 +31,8 @@ const PublishedBlogs: React.FC<PublishedBlogsProps> = ({
     canRead: true,
     canUpdate: true,
     canDelete: true,
-  }
+  },
+  onEditBlog
 }) => {
   const [drafts, setDrafts] = useState<Blog[]>([]);
   const [published, setPublished] = useState<Blog[]>([]);
@@ -127,11 +128,6 @@ const PublishedBlogs: React.FC<PublishedBlogsProps> = ({
       drafts: paginate(filteredBlogs.drafts, draftsPage)
     };
   }, [filteredBlogs, publishedPage, draftsPage]);
-
-  const chartData = [
-    { name: 'Published', value: published.length, color: PRIMARY_COLOR },
-    { name: 'Drafts', value: drafts.length, color: '#6B7280' }
-  ];
 
   const slugify = (text: string) =>
     text
@@ -299,9 +295,14 @@ const PublishedBlogs: React.FC<PublishedBlogsProps> = ({
           {permissions.canUpdate && (
             <button
               onClick={() => {
-                const path = `/${tokenKey === "clinicToken" ? "clinic" : "doctor"}/BlogForm`;
-                const param = type === 'published' ? `blogId=${blog._id}` : `draftId=${blog._id}`;
-                window.location.href = `${path}?${param}`;
+                if (onEditBlog) {
+                  onEditBlog(blog._id, type);
+                } else {
+                  // Fallback to old behavior if callback not provided
+                  const path = `/${tokenKey === "clinicToken" ? "clinic" : "doctor"}/BlogForm`;
+                  const param = type === 'published' ? `blogId=${blog._id}` : `draftId=${blog._id}`;
+                  window.location.href = `${path}?${param}`;
+                }
               }}
               className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
             >
@@ -386,61 +387,6 @@ const PublishedBlogs: React.FC<PublishedBlogsProps> = ({
     <div className="w-full">
       <div className="max-w-7xl mx-auto">
         {/* Removed duplicate header - already in parent BlogForm page */}
-
-        {/* Stats and Chart */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-          <div className="lg:col-span-1">
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Blog Statistics</h3>
-              <div className="h-48">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={chartData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={40}
-                      outerRadius={70}
-                      dataKey="value"
-                    >
-                      {chartData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                    <Legend />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-          </div>
-
-          <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-6">
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-              <div className="flex items-center gap-3">
-                <div className="p-3 rounded-lg" style={{ backgroundColor: `${PRIMARY_COLOR}20` }}>
-                  <BookOpen className="w-6 h-6" style={{ color: PRIMARY_COLOR }} />
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Published Blogs</p>
-                  <p className="text-3xl font-bold text-gray-900">{published.length}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-              <div className="flex items-center gap-3">
-                <div className="p-3 bg-gray-100 rounded-lg">
-                  <FileText className="w-6 h-6 text-gray-600" />
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Draft Blogs</p>
-                  <p className="text-3xl font-bold text-gray-900">{drafts.length}</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
 
         {/* Search Bar */}
         <div className="mb-6">
