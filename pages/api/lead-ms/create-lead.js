@@ -9,6 +9,7 @@ import { getUserFromReq, requireRole } from "./auth";
 import csv from "csvtojson";
 import multer from "multer";
 import * as XLSX from "xlsx";
+import Segment from "../../../models/Segment";
 
 // Multer setup
 const upload = multer({ storage: multer.memoryStorage() });
@@ -56,17 +57,23 @@ export default async function handler(req, res) {
   if (me.role === "clinic") {
     const clinic = await Clinic.findOne({ owner: me._id });
     if (!clinic) {
-      return res.status(400).json({ success: false, message: "Clinic not found for this user" });
+      return res
+        .status(400)
+        .json({ success: false, message: "Clinic not found for this user" });
     }
     clinicId = clinic._id;
   } else if (me.role === "agent") {
     if (!me.clinicId) {
-      return res.status(400).json({ success: false, message: "Agent not tied to a clinic" });
+      return res
+        .status(400)
+        .json({ success: false, message: "Agent not tied to a clinic" });
     }
     clinicId = me.clinicId;
   } else if (me.role === "doctor") {
     if (!me.clinicId) {
-      return res.status(400).json({ success: false, message: "Doctor not tied to a clinic" });
+      return res
+        .status(400)
+        .json({ success: false, message: "Doctor not tied to a clinic" });
     }
     clinicId = me.clinicId;
   }
@@ -75,35 +82,39 @@ export default async function handler(req, res) {
   if (me.role !== "admin" && clinicId) {
     // Check if clinic has create permission for "create_lead" module (not submodule)
     const { checkClinicPermission } = await import("./permissions-helper");
-    const { hasPermission: clinicHasPermission, error: clinicError } = await checkClinicPermission(
-      clinicId,
-      "create_lead", // Check "create_lead" module permission
-      "create",
-      null, // No submodule - this is a module-level check
-      me.role === "doctor" ? "doctor" : me.role === "clinic" ? "clinic" : null
-    );
+    const { hasPermission: clinicHasPermission, error: clinicError } =
+      await checkClinicPermission(
+        clinicId,
+        "create_lead", // Check "create_lead" module permission
+        "create",
+        null, // No submodule - this is a module-level check
+        me.role === "doctor" ? "doctor" : me.role === "clinic" ? "clinic" : null
+      );
 
     if (!clinicHasPermission) {
       return res.status(403).json({
         success: false,
-        message: clinicError || "You do not have permission to create leads"
+        message: clinicError || "You do not have permission to create leads",
       });
     }
 
     // If user is an agent, also check agent-specific permissions
     if (me.role === "agent") {
-      const { checkAgentPermission } = await import("../agent/permissions-helper");
-      const { hasPermission: agentHasPermission, error: agentError } = await checkAgentPermission(
-        me._id,
-        "create_lead", // Check "create_lead" module permission
-        "create",
-        null // No submodule
+      const { checkAgentPermission } = await import(
+        "../agent/permissions-helper"
       );
+      const { hasPermission: agentHasPermission, error: agentError } =
+        await checkAgentPermission(
+          me._id,
+          "create_lead", // Check "create_lead" module permission
+          "create",
+          null // No submodule
+        );
 
       if (!agentHasPermission) {
         return res.status(403).json({
           success: false,
-          message: agentError || "You do not have permission to create leads"
+          message: agentError || "You do not have permission to create leads",
         });
       }
     }
@@ -128,6 +139,7 @@ export default async function handler(req, res) {
         notes,
         followUps,
         assignedTo,
+        segmentId,
       } = body;
 
       if (!name || !phone || !gender || !source || !treatments?.length) {
@@ -163,7 +175,7 @@ export default async function handler(req, res) {
       );
 
       const followUpsArray = Array.isArray(followUps)
-        ? followUps.map(f => ({ date: new Date(f.date), addedBy: me._id }))
+        ? followUps.map((f) => ({ date: new Date(f.date), addedBy: me._id }))
         : [];
 
       const notesArray = Array.isArray(notes)
@@ -216,6 +228,13 @@ export default async function handler(req, res) {
         notes: notesArray,
         followUps: followUpsArray,
         assignedTo: assignedArray,
+        segments: segmentId ? [segmentId] : [],
+      });
+
+      await Segment.findByIdAndUpdate(segmentId, {
+        $addToSet: {
+          leads: lead._id,
+        },
       });
 
       return res.status(201).json({ success: true, lead });
@@ -297,7 +316,8 @@ export default async function handler(req, res) {
                 });
               }
 
-              if (!tDoc) throw new Error(`Treatment not found: ${treatmentName}`);
+              if (!tDoc)
+                throw new Error(`Treatment not found: ${treatmentName}`);
 
               if (subTreatment) {
                 const exists = tDoc.subcategories?.some(
@@ -321,7 +341,10 @@ export default async function handler(req, res) {
           if (assignedTo) {
             const rawAssigned = Array.isArray(assignedTo)
               ? assignedTo
-              : assignedTo.toString().split(",").map((a) => a.trim());
+              : assignedTo
+                  .toString()
+                  .split(",")
+                  .map((a) => a.trim());
 
             assignedArray = await Promise.all(
               rawAssigned.map(async (val) => {
@@ -373,8 +396,9 @@ export default async function handler(req, res) {
     return res.status(400).json({ success: false, message: "Invalid mode" });
   } catch (err) {
     console.error("Error creating/uploading leads:", err);
-    return res
-      .status(500)
-      .json({ success: false, message: err.message || "Internal Server Error" });
+    return res.status(500).json({
+      success: false,
+      message: err.message || "Internal Server Error",
+    });
   }
 }

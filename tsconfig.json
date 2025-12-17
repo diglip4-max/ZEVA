@@ -38,6 +38,6 @@
     "components/Index1.jsx",
     "components/Footer.jsx",
     "components/CalculatorGames.jsx"
-  ],
+, "pages/lead/segments.jsx"  ],
   "exclude": ["node_modules"]
 }
