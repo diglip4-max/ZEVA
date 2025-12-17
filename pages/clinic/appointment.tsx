@@ -1618,7 +1618,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
   };
 
   return (
-    <div className="p-3 sm:p-4 lg:p-5 space-y-3 sm:space-y-4 lg:space-y-5">
+    <div className="p-1 sm:p-2 md:p-3 space-y-2 sm:space-y-3">
       <Toaster
         position="top-right"
         toastOptions={{
@@ -1652,7 +1652,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
           },
         }}
       />
-      <div className="bg-white dark:bg-gray-50 rounded-lg border border-gray-200 dark:border-gray-200 shadow-sm p-2 sm:p-3">
+      <div className="bg-white dark:bg-gray-50 rounded-lg border border-gray-200 dark:border-gray-200 shadow-sm p-1.5 sm:p-2">
         <div className="flex flex-col gap-2 mb-2">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2">
             <div>
@@ -1696,8 +1696,8 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                   Next
                 </button>
               </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-700 dark:text-gray-800 mb-0.5">Date</label>
+              <div className="flex items-center gap-1.5">
+                <label className="text-xs font-medium text-gray-700 dark:text-gray-800 whitespace-nowrap">Date:</label>
                 <input
                   type="date"
                   value={selectedDate}
@@ -1959,26 +1959,27 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
         ) : (
           <div className="border border-gray-200 dark:border-gray-300 rounded overflow-hidden bg-white dark:bg-gray-50">
             {/* Scrollable container */}
-            <div className="overflow-x-auto max-h-[75vh] overflow-y-auto">
+            <div className="overflow-x-auto max-h-[75vh] overflow-y-auto relative">
             {/* Header with doctor names and rooms */}
-              <div className="flex bg-gray-50 dark:bg-gray-200 border-b border-gray-200 dark:border-gray-300 sticky top-0 z-20 min-w-max">
-                <div className="w-20 sm:w-24 flex-shrink-0 border-r border-gray-200 dark:border-gray-300 p-1 sm:p-1.5 bg-white dark:bg-gray-50 sticky left-0 z-30">
-                  <div className="flex items-center gap-1 text-[10px] sm:text-xs font-semibold text-gray-900 dark:text-gray-900">
-                    <Clock className="w-3 h-3" />
+              <div className="flex bg-gray-50 dark:bg-gray-200 border-b border-gray-200 dark:border-gray-300 sticky top-0 z-20">
+                <div className="w-16 sm:w-18 flex-shrink-0 border-r border-gray-200 dark:border-gray-300 p-1 bg-white dark:bg-gray-50 sticky left-0 z-30">
+                  <div className="flex items-center gap-0.5 text-[8px] sm:text-[9px] font-semibold text-gray-900 dark:text-gray-900">
+                    <Clock className="w-2.5 h-2.5" />
                   <span>Time</span>
                 </div>
               </div>
               {/* Unified columns (doctors and rooms in order) */}
-                {orderedColumns.map((column) => {
+                {orderedColumns.map((column, index) => {
                   const columnKey = column.type === "doctor" ? `doctor:${column.data._id}` : `room:${column.data._id}`;
                   const isDragged = draggedColumnId === columnKey;
+                  const isLast = index === orderedColumns.length - 1;
                   
                   if (column.type === "doctor") {
                     const doctor = column.data;
                     return (
                       <div
                         key={columnKey}
-                        className={`flex-1 min-w-[120px] sm:min-w-[140px] border-r border-gray-200 dark:border-gray-300 p-1 sm:p-1.5 relative bg-white dark:bg-gray-50 transition-all ${
+                        className={`flex-1 min-w-[90px] sm:min-w-[100px] ${isLast ? '' : 'border-r'} border-gray-200 dark:border-gray-300 p-1 relative bg-white dark:bg-gray-50 transition-all ${
                           isDragged ? "opacity-50" : ""
                         } ${draggedColumnId ? "cursor-move" : ""}`}
                         draggable={permissions.canUpdate}
@@ -2005,28 +2006,28 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                 >
                     {/* ✅ Only show doctor name if user has read permission */}
                     {permissions.canRead ? (
-                      <div className="flex items-center gap-1.5">
-                        <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-blue-50 dark:bg-blue-100 border border-blue-200 dark:border-blue-300 flex items-center justify-center text-blue-700 dark:text-blue-800 font-semibold text-[10px] sm:text-xs flex-shrink-0">
+                      <div className="flex items-center gap-1">
+                        <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-blue-50 dark:bg-blue-100 border border-blue-200 dark:border-blue-300 flex items-center justify-center text-blue-700 dark:text-blue-800 font-semibold text-[8px] sm:text-[9px] flex-shrink-0">
                           {getInitials(doctor.name)}
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className="text-[10px] sm:text-xs font-semibold text-gray-900 dark:text-gray-900 truncate">{doctor.name}</p>
+                          <p className="text-[8px] sm:text-[9px] font-semibold text-gray-900 dark:text-gray-900 truncate">{doctor.name}</p>
                         </div>
                         {permissions.canUpdate && (
                           <div className="flex-shrink-0 cursor-grab active:cursor-grabbing opacity-40 hover:opacity-70 transition-opacity" title="Drag to reorder">
-                            <svg className="w-3 h-3 sm:w-4 sm:h-4 text-gray-500 dark:text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-gray-500 dark:text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
                             </svg>
                           </div>
                         )}
                       </div>
                     ) : (
-                      <div className="flex items-center gap-1.5">
-                        <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-gray-100 dark:bg-gray-200 flex items-center justify-center text-gray-400 dark:text-gray-600 font-semibold text-[10px] sm:text-xs flex-shrink-0">
+                      <div className="flex items-center gap-1">
+                        <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-gray-100 dark:bg-gray-200 flex items-center justify-center text-gray-400 dark:text-gray-600 font-semibold text-[8px] sm:text-[9px] flex-shrink-0">
                           ?
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className="text-[10px] sm:text-xs font-semibold text-gray-500 dark:text-gray-500 truncate">Hidden</p>
+                          <p className="text-[8px] sm:text-[9px] font-semibold text-gray-500 dark:text-gray-500 truncate">Hidden</p>
                         </div>
                       </div>
                     )}
@@ -2037,7 +2038,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                     return (
                       <div
                         key={columnKey}
-                        className={`flex-1 min-w-[120px] sm:min-w-[140px] border-r border-gray-200 dark:border-gray-300 last:border-r-0 p-1 sm:p-1.5 bg-white dark:bg-gray-50 transition-all room-column ${
+                        className={`flex-1 min-w-[90px] sm:min-w-[100px] ${isLast ? '' : 'border-r'} border-gray-200 dark:border-gray-300 p-1 bg-white dark:bg-gray-50 transition-all room-column ${
                           isDragged ? "opacity-50" : ""
                         } ${draggedColumnId ? "cursor-move" : ""}`}
                         draggable={permissions.canUpdate}
@@ -2062,28 +2063,28 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                 >
                     {/* ✅ Only show room name if user has read permission */}
                     {permissions.canRead ? (
-                      <div className="flex items-center gap-1.5">
-                        <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-emerald-50 dark:bg-emerald-100 border border-emerald-200 dark:border-emerald-300 flex items-center justify-center text-emerald-700 dark:text-emerald-800 font-semibold text-[10px] sm:text-xs flex-shrink-0">
+                      <div className="flex items-center gap-1">
+                        <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-emerald-50 dark:bg-emerald-100 border border-emerald-200 dark:border-emerald-300 flex items-center justify-center text-emerald-700 dark:text-emerald-800 font-semibold text-[8px] sm:text-[9px] flex-shrink-0">
                           🏥
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className="text-[10px] sm:text-xs font-semibold text-gray-900 dark:text-gray-900 truncate">{room.name}</p>
+                          <p className="text-[8px] sm:text-[9px] font-semibold text-gray-900 dark:text-gray-900 truncate">{room.name}</p>
                         </div>
                         {permissions.canUpdate && (
                           <div className="flex-shrink-0 cursor-grab active:cursor-grabbing opacity-40 hover:opacity-70 transition-opacity" title="Drag to reorder">
-                            <svg className="w-3 h-3 sm:w-4 sm:h-4 text-gray-500 dark:text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-gray-500 dark:text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
                             </svg>
                           </div>
                         )}
                       </div>
                     ) : (
-                      <div className="flex items-center gap-1.5">
-                        <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-gray-100 dark:bg-gray-200 flex items-center justify-center text-gray-400 dark:text-gray-600 font-semibold text-[10px] sm:text-xs flex-shrink-0">
+                      <div className="flex items-center gap-1">
+                        <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-gray-100 dark:bg-gray-200 flex items-center justify-center text-gray-400 dark:text-gray-600 font-semibold text-[8px] sm:text-[9px] flex-shrink-0">
                           ?
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className="text-[10px] sm:text-xs font-semibold text-gray-500 dark:text-gray-500 truncate">Hidden</p>
+                          <p className="text-[8px] sm:text-[9px] font-semibold text-gray-500 dark:text-gray-500 truncate">Hidden</p>
                         </div>
                       </div>
                     )}
@@ -2101,15 +2102,16 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                   <div key={slot.time} className="flex border-b border-gray-100 dark:border-gray-300 hover:bg-gray-50/50 dark:hover:bg-gray-100/50 transition-colors min-w-max">
                     {/* Time column */}
                     <div
-                      className="w-20 sm:w-24 flex-shrink-0 border-r border-gray-200 dark:border-gray-300 p-1 sm:p-1.5 bg-white dark:bg-gray-50 relative sticky left-0 z-10"
+                      className="w-16 sm:w-18 flex-shrink-0 border-r border-gray-200 dark:border-gray-300 p-1 bg-white dark:bg-gray-50 relative sticky left-0 z-10"
                       style={{ height: ROW_HEIGHT_PX }}
                     >
-                      <p className="text-[10px] sm:text-xs font-semibold text-gray-900 dark:text-gray-900">{slot.displayTime}</p>
+                      <p className="text-[8px] sm:text-[9px] font-semibold text-gray-900 dark:text-gray-900">{slot.displayTime}</p>
                       <div className="absolute left-0 right-0 top-1/2 border-t border-gray-200 dark:border-gray-300" />
                     </div>
 
                     {/* Unified columns (doctors and rooms in order) */}
-                          {orderedColumns.map((column) => {
+                          {orderedColumns.map((column, colIndex) => {
+                      const isLastColumn = colIndex === orderedColumns.length - 1;
                       if (column.type === "doctor") {
                         const doctor = column.data;
                       const rowAppointments = getAppointmentsForRow(doctor._id, slot.time);
@@ -2120,7 +2122,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                       return (
                         <div
                             key={`${slot.time}-doctor-${doctor._id}`}
-                          className={`flex-1 min-w-[120px] sm:min-w-[140px] border-r border-gray-200 dark:border-gray-300 relative bg-white dark:bg-gray-50 transition-colors ${isDragOver ? "bg-blue-50 dark:bg-blue-100 border-blue-300 dark:border-blue-400" : ""}`}
+                          className={`flex-1 min-w-[90px] sm:min-w-[100px] ${isLastColumn ? '' : 'border-r'} border-gray-200 dark:border-gray-300 relative bg-white dark:bg-gray-50 transition-colors ${isDragOver ? "bg-blue-50 dark:bg-blue-100 border-blue-300 dark:border-blue-400" : ""}`}
                           style={{ height: ROW_HEIGHT_PX }}
                           data-doctor-id={doctor._id}
                           onDragOver={(e) => {
@@ -2342,7 +2344,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                       return (
                         <div
                             key={`${slot.time}-room-${room._id}`}
-                          className="flex-1 min-w-[120px] sm:min-w-[140px] border-r border-gray-200 dark:border-gray-300 relative bg-white dark:bg-gray-50"
+                          className={`flex-1 min-w-[90px] sm:min-w-[100px] ${isLastColumn ? '' : 'border-r'} border-gray-200 dark:border-gray-300 relative bg-white dark:bg-gray-50`}
                           style={{ height: ROW_HEIGHT_PX }}
                         >
                           <div className="absolute left-0 right-0 top-1/2 border-t border-gray-200 dark:border-gray-700 pointer-events-none" />
@@ -2668,99 +2670,86 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
 
       {activeDoctorTooltip && (
         <div
-          className="fixed z-[80] w-[260px] max-w-[85vw] -translate-x-1/2"
+          className="fixed z-[80] w-[180px] max-w-[85vw] -translate-x-1/2"
           style={{
             top: activeDoctorTooltip.position.top,
             left: activeDoctorTooltip.position.left,
           }}
         >
-          <div className="rounded-xl bg-white dark:bg-gray-50 shadow-2xl border border-purple-100 dark:border-purple-200 overflow-hidden">
-            <div className="bg-purple-600 dark:bg-purple-700 text-white text-xs font-semibold px-3 py-2 flex items-center gap-2 tracking-wide">
-              Doctor Information
+          <div className="rounded-lg bg-white dark:bg-gray-50 shadow-xl border border-purple-200 dark:border-purple-300 overflow-hidden">
+            <div className="bg-gradient-to-r from-purple-600 to-purple-500 dark:from-purple-700 dark:to-purple-600 text-white text-[9px] font-bold px-2 py-1 flex items-center justify-center tracking-wide">
+              Doctor Info
             </div>
-            <div className="p-3 space-y-3">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-100 flex items-center justify-center text-purple-700 dark:text-purple-800 font-semibold text-base">
+            <div className="p-1.5 space-y-1.5">
+              <div className="flex items-center gap-1.5 pb-1 border-b border-gray-100 dark:border-gray-200">
+                <div className="w-6 h-6 rounded-full bg-gradient-to-br from-purple-500 to-purple-600 dark:from-purple-600 dark:to-purple-700 flex items-center justify-center text-white font-bold text-[9px] flex-shrink-0 shadow-sm">
                   {getInitials(activeDoctorTooltip.doctorName)}
                 </div>
-                <div>
-                  <p className="text-sm font-semibold text-slate-900 dark:text-gray-900">
+                <div className="min-w-0 flex-1">
+                  <p className="text-[9px] font-bold text-gray-900 dark:text-gray-900 truncate leading-tight">
                     {activeDoctorTooltip.doctorName}
                   </p>
-                  <p className="text-xs text-gray-700 dark:text-gray-800">{tooltipDoctor?.email || "No email available"}</p>
+                  <p className="text-[8px] text-gray-600 dark:text-gray-700 truncate leading-tight mt-0.5">{tooltipDoctor?.email || "No email"}</p>
                 </div>
               </div>
 
-              <div className="space-y-1 text-xs text-gray-700 dark:text-gray-800">
-                <p className="font-semibold text-gray-900 dark:text-gray-900 text-[11px] uppercase tracking-[0.2em]">
-                  Departments
-                </p>
+              <div className="space-y-0.5">
                 {tooltipDeptLoading ? (
-                  <div className="flex items-center gap-2 text-gray-700 dark:text-gray-800">
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    Loading...
+                  <div className="flex items-center gap-1 text-gray-700 dark:text-gray-800">
+                    <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                    <span className="text-[8px]">Loading...</span>
                   </div>
                 ) : tooltipDeptError ? (
-                  <p className="text-xs text-red-500 dark:text-red-400">{tooltipDeptError}</p>
+                  <p className="text-[8px] text-red-500 dark:text-red-400">{tooltipDeptError}</p>
                 ) : tooltipDeptList && tooltipDeptList.length > 0 ? (
-                  <div className="flex flex-wrap gap-1.5">
-                    {tooltipDeptList.map((dept) => (
-                      <span
-                        key={dept._id}
-                        className="px-2 py-0.5 rounded-full bg-white dark:bg-gray-100 border border-gray-200 dark:border-gray-300 text-[11px] text-gray-700 dark:text-gray-800"
-                      >
-                        {dept.name}
-                      </span>
-                    ))}
+                  <div className="flex items-start gap-1">
+                    <span className="text-[8px] font-bold text-gray-600 dark:text-gray-700 flex-shrink-0">Dept:</span>
+                    <span className="text-[8px] font-medium text-gray-800 dark:text-gray-900 leading-tight">{tooltipDeptList.map((dept) => dept.name).join(", ")}</span>
                   </div>
                 ) : (
-                  <p className="text-xs text-gray-700 dark:text-gray-700">Not assigned</p>
+                  <div className="flex items-start gap-1">
+                    <span className="text-[8px] font-bold text-gray-600 dark:text-gray-700 flex-shrink-0">Dept:</span>
+                    <span className="text-[8px] text-gray-500 dark:text-gray-600">Not assigned</span>
+                  </div>
                 )}
               </div>
 
-              <div>
-                <p className="text-[11px] font-semibold text-gray-700 dark:text-gray-800 uppercase tracking-[0.2em] mb-1.5">
-                  Treatments
-                </p>
+              <div className="pt-0.5 border-t border-gray-100 dark:border-gray-200">
                 {tooltipLoading ? (
-                  <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-800">
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Loading treatments...
+                  <div className="flex gap-1 text-gray-700 dark:text-gray-800">
+                    <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                    <span className="text-[8px]">Loading...</span>
                   </div>
                 ) : tooltipError ? (
-                  <p className="text-xs text-red-500 dark:text-red-400">{tooltipError}</p>
+                  <p className="text-[8px] text-red-500 dark:text-red-400">{tooltipError}</p>
                 ) : tooltipTreatments && tooltipTreatments.length > 0 ? (
-                  <div className="space-y-2.5 max-h-56 overflow-y-auto pr-1">
+                  <div className="space-y-1 max-h-32 overflow-y-auto pr-0.5 custom-scrollbar">
                     {tooltipTreatments.map((treatment) => (
                       <div
                         key={treatment._id}
-                        className="rounded-lg border border-gray-100 dark:border-gray-300 bg-gray-50/60 dark:bg-gray-100/60 p-2.5"
+                        className="rounded-md border border-purple-100 dark:border-purple-200 bg-gradient-to-r from-purple-50 to-purple-100/50 dark:from-purple-50/30 dark:to-purple-100/20 p-1"
                       >
-                        <p className="text-sm font-semibold text-gray-900 dark:text-gray-900 truncate">
+                        <p className="text-[8px] font-bold text-purple-900 dark:text-purple-900 mb-0.5 leading-tight">
                           {treatment.treatmentName}
                         </p>
                         {treatment.departmentName && (
-                          <p className="text-xs text-gray-700 dark:text-gray-800 mt-0.5">
-                            Department: <span className="font-medium">{treatment.departmentName}</span>
+                          <p className="text-[7px] text-gray-600 dark:text-gray-700 mb-0.5 leading-tight">
+                            <span className="font-semibold">Dept:</span> {treatment.departmentName}
                           </p>
                         )}
                         {treatment.subcategories && treatment.subcategories.length > 0 && (
-                          <div className="mt-2 flex flex-wrap gap-1.5">
-                            {treatment.subcategories.map((sub, idx) => (
-                              <span
-                                key={sub.slug || `${treatment._id}-${idx}`}
-                                className="px-2 py-0.5 rounded-full bg-white dark:bg-gray-100 border border-gray-200 dark:border-gray-300 text-[11px] text-gray-700 dark:text-gray-800"
-                              >
-                                {sub.name}
-                              </span>
-                            ))}
-                          </div>
+                          <p className="text-[7px] text-gray-700 dark:text-gray-800 leading-tight">
+                            <span className="font-semibold">Types:</span> {treatment.subcategories.map((sub) => sub.name).join(", ")}
+                          </p>
                         )}
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <p className="text-xs text-gray-700 dark:text-gray-800">No treatments assigned yet.</p>
+                  <div className="flex items-start gap-1">
+                    <span className="text-[8px] font-bold text-gray-600 dark:text-gray-700 flex-shrink-0">Treatment:</span>
+                    <span className="text-[8px] text-gray-500 dark:text-gray-600">Not assigned</span>
+                  </div>
                 )}
               </div>
             </div>
