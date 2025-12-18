@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import Head from 'next/head';
 import { Trophy, Star, Clock, Target, Zap, Award, RotateCcw, Home, Settings, Play, Brain, Activity, Eye, Cpu } from 'lucide-react';
 
 const icons = {
@@ -354,7 +355,19 @@ function ZevaAdvancedMemoryGame() {
   // Statistics View
   if (status === 'stats') {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4 sm:p-6 lg:p-8">
+      <>
+        <Head>
+          <title>FitFlip Cards – Fun Exercise Game to Burn Calories Fast</title>
+          <meta
+            name="description"
+            content="Play FitFlip Cards on Zeva to match exercises and burn calories quickly. Enjoy an interactive fitness game that boosts strength, improves health, and keeps you active."
+          />
+          <meta
+            name="keywords"
+            content="FitFlip Cards, exercise game, burn calories fast, interactive fitness game, fun workout game, calorie burning exercises, health and fitness game, home workout game, match exercises game, interactive health game, Zeva fitness game, boost strength and immunity, body fitness game"
+          />
+        </Head>
+        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4 sm:p-6 lg:p-8">
         <div className="max-w-6xl mx-auto">
           <div className="bg-white/10 backdrop-blur-xl rounded-3xl border border-white/20 p-6 sm:p-8">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
@@ -522,13 +535,26 @@ function ZevaAdvancedMemoryGame() {
           </div>
         </div>
       </div>
+      </>
     );
   }
 
   // Settings View
   if (status === 'settings') {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4 sm:p-6 lg:p-8">
+      <>
+        <Head>
+          <title>FitFlip Cards – Fun Exercise Game to Burn Calories Fast</title>
+          <meta
+            name="description"
+            content="Play FitFlip Cards on Zeva to match exercises and burn calories quickly. Enjoy an interactive fitness game that boosts strength, improves health, and keeps you active."
+          />
+          <meta
+            name="keywords"
+            content="FitFlip Cards, exercise game, burn calories fast, interactive fitness game, fun workout game, calorie burning exercises, health and fitness game, home workout game, match exercises game, interactive health game, Zeva fitness game, boost strength and immunity, body fitness game"
+          />
+        </Head>
+        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4 sm:p-6 lg:p-8">
         <div className="max-w-4xl mx-auto">
           <div className="bg-white/10 backdrop-blur-xl rounded-3xl border border-white/20 p-6 sm:p-8">
             <div className="flex items-center justify-between mb-8">
@@ -621,13 +647,26 @@ function ZevaAdvancedMemoryGame() {
           </div>
         </div>
       </div>
+      </>
     );
   }
 
   // Main Menu
   if (status === 'menu') {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4 sm:p-6 lg:p-8">
+      <>
+        <Head>
+          <title>FitFlip Cards – Fun Exercise Game to Burn Calories Fast</title>
+          <meta
+            name="description"
+            content="Play FitFlip Cards on Zeva to match exercises and burn calories quickly. Enjoy an interactive fitness game that boosts strength, improves health, and keeps you active."
+          />
+          <meta
+            name="keywords"
+            content="FitFlip Cards, exercise game, burn calories fast, interactive fitness game, fun workout game, calorie burning exercises, health and fitness game, home workout game, match exercises game, interactive health game, Zeva fitness game, boost strength and immunity, body fitness game"
+          />
+        </Head>
+        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4 sm:p-6 lg:p-8">
         <div className="max-w-7xl mx-auto">
           {/* Hero Header */}
           <div className="text-center mb-8 sm:mb-12 relative">
@@ -839,6 +878,7 @@ function ZevaAdvancedMemoryGame() {
           </div>
         </div>
       </div>
+      </>
     );
   }
 
@@ -846,7 +886,19 @@ function ZevaAdvancedMemoryGame() {
   const config = levels[state.level - 1];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4 sm:p-6 lg:p-8" ref={gameRef}>
+    <>
+      <Head>
+        <title>FitFlip Cards – Fun Exercise Game to Burn Calories Fast</title>
+        <meta
+          name="description"
+          content="Play FitFlip Cards on Zeva to match exercises and burn calories quickly. Enjoy an interactive fitness game that boosts strength, improves health, and keeps you active."
+        />
+        <meta
+          name="keywords"
+          content="FitFlip Cards, exercise game, burn calories fast, interactive fitness game, fun workout game, calorie burning exercises, health and fitness game, home workout game, match exercises game, interactive health game, Zeva fitness game, boost strength and immunity, body fitness game"
+        />
+      </Head>
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4 sm:p-6 lg:p-8" ref={gameRef}>
       <div className="max-w-7xl mx-auto">
         {/* Floating Particles */}
         {particles.map(particle => (
@@ -1115,6 +1167,7 @@ function ZevaAdvancedMemoryGame() {
         }
       `}</style>
     </div>
+    </>
   );
 };
 

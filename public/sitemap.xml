@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="https://www.sitemaps.org/schemas/sitemap/0.9">
+
+
+   <!-- Health Games Main Page -->
+   <url>
+      <loc>https://zeva360.com/health-games</loc>
+      <lastmod>2025-12-17</lastmod>
+      <changefreq>weekly</changefreq>
+      <priority>1.0</priority>
+   </url>
+
+
+   <!-- Be Fit with Zeva Game -->
+   <url>
+      <loc>https://zeva360.com/health-games/be-fit-with-zeva</loc>
+      <lastmod>2025-12-17</lastmod>
+      <changefreq>weekly</changefreq>
+      <priority>0.9</priority>
+   </url>
+
+
+   <!-- Health Quiz Challenge Game -->
+   <url>
+      <loc>https://zeva360.com/health-games/health-quiz-challenge</loc>
+      <lastmod>2025-12-17</lastmod>
+      <changefreq>weekly</changefreq>
+      <priority>0.9</priority>
+   </url>
+
+
+   <!-- FitFlip Cards Game -->
+   <url>
+      <loc>https://zeva360.com/health-games/fitflip-cards</loc>
+      <lastmod>2025-12-17</lastmod>
+      <changefreq>weekly</changefreq>
+      <priority>0.8</priority>
+   </url>
+
+
+   <!-- Healthy Food Picker Game -->
+   <url>
+      <loc>https://zeva360.com/health-games/healthy-food-picker-game</loc>
+      <lastmod>2025-12-17</lastmod>
+      <changefreq>weekly</changefreq>
+      <priority>0.8</priority>
+   </url>
+
+
+   <!-- Health Calculators Main Page -->
+   <url>
+      <loc>https://zeva360.com/health-calculators</loc>
+      <lastmod>2025-12-17</lastmod>
+      <changefreq>weekly</changefreq>
+      <priority>1.0</priority>
+   </url>
+
+
+   <!-- Pregnancy & Periods Tracker -->
+   <url>
+      <loc>https://zeva360.com/health-calculators/pregnancy-periods-tracker</loc>
+      <lastmod>2025-12-17</lastmod>
+      <changefreq>weekly</changefreq>
+      <priority>0.9</priority>
+   </url>
+
+
+   <!-- Depression Test Calculator -->
+   <url>
+      <loc>https://zeva360.com/health-calculators/depression-test-calculator</loc>
+      <lastmod>2025-12-17</lastmod>
+      <changefreq>weekly</changefreq>
+      <priority>0.9</priority>
+   </url>
+
+
+   <!-- BMI Calculator -->
+   <url>
+      <loc>https://zeva360.com/health-calculators/bmi-calculator</loc>
+      <lastmod>2025-12-17</lastmod>
+      <changefreq>weekly</changefreq>
+      <priority>0.9</priority>
+   </url>
+
+
+   <!-- BMR-TDEE Calculator -->
+   <url>
+      <loc>https://zeva360.com/health-calculators/bmr-tdee-calculator</loc>
+      <lastmod>2025-12-17</lastmod>
+      <changefreq>weekly</changefreq>
+      <priority>0.9</priority>
+   </url>
+
+
+   <!-- Breath Hold Calculator -->
+   <url>
+      <loc>https://zeva360.com/health-calculators/breath-hold-calculator</loc>
+      <lastmod>2025-12-17</lastmod>
+      <changefreq>weekly</changefreq>
+      <priority>0.8</priority>
+   </url>
+
+
+   <!-- Calorie Count Calculator -->
+   <url>
+      <loc>https://zeva360.com/health-calculators/calorie-count-calculator</loc>
+      <lastmod>2025-12-17</lastmod>
+      <changefreq>weekly</changefreq>
+      <priority>0.8</priority>
+   </url>
+
+
+   <!-- Heart Rate Monitor -->
+   <url>
+      <loc>https://zeva360.com/health-calculators/heart-rate-monitor</loc>
+      <lastmod>2025-12-17</lastmod>
+      <changefreq>weekly</changefreq>
+      <priority>0.8</priority>
+   </url>
+
+
+   <!-- Water Intake Tracker -->
+   <url>
+      <loc>https://zeva360.com/health-calculators/water-intake-tracker</loc>
+      <lastmod>2025-12-17</lastmod>
+      <changefreq>weekly</changefreq>
+      <priority>0.8</priority>
+   </url>
+
+
+</urlset>
+
