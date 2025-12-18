@@ -96,6 +96,9 @@ export default function BlogDetail({ initialBlog, seo }: BlogDetailProps) {
   const shouldLikeAfterLogin = useRef(false);
   const shouldCommentAfterLogin = useRef(false);
   const pendingComment = useRef("");
+  const shouldReplyAfterLogin = useRef(false);
+  const pendingReplyCommentId = useRef<string | null>(null);
+  const pendingReplyText = useRef("");
   const [showAllComments, setShowAllComments] = useState(false);
   const [expandedComments, setExpandedComments] = useState<Record<string, boolean>>({});
   const [expandedReplies, setExpandedReplies] = useState<{
@@ -167,6 +170,19 @@ export default function BlogDetail({ initialBlog, seo }: BlogDetailProps) {
         setNewComment(pendingComment.current);
         performSubmitComment(pendingComment.current);
         pendingComment.current = "";
+      }
+      if (shouldReplyAfterLogin.current && pendingReplyCommentId.current) {
+        shouldReplyAfterLogin.current = false;
+        const commentId = pendingReplyCommentId.current;
+        const replyText = pendingReplyText.current;
+        pendingReplyCommentId.current = null;
+        pendingReplyText.current = "";
+        // Set the reply text and submit
+        setReplyTexts((prev) => ({ ...prev, [commentId]: replyText }));
+        // Small delay to ensure state is updated
+        setTimeout(() => {
+          handleReplySubmit(commentId);
+        }, 100);
       }
     }
   }, [isAuthenticated]);
@@ -319,10 +335,44 @@ export default function BlogDetail({ initialBlog, seo }: BlogDetailProps) {
   // Handle reply submission
   async function handleReplySubmit(commentId: string) {
     const replyText = replyTexts[commentId];
-    if (!replyText?.trim()) return;
+    if (!replyText?.trim()) {
+      toast.error("Please enter a reply");
+      return;
+    }
+
+    if (!blog?._id) {
+      toast.error("Blog not found");
+      return;
+    }
+
+    // Check authentication first
+    if (!isAuthenticated) {
+      setAuthModalMode("login");
+      setShowAuthModal(true);
+      shouldReplyAfterLogin.current = true;
+      pendingReplyCommentId.current = commentId;
+      pendingReplyText.current = replyText;
+      toast("Please login to reply", { icon: "🔐" });
+      return;
+    }
+
+    await performReplySubmit(commentId, replyText);
+  }
+
+  // Actual reply submission function
+  async function performReplySubmit(commentId: string, replyText: string) {
+    if (!blog?._id) {
+      toast.error("Blog not found");
+      return;
+    }
 
     try {
       const token = localStorage.getItem("token");
+      if (!token) {
+        toast.error("Please login to reply");
+        return;
+      }
+
       const res = await fetch("/api/blog/addReply", {
         method: "POST",
         headers: {
@@ -330,18 +380,25 @@ export default function BlogDetail({ initialBlog, seo }: BlogDetailProps) {
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          blogId: blog?._id,
+          blogId: blog._id,
           commentId: commentId,
-          text: replyText,
+          text: replyText.trim(),
         }),
       });
+      
       const json = await res.json();
-      if (json.success) {
-        // Fetch latest replies for this comment
-        const res2 = await fetch(
-          `/api/blog/getCommentReplies?blogId=${blog?._id}&commentId=${commentId}`
-        );
-        const json2 = await res2.json();
+      
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || json.message || "Failed to add reply");
+      }
+
+      // Fetch latest replies for this comment
+      const res2 = await fetch(
+        `/api/blog/getCommentReplies?blogId=${blog._id}&commentId=${commentId}`
+      );
+      const json2 = await res2.json();
+      
+      if (json2.success) {
         setBlog((prev) => {
           if (!prev) return prev;
           return {
@@ -356,11 +413,13 @@ export default function BlogDetail({ initialBlog, seo }: BlogDetailProps) {
         setReplyTexts((prev) => ({ ...prev, [commentId]: "" }));
         setShowReplyInput((prev) => ({ ...prev, [commentId]: false }));
         setExpandedReplies((prev) => ({ ...prev, [commentId]: true }));
-        toast.success("Reply added");
+        toast.success("Reply added successfully");
+      } else {
+        throw new Error("Failed to fetch updated replies");
       }
-    } catch (err) {
-      console.error(err);
-      toast.error("Failed to add reply");
+    } catch (err: any) {
+      console.error("Error submitting reply:", err);
+      toast.error(err.message || "Failed to add reply");
     }
   }
 
@@ -768,24 +827,7 @@ export default function BlogDetail({ initialBlog, seo }: BlogDetailProps) {
                       blogTitle={blog.title}
                       blogUrl={shareUrl}
                       blogDescription={blog.content.replace(/<[^>]+>/g, "").slice(0, 200)}
-                      triggerLabel={
-                        <div className="flex items-center justify-center space-x-2 px-4 sm:px-5 py-2 sm:py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-full text-sm sm:text-base font-medium hover:from-purple-700 hover:to-indigo-700 transition-all duration-200 transform hover:scale-[1.02] shadow-sm hover:shadow-md">
-                          {/* <svg
-                            className="w-4 h-4 sm:w-5 sm:h-5"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth={2}
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z"
-                            />
-                          </svg> */}
-                          <span className="hidden sm:inline">Share</span>
-                        </div>
-                      }
+                      triggerClassName="flex items-center justify-center space-x-2 px-4 sm:px-5 py-2 sm:py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-full text-sm sm:text-base font-medium hover:from-purple-700 hover:to-indigo-700 transition-all duration-200 transform hover:scale-[1.02] shadow-sm hover:shadow-md"
                     />
                   )}
                 </div>
@@ -803,9 +845,9 @@ export default function BlogDetail({ initialBlog, seo }: BlogDetailProps) {
         </div>
 
         {/* Comments Section */}
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16 lg:py-20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16 lg:py-20">
           <section id="comments-section">
-            <div className="space-y-6 sm:space-y-8 mb-12 sm:mb-16">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-12 sm:mb-16">
               {blog.comments
                 .slice(0, showAllComments ? blog.comments.length : 4)
                 .map((c) => {
@@ -821,7 +863,7 @@ export default function BlogDetail({ initialBlog, seo }: BlogDetailProps) {
                   return (
                     <div
                       key={c._id}
-                      className="bg-gradient-to-br from-purple-50/50 to-white rounded-xl sm:rounded-2xl p-4 sm:p-6 lg:p-8 hover:shadow-lg transition-all duration-300 border border-purple-100"
+                      className="bg-gradient-to-br from-purple-50/50 to-white rounded-xl sm:rounded-2xl p-4 sm:p-5 hover:shadow-lg transition-all duration-300 border border-purple-100 h-full flex flex-col"
                     >
                       <div className="flex justify-between items-start mb-4">
                         <div className="flex items-center space-x-3 sm:space-x-4">
@@ -917,40 +959,68 @@ export default function BlogDetail({ initialBlog, seo }: BlogDetailProps) {
                         )}
                         <button
                           className="ml-2 text-purple-600 hover:underline text-xs sm:text-sm"
-                          onClick={() =>
+                          onClick={() => {
+                            if (!isAuthenticated) {
+                              setAuthModalMode("login");
+                              setShowAuthModal(true);
+                              toast("Please login to reply", { icon: "🔐" });
+                              return;
+                            }
                             setShowReplyInput((prev) => ({
                               ...prev,
                               [c._id]: !prev[c._id],
-                            }))
-                          }
+                            }));
+                          }}
                         >
                           Reply
                         </button>
                       </div>
 
-                      {user && showReplyInput[c._id] && (
+                      {showReplyInput[c._id] && (
                         <div className="mt-2 ml-0 sm:ml-8">
-                          <div className="flex space-x-3 sm:space-x-4">
-                            <div className="w-6 h-6 sm:w-8 sm:h-8 bg-purple-600 rounded-full flex items-center justify-center text-white font-bold text-xs sm:text-sm flex-shrink-0">
-                              {user.name.charAt(0).toUpperCase()}
+                          <div className="flex space-x-2 sm:space-x-3">
+                            <div className="w-6 h-6 sm:w-7 sm:h-7 bg-purple-600 rounded-full flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
+                              {user?.name?.charAt(0).toUpperCase() || "?"}
                             </div>
-                            <input
-                              type="text"
-                              placeholder="Reply to this comment..."
-                              value={replyTexts[c._id] || ""}
-                              onChange={(e) =>
-                                setReplyTexts((prev) => ({
-                                  ...prev,
-                                  [c._id]: e.target.value,
-                                }))
-                              }
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter") {
-                                  handleReplySubmit(c._id);
+                            <div className="flex-1 relative">
+                              <input
+                                type="text"
+                                placeholder={isAuthenticated ? "Reply to this comment..." : "Login to reply..."}
+                                value={replyTexts[c._id] || ""}
+                                onChange={(e) =>
+                                  setReplyTexts((prev) => ({
+                                    ...prev,
+                                    [c._id]: e.target.value,
+                                  }))
                                 }
-                              }}
-                              className="mb-4 sm:mb-8 flex-1 border-2 border-purple-200 rounded-lg sm:rounded-xl px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm focus:outline-none focus:ring-4 focus:ring-purple-200 focus:border-purple-500 transition-all duration-200"
-                            />
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") {
+                                    e.preventDefault();
+                                    handleReplySubmit(c._id);
+                                  }
+                                }}
+                                disabled={!isAuthenticated}
+                                className="w-full border-2 border-purple-200 rounded-lg sm:rounded-xl px-3 sm:px-4 py-1.5 sm:py-2 pr-10 sm:pr-12 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-500 transition-all duration-200 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                              />
+                              <button
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  handleReplySubmit(c._id);
+                                }}
+                                disabled={!replyTexts[c._id]?.trim() || !isAuthenticated}
+                                className="absolute right-1.5 sm:right-2 top-1/2 -translate-y-1/2 w-7 h-7 sm:w-8 sm:h-8 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-full flex items-center justify-center hover:from-purple-700 hover:to-indigo-700 transition-all duration-200 shadow-sm hover:shadow-md transform hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:hover:scale-100 active:scale-95"
+                                title={isAuthenticated ? "Send reply" : "Login to reply"}
+                              >
+                                <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
+                                  />
+                                </svg>
+                              </button>
+                            </div>
                           </div>
                         </div>
                       )}
