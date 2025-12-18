@@ -181,6 +181,49 @@ return (
         name="twitter:description"
         content="Use ZEVA's free Calorie Count Calculator to track daily calorie intake, manage diet goals, and maintain a healthy, balanced lifestyle."
       />
+      {/* Schema Markup - Calorie Count Calculator WebPage */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "MedicalWebPage",
+            "name": "Calorie Count Calculator",
+            "url": "https://zeva360.com/calculator/calorie-counter",
+            "description": "Track your daily calorie intake and maintain a healthy diet with ZEVA's Calorie Count Calculator. A free and easy tool to monitor nutrition, manage weight goals, and support a balanced lifestyle.",
+            "isPartOf": {
+              "@type": "WebSite",
+              "name": "ZEVA",
+              "url": "https://zeva360.com"
+            },
+            "publisher": {
+              "@type": "Organization",
+              "name": "ZEVA",
+              "url": "https://zeva360.com",
+              "logo": {
+                "@type": "ImageObject",
+                "url": "https://zeva360.com/logo.png"
+              }
+            },
+            "about": {
+              "@type": "MedicalCondition",
+              "name": "Nutrition & Weight Management",
+              "description": "Calorie intake monitoring to support healthy eating habits and weight control."
+            },
+            "mainEntity": {
+              "@type": "SoftwareApplication",
+              "name": "Calorie Count Calculator",
+              "applicationCategory": "HealthApplication",
+              "operatingSystem": "Web",
+              "offers": {
+                "@type": "Offer",
+                "price": "0",
+                "priceCurrency": "USD"
+              }
+            }
+          })
+        }}
+      />
     </Head>
     <div className="min-h-screen bg-white">
     <div className="max-w-6xl mx-auto p-6">

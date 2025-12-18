@@ -104,6 +104,49 @@ function WaterIntakeCalculator() {
           name="twitter:description"
           content="Use ZEVA's Water Intake Tracker to monitor daily water consumption, stay hydrated, and support overall health and wellness."
         />
+        {/* Schema Markup - Water Intake Tracker WebPage */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "MedicalWebPage",
+              "name": "Water Intake Tracker",
+              "url": "https://zeva360.com/calculator/water",
+              "description": "Track your daily water consumption for optimal hydration with ZEVA's Water Intake Tracker. A free health tool to maintain hydration balance, support body functions, and improve overall wellness.",
+              "isPartOf": {
+                "@type": "WebSite",
+                "name": "ZEVA",
+                "url": "https://zeva360.com"
+              },
+              "publisher": {
+                "@type": "Organization",
+                "name": "ZEVA",
+                "url": "https://zeva360.com",
+                "logo": {
+                  "@type": "ImageObject",
+                  "url": "https://zeva360.com/logo.png"
+                }
+              },
+              "about": {
+                "@type": "MedicalCondition",
+                "name": "Hydration & Body Health",
+                "description": "Monitoring daily water intake to support hydration, metabolism, and overall physical health."
+              },
+              "mainEntity": {
+                "@type": "SoftwareApplication",
+                "name": "Water Intake Tracker",
+                "applicationCategory": "HealthApplication",
+                "operatingSystem": "Web",
+                "offers": {
+                  "@type": "Offer",
+                  "price": "0",
+                  "priceCurrency": "USD"
+                }
+              }
+            })
+          }}
+        />
       </Head>
       <div className="min-h-screen bg-white">
       <div className="max-w-6xl mx-auto p-6">

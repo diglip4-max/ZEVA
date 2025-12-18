@@ -67,6 +67,46 @@ function BMICalculator() {
           name="twitter:description"
           content="Use ZEVA's free BMI Calculator to calculate your Body Mass Index instantly. Understand your weight category and health status, and maintain a balanced lifestyle."
         />
+        {/* Schema Markup - BMI Calculator WebPage */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": ["WebPage", "MedicalWebPage"],
+              "name": "BMI Calculator",
+              "url": "https://zeva360.com/calculator/bmi",
+              "description": "ZEVA BMI Calculator helps you calculate your Body Mass Index instantly and understand your weight category with clear health insights using a free and easy-to-use tool.",
+              "isPartOf": {
+                "@type": "WebSite",
+                "name": "ZEVA",
+                "url": "https://zeva360.com"
+              },
+              "publisher": {
+                "@type": "Organization",
+                "name": "ZEVA",
+                "url": "https://zeva360.com",
+                "logo": {
+                  "@type": "ImageObject",
+                  "url": "https://zeva360.com/logo.png"
+                }
+              },
+              "mainEntity": {
+                "@type": "SoftwareApplication",
+                "name": "BMI Calculator",
+                "applicationCategory": "HealthApplication",
+                "operatingSystem": "Web",
+                "description": "A free online BMI calculator that allows users to determine their body mass index and understand weight classifications such as underweight, normal, overweight, and obese.",
+                "offers": {
+                  "@type": "Offer",
+                  "price": "0",
+                  "priceCurrency": "USD"
+                },
+                "medicalSpecialty": "Nutrition"
+              }
+            })
+          }}
+        />
       </Head>
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
       <div className="w-full max-w-4xl">

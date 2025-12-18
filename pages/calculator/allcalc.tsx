@@ -37,6 +37,89 @@ function AllCalculators(){
           name="twitter:description"
           content="Explore Zeva Health Calculators to track your BMI, BMR, TDEE, heart rate, water intake, pregnancy, and more. Free, interactive tools to boost fitness, wellness, and overall health anytime, anywhere."
         />
+        
+        {/* Schema Markup - Health Calculators WebPage */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "WebPage",
+              "name": "Health Calculators",
+              "url": "https://zeva360.com/calculator/allcalc",
+              "description": "ZEVA Health Calculators offer free and easy-to-use tools including BMI, BMR, TDEE, pregnancy tracker, calorie counter, heart rate monitor, water intake tracker, and more to support a healthier lifestyle.",
+              "isPartOf": {
+                "@type": "WebSite",
+                "name": "ZEVA",
+                "url": "https://zeva360.com"
+              },
+              "publisher": {
+                "@type": "Organization",
+                "name": "ZEVA",
+                "url": "https://zeva360.com",
+                "logo": {
+                  "@type": "ImageObject",
+                  "url": "https://zeva360.com/logo.png"
+                }
+              },
+              "mainEntity": {
+                "@type": "ItemList",
+                "name": "ZEVA Health Calculators",
+                "itemListOrder": "https://schema.org/ItemListOrderAscending",
+                "itemListElement": [
+                  {
+                    "@type": "SoftwareApplication",
+                    "name": "BMI Calculator",
+                    "applicationCategory": "HealthApplication",
+                    "operatingSystem": "Web"
+                  },
+                  {
+                    "@type": "SoftwareApplication",
+                    "name": "BMR & TDEE Calculator",
+                    "applicationCategory": "HealthApplication",
+                    "operatingSystem": "Web"
+                  },
+                  {
+                    "@type": "SoftwareApplication",
+                    "name": "Pregnancy & Period Tracker",
+                    "applicationCategory": "HealthApplication",
+                    "operatingSystem": "Web"
+                  },
+                  {
+                    "@type": "SoftwareApplication",
+                    "name": "Calorie Count Calculator",
+                    "applicationCategory": "HealthApplication",
+                    "operatingSystem": "Web"
+                  },
+                  {
+                    "@type": "SoftwareApplication",
+                    "name": "Heart Rate Monitor",
+                    "applicationCategory": "HealthApplication",
+                    "operatingSystem": "Web"
+                  },
+                  {
+                    "@type": "SoftwareApplication",
+                    "name": "Water Intake Tracker",
+                    "applicationCategory": "HealthApplication",
+                    "operatingSystem": "Web"
+                  },
+                  {
+                    "@type": "SoftwareApplication",
+                    "name": "Depression Test Calculator",
+                    "applicationCategory": "HealthApplication",
+                    "operatingSystem": "Web"
+                  },
+                  {
+                    "@type": "SoftwareApplication",
+                    "name": "Breath Hold Calculator",
+                    "applicationCategory": "HealthApplication",
+                    "operatingSystem": "Web"
+                  }
+                ]
+              }
+            })
+          }}
+        />
       </Head>
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
       {/* Header Section */}

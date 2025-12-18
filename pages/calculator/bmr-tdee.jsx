@@ -70,6 +70,46 @@ const BMRCalculator = () => {
           name="twitter:description"
           content="Use ZEVA's free BMR-TDEE Calculator to calculate your Basal Metabolic Rate and Total Daily Energy Expenditure. Find your daily calorie needs for weight goals."
         />
+        {/* Schema Markup - BMR-TDEE Calculator WebPage */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": ["WebPage", "MedicalWebPage"],
+              "name": "BMR–TDEE Calculator",
+              "url": "https://zeva360.com/calculator/bmr-tdee",
+              "description": "ZEVA BMR–TDEE Calculator helps you calculate your Basal Metabolic Rate and Total Daily Energy Expenditure to understand daily calorie needs and support weight management and fitness goals.",
+              "isPartOf": {
+                "@type": "WebSite",
+                "name": "ZEVA",
+                "url": "https://zeva360.com"
+              },
+              "publisher": {
+                "@type": "Organization",
+                "name": "ZEVA",
+                "url": "https://zeva360.com",
+                "logo": {
+                  "@type": "ImageObject",
+                  "url": "https://zeva360.com/logo.png"
+                }
+              },
+              "mainEntity": {
+                "@type": "SoftwareApplication",
+                "name": "BMR–TDEE Calculator",
+                "applicationCategory": "HealthApplication",
+                "operatingSystem": "Web",
+                "description": "A free online calculator that estimates Basal Metabolic Rate (BMR) and Total Daily Energy Expenditure (TDEE) to help users plan calorie intake, weight loss, or muscle gain goals.",
+                "offers": {
+                  "@type": "Offer",
+                  "price": "0",
+                  "priceCurrency": "USD"
+                },
+                "medicalSpecialty": "Nutrition"
+              }
+            })
+          }}
+        />
       </Head>
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
       <div className="w-full max-w-4xl">

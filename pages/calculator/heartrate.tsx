@@ -68,6 +68,49 @@ return (
         name="twitter:description"
         content="Use ZEVA's Heart Rate Monitor to track your heart rate, assess cardiovascular health, and stay informed about your fitness and wellness."
       />
+      {/* Schema Markup - Heart Rate Monitor WebPage */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "MedicalWebPage",
+            "name": "Heart Rate Monitor",
+            "url": "https://zeva360.com/calculator/heartrate",
+            "description": "Monitor your heart rate and cardiovascular health with ZEVA's Heart Rate Monitor. A free, easy-to-use tool to track pulse rate, understand heart health, and support daily wellness goals.",
+            "isPartOf": {
+              "@type": "WebSite",
+              "name": "ZEVA",
+              "url": "https://zeva360.com"
+            },
+            "publisher": {
+              "@type": "Organization",
+              "name": "ZEVA",
+              "url": "https://zeva360.com",
+              "logo": {
+                "@type": "ImageObject",
+                "url": "https://zeva360.com/logo.png"
+              }
+            },
+            "about": {
+              "@type": "MedicalCondition",
+              "name": "Cardiovascular Health",
+              "description": "Monitoring heart rate to assess cardiovascular fitness and overall heart health."
+            },
+            "mainEntity": {
+              "@type": "SoftwareApplication",
+              "name": "Heart Rate Monitor",
+              "applicationCategory": "HealthApplication",
+              "operatingSystem": "Web",
+              "offers": {
+                "@type": "Offer",
+                "price": "0",
+                "priceCurrency": "USD"
+              }
+            }
+          })
+        }}
+      />
     </Head>
     <div className="min-h-screen bg-white">
     <div className="max-w-6xl mx-auto p-6">
