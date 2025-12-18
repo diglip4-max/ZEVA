@@ -145,6 +145,49 @@ return (
         name="twitter:description"
         content="Use ZEVA's Breath Hold Calculator to track breath-holding capacity, assess lung health, and improve breathing performance with instant results."
       />
+      {/* Schema Markup - Breath Hold Calculator WebPage */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "MedicalWebPage",
+            "name": "Breath Hold Calculator",
+            "url": "https://zeva360.com/calculator/breathhold",
+            "description": "Track your breath-holding capacity and improve lung health using ZEVA's Breath Hold Calculator. A free, easy-to-use tool designed to help users understand respiratory fitness and breathing control.",
+            "isPartOf": {
+              "@type": "WebSite",
+              "name": "ZEVA",
+              "url": "https://zeva360.com"
+            },
+            "publisher": {
+              "@type": "Organization",
+              "name": "ZEVA",
+              "url": "https://zeva360.com",
+              "logo": {
+                "@type": "ImageObject",
+                "url": "https://zeva360.com/logo.png"
+              }
+            },
+            "about": {
+              "@type": "MedicalCondition",
+              "name": "Respiratory Health",
+              "description": "Measurement of breath-holding capacity to assess lung strength and breathing efficiency."
+            },
+            "mainEntity": {
+              "@type": "SoftwareApplication",
+              "name": "Breath Hold Calculator",
+              "applicationCategory": "HealthApplication",
+              "operatingSystem": "Web",
+              "offers": {
+                "@type": "Offer",
+                "price": "0",
+                "priceCurrency": "USD"
+              }
+            }
+          })
+        }}
+      />
     </Head>
     <div className="min-h-screen bg-white flex items-center justify-center p-4">
     <div className="bg-white border border-gray-200 rounded-2xl p-8 w-full max-w-6xl shadow-lg">

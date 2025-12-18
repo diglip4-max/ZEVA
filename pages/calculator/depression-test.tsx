@@ -196,6 +196,46 @@ function DepressionTest() {
             name="twitter:description"
             content="Use ZEVA's Depression Test Calculator to gently assess possible signs of depression. Take a confidential, free mental health self-check and gain insights into your emotional well-being anytime."
           />
+          {/* Schema Markup - Depression Test Calculator WebPage */}
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{
+              __html: JSON.stringify({
+                "@context": "https://schema.org",
+                "@type": ["WebPage", "MedicalWebPage"],
+                "name": "Depression Test Calculator",
+                "url": "https://zeva360.com/calculator/depression-test",
+                "description": "ZEVA Depression Test Calculator is a gentle, confidential mental health screening tool designed to help users understand possible signs of depression and take the first step toward emotional well-being.",
+                "isPartOf": {
+                  "@type": "WebSite",
+                  "name": "ZEVA",
+                  "url": "https://zeva360.com"
+                },
+                "publisher": {
+                  "@type": "Organization",
+                  "name": "ZEVA",
+                  "url": "https://zeva360.com",
+                  "logo": {
+                    "@type": "ImageObject",
+                    "url": "https://zeva360.com/logo.png"
+                  }
+                },
+                "mainEntity": {
+                  "@type": "SoftwareApplication",
+                  "name": "Depression Test Calculator",
+                  "applicationCategory": "HealthApplication",
+                  "operatingSystem": "Web",
+                  "description": "A free online mental health screening tool that helps users recognize potential depression symptoms through a short, private self-assessment.",
+                  "offers": {
+                    "@type": "Offer",
+                    "price": "0",
+                    "priceCurrency": "USD"
+                  },
+                  "medicalSpecialty": "Psychiatry"
+                }
+              })
+            }}
+          />
         </Head>
         <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 w-full max-w-md">
@@ -277,6 +317,46 @@ function DepressionTest() {
           <meta
             name="twitter:description"
             content="Use ZEVA's Depression Test Calculator to gently assess possible signs of depression. Take a confidential, free mental health self-check and gain insights into your emotional well-being anytime."
+          />
+          {/* Schema Markup - Depression Test Calculator WebPage */}
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{
+              __html: JSON.stringify({
+                "@context": "https://schema.org",
+                "@type": ["WebPage", "MedicalWebPage"],
+                "name": "Depression Test Calculator",
+                "url": "https://zeva360.com/calculator/depression-test",
+                "description": "ZEVA Depression Test Calculator is a gentle, confidential mental health screening tool designed to help users understand possible signs of depression and take the first step toward emotional well-being.",
+                "isPartOf": {
+                  "@type": "WebSite",
+                  "name": "ZEVA",
+                  "url": "https://zeva360.com"
+                },
+                "publisher": {
+                  "@type": "Organization",
+                  "name": "ZEVA",
+                  "url": "https://zeva360.com",
+                  "logo": {
+                    "@type": "ImageObject",
+                    "url": "https://zeva360.com/logo.png"
+                  }
+                },
+                "mainEntity": {
+                  "@type": "SoftwareApplication",
+                  "name": "Depression Test Calculator",
+                  "applicationCategory": "HealthApplication",
+                  "operatingSystem": "Web",
+                  "description": "A free online mental health screening tool that helps users recognize potential depression symptoms through a short, private self-assessment.",
+                  "offers": {
+                    "@type": "Offer",
+                    "price": "0",
+                    "priceCurrency": "USD"
+                  },
+                  "medicalSpecialty": "Psychiatry"
+                }
+              })
+            }}
           />
         </Head>
         <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center p-4">
@@ -362,6 +442,46 @@ function DepressionTest() {
           <meta
             name="twitter:description"
             content="Use ZEVA's Depression Test Calculator to gently assess possible signs of depression. Take a confidential, free mental health self-check and gain insights into your emotional well-being anytime."
+          />
+          {/* Schema Markup - Depression Test Calculator WebPage */}
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{
+              __html: JSON.stringify({
+                "@context": "https://schema.org",
+                "@type": ["WebPage", "MedicalWebPage"],
+                "name": "Depression Test Calculator",
+                "url": "https://zeva360.com/calculator/depression-test",
+                "description": "ZEVA Depression Test Calculator is a gentle, confidential mental health screening tool designed to help users understand possible signs of depression and take the first step toward emotional well-being.",
+                "isPartOf": {
+                  "@type": "WebSite",
+                  "name": "ZEVA",
+                  "url": "https://zeva360.com"
+                },
+                "publisher": {
+                  "@type": "Organization",
+                  "name": "ZEVA",
+                  "url": "https://zeva360.com",
+                  "logo": {
+                    "@type": "ImageObject",
+                    "url": "https://zeva360.com/logo.png"
+                  }
+                },
+                "mainEntity": {
+                  "@type": "SoftwareApplication",
+                  "name": "Depression Test Calculator",
+                  "applicationCategory": "HealthApplication",
+                  "operatingSystem": "Web",
+                  "description": "A free online mental health screening tool that helps users recognize potential depression symptoms through a short, private self-assessment.",
+                  "offers": {
+                    "@type": "Offer",
+                    "price": "0",
+                    "priceCurrency": "USD"
+                  },
+                  "medicalSpecialty": "Psychiatry"
+                }
+              })
+            }}
           />
         </Head>
         <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
