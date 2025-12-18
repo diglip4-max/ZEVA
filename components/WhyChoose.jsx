@@ -5,86 +5,86 @@ export default function WhyChooseZeva() {
     {
       icon: Search,
       title: "Find Providers",
-      description: "Advanced search with filters for doctors, clinics, specialties, ratings, and location-based results.",
+      description: "Quickly find doctors and clinics using advanced search filters for specialties, ratings, and locations, ensuring you connect with the right professionals.",
       iconBg: "from-violet-500 to-purple-600",
-      stats: "10,000+ Providers"
+      stats: "10,000+ Verified Providers"
     },
     {
       icon: Shield,
       title: "Verified Professionals",
-      description: "All doctors and clinics are verified with credentials, certifications, and background checks.",
+      description: "All doctors and clinics are verified with credentials, certifications, and background checks—giving you confidence in every healthcare decision.",
       iconBg: "from-blue-500 to-cyan-600",
-      stats: "100% Verified"
+      stats: "100% Verified Professionals"
     },
     {
       icon: Calculator,
       title: "Health Calculators",
-      description: "BMI, BMR, TDEE, pregnancy tracker, depression test, calorie counter, and 8+ health tools.",
+      description: "Access BMI calculators, BMR-TDEE trackers, pregnancy trackers, depression tests, calorie counters, and more, helping you stay on top of your health goals.",
       iconBg: "from-emerald-500 to-teal-600",
-      stats: "8+ Tools"
+      stats: "8+ Health Tools"
     },
     {
       icon: MapPin,
       title: "Location Services",
-      description: "Find nearby hospitals, pharmacies, emergency services with real-time mapping and directions.",
+      description: "Find nearby hospitals, pharmacies, and emergency services with real-time mapping and directions.",
       iconBg: "from-indigo-500 to-blue-600",
-      stats: "GPS Enabled"
+      stats: "GPS-Enabled Location Services"
     },
     {
       icon: Video,
       title: "Telemedicine",
-      description: "Secure video consultations with board-certified physicians. HIPAA-compliant platform.",
+      description: "Book secure video consultations with board-certified physicians anytime, anywhere. ZEVA is a HIPAA-compliant platform that protects your privacy.",
       iconBg: "from-rose-500 to-pink-600",
-      stats: "24/7 Available"
+      stats: "24/7 Telemedicine"
     },
     {
       icon: FileText,
       title: "Digital Records",
-      description: "Encrypted medical records, prescriptions, lab results with instant access and sharing.",
+      description: "Access encrypted medical records, prescriptions, and lab results instantly, with safe storage and easy sharing.",
       iconBg: "from-amber-500 to-orange-600",
-      stats: "Secure Storage"
+      stats: "Secure Digital Records"
     },
     {
       icon: Briefcase,
       title: "Career Hub",
-      description: "Medical job listings, career opportunities, and professional networking for healthcare workers.",
+      description: "Explore medical jobs, career growth opportunities, and professional networking through ZEVA’s Career Hub.",
       iconBg: "from-purple-500 to-fuchsia-600",
-      stats: "500+ Jobs"
+      stats: "500+ Career Opportunities"
     },
     {
       icon: BookOpen,
       title: "Health Knowledge",
-      description: "Evidence-based articles, health blogs, treatment guides, and Ayurveda insights.",
+      description: "Stay informed with health blogs, treatment guides, and wellness insights, including Ayurveda and modern therapies.",
       iconBg: "from-sky-500 to-blue-600",
-      stats: "1000+ Articles"
+      stats: "1000+ Evidence-Based Articles"
     },
     {
       icon: Star,
       title: "Patient Reviews",
-      description: "Real patient reviews and ratings help you make informed healthcare decisions.",
+      description: "Read real patient reviews and ratings to make informed choices about your healthcare providers.",
       iconBg: "from-yellow-500 to-orange-600",
-      stats: "50K+ Reviews"
+      stats: "50K+ Patient Reviews"
     },
     {
       icon: Clock,
       title: "Quick Appointments",
-      description: "Book appointments instantly, view availability, and manage your healthcare schedule easily.",
+      description: "Schedule visits instantly, check availability, and manage your healthcare calendar effortlessly.",
       iconBg: "from-green-500 to-emerald-600",
-      stats: "Instant Booking"
+      stats: "Instant Appointment Booking"
     },
     {
       icon: Users,
       title: "Community Support",
-      description: "Connect with patients, share experiences, and get support from healthcare community.",
+      description: "Connect with patients, share experiences, and get guidance from the ZEVA community.",
       iconBg: "from-pink-500 to-rose-600",
-      stats: "Active Community"
+      stats: "Active Community Support"
     },
     {
       icon: UserPlus,
       title: "Easy Registration",
-      description: "Quick onboarding for doctors and clinics with streamlined credential verification process.",
+      description: "Onboard quickly as a doctor or clinic with a streamlined verification process and start serving patients immediately.",
       iconBg: "from-cyan-500 to-blue-600",
-      stats: "5 Min Setup"
+      stats: "5-Minute Easy Registration"
     }
   ];
 
@@ -97,7 +97,7 @@ export default function WhyChooseZeva() {
             Why Choose ZEVA
           </h2>
           <p className="text-sm sm:text-base text-gray-600 max-w-2xl mx-auto leading-relaxed">
-            Your comprehensive healthcare platform combining verified providers, advanced tools, and seamless services for better health outcomes.
+          ZEVA is your all-in-one healthcare platform, designed to simplify your health, wellness, and lifestyle needs. From trusted doctors to verified clinics, ZEVA brings together everything you need for a seamless healthcare experience.
           </p>
         </div>
 
