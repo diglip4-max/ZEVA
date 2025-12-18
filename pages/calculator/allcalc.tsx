@@ -1,8 +1,8 @@
 // pages/allcalc.tsx
-"use client";
 import React from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter } from 'next/router';
 import Image from 'next/image';
+import Head from 'next/head';
 import { calculators } from '../../components/CalculatorGames';
 
 function AllCalculators(){
@@ -14,7 +14,19 @@ function AllCalculators(){
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+    <>
+      <Head>
+        <title>Health Calculators – Free Tools for Fitness, Wellness & Nutrition | Zeva</title>
+        <meta
+          name="description"
+          content="Explore Zeva Health Calculators to track your BMI, BMR, TDEE, heart rate, water intake, pregnancy, and more. Free, interactive tools to boost fitness, wellness, and overall health anytime, anywhere."
+        />
+        <meta
+          name="keywords"
+          content="Health Calculators, fitness calculators, wellness tools, free health calculators, BMI calculator, BMR-TDEE calculator, heart rate monitor, water intake tracker, pregnancy tracker, ovulation calendar, depression test calculator, calorie counter, breath hold calculator, interactive health tools, Zeva health tools"
+        />
+      </Head>
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
       {/* Header Section */}
       <div className="relative bg-gradient-to-r from-orange-500 to-orange-600 py-8 px-4 sm:py-10 sm:px-6 md:py-12 md:px-8">
         <div className="absolute inset-0 bg-black opacity-10"></div>
@@ -170,6 +182,7 @@ function AllCalculators(){
         </div>
       </div>
     </div>
+    </>
   );
 }
 

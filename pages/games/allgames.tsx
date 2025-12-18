@@ -2,6 +2,7 @@
 import { useRouter } from "next/router";
 import Image from "next/image";
 import React from "react";
+import Head from "next/head";
 import { games } from "../../components/CalculatorGames";
 
 function AllGames() {
@@ -13,7 +14,19 @@ function AllGames() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+    <>
+      <Head>
+        <title>Health Games by Zeva – Fun, Interactive Wellness & Fitness Games</title>
+        <meta
+          name="description"
+          content="Play Zeva's free health games online to boost your fitness, immunity, and well-being. Enjoy interactive games like quizzes, exercises, FitFlip cards, and healthy food challenges anytime, 24/7."
+        />
+        <meta
+          name="keywords"
+          content="health games, wellness games, fitness games, interactive health games, online health games, free health games, exercise games, immunity booster games, healthy lifestyle games, mental health games, fun wellness activities, nutrition games, calorie burning games, healthy food games, fitness challenges, wellness quizzes, health quizzes, be fit games, interactive wellness tools, brain and body games, health tracker games, fun fitness exercises, family health games, health education games, online fitness challenges, health improvement games, lifestyle games, healthy habit games, stress relief games, wellbeing games"
+        />
+      </Head>
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
       {/* Header Section */}
       <div className="relative bg-gradient-to-r from-red-500 to-red-600 py-8 px-4 sm:py-10 sm:px-6 md:py-12 md:px-8">
         <div className="absolute inset-0 bg-black opacity-10"></div>
@@ -169,6 +182,7 @@ function AllGames() {
         </div>
       </div>
     </div>
+    </>
   );
 }
 
