@@ -5,7 +5,6 @@ import withAdminAuth from '../../components/withAdminAuth';
 import type { NextPageWithLayout } from '../_app';
 import {
   HomeIcon,
-  CheckCircleIcon,
   UserGroupIcon,
   NewspaperIcon,
   ChartBarIcon,
@@ -33,8 +32,6 @@ import {
   Line,
   AreaChart,
   Area,
-  RadialBarChart,
-  RadialBar,
   ComposedChart,
 } from 'recharts';
 
@@ -51,7 +48,7 @@ interface DashboardStats {
   permissions: { total: number };
 }
 
-const COLORS = ['#1f2937', '#374151', '#4b5563', '#6b7280', '#9ca3af'];
+// const COLORS = ['#1f2937', '#374151', '#4b5563', '#6b7280', '#9ca3af']; // Reserved for future use - chart color palette
 
 const AdminDashboard = () => {
   const [stats, setStats] = useState<DashboardStats | null>(null);
@@ -183,11 +180,11 @@ const AdminDashboard = () => {
     { name: 'Jobs', approved: stats.jobs.approved, pending: stats.jobs.pending, declined: stats.jobs.declined },
   ] : [];
 
-  const radialData = stats ? [
-    { name: 'Approved', value: (stats.clinics.approved + stats.doctors.approved + stats.jobs.approved), fill: '#10b981' },
-    { name: 'Pending', value: (stats.clinics.pending + stats.doctors.pending + stats.jobs.pending), fill: '#f59e0b' },
-    { name: 'Declined', value: stats.jobs.declined, fill: '#ef4444' },
-  ] : [];
+  // const radialData = stats ? [
+  //   { name: 'Approved', value: (stats.clinics.approved + stats.doctors.approved + stats.jobs.approved), fill: '#10b981' },
+  //   { name: 'Pending', value: (stats.clinics.pending + stats.doctors.pending + stats.jobs.pending), fill: '#f59e0b' },
+  //   { name: 'Declined', value: stats.jobs.declined, fill: '#ef4444' },
+  // ] : []; // Reserved for future use - radial bar chart
 
   const entityComparisonData = stats ? [
     { category: 'People', users: stats.users.total, doctors: stats.doctors.total, staff: stats.staff.total, agents: stats.agents.total },

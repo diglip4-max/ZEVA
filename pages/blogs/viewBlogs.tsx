@@ -448,7 +448,7 @@ return (
           ) : (
             <>
               <div className="space-y-4">     
-                {currentBlogs.map((blog, index) => {
+                {currentBlogs.map((blog) => {
                   const contentWithoutImages = removeImagesFromContent(blog.content);
                   const paragraphs = contentWithoutImages.split("</p>").slice(0, 2).join("</p>") + "</p>";
                   const blogImage = extractImageOnly(blog.content) ||

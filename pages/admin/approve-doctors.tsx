@@ -111,7 +111,7 @@ function AdminDoctors() {
     "pending" | "approved" | "declined"
   >("pending");
   // const [settingId, setSettingId] = useState<string | null>(null); // Reserved for future use - edit mode indicator
-  const [newPassword, setNewPassword] = useState("");
+  // const [newPassword, setNewPassword] = useState(""); // Reserved for future use - setting doctor credentials
   // const [showPassword, setShowPassword] = useState(false); // Reserved for future use - password visibility toggle
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -275,45 +275,46 @@ function AdminDoctors() {
     }
   };
 
-  const handleSetCredentials = async (userId: string) => {
-    if (!newPassword.trim()) {
-      return;
-    }
+  // Reserved for future use - setting doctor credentials
+  // const handleSetCredentials = async (userId: string) => {
+  //   if (!newPassword.trim()) {
+  //     return;
+  //   }
 
-    const adminTokenExists = typeof window !== 'undefined' ? !!localStorage.getItem('adminToken') : false;
-    const agentTokenExists = typeof window !== 'undefined' ? !!localStorage.getItem('agentToken') : false;
-    const isAgentRoute = router.pathname?.startsWith('/agent/') || (typeof window !== 'undefined' && window.location.pathname?.startsWith('/agent/'));
+  //   const adminTokenExists = typeof window !== 'undefined' ? !!localStorage.getItem('adminToken') : false;
+  //   const agentTokenExists = typeof window !== 'undefined' ? !!localStorage.getItem('agentToken') : false;
+  //   const isAgentRoute = router.pathname?.startsWith('/agent/') || (typeof window !== 'undefined' && window.location.pathname?.startsWith('/agent/'));
     
-    if ((isAgentRoute || isAgent) && agentTokenExists && !adminTokenExists && agentPermissions && agentPermissions.canUpdate !== true && agentPermissions.canAll !== true) {
-      showToast("You do not have permission to update doctor credentials", 'error');
-      return;
-    }
+  //   if ((isAgentRoute || isAgent) && agentTokenExists && !adminTokenExists && agentPermissions && agentPermissions.canUpdate !== true && agentPermissions.canAll !== true) {
+  //     showToast("You do not have permission to update doctor credentials", 'error');
+  //     return;
+  //   }
 
-    try {
-      const adminToken = typeof window !== 'undefined' ? localStorage.getItem('adminToken') : null;
-      const agentToken = typeof window !== 'undefined' ? localStorage.getItem('agentToken') : null;
-      const token = adminToken || agentToken;
+  //   try {
+  //     const adminToken = typeof window !== 'undefined' ? localStorage.getItem('adminToken') : null;
+  //     const agentToken = typeof window !== 'undefined' ? localStorage.getItem('agentToken') : null;
+  //     const token = adminToken || agentToken;
 
-      if (!token) {
-        showToast("No token found. Please login again.", 'error');
-        return;
-      }
+  //     if (!token) {
+  //       showToast("No token found. Please login again.", 'error');
+  //       return;
+  //     }
 
-      await axios.post("/api/admin/setDoctorCredentials", {
-        userId,
-        password: newPassword,
-      }, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      // setSettingId(null); // Reserved for future use - edit mode indicator
-      setNewPassword("");
-      showToast('Credentials set successfully', 'success');
-      fetchDoctors();
-    } catch (error: any) {
-      console.error(error);
-      showToast(error.response?.data?.message || "An error occurred", 'error');
-    }
-  };
+  //     await axios.post("/api/admin/setDoctorCredentials", {
+  //       userId,
+  //       password: newPassword,
+  //     }, {
+  //       headers: { Authorization: `Bearer ${token}` }
+  //     });
+  //     // setSettingId(null); // Reserved for future use - edit mode indicator
+  //     setNewPassword("");
+  //     showToast('Credentials set successfully', 'success');
+  //     fetchDoctors();
+  //   } catch (error: any) {
+  //     console.error(error);
+  //     showToast(error.response?.data?.message || "An error occurred", 'error');
+  //   }
+  // };
 
   const filteredDoctors = doctors.filter((doc) => {
     const user = doc.user;
