@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import Head from 'next/head'
 import { Droplets, Calculator, Activity, User } from 'lucide-react';
 
 interface WaterCalculatorState {
@@ -80,7 +81,31 @@ function WaterIntakeCalculator() {
   }, [state]);
 
   return (
-    <div className="min-h-screen bg-white">
+    <>
+      <Head>
+        <title>Water Intake Tracker | Daily Hydration Calculator – ZEVA</title>
+        <meta
+          name="description"
+          content="Use ZEVA's Water Intake Tracker to monitor daily water consumption, stay hydrated, and support overall health and wellness."
+        />
+        <meta
+          name="keywords"
+          content="Water Intake Tracker, daily water calculator, hydration tracker, water consumption calculator, hydration level check, healthy hydration tool, fitness hydration tracker, water reminder tool, ZEVA water tracker"
+        />
+        <meta property="og:title" content="Water Intake Tracker | Daily Hydration Calculator – ZEVA" />
+        <meta
+          property="og:description"
+          content="Use ZEVA's Water Intake Tracker to monitor daily water consumption, stay hydrated, and support overall health and wellness."
+        />
+        <meta property="og:type" content="website" />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="Water Intake Tracker | Daily Hydration Calculator – ZEVA" />
+        <meta
+          name="twitter:description"
+          content="Use ZEVA's Water Intake Tracker to monitor daily water consumption, stay hydrated, and support overall health and wellness."
+        />
+      </Head>
+      <div className="min-h-screen bg-white">
       <div className="max-w-6xl mx-auto p-6">
 
         {/* Header */}
@@ -298,6 +323,7 @@ function WaterIntakeCalculator() {
         </div>
       </div>
     </div>
+    </>
   );
 };
 

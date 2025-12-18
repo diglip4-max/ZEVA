@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import Head from 'next/head'
 import { Plus, Trash2, Calculator, Search, Target, TrendingUp } from 'lucide-react';
 
 interface Food {
@@ -157,7 +158,31 @@ function CalorieCounter() {
   const calorieStatus = getCalorieStatus(totalCalories);
 
 return (
-  <div className="min-h-screen bg-white">
+  <>
+    <Head>
+      <title>Calorie Count Calculator | Track Daily Calories – ZEVA</title>
+      <meta
+        name="description"
+        content="Use ZEVA's free Calorie Count Calculator to track daily calorie intake, manage diet goals, and maintain a healthy, balanced lifestyle."
+      />
+      <meta
+        name="keywords"
+        content="Calorie Count Calculator, calorie intake tracker, daily calorie calculator, diet calorie calculator, food calorie tracker, nutrition calculator, healthy diet tool, weight management calculator, ZEVA calorie tool"
+      />
+      <meta property="og:title" content="Calorie Count Calculator | Track Daily Calories – ZEVA" />
+      <meta
+        property="og:description"
+        content="Use ZEVA's free Calorie Count Calculator to track daily calorie intake, manage diet goals, and maintain a healthy, balanced lifestyle."
+      />
+      <meta property="og:type" content="website" />
+      <meta name="twitter:card" content="summary_large_image" />
+      <meta name="twitter:title" content="Calorie Count Calculator | Track Daily Calories – ZEVA" />
+      <meta
+        name="twitter:description"
+        content="Use ZEVA's free Calorie Count Calculator to track daily calorie intake, manage diet goals, and maintain a healthy, balanced lifestyle."
+      />
+    </Head>
+    <div className="min-h-screen bg-white">
     <div className="max-w-6xl mx-auto p-6">
       {/* Header */}
       <div className="mb-8">
@@ -300,6 +325,7 @@ return (
       </div>
     </div>
   </div>
+  </>
 );
 }
 

@@ -16,7 +16,7 @@ function AllCalculators(){
   return (
     <>
       <Head>
-        <title>Health Calculators – Free Tools for Fitness, Wellness & Nutrition | Zeva</title>
+        <title>Health Calculators – Free Tools for Fitness, Wellness &amp; Nutrition | Zeva</title>
         <meta
           name="description"
           content="Explore Zeva Health Calculators to track your BMI, BMR, TDEE, heart rate, water intake, pregnancy, and more. Free, interactive tools to boost fitness, wellness, and overall health anytime, anywhere."
@@ -24,6 +24,18 @@ function AllCalculators(){
         <meta
           name="keywords"
           content="Health Calculators, fitness calculators, wellness tools, free health calculators, BMI calculator, BMR-TDEE calculator, heart rate monitor, water intake tracker, pregnancy tracker, ovulation calendar, depression test calculator, calorie counter, breath hold calculator, interactive health tools, Zeva health tools"
+        />
+        <meta property="og:title" content="Health Calculators – Free Tools for Fitness, Wellness &amp; Nutrition | Zeva" />
+        <meta
+          property="og:description"
+          content="Explore Zeva Health Calculators to track your BMI, BMR, TDEE, heart rate, water intake, pregnancy, and more. Free, interactive tools to boost fitness, wellness, and overall health anytime, anywhere."
+        />
+        <meta property="og:type" content="website" />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="Health Calculators – Free Tools for Fitness, Wellness &amp; Nutrition | Zeva" />
+        <meta
+          name="twitter:description"
+          content="Explore Zeva Health Calculators to track your BMI, BMR, TDEE, heart rate, water intake, pregnancy, and more. Free, interactive tools to boost fitness, wellness, and overall health anytime, anywhere."
         />
       </Head>
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
