@@ -21,9 +21,6 @@ import {
   BriefcaseIcon,
   BeakerIcon,
   DocumentTextIcon,
-  KeyIcon,
-  EyeIcon,
-  EyeSlashIcon,
 } from "@heroicons/react/24/outline";
 import { GoogleMap, Marker } from "@react-google-maps/api";
 
@@ -115,7 +112,7 @@ function AdminDoctors() {
   >("pending");
   const [settingId, setSettingId] = useState<string | null>(null);
   const [newPassword, setNewPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
+  // const [showPassword, setShowPassword] = useState(false); // Reserved for future use - password visibility toggle
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
@@ -451,9 +448,8 @@ function AdminDoctors() {
 
   const DoctorCard = ({ doctor }: { doctor: Doctor }) => {
     const actions = getTabActions(activeTab);
-    const isEditing = settingId === doctor.user._id;
-    const hasPassword =
-      doctor.user.password && doctor.user.password.trim() !== "";
+    // const isEditing = settingId === doctor.user._id; // Reserved for future use - edit mode indicator
+    // const hasPassword = doctor.user.password && doctor.user.password.trim() !== ""; // Reserved for future use - password status indicator
 
     const statusStyles: Record<
       "pending" | "approved" | "declined",

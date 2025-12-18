@@ -13,10 +13,7 @@ import {
   EyeIcon,
   XMarkIcon,
   MagnifyingGlassIcon,
-  CheckCircleIcon,
   XCircleIcon,
-  InformationCircleIcon,
-  ExclamationTriangleIcon,
   PhotoIcon,
 } from "@heroicons/react/24/outline";
 
@@ -483,10 +480,6 @@ const AdminBlogs = () => {
                           View
                         </button>
                         {(() => {
-                          const adminTokenExists = typeof window !== 'undefined' ? !!localStorage.getItem('adminToken') : false;
-                          const agentTokenExists = typeof window !== 'undefined' ? !!localStorage.getItem('agentToken') : false;
-                          const isAgentRoute = router.pathname?.startsWith('/agent/') || (typeof window !== 'undefined' && window.location.pathname?.startsWith('/agent/'));
-                          
                           const canDelete = isAdmin || (isAgent && !permissionsLoading && agentPermissions && (agentPermissions.canDelete || agentPermissions.canAll));
                           
                           if (canDelete) {

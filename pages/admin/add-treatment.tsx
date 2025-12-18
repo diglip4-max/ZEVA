@@ -93,7 +93,7 @@ const AddTreatment: NextPageWithLayout = () => {
   const [showDeleteModal, setShowDeleteModal] = useState<boolean>(false);
   const [treatmentToDelete, setTreatmentToDelete] = useState<{id: string, name: string} | null>(null);
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
-  const [isFromDropdown, setIsFromDropdown] = useState<boolean>(false);
+  // const [isFromDropdown, setIsFromDropdown] = useState<boolean>(false); // Reserved for future use - tracks if value came from dropdown vs manual input
   const [customMainTreatments, setCustomMainTreatments] = useState<Array<{id: string, name: string}>>([]);
   const [customSubTreatments, setCustomSubTreatments] = useState<Array<{id: string, name: string}>>([]);
 
@@ -218,7 +218,8 @@ const AddTreatment: NextPageWithLayout = () => {
     };
   }, [showDeleteModal]);
 
-
+  // Reserved for future use - currently using handleAddBoth instead
+  /*
   const handleAddMainTreatment = async () => {
     if (!newMainTreatment.trim()) {
       showToast('Treatment name required', 'error');
@@ -266,7 +267,10 @@ const AddTreatment: NextPageWithLayout = () => {
       setLoading(false);
     }
   };
+  */
 
+  // Reserved for future use - currently using handleAddBoth instead
+  /*
   const handleAddSubTreatment = async () => {
     if (!selectedMainTreatment) {
       showToast('Select main treatment first', 'warning');
@@ -321,6 +325,7 @@ const AddTreatment: NextPageWithLayout = () => {
       setLoading(false);
     }
   };
+  */
 
   const handleRemoveCustomMainTreatment = (id: string) => {
     setCustomMainTreatments(prev => prev.filter(item => item.id !== id));
@@ -378,7 +383,7 @@ const AddTreatment: NextPageWithLayout = () => {
   };
 
   const handleMainTreatmentSelect = (treatmentId: string) => {
-    setIsFromDropdown(true);
+    // setIsFromDropdown(true); // Reserved for future use
     setSelectedMainTreatment(treatmentId);
     const selectedTreatment = treatments.find(t => t._id === treatmentId);
     if (selectedTreatment) {
@@ -388,13 +393,13 @@ const AddTreatment: NextPageWithLayout = () => {
       setAvailableSubTreatments([]);
     }
     setNewSubTreatment('');
-    setTimeout(() => setIsFromDropdown(false), 100);
+    // setTimeout(() => setIsFromDropdown(false), 100); // Reserved for future use
   };
 
   const handleSubTreatmentSelect = (subTreatmentName: string) => {
-    setIsFromDropdown(true);
+    // setIsFromDropdown(true); // Reserved for future use
     setNewSubTreatment(subTreatmentName);
-    setTimeout(() => setIsFromDropdown(false), 100);
+    // setTimeout(() => setIsFromDropdown(false), 100); // Reserved for future use
   };
 
   const handleAddBoth = async () => {
@@ -499,7 +504,7 @@ const AddTreatment: NextPageWithLayout = () => {
     }))
     .sort((a, b) => b.subCount - a.subCount)
     .slice(0, 5);
-  const maxSubCount = Math.max(...topTreatments.map((t) => t.subCount), 1);
+  // const maxSubCount = Math.max(...topTreatments.map((t) => t.subCount), 1); // Reserved for future use
 
   // Show access denied only when agent has NO permissions at all for this module
   if (
@@ -620,7 +625,7 @@ const AddTreatment: NextPageWithLayout = () => {
                   type="text"
                   value={newMainTreatment}
                   onChange={(e) => {
-                    setIsFromDropdown(false);
+                    // setIsFromDropdown(false); // Reserved for future use
                     setNewMainTreatment(e.target.value);
                   }}
                   placeholder="Enter name"
@@ -673,7 +678,7 @@ const AddTreatment: NextPageWithLayout = () => {
                   type="text"
                   value={newSubTreatment}
                   onChange={(e) => {
-                    setIsFromDropdown(false);
+                    // setIsFromDropdown(false); // Reserved for future use
                     setNewSubTreatment(e.target.value);
                   }}
                   placeholder="Enter sub-treatment name"

@@ -32,7 +32,6 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
   ResponsiveContainer,
 } from 'recharts';
 
@@ -686,7 +685,7 @@ return (
                           paddingAngle={2}
                           dataKey="count"
                         >
-                          {genderDistribution.map((entry, index) => {
+                          {genderDistribution.map((_entry, index) => {
                             const colors = ['#3b82f6', '#10b981', '#f59e0b', '#6b7280'];
                             return <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />;
                           })}
@@ -699,7 +698,7 @@ return (
                             fontSize: '10px',
                             padding: '4px 6px'
                           }}
-                          formatter={(value: number, name: string, props: any) => [
+                          formatter={(value: number, _name: string, props: any) => [
                             `${value} (${props.payload.percentage}%)`,
                             'Count'
                           ]}
@@ -795,7 +794,7 @@ return (
                             padding: '4px 6px',
                             boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
                           }}
-                          formatter={(value: number, name: string, props: any) => [
+                          formatter={(value: number, _name: string, props: any) => [
                             `${value} users (${props.payload.percentage}%)`,
                             'Count'
                           ]}
@@ -805,7 +804,7 @@ return (
                           dataKey="count" 
                           radius={[0, 4, 4, 0]}
                         >
-                          {ageDistribution.filter(item => item.ageGroup !== 'unspecified').map((entry, index) => {
+                          {ageDistribution.filter(item => item.ageGroup !== 'unspecified').map((_entry, index) => {
                             const colors = ['#3b82f6', '#10b981', '#8b5cf6', '#f59e0b', '#ef4444', '#06b6d4', '#ec4899'];
                             return <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />;
                           })}
