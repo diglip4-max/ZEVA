@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import Head from 'next/head'
 import { Heart, Play, Square, Info } from 'lucide-react';
 
 function HeartRateMonitor(){
@@ -44,7 +45,31 @@ function HeartRateMonitor(){
   const status: string = getHeartRateStatus(currentBPM, age);
 
 return (
-  <div className="min-h-screen bg-white">
+  <>
+    <Head>
+      <title>Heart Rate Monitor | Track Cardiovascular Health – ZEVA</title>
+      <meta
+        name="description"
+        content="Use ZEVA's Heart Rate Monitor to track your heart rate, assess cardiovascular health, and stay informed about your fitness and wellness."
+      />
+      <meta
+        name="keywords"
+        content="Heart Rate Monitor, heart rate tracker, pulse rate monitor, cardiovascular health tool, heart health calculator, resting heart rate check, fitness heart rate tool, health monitoring app, ZEVA heart monitor"
+      />
+      <meta property="og:title" content="Heart Rate Monitor | Track Cardiovascular Health – ZEVA" />
+      <meta
+        property="og:description"
+        content="Use ZEVA's Heart Rate Monitor to track your heart rate, assess cardiovascular health, and stay informed about your fitness and wellness."
+      />
+      <meta property="og:type" content="website" />
+      <meta name="twitter:card" content="summary_large_image" />
+      <meta name="twitter:title" content="Heart Rate Monitor | Track Cardiovascular Health – ZEVA" />
+      <meta
+        name="twitter:description"
+        content="Use ZEVA's Heart Rate Monitor to track your heart rate, assess cardiovascular health, and stay informed about your fitness and wellness."
+      />
+    </Head>
+    <div className="min-h-screen bg-white">
     <div className="max-w-6xl mx-auto p-6">
       
       {/* Header */}
@@ -214,6 +239,7 @@ return (
       )}
     </div>
   </div>
+  </>
 );
 };
 

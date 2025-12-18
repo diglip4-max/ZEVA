@@ -115,6 +115,95 @@ export default function Home(): React.ReactElement {
         
         {/* Sitemap Link */}
         <link rel="sitemap" type="application/xml" title="Sitemap" href="https://zeva360.com/sitemap.xml" />
+        
+        {/* Schema Markup - Organization */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "Organization",
+              "name": "ZEVA",
+              "url": "https://zeva360.com",
+              "logo": "https://zeva360.com/logo.png",
+              "description": "ZEVA is an all-in-one healthcare platform that connects users with trusted doctors and clinics across all medical treatments. Book visits, plan therapies, and manage wellness goals easily.",
+              "foundingDate": "2024",
+              "sameAs": [
+                "https://www.facebook.com/zeva360",
+                "https://www.instagram.com/zeva360",
+                "https://www.linkedin.com/company/zeva360",
+                "https://twitter.com/zeva360"
+              ],
+              "contactPoint": {
+                "@type": "ContactPoint",
+                "contactType": "Customer Support",
+                "email": "support@zeva360.com",
+                "availableLanguage": ["English"]
+              }
+            })
+          }}
+        />
+        
+        {/* Schema Markup - Website */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "Website",
+              "name": "ZEVA",
+              "url": "https://zeva360.com",
+              "description": "Find trusted doctors and clinics, book appointments, use health calculators, explore wellness tools, and manage healthcare easily with ZEVA.",
+              "potentialAction": {
+                "@type": "SearchAction",
+                "target": "https://zeva360.com/search?q={search_term_string}",
+                "query-input": "required name=search_term_string"
+              }
+            })
+          }}
+        />
+        
+        {/* Schema Markup - Health Games CollectionPage */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "CollectionPage",
+              "name": "Health Games",
+              "url": "https://zeva360.com/health-games",
+              "description": "ZEVA Health Games offers free, interactive wellness games to learn, play, and improve fitness, nutrition awareness, and overall well-being.",
+              "isPartOf": {
+                "@type": "WebSite",
+                "name": "ZEVA",
+                "url": "https://zeva360.com"
+              },
+              "publisher": {
+                "@type": "Organization",
+                "name": "ZEVA",
+                "url": "https://zeva360.com",
+                "logo": {
+                  "@type": "ImageObject",
+                  "url": "https://zeva360.com/logo.png"
+                }
+              },
+              "about": [
+                {
+                  "@type": "Thing",
+                  "name": "Health Games"
+                },
+                {
+                  "@type": "Thing",
+                  "name": "Wellness Games"
+                },
+                {
+                  "@type": "Thing",
+                  "name": "Fitness Games"
+                }
+              ]
+            })
+          }}
+        />
       </Head>
       <AuthModal
         isOpen={showAuthModal}

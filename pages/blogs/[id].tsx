@@ -96,6 +96,9 @@ export default function BlogDetail({ initialBlog, seo }: BlogDetailProps) {
   const shouldLikeAfterLogin = useRef(false);
   const shouldCommentAfterLogin = useRef(false);
   const pendingComment = useRef("");
+  const shouldReplyAfterLogin = useRef(false);
+  const pendingReplyCommentId = useRef<string | null>(null);
+  const pendingReplyText = useRef("");
   const [showAllComments, setShowAllComments] = useState(false);
   const [expandedComments, setExpandedComments] = useState<Record<string, boolean>>({});
   const [expandedReplies, setExpandedReplies] = useState<{
@@ -167,6 +170,19 @@ export default function BlogDetail({ initialBlog, seo }: BlogDetailProps) {
         setNewComment(pendingComment.current);
         performSubmitComment(pendingComment.current);
         pendingComment.current = "";
+      }
+      if (shouldReplyAfterLogin.current && pendingReplyCommentId.current) {
+        shouldReplyAfterLogin.current = false;
+        const commentId = pendingReplyCommentId.current;
+        const replyText = pendingReplyText.current;
+        pendingReplyCommentId.current = null;
+        pendingReplyText.current = "";
+        // Set the reply text and submit
+        setReplyTexts((prev) => ({ ...prev, [commentId]: replyText }));
+        // Small delay to ensure state is updated
+        setTimeout(() => {
+          handleReplySubmit(commentId);
+        }, 100);
       }
     }
   }, [isAuthenticated]);
@@ -319,10 +335,44 @@ export default function BlogDetail({ initialBlog, seo }: BlogDetailProps) {
   // Handle reply submission
   async function handleReplySubmit(commentId: string) {
     const replyText = replyTexts[commentId];
-    if (!replyText?.trim()) return;
+    if (!replyText?.trim()) {
+      toast.error("Please enter a reply");
+      return;
+    }
+
+    if (!blog?._id) {
+      toast.error("Blog not found");
+      return;
+    }
+
+    // Check authentication first
+    if (!isAuthenticated) {
+      setAuthModalMode("login");
+      setShowAuthModal(true);
+      shouldReplyAfterLogin.current = true;
+      pendingReplyCommentId.current = commentId;
+      pendingReplyText.current = replyText;
+      toast("Please login to reply", { icon: "🔐" });
+      return;
+    }
+
+    await performReplySubmit(commentId, replyText);
+  }
+
+  // Actual reply submission function
+  async function performReplySubmit(commentId: string, replyText: string) {
+    if (!blog?._id) {
+      toast.error("Blog not found");
+      return;
+    }
 
     try {
       const token = localStorage.getItem("token");
+      if (!token) {
+        toast.error("Please login to reply");
+        return;
+      }
+
       const res = await fetch("/api/blog/addReply", {
         method: "POST",
         headers: {
@@ -330,18 +380,25 @@ export default function BlogDetail({ initialBlog, seo }: BlogDetailProps) {
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          blogId: blog?._id,
+          blogId: blog._id,
           commentId: commentId,
-          text: replyText,
+          text: replyText.trim(),
         }),
       });
+      
       const json = await res.json();
-      if (json.success) {
-        // Fetch latest replies for this comment
-        const res2 = await fetch(
-          `/api/blog/getCommentReplies?blogId=${blog?._id}&commentId=${commentId}`
-        );
-        const json2 = await res2.json();
+      
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || json.message || "Failed to add reply");
+      }
+
+      // Fetch latest replies for this comment
+      const res2 = await fetch(
+        `/api/blog/getCommentReplies?blogId=${blog._id}&commentId=${commentId}`
+      );
+      const json2 = await res2.json();
+      
+      if (json2.success) {
         setBlog((prev) => {
           if (!prev) return prev;
           return {
@@ -356,11 +413,13 @@ export default function BlogDetail({ initialBlog, seo }: BlogDetailProps) {
         setReplyTexts((prev) => ({ ...prev, [commentId]: "" }));
         setShowReplyInput((prev) => ({ ...prev, [commentId]: false }));
         setExpandedReplies((prev) => ({ ...prev, [commentId]: true }));
-        toast.success("Reply added");
+        toast.success("Reply added successfully");
+      } else {
+        throw new Error("Failed to fetch updated replies");
       }
-    } catch (err) {
-      console.error(err);
-      toast.error("Failed to add reply");
+    } catch (err: any) {
+      console.error("Error submitting reply:", err);
+      toast.error(err.message || "Failed to add reply");
     }
   }
 
@@ -788,7 +847,7 @@ export default function BlogDetail({ initialBlog, seo }: BlogDetailProps) {
         {/* Comments Section */}
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16 lg:py-20">
           <section id="comments-section">
-            <div className="space-y-6 sm:space-y-8 mb-12 sm:mb-16">
+            <div className="space-y-3 sm:space-y-4 mb-12 sm:mb-16">
               {blog.comments
                 .slice(0, showAllComments ? blog.comments.length : 4)
                 .map((c) => {
@@ -804,18 +863,18 @@ export default function BlogDetail({ initialBlog, seo }: BlogDetailProps) {
                   return (
                     <div
                       key={c._id}
-                      className="bg-gradient-to-br from-purple-50/50 to-white rounded-xl sm:rounded-2xl p-4 sm:p-6 lg:p-8 hover:shadow-lg transition-all duration-300 border border-purple-100"
+                      className="bg-gradient-to-br from-purple-50/50 to-white rounded-lg sm:rounded-xl p-3 sm:p-4 hover:shadow-lg transition-all duration-300 border border-purple-100"
                     >
-                      <div className="flex justify-between items-start mb-4">
-                        <div className="flex items-center space-x-3 sm:space-x-4">
-                          <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-purple-600 to-indigo-600 rounded-full flex items-center justify-center text-white font-bold text-base sm:text-lg shadow-lg flex-shrink-0">
+                      <div className="flex justify-between items-start mb-2">
+                        <div className="flex items-center space-x-2 sm:space-x-3">
+                          <div className="w-8 h-8 sm:w-9 sm:h-9 bg-gradient-to-br from-purple-600 to-indigo-600 rounded-full flex items-center justify-center text-white font-bold text-sm sm:text-base shadow-lg flex-shrink-0">
                             {c.username.charAt(0).toUpperCase()}
                           </div>
                           <div className="min-w-0">
-                            <p className="font-bold text-gray-900 text-base sm:text-lg truncate">
+                            <p className="font-bold text-gray-900 text-sm sm:text-base truncate">
                               {c.username}
                             </p>
-                            <p className="text-xs sm:text-sm text-gray-500 flex items-center">
+                            <p className="text-xs text-gray-500 flex items-center">
                               <svg className="w-3 h-3 sm:w-4 sm:h-4 mr-1 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path
                                   strokeLinecap="round"
@@ -852,12 +911,12 @@ export default function BlogDetail({ initialBlog, seo }: BlogDetailProps) {
                         )}
                       </div>
 
-                      <div className="text-gray-700 leading-relaxed mb-4 sm:mb-6 text-sm sm:text-base lg:text-lg">
+                      <div className="text-gray-700 leading-relaxed mb-2 sm:mb-3 text-xs sm:text-sm">
                         <pre className="whitespace-pre-wrap font-sans">{displayText}</pre>
                         {isLong && (
                           <button
                             onClick={() => toggleCommentExpansion(c._id)}
-                            className="text-purple-600 hover:text-purple-700 font-medium text-xs sm:text-sm mt-2 flex items-center transition-colors duration-200"
+                            className="text-purple-600 hover:text-purple-700 font-medium text-xs mt-1 flex items-center transition-colors duration-200"
                           >
                             {isExpanded ? (
                               <>
@@ -878,10 +937,10 @@ export default function BlogDetail({ initialBlog, seo }: BlogDetailProps) {
                         )}
                       </div>
 
-                      <div className="flex items-center gap-2 ml-0 sm:ml-8 mb-2">
+                      <div className="flex items-center gap-2 ml-0 sm:ml-6 mb-1">
                         {c.replies && c.replies.length > 0 && (
                           <button
-                            className="flex items-center text-gray-500 hover:text-purple-600 text-xs sm:text-sm"
+                            className="flex items-center text-gray-500 hover:text-purple-600 text-xs"
                             onClick={() =>
                               setExpandedReplies((prev) => ({
                                 ...prev,
@@ -889,7 +948,7 @@ export default function BlogDetail({ initialBlog, seo }: BlogDetailProps) {
                               }))
                             }
                           >
-                            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8h2a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V10a2 2 0 012-2h2" />
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 3h-6a2 2 0 00-2 2v0a2 2 0 002 2h6a2 2 0 002-2v0a2 2 0 00-2-2z" />
                             </svg>
@@ -899,47 +958,75 @@ export default function BlogDetail({ initialBlog, seo }: BlogDetailProps) {
                           </button>
                         )}
                         <button
-                          className="ml-2 text-purple-600 hover:underline text-xs sm:text-sm"
-                          onClick={() =>
+                          className="ml-2 text-purple-600 hover:underline text-xs"
+                          onClick={() => {
+                            if (!isAuthenticated) {
+                              setAuthModalMode("login");
+                              setShowAuthModal(true);
+                              toast("Please login to reply", { icon: "🔐" });
+                              return;
+                            }
                             setShowReplyInput((prev) => ({
                               ...prev,
                               [c._id]: !prev[c._id],
-                            }))
-                          }
+                            }));
+                          }}
                         >
                           Reply
                         </button>
                       </div>
 
-                      {user && showReplyInput[c._id] && (
-                        <div className="mt-2 ml-0 sm:ml-8">
-                          <div className="flex space-x-3 sm:space-x-4">
-                            <div className="w-6 h-6 sm:w-8 sm:h-8 bg-purple-600 rounded-full flex items-center justify-center text-white font-bold text-xs sm:text-sm flex-shrink-0">
-                              {user.name.charAt(0).toUpperCase()}
+                      {showReplyInput[c._id] && (
+                        <div className="mt-1.5 ml-0 sm:ml-6">
+                          <div className="flex space-x-2">
+                            <div className="w-5 h-5 sm:w-6 sm:h-6 bg-purple-600 rounded-full flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
+                              {user?.name?.charAt(0).toUpperCase() || "?"}
                             </div>
-                            <input
-                              type="text"
-                              placeholder="Reply to this comment..."
-                              value={replyTexts[c._id] || ""}
-                              onChange={(e) =>
-                                setReplyTexts((prev) => ({
-                                  ...prev,
-                                  [c._id]: e.target.value,
-                                }))
-                              }
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter") {
-                                  handleReplySubmit(c._id);
+                            <div className="flex-1 relative">
+                              <input
+                                type="text"
+                                placeholder={isAuthenticated ? "Reply to this comment..." : "Login to reply..."}
+                                value={replyTexts[c._id] || ""}
+                                onChange={(e) =>
+                                  setReplyTexts((prev) => ({
+                                    ...prev,
+                                    [c._id]: e.target.value,
+                                  }))
                                 }
-                              }}
-                              className="mb-4 sm:mb-8 flex-1 border-2 border-purple-200 rounded-lg sm:rounded-xl px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm focus:outline-none focus:ring-4 focus:ring-purple-200 focus:border-purple-500 transition-all duration-200"
-                            />
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") {
+                                    e.preventDefault();
+                                    handleReplySubmit(c._id);
+                                  }
+                                }}
+                                disabled={!isAuthenticated}
+                                className="w-full border-2 border-purple-200 rounded-lg px-2.5 sm:px-3 py-1 pr-9 sm:pr-10 text-xs focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-500 transition-all duration-200 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                              />
+                              <button
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  handleReplySubmit(c._id);
+                                }}
+                                disabled={!replyTexts[c._id]?.trim() || !isAuthenticated}
+                                className="absolute right-1 top-1/2 -translate-y-1/2 w-6 h-6 sm:w-7 sm:h-7 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-full flex items-center justify-center hover:from-purple-700 hover:to-indigo-700 transition-all duration-200 shadow-sm hover:shadow-md transform hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:hover:scale-100 active:scale-95"
+                                title={isAuthenticated ? "Send reply" : "Login to reply"}
+                              >
+                                <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
+                                  />
+                                </svg>
+                              </button>
+                            </div>
                           </div>
                         </div>
                       )}
 
                       {c.replies && c.replies.length > 0 && expandedReplies[c._id] && (
-                        <div className="space-y-3 sm:space-y-4 ml-0 sm:ml-8 border-l-2 sm:border-l-4 border-purple-500 pl-3 sm:pl-6">
+                        <div className="space-y-2 ml-0 sm:ml-6 border-l-2 border-purple-500 pl-2 sm:pl-3">
                           {c.replies.map((r) => {
                             const isAuthorReply =
                               r.user && String(r.user) === String(blog.postedBy?._id);
@@ -950,15 +1037,15 @@ export default function BlogDetail({ initialBlog, seo }: BlogDetailProps) {
                             return (
                               <div
                                 key={r._id}
-                                className={`p-4 sm:p-6 rounded-lg sm:rounded-xl ${isAuthorReply
-                                  ? "bg-gradient-to-br from-purple-100/50 to-purple-50/30 border-2 border-purple-200"
+                                className={`p-2 sm:p-3 rounded-lg ${isAuthorReply
+                                  ? "bg-gradient-to-br from-purple-100/50 to-purple-50/30 border border-purple-200"
                                   : "bg-white border border-gray-200"
                                   }`}
                               >
-                                <div className="flex justify-between items-start mb-3">
-                                  <div className="flex items-center space-x-2 sm:space-x-3 min-w-0 flex-1">
+                                <div className="flex justify-between items-start mb-1.5">
+                                  <div className="flex items-center space-x-1.5 sm:space-x-2 min-w-0 flex-1">
                                     <div
-                                      className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-white font-bold text-xs sm:text-sm flex-shrink-0 ${isAuthorReply
+                                      className={`w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center text-white font-bold text-xs flex-shrink-0 ${isAuthorReply
                                         ? "bg-gradient-to-br from-purple-600 to-indigo-600"
                                         : "bg-gradient-to-br from-gray-400 to-gray-500"
                                         }`}
@@ -967,12 +1054,12 @@ export default function BlogDetail({ initialBlog, seo }: BlogDetailProps) {
                                     </div>
                                     <div className="min-w-0 flex-1">
                                       <p
-                                        className={`font-bold text-xs sm:text-sm flex items-center flex-wrap ${isAuthorReply ? "text-purple-700" : "text-gray-700"
+                                        className={`font-bold text-xs flex items-center flex-wrap ${isAuthorReply ? "text-purple-700" : "text-gray-700"
                                           }`}
                                       >
                                         <span className="truncate">{r.username}</span>
                                         {isAuthorReply && (
-                                          <span className="ml-2 text-xs bg-purple-600 text-white px-2 sm:px-3 py-0.5 sm:py-1 rounded-full flex-shrink-0">
+                                          <span className="ml-1.5 text-xs bg-purple-600 text-white px-1.5 py-0.5 rounded-full flex-shrink-0">
                                             Author
                                           </span>
                                         )}
@@ -985,9 +1072,9 @@ export default function BlogDetail({ initialBlog, seo }: BlogDetailProps) {
                                   {canDeleteReply && (
                                     <button
                                       onClick={() => setConfirmDeleteId(r._id)}
-                                      className="text-gray-400 hover:text-red-500 transition-colors duration-200 p-1 rounded-full hover:bg-red-50 flex-shrink-0"
+                                      className="text-gray-400 hover:text-red-500 transition-colors duration-200 p-0.5 rounded-full hover:bg-red-50 flex-shrink-0"
                                     >
-                                      <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path
                                           strokeLinecap="round"
                                           strokeLinejoin="round"
@@ -998,7 +1085,7 @@ export default function BlogDetail({ initialBlog, seo }: BlogDetailProps) {
                                     </button>
                                   )}
                                 </div>
-                                <pre className="text-gray-700 text-xs sm:text-sm leading-relaxed whitespace-pre-wrap font-sans">
+                                <pre className="text-gray-700 text-xs leading-relaxed whitespace-pre-wrap font-sans">
                                   {r.text}
                                 </pre>
                               </div>
