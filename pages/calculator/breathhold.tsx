@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
+import Head from 'next/head'
 
 interface GameState {
   isRunning: boolean;
@@ -121,7 +122,31 @@ function BreathHold() {
   };
 
 return (
-  <div className="min-h-screen bg-white flex items-center justify-center p-4">
+  <>
+    <Head>
+      <title>Breath Hold Calculator | Measure Lung Capacity – ZEVA</title>
+      <meta
+        name="description"
+        content="Use ZEVA's Breath Hold Calculator to track breath-holding capacity, assess lung health, and improve breathing performance with instant results."
+      />
+      <meta
+        name="keywords"
+        content="Breath Hold Calculator, breath holding capacity, lung capacity test, breathing health calculator, respiratory health tool, breath hold time test, lung health assessment, breathing performance test, oxygen capacity check, fitness breathing tool, ZEVA health calculator"
+      />
+      <meta property="og:title" content="Breath Hold Calculator | Measure Lung Capacity – ZEVA" />
+      <meta
+        property="og:description"
+        content="Use ZEVA's Breath Hold Calculator to track breath-holding capacity, assess lung health, and improve breathing performance with instant results."
+      />
+      <meta property="og:type" content="website" />
+      <meta name="twitter:card" content="summary_large_image" />
+      <meta name="twitter:title" content="Breath Hold Calculator | Measure Lung Capacity – ZEVA" />
+      <meta
+        name="twitter:description"
+        content="Use ZEVA's Breath Hold Calculator to track breath-holding capacity, assess lung health, and improve breathing performance with instant results."
+      />
+    </Head>
+    <div className="min-h-screen bg-white flex items-center justify-center p-4">
     <div className="bg-white border border-gray-200 rounded-2xl p-8 w-full max-w-6xl shadow-lg">
       {/* Header */}
       <div className="flex justify-between items-center flex-wrap gap-4 mb-8">
@@ -278,8 +303,9 @@ return (
         }
       }
     `}</style>
-  </div>
-);
+    </div>
+  </>
+  );
 }
 
 export default BreathHold;

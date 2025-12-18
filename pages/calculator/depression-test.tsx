@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import Head from 'next/head';
 import { ChevronRight, AlertTriangle, Heart, User, Calendar, Stethoscope } from 'lucide-react';
 import L1 from '../../components/Layout'
 
@@ -172,7 +173,31 @@ function DepressionTest() {
 
   if (currentStep === 'info') {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+      <>
+        <Head>
+          <title>Depression Test Calculator – Check Signs of Depression Online</title>
+          <meta
+            name="description"
+            content="Use ZEVA's Depression Test Calculator to gently assess possible signs of depression. Take a confidential, free mental health self-check and gain insights into your emotional well-being anytime."
+          />
+          <meta
+            name="keywords"
+            content="Depression Test Calculator, depression test online, signs of depression, mental health test, depression self check, emotional health assessment, mental wellness tool, mood assessment test, stress and depression test, online mental health calculator, ZEVA depression test, mental health awareness, free depression test, psychological wellbeing test, self assessment for depression"
+          />
+          <meta property="og:title" content="Depression Test Calculator – Check Signs of Depression Online" />
+          <meta
+            property="og:description"
+            content="Use ZEVA's Depression Test Calculator to gently assess possible signs of depression. Take a confidential, free mental health self-check and gain insights into your emotional well-being anytime."
+          />
+          <meta property="og:type" content="website" />
+          <meta name="twitter:card" content="summary_large_image" />
+          <meta name="twitter:title" content="Depression Test Calculator – Check Signs of Depression Online" />
+          <meta
+            name="twitter:description"
+            content="Use ZEVA's Depression Test Calculator to gently assess possible signs of depression. Take a confidential, free mental health self-check and gain insights into your emotional well-being anytime."
+          />
+        </Head>
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8 w-full max-w-md">
           <div className="text-center mb-8">
             <div className="w-14 h-14 bg-blue-500 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -224,12 +249,37 @@ function DepressionTest() {
           </p>
         </div>
       </div>
+      </>
     );
   }
 
   if (currentStep === 'test') {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center p-4">
+      <>
+        <Head>
+          <title>Depression Test Calculator – Check Signs of Depression Online</title>
+          <meta
+            name="description"
+            content="Use ZEVA's Depression Test Calculator to gently assess possible signs of depression. Take a confidential, free mental health self-check and gain insights into your emotional well-being anytime."
+          />
+          <meta
+            name="keywords"
+            content="Depression Test Calculator, depression test online, signs of depression, mental health test, depression self check, emotional health assessment, mental wellness tool, mood assessment test, stress and depression test, online mental health calculator, ZEVA depression test, mental health awareness, free depression test, psychological wellbeing test, self assessment for depression"
+          />
+          <meta property="og:title" content="Depression Test Calculator – Check Signs of Depression Online" />
+          <meta
+            property="og:description"
+            content="Use ZEVA's Depression Test Calculator to gently assess possible signs of depression. Take a confidential, free mental health self-check and gain insights into your emotional well-being anytime."
+          />
+          <meta property="og:type" content="website" />
+          <meta name="twitter:card" content="summary_large_image" />
+          <meta name="twitter:title" content="Depression Test Calculator – Check Signs of Depression Online" />
+          <meta
+            name="twitter:description"
+            content="Use ZEVA's Depression Test Calculator to gently assess possible signs of depression. Take a confidential, free mental health self-check and gain insights into your emotional well-being anytime."
+          />
+        </Head>
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center p-4">
         <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-2xl">
           <div className="mb-8">
             <div className="flex items-center justify-between mb-4">
@@ -278,6 +328,7 @@ function DepressionTest() {
           </div>
         </div>
       </div>
+      </>
     );
   }
 
@@ -289,7 +340,31 @@ function DepressionTest() {
     const scoreChart = getScoreChart();
 
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+      <>
+        <Head>
+          <title>Depression Test Calculator – Check Signs of Depression Online</title>
+          <meta
+            name="description"
+            content="Use ZEVA's Depression Test Calculator to gently assess possible signs of depression. Take a confidential, free mental health self-check and gain insights into your emotional well-being anytime."
+          />
+          <meta
+            name="keywords"
+            content="Depression Test Calculator, depression test online, signs of depression, mental health test, depression self check, emotional health assessment, mental wellness tool, mood assessment test, stress and depression test, online mental health calculator, ZEVA depression test, mental health awareness, free depression test, psychological wellbeing test, self assessment for depression"
+          />
+          <meta property="og:title" content="Depression Test Calculator – Check Signs of Depression Online" />
+          <meta
+            property="og:description"
+            content="Use ZEVA's Depression Test Calculator to gently assess possible signs of depression. Take a confidential, free mental health self-check and gain insights into your emotional well-being anytime."
+          />
+          <meta property="og:type" content="website" />
+          <meta name="twitter:card" content="summary_large_image" />
+          <meta name="twitter:title" content="Depression Test Calculator – Check Signs of Depression Online" />
+          <meta
+            name="twitter:description"
+            content="Use ZEVA's Depression Test Calculator to gently assess possible signs of depression. Take a confidential, free mental health self-check and gain insights into your emotional well-being anytime."
+          />
+        </Head>
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-lg shadow-md p-6 w-full max-w-5xl">
           <div className="text-center mb-6">
             <div className={`w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3 ${result.type === 'severe' ? 'bg-red-50' :
@@ -409,6 +484,7 @@ function DepressionTest() {
           </div>
         </div>
       </div>
+      </>
     );
   }
 

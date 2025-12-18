@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import Head from 'next/head';
 import { Activity } from 'lucide-react';
 
 function BMICalculator() {
@@ -43,7 +44,31 @@ function BMICalculator() {
   const category = getCategory(bmi);
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+    <>
+      <Head>
+        <title>BMI Calculator Online | Check Body Mass Index &amp; Weight Category – ZEVA</title>
+        <meta
+          name="description"
+          content="Use ZEVA's free BMI Calculator to calculate your Body Mass Index instantly. Understand your weight category and health status, and maintain a balanced lifestyle."
+        />
+        <meta
+          name="keywords"
+          content="BMI Calculator, body mass index calculator, BMI check online, calculate BMI, weight category calculator, healthy weight check, BMI chart, fitness calculator, health calculator, free BMI calculator, ZEVA BMI tool, body weight assessment"
+        />
+        <meta property="og:title" content="BMI Calculator Online | Check Body Mass Index &amp; Weight Category – ZEVA" />
+        <meta
+          property="og:description"
+          content="Use ZEVA's free BMI Calculator to calculate your Body Mass Index instantly. Understand your weight category and health status, and maintain a balanced lifestyle."
+        />
+        <meta property="og:type" content="website" />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="BMI Calculator Online | Check Body Mass Index &amp; Weight Category – ZEVA" />
+        <meta
+          name="twitter:description"
+          content="Use ZEVA's free BMI Calculator to calculate your Body Mass Index instantly. Understand your weight category and health status, and maintain a balanced lifestyle."
+        />
+      </Head>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
       <div className="w-full max-w-4xl">
 
         {/* Header */}
@@ -170,6 +195,7 @@ function BMICalculator() {
         </p>
       </div>
     </div>
+    </>
   );
 }
 
