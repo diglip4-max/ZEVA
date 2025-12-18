@@ -14,7 +14,30 @@ import {
   Filter,
   Calendar,
   Clock,
-  Settings
+  Settings,
+  Sparkles,
+  Zap,
+  Eye,
+  Copy,
+  Share2,
+  MoreVertical,
+  Star,
+  TrendingUp,
+  Layers,
+  Grid3x3,
+  List,
+  ArrowUpRight,
+  BookOpen,
+  Lightbulb,
+  CheckCircle2,
+  AlertTriangle,
+  RefreshCw,
+  Download,
+  Upload,
+  Tag,
+  Hash,
+  Link as LinkIcon,
+  Archive
 } from "lucide-react";
 
 type Blog = {
@@ -359,63 +382,147 @@ const DraftBlogs: React.FC<DraftBlogsProps> = ({
   }
 
   const BlogCard = ({ blog }: { blog: Blog }) => {
+    const [showActions, setShowActions] = useState(false);
+    const [copied, setCopied] = useState(false);
+
+    const copyToClipboard = async (text: string) => {
+      try {
+        await navigator.clipboard.writeText(text);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      } catch (err) {
+        console.error('Failed to copy:', err);
+      }
+    };
+
+    const getStatusConfig = (status?: string) => {
+      switch (status) {
+        case 'scheduled':
+          return {
+            icon: Calendar,
+            bg: 'bg-gradient-to-r from-purple-100 to-pink-100',
+            text: 'text-purple-700',
+            border: 'border-purple-200',
+            glow: 'shadow-purple-200/50'
+          };
+        case 'archived':
+          return {
+            icon: Archive,
+            bg: 'bg-gradient-to-r from-slate-100 to-gray-100',
+            text: 'text-slate-700',
+            border: 'border-slate-200',
+            glow: 'shadow-slate-200/50'
+          };
+        default:
+          return {
+            icon: FileText,
+            bg: 'bg-gradient-to-r from-amber-100 to-orange-100',
+            text: 'text-amber-700',
+            border: 'border-amber-200',
+            glow: 'shadow-amber-200/50'
+          };
+      }
+    };
+
+    const statusConfig = getStatusConfig(blog.status);
+
     if (viewMode === 'list') {
       return (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-all duration-200">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+        <div className="group relative bg-gradient-to-br from-white via-amber-50/30 to-orange-50/20 rounded-2xl border border-amber-200/60 p-6 hover:shadow-xl hover:shadow-amber-200/20 hover:border-amber-300/80 transition-all duration-300 hover:-translate-y-1 backdrop-blur-sm">
+          {/* Decorative gradient overlay */}
+          <div className="absolute inset-0 bg-gradient-to-br from-amber-50/0 via-transparent to-orange-50/0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+          
+          <div className="relative flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
             <div className="flex-1 min-w-0">
-              <h3 className="font-semibold text-gray-900 text-lg mb-2 line-clamp-2">{blog.title}</h3>
-              <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500 mb-2">
-                <span className="flex items-center gap-1">
-                  <Calendar className="w-4 h-4" />
-                  Created: {new Date(blog.createdAt).toLocaleDateString('en-US', {
-                    year: 'numeric',
-                    month: 'short',
-                    day: 'numeric',
-                  })}
-                </span>
-                {blog.updatedAt && (
-                  <span className="flex items-center gap-1">
-                    <Clock className="w-4 h-4" />
-                    Updated: {new Date(blog.updatedAt).toLocaleDateString('en-US', {
-                      year: 'numeric',
-                      month: 'short',
-                      day: 'numeric',
-                    })}
-                  </span>
-                )}
-                {blog.status && (
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    blog.status === 'scheduled' ? 'bg-purple-100 text-purple-700' :
-                    blog.status === 'archived' ? 'bg-slate-100 text-slate-700' :
-                    'bg-amber-100 text-amber-700'
-                  }`}>
-                    {blog.status}
-                  </span>
-                )}
+              <div className="flex items-start gap-4 mb-3">
+                {/* Icon with gradient background */}
+                <div className={`p-3 rounded-xl ${statusConfig.bg} ${statusConfig.border} border-2 group-hover:scale-110 transition-transform duration-300 shadow-sm`}>
+                  {React.createElement(statusConfig.icon, { className: `w-5 h-5 ${statusConfig.text}` })}
+                </div>
+                
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-bold text-slate-900 text-lg mb-2 line-clamp-2 group-hover:text-amber-700 transition-colors">
+                    {blog.title || 'Untitled Draft'}
+                  </h3>
+                  
+                  {/* Metadata with icons */}
+                  <div className="flex flex-wrap items-center gap-4 text-sm text-slate-600 mb-3">
+                    <div className="flex items-center gap-1.5 px-2.5 py-1 bg-white/60 rounded-lg border border-slate-200/60">
+                      <Calendar className="w-3.5 h-3.5 text-amber-500" />
+                      <span className="font-medium">
+                        {new Date(blog.createdAt).toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric'
+                        })}
+                      </span>
+                    </div>
+                    {blog.updatedAt && (
+                      <div className="flex items-center gap-1.5 px-2.5 py-1 bg-white/60 rounded-lg border border-slate-200/60">
+                        <Clock className="w-3.5 h-3.5 text-blue-500" />
+                        <span className="font-medium">
+                          Updated {new Date(blog.updatedAt).toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric'
+                          })}
+                        </span>
+                      </div>
+                    )}
+                    {blog.status && (
+                      <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border ${statusConfig.bg} ${statusConfig.border} ${statusConfig.text}`}>
+                        {React.createElement(statusConfig.icon, { className: "w-3.5 h-3.5" })}
+                        <span className="font-semibold capitalize">{blog.status}</span>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* URL with copy button */}
+                  {blog.paramlink && (
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-50 rounded-lg border border-slate-200/60 group/link hover:bg-amber-50 hover:border-amber-300/60 transition-all">
+                        <LinkIcon className="w-3.5 h-3.5 text-slate-400 group-hover/link:text-amber-600" />
+                        <span className="text-xs text-slate-600 font-mono truncate max-w-[200px]">
+                          {blog.paramlink}
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => copyToClipboard(blog.paramlink)}
+                        className="p-1.5 rounded-lg bg-white/60 hover:bg-amber-100 border border-slate-200/60 hover:border-amber-300/60 transition-all group/copy"
+                        title="Copy URL"
+                      >
+                        {copied ? (
+                          <CheckCircle2 className="w-3.5 h-3.5 text-green-600" />
+                        ) : (
+                          <Copy className="w-3.5 h-3.5 text-slate-400 group-hover/copy:text-amber-600" />
+                        )}
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
-              {blog.paramlink && (
-                <p className="text-xs text-gray-400 font-mono truncate">{blog.paramlink}</p>
-              )}
             </div>
 
-            <div className="flex flex-wrap gap-2">
+            {/* Action buttons with modern design */}
+            <div className="flex flex-wrap items-center gap-2">
               {permissions.canUpdate && (
                 <>
                   <button
                     onClick={() => handleEdit(blog)}
-                    className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white rounded-lg"
-                    style={{ backgroundColor: PRIMARY_COLOR }}
+                    className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-white rounded-xl hover:shadow-lg transition-all duration-200 hover:scale-105 active:scale-95"
+                    style={{ 
+                      background: 'linear-gradient(135deg, #2D9AA5 0%, #267a83 100%)',
+                      boxShadow: '0 4px 14px 0 rgba(45, 154, 165, 0.3)'
+                    }}
                   >
                     <Edit2 className="w-4 h-4" />
-                    Edit Details
+                    <span className="hidden sm:inline">Details</span>
                   </button>
                   <button
                     onClick={() => handleEditBlog(blog)}
-                    className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
+                    className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-blue-600 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-200/60 hover:border-blue-300 hover:shadow-md transition-all duration-200 hover:scale-105 active:scale-95"
                   >
                     <FileText className="w-4 h-4" />
-                    Edit Blog
+                    <span className="hidden sm:inline">Edit</span>
                   </button>
                 </>
               )}
@@ -423,10 +530,10 @@ const DraftBlogs: React.FC<DraftBlogsProps> = ({
               {permissions.canDelete && (
                 <button
                   onClick={() => handleDelete(blog._id)}
-                  className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-red-600 rounded-lg hover:bg-red-100 transition-colors"
+                  className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-red-600 bg-gradient-to-r from-red-50 to-pink-50 rounded-xl border border-red-200/60 hover:border-red-300 hover:shadow-md transition-all duration-200 hover:scale-105 active:scale-95"
                 >
                   <Trash2 className="w-4 h-4" />
-                  Delete
+                  <span className="hidden sm:inline">Delete</span>
                 </button>
               )}
             </div>
@@ -435,59 +542,106 @@ const DraftBlogs: React.FC<DraftBlogsProps> = ({
       );
     }
 
-    // Grid view
+    // Grid view - completely redesigned
     return (
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-all duration-200">
-        <div className="flex flex-col h-full">
-          <div className="flex-1">
-            <h3 className="font-semibold text-gray-900 text-lg mb-3 line-clamp-2">{blog.title}</h3>
-            <div className="space-y-2 text-sm text-gray-500 mb-4">
-              <div className="flex items-center gap-2">
-                <Calendar className="w-4 h-4" />
-                <span>{new Date(blog.createdAt).toLocaleDateString('en-US', {
-                  year: 'numeric',
-                  month: 'short',
-                  day: 'numeric',
-                })}</span>
-              </div>
-              {blog.updatedAt && (
-                <div className="flex items-center gap-2">
-                  <Clock className="w-4 h-4" />
-                  <span>Updated: {new Date(blog.updatedAt).toLocaleDateString('en-US', {
-                    month: 'short',
-                    day: 'numeric',
-                  })}</span>
-                </div>
-              )}
-              {blog.status && (
-                <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${
-                  blog.status === 'scheduled' ? 'bg-purple-100 text-purple-700' :
-                  blog.status === 'archived' ? 'bg-slate-100 text-slate-700' :
-                  'bg-amber-100 text-amber-700'
-                }`}>
-                  {blog.status}
-                </span>
-              )}
+      <div className="group relative bg-gradient-to-br from-white via-amber-50/30 to-orange-50/20 rounded-2xl border border-amber-200/60 p-6 hover:shadow-2xl hover:shadow-amber-200/30 hover:border-amber-300/80 transition-all duration-300 hover:-translate-y-2 backdrop-blur-sm overflow-hidden">
+        {/* Animated gradient background on hover */}
+        <div className="absolute inset-0 bg-gradient-to-br from-amber-100/0 via-orange-100/0 to-yellow-100/0 group-hover:from-amber-100/20 group-hover:via-orange-100/20 group-hover:to-yellow-100/20 transition-all duration-500 rounded-2xl" />
+        
+        {/* Decorative corner accent */}
+        <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-amber-200/20 to-transparent rounded-bl-full opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+        
+        <div className="relative flex flex-col h-full">
+          {/* Header with status badge */}
+          <div className="flex items-start justify-between mb-4">
+            <div className={`p-2.5 rounded-xl ${statusConfig.bg} ${statusConfig.border} border-2 group-hover:scale-110 group-hover:rotate-3 transition-all duration-300 shadow-sm`}>
+              {React.createElement(statusConfig.icon, { className: `w-5 h-5 ${statusConfig.text}` })}
             </div>
-            {blog.paramlink && (
-              <p className="text-xs text-gray-400 font-mono truncate mb-4">{blog.paramlink}</p>
+            {blog.status && (
+              <div className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide ${statusConfig.bg} ${statusConfig.text} border ${statusConfig.border} shadow-sm`}>
+                {blog.status}
+              </div>
             )}
           </div>
 
-          <div className="flex flex-wrap gap-2 pt-4 border-t border-gray-100">
+          {/* Title */}
+          <div className="flex-1 mb-4">
+            <h3 className="font-bold text-slate-900 text-lg mb-3 line-clamp-2 group-hover:text-amber-700 transition-colors leading-tight">
+              {blog.title || 'Untitled Draft'}
+            </h3>
+            
+            {/* Metadata with icons */}
+            <div className="space-y-2 mb-4">
+              <div className="flex items-center gap-2 text-sm text-slate-600">
+                <div className="p-1.5 rounded-lg bg-white/60 border border-slate-200/60">
+                  <Calendar className="w-3.5 h-3.5 text-amber-500" />
+                </div>
+                <span className="font-medium">
+                  {new Date(blog.createdAt).toLocaleDateString('en-US', {
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric'
+                  })}
+                </span>
+              </div>
+              {blog.updatedAt && (
+                <div className="flex items-center gap-2 text-sm text-slate-600">
+                  <div className="p-1.5 rounded-lg bg-white/60 border border-slate-200/60">
+                    <Clock className="w-3.5 h-3.5 text-blue-500" />
+                  </div>
+                  <span className="font-medium">
+                    Updated {new Date(blog.updatedAt).toLocaleDateString('en-US', {
+                      month: 'short',
+                      day: 'numeric'
+                    })}
+                  </span>
+                </div>
+              )}
+            </div>
+            
+            {/* URL with copy */}
+            {blog.paramlink && (
+              <div className="flex items-center gap-2 mb-4">
+                <div className="flex-1 flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-50 rounded-lg border border-slate-200/60 group/link hover:bg-amber-50 hover:border-amber-300/60 transition-all">
+                  <LinkIcon className="w-3.5 h-3.5 text-slate-400 group-hover/link:text-amber-600 flex-shrink-0" />
+                  <span className="text-xs text-slate-600 font-mono truncate">
+                    {blog.paramlink}
+                  </span>
+                </div>
+                <button
+                  onClick={() => copyToClipboard(blog.paramlink)}
+                  className="p-1.5 rounded-lg bg-white/60 hover:bg-amber-100 border border-slate-200/60 hover:border-amber-300/60 transition-all group/copy"
+                  title="Copy URL"
+                >
+                  {copied ? (
+                    <CheckCircle2 className="w-3.5 h-3.5 text-green-600" />
+                  ) : (
+                    <Copy className="w-3.5 h-3.5 text-slate-400 group-hover/copy:text-amber-600" />
+                  )}
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Action buttons */}
+          <div className="flex flex-wrap gap-2 pt-4 border-t border-amber-200/60">
             {permissions.canUpdate && (
               <>
                 <button
                   onClick={() => handleEditBlog(blog)}
-                  className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
+                  className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold text-blue-600 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-200/60 hover:border-blue-300 hover:shadow-md transition-all duration-200 hover:scale-105 active:scale-95"
                 >
                   <FileText className="w-4 h-4" />
                   Edit
                 </button>
                 <button
                   onClick={() => handleEdit(blog)}
-                  className="px-4 py-2 text-sm font-medium text-white rounded-lg"
-                  style={{ backgroundColor: PRIMARY_COLOR }}
+                  className="px-4 py-2.5 text-sm font-semibold text-white rounded-xl hover:shadow-lg transition-all duration-200 hover:scale-105 active:scale-95"
+                  style={{ 
+                    background: 'linear-gradient(135deg, #2D9AA5 0%, #267a83 100%)',
+                    boxShadow: '0 4px 14px 0 rgba(45, 154, 165, 0.3)'
+                  }}
+                  title="Edit Details"
                 >
                   <Edit2 className="w-4 h-4" />
                 </button>
@@ -497,7 +651,8 @@ const DraftBlogs: React.FC<DraftBlogsProps> = ({
             {permissions.canDelete && (
               <button
                 onClick={() => handleDelete(blog._id)}
-                className="px-4 py-2 text-sm font-medium text-red-600 rounded-lg hover:bg-red-100 transition-colors"
+                className="px-4 py-2.5 text-sm font-semibold text-red-600 bg-gradient-to-r from-red-50 to-pink-50 rounded-xl border border-red-200/60 hover:border-red-300 hover:shadow-md transition-all duration-200 hover:scale-105 active:scale-95"
+                title="Delete"
               >
                 <Trash2 className="w-4 h-4" />
               </button>
@@ -509,99 +664,142 @@ const DraftBlogs: React.FC<DraftBlogsProps> = ({
   };
 
   return (
-    <div className="w-full">
-      <div className="max-w-7xl mx-auto">
-        {/* Stats */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-amber-100">
-                <FileText className="w-5 h-5 text-amber-600" />
+    <div className="w-full min-h-screen bg-gradient-to-br from-amber-50/30 via-orange-50/20 to-yellow-50/10">
+      <div className="max-w-7xl mx-auto p-4 sm:p-6">
+        {/* Modern Stats Cards with Icons and Effects */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 lg:gap-6 mb-6 lg:mb-8">
+          {/* Total Drafts Card */}
+          <div className="group relative bg-gradient-to-br from-white via-amber-50/50 to-orange-50/30 rounded-2xl border border-amber-200/60 p-5 lg:p-6 hover:shadow-xl hover:shadow-amber-200/30 hover:border-amber-300/80 transition-all duration-300 hover:-translate-y-1 backdrop-blur-sm overflow-hidden">
+            <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-amber-200/30 to-transparent rounded-bl-full opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+            <div className="relative flex items-center gap-4">
+              <div className="p-3.5 rounded-xl bg-gradient-to-br from-amber-100 to-orange-100 border-2 border-amber-200/60 group-hover:scale-110 group-hover:rotate-3 transition-all duration-300 shadow-sm">
+                <FileText className="w-6 h-6 text-amber-600" />
               </div>
-              <div>
-                <p className="text-sm text-gray-600">Total Drafts</p>
-                <p className="text-2xl font-bold text-gray-900">{drafts.length}</p>
+              <div className="flex-1">
+                <p className="text-xs sm:text-sm font-semibold text-slate-600 mb-1 uppercase tracking-wide">Total Drafts</p>
+                <p className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-amber-700 to-orange-700 bg-clip-text text-transparent">
+                  {drafts.length}
+                </p>
               </div>
+              <Sparkles className="w-5 h-5 text-amber-400 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
             </div>
           </div>
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-blue-100">
-                <Filter className="w-5 h-5 text-blue-600" />
+
+          {/* Filtered Card */}
+          <div className="group relative bg-gradient-to-br from-white via-blue-50/50 to-indigo-50/30 rounded-2xl border border-blue-200/60 p-5 lg:p-6 hover:shadow-xl hover:shadow-blue-200/30 hover:border-blue-300/80 transition-all duration-300 hover:-translate-y-1 backdrop-blur-sm overflow-hidden">
+            <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-blue-200/30 to-transparent rounded-bl-full opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+            <div className="relative flex items-center gap-4">
+              <div className="p-3.5 rounded-xl bg-gradient-to-br from-blue-100 to-indigo-100 border-2 border-blue-200/60 group-hover:scale-110 group-hover:rotate-3 transition-all duration-300 shadow-sm">
+                <Filter className="w-6 h-6 text-blue-600" />
               </div>
-              <div>
-                <p className="text-sm text-gray-600">Filtered</p>
-                <p className="text-2xl font-bold text-gray-900">{filteredAndSortedBlogs.length}</p>
+              <div className="flex-1">
+                <p className="text-xs sm:text-sm font-semibold text-slate-600 mb-1 uppercase tracking-wide">Filtered</p>
+                <p className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-blue-700 to-indigo-700 bg-clip-text text-transparent">
+                  {filteredAndSortedBlogs.length}
+                </p>
               </div>
+              <TrendingUp className="w-5 h-5 text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
             </div>
           </div>
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-purple-100">
-                <Calendar className="w-5 h-5 text-purple-600" />
+
+          {/* Showing Card */}
+          <div className="group relative bg-gradient-to-br from-white via-purple-50/50 to-pink-50/30 rounded-2xl border border-purple-200/60 p-5 lg:p-6 hover:shadow-xl hover:shadow-purple-200/30 hover:border-purple-300/80 transition-all duration-300 hover:-translate-y-1 backdrop-blur-sm overflow-hidden">
+            <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-purple-200/30 to-transparent rounded-bl-full opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+            <div className="relative flex items-center gap-4">
+              <div className="p-3.5 rounded-xl bg-gradient-to-br from-purple-100 to-pink-100 border-2 border-purple-200/60 group-hover:scale-110 group-hover:rotate-3 transition-all duration-300 shadow-sm">
+                <Layers className="w-6 h-6 text-purple-600" />
               </div>
-              <div>
-                <p className="text-sm text-gray-600">Showing</p>
-                <p className="text-2xl font-bold text-gray-900">{paginatedData.length}</p>
+              <div className="flex-1">
+                <p className="text-xs sm:text-sm font-semibold text-slate-600 mb-1 uppercase tracking-wide">Showing</p>
+                <p className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-purple-700 to-pink-700 bg-clip-text text-transparent">
+                  {paginatedData.length}
+                </p>
               </div>
+              <Eye className="w-5 h-5 text-purple-400 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
             </div>
           </div>
         </div>
 
-        {/* Search and Filter Bar */}
-        <div className="mb-6 flex flex-col sm:flex-row gap-4">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+        {/* Modern Search and Filter Bar */}
+        <div className="mb-6 lg:mb-8 flex flex-col sm:flex-row gap-4">
+          <div className="relative flex-1 group">
+            <div className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5 group-focus-within:text-amber-500 transition-colors z-10">
+              <Search className="w-full h-full" />
+            </div>
             <input
               type="text"
               placeholder="Search drafts by title, content, or URL..."
               value={effectiveSearchTerm}
               onChange={(e) => setLocalSearchTerm(e.target.value)}
-              className="text-black w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="text-slate-700 w-full pl-12 pr-12 py-3.5 bg-white/80 backdrop-blur-sm border-2 border-amber-200/60 rounded-2xl focus:ring-4 focus:ring-amber-500/20 focus:border-amber-400/80 transition-all duration-200 placeholder:text-slate-400 hover:border-amber-300/80 shadow-sm hover:shadow-md"
             />
+            {effectiveSearchTerm && (
+              <button
+                onClick={() => setLocalSearchTerm('')}
+                className="absolute right-4 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors p-1 rounded-lg hover:bg-slate-100"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 sm:gap-3">
             <button
               onClick={() => setShowFilterModal(!showFilterModal)}
-              className={`px-4 py-3 border rounded-xl transition-colors flex items-center gap-2 ${
+              className={`relative px-4 sm:px-5 py-3.5 border-2 rounded-2xl transition-all duration-200 flex items-center gap-2 font-semibold text-sm hover:scale-105 active:scale-95 ${
                 (dateFilter !== 'all' || statusFilter !== 'all' || sortBy !== 'newest')
-                  ? 'bg-blue-50 border-blue-300 text-blue-700'
-                  : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
+                  ? 'bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-300/80 text-blue-700 shadow-md shadow-blue-200/30'
+                  : 'bg-white/80 backdrop-blur-sm border-amber-200/60 text-slate-700 hover:bg-amber-50/50 hover:border-amber-300/80 hover:shadow-md'
               }`}
             >
-              <Filter className="w-5 h-5" />
+              <Filter className={`w-5 h-5 ${(dateFilter !== 'all' || statusFilter !== 'all' || sortBy !== 'newest') ? 'text-blue-600' : 'text-slate-500'}`} />
               <span className="hidden sm:inline">Filters</span>
+              {(dateFilter !== 'all' || statusFilter !== 'all' || sortBy !== 'newest') && (
+                <span className="absolute -top-1 -right-1 w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center text-white text-[10px] font-bold shadow-lg">
+                  !
+                </span>
+              )}
             </button>
             <button
               onClick={() => setShowSearchSettings(!showSearchSettings)}
-              className="px-4 py-3 bg-white border border-gray-200 rounded-xl text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-2"
+              className="px-4 sm:px-5 py-3.5 bg-white/80 backdrop-blur-sm border-2 border-amber-200/60 rounded-2xl text-slate-700 hover:bg-amber-50/50 hover:border-amber-300/80 hover:shadow-md transition-all duration-200 flex items-center gap-2 font-semibold text-sm hover:scale-105 active:scale-95"
             >
-              <Settings className="w-5 h-5" />
+              <Settings className="w-5 h-5 text-slate-500" />
               <span className="hidden sm:inline">Settings</span>
             </button>
           </div>
         </div>
 
-        {/* Filter Modal */}
+        {/* Modern Filter Modal */}
         {showFilterModal && (
-          <div className="mb-6 bg-white rounded-xl shadow-lg border border-gray-200 p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">Filter & Sort</h3>
+          <div className="mb-6 bg-gradient-to-br from-white via-blue-50/30 to-indigo-50/20 rounded-2xl shadow-xl border-2 border-blue-200/60 p-6 lg:p-8 backdrop-blur-sm">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-gradient-to-br from-blue-100 to-indigo-100 border-2 border-blue-200/60">
+                  <Filter className="w-5 h-5 text-blue-600" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-slate-900">Filter & Sort</h3>
+                  <p className="text-xs text-slate-500">Refine your draft search</p>
+                </div>
+              </div>
               <button
                 onClick={() => setShowFilterModal(false)}
-                className="text-gray-400 hover:text-gray-600"
+                className="p-2 rounded-xl bg-slate-100 hover:bg-red-100 text-slate-600 hover:text-red-600 transition-all duration-200 hover:scale-110"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-6">
               {/* Status Filter */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+                  <Tag className="w-4 h-4 text-blue-500" />
+                  Status
+                </label>
                 <select
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value as any)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-4 py-3 bg-white/80 backdrop-blur-sm border-2 border-slate-200/60 rounded-xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-400/80 transition-all duration-200 text-slate-700 font-medium hover:border-slate-300/80"
                 >
                   <option value="all">All Status</option>
                   <option value="draft">Draft</option>
@@ -611,12 +809,15 @@ const DraftBlogs: React.FC<DraftBlogsProps> = ({
               </div>
 
               {/* Date Filter */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Date Range</label>
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+                  <Calendar className="w-4 h-4 text-purple-500" />
+                  Date Range
+                </label>
                 <select
                   value={dateFilter}
                   onChange={(e) => setDateFilter(e.target.value as any)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-4 py-3 bg-white/80 backdrop-blur-sm border-2 border-slate-200/60 rounded-xl focus:ring-4 focus:ring-purple-500/20 focus:border-purple-400/80 transition-all duration-200 text-slate-700 font-medium hover:border-slate-300/80"
                 >
                   <option value="all">All Time</option>
                   <option value="today">Today</option>
@@ -628,12 +829,15 @@ const DraftBlogs: React.FC<DraftBlogsProps> = ({
               </div>
 
               {/* Sort By */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Sort By</label>
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+                  <ArrowUpRight className="w-4 h-4 text-amber-500" />
+                  Sort By
+                </label>
                 <select
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value as any)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-4 py-3 bg-white/80 backdrop-blur-sm border-2 border-slate-200/60 rounded-xl focus:ring-4 focus:ring-amber-500/20 focus:border-amber-400/80 transition-all duration-200 text-slate-700 font-medium hover:border-slate-300/80"
                 >
                   <option value="newest">Newest First</option>
                   <option value="oldest">Oldest First</option>
@@ -645,30 +849,36 @@ const DraftBlogs: React.FC<DraftBlogsProps> = ({
 
             {/* Custom Date Range */}
             {dateFilter === 'custom' && (
-              <div className="mt-4 grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Start Date</label>
+              <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 bg-white/60 rounded-xl border border-slate-200/60">
+                <div className="space-y-2">
+                  <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+                    <Calendar className="w-4 h-4 text-blue-500" />
+                    Start Date
+                  </label>
                   <input
                     type="date"
                     value={customDateStart}
                     onChange={(e) => setCustomDateStart(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-3 bg-white/80 backdrop-blur-sm border-2 border-slate-200/60 rounded-xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-400/80 transition-all duration-200 text-slate-700 font-medium"
                   />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">End Date</label>
+                <div className="space-y-2">
+                  <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
+                    <Calendar className="w-4 h-4 text-purple-500" />
+                    End Date
+                  </label>
                   <input
                     type="date"
                     value={customDateEnd}
                     onChange={(e) => setCustomDateEnd(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-3 bg-white/80 backdrop-blur-sm border-2 border-slate-200/60 rounded-xl focus:ring-4 focus:ring-purple-500/20 focus:border-purple-400/80 transition-all duration-200 text-slate-700 font-medium"
                   />
                 </div>
               </div>
             )}
 
             {/* Clear Filters */}
-            <div className="mt-4 flex justify-end">
+            <div className="mt-6 flex justify-end">
               <button
                 onClick={() => {
                   setDateFilter('all');
@@ -677,40 +887,55 @@ const DraftBlogs: React.FC<DraftBlogsProps> = ({
                   setCustomDateStart('');
                   setCustomDateEnd('');
                 }}
-                className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800"
+                className="px-5 py-2.5 text-sm font-semibold text-slate-600 bg-white/80 hover:bg-red-50 hover:text-red-600 border-2 border-slate-200/60 hover:border-red-300/80 rounded-xl transition-all duration-200 hover:scale-105 active:scale-95 flex items-center gap-2"
               >
+                <X className="w-4 h-4" />
                 Clear All Filters
               </button>
             </div>
           </div>
         )}
 
-        {/* Search Settings */}
+        {/* Modern Search Settings */}
         {showSearchSettings && (
-          <div className="mb-6 bg-white rounded-xl shadow-lg border border-gray-200 p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">Search Settings</h3>
+          <div className="mb-6 bg-gradient-to-br from-white via-amber-50/30 to-orange-50/20 rounded-2xl shadow-xl border-2 border-amber-200/60 p-6 lg:p-8 backdrop-blur-sm">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-gradient-to-br from-amber-100 to-orange-100 border-2 border-amber-200/60">
+                  <Settings className="w-5 h-5 text-amber-600" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-slate-900">Search Settings</h3>
+                  <p className="text-xs text-slate-500">Configure your search preferences</p>
+                </div>
+              </div>
               <button
                 onClick={() => setShowSearchSettings(false)}
-                className="text-gray-400 hover:text-gray-600"
+                className="p-2 rounded-xl bg-slate-100 hover:bg-red-100 text-slate-600 hover:text-red-600 transition-all duration-200 hover:scale-110"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
             <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Search in: Title, Content, URL
-                </label>
-                <p className="text-sm text-gray-500">
+              <div className="p-4 bg-white/60 rounded-xl border border-slate-200/60">
+                <div className="flex items-center gap-3 mb-2">
+                  <Search className="w-5 h-5 text-blue-500" />
+                  <label className="text-sm font-semibold text-slate-700">
+                    Search in: Title, Content, URL
+                  </label>
+                </div>
+                <p className="text-sm text-slate-600 ml-8">
                   Your search will look through blog titles, content (HTML stripped), and URL slugs.
                 </p>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Case Sensitive: Off
-                </label>
-                <p className="text-sm text-gray-500">
+              <div className="p-4 bg-white/60 rounded-xl border border-slate-200/60">
+                <div className="flex items-center gap-3 mb-2">
+                  <Hash className="w-5 h-5 text-purple-500" />
+                  <label className="text-sm font-semibold text-slate-700">
+                    Case Sensitive: Off
+                  </label>
+                </div>
+                <p className="text-sm text-slate-600 ml-8">
                   Searches are case-insensitive for better results.
                 </p>
               </div>
@@ -720,12 +945,22 @@ const DraftBlogs: React.FC<DraftBlogsProps> = ({
 
         {/* Results */}
         {paginatedData.length === 0 ? (
-          <div className="text-center py-12 bg-white rounded-xl shadow-sm border border-gray-100">
-            <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-            <p className="text-gray-600">
+          <div className="text-center py-16 lg:py-20 bg-gradient-to-br from-white via-amber-50/30 to-orange-50/20 rounded-2xl shadow-lg border-2 border-amber-200/60 backdrop-blur-sm">
+            <div className="relative inline-block mb-6">
+              <div className="absolute inset-0 bg-gradient-to-r from-amber-200/40 to-orange-200/40 rounded-full blur-2xl opacity-50 animate-pulse" />
+              <div className="relative p-6 bg-gradient-to-br from-amber-100 to-orange-100 rounded-2xl border-2 border-amber-200/60">
+                <FileText className="w-16 h-16 text-amber-600 mx-auto" />
+              </div>
+            </div>
+            <h3 className="text-xl font-bold text-slate-900 mb-2">
               {effectiveSearchTerm || dateFilter !== 'all' || statusFilter !== 'all'
-                ? 'No drafts match your search criteria.'
-                : 'No drafts yet.'}
+                ? 'No drafts match your search'
+                : 'No drafts yet'}
+            </h3>
+            <p className="text-slate-600 mb-6 max-w-md mx-auto">
+              {effectiveSearchTerm || dateFilter !== 'all' || statusFilter !== 'all'
+                ? 'Try adjusting your filters or search terms to find what you\'re looking for.'
+                : 'Start creating your first draft to get started with your blog journey!'}
             </p>
             {(effectiveSearchTerm || dateFilter !== 'all' || statusFilter !== 'all') && (
               <button
@@ -734,8 +969,9 @@ const DraftBlogs: React.FC<DraftBlogsProps> = ({
                   setDateFilter('all');
                   setStatusFilter('all');
                 }}
-                className="mt-4 text-sm text-blue-600 hover:text-blue-700"
+                className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl hover:shadow-lg transition-all duration-200 hover:scale-105 active:scale-95"
               >
+                <RefreshCw className="w-4 h-4" />
                 Clear filters
               </button>
             )}
@@ -743,35 +979,37 @@ const DraftBlogs: React.FC<DraftBlogsProps> = ({
         ) : (
           <>
             <div className={viewMode === 'grid' 
-              ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'
-              : 'space-y-4'
+              ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6'
+              : 'space-y-4 lg:space-y-6'
             }>
               {paginatedData.map((blog) => (
                 <BlogCard key={blog._id} blog={blog} />
               ))}
             </div>
 
-            {/* Pagination */}
+            {/* Modern Pagination */}
             {totalPages > 1 && (
-              <div className="flex items-center justify-center gap-2 mt-6">
+              <div className="flex items-center justify-center gap-3 mt-8 lg:mt-10">
                 <button
                   onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
                   disabled={currentPage === 1}
-                  className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="p-3 rounded-xl border-2 border-slate-200/60 bg-white/80 backdrop-blur-sm hover:bg-amber-50 hover:border-amber-300/80 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white/80 disabled:hover:border-slate-200/60 transition-all duration-200 hover:scale-105 active:scale-95 shadow-sm hover:shadow-md"
                 >
-                  <ChevronLeft className="w-4 h-4" />
+                  <ChevronLeft className="w-5 h-5 text-slate-600" />
                 </button>
 
-                <span className="px-4 py-2 text-sm text-gray-600">
-                  Page {currentPage} of {totalPages}
-                </span>
+                <div className="px-6 py-3 bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl border-2 border-amber-200/60 shadow-sm">
+                  <span className="text-sm font-bold text-slate-700">
+                    Page <span className="text-amber-700">{currentPage}</span> of <span className="text-amber-700">{totalPages}</span>
+                  </span>
+                </div>
 
                 <button
                   onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
                   disabled={currentPage === totalPages}
-                  className="p-2 rounded-lg border border-gray-200 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="p-3 rounded-xl border-2 border-slate-200/60 bg-white/80 backdrop-blur-sm hover:bg-amber-50 hover:border-amber-300/80 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white/80 disabled:hover:border-slate-200/60 transition-all duration-200 hover:scale-105 active:scale-95 shadow-sm hover:shadow-md"
                 >
-                  <ChevronRight className="w-4 h-4" />
+                  <ChevronRight className="w-5 h-5 text-slate-600" />
                 </button>
               </div>
             )}

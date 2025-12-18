@@ -23,7 +23,6 @@ import {
   BuildingOfficeIcon,
   MagnifyingGlassIcon,
   FunnelIcon,
-  ArrowPathIcon,
   Squares2X2Icon as GridIcon,
   Bars3Icon as ListIcon,
 } from "@heroicons/react/24/outline";

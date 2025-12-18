@@ -14,8 +14,6 @@ import {
   InformationCircleIcon,
   ExclamationTriangleIcon,
   XMarkIcon,
-  UserGroupIcon,
-  HomeIcon,
 } from '@heroicons/react/24/outline';
 
 interface Clinic {
