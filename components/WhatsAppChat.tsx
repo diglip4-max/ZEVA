@@ -192,9 +192,10 @@ const WhatsAppChat: React.FC<WhatsAppChatProps> = ({
                   <p className="text-xs text-gray-500 mt-1">Start the conversation</p>
                 </div>
               )}
-              {messages.map((msg, index) => {
+              {messages.map((msg, _index) => {
                 const isMe = msg.from === "me";
-                const showTail = true; // Always show tail for WhatsApp style
+                const _showTail = true; // Always show tail for WhatsApp style - reserved for future use
+                void _showTail; // Mark as intentionally unused for future use
                 return (
                   <div key={msg.id} className={`mb-1 flex ${isMe ? "justify-end" : "justify-start"}`}>
                     <div className={`max-w-[65%] ${isMe ? "items-end" : "items-start"} flex flex-col`}>
