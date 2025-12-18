@@ -1,6 +1,5 @@
 // pages/allgames.tsx
-"use client";
-import { useRouter } from "next/navigation";
+import { useRouter } from "next/router";
 import Image from "next/image";
 import React from "react";
 import { games } from "../../components/CalculatorGames";
@@ -46,10 +45,10 @@ function AllGames() {
             {/* Left side - Title and description */}
             <div className="text-center lg:text-left">
               <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-3 tracking-tight">
-                Health Games
+                Health Games – Learn, Play, and Boost Your Well-Being
               </h1>
               <p className="text-base sm:text-lg md:text-xl text-white text-opacity-90 leading-relaxed">
-                Zeva — bringing you fun, interactive games to learn, play, and boost your well-being
+                Zeva brings you a collection of fun, interactive health games designed to improve your fitness, wellness, and overall well-being—anytime, anywhere.
               </p>
               <div className="mt-6 flex justify-center lg:justify-start">
                 <div className="w-20 h-1 bg-white bg-opacity-60 rounded-full"></div>
