@@ -110,7 +110,7 @@ function AdminDoctors() {
   const [activeTab, setActiveTab] = useState<
     "pending" | "approved" | "declined"
   >("pending");
-  const [settingId, setSettingId] = useState<string | null>(null);
+  // const [settingId, setSettingId] = useState<string | null>(null); // Reserved for future use - edit mode indicator
   const [newPassword, setNewPassword] = useState("");
   // const [showPassword, setShowPassword] = useState(false); // Reserved for future use - password visibility toggle
   const [searchTerm, setSearchTerm] = useState("");
@@ -305,7 +305,7 @@ function AdminDoctors() {
       }, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setSettingId(null);
+      // setSettingId(null); // Reserved for future use - edit mode indicator
       setNewPassword("");
       showToast('Credentials set successfully', 'success');
       fetchDoctors();
