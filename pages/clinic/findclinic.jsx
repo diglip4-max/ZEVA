@@ -815,7 +815,7 @@ export default function Home() {
     return (
         <>
             <Head>
-                <title>ZEVA Healthcare Directory - Find Trusted Ayurveda Clinics & Medical Professionals</title>
+                <title>ZEVA Healthcare Directory - Find Trusted Clinics & Medical Professionals You Can Rely On </title>
                 <meta name="description" content="Discover verified Ayurveda clinics with transparent pricing, authentic treatments, and patient reviews. Search by location, treatment type, or clinic name to find the best healthcare providers near you." />
                 <meta name="keywords" content="Ayurveda clinics, healthcare directory, medical professionals, Ayurveda treatments, Panchakarma, verified clinics, healthcare search, medical directory, ZEVA healthcare" />
                 <meta property="og:title" content="ZEVA Healthcare Directory - Find Trusted Ayurveda Clinics" />
@@ -856,12 +856,14 @@ export default function Home() {
                                     ZEVA Healthcare Directory
                                 </h1>
                                 <p className="text-xs sm:text-sm text-[#64748b] mt-0.5">
-                                    Trusted Ayurveda Clinics & Medical Professionals
+                                Trusted Clinics & Medical Professionals You Can Rely On
                                 </p>
+
+
                             </div>
                         </div>
                         <p className="text-sm sm:text-base text-[#475569] max-w-2xl mx-auto mt-3">
-                            Discover verified Ayurveda clinics with transparent pricing, authentic treatments, and patient reviews
+                        ZEVA Healthcare Directory helps you quickly find verified clinics and trusted medical professionals, offering transparent details and real patient reviews to choose care with confidence.
                         </p>
                     </div>
 
@@ -1770,7 +1772,8 @@ export default function Home() {
                                 Welcome to ZEVA Healthcare Directory
                             </h2>
                             <p className="text-base text-[#475569] max-w-2xl mx-auto mb-6">
-                                Discover trusted Ayurveda clinics and medical professionals in your area. Search by location, treatment, or clinic name to find the best healthcare providers.
+                            ZEVA connects patients with verified clinics and certified medical professionals in their area. Every listed clinic goes through a verification process to ensure proper credentials, experience, and quality standards. This helps you make informed healthcare decisions without uncertainty.
+
                             </p>
                         </div>
                         
@@ -1785,7 +1788,8 @@ export default function Home() {
                                         ZEVA Healthcare Trust
                                     </h2>
                                     <p className="text-sm sm:text-base text-[#64748b]">
-                                        Your trusted platform for authentic Ayurveda healthcare. We connect patients with verified clinics, ensuring quality care and transparent services.
+                                    ZEVA is built on trust and transparency. We focus on connecting patients with clinics that follow ethical practices, provide authentic treatments, and maintain clear communication.
+
                                     </p>
                                 </div>
                             </div>
@@ -1825,23 +1829,33 @@ export default function Home() {
                             </div>
                             
                             <div className="bg-white/90 backdrop-blur-sm rounded-lg p-5 border border-white/50">
-                                <h3 className="text-lg font-bold text-[#1e293b] mb-4 text-center">Why Trust ZEVA Healthcare?</h3>
+                                <h3 className="text-lg font-bold text-[#1e293b] mb-4 text-center">Why Users Trust ZEVA:
+</h3>
                                 <div className="grid sm:grid-cols-2 gap-3 text-sm text-[#475569]">
                                     <div className="flex items-start">
                                         <span className="text-[#0284c7] font-bold mr-2 text-lg">✓</span>
-                                        <span>Authentic Ayurveda treatments from certified and experienced practitioners</span>
+                                        <span>Verified Clinics – All clinics are checked for certifications and credentials
+
+</span>
                                     </div>
                                     <div className="flex items-start">
                                         <span className="text-[#0284c7] font-bold mr-2 text-lg">✓</span>
-                                        <span>Comprehensive clinic profiles with photos, services, and timings</span>
+                                        <span>Real Patient Reviews – Honest ratings from verified patients
+ 
+
+</span>
                                     </div>
                                     <div className="flex items-start">
                                         <span className="text-[#0284c7] font-bold mr-2 text-lg">✓</span>
-                                        <span>Advanced search filters for price range, ratings, and availability</span>
+                                        <span>Transparent Pricing – Clear consultation fees with no hidden charges
+
+
+</span>
                                     </div>
                                     <div className="flex items-start">
                                         <span className="text-[#0284c7] font-bold mr-2 text-lg">✓</span>
-                                        <span>Secure enquiry and booking system ensuring patient privacy and safety</span>
+                                        <span>Easy Search & Navigation – Accurate location results and directions
+                                        </span>
                                     </div>
                                 </div>
                             </div>

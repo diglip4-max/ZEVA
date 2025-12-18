@@ -1015,16 +1015,28 @@ export default function FindDoctor() {
   return (
     <div>
       <Head>
-        <title>ZEVA Doctor Search - Find Trusted Ayurveda Doctors &amp; Medical Specialists</title>
-        <meta name="description" content="Discover verified Ayurveda doctors and medical specialists with transparent consultation fees, patient reviews, and appointment availability. Search by location, specialty, or doctor name to find the best healthcare providers near you." />
-        <meta name="keywords" content="Ayurveda doctors, medical specialists, doctor search, healthcare professionals, Ayurveda physicians, doctor directory, medical practitioners, ZEVA healthcare, find doctors" />
-        <meta property="og:title" content="ZEVA Doctor Search - Find Trusted Ayurveda Doctors" />
-        <meta property="og:description" content="Your trusted platform for finding authentic Ayurveda doctors. Search verified medical professionals with transparent fees and patient reviews." />
+        <title>ZEVA Doctor Directory – Find Verified Ayurveda Doctors Near You</title>
+        <meta
+          name="description"
+          content="Discover verified Ayurveda doctors and medical specialists with transparent fees, patient reviews, and easy booking. Find trusted healthcare providers near you."
+        />
+        <meta
+          name="keywords"
+          content="ZEVA doctor directory, Ayurveda doctors near me, verified Ayurveda doctors, Ayurveda specialists, book Ayurveda doctor, trusted medical specialists, transparent consultation fees, Ayurveda healthcare, online doctor booking, find Ayurveda doctor"
+        />
+        <meta property="og:title" content="ZEVA Doctor Directory – Find Verified Ayurveda Doctors Near You" />
+        <meta
+          property="og:description"
+          content="Discover verified Ayurveda doctors and medical specialists with transparent fees, patient reviews, and easy booking. Find trusted healthcare providers near you."
+        />
         <meta property="og:type" content="website" />
         <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content="ZEVA Doctor Search" />
-        <meta name="twitter:description" content="Find trusted Ayurveda doctors and medical specialists with transparent consultation fees and verified reviews." />
-        <link rel="canonical" href="https://zevahealthcare.com/doctor/search" />
+        <meta name="twitter:title" content="ZEVA Doctor Directory – Find Verified Ayurveda Doctors Near You" />
+        <meta
+          name="twitter:description"
+          content="Discover verified Ayurveda doctors and medical specialists with transparent fees, patient reviews, and easy booking. Find trusted healthcare providers near you."
+        />
+        <link rel="canonical" href="https://zeva360.com/doctor/search" />
       </Head>
       <div className="min-h-screen bg-[#f8fafc]">
       <AuthModal
@@ -1055,13 +1067,14 @@ export default function FindDoctor() {
                   ZEVA Doctor Directory
                 </h1>
                 <p className="text-xs sm:text-sm text-[#64748b] mt-0.5">
-                  Trusted Ayurveda Doctors & Medical Specialists
+                Trusted Ayurveda Doctors & Medical Specialists
+
                 </p>
               </div>
             </div>
             <p className="text-sm sm:text-base text-[#475569] max-w-2xl mx-auto mt-3">
-              Discover verified Ayurveda doctors with transparent consultation fees, authentic treatments, and patient reviews
-              </p>
+            ZEVA Doctor Directory connects you with verified Ayurveda doctors and medical specialists, offering authentic care, transparent fees, and trusted patient reviews—making it easy to find the right doctor quickly and reliably.
+</p>
             </div>
 
 
@@ -1574,19 +1587,29 @@ export default function FindDoctor() {
                         <div className="grid sm:grid-cols-2 gap-3 text-xs text-[#475569]">
                           <div className="flex items-start">
                             <span className="text-[#0284c7] font-bold mr-2 text-base">•</span>
-                            <span>Authentic Ayurveda treatments from certified and experienced medical practitioners</span>
+                            <span>
+Verified Doctors – Every doctor is thoroughly verified with proper certifications, credentials, and experience.
+
+
+</span>
                           </div>
                           <div className="flex items-start">
                             <span className="text-[#0284c7] font-bold mr-2 text-base">•</span>
-                            <span>Comprehensive doctor profiles with qualifications, experience, and specializations</span>
+                            <span>Patient Reviews – Read real feedback and ratings from verified patients to make informed choices.
+
+
+
+</span>
                           </div>
                           <div className="flex items-start">
                             <span className="text-[#0284c7] font-bold mr-2 text-base">•</span>
-                            <span>Advanced search filters for consultation fees, ratings, experience, and availability</span>
+                            <span>Transparent Fees – Clear consultation charges with no hidden costs.
+                            </span>
                           </div>
                           <div className="flex items-start">
                             <span className="text-[#0284c7] font-bold mr-2 text-base">•</span>
-                            <span>Secure enquiry and appointment booking system ensuring patient privacy</span>
+                      <span>Easy Booking – View availability and schedule appointments in just a few clicks.
+                      </span>
                           </div>
                         </div>
                       </div>
@@ -1857,26 +1880,44 @@ export default function FindDoctor() {
                 <div className="grid sm:grid-cols-2 gap-3 text-sm text-[#475569]">
                   <div className="flex items-start">
                     <span className="text-[#0284c7] font-bold mr-2 text-lg">✓</span>
-                    <span>Authentic Ayurveda treatments from certified and experienced medical practitioners</span>
+                    <span>
+Verified Doctors – Every doctor is thoroughly verified with proper certifications, credentials, and experience.
+
+
+</span>
                   </div>
                   <div className="flex items-start">
                     <span className="text-[#0284c7] font-bold mr-2 text-lg">✓</span>
-                    <span>Comprehensive doctor profiles with qualifications, experience, and specializations</span>
+                    <span>Patient Reviews – Read real feedback and ratings from verified patients to make informed choices.
+
+
+
+</span>
                   </div>
                   <div className="flex items-start">
                     <span className="text-[#0284c7] font-bold mr-2 text-lg">✓</span>
-                    <span>Advanced search filters for consultation fees, ratings, and availability</span>
+                    <span>Transparent Fees – Clear consultation charges with no hidden costs.
+                    </span>
                   </div>
                   <div className="flex items-start">
                     <span className="text-[#0284c7] font-bold mr-2 text-lg">✓</span>
-                    <span>Secure enquiry and appointment booking system ensuring patient privacy and safety</span>
+                    <span>Easy Booking – View availability and schedule appointments in just a few clicks.
+                    </span>
                   </div>
                 </div>
               </div>
               
               <div className="mt-6 pt-6 border-t border-[#cbd5e1]">
                 <p className="text-sm text-[#475569] text-center leading-relaxed max-w-3xl mx-auto">
-                  <strong className="text-[#1e293b]">Get Started:</strong> Enter your location or use the "Near Me" feature to find verified Ayurveda doctors. You can search by specialty (Panchakarma, Abhyanga), doctor name, or browse by location to discover the best healthcare professionals near you.
+                  <strong className="text-[#1e293b]">Get Started:</strong> 
+
+Take control of your healthcare today. Enter your location, use the “Near Me” feature, or search by specialty or doctor name to discover the best Ayurveda doctors and medical specialists near you. Experience convenient, transparent, and verified healthcare with ZEVA. 
+
+
+
+
+
+
                 </p>
               </div>
               </div>
@@ -1968,26 +2009,43 @@ export default function FindDoctor() {
                   <div className="grid sm:grid-cols-2 gap-3 text-sm text-[#475569]">
                     <div className="flex items-start">
                       <span className="text-[#0284c7] font-bold mr-2 text-lg">✓</span>
-                      <span>Authentic Ayurveda treatments from certified and experienced medical practitioners</span>
+                      <span>
+Verified Doctors – Every doctor is thoroughly verified with proper certifications, credentials, and experience.
+
+
+</span>
                     </div>
                     <div className="flex items-start">
                       <span className="text-[#0284c7] font-bold mr-2 text-lg">✓</span>
-                      <span>Comprehensive doctor profiles with qualifications, experience, and specializations</span>
+                      <span>Patient Reviews – Read real feedback and ratings from verified patients to make informed choices.
+
+
+
+</span>
                     </div>
                     <div className="flex items-start">
                       <span className="text-[#0284c7] font-bold mr-2 text-lg">✓</span>
-                      <span>Advanced search filters for consultation fees, ratings, and availability</span>
+            <span>Transparent Fees – Clear consultation charges with no hidden costs.</span>
                     </div>
                     <div className="flex items-start">
                       <span className="text-[#0284c7] font-bold mr-2 text-lg">✓</span>
-                      <span>Secure enquiry and appointment booking system ensuring patient privacy and safety</span>
+                      <span>Easy Booking – View availability and schedule appointments in just a few clicks.
+                      </span>
                     </div>
                   </div>
                 </div>
                 
                 <div className="mt-6 pt-6 border-t border-[#cbd5e1]">
                   <p className="text-sm text-[#475569] text-center leading-relaxed max-w-3xl mx-auto">
-                    <strong className="text-[#1e293b]">Get Started:</strong> Enter your location or use the "Near Me" feature to find verified Ayurveda doctors. You can search by specialty (Panchakarma, Abhyanga), doctor name, or browse by location to discover the best healthcare professionals near you.
+                    <strong className="text-[#1e293b]">Get Started:</strong> 
+
+Take control of your healthcare today. Enter your location, use the “Near Me” feature, or search by specialty or doctor name to discover the best Ayurveda doctors and medical specialists near you. Experience convenient, transparent, and verified healthcare with ZEVA. 
+
+
+
+
+
+
                   </p>
                 </div>
               </div>
