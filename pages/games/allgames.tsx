@@ -25,6 +25,18 @@ function AllGames() {
           name="keywords"
           content="health games, wellness games, fitness games, interactive health games, online health games, free health games, exercise games, immunity booster games, healthy lifestyle games, mental health games, fun wellness activities, nutrition games, calorie burning games, healthy food games, fitness challenges, wellness quizzes, health quizzes, be fit games, interactive wellness tools, brain and body games, health tracker games, fun fitness exercises, family health games, health education games, online fitness challenges, health improvement games, lifestyle games, healthy habit games, stress relief games, wellbeing games"
         />
+        <meta property="og:title" content="Health Games by Zeva – Fun, Interactive Wellness &amp; Fitness Games" />
+        <meta
+          property="og:description"
+          content="Play Zeva's free health games online to boost your fitness, immunity, and well-being. Enjoy interactive games like quizzes, exercises, FitFlip cards, and healthy food challenges anytime, 24/7."
+        />
+        <meta property="og:type" content="website" />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="Health Games by Zeva – Fun, Interactive Wellness &amp; Fitness Games" />
+        <meta
+          name="twitter:description"
+          content="Play Zeva's free health games online to boost your fitness, immunity, and well-being. Enjoy interactive games like quizzes, exercises, FitFlip cards, and healthy food challenges anytime, 24/7."
+        />
         
         {/* Schema Markup - Health Games CollectionPage */}
         <script
