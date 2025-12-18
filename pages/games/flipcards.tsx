@@ -366,6 +366,46 @@ function ZevaAdvancedMemoryGame() {
             name="keywords"
             content="FitFlip Cards, exercise game, burn calories fast, interactive fitness game, fun workout game, calorie burning exercises, health and fitness game, home workout game, match exercises game, interactive health game, Zeva fitness game, boost strength and immunity, body fitness game"
           />
+          
+          {/* Schema Markup - FitFlip Cards WebPage */}
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{
+              __html: JSON.stringify({
+                "@context": "https://schema.org",
+                "@type": "WebPage",
+                "name": "FitFlip Cards",
+                "url": "https://zeva360.com/games/flipcards",
+                "description": "FitFlip Cards by ZEVA is a fun fitness card game that helps users match exercises, burn calories faster, and stay active through engaging physical challenges.",
+                "isPartOf": {
+                  "@type": "WebSite",
+                  "name": "ZEVA",
+                  "url": "https://zeva360.com"
+                },
+                "publisher": {
+                  "@type": "Organization",
+                  "name": "ZEVA",
+                  "url": "https://zeva360.com",
+                  "logo": {
+                    "@type": "ImageObject",
+                    "url": "https://zeva360.com/logo.png"
+                  }
+                },
+                "mainEntity": {
+                  "@type": "SoftwareApplication",
+                  "name": "FitFlip Cards",
+                  "applicationCategory": "HealthApplication",
+                  "operatingSystem": "Web",
+                  "description": "An interactive fitness card game designed to improve physical activity, boost metabolism, and make exercise enjoyable through quick workout matches.",
+                  "offers": {
+                    "@type": "Offer",
+                    "price": "0",
+                    "priceCurrency": "USD"
+                  }
+                }
+              })
+            }}
+          />
         </Head>
         <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4 sm:p-6 lg:p-8">
         <div className="max-w-6xl mx-auto">
@@ -553,6 +593,46 @@ function ZevaAdvancedMemoryGame() {
             name="keywords"
             content="FitFlip Cards, exercise game, burn calories fast, interactive fitness game, fun workout game, calorie burning exercises, health and fitness game, home workout game, match exercises game, interactive health game, Zeva fitness game, boost strength and immunity, body fitness game"
           />
+          
+          {/* Schema Markup - FitFlip Cards WebPage */}
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{
+              __html: JSON.stringify({
+                "@context": "https://schema.org",
+                "@type": "WebPage",
+                "name": "FitFlip Cards",
+                "url": "https://zeva360.com/games/flipcards",
+                "description": "FitFlip Cards by ZEVA is a fun fitness card game that helps users match exercises, burn calories faster, and stay active through engaging physical challenges.",
+                "isPartOf": {
+                  "@type": "WebSite",
+                  "name": "ZEVA",
+                  "url": "https://zeva360.com"
+                },
+                "publisher": {
+                  "@type": "Organization",
+                  "name": "ZEVA",
+                  "url": "https://zeva360.com",
+                  "logo": {
+                    "@type": "ImageObject",
+                    "url": "https://zeva360.com/logo.png"
+                  }
+                },
+                "mainEntity": {
+                  "@type": "SoftwareApplication",
+                  "name": "FitFlip Cards",
+                  "applicationCategory": "HealthApplication",
+                  "operatingSystem": "Web",
+                  "description": "An interactive fitness card game designed to improve physical activity, boost metabolism, and make exercise enjoyable through quick workout matches.",
+                  "offers": {
+                    "@type": "Offer",
+                    "price": "0",
+                    "priceCurrency": "USD"
+                  }
+                }
+              })
+            }}
+          />
         </Head>
         <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4 sm:p-6 lg:p-8">
         <div className="max-w-4xl mx-auto">
@@ -664,6 +744,46 @@ function ZevaAdvancedMemoryGame() {
           <meta
             name="keywords"
             content="FitFlip Cards, exercise game, burn calories fast, interactive fitness game, fun workout game, calorie burning exercises, health and fitness game, home workout game, match exercises game, interactive health game, Zeva fitness game, boost strength and immunity, body fitness game"
+          />
+          
+          {/* Schema Markup - FitFlip Cards WebPage */}
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{
+              __html: JSON.stringify({
+                "@context": "https://schema.org",
+                "@type": "WebPage",
+                "name": "FitFlip Cards",
+                "url": "https://zeva360.com/games/flipcards",
+                "description": "FitFlip Cards by ZEVA is a fun fitness card game that helps users match exercises, burn calories faster, and stay active through engaging physical challenges.",
+                "isPartOf": {
+                  "@type": "WebSite",
+                  "name": "ZEVA",
+                  "url": "https://zeva360.com"
+                },
+                "publisher": {
+                  "@type": "Organization",
+                  "name": "ZEVA",
+                  "url": "https://zeva360.com",
+                  "logo": {
+                    "@type": "ImageObject",
+                    "url": "https://zeva360.com/logo.png"
+                  }
+                },
+                "mainEntity": {
+                  "@type": "SoftwareApplication",
+                  "name": "FitFlip Cards",
+                  "applicationCategory": "HealthApplication",
+                  "operatingSystem": "Web",
+                  "description": "An interactive fitness card game designed to improve physical activity, boost metabolism, and make exercise enjoyable through quick workout matches.",
+                  "offers": {
+                    "@type": "Offer",
+                    "price": "0",
+                    "priceCurrency": "USD"
+                  }
+                }
+              })
+            }}
           />
         </Head>
         <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4 sm:p-6 lg:p-8">
@@ -896,6 +1016,46 @@ function ZevaAdvancedMemoryGame() {
         <meta
           name="keywords"
           content="FitFlip Cards, exercise game, burn calories fast, interactive fitness game, fun workout game, calorie burning exercises, health and fitness game, home workout game, match exercises game, interactive health game, Zeva fitness game, boost strength and immunity, body fitness game"
+        />
+        
+        {/* Schema Markup - FitFlip Cards WebPage */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "WebPage",
+              "name": "FitFlip Cards",
+              "url": "https://zeva360.com/games/flipcards",
+              "description": "FitFlip Cards by ZEVA is a fun fitness card game that helps users match exercises, burn calories faster, and stay active through engaging physical challenges.",
+              "isPartOf": {
+                "@type": "WebSite",
+                "name": "ZEVA",
+                "url": "https://zeva360.com"
+              },
+              "publisher": {
+                "@type": "Organization",
+                "name": "ZEVA",
+                "url": "https://zeva360.com",
+                "logo": {
+                  "@type": "ImageObject",
+                  "url": "https://zeva360.com/logo.png"
+                }
+              },
+              "mainEntity": {
+                "@type": "SoftwareApplication",
+                "name": "FitFlip Cards",
+                "applicationCategory": "HealthApplication",
+                "operatingSystem": "Web",
+                "description": "An interactive fitness card game designed to improve physical activity, boost metabolism, and make exercise enjoyable through quick workout matches.",
+                "offers": {
+                  "@type": "Offer",
+                  "price": "0",
+                  "priceCurrency": "USD"
+                }
+              }
+            })
+          }}
         />
       </Head>
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4 sm:p-6 lg:p-8" ref={gameRef}>

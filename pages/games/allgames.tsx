@@ -25,6 +25,88 @@ function AllGames() {
           name="keywords"
           content="health games, wellness games, fitness games, interactive health games, online health games, free health games, exercise games, immunity booster games, healthy lifestyle games, mental health games, fun wellness activities, nutrition games, calorie burning games, healthy food games, fitness challenges, wellness quizzes, health quizzes, be fit games, interactive wellness tools, brain and body games, health tracker games, fun fitness exercises, family health games, health education games, online fitness challenges, health improvement games, lifestyle games, healthy habit games, stress relief games, wellbeing games"
         />
+        
+        {/* Schema Markup - Health Games CollectionPage */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "CollectionPage",
+              "name": "Health Games",
+              "url": "https://zeva360.com/games/allgames",
+              "description": "ZEVA Health Games offers free, interactive wellness games to learn, play, and improve fitness, nutrition awareness, and overall well-being.",
+              "isPartOf": {
+                "@type": "WebSite",
+                "name": "ZEVA",
+                "url": "https://zeva360.com"
+              },
+              "publisher": {
+                "@type": "Organization",
+                "name": "ZEVA",
+                "url": "https://zeva360.com",
+                "logo": {
+                  "@type": "ImageObject",
+                  "url": "https://zeva360.com/logo.png"
+                }
+              },
+              "about": [
+                {
+                  "@type": "Thing",
+                  "name": "Health Games"
+                },
+                {
+                  "@type": "Thing",
+                  "name": "Wellness Games"
+                },
+                {
+                  "@type": "Thing",
+                  "name": "Fitness Games"
+                }
+              ]
+            })
+          }}
+        />
+        
+        {/* Schema Markup - Be Fit with Zeva WebPage */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "WebPage",
+              "name": "Be Fit with Zeva",
+              "url": "https://zeva360.com/health-games/games/fitwithzeva",
+              "description": "Be Fit with Zeva is an interactive fitness game designed to encourage healthy habits, daily activity, and wellness awareness through engaging challenges.",
+              "isPartOf": {
+                "@type": "WebSite",
+                "name": "ZEVA",
+                "url": "https://zeva360.com"
+              },
+              "publisher": {
+                "@type": "Organization",
+                "name": "ZEVA",
+                "url": "https://zeva360.com",
+                "logo": {
+                  "@type": "ImageObject",
+                  "url": "https://zeva360.com/logo.png"
+                }
+              },
+              "mainEntity": {
+                "@type": "SoftwareApplication",
+                "name": "Be Fit with Zeva",
+                "applicationCategory": "HealthApplication",
+                "operatingSystem": "Web",
+                "description": "A wellness-focused health game that helps users stay active, track fitness goals, and build healthy lifestyle habits.",
+                "offers": {
+                  "@type": "Offer",
+                  "price": "0",
+                  "priceCurrency": "USD"
+                }
+              }
+            })
+          }}
+        />
       </Head>
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
       {/* Header Section */}

@@ -397,6 +397,46 @@ function HealthQuiz() {
             name="keywords"
             content="Health Quiz Challenge, health quizzes, test health knowledge, interactive wellness quizzes, online health quiz, fitness quiz, nutrition quiz, wellness quiz, fun health quizzes, learn healthy habits, free health quiz, interactive health game, Zeva health quiz, health knowledge test, healthy lifestyle quiz"
           />
+          
+          {/* Schema Markup - Health Quiz Challenge WebPage */}
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{
+              __html: JSON.stringify({
+                "@context": "https://schema.org",
+                "@type": "WebPage",
+                "name": "Health Quiz Challenge",
+                "url": "https://zeva360.com/games/quiz",
+                "description": "Health Quiz Challenge by ZEVA is an interactive wellness quiz that helps users test their health knowledge, learn healthy habits, and improve lifestyle awareness.",
+                "isPartOf": {
+                  "@type": "WebSite",
+                  "name": "ZEVA",
+                  "url": "https://zeva360.com"
+                },
+                "publisher": {
+                  "@type": "Organization",
+                  "name": "ZEVA",
+                  "url": "https://zeva360.com",
+                  "logo": {
+                    "@type": "ImageObject",
+                    "url": "https://zeva360.com/logo.png"
+                  }
+                },
+                "mainEntity": {
+                  "@type": "SoftwareApplication",
+                  "name": "Health Quiz Challenge",
+                  "applicationCategory": "HealthApplication",
+                  "operatingSystem": "Web",
+                  "description": "An engaging health quiz game that educates users about fitness, nutrition, mental wellness, and healthy lifestyle practices through fun challenges.",
+                  "offers": {
+                    "@type": "Offer",
+                    "price": "0",
+                    "priceCurrency": "USD"
+                  }
+                }
+              })
+            }}
+          />
         </Head>
         <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 p-4">
         <div className="max-w-4xl mx-auto">
@@ -540,6 +580,46 @@ function HealthQuiz() {
             name="keywords"
             content="Health Quiz Challenge, health quizzes, test health knowledge, interactive wellness quizzes, online health quiz, fitness quiz, nutrition quiz, wellness quiz, fun health quizzes, learn healthy habits, free health quiz, interactive health game, Zeva health quiz, health knowledge test, healthy lifestyle quiz"
           />
+          
+          {/* Schema Markup - Health Quiz Challenge WebPage */}
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{
+              __html: JSON.stringify({
+                "@context": "https://schema.org",
+                "@type": "WebPage",
+                "name": "Health Quiz Challenge",
+                "url": "https://zeva360.com/games/quiz",
+                "description": "Health Quiz Challenge by ZEVA is an interactive wellness quiz that helps users test their health knowledge, learn healthy habits, and improve lifestyle awareness.",
+                "isPartOf": {
+                  "@type": "WebSite",
+                  "name": "ZEVA",
+                  "url": "https://zeva360.com"
+                },
+                "publisher": {
+                  "@type": "Organization",
+                  "name": "ZEVA",
+                  "url": "https://zeva360.com",
+                  "logo": {
+                    "@type": "ImageObject",
+                    "url": "https://zeva360.com/logo.png"
+                  }
+                },
+                "mainEntity": {
+                  "@type": "SoftwareApplication",
+                  "name": "Health Quiz Challenge",
+                  "applicationCategory": "HealthApplication",
+                  "operatingSystem": "Web",
+                  "description": "An engaging health quiz game that educates users about fitness, nutrition, mental wellness, and healthy lifestyle practices through fun challenges.",
+                  "offers": {
+                    "@type": "Offer",
+                    "price": "0",
+                    "priceCurrency": "USD"
+                  }
+                }
+              })
+            }}
+          />
         </Head>
         <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-yellow-50 p-4">
         <div className="max-w-6xl mx-auto">
@@ -670,6 +750,46 @@ function HealthQuiz() {
           <meta
             name="keywords"
             content="Health Quiz Challenge, health quizzes, test health knowledge, interactive wellness quizzes, online health quiz, fitness quiz, nutrition quiz, wellness quiz, fun health quizzes, learn healthy habits, free health quiz, interactive health game, Zeva health quiz, health knowledge test, healthy lifestyle quiz"
+          />
+          
+          {/* Schema Markup - Health Quiz Challenge WebPage */}
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{
+              __html: JSON.stringify({
+                "@context": "https://schema.org",
+                "@type": "WebPage",
+                "name": "Health Quiz Challenge",
+                "url": "https://zeva360.com/games/quiz",
+                "description": "Health Quiz Challenge by ZEVA is an interactive wellness quiz that helps users test their health knowledge, learn healthy habits, and improve lifestyle awareness.",
+                "isPartOf": {
+                  "@type": "WebSite",
+                  "name": "ZEVA",
+                  "url": "https://zeva360.com"
+                },
+                "publisher": {
+                  "@type": "Organization",
+                  "name": "ZEVA",
+                  "url": "https://zeva360.com",
+                  "logo": {
+                    "@type": "ImageObject",
+                    "url": "https://zeva360.com/logo.png"
+                  }
+                },
+                "mainEntity": {
+                  "@type": "SoftwareApplication",
+                  "name": "Health Quiz Challenge",
+                  "applicationCategory": "HealthApplication",
+                  "operatingSystem": "Web",
+                  "description": "An engaging health quiz game that educates users about fitness, nutrition, mental wellness, and healthy lifestyle practices through fun challenges.",
+                  "offers": {
+                    "@type": "Offer",
+                    "price": "0",
+                    "priceCurrency": "USD"
+                  }
+                }
+              })
+            }}
           />
         </Head>
         <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 p-4">
@@ -805,6 +925,46 @@ function HealthQuiz() {
           <meta
             name="keywords"
             content="Health Quiz Challenge, health quizzes, test health knowledge, interactive wellness quizzes, online health quiz, fitness quiz, nutrition quiz, wellness quiz, fun health quizzes, learn healthy habits, free health quiz, interactive health game, Zeva health quiz, health knowledge test, healthy lifestyle quiz"
+          />
+          
+          {/* Schema Markup - Health Quiz Challenge WebPage */}
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{
+              __html: JSON.stringify({
+                "@context": "https://schema.org",
+                "@type": "WebPage",
+                "name": "Health Quiz Challenge",
+                "url": "https://zeva360.com/games/quiz",
+                "description": "Health Quiz Challenge by ZEVA is an interactive wellness quiz that helps users test their health knowledge, learn healthy habits, and improve lifestyle awareness.",
+                "isPartOf": {
+                  "@type": "WebSite",
+                  "name": "ZEVA",
+                  "url": "https://zeva360.com"
+                },
+                "publisher": {
+                  "@type": "Organization",
+                  "name": "ZEVA",
+                  "url": "https://zeva360.com",
+                  "logo": {
+                    "@type": "ImageObject",
+                    "url": "https://zeva360.com/logo.png"
+                  }
+                },
+                "mainEntity": {
+                  "@type": "SoftwareApplication",
+                  "name": "Health Quiz Challenge",
+                  "applicationCategory": "HealthApplication",
+                  "operatingSystem": "Web",
+                  "description": "An engaging health quiz game that educates users about fitness, nutrition, mental wellness, and healthy lifestyle practices through fun challenges.",
+                  "offers": {
+                    "@type": "Offer",
+                    "price": "0",
+                    "priceCurrency": "USD"
+                  }
+                }
+              })
+            }}
           />
         </Head>
         <div className="min-h-screen flex flex-col justify-center items-center bg-gradient-to-br from-blue-50 to-purple-50">
