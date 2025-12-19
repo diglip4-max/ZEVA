@@ -101,7 +101,7 @@ const AboutUs = () => {
         { number: "50,000+", label: "Active Patients & Healthcare Seekers", icon: <Heart className="w-6 h-6" /> },
         { number: "150+", label: "Cities & Metropolitan Areas Covered", icon: <MapPin className="w-6 h-6" /> },
         { number: "98.5%", label: "User Satisfaction & Platform Reliability", icon: <Star className="w-6 h-6" /> }
-    ];
+    ];      
 
     const values = [
         { icon: <Heart className="w-6 h-6" />, title: "Patient-Centric Healthcare Excellence", desc:" Prioritizing accessibility, care quality, and positive health outcomes." },
@@ -120,6 +120,46 @@ const AboutUs = () => {
                 <meta property="og:description" content="Discover ZEVA, a digital healthcare platform connecting patients with verified providers, wellness tools, interactive health calculators, and comprehensive services." />
                 <meta property="og:url" content="https://zeva360.com/about-us" />
                 <link rel="canonical" href="https://zeva360.com/about-us" />
+                {/* Schema Markup - Job Posting */}
+                <script
+                    type="application/ld+json"
+                    dangerouslySetInnerHTML={{
+                        __html: JSON.stringify({
+                            "@context": "https://schema.org",
+                            "@type": "JobPosting",
+                            "title": "Careers at ZEVA",
+                            "url": "https://zeva360.com/aboutus",
+                            "description": "Explore exciting career opportunities at ZEVA. Discover job openings for healthcare professionals, IT specialists, and wellness experts across multiple locations. Apply for full-time, part-time, or remote positions with transparent salary information.",
+                            "hiringOrganization": {
+                                "@type": "Organization",
+                                "name": "ZEVA",
+                                "sameAs": "https://zeva360.com",
+                                "logo": "https://zeva360.com/logo.png"
+                            },
+                            "jobLocation": {
+                                "@type": "Place",
+                                "address": {
+                                    "@type": "PostalAddress",
+                                    "streetAddress": "Abu Dhabi, UAE",
+                                    "addressLocality": "Abu Dhabi",
+                                    "addressCountry": "AE"
+                                }
+                            },
+                            "datePosted": "2025-12-18",
+                            "employmentType": "FULL_TIME",
+                            "validThrough": "2026-12-31T23:59",
+                            "baseSalary": {
+                                "@type": "MonetaryAmount",
+                                "currency": "AED",
+                                "value": {
+                                    "@type": "QuantitativeValue",
+                                    "value": "70000",
+                                    "unitText": "YEAR"
+                                }
+                            }
+                        })
+                    }}
+                />
             </Head>
             <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
             {/* Hero Section */}

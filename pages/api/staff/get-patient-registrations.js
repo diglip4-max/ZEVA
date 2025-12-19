@@ -71,7 +71,8 @@ export default async function handler(req, res) {
         return res.status(400).json({ success: false, message: "id and status required" });
       }
 
-      const patient = await PatientRegistration.findOne({ _id: id, userId: user._id });
+      const query = { userId: user._id };
+      const patient = await PatientRegistration.findOne({ _id: id, ...query });
       if (!patient) return res.status(404).json({ success: false, message: "Patient not found or unauthorized" });
 
       patient.status = status;
@@ -84,6 +85,32 @@ export default async function handler(req, res) {
     }
   }
 
-  res.setHeader("Allow", ["GET", "PUT"]);
+  // ---------------- DELETE: delete patient ----------------
+  if (req.method === "DELETE") {
+    try {
+      const user = await getAuthorizedStaffUser(req, {
+        allowedRoles: ["staff", "doctorStaff", "doctor", "clinic", "agent", "admin"],
+      });
+      const { id } = req.body;
+
+      if (!id) {
+        return res.status(400).json({ success: false, message: "id is required" });
+      }
+
+      const query = { userId: user._id };
+      const patient = await PatientRegistration.findOneAndDelete({ _id: id, ...query });
+      
+      if (!patient) {
+        return res.status(404).json({ success: false, message: "Patient not found or unauthorized" });
+      }
+
+      return res.status(200).json({ success: true, message: "Patient deleted successfully" });
+    } catch (err) {
+      console.error("DELETE error:", err);
+      return res.status(err.status || 500).json({ success: false, message: err.message || "Server error" });
+    }
+  }
+
+  res.setHeader("Allow", ["GET", "PUT", "DELETE"]);
   return res.status(405).json({ success: false, message: `Method ${req.method} Not Allowed` });
 }

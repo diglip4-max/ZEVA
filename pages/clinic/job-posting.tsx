@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useEffect } from 'react';
+import Head from 'next/head';
 import ClinicLayout from "../../components/ClinicLayout";
 import withClinicAuth from "../../components/withClinicAuth";
 import type { NextPageWithLayout } from "../_app";
@@ -289,7 +290,50 @@ function ClinicJobPostingPage({ contextOverride = null }: { contextOverride?: Ro
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-3 sm:p-4">
+    <>
+      <Head>
+        {/* Schema Markup - Job Posting */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "JobPosting",
+              "title": "Careers at ZEVA",
+              "url": "https://zeva360.com/job-listings",
+              "description": "Explore exciting career opportunities at ZEVA. Discover job openings for healthcare professionals, IT specialists, and wellness experts across multiple locations. Apply for full-time, part-time, or remote positions with transparent salary information.",
+              "hiringOrganization": {
+                "@type": "Organization",
+                "name": "ZEVA",
+                "sameAs": "https://zeva360.com",
+                "logo": "https://zeva360.com/logo.png"
+              },
+              "jobLocation": {
+                "@type": "Place",
+                "address": {
+                  "@type": "PostalAddress",
+                  "streetAddress": "Abu Dhabi, UAE",
+                  "addressLocality": "Abu Dhabi",
+                  "addressCountry": "AE"
+                }
+              },
+              "datePosted": "2025-12-18",
+              "employmentType": "FULL_TIME",
+              "validThrough": "2026-12-31T23:59",
+              "baseSalary": {
+                "@type": "MonetaryAmount",
+                "currency": "AED",
+                "value": {
+                  "@type": "QuantitativeValue",
+                  "value": "70000",
+                  "unitText": "YEAR"
+                }
+              }
+            })
+          }}
+        />
+      </Head>
+      <div className="min-h-screen bg-gray-50 p-3 sm:p-4">
       <Toaster
         position="top-right"
         toastOptions={{
@@ -478,6 +522,7 @@ function ClinicJobPostingPage({ contextOverride = null }: { contextOverride?: Ro
         canCreate={permissions.canCreate}
       />
     </div>
+    </>
   );
 }
 

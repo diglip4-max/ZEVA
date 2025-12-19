@@ -245,8 +245,8 @@ const Header = () => {
                               onClick={() => setIsModulesDropdownOpen(false)}
                               className="flex flex-col items-center justify-center p-4 rounded-lg hover:bg-gray-50 transition-all duration-200 group border border-gray-100"
                             >
-                              <span className="text-3xl mb-2">{module.icon}</span>
-                              <span className="text-sm font-medium text-gray-700 group-hover:font-semibold text-center">
+                              <span className="text-xl mb-1.5">{module.icon}</span>
+                              <span className="text-xs font-medium text-gray-700 group-hover:font-semibold text-center">
                                 {module.name}
                               </span>
                             </Link>
@@ -275,10 +275,10 @@ const Header = () => {
                               key={module.name}
                               href={module.href}
                               onClick={() => setIsModulesDropdownOpen(false)}
-                              className="flex items-center space-x-3 p-3 rounded-md hover:bg-gray-50 transition-all duration-200 group hover:border-gray-200 hover:shadow-sm"
+                              className="flex items-center space-x-2 p-2.5 rounded-md hover:bg-gray-50 transition-all duration-200 group hover:border-gray-200 hover:shadow-sm"
                             >
-                              <span className="text-2xl flex-shrink-0">{module.icon}</span>
-                              <span className="text-sm font-medium text-gray-700 group-hover:font-semibold">
+                              <span className="text-lg flex-shrink-0">{module.icon}</span>
+                              <span className="text-xs font-medium text-gray-700 group-hover:font-semibold">
                                 {module.name}
                               </span>
                             </Link>

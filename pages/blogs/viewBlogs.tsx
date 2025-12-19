@@ -1,6 +1,7 @@
 import React from "react";
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/router";
+import Head from "next/head";
 import Link from "next/link";
 import parse from "html-react-parser";
 import { useAuth } from "@/context/AuthContext";
@@ -337,7 +338,36 @@ export default function BlogList() {
   };
 
 return (
-  <div className="min-h-screen bg-gray-50">
+  <>
+    <Head>
+      {/* Schema Markup - ZEVA Health Blog */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "Blog",
+            "name": "ZEVA Health Blog",
+            "url": "https://zeva360.com/blogs/viewBlogs",
+            "description": "Read the latest health and wellness articles on ZEVA. Get expert insights on Ayurveda treatments, fitness, nutrition, mental health, and lifestyle tips to improve your overall well-being.",
+            "publisher": {
+              "@type": "Organization",
+              "name": "ZEVA",
+              "url": "https://zeva360.com",
+              "logo": {
+                "@type": "ImageObject",
+                "url": "https://zeva360.com/logo.png"
+              }
+            },
+            "mainEntityOfPage": {
+              "@type": "WebPage",
+              "@id": "https://zeva360.com/blog"
+            }
+          })
+        }}
+      />
+    </Head>
+    <div className="min-h-screen bg-gray-50">
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
       <div className="flex flex-col lg:flex-row gap-6">
         {/* Main Content Area */}
@@ -792,5 +822,6 @@ return (
       }
     `}</style>
   </div>
+  </>
 );
 }
