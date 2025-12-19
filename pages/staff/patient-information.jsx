@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import axios from "axios";
-import { Package, TrendingUp, Eye, Search, ChevronLeft, ChevronRight, X, AlertCircle, CheckCircle2, Info, Edit3, User, DollarSign, Mail, Phone, Calendar, FileText, MapPin, Building2, CreditCard } from "lucide-react";
+import { Package, TrendingUp, Eye, Search, ChevronLeft, ChevronRight, X, AlertCircle, CheckCircle2, Info, Edit3, User, DollarSign, Mail, Phone, Calendar, FileText, MapPin, Building2, CreditCard, Trash2 } from "lucide-react";
 import { useRouter } from "next/router";
 import ClinicLayout from '../../components/staffLayout';
 import withClinicAuth from '../../components/withStaffAuth';
@@ -174,6 +174,7 @@ function PatientFilterUI({ hideHeader = false, onEditPatient }) {
   const [page, setPage] = useState(1);
   const [toasts, setToasts] = useState([]);
   const [detailsModal, setDetailsModal] = useState({ isOpen: false, patient: null });
+  const [deleteConfirm, setDeleteConfirm] = useState({ isOpen: false, patientId: null, patientName: null });
   const pageSize = 12;
 
   const addToast = (message, type = "info") => setToasts(prev => [...prev, { id: Date.now(), message, type }]);
@@ -236,6 +237,36 @@ function PatientFilterUI({ hideHeader = false, onEditPatient }) {
     }
   };
 
+  const handleDeleteClick = (patientId, patientName) => {
+    setDeleteConfirm({ isOpen: true, patientId, patientName });
+  };
+
+  const handleDeleteConfirm = async () => {
+    const headers = getAuthHeaders();
+    if (!headers) {
+      addToast("Authentication required. Please login again.", "error");
+      return;
+    }
+
+    try {
+      const { data } = await axios.delete("/api/staff/get-patient-registrations", {
+        headers,
+        data: { id: deleteConfirm.patientId },
+      });
+
+      if (data.success) {
+        addToast("Patient deleted successfully", "success");
+        setDeleteConfirm({ isOpen: false, patientId: null, patientName: null });
+        fetchPatients(); // Refresh the list
+      } else {
+        addToast(data.message || "Failed to delete patient", "error");
+      }
+    } catch (err) {
+      console.error(err);
+      addToast(err.response?.data?.message || "Failed to delete patient", "error");
+    }
+  };
+
   const getStatusBadge = (status) => {
     const statusLower = (status || '').toLowerCase();
     if (statusLower === 'active' || statusLower === 'completed') {
@@ -252,6 +283,39 @@ function PatientFilterUI({ hideHeader = false, onEditPatient }) {
       <style>{`@keyframes slideIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}@keyframes scaleIn{from{transform:scale(0.9);opacity:0}to{transform:scale(1);opacity:1}}.animate-slideIn{animation:slideIn 0.3s ease-out}.animate-scaleIn{animation:scaleIn 0.2s ease-out}`}</style>
       <ToastContainer toasts={toasts} removeToast={removeToast} />
       <PatientDetailsModal isOpen={detailsModal.isOpen} onClose={() => setDetailsModal({ isOpen: false, patient: null })} patient={detailsModal.patient} />
+      
+      {/* Delete Confirmation Modal */}
+      {deleteConfirm.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 overflow-y-auto bg-black/50 backdrop-blur-sm">
+          <div className="relative bg-white rounded-lg sm:rounded-xl shadow-2xl max-w-md w-full animate-scaleIn">
+            <div className="p-4 sm:p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="bg-red-100 p-2 rounded-full">
+                  <AlertCircle className="w-6 h-6 text-red-600" />
+                </div>
+                <h3 className="text-lg font-bold text-gray-900">Delete Patient</h3>
+              </div>
+              <p className="text-sm text-gray-700 mb-6">
+                Are you sure you want to delete patient <span className="font-semibold">{deleteConfirm.patientName}</span>? This action cannot be undone.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setDeleteConfirm({ isOpen: false, patientId: null, patientName: null })}
+                  className="flex-1 px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-800 rounded-lg text-sm font-medium transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDeleteConfirm}
+                  className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition-colors"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       
       <div className={hideHeader ? "p-3 sm:p-4 md:p-6" : "min-h-screen bg-gray-50 p-3 sm:p-4 md:p-6"}>
         <div className="max-w-7xl mx-auto space-y-3">
@@ -380,6 +444,13 @@ function PatientFilterUI({ hideHeader = false, onEditPatient }) {
                                   title="View Details"
                                 >
                                   <Eye className="h-4 w-4" />
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteClick(patient._id, `${patient.firstName} ${patient.lastName}`)}
+                                  className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"
+                                  title="Delete"
+                                >
+                                  <Trash2 className="h-4 w-4" />
                                 </button>
                               </div>
                             </td>

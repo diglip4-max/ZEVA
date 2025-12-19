@@ -101,7 +101,7 @@ const AboutUs = () => {
         { number: "50,000+", label: "Active Patients & Healthcare Seekers", icon: <Heart className="w-6 h-6" /> },
         { number: "150+", label: "Cities & Metropolitan Areas Covered", icon: <MapPin className="w-6 h-6" /> },
         { number: "98.5%", label: "User Satisfaction & Platform Reliability", icon: <Star className="w-6 h-6" /> }
-    ];
+    ];      
 
     const values = [
         { icon: <Heart className="w-6 h-6" />, title: "Patient-Centric Healthcare Excellence", desc:" Prioritizing accessibility, care quality, and positive health outcomes." },
