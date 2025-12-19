@@ -6,7 +6,6 @@ import type { NextPageWithLayout } from "../_app";
 import JobManagement from "../../components/all-posted-jobs";
 import ApplicationsDashboard from "../../components/job-applicants";
 import CreateJobModal from "../../components/CreateJobModal";
-import axios from 'axios';
 import { PlusCircle } from 'lucide-react';
 import { Toaster } from 'react-hot-toast';
 

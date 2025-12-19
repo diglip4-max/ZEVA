@@ -187,51 +187,6 @@ export default function FindDoctor() {
   const isUpdatingURL = useRef(false);
   const hasSearchedFromURL = useRef(false);
 
-  // Add state for dynamic available times
-  const [dynamicAvailableTimes, setDynamicAvailableTimes] = useState<string[]>([]);
-  // Function to extract available times from doctor time slots
-  const extractAvailableTimes = (doctors: Doctor[]) => {
-    const timeSet = new Set<string>();
-
-    doctors.forEach(doctor => {
-      if (doctor.timeSlots) {
-        doctor.timeSlots.forEach(slot => {
-          // Add morning slots
-          if (slot.sessions.morning && slot.sessions.morning.length > 0) {
-            slot.sessions.morning.forEach(time => {
-              timeSet.add(time);
-            });
-          }
-          // Add evening slots
-          if (slot.sessions.evening && slot.sessions.evening.length > 0) {
-            slot.sessions.evening.forEach(time => {
-              timeSet.add(time);
-            });
-          }
-        });
-      }
-    });
-
-    // Convert to array and sort
-    const times = Array.from(timeSet).sort();
-
-    // Add special availability options
-    const specialOptions = [
-      'Available Today',
-      'Available Tomorrow',
-      'Weekend Available'
-    ];
-
-    return [...times, ...specialOptions];
-  };
-
-  // Update dynamic times when doctors change
-  useEffect(() => {
-    if (doctors.length > 0) {
-      const times = extractAvailableTimes(doctors);
-      setDynamicAvailableTimes(times);
-    }
-  }, [doctors]);
 
   // Add scroll to results functionality
   useEffect(() => {
@@ -245,21 +200,6 @@ export default function FindDoctor() {
       }, 100);
     }
   }, [doctors, loading]);
-
-  // Fallback to static times if no dynamic times available
-  const availableTimes = dynamicAvailableTimes.length > 0 ? dynamicAvailableTimes : [
-    'Early Morning (4 AM - 6 AM)',
-    'Morning (6 AM - 12 PM)',
-    'Late Morning (10 AM - 12 PM)',
-    'Afternoon (12 PM - 6 PM)',
-    'Late Afternoon (3 PM - 6 PM)',
-    'Evening (6 PM - 10 PM)',
-    'Late Night (10 PM - 12 AM)',
-    'Night (12 AM - 4 AM)',
-    'Available Today',
-    'Available Tomorrow',
-    'Weekend Available'
-  ];
 
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const suggestionsDropdownRef = useRef<HTMLDivElement | null>(null);
@@ -326,7 +266,6 @@ export default function FindDoctor() {
       const locationText = location ? slugToText(String(location)) : '';
       
       // Check if current form values don't match URL params (to avoid overwriting manual input)
-      const currentTreatmentMatches = !treatmentText || (query.trim().toLowerCase() === treatmentText.toLowerCase() || selectedService.toLowerCase() === treatmentText.toLowerCase());
       const currentLocationMatches = !locationText || manualPlace.trim().toLowerCase() === locationText.toLowerCase();
       
       if (locationText && locationText !== 'near-me' && !currentLocationMatches) {
@@ -400,10 +339,6 @@ export default function FindDoctor() {
     setStarFilter(0);
     setSuggestions([]);
     clearPersistedState();
-  };
-
-  const clearLocation = () => {
-    setManualPlace("");
   };
 
   // Function to fetch reviews for a single doctor
@@ -645,8 +580,6 @@ export default function FindDoctor() {
       setCoords({ lat: res.data.lat, lng: res.data.lng });
       setManualPlace(locationText);
       
-      // Use the service from URL if provided
-      const serviceToUse = serviceText || selectedService || query.trim();
       if (serviceText) {
         setQuery(serviceText);
         setSelectedService(serviceText);

@@ -1,10 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Star, Mail, Settings, Lock, TrendingUp, Users, FileText, Briefcase, MessageSquare, Calendar, CreditCard, BarChart3, Activity, CheckCircle2, XCircle, Crown, Building2, User, Stethoscope } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, LabelList, PieChart, Pie, Cell, LineChart, Line, Tooltip, Legend } from 'recharts';
+import { Star, Mail, Settings, Lock, TrendingUp, Users, FileText, Briefcase, MessageSquare, Calendar, CreditCard, BarChart3, Activity, CheckCircle2, XCircle, User, Stethoscope } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, LabelList, Cell, LineChart, Line, Tooltip } from 'recharts';
 import DoctorLayout from '../../components/DoctorLayout';
 import withDoctorAuth from '../../components/withDoctorAuth';
 import type { NextPageWithLayout } from '../_app';
-import Link from 'next/link';
 import axios from 'axios';
 import { useRouter } from 'next/router';
 
@@ -25,11 +24,6 @@ interface DoctorUser {
   name?: string;
   email?: string;
   [key: string]: unknown;
-}
-
-interface ChartData {
-  name: string;
-  value: number;
 }
 
 interface NavigationItem {
@@ -459,8 +453,7 @@ const DoctorDashboard: NextPageWithLayout = () => {
     label: string,
     value: number | string,
     icon: React.ReactNode,
-    hasPermission: boolean = true,
-    moduleKey?: string
+    hasPermission: boolean = true
   ) => {
     if (!hasPermission) {
       return (
@@ -702,8 +695,7 @@ const DoctorDashboard: NextPageWithLayout = () => {
                 item.label,
                 moduleStat?.value ?? 0,
                 iconMap[item.icon] || <Activity className="w-5 h-5" />,
-                hasPermission,
-                item.moduleKey
+                hasPermission
               );
             })}
           </div>
@@ -868,8 +860,7 @@ const DoctorDashboard: NextPageWithLayout = () => {
                   item.label,
                   0,
                   iconMap[item.icon] || <Lock className="w-5 h-5" />,
-                  false,
-                  item.moduleKey
+                  false
                 );
               })}
             </div>
