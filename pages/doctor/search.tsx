@@ -1037,6 +1037,43 @@ export default function FindDoctor() {
           content="Discover verified Ayurveda doctors and medical specialists with transparent fees, patient reviews, and easy booking. Find trusted healthcare providers near you."
         />
         <link rel="canonical" href="https://zeva360.com/doctor/search" />
+        {/* Schema Markup - Search Doctor Directory */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "MedicalWebPage",
+              "name": "Search Doctor Directory",
+              "url": "https://zeva360.com/doctor/search",
+              "description": "Find verified Ayurveda doctors and medical specialists near you with ZEVA. Search by specialty, doctor name, or location to access authentic treatments, transparent consultation fees, and real patient reviews.",
+              "publisher": {
+                "@type": "Organization",
+                "name": "ZEVA",
+                "url": "https://zeva360.com",
+                "logo": {
+                  "@type": "ImageObject",
+                  "url": "https://zeva360.com/logo.png"
+                }
+              },
+              "about": {
+                "@type": "MedicalOrganization",
+                "name": "Verified Doctors & Medical Specialists",
+                "description": "Trusted medical professionals providing authentic treatments across various specialties with transparent consultation fees and verified credentials."
+              },
+              "mainEntity": {
+                "@type": "Website",
+                "name": "Search Doctor Directory",
+                "url": "https://zeva360.com/search-doctor",
+                "potentialAction": {
+                  "@type": "SearchAction",
+                  "target": "https://zeva360.com/search-doctor?query={search_term_string}",
+                  "query-input": "required name=search_term_string"
+                }
+              }
+            })
+          }}
+        />
       </Head>
       <div className="min-h-screen bg-[#f8fafc]">
       <AuthModal
