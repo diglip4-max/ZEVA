@@ -134,8 +134,6 @@ const ManageAgentsPage: NextPageWithLayout = () => {
   const approvedAgents = agents.filter((a: Agent) => a.isApproved).length;
   const declinedAgents = agents.filter((a: Agent) => a.declined).length;
   const totalDoctorStaff = doctorStaff.length;
-  const approvedDoctorStaff = doctorStaff.filter((a: Agent) => a.isApproved).length;
-  const declinedDoctorStaff = doctorStaff.filter((a: Agent) => a.declined).length;
 
   return (
     <div className="min-h-screen bg-gray-50">

@@ -6,6 +6,7 @@ import withDoctorAuth from '../../components/withDoctorAuth';
 import type { NextPageWithLayout } from '../_app';
 import Link from 'next/link';
 import axios from 'axios';
+import { useRouter } from 'next/router';
 
 // Type definitions
 interface Stats {
@@ -91,6 +92,7 @@ interface DoctorInfo {
 }
 
 const DoctorDashboard: NextPageWithLayout = () => {
+  const router = useRouter();
   const [stats, setStats] = useState<Stats>({ totalReviews: 0, totalEnquiries: 0 });
   const [loading, setLoading] = useState<boolean>(true);
   const [currentTime, setCurrentTime] = useState<Date>(new Date());
@@ -101,6 +103,7 @@ const DoctorDashboard: NextPageWithLayout = () => {
   const [doctorInfo, setDoctorInfo] = useState<DoctorInfo>({});
   const [permissions, setPermissions] = useState<SidebarResponse['permissions']>([]);
   const [statsLoading, setStatsLoading] = useState<boolean>(true);
+  const [isLoggingOut, setIsLoggingOut] = useState<boolean>(false);
 
   // Icon mapping
   const iconMap: { [key: string]: React.ReactNode } = {
@@ -335,6 +338,57 @@ const DoctorDashboard: NextPageWithLayout = () => {
 
     return () => clearInterval(timeInterval);
   }, []);
+
+  // Poll token validity every 1.5 seconds to detect password changes
+  useEffect(() => {
+    if (isLoggingOut) return; // Don't poll if already logging out
+
+    const checkTokenValidity = async () => {
+      try {
+        const token = localStorage.getItem('doctorToken') || sessionStorage.getItem('doctorToken');
+        if (!token) return;
+
+        const response = await fetch('/api/doctor/verify-token', {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        const data = await response.json();
+
+        // If password was changed, logout immediately
+        if (!data.valid && data.passwordChanged) {
+          setIsLoggingOut(true);
+          
+          // Show logout message
+          if (typeof window !== 'undefined') {
+            // Clear all storage
+            localStorage.removeItem('doctorToken');
+            localStorage.removeItem('doctorUser');
+            sessionStorage.removeItem('doctorToken');
+            sessionStorage.removeItem('doctorUser');
+            
+            // Show alert
+            alert('Your password has been changed by an administrator. You will be logged out now.');
+            
+            // Redirect to login after 1-2 seconds
+            setTimeout(() => {
+              router.push('/doctor/login');
+            }, 1500);
+          }
+        }
+      } catch (error) {
+        // Silently handle errors - don't spam console
+        console.error('Token validation error:', error);
+      }
+    };
+
+    // Check immediately, then every 1.5 seconds
+    checkTokenValidity();
+    const interval = setInterval(checkTokenValidity, 1500);
+
+    return () => clearInterval(interval);
+  }, [router, isLoggingOut]);
 
   const getGreeting = (): string => {
     const hour = currentTime.getHours();

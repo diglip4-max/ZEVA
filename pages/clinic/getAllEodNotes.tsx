@@ -1,15 +1,12 @@
 "use client";
 import React, { useEffect, useState, useCallback } from "react";
-import { useRouter } from "next/router";
 import axios from "axios";
-import { Search, X } from "lucide-react";
+import { Search } from "lucide-react";
 import ClinicLayout from "../../components/ClinicLayout";
 import withClinicAuth from "../../components/withClinicAuth";
 import type { NextPageWithLayout } from "../_app";
 
 const ClinicEodNotes: NextPageWithLayout = () => {
-  const router = useRouter();
-  
   const [notes, setNotes] = useState<any[]>([]);
   const [selectedDate, setSelectedDate] = useState("");
   const [staffList, setStaffList] = useState<string[]>([]);

@@ -67,6 +67,23 @@ export default async function handler(req, res) {
       return res.status(403).json({ valid: false, message: 'Account has been declined' });
     }
 
+    // Check if password was changed after token was issued
+    if (user.passwordChangedAt && decoded.iat) {
+      const tokenIssuedAt = new Date(decoded.iat * 1000); // Convert JWT iat (seconds) to Date
+      const passwordChangedAt = new Date(user.passwordChangedAt);
+      
+      if (passwordChangedAt > tokenIssuedAt) {
+        console.log("❌ Password was changed after token was issued");
+        console.log("Token issued at:", tokenIssuedAt);
+        console.log("Password changed at:", passwordChangedAt);
+        return res.status(401).json({ 
+          valid: false, 
+          message: 'Password has been changed. Please login again.',
+          passwordChanged: true 
+        });
+      }
+    }
+
     console.log("✅ Token Verified Successfully. Access Granted.");
 
     return res.status(200).json({

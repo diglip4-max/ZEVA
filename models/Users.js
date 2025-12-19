@@ -25,6 +25,7 @@ const UserSchema = new mongoose.Schema({
   isApproved: { type: Boolean, default: false },
   declined: { type: Boolean, default: false },
   eodNotes: [EODNoteSchema],
+  passwordChangedAt: { type: Date, default: null }, // Track when password was last changed
 }, { timestamps: true });
 
 UserSchema.index({ email: 1, role: 1 }, { unique: true });
@@ -36,6 +37,8 @@ UserSchema.pre('save', async function (next) {
     !this.password.startsWith('$2b$')
   ) {
     this.password = await bcrypt.hash(this.password, 10);
+    // Set passwordChangedAt timestamp when password is modified
+    this.passwordChangedAt = new Date();
   }
   next();
 });

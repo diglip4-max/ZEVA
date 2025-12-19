@@ -9,8 +9,6 @@ import withClinicAuth from '../../components/withClinicAuth';
 import type { NextPageWithLayout } from '../_app';
 import { useAgentPermissions } from '../../hooks/useAgentPermissions';
 import { 
-  LineChart, 
-  Line, 
   AreaChart, 
   Area, 
   PieChart, 

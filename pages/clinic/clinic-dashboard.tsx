@@ -1,11 +1,10 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Star, Mail, Settings, Lock, TrendingUp, Users, FileText, Briefcase, MessageSquare, Calendar, CreditCard, BarChart3, Activity, CheckCircle2, XCircle, Crown, Building2, User } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, LabelList, PieChart, Pie, Cell, LineChart, Line, Tooltip, Legend } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, LabelList, Cell, LineChart, Line, Tooltip } from 'recharts';
 import Stats from '../../components/Stats';
 import ClinicLayout from '../../components/ClinicLayout';
 import withClinicAuth from '../../components/withClinicAuth';
 import type { NextPageWithLayout } from '../_app';
-import Link from 'next/link';
 import axios from 'axios';
 
 // Type definitions
@@ -26,10 +25,6 @@ interface ClinicUser {
   [key: string]: unknown;
 }
 
-interface ChartData {
-  name: string;
-  value: number;
-}
 
 interface NavigationItem {
   _id: string;
@@ -96,7 +91,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
   const [currentTime, setCurrentTime] = useState<Date>(new Date());
   const [clinicUser, setClinicUser] = useState<ClinicUser | null>(null);
   const [navigationItems, setNavigationItems] = useState<NavigationItem[]>([]);
-  const [moduleStats, setModuleStats] = useState<ModuleStats>({});
+  const [_moduleStats, setModuleStats] = useState<ModuleStats>({});
   const [allModules, setAllModules] = useState<NavigationItem[]>([]);
   const [clinicInfo, setClinicInfo] = useState<ClinicInfo>({});
   const [permissions, setPermissions] = useState<SidebarResponse['permissions']>([]);
@@ -616,7 +611,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
     value: number | string,
     icon: React.ReactNode,
     hasPermission: boolean = true,
-    moduleKey?: string
+    _moduleKey?: string
   ) => {
     if (!hasPermission) {
       return (

@@ -47,8 +47,15 @@ export default async function handler(req, res) {
       return res.status(404).json({ message: 'Doctor not found' });
     }
 
-    user.password = password; // Will be hashed by pre-save middleware
+    // Set password - pre-save middleware will hash it and set passwordChangedAt
+    user.password = password;
     await user.save();
+    
+    // Ensure passwordChangedAt is set (in case pre-save hook didn't trigger)
+    if (!user.passwordChangedAt) {
+      user.passwordChangedAt = new Date();
+      await user.save();
+    }
 
     return res.status(200).json({ success: true, message: 'Credentials set successfully' });
   } catch (err) {
