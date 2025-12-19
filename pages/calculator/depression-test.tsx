@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Head from 'next/head';
-import { ChevronRight, AlertTriangle, Heart, User, Calendar, Stethoscope } from 'lucide-react';
+import { ChevronRight, AlertTriangle, Heart, Stethoscope } from 'lucide-react';
 import L1 from '../../components/Layout'
 
 interface UserInfo {

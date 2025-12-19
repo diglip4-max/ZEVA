@@ -1,6 +1,6 @@
 import React from 'react';
 import Head from 'next/head';
-import { Calendar, Heart, Baby, Target, ChevronRight, Clock, TrendingUp, Flower, Layout } from 'lucide-react';
+import { Calendar, Heart, Baby, Target, ChevronRight, Clock, TrendingUp, Flower } from 'lucide-react';
 import L1 from '../../../components/Layout';
 
 const PregnancyOvulationPage = () => {
