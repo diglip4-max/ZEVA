@@ -16,24 +16,13 @@ import {
   Clock,
   Settings,
   Sparkles,
-  Zap,
   Eye,
   Copy,
-  Share2,
-  MoreVertical,
-  Star,
   TrendingUp,
   Layers,
-  Grid3x3,
-  List,
   ArrowUpRight,
-  BookOpen,
-  Lightbulb,
   CheckCircle2,
-  AlertTriangle,
   RefreshCw,
-  Download,
-  Upload,
   Tag,
   Hash,
   Link as LinkIcon,
@@ -382,7 +371,6 @@ const DraftBlogs: React.FC<DraftBlogsProps> = ({
   }
 
   const BlogCard = ({ blog }: { blog: Blog }) => {
-    const [showActions, setShowActions] = useState(false);
     const [copied, setCopied] = useState(false);
 
     const copyToClipboard = async (text: string) => {

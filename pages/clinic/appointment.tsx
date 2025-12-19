@@ -5,7 +5,7 @@ import axios from "axios";
 import withClinicAuth from "../../components/withClinicAuth";
 import ClinicLayout from "../../components/ClinicLayout";
 import type { NextPageWithLayout } from "../_app";
-import { Loader2, Calendar, Clock, User, X } from "lucide-react";
+import { Loader2, Calendar, Clock, X } from "lucide-react";
 import AppointmentBookingModal from "../../components/AppointmentBookingModal";
 import { Toaster, toast } from "react-hot-toast";
 import { useAgentPermissions } from '../../hooks/useAgentPermissions';
@@ -390,7 +390,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
   const [dragOverTimeSlot, setDragOverTimeSlot] = useState<{ doctorId: string; minutes: number } | null>(null);
 
   // Central helper: log errors silently without showing toast popups
-  const showErrorToast = (message: string) => {
+  const showErrorToast = (_message: string) => {
     // Requirement: do not show any axios error in toaster or noisy console logs on this page.
     // Intentionally left blank to silently swallow UI error notifications.
     // If needed for debugging, temporarily add a console.log here.
@@ -776,7 +776,6 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
       const filtered = prev.filter((id) => doctorIdSet.has(id));
       // Update unified order to match filtered list, preserving existing order where possible
       setColumnOrder((order) => {
-        const orderSet = new Set(order);
         const filteredSet = new Set(filtered.map(id => `doctor:${id}`));
         // Keep existing order for items that are still visible
         const preserved = order.filter(item => {
@@ -859,7 +858,6 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
       const filtered = prev.filter((id) => roomIdSet.has(id));
       // Update unified order to match filtered list, preserving existing order where possible
       setColumnOrder((order) => {
-        const orderSet = new Set(order);
         const filteredSet = new Set(filtered.map(id => `room:${id}`));
         // Keep existing order for items that are still visible
         const preserved = order.filter(item => {
@@ -1141,6 +1139,9 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
       .slice(0, 2);
   };
 
+  // Unused functions - kept for potential future use
+  // These functions are commented out to fix TypeScript errors but can be uncommented when needed
+  /*
   const handleToggleDoctorVisibility = (doctorId: string) => {
     doctorFilterTouchedRef.current = true;
     setVisibleDoctorIds((prev) => {
@@ -1200,6 +1201,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
     roomFilterTouchedRef.current = true;
     setVisibleRoomIds([]);
   };
+  */
 
   // Get appointments for a specific doctor and row
   // Only show appointments that were booked from the doctor column
@@ -2203,7 +2205,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                                       handleTimeSlotMouseDown(e, doctor._id, subStartMinutes);
                                     }
                                   }}
-                                  onClick={(e) => {
+                                  onClick={(_e) => {
                                     // ✅ Check permission before opening booking modal
                                     if (!permissions.canCreate) {
                                       showErrorToast("You do not have permission to book appointments");

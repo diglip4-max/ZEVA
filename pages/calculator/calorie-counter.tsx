@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import Head from 'next/head'
-import { Plus, Trash2, Calculator, Search, Target, TrendingUp } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 
 interface Food {
   name: string;
