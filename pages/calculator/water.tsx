@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import Head from 'next/head'
-import { Droplets, Calculator, Activity, User } from 'lucide-react';
+import { Droplets } from 'lucide-react';
 
 interface WaterCalculatorState {
   weight: string;

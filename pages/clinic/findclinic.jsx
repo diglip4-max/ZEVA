@@ -825,6 +825,43 @@ export default function Home() {
                 <meta name="twitter:title" content="ZEVA Healthcare Directory" />
                 <meta name="twitter:description" content="Find trusted Ayurveda clinics and medical professionals with transparent pricing and verified reviews." />
                 <link rel="canonical" href="https://zevahealthcare.com/clinic/findclinic" />
+                {/* Schema Markup - Search Health Center WebPage */}
+                <script
+                    type="application/ld+json"
+                    dangerouslySetInnerHTML={{
+                        __html: JSON.stringify({
+                            "@context": "https://schema.org",
+                            "@type": "MedicalWebPage",
+                            "name": "Search Health Center",
+                            "url": "https://zeva360.com/clinic/findclinic",
+                            "description": "Find verified healthcare centers and clinics near you with ZEVA. Search by location, specialty, or clinic name to access authentic treatments, transparent pricing, and patient reviews.",
+                            "publisher": {
+                                "@type": "Organization",
+                                "name": "ZEVA",
+                                "url": "https://zeva360.com",
+                                "logo": {
+                                    "@type": "ImageObject",
+                                    "url": "https://zeva360.com/logo.png"
+                                }
+                            },
+                            "about": {
+                                "@type": "MedicalOrganization",
+                                "name": "Healthcare Centers & Clinics",
+                                "description": "Trusted medical centers and clinics providing verified healthcare services across multiple specialties."
+                            },
+                            "mainEntity": {
+                                "@type": "Website",
+                                "name": "Search Health Center",
+                                "url": "https://zeva360.com/search-health-center",
+                                "potentialAction": {
+                                    "@type": "SearchAction",
+                                    "target": "https://zeva360.com/search-health-center?query={search_term_string}",
+                                    "query-input": "required name=search_term_string"
+                                }
+                            }
+                        })
+                    }}
+                />
             </Head>
             <div className="min-h-screen bg-[#f8fafc]">
                 {/* Auth Modal */}

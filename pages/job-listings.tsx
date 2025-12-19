@@ -1,4 +1,5 @@
 import React, { useEffect, useState, ChangeEvent, useRef } from "react";
+import Head from "next/head";
 import axios from "axios";
 import Link from "next/link";
 import { useRouter } from "next/router";
@@ -270,7 +271,50 @@ const AllJobs: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <>
+      <Head>
+        {/* Schema Markup - Job Posting */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "JobPosting",
+              "title": "Careers at ZEVA",
+              "url": "https://zeva360.com/job-listings",
+              "description": "Explore exciting career opportunities at ZEVA. Discover job openings for healthcare professionals, IT specialists, and wellness experts across multiple locations. Apply for full-time, part-time, or remote positions with transparent salary information.",
+              "hiringOrganization": {
+                "@type": "Organization",
+                "name": "ZEVA",
+                "sameAs": "https://zeva360.com",
+                "logo": "https://zeva360.com/logo.png"
+              },
+              "jobLocation": {
+                "@type": "Place",
+                "address": {
+                  "@type": "PostalAddress",
+                  "streetAddress": "Abu Dhabi, UAE",
+                  "addressLocality": "Abu Dhabi",
+                  "addressCountry": "AE"
+                }
+              },
+              "datePosted": "2025-12-18",
+              "employmentType": "FULL_TIME",
+              "validThrough": "2026-12-31T23:59",
+              "baseSalary": {
+                "@type": "MonetaryAmount",
+                "currency": "AED",
+                "value": {
+                  "@type": "QuantitativeValue",
+                  "value": "70000",
+                  "unitText": "YEAR"
+                }
+              }
+            })
+          }}
+        />
+      </Head>
+      <div className="min-h-screen bg-gray-50">
       {/* Hero Section with Search */}
       <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 text-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
@@ -677,6 +721,7 @@ const AllJobs: React.FC = () => {
         </div>
       </div>
     </div>
+    </>
   );
 };
 

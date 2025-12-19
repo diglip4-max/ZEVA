@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo, useCallback } from "react";
 import axios from "axios";
-import { Search, Edit2, ExternalLink, Trash2, FileText, BookOpen, ChevronLeft, ChevronRight, X, Edit3, Link, Save, AlertCircle, Eye, Clock, Globe, Sparkles, TrendingUp, Zap, CheckCircle2 } from "lucide-react";
+import { Search, Edit2, ExternalLink, Trash2, FileText, BookOpen, ChevronLeft, ChevronRight, X, Edit3, Link, Save, AlertCircle, Eye, Clock, Globe, Sparkles, Zap, CheckCircle2 } from "lucide-react";
 import SocialMediaShare from "./SocialMediaShare";
 
 type Blog = {
