@@ -35,10 +35,15 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Check read permission
+    // Determine which module to check permissions for based on query parameter
+    // Default to "clinic_addRoom" for backward compatibility
+    // When accessed from create-agent page, it should check "clinic_create_agent"
+    const moduleToCheck = req.query.module || "clinic_addRoom";
+    
+    // Check read permission for the specified module
     const { hasPermission, error: permError } = await checkClinicPermission(
       clinicId,
-      "clinic_addRoom",
+      moduleToCheck,
       "read"
     );
 

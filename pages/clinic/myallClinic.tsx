@@ -24,7 +24,7 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import { Toaster, toast } from "react-hot-toast";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip, Legend, LineChart, Line, PieChart, Pie, Cell } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip, Cell } from "recharts";
 
 const TOKEN_PRIORITY = [
   "clinicToken",
@@ -2227,7 +2227,7 @@ const SummaryCard = ({ title, value, icon, color }: SummaryCardProps) => {
     green: "bg-gray-50 border-gray-200 text-gray-800",
   };
 
-  const [bgColor, borderColor, textColor] = colorClasses[color].split(' ');
+  const [_bgColor, borderColor, textColor] = colorClasses[color].split(' ');
 
   return (
     <div className={`bg-white rounded-lg p-2.5 sm:p-3 border ${borderColor} shadow-sm`}>

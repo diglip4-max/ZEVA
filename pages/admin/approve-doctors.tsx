@@ -110,9 +110,22 @@ function AdminDoctors() {
   const [activeTab, setActiveTab] = useState<
     "pending" | "approved" | "declined"
   >("pending");
-  // const [settingId, setSettingId] = useState<string | null>(null); // Reserved for future use - edit mode indicator
-  // const [newPassword, setNewPassword] = useState(""); // Reserved for future use - setting doctor credentials
-  // const [showPassword, setShowPassword] = useState(false); // Reserved for future use - password visibility toggle
+  const [passwordModal, setPasswordModal] = useState<{
+    show: boolean;
+    doctorId: string | null;
+    doctorName: string;
+    hasPassword: boolean;
+  }>({
+    show: false,
+    doctorId: null,
+    doctorName: "",
+    hasPassword: false,
+  });
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [passwordLoading, setPasswordLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
@@ -235,6 +248,17 @@ function AdminDoctors() {
     }
   }, [isAdmin, isAgent, permissionsLoading, agentPermissions]);
 
+  // Clear search term when switching tabs
+  useEffect(() => {
+    setSearchTerm("");
+    setCurrentPage(1);
+  }, [activeTab]);
+
+  // Clear search term on component mount to prevent stale values
+  useEffect(() => {
+    setSearchTerm("");
+  }, []);
+
   const handleAction = async (
     userId: string,
     action: "approve" | "decline" | "delete"
@@ -275,46 +299,89 @@ function AdminDoctors() {
     }
   };
 
-  // Reserved for future use - setting doctor credentials
-  // const handleSetCredentials = async (userId: string) => {
-  //   if (!newPassword.trim()) {
-  //     return;
-  //   }
+  // Handle setting/updating doctor credentials
+  const handleSetCredentials = async () => {
+    if (!passwordModal.doctorId) return;
 
-  //   const adminTokenExists = typeof window !== 'undefined' ? !!localStorage.getItem('adminToken') : false;
-  //   const agentTokenExists = typeof window !== 'undefined' ? !!localStorage.getItem('agentToken') : false;
-  //   const isAgentRoute = router.pathname?.startsWith('/agent/') || (typeof window !== 'undefined' && window.location.pathname?.startsWith('/agent/'));
+    // Validation
+    if (!newPassword.trim()) {
+      showToast("Please enter a password", 'error');
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      showToast("Password must be at least 6 characters long", 'error');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      showToast("Passwords do not match", 'error');
+      return;
+    }
+
+    const adminTokenExists = typeof window !== 'undefined' ? !!localStorage.getItem('adminToken') : false;
+    const agentTokenExists = typeof window !== 'undefined' ? !!localStorage.getItem('agentToken') : false;
+    const isAgentRoute = router.pathname?.startsWith('/agent/') || (typeof window !== 'undefined' && window.location.pathname?.startsWith('/agent/'));
     
-  //   if ((isAgentRoute || isAgent) && agentTokenExists && !adminTokenExists && agentPermissions && agentPermissions.canUpdate !== true && agentPermissions.canAll !== true) {
-  //     showToast("You do not have permission to update doctor credentials", 'error');
-  //     return;
-  //   }
+    if ((isAgentRoute || isAgent) && agentTokenExists && !adminTokenExists && agentPermissions && agentPermissions.canUpdate !== true && agentPermissions.canAll !== true) {
+      showToast("You do not have permission to update doctor credentials", 'error');
+      return;
+    }
 
-  //   try {
-  //     const adminToken = typeof window !== 'undefined' ? localStorage.getItem('adminToken') : null;
-  //     const agentToken = typeof window !== 'undefined' ? localStorage.getItem('agentToken') : null;
-  //     const token = adminToken || agentToken;
+    setPasswordLoading(true);
+    try {
+      const adminToken = typeof window !== 'undefined' ? localStorage.getItem('adminToken') : null;
+      const agentToken = typeof window !== 'undefined' ? localStorage.getItem('agentToken') : null;
+      const token = adminToken || agentToken;
 
-  //     if (!token) {
-  //       showToast("No token found. Please login again.", 'error');
-  //       return;
-  //     }
+      if (!token) {
+        showToast("No token found. Please login again.", 'error');
+        setPasswordLoading(false);
+        return;
+      }
 
-  //     await axios.post("/api/admin/setDoctorCredentials", {
-  //       userId,
-  //       password: newPassword,
-  //     }, {
-  //       headers: { Authorization: `Bearer ${token}` }
-  //     });
-  //     // setSettingId(null); // Reserved for future use - edit mode indicator
-  //     setNewPassword("");
-  //     showToast('Credentials set successfully', 'success');
-  //     fetchDoctors();
-  //   } catch (error: any) {
-  //     console.error(error);
-  //     showToast(error.response?.data?.message || "An error occurred", 'error');
-  //   }
-  // };
+      await axios.post("/api/admin/setDoctorCredentials", {
+        userId: passwordModal.doctorId,
+        password: newPassword,
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      // Clear password fields and close modal
+      const wasPasswordChange = passwordModal.hasPassword;
+      setNewPassword("");
+      setConfirmPassword("");
+      setShowPassword(false);
+      setShowConfirmPassword(false);
+      setPasswordModal({ show: false, doctorId: null, doctorName: "", hasPassword: false });
+      // Clear search term to show all doctors
+      setSearchTerm("");
+      showToast(wasPasswordChange ? 'Password updated successfully' : 'Password set successfully', 'success');
+      fetchDoctors();
+    } catch (error: any) {
+      console.error(error);
+      showToast(error.response?.data?.message || "An error occurred", 'error');
+    } finally {
+      setPasswordLoading(false);
+    }
+  };
+
+  // Open password modal
+  const openPasswordModal = (doctor: Doctor) => {
+    const hasPassword = !!(doctor.user.password && doctor.user.password.trim() !== "");
+    // Clear password fields first
+    setNewPassword("");
+    setConfirmPassword("");
+    setShowPassword(false);
+    setShowConfirmPassword(false);
+    // Then open modal
+    setPasswordModal({
+      show: true,
+      doctorId: doctor.user._id,
+      doctorName: doctor.user.name,
+      hasPassword,
+    });
+  };
 
   const filteredDoctors = doctors.filter((doc) => {
     const user = doc.user;
@@ -447,10 +514,12 @@ function AdminDoctors() {
 
   const [detailDoctor, setDetailDoctor] = useState<Doctor | null>(null);
 
+  // Check if user can manage passwords (admin or agent with update permission)
+  const canManagePassword = isAdmin || (isAgent && agentPermissions && (agentPermissions.canUpdate === true || agentPermissions.canAll === true));
+
   const DoctorCard = ({ doctor }: { doctor: Doctor }) => {
     const actions = getTabActions(activeTab);
-    // const isEditing = settingId === doctor.user._id; // Reserved for future use - edit mode indicator
-    // const hasPassword = doctor.user.password && doctor.user.password.trim() !== ""; // Reserved for future use - password status indicator
+    const hasPassword = !!(doctor.user.password && doctor.user.password.trim() !== "");
 
     const statusStyles: Record<
       "pending" | "approved" | "declined",
@@ -519,6 +588,33 @@ function AdminDoctors() {
                 {action.charAt(0).toUpperCase() + action.slice(1)}
               </button>
             ))}
+            {canManagePassword && (
+              <button
+                onClick={() => openPasswordModal(doctor)}
+                className={`rounded-lg border px-4 py-2 text-sm font-semibold transition ${
+                  hasPassword
+                    ? "border-blue-200 text-blue-700 hover:bg-blue-50"
+                    : "border-orange-200 text-orange-700 hover:bg-orange-50"
+                }`}
+                title={hasPassword ? "Change password" : "Set password"}
+              >
+                {hasPassword ? (
+                  <>
+                    <svg className="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                    </svg>
+                    Change Password
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                    Set Password
+                  </>
+                )}
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -664,6 +760,7 @@ function AdminDoctors() {
                 onClick={() => {
                   setActiveTab(tab.key as "pending" | "approved" | "declined");
                   setCurrentPage(1);
+                  setSearchTerm(""); // Clear search when switching tabs
                 }}
                 className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition ${
                   activeTab === tab.key
@@ -695,6 +792,12 @@ function AdminDoctors() {
                 placeholder="Search doctors, degrees, treatments..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
+                onFocus={(e) => {
+                  // Clear if it contains an email (likely from browser autofill)
+                  if (e.target.value.includes('@')) {
+                    setSearchTerm("");
+                  }
+                }}
                 className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-9 pr-3 text-sm text-slate-700 placeholder-slate-400 focus:border-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-900/10"
               />
             </div>
@@ -940,6 +1043,145 @@ function AdminDoctors() {
         </div>
       )}
 
+      {/* Password Modal */}
+      {passwordModal.show && (
+        <div className="fixed inset-0 backdrop-blur-sm bg-black/20 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl p-8 max-w-md w-full">
+            <div className="text-center mb-6">
+              <div className="mx-auto mb-4 w-16 h-16 rounded-full flex items-center justify-center bg-blue-100">
+                <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+              </div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                {passwordModal.hasPassword ? "Change Password" : "Set Password"}
+              </h2>
+              <p className="text-gray-700 mb-2">
+                {passwordModal.hasPassword 
+                  ? `Update password for ${passwordModal.doctorName}` 
+                  : `Set initial password for ${passwordModal.doctorName}`}
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  New Password
+                </label>
+                <div className="relative">
+                  <input
+                    key={`password-${passwordModal.doctorId}-${passwordModal.show}`}
+                    type={showPassword ? "text" : "password"}
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Enter new password (min. 6 characters)"
+                    className="w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 placeholder-slate-400 focus:border-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-900/10"
+                    disabled={passwordLoading}
+                    autoComplete="new-password"
+                    autoFocus
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                    disabled={passwordLoading}
+                  >
+                    {showPassword ? (
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.29 3.29m0 0L3 12m3.29-5.71L12 12m-5.71-5.71L12 3m0 0l3.29 3.29M12 12l3.29 3.29M12 12l5.71 5.71M12 12l-5.71 5.71" />
+                      </svg>
+                    ) : (
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Confirm Password
+                </label>
+                <div className="relative">
+                  <input
+                    key={`confirm-password-${passwordModal.doctorId}-${passwordModal.show}`}
+                    type={showConfirmPassword ? "text" : "password"}
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Confirm new password"
+                    className="w-full rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 placeholder-slate-400 focus:border-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-900/10"
+                    disabled={passwordLoading}
+                    autoComplete="new-password"
+                    autoFocus
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                    disabled={passwordLoading}
+                  >
+                    {showConfirmPassword ? (
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.29 3.29m0 0L3 12m3.29-5.71L12 12m-5.71-5.71L12 3m0 0l3.29 3.29M12 12l3.29 3.29M12 12l5.71 5.71M12 12l-5.71 5.71" />
+                      </svg>
+                    ) : (
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {newPassword && confirmPassword && newPassword !== confirmPassword && (
+                <p className="text-sm text-red-600">Passwords do not match</p>
+              )}
+
+              {newPassword && newPassword.length < 6 && (
+                <p className="text-sm text-amber-600">Password must be at least 6 characters long</p>
+              )}
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => {
+                  // Clear all password-related state when closing modal
+                  setNewPassword("");
+                  setConfirmPassword("");
+                  setShowPassword(false);
+                  setShowConfirmPassword(false);
+                  setPasswordModal({ show: false, doctorId: null, doctorName: "", hasPassword: false });
+                }}
+                className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 px-6 py-3 rounded-lg font-medium transition-colors"
+                disabled={passwordLoading}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSetCredentials}
+                disabled={passwordLoading || !newPassword || !confirmPassword || newPassword !== confirmPassword || newPassword.length < 6}
+                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {passwordLoading ? (
+                  <span className="flex items-center justify-center">
+                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    {passwordModal.hasPassword ? "Updating..." : "Setting..."}
+                  </span>
+                ) : (
+                  passwordModal.hasPassword ? "Update Password" : "Set Password"
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Detail Modal */}
       {detailDoctor && (
         <div className="fixed inset-0 backdrop-blur-sm bg-black/30 flex items-center justify-center z-50 p-4">
@@ -983,6 +1225,43 @@ function AdminDoctors() {
                   )}
                 </div>
               </div>
+
+              {/* Password Status */}
+              {canManagePassword && (
+                <div className="flex items-start gap-3 text-sm">
+                  <svg className="w-4 h-4 text-slate-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                  </svg>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-slate-500">Password Status:</span>
+                      {detailDoctor.user.password && detailDoctor.user.password.trim() !== "" ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700">
+                          <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                          </svg>
+                          Set
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-orange-100 px-2 py-0.5 text-xs font-medium text-orange-700">
+                          <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                          </svg>
+                          Not Set
+                        </span>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => openPasswordModal(detailDoctor)}
+                      className="mt-2 text-xs text-blue-600 hover:text-blue-800 font-medium"
+                    >
+                      {detailDoctor.user.password && detailDoctor.user.password.trim() !== "" 
+                        ? "Change Password →" 
+                        : "Set Password →"}
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* Address */}
               <div className="flex items-start gap-3 text-sm">

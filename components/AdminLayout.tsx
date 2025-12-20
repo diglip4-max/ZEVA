@@ -32,7 +32,7 @@ const AdminLayout = ({
     <div className="flex min-h-screen bg-gray-50" role="application">
       {/* Sidebar */}
       {!hideSidebar && (
-        <div className="sticky top-0 z-30 h-screen">
+        <div className="fixed lg:sticky top-0 left-0 z-30 h-screen">
           <AdminSidebar 
             onItemsChange={setSidebarItems}
           />
@@ -40,10 +40,10 @@ const AdminLayout = ({
       )}
 
       {/* Main Content Area */}
-      <div className="flex min-h-screen max-h-screen flex-1 flex-col">
-        {/* Header */}
+      <div className="flex min-h-screen flex-1 flex-col lg:ml-0">
+        {/* Header - Higher z-index than sidebar to prevent overlap */}
         {!hideHeader && (
-          <div className="sticky top-0 z-20">
+          <div className="sticky top-0 z-40">
             <AdminHeader 
               handleToggleDesktop={() => setIsDesktopHidden(!isDesktopHidden)}
               handleToggleMobile={() => setIsMobileOpen(!isMobileOpen)}
@@ -56,9 +56,7 @@ const AdminLayout = ({
 
         {/* Page Content */}
         <main
-          className={`flex-1 overflow-y-auto ${
-            hideSidebar && hideHeader ? '' : ''
-          }`}
+          className="flex-1 overflow-y-auto relative z-0"
           role="main"
         >
           {children}

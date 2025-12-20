@@ -1655,67 +1655,86 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
         }}
       />
       <div className="bg-white dark:bg-gray-50 rounded-lg border border-gray-200 dark:border-gray-200 shadow-sm p-1.5 sm:p-2">
-        <div className="flex flex-col gap-2 mb-2">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2">
-            <div>
-              <h1 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-900">Appointment Schedule</h1>
-              <p className="text-xs text-gray-700 dark:text-gray-800">
-                {clinic?.name} • {clinic?.timings || "No timings set"}
-              </p>
-            </div>
-            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-              <div className="flex items-center gap-1.5">
-                <button
-                  onClick={() => {
-                    const current = new Date(selectedDate);
-                    current.setDate(current.getDate() - 1);
-                    setSelectedDate(current.toISOString().split("T")[0]);
-                  }}
-                  className="px-2 py-1 rounded border border-gray-300 dark:border-gray-300 bg-white dark:bg-gray-100 text-xs font-medium text-gray-700 dark:text-gray-800 hover:bg-gray-50 dark:hover:bg-gray-200 transition-colors"
-                  type="button"
-                >
-                  Prev
-                </button>
-                <button
-                  onClick={() => {
-                    setSelectedDate(new Date().toISOString().split("T")[0]);
-                    toast.success("Switched to today", { duration: 2000 });
-                  }}
-                  className="px-2 py-1 rounded border border-gray-900 dark:border-gray-300 bg-gray-900 dark:bg-gray-200 text-xs font-medium text-white dark:text-gray-900 hover:bg-gray-800 dark:hover:bg-gray-300 transition-colors"
-                  type="button"
-                >
-                  Today
-                </button>
-                <button
-                  onClick={() => {
-                    const current = new Date(selectedDate);
-                    current.setDate(current.getDate() + 1);
-                    setSelectedDate(current.toISOString().split("T")[0]);
-                  }}
-                  className="px-2 py-1 rounded border border-gray-300 dark:border-gray-300 bg-white dark:bg-gray-100 text-xs font-medium text-gray-700 dark:text-gray-800 hover:bg-gray-50 dark:hover:bg-gray-200 transition-colors"
-                  type="button"
-                >
-                  Next
-                </button>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <label className="text-xs font-medium text-gray-700 dark:text-gray-800 whitespace-nowrap">Date:</label>
-                <input
-                  type="date"
-                  value={selectedDate}
-                  onChange={(e) => {
-                    setSelectedDate(e.target.value);
-                    toast(`Viewing appointments for ${new Date(e.target.value).toLocaleDateString()}`, {
-                      duration: 2000,
-                      icon: "ℹ️",
-                    });
-                  }}
-                  className="border border-gray-300 dark:border-gray-300 bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 rounded px-2 py-1 text-xs focus:ring-1 focus:ring-gray-900 dark:focus:ring-gray-700 focus:border-gray-900 dark:focus:border-gray-700 transition-all"
-                />
+        {doctorStaff.length === 0 && rooms.length === 0 ? (
+          <div className="flex flex-col items-center justify-center min-h-[60vh] py-12">
+            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-full p-6 mb-6">
+              <div className="w-20 h-20 mx-auto flex items-center justify-center bg-white dark:bg-gray-800 rounded-full shadow-lg">
+                <Calendar className="w-10 h-10 text-blue-600 dark:text-blue-400" />
               </div>
             </div>
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-3 text-center">
+              Get Started with Appointments
+            </h2>
+            <p className="text-base text-gray-600 dark:text-gray-400 text-center max-w-md leading-relaxed mb-2">
+              First create <span className="font-semibold text-blue-600 dark:text-blue-400">doctors</span> and <span className="font-semibold text-blue-600 dark:text-blue-400">rooms</span> to book appointments
+            </p>
+            <p className="text-sm text-gray-500 dark:text-gray-500 text-center">
+              Once you've added them, you'll be able to manage your appointment schedule here
+            </p>
           </div>
-          {(doctorStaff.length > 0 || rooms.length > 0) && (
+        ) : (
+          <>
+            <div className="flex flex-col gap-2 mb-2">
+              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2">
+                <div>
+                  <h1 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-900">Appointment Schedule</h1>
+                  <p className="text-xs text-gray-700 dark:text-gray-800">
+                    {clinic?.name} • {clinic?.timings || "No timings set"}
+                  </p>
+                </div>
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      onClick={() => {
+                        const current = new Date(selectedDate);
+                        current.setDate(current.getDate() - 1);
+                        setSelectedDate(current.toISOString().split("T")[0]);
+                      }}
+                      className="px-2 py-1 rounded border border-gray-300 dark:border-gray-300 bg-white dark:bg-gray-100 text-xs font-medium text-gray-700 dark:text-gray-800 hover:bg-gray-50 dark:hover:bg-gray-200 transition-colors"
+                      type="button"
+                    >
+                      Prev
+                    </button>
+                    <button
+                      onClick={() => {
+                        setSelectedDate(new Date().toISOString().split("T")[0]);
+                        toast.success("Switched to today", { duration: 2000 });
+                      }}
+                      className="px-2 py-1 rounded border border-gray-900 dark:border-gray-300 bg-gray-900 dark:bg-gray-200 text-xs font-medium text-white dark:text-gray-900 hover:bg-gray-800 dark:hover:bg-gray-300 transition-colors"
+                      type="button"
+                    >
+                      Today
+                    </button>
+                    <button
+                      onClick={() => {
+                        const current = new Date(selectedDate);
+                        current.setDate(current.getDate() + 1);
+                        setSelectedDate(current.toISOString().split("T")[0]);
+                      }}
+                      className="px-2 py-1 rounded border border-gray-300 dark:border-gray-300 bg-white dark:bg-gray-100 text-xs font-medium text-gray-700 dark:text-gray-800 hover:bg-gray-50 dark:hover:bg-gray-200 transition-colors"
+                      type="button"
+                    >
+                      Next
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <label className="text-xs font-medium text-gray-700 dark:text-gray-800 whitespace-nowrap">Date:</label>
+                    <input
+                      type="date"
+                      value={selectedDate}
+                      onChange={(e) => {
+                        setSelectedDate(e.target.value);
+                        toast(`Viewing appointments for ${new Date(e.target.value).toLocaleDateString()}`, {
+                          duration: 2000,
+                          icon: "ℹ️",
+                        });
+                      }}
+                      className="border border-gray-300 dark:border-gray-300 bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 rounded px-2 py-1 text-xs focus:ring-1 focus:ring-gray-900 dark:focus:ring-gray-700 focus:border-gray-900 dark:focus:border-gray-700 transition-all"
+                    />
+                  </div>
+                </div>
+              </div>
+              {(doctorStaff.length > 0 || rooms.length > 0) && (
             <div className="flex flex-wrap gap-1.5">
               {doctorStaff.length > 0 && (
                 <div className="relative" ref={doctorFilterRef}>
@@ -1947,18 +1966,9 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                 </button>
               </div>
             </div>
-          )}
-        </div>
-
-        {doctorStaff.length === 0 && rooms.length === 0 ? (
-          <div className="text-center py-8">
-            <div className="w-8 h-8 mx-auto mb-2 rounded-full bg-gray-100 dark:bg-gray-200 flex items-center justify-center text-gray-400 dark:text-gray-600 text-sm">
-              👨‍⚕️
-            </div>
-            <p className="text-xs text-gray-700 dark:text-gray-800">No doctor staff or rooms available.</p>
-            <p className="text-[10px] text-gray-700 dark:text-gray-700 mt-1">Add doctor staff and rooms to view their schedules.</p>
+            )}
           </div>
-        ) : (
+
           <div className="border border-gray-200 dark:border-gray-300 rounded overflow-hidden bg-white dark:bg-gray-50">
             {/* Scrollable container */}
             <div className="overflow-x-auto max-h-[75vh] overflow-y-auto relative">
@@ -2533,11 +2543,12 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
               </div>
             </div>
           </div>
-        )}
         {visibleDoctors.length === 0 && visibleRooms.length === 0 && (doctorStaff.length > 0 || rooms.length > 0) && (
           <div className="mt-2 rounded border border-dashed border-gray-300 dark:border-gray-300 bg-gray-50 dark:bg-gray-100 p-2 text-center text-xs text-gray-700 dark:text-gray-800">
             No doctor or room columns selected. Use the filters above to choose which schedules to display.
           </div>
+        )}
+          </>
         )}
       </div>
 

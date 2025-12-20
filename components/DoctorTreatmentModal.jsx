@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { CheckCircle, Loader2, AlertCircle, Plus, Trash2, X } from "lucide-react";
+import { toast } from "react-hot-toast";
 
 const MessageBanner = ({ type = "success", text }) => {
   if (!text) return null;
@@ -60,7 +61,8 @@ const DoctorTreatmentModal = ({ isOpen, onClose, doctorStaffId, doctorStaffName,
       let res;
       if (useClinicTreatments) {
         // Fetch treatments from Clinic model
-        res = await axios.get("/api/clinic/treatments", {
+        // When useClinicTreatments is true (from create-agent page), check clinic_create_agent permissions
+        res = await axios.get("/api/clinic/treatments?module=clinic_create_agent", {
           headers: getAuthHeaders(),
         });
         if (res.data.success) {
@@ -111,7 +113,9 @@ const DoctorTreatmentModal = ({ isOpen, onClose, doctorStaffId, doctorStaffName,
   const loadDoctorTreatments = async () => {
     if (!doctorStaffId) return;
     try {
-      const res = await axios.get(`/api/clinic/doctor-treatments?doctorStaffId=${doctorStaffId}`, {
+      // When useClinicTreatments is true (from create-agent page), check clinic_create_agent permissions
+      const moduleParam = useClinicTreatments ? "clinic_create_agent" : "clinic_Appointment";
+      const res = await axios.get(`/api/clinic/doctor-treatments?doctorStaffId=${doctorStaffId}&module=${moduleParam}`, {
         headers: getAuthHeaders(),
       });
       if (res.data.success) {
@@ -165,28 +169,33 @@ const DoctorTreatmentModal = ({ isOpen, onClose, doctorStaffId, doctorStaffName,
     setMessage({ type: "info", text: "" });
 
     try {
+      // When useClinicTreatments is true (from create-agent page), check clinic_create_agent permissions
+      const moduleParam = useClinicTreatments ? "clinic_create_agent" : "clinic_Appointment";
       const payload = {
         doctorStaffId,
         treatmentId: selectedTreatmentId,
         subcategoryIds: selectedSubcategories,
         department: null,
+        module: moduleParam,
       };
 
       const res = await axios.post("/api/clinic/doctor-treatments", payload, {
         headers: getAuthHeaders(),
+        validateStatus: (status) => status < 500, // Don't throw for 4xx errors
       });
 
-      if (res.data.success) {
+      if (res.data && res.data.success) {
         setDoctorTreatments(res.data.treatments || []);
         setMessage({ type: "success", text: res.data.message || "Treatment assigned successfully" });
         resetForm();
       } else {
-        setMessage({ type: "error", text: res.data.message || "Failed to assign treatment" });
+        setMessage({ type: "error", text: res.data?.message || "Failed to assign treatment" });
       }
     } catch (error) {
+      // Prevent error from propagating
       console.error("Error assigning treatment", error);
-      const errorMessage = error.response?.data?.message || "Failed to assign treatment";
-      setMessage({ type: "error", text: errorMessage });
+      setMessage({ type: "error", text: "Failed to assign treatment. Please try again." });
+      return;
     } finally {
       setSubmitting(false);
     }
@@ -229,9 +238,10 @@ const DoctorTreatmentModal = ({ isOpen, onClose, doctorStaffId, doctorStaffName,
 
         const res = await axios.post("/api/clinic/add-clinic-treatment", payload, {
           headers: getAuthHeaders(),
+          validateStatus: (status) => status < 500, // Don't throw for 4xx errors
         });
 
-        if (res.data.success) {
+        if (res.data && res.data.success) {
           // Ensure treatments is always an array
           const treatments = Array.isArray(res.data.treatments) ? res.data.treatments : [];
           setDoctorTreatments(treatments);
@@ -239,7 +249,7 @@ const DoctorTreatmentModal = ({ isOpen, onClose, doctorStaffId, doctorStaffName,
           resetCustomForm();
           loadBaseTreatments();
         } else {
-          setMessage({ type: "error", text: res.data.message || "Failed to create treatment" });
+          setMessage({ type: "error", text: res.data?.message || "Failed to create treatment" });
         }
       } else {
         // Original behavior - save to doctor-treatments only
@@ -251,9 +261,10 @@ const DoctorTreatmentModal = ({ isOpen, onClose, doctorStaffId, doctorStaffName,
 
       const res = await axios.post("/api/clinic/doctor-treatments", payload, {
         headers: getAuthHeaders(),
+        validateStatus: (status) => status < 500, // Don't throw for 4xx errors
       });
 
-      if (res.data.success) {
+      if (res.data && res.data.success) {
           // Ensure treatments is always an array
           const treatments = Array.isArray(res.data.treatments) ? res.data.treatments : [];
           setDoctorTreatments(treatments);
@@ -261,13 +272,14 @@ const DoctorTreatmentModal = ({ isOpen, onClose, doctorStaffId, doctorStaffName,
         resetCustomForm();
         loadBaseTreatments();
       } else {
-        setMessage({ type: "error", text: res.data.message || "Failed to create treatment" });
+        setMessage({ type: "error", text: res.data?.message || "Failed to create treatment" });
         }
       }
     } catch (error) {
+      // Prevent error from propagating
       console.error("Error creating custom treatment", error);
-      const errorMessage = error.response?.data?.message || "Failed to create treatment";
-      setMessage({ type: "error", text: errorMessage });
+      setMessage({ type: "error", text: "Failed to create treatment. Please try again." });
+      return;
     } finally {
       setCustomSubmitting(false);
     }
@@ -309,7 +321,9 @@ const DoctorTreatmentModal = ({ isOpen, onClose, doctorStaffId, doctorStaffName,
   const loadClinicDepartments = async () => {
     try {
       setClinicDepartmentsLoading(true);
-      const res = await axios.get("/api/clinic/departments", {
+      // When useClinicTreatments is true (from create-agent page), check clinic_create_agent permissions
+      const moduleParam = useClinicTreatments ? "clinic_create_agent" : "clinic_addRoom";
+      const res = await axios.get(`/api/clinic/departments?module=${moduleParam}`, {
         headers: getAuthHeaders(),
       });
       if (res.data.success) {
@@ -362,20 +376,32 @@ const DoctorTreatmentModal = ({ isOpen, onClose, doctorStaffId, doctorStaffName,
         },
         {
           headers: getAuthHeaders(),
+          validateStatus: (status) => status < 500, // Don't throw for 4xx errors
         }
       );
 
-      if (res.data.success) {
+      if (res.data && res.data.success) {
         setMessage({ type: "success", text: res.data.message || "Department added successfully" });
+        toast.success("Department added successfully");
         setSelectedClinicDepartmentId("");
         await loadDoctorDepartments();
       } else {
-        setMessage({ type: "error", text: res.data.message || "Failed to add department" });
+        const errorMessage = res.data?.message || "Failed to add department";
+        setMessage({ type: "error", text: errorMessage });
+        // Show user-friendly toast message
+        if (errorMessage.toLowerCase().includes("already exists")) {
+          toast.error("This department has already been added to this doctor");
+        } else {
+          toast.error("Failed to add department. Please try again.");
+        }
       }
     } catch (error) {
+      // Prevent error from propagating
       console.error("Error adding department", error);
-      const errorMessage = error.response?.data?.message || "Failed to add department";
-      setMessage({ type: "error", text: errorMessage });
+      setMessage({ type: "error", text: "Failed to add department. Please try again." });
+      toast.error("Failed to add department. Please try again.");
+      // Return early to prevent any further error propagation
+      return;
     } finally {
       setAddingDepartment(false);
     }
@@ -389,18 +415,20 @@ const DoctorTreatmentModal = ({ isOpen, onClose, doctorStaffId, doctorStaffName,
     try {
       const res = await axios.delete(`/api/clinic/doctor-departments?departmentId=${departmentId}`, {
         headers: getAuthHeaders(),
+        validateStatus: (status) => status < 500, // Don't throw for 4xx errors
       });
 
-      if (res.data.success) {
+      if (res.data && res.data.success) {
         setMessage({ type: "success", text: res.data.message || "Department deleted successfully" });
         await loadDoctorDepartments();
       } else {
-        setMessage({ type: "error", text: res.data.message || "Failed to delete department" });
+        setMessage({ type: "error", text: res.data?.message || "Failed to delete department" });
       }
     } catch (error) {
+      // Prevent error from propagating
       console.error("Error deleting department", error);
-      const errorMessage = error.response?.data?.message || "Failed to delete department";
-      setMessage({ type: "error", text: errorMessage });
+      setMessage({ type: "error", text: "Failed to delete department. Please try again." });
+      return;
     }
   };
 

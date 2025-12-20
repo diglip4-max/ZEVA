@@ -16,8 +16,6 @@ import DoctorLayout from "../../components/DoctorLayout";
 import withDoctorAuth from "../../components/withDoctorAuth";
 import type { NextPageWithLayout } from "../_app";
 import { 
-  LineChart, 
-  Line, 
   AreaChart, 
   Area, 
   PieChart, 
