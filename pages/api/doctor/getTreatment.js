@@ -9,10 +9,14 @@ export default async function handler(req, res) {
 
   if (req.method === "GET") {
     try {
-      // Get the logged-in user
+      // Get the logged-in user (authentication is optional for public access)
       const me = await getUserFromReq(req);
+      
+      // If no user is authenticated, allow public access (return all treatments)
       if (!me) {
-        return res.status(401).json({ success: false, message: "Unauthorized: Missing or invalid token" });
+        console.log("getTreatment - Public access: No authentication, returning all treatments");
+        const treatments = await Treatment.find({}).lean();
+        return res.status(200).json({ treatments });
       }
 
       console.log("getTreatment - User role:", me.role, "User ID:", me._id);
