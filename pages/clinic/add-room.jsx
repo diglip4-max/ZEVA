@@ -999,7 +999,7 @@ function AddRoomPage({ contextOverride = null }) {
                   Create and manage rooms, departments, and packages for your clinic
                 </p>
               </div>
-              <div className="flex items-center gap-2 bg-gray-100 rounded-lg p-1 border border-gray-200">
+              <div className="flex flex-wrap items-center gap-2 bg-gray-100 rounded-lg p-1 border border-gray-200">
                 <button
                   type="button"
                   onClick={() => {
@@ -1007,14 +1007,14 @@ function AddRoomPage({ contextOverride = null }) {
                     setMessage({ type: "info", text: "" }); // Clear message when switching view
                     setTreatmentDropdownOpen(false); // Close dropdown
                   }}
-                  className={`px-4 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-2 ${
+                  className={`px-3 sm:px-4 py-2 rounded-md text-xs sm:text-sm font-medium transition-all flex items-center gap-1.5 sm:gap-2 flex-1 sm:flex-none justify-center ${
                     viewMode === "room"
                       ? "bg-white text-gray-900 shadow-sm"
                       : "text-gray-600 hover:text-gray-900"
                   }`}
                 >
-                  <DoorOpen className="w-4 h-4" />
-                  Rooms
+                  <DoorOpen className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                  <span className="whitespace-nowrap">Rooms</span>
                 </button>
                 <button
                   type="button"
@@ -1023,14 +1023,14 @@ function AddRoomPage({ contextOverride = null }) {
                     setMessage({ type: "info", text: "" }); // Clear message when switching view
                     setTreatmentDropdownOpen(false); // Close dropdown
                   }}
-                  className={`px-4 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-2 ${
+                  className={`px-3 sm:px-4 py-2 rounded-md text-xs sm:text-sm font-medium transition-all flex items-center gap-1.5 sm:gap-2 flex-1 sm:flex-none justify-center ${
                     viewMode === "department"
                       ? "bg-white text-gray-900 shadow-sm"
                       : "text-gray-600 hover:text-gray-900"
                   }`}
                 >
-                  <Building2 className="w-4 h-4" />
-                  Departments
+                  <Building2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                  <span className="whitespace-nowrap">Departments</span>
                 </button>
                 <button
                   type="button"
@@ -1039,14 +1039,14 @@ function AddRoomPage({ contextOverride = null }) {
                     setMessage({ type: "info", text: "" }); // Clear message when switching view
                     setTreatmentDropdownOpen(false); // Close dropdown
                   }}
-                  className={`px-4 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-2 ${
+                  className={`px-3 sm:px-4 py-2 rounded-md text-xs sm:text-sm font-medium transition-all flex items-center gap-1.5 sm:gap-2 flex-1 sm:flex-none justify-center ${
                     viewMode === "package"
                       ? "bg-white text-gray-900 shadow-sm"
                       : "text-gray-600 hover:text-gray-900"
                   }`}
                 >
-                  <Package className="w-4 h-4" />
-                  Packages
+                  <Package className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                  <span className="whitespace-nowrap">Packages</span>
                 </button>
               </div>
             </div>
@@ -1397,11 +1397,11 @@ function AddRoomPage({ contextOverride = null }) {
             {rooms.map((room) => (
               <div
                 key={room._id}
-                className="border border-gray-200 rounded-lg p-3 flex items-center justify-between hover:bg-gray-50 hover:border-gray-300 transition-all group"
+                className="border border-gray-200 rounded-lg p-3 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 hover:bg-gray-50 hover:border-gray-300 transition-all group"
               >
                 <div className="flex-1 min-w-0">
                   {editingRoomId === room._id ? (
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full">
                       <input
                         type="text"
                         value={editingRoomName}
@@ -1409,22 +1409,24 @@ function AddRoomPage({ contextOverride = null }) {
                         className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                         autoFocus
                       />
-                      <button
-                        onClick={handleRoomUpdate}
-                        disabled={roomUpdateLoading}
-                        className="px-3 py-2 bg-gray-900 text-white text-sm rounded-lg hover:bg-gray-800 disabled:opacity-60 transition-colors"
-                      >
-                        {roomUpdateLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save"}
-                      </button>
-                      <button
-                        onClick={() => {
-                          setEditingRoomId(null);
-                          setEditingRoomName("");
-                        }}
-                        className="px-3 py-2 bg-gray-100 text-gray-700 text-sm rounded-lg hover:bg-gray-200 transition-colors"
-                      >
-                        Cancel
-                      </button>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={handleRoomUpdate}
+                          disabled={roomUpdateLoading}
+                          className="flex-1 sm:flex-none px-3 py-2 bg-gray-900 text-white text-sm rounded-lg hover:bg-gray-800 disabled:opacity-60 transition-colors flex items-center justify-center"
+                        >
+                          {roomUpdateLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save"}
+                        </button>
+                        <button
+                          onClick={() => {
+                            setEditingRoomId(null);
+                            setEditingRoomName("");
+                          }}
+                          className="flex-1 sm:flex-none px-3 py-2 bg-gray-100 text-gray-700 text-sm rounded-lg hover:bg-gray-200 transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      </div>
                     </div>
                   ) : (
                     <div className="flex items-center gap-3">
@@ -1444,7 +1446,7 @@ function AddRoomPage({ contextOverride = null }) {
                   )}
                 </div>
                 {editingRoomId !== room._id && (
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 self-end sm:self-auto">
                     {permissions.canUpdate && (
                       <button
                         onClick={() => {
@@ -1504,11 +1506,11 @@ function AddRoomPage({ contextOverride = null }) {
                 {departments.map((dept) => (
                   <div
                     key={dept._id}
-                    className="border border-gray-200 rounded-lg p-3 flex items-center justify-between hover:bg-gray-50 hover:border-gray-300 transition-all group"
+                    className="border border-gray-200 rounded-lg p-3 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 hover:bg-gray-50 hover:border-gray-300 transition-all group"
                   >
                     <div className="flex-1 min-w-0">
                       {editingDeptId === dept._id ? (
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                           <input
                             type="text"
                             value={editingDeptName}
@@ -1516,22 +1518,24 @@ function AddRoomPage({ contextOverride = null }) {
                             className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                             autoFocus
                           />
-                          <button
-                            onClick={handleDepartmentUpdate}
-                            disabled={deptUpdateLoading}
-                            className="px-3 py-2 bg-gray-900 text-white text-sm rounded-lg hover:bg-gray-800 disabled:opacity-60 transition-colors"
-                          >
-                            {deptUpdateLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save"}
-                          </button>
-                          <button
-                            onClick={() => {
-                              setEditingDeptId(null);
-                              setEditingDeptName("");
-                            }}
-                            className="px-3 py-2 bg-gray-100 text-gray-700 text-sm rounded-lg hover:bg-gray-200 transition-colors"
-                          >
-                            Cancel
-                          </button>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={handleDepartmentUpdate}
+                              disabled={deptUpdateLoading}
+                              className="flex-1 sm:flex-none px-3 py-2 bg-gray-900 text-white text-sm rounded-lg hover:bg-gray-800 disabled:opacity-60 transition-colors"
+                            >
+                              {deptUpdateLoading ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : "Save"}
+                            </button>
+                            <button
+                              onClick={() => {
+                                setEditingDeptId(null);
+                                setEditingDeptName("");
+                              }}
+                              className="flex-1 sm:flex-none px-3 py-2 bg-gray-100 text-gray-700 text-sm rounded-lg hover:bg-gray-200 transition-colors"
+                            >
+                              Cancel
+                            </button>
+                          </div>
                         </div>
                       ) : (
                         <div className="flex items-center gap-3">
@@ -1551,7 +1555,7 @@ function AddRoomPage({ contextOverride = null }) {
                       )}
                     </div>
                     {editingDeptId !== dept._id && (
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 self-end sm:self-auto">
                         {permissions.canUpdate && (
                           <button
                             onClick={() => {
@@ -1611,12 +1615,12 @@ function AddRoomPage({ contextOverride = null }) {
                 {packages.map((pkg) => (
                   <div
                     key={pkg._id}
-                    className="border border-gray-200 rounded-lg p-3 flex items-center justify-between hover:bg-gray-50 hover:border-gray-300 transition-all group"
+                    className="border border-gray-200 rounded-lg p-3 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 hover:bg-gray-50 hover:border-gray-300 transition-all group"
                   >
                     <div className="flex-1 min-w-0">
                       {editingPackageId === pkg._id ? (
                         <div className="space-y-3">
-                          <div className="flex items-center gap-2">
+                          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                             <input
                               type="text"
                               value={editingPackageName}
@@ -1632,7 +1636,7 @@ function AddRoomPage({ contextOverride = null }) {
                               value={editingPackagePrice}
                               onChange={(e) => setEditingPackagePrice(e.target.value)}
                               placeholder="Price"
-                              className="w-32 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                              className="w-full sm:w-32 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                             />
                           </div>
                           {/* Treatment Selection for Edit */}
@@ -1803,13 +1807,13 @@ function AddRoomPage({ contextOverride = null }) {
                               </div>
                             )}
                           </div>
-                          <div className="flex items-center gap-2">
+                          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                             <button
                               onClick={handlePackageUpdate}
                               disabled={packageUpdateLoading}
-                              className="px-3 py-2 bg-gray-900 text-white text-sm rounded-lg hover:bg-gray-800 disabled:opacity-60 transition-colors"
+                              className="flex-1 sm:flex-none px-3 py-2 bg-gray-900 text-white text-sm rounded-lg hover:bg-gray-800 disabled:opacity-60 transition-colors"
                             >
-                              {packageUpdateLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save"}
+                              {packageUpdateLoading ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : "Save"}
                             </button>
                             <button
                               onClick={() => {
@@ -1818,7 +1822,7 @@ function AddRoomPage({ contextOverride = null }) {
                                 setEditingPackagePrice("");
                                 setSelectedTreatments([]);
                               }}
-                              className="px-3 py-2 bg-gray-100 text-gray-700 text-sm rounded-lg hover:bg-gray-200 transition-colors"
+                              className="flex-1 sm:flex-none px-3 py-2 bg-gray-100 text-gray-700 text-sm rounded-lg hover:bg-gray-200 transition-colors"
                             >
                               Cancel
                             </button>
@@ -1871,7 +1875,7 @@ function AddRoomPage({ contextOverride = null }) {
                       )}
                     </div>
                     {editingPackageId !== pkg._id && (
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 self-end sm:self-auto">
                         {permissions.canUpdate && (
                           <button
                             onClick={() => {
@@ -1932,7 +1936,7 @@ function AddRoomPage({ contextOverride = null }) {
           aria-labelledby="confirm-modal-title"
         >
           <div
-            className="bg-white rounded-lg shadow-2xl max-w-md w-full overflow-hidden flex flex-col transform transition-all duration-200 scale-100 opacity-100"
+            className="bg-white rounded-lg shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto flex flex-col transform transition-all duration-200 scale-100 opacity-100 mx-4"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
