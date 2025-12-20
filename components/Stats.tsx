@@ -541,15 +541,15 @@ return (
 
     {/* Job Types Pie Chart */}
     {sortedJobTypes.length > 0 && (
-      <div className="bg-white p-3 sm:p-4 md:p-6 rounded-lg sm:rounded-xl border border-gray-200">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-2">
-          <h3 className="text-sm sm:text-base md:text-lg font-semibold text-gray-900">Job Types Distribution</h3>
-          <span className="text-xs sm:text-sm text-gray-500">{stats.totalJobs} total jobs</span>
+      <div className="bg-white p-3 sm:p-4 rounded-lg border border-gray-200">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 gap-2">
+          <h3 className="text-xs sm:text-sm font-semibold text-gray-900">Job Types Distribution</h3>
+          <span className="text-xs text-gray-500">{stats.totalJobs} total jobs</span>
         </div>
         
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 lg:gap-6">
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
           {/* Pie Chart */}
-          <div className="h-64 sm:h-80 md:h-96 lg:h-[420px] flex items-center justify-center order-2 xl:order-1">
+          <div className="h-48 sm:h-56 md:h-64 flex items-center justify-center order-2 xl:order-1">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <defs>
@@ -621,7 +621,7 @@ return (
           </div>
 
           {/* Legend with always visible data */}
-          <div className="space-y-2 sm:space-y-3 lg:space-y-4 order-1 xl:order-2">
+          <div className="space-y-1.5 sm:space-y-2 order-1 xl:order-2">
             {sortedJobTypes.map(([jobType, count], index) => {
               const percentage = stats.totalJobs > 0 ? (count / stats.totalJobs) * 100 : 0;
               const colors = [
@@ -669,13 +669,13 @@ return (
         )}
 
         {/* Top Jobs by Applications */}
-        <div className="mt-4 sm:mt-6 bg-gray-50 p-3 sm:p-4 rounded-lg border border-gray-200">
-          <div className="flex items-center justify-between mb-2 sm:mb-3">
-            <h4 className="text-sm sm:text-base font-semibold text-gray-900">Top Jobs by Applications</h4>
+        <div className="mt-3 bg-gray-50 p-2 sm:p-3 rounded-lg border border-gray-200">
+          <div className="flex items-center justify-between mb-2">
+            <h4 className="text-xs sm:text-sm font-semibold text-gray-900">Top Jobs by Applications</h4>
             {applicationsLoading ? (
-              <span className="text-xs sm:text-sm text-gray-500">Loading…</span>
+              <span className="text-xs text-gray-500">Loading…</span>
             ) : (
-              <span className="text-xs sm:text-sm text-gray-500">Top 3</span>
+              <span className="text-xs text-gray-500">Top 3</span>
             )}
           </div>
           {applicationsError && (
@@ -686,12 +686,12 @@ return (
           ) : (
             <div className="divide-y divide-gray-200">
               {(applicationsLoading ? [] : topAppliedJobs).map((item) => (
-                <div key={item.jobId} className="py-2 sm:py-3 flex items-center justify-between gap-3">
+                <div key={item.jobId} className="py-1.5 flex items-center justify-between gap-2">
                   <div className="min-w-0 flex-1">
-                    <p className="text-xs sm:text-sm md:text-base font-medium text-gray-800 truncate" title={item.jobTitle}>{item.jobTitle}</p>
+                    <p className="text-xs sm:text-sm font-medium text-gray-800 truncate" title={item.jobTitle}>{item.jobTitle}</p>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
-                    <span className="px-2 py-1 rounded bg-[#2D9AA5]/10 text-[#2D9AA5] text-xs font-semibold">{item.count}</span>
+                    <span className="px-1.5 py-0.5 rounded bg-[#2D9AA5]/10 text-[#2D9AA5] text-xs font-semibold">{item.count}</span>
                   </div>
                 </div>
               ))}
@@ -700,9 +700,9 @@ return (
 
           {/* Mini chart for top applied jobs with always visible data */}
           {!applicationsLoading && topAppliedJobs.length > 0 && (
-            <div className="text-black mt-3 sm:mt-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="text-black mt-2 grid grid-cols-1 lg:grid-cols-2 gap-3">
               {/* Vertical Bar Chart with data labels */}
-              <div className="h-48 sm:h-56 md:h-64">
+              <div className="h-36 sm:h-40 md:h-48">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart
                     data={topAppliedJobs.map((item, idx) => ({
@@ -743,7 +743,7 @@ return (
               </div>
               
               {/* Donut share of applications with data labels */}
-              <div className="h-48 sm:h-56 md:h-64">
+              <div className="h-36 sm:h-40 md:h-48">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <defs>
@@ -796,13 +796,13 @@ return (
     )}
 
     {/* Blog Statistics with Bar Chart */}
-    <div className="bg-white p-3 sm:p-4 md:p-6 rounded-lg sm:rounded-xl border border-gray-200">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-2">
-        <h3 className="text-sm sm:text-base md:text-lg font-semibold text-gray-900">Blog Statistics</h3>
+    <div className="bg-white p-3 sm:p-4 rounded-lg border border-gray-200">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 gap-2">
+        <h3 className="text-xs sm:text-sm font-semibold text-gray-900">Blog Statistics</h3>
         {blogLoading ? (
-          <span className="text-xs sm:text-sm text-gray-500">Loading…</span>
+          <span className="text-xs text-gray-500">Loading…</span>
         ) : (
-          <span className="text-xs sm:text-sm text-gray-500">{totalBlogs} total blogs</span>
+          <span className="text-xs text-gray-500">{totalBlogs} total blogs</span>
         )}
       </div>
 
@@ -813,32 +813,32 @@ return (
       )}
 
       {/* Blog summary cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 mb-4 sm:mb-6">
-        <div className="bg-gray-50 p-3 sm:p-4 lg:p-5 rounded-lg border border-gray-200">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3 mb-3">
+        <div className="bg-gray-50 p-2 sm:p-3 rounded-lg border border-gray-200">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs sm:text-sm text-gray-600">Total Blogs</p>
-              <p className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold text-gray-900 mt-1">{totalBlogs}</p>
+              <p className="text-xs text-gray-600">Total Blogs</p>
+              <p className="text-base sm:text-lg md:text-xl font-bold text-gray-900 mt-0.5">{totalBlogs}</p>
             </div>
-            <div className="w-6 h-6 sm:w-8 sm:h-8 md:w-10 md:h-10 bg-[#2D9AA5]/10 rounded-lg flex items-center justify-center flex-shrink-0">
-              <svg className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5 text-[#2D9AA5]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="w-6 h-6 sm:w-7 sm:h-7 bg-[#2D9AA5]/10 rounded-lg flex items-center justify-center flex-shrink-0">
+              <svg className="w-3 h-3 sm:w-4 sm:h-4 text-[#2D9AA5]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 20l9-5-9-5-9 5 9 5z" />
               </svg>
             </div>
           </div>
         </div>
 
-        <div className="bg-gray-50 p-3 sm:p-4 lg:p-5 rounded-lg border border-gray-200">
-          <p className="text-xs sm:text-sm font-medium text-gray-600 mb-2 sm:mb-3">Top 3 Most Liked</p>
-          <div className="space-y-1 sm:space-y-2">
+        <div className="bg-gray-50 p-2 sm:p-3 rounded-lg border border-gray-200">
+          <p className="text-xs font-medium text-gray-600 mb-1.5">Top 3 Most Liked</p>
+          <div className="space-y-1">
             {(blogLoading ? [] : topLikedBlogs).map((b) => (
               <div key={b._id} className="flex items-center justify-between gap-2">
-                <span className="text-xs sm:text-sm text-gray-800 truncate flex-1" title={b.title}>{b.title}</span>
+                <span className="text-xs text-gray-800 truncate flex-1" title={b.title}>{b.title}</span>
                 <div className="flex items-center gap-1 flex-shrink-0">
                   <svg className="w-3 h-3 text-red-500" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" />
                   </svg>
-                  <span className="text-xs sm:text-sm font-semibold text-[#2D9AA5]">{b.likesCount || 0}</span>
+                  <span className="text-xs font-semibold text-[#2D9AA5]">{b.likesCount || 0}</span>
                 </div>
               </div>
             ))}
@@ -848,17 +848,17 @@ return (
           </div>
         </div>
 
-        <div className="bg-gray-50 p-3 sm:p-4 lg:p-5 rounded-lg border border-gray-200 sm:col-span-2 lg:col-span-1">
-          <p className="text-xs sm:text-sm font-medium text-gray-600 mb-2 sm:mb-3">Top 3 Most Commented</p>
-          <div className="space-y-1 sm:space-y-2">
+        <div className="bg-gray-50 p-2 sm:p-3 rounded-lg border border-gray-200 sm:col-span-2 lg:col-span-1">
+          <p className="text-xs font-medium text-gray-600 mb-1.5">Top 3 Most Commented</p>
+          <div className="space-y-1">
             {(blogLoading ? [] : topCommentedBlogs).map((b) => (
               <div key={b._id} className="flex items-center justify-between gap-2">
-                <span className="text-xs sm:text-sm text-gray-800 truncate flex-1" title={b.title}>{b.title}</span>
+                <span className="text-xs text-gray-800 truncate flex-1" title={b.title}>{b.title}</span>
                 <div className="flex items-center gap-1 flex-shrink-0">
                   <svg className="w-3 h-3 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                   </svg>
-                  <span className="text-xs sm:text-sm font-semibold text-green-700">{b.commentsCount || 0}</span>
+                  <span className="text-xs font-semibold text-green-700">{b.commentsCount || 0}</span>
                 </div>
               </div>
             ))}
@@ -871,8 +871,8 @@ return (
 
       {/* Bar Chart for Blog Performance with always visible data */}
       {!blogLoading && (topLikedBlogs.length > 0 || topCommentedBlogs.length > 0) && (
-        <div className="text-black h-48 sm:h-64 md:h-72 lg:h-80 xl:h-96 mt-4 sm:mt-6">
-          <h4 className="text-xs sm:text-sm md:text-base font-semibold text-gray-700 mb-3 sm:mb-4">Blog Engagement Overview</h4>
+        <div className="text-black h-40 sm:h-48 md:h-56 mt-3">
+          <h4 className="text-xs sm:text-sm font-semibold text-gray-700 mb-2">Blog Engagement Overview</h4>
           <ResponsiveContainer width="100%" height="100%">
             <BarChart
               data={[

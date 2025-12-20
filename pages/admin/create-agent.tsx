@@ -519,7 +519,7 @@ const ManageAgentsPage: NextPageWithLayout = () => {
                 >
                   Agents ({totalAgents})
                 </button>
-                <button
+                {/* <button
                   onClick={() => {
                     setActiveView('doctorStaff');
                     setCurrentPage(1);
@@ -532,7 +532,7 @@ const ManageAgentsPage: NextPageWithLayout = () => {
                   }`}
                 >
                   Doctor Staff ({totalDoctorStaff})
-                </button>
+                </button> */}
               </nav>
               
               {/* Create Button */}

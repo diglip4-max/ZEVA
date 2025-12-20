@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Star, Mail, Settings, Lock, TrendingUp, Users, FileText, Briefcase, MessageSquare, Calendar, CreditCard, BarChart3, Activity, CheckCircle2, XCircle, Crown, Building2, User } from 'lucide-react';
+import { Star, Mail, Settings, Lock, TrendingUp, Users, FileText, Briefcase, MessageSquare, Calendar, CreditCard, BarChart3, Activity, CheckCircle2, XCircle, Crown, Building2, User, Zap, Clock, ArrowUpRight, ArrowDownRight, Bell, Plus, Eye } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, LabelList, Cell, LineChart, Line, Tooltip } from 'recharts';
 import Stats from '../../components/Stats';
 import ClinicLayout from '../../components/ClinicLayout';
@@ -105,6 +105,12 @@ const ClinicDashboard: NextPageWithLayout = () => {
   });
   const [permissionsLoaded, setPermissionsLoaded] = useState(false);
   const [userRole, setUserRole] = useState<string | null>(null);
+  const [quickActions] = useState([
+    { label: 'New Review', icon: Star, path: '/clinic/getAllReview', color: 'bg-yellow-500' },
+    { label: 'New Enquiry', icon: Mail, path: '/clinic/get-Enquiry', color: 'bg-blue-500' },
+    { label: 'Add Staff', icon: Users, path: '/clinic/patient-information', color: 'bg-green-500' },
+    { label: 'Create Blog', icon: FileText, path: '/clinic/BlogForm', color: 'bg-purple-500' },
+  ]);
 
   // Icon mapping
   const iconMap: { [key: string]: React.ReactNode } = {
@@ -605,36 +611,37 @@ const ClinicDashboard: NextPageWithLayout = () => {
     ];
   }, [stats]);
 
-  // Render stat card component - Professional minimal design matching sidebar theme
+  // Render stat card component - Enhanced modern design
   const renderStatCard = (
     label: string,
     value: number | string,
     icon: React.ReactNode,
     hasPermission: boolean = true,
-    _moduleKey?: string
+    _moduleKey?: string,
+    trend?: { value: number; isPositive: boolean }
   ) => {
     if (!hasPermission) {
       return (
-        <div className="bg-white rounded-lg p-5 border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200 relative">
-          <div className="absolute top-3 right-3 bg-gray-500 text-white px-2 py-1 text-xs font-semibold rounded">
+        <div className="bg-gradient-to-br from-gray-50 to-white rounded-xl p-4 border border-gray-200 shadow-sm hover:shadow-lg transition-all duration-300 relative overflow-hidden group">
+          <div className="absolute top-2 right-2 bg-gray-500 text-white px-2 py-0.5 text-[10px] font-semibold rounded-full">
             LOCKED
           </div>
-          <div className="pt-6">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="p-2.5 bg-gray-100 rounded-lg">
-                <Lock className="w-5 h-5 text-gray-500" />
+          <div className="pt-4">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="p-2 bg-gray-100 rounded-lg group-hover:bg-gray-200 transition-colors">
+                <Lock className="w-4 h-4 text-gray-500" />
               </div>
             </div>
-            <h3 className="text-sm font-semibold text-gray-700 mb-3">{label}</h3>
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
-              <div className="flex items-start gap-2">
-                <XCircle className="w-4 h-4 text-gray-500 flex-shrink-0 mt-0.5" />
+            <h3 className="text-[11px] font-semibold text-gray-700 mb-2 uppercase tracking-wide">{label}</h3>
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-2.5">
+              <div className="flex items-start gap-1.5">
+                <XCircle className="w-3.5 h-3.5 text-gray-500 flex-shrink-0 mt-0.5" />
                 <div>
-                  <p className="text-xs font-medium text-gray-700 mb-1">
+                  <p className="text-[10px] font-medium text-gray-700 mb-0.5">
                     Subscription Required
                   </p>
-                  <p className="text-xs text-gray-700 leading-relaxed">
-                    Contact administrator to enable this feature.
+                  <p className="text-[10px] text-gray-600 leading-relaxed">
+                    Contact administrator
                   </p>
                 </div>
               </div>
@@ -645,28 +652,34 @@ const ClinicDashboard: NextPageWithLayout = () => {
     }
 
     return (
-      <div className="bg-white rounded-lg p-5 border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200 group">
-        <div className="absolute top-3 right-3 bg-gray-800 text-white px-2 py-1 text-xs font-semibold rounded flex items-center gap-1">
-          <CheckCircle2 className="w-3 h-3" />
+      <div className="bg-gradient-to-br from-white to-gray-50 rounded-xl p-4 border border-gray-200 shadow-sm hover:shadow-xl transition-all duration-300 group relative overflow-hidden">
+        <div className="absolute top-2 right-2 bg-gradient-to-r from-green-600 to-green-700 text-white px-2 py-0.5 text-[10px] font-semibold rounded-full flex items-center gap-1">
+          <CheckCircle2 className="w-2.5 h-2.5" />
           ACTIVE
         </div>
-        <div className="pt-6">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="p-2.5 bg-gray-100 rounded-lg group-hover:bg-gray-200 transition-colors">
+        <div className="pt-4">
+          <div className="flex items-center justify-between mb-2">
+            <div className="p-2 bg-gradient-to-br from-gray-100 to-gray-200 rounded-lg group-hover:from-gray-200 group-hover:to-gray-300 transition-all">
               <div className="text-gray-700">{icon}</div>
             </div>
+            {trend && (
+              <div className={`flex items-center gap-0.5 ${trend.isPositive ? 'text-green-600' : 'text-red-600'}`}>
+                {trend.isPositive ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
+                <span className="text-[10px] font-semibold">{Math.abs(trend.value)}%</span>
+              </div>
+            )}
           </div>
-          <h3 className="text-xs font-medium text-gray-700 mb-2">{label}</h3>
+          <h3 className="text-[10px] font-medium text-gray-600 mb-1.5 uppercase tracking-wide">{label}</h3>
           {statsLoading ? (
-            <div className="flex items-center gap-2">
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-800"></div>
-              <span className="text-sm text-gray-700">Loading...</span>
+            <div className="flex items-center gap-1.5">
+              <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-gray-800"></div>
+              <span className="text-[11px] text-gray-600">Loading...</span>
             </div>
           ) : (
             <>
-              <p className="text-3xl sm:text-4xl font-bold text-gray-900">{value}</p>
+              <p className="text-2xl sm:text-3xl font-bold text-gray-900 mb-1">{value}</p>
               {value === 0 && (
-                <p className="text-xs text-gray-700 mt-1">No data available</p>
+                <p className="text-[10px] text-gray-500 mt-0.5">No data</p>
               )}
             </>
           )}
@@ -702,142 +715,38 @@ const ClinicDashboard: NextPageWithLayout = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Main Content */}
-      <div className="p-3 sm:p-4 lg:p-5 space-y-3 lg:space-y-4">
-        {/* Professional Header - Compact */}
-        <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
-            <div className="flex-1">
-              <div className="flex items-center gap-2 mb-2">
-                <Building2 className="w-5 h-5 text-gray-700" />
-                <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
-                  {clinicInfo.name || 'Clinic Dashboard'}
-                </h1>
-              </div>
-              <div className="flex items-center gap-3 text-xs sm:text-sm text-gray-700 flex-wrap">
+      {/* Modern Dashboard Layout */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
+        {/* Dashboard Header */}
+        <div className="mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-1">
+                {clinicInfo.name || 'Clinic Dashboard'}
+              </h1>
+              <div className="flex items-center gap-3 text-sm text-gray-600">
                 <div className="flex items-center gap-1.5">
-                  <User className="w-3.5 h-3.5" />
-                  <span className="font-medium">Owner:</span>
+                  <User className="w-4 h-4" />
                   <span>{clinicInfo.ownerName || clinicUser?.name || 'N/A'}</span>
                 </div>
                 <span>•</span>
                 <span>{formatDate(currentTime)}</span>
                 <span>•</span>
-                <span>{formatTime(currentTime)}</span>
+                <span className="font-semibold">{formatTime(currentTime)}</span>
               </div>
             </div>
-            <div className="bg-gray-50 rounded-lg px-3 py-2 border border-gray-200">
-              <p className="text-xs sm:text-sm font-medium text-gray-700">{getGreeting()}</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Subscription Status Summary - Compact */}
-        <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
-          <div className="flex items-center gap-2 mb-3">
-            <BarChart3 className="w-5 h-5 text-gray-700" />
-            <h2 className="text-lg sm:text-xl font-bold text-gray-900">Subscription Overview</h2>
-          </div>
-          
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-3">
-            {/* Stats Cards - More compact */}
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
-              <div className="flex items-center gap-2 mb-2">
-                <CheckCircle2 className="w-4 h-4 text-gray-800" />
-                <span className="text-xs font-semibold text-gray-700">Active</span>
-              </div>
-              <p className="text-2xl font-bold text-gray-900 mb-1">
-                {navigationItems.length}
-              </p>
-              <p className="text-xs text-gray-700 mb-2">Active modules</p>
-              <div className="bg-gray-100 rounded-full h-1.5">
-                <div 
-                  className="bg-gray-800 h-1.5 rounded-full transition-all duration-500"
-                  style={{ width: `${subscriptionSummary.subscriptionPercentage}%` }}
-                ></div>
-              </div>
-            </div>
-
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
-              <div className="flex items-center gap-2 mb-2">
-                <XCircle className="w-4 h-4 text-gray-500" />
-                <span className="text-xs font-semibold text-gray-700">Locked</span>
-              </div>
-              <p className="text-2xl font-bold text-gray-900 mb-1">
-                {subscriptionSummary.restrictedCount}
-              </p>
-              <p className="text-xs text-gray-700 mb-2">Not subscribed</p>
-              <div className="bg-gray-100 rounded-full h-1.5">
-                <div 
-                  className="bg-gray-500 h-1.5 rounded-full transition-all duration-500"
-                  style={{ width: `${100 - subscriptionSummary.subscriptionPercentage}%` }}
-                ></div>
-              </div>
-            </div>
-
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
-              <div className="flex items-center gap-2 mb-2">
-                <BarChart3 className="w-4 h-4 text-gray-700" />
-                <span className="text-xs font-semibold text-gray-700">Total</span>
-              </div>
-              <p className="text-2xl font-bold text-gray-900 mb-1">
-                {subscriptionSummary.totalModules}
-              </p>
-              <p className="text-xs text-gray-700">Available modules</p>
-            </div>
-
-            {/* Compact Chart */}
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
-              <h3 className="text-xs font-semibold text-gray-700 mb-2">Distribution</h3>
-              <div className="h-32">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={subscriptionChartData} layout="vertical">
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                    <XAxis type="number" stroke="#6b7280" fontSize={10} />
-                    <YAxis 
-                      type="category" 
-                      dataKey="name" 
-                      stroke="#6b7280" 
-                      fontSize={10}
-                      width={50}
-                    />
-                    <Tooltip 
-                      contentStyle={{ 
-                        backgroundColor: '#fff', 
-                        border: '1px solid #e5e7eb',
-                        borderRadius: '6px',
-                        fontSize: '11px'
-                      }}
-                    />
-                    <Bar 
-                      dataKey="value" 
-                      radius={[0, 4, 4, 0]}
-                    >
-                      {subscriptionChartData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                      <LabelList 
-                        dataKey="value" 
-                        position="right" 
-                        style={{ fill: '#1f2937', fontSize: '11px', fontWeight: '500' }}
-                      />
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
+            <div className="bg-gray-900 text-white px-4 py-2 rounded-lg">
+              <p className="text-sm font-medium">{getGreeting()}</p>
             </div>
           </div>
         </div>
 
-        {/* Key Statistics Section - Compact */}
-        <div>
-          <div className="flex items-center gap-2 mb-3">
-            <BarChart3 className="w-5 h-5 text-gray-800" />
-            <h2 className="text-lg sm:text-xl font-bold text-gray-900">Key Statistics</h2>
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            {/* Reviews Stat */}
-            <div>
+        {/* Main Dashboard Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+          {/* Left Column - Stats Cards */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Key Statistics Row */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               {renderStatCard(
                 'Total Reviews',
                 stats.totalReviews,
@@ -845,10 +754,6 @@ const ClinicDashboard: NextPageWithLayout = () => {
                 true,
                 'reviews'
               )}
-            </div>
-
-            {/* Enquiries Stat */}
-            <div>
               {renderStatCard(
                 'Total Enquiries',
                 stats.totalEnquiries,
@@ -856,10 +761,6 @@ const ClinicDashboard: NextPageWithLayout = () => {
                 true,
                 'enquiries'
               )}
-            </div>
-
-            {/* Active Modules Count */}
-            <div>
               {renderStatCard(
                 'Active Modules',
                 navigationItems.length,
@@ -867,10 +768,6 @@ const ClinicDashboard: NextPageWithLayout = () => {
                 true,
                 'modules'
               )}
-            </div>
-
-            {/* Subscription Status */}
-            <div>
               {renderStatCard(
                 'Subscription',
                 `${subscriptionSummary.subscriptionPercentage}%`,
@@ -879,300 +776,232 @@ const ClinicDashboard: NextPageWithLayout = () => {
                 'subscription'
               )}
             </div>
-          </div>
-        </div>
 
-        {/* Detailed Feature Breakdown Section - Compact */}
-        <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
-          <div className="flex items-center gap-2 mb-3">
-            <Settings className="w-5 h-5 text-gray-700" />
-            <h2 className="text-lg sm:text-xl font-bold text-gray-900">Feature Breakdown</h2>
-          </div>
-
-          <div className="space-y-3">
-            {/* Show modules with permissions */}
-            {allModules.map((module) => {
-              const modulePermission = permissions?.find(p => {
-                const moduleKey = p.module;
-                return moduleKey === module.moduleKey || 
-                       moduleKey === module.moduleKey.replace('clinic_', '') ||
-                       moduleKey === module.moduleKey.replace(/^(admin|clinic|doctor)_/, '');
-              });
-
-              const hasModulePermission = modulePermission && (
-                modulePermission.actions?.read === true || 
-                modulePermission.actions?.all === true
-              );
-
-              // Get all submodules from the module definition
-              const allSubModules = module.subModules || [];
-              
-              // Get submodules that have permission
-              const activeSubModules = allSubModules.filter(subModule => {
-                if (!modulePermission) return false;
-                
-                // Check if module has "all" permission (grants all submodules)
-                if (modulePermission.actions?.all === true) return true;
-                
-                // Check if submodule has explicit permission
-                const subModulePerm = modulePermission.subModules?.find(sm => sm.name === subModule.name);
-                return subModulePerm && (
-                  subModulePerm.actions?.read === true || 
-                  subModulePerm.actions?.all === true
-                );
-              });
-
-              const lockedSubModules = allSubModules.filter(subModule => {
-                if (!modulePermission) return true;
-                
-                // Check if module has "all" permission (grants all submodules)
-                if (modulePermission.actions?.all === true) return false;
-                
-                // Check if submodule has explicit permission
-                const subModulePerm = modulePermission.subModules?.find(sm => sm.name === subModule.name);
-                return !subModulePerm || (
-                  subModulePerm.actions?.read !== true && 
-                  subModulePerm.actions?.all !== true
-                );
-              });
-
-              return (
-                <div key={module._id} className="border border-gray-200 rounded-lg p-3 hover:shadow-md transition-shadow">
-                  <div className="flex items-start justify-between mb-2">
-                    <div className="flex items-center gap-2 flex-1 min-w-0">
-                      <div className="p-1.5 bg-gray-100 rounded-lg flex-shrink-0">
-                        {iconMap[module.icon] || <Activity className="w-4 h-4 text-gray-600" />}
+            {/* Quick Actions */}
+            <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
+              <h3 className="text-sm font-semibold text-gray-900 mb-3">Quick Actions</h3>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {quickActions.map((action, idx) => {
+                  const Icon = action.icon;
+                  return (
+                    <a
+                      key={idx}
+                      href={action.path}
+                      className="flex flex-col items-center justify-center p-3 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 hover:border-gray-300 transition-all group"
+                    >
+                      <div className={`p-2 ${action.color} rounded-lg mb-2 group-hover:scale-110 transition-transform`}>
+                        <Icon className="w-4 h-4 text-white" />
                       </div>
-                      <div className="min-w-0 flex-1">
-                        <h3 className="text-sm font-bold text-gray-900 truncate">{module.label}</h3>
-                        {module.description && (
-                          <p className="text-xs text-gray-700 truncate">{module.description}</p>
+                      <p className="text-xs font-medium text-gray-700 text-center">{action.label}</p>
+                    </a>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Analytics Charts */}
+            {(stats.totalEnquiries > 0 || stats.totalReviews > 0) && (
+              <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
+                <h3 className="text-sm font-semibold text-gray-900 mb-4">Analytics Overview</h3>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  <div className="h-48">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={statsChartData} margin={{ top: 10, right: 20, left: 10, bottom: 40 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                        <XAxis
+                          dataKey="name"
+                          tick={{ fill: '#6b7280', fontSize: 11 }}
+                          axisLine={{ stroke: '#d1d5db' }}
+                          tickLine={{ stroke: '#d1d5db' }}
+                          angle={-45}
+                          textAnchor="end"
+                          height={40}
+                        />
+                        <YAxis
+                          tick={{ fill: '#6b7280', fontSize: 11 }}
+                          axisLine={{ stroke: '#d1d5db' }}
+                          tickLine={{ stroke: '#d1d5db' }}
+                        />
+                        <Tooltip 
+                          contentStyle={{ 
+                            backgroundColor: '#fff', 
+                            border: '1px solid #e5e7eb',
+                            borderRadius: '6px',
+                            fontSize: '11px'
+                          }}
+                        />
+                        <Bar dataKey="value" radius={[4, 4, 0, 0]} fill="#1f2937">
+                          <LabelList
+                            dataKey="value"
+                            position="top"
+                            fill="#1f2937"
+                            fontSize={11}
+                            fontWeight={500}
+                          />
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <div className="h-48">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={statsChartData} margin={{ top: 10, right: 20, left: 10, bottom: 10 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                        <XAxis
+                          dataKey="name"
+                          tick={{ fill: '#6b7280', fontSize: 11 }}
+                          axisLine={{ stroke: '#d1d5db' }}
+                          tickLine={{ stroke: '#d1d5db' }}
+                        />
+                        <YAxis
+                          tick={{ fill: '#6b7280', fontSize: 11 }}
+                          axisLine={{ stroke: '#d1d5db' }}
+                          tickLine={{ stroke: '#d1d5db' }}
+                        />
+                        <Tooltip 
+                          contentStyle={{ 
+                            backgroundColor: '#fff', 
+                            border: '1px solid #e5e7eb',
+                            borderRadius: '6px',
+                            fontSize: '11px'
+                          }}
+                        />
+                        <Line 
+                          type="monotone" 
+                          dataKey="value" 
+                          stroke="#1f2937" 
+                          strokeWidth={2}
+                          dot={{ fill: '#1f2937', r: 4 }}
+                          activeDot={{ r: 6 }}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Right Column - Subscription & Modules */}
+          <div className="space-y-6">
+            {/* Subscription Overview */}
+            <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
+              <h3 className="text-sm font-semibold text-gray-900 mb-4">Subscription Status</h3>
+              <div className="space-y-4">
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-medium text-gray-700">Active Modules</span>
+                    <span className="text-sm font-bold text-gray-900">{navigationItems.length}</span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div 
+                      className="bg-gray-800 h-2 rounded-full transition-all duration-500"
+                      style={{ width: `${subscriptionSummary.subscriptionPercentage}%` }}
+                    ></div>
+                  </div>
+                </div>
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-medium text-gray-700">Locked Modules</span>
+                    <span className="text-sm font-bold text-gray-900">{subscriptionSummary.restrictedCount}</span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div 
+                      className="bg-gray-400 h-2 rounded-full transition-all duration-500"
+                      style={{ width: `${100 - subscriptionSummary.subscriptionPercentage}%` }}
+                    ></div>
+                  </div>
+                </div>
+                <div className="pt-3 border-t border-gray-200">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-medium text-gray-700">Total Modules</span>
+                    <span className="text-lg font-bold text-gray-900">{subscriptionSummary.totalModules}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Feature Breakdown - Compact */}
+            <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-gray-900">Features</h3>
+                <div className="flex items-center gap-2 text-xs text-gray-600">
+                  <span className="px-2 py-0.5 bg-gray-100 rounded">{navigationItems.length}</span>
+                  <span className="px-2 py-0.5 bg-gray-100 rounded">{restrictedModules.length}</span>
+                </div>
+              </div>
+              <div className="space-y-2 max-h-96 overflow-y-auto">
+                {allModules.map((module) => {
+                  const modulePermission = permissions?.find(p => {
+                    const moduleKey = p.module;
+                    return moduleKey === module.moduleKey || 
+                           moduleKey === module.moduleKey.replace('clinic_', '') ||
+                           moduleKey === module.moduleKey.replace(/^(admin|clinic|doctor)_/, '');
+                  });
+
+                  const hasModulePermission = modulePermission && (
+                    modulePermission.actions?.read === true || 
+                    modulePermission.actions?.all === true
+                  );
+
+                  const allSubModules = module.subModules || [];
+                  const activeSubModules = allSubModules.filter(subModule => {
+                    if (!modulePermission) return false;
+                    if (modulePermission.actions?.all === true) return true;
+                    const subModulePerm = modulePermission.subModules?.find(sm => sm.name === subModule.name);
+                    return subModulePerm && (
+                      subModulePerm.actions?.read === true || 
+                      subModulePerm.actions?.all === true
+                    );
+                  });
+
+                  return (
+                    <div key={module._id} className="border border-gray-200 rounded-lg p-2 hover:border-gray-300 transition-all">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          <div className="p-1 bg-gray-100 rounded flex-shrink-0">
+                            {iconMap[module.icon] || <Activity className="w-3 h-3 text-gray-600" />}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <h4 className="text-xs font-semibold text-gray-900 truncate">{module.label}</h4>
+                            {allSubModules.length > 0 && (
+                              <p className="text-[10px] text-gray-500">{activeSubModules.length}/{allSubModules.length} active</p>
+                            )}
+                          </div>
+                        </div>
+                        {hasModulePermission ? (
+                          <span className="px-2 py-0.5 bg-gray-800 text-white text-[9px] font-semibold rounded">Active</span>
+                        ) : (
+                          <span className="px-2 py-0.5 bg-gray-300 text-gray-700 text-[9px] font-semibold rounded">Locked</span>
                         )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 flex-shrink-0 ml-2">
-                      {hasModulePermission ? (
-                        <span className="px-2 py-0.5 bg-gray-100 text-gray-800 text-[10px] font-semibold rounded border border-gray-300 whitespace-nowrap">
-                          <CheckCircle2 className="w-2.5 h-2.5 inline mr-1" />
-                          Active
-                        </span>
-                      ) : (
-                        <span className="px-2 py-0.5 bg-gray-100 text-gray-700 text-[10px] font-semibold rounded border border-gray-300 whitespace-nowrap">
-                          <Lock className="w-2.5 h-2.5 inline mr-1" />
-                          Locked
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {allSubModules.length > 0 && (
-                    <div className="mt-4 space-y-3">
-                      {/* Active Submodules */}
-                      {activeSubModules.length > 0 && (
-                        <div>
-                          <div className="flex items-center gap-2 mb-2">
-                            <CheckCircle2 className="w-4 h-4 text-blue-600" />
-                            <span className="text-sm font-semibold text-gray-700">
-                              Active Features ({activeSubModules.length})
-                            </span>
-                          </div>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                            {activeSubModules.map((subModule, idx) => (
-                              <div key={idx} className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg p-2">
-                                <CheckCircle2 className="w-4 h-4 text-gray-800 flex-shrink-0" />
-                                <span className="text-sm text-gray-800">{subModule.name}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Locked Submodules */}
-                      {lockedSubModules.length > 0 && (
-                        <div>
-                          <div className="flex items-center gap-2 mb-2">
-                            <XCircle className="w-4 h-4 text-gray-500" />
-                            <span className="text-sm font-semibold text-gray-700">
-                              Locked Features ({lockedSubModules.length})
-                            </span>
-                          </div>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                            {lockedSubModules.map((subModule, idx) => (
-                              <div key={idx} className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg p-2">
-                                <Lock className="w-4 h-4 text-gray-500 flex-shrink-0" />
-                                <span className="text-sm text-gray-700">{subModule.name}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* If no submodules but module is active */}
-                      {allSubModules.length === 0 && hasModulePermission && (
-                        <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg p-3">
-                          <CheckCircle2 className="w-4 h-4 text-gray-800" />
-                          <span className="text-sm text-gray-800">All features are active</span>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* If module is completely locked */}
-                  {!hasModulePermission && (
-                    <div className="mt-4 bg-gray-50 border border-gray-200 rounded-lg p-3">
-                      <div className="flex items-center gap-2">
-                        <Lock className="w-4 h-4 text-gray-500" />
-                        <span className="text-sm text-gray-700">
-                          This entire module is locked. Contact administrator to subscribe.
-                        </span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+                  );
+                })}
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Restricted Modules Section - Compact */}
-        {restrictedModules.length > 0 && (
-          <div>
-            <div className="flex items-center gap-2 mb-3">
-              <XCircle className="w-5 h-5 text-gray-500" />
-              <h2 className="text-lg sm:text-xl font-bold text-gray-900">Locked Modules</h2>
-              <span className="px-2 py-0.5 bg-gray-100 text-gray-700 text-xs font-semibold rounded border border-gray-300">
-                {subscriptionSummary.restrictedCount} Locked
-              </span>
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-              {restrictedModules.map((item) => (
-                <div key={item._id}>
-                  {renderStatCard(
-                    item.label,
-                    0,
-                    iconMap[item.icon] || <Activity className="w-5 h-5" />,
-                    false,
-                    item.moduleKey
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
 
-        {/* Analytics Overview Chart - Compact */}
-        {(stats.totalEnquiries > 0 || stats.totalReviews > 0) && (
-          <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-lg sm:text-xl font-bold text-gray-900">Analytics Overview</h2>
-            </div>
-            
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {/* Bar Chart */}
-              <div className="h-48">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={statsChartData} margin={{ top: 10, right: 20, left: 10, bottom: 40 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                    <XAxis
-                      dataKey="name"
-                      tick={{ fill: '#6b7280', fontSize: 11 }}
-                      axisLine={{ stroke: '#d1d5db' }}
-                      tickLine={{ stroke: '#d1d5db' }}
-                      angle={-45}
-                      textAnchor="end"
-                      height={40}
-                    />
-                    <YAxis
-                      tick={{ fill: '#6b7280', fontSize: 11 }}
-                      axisLine={{ stroke: '#d1d5db' }}
-                      tickLine={{ stroke: '#d1d5db' }}
-                    />
-                    <Tooltip 
-                      contentStyle={{ 
-                        backgroundColor: '#fff', 
-                        border: '1px solid #e5e7eb',
-                        borderRadius: '6px',
-                        fontSize: '11px'
-                      }}
-                    />
-                    <Bar dataKey="value" radius={[4, 4, 0, 0]} fill="#1f2937">
-                      <LabelList
-                        dataKey="value"
-                        position="top"
-                        fill="#1f2937"
-                        fontSize={11}
-                        fontWeight={500}
-                      />
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-
-              {/* Line Chart */}
-              <div className="h-48">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={statsChartData} margin={{ top: 10, right: 20, left: 10, bottom: 10 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                    <XAxis
-                      dataKey="name"
-                      tick={{ fill: '#6b7280', fontSize: 11 }}
-                      axisLine={{ stroke: '#d1d5db' }}
-                      tickLine={{ stroke: '#d1d5db' }}
-                    />
-                    <YAxis
-                      tick={{ fill: '#6b7280', fontSize: 11 }}
-                      axisLine={{ stroke: '#d1d5db' }}
-                      tickLine={{ stroke: '#d1d5db' }}
-                    />
-                    <Tooltip 
-                      contentStyle={{ 
-                        backgroundColor: '#fff', 
-                        border: '1px solid #e5e7eb',
-                        borderRadius: '6px',
-                        fontSize: '11px'
-                      }}
-                    />
-                    <Line 
-                      type="monotone" 
-                      dataKey="value" 
-                      stroke="#1f2937" 
-                      strokeWidth={2}
-                      dot={{ fill: '#1f2937', r: 4 }}
-                      activeDot={{ r: 6 }}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-
-            {/* Chart Summary Cards - Compact */}
-            <div className="mt-4 grid grid-cols-2 gap-3">
-              <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
-                <div className="flex items-center justify-between">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-medium text-gray-700 mb-0.5">Total Enquiries</p>
-                    <p className="text-xl font-bold text-gray-900">{stats.totalEnquiries}</p>
-                  </div>
-                  <div className="p-2 bg-white rounded-lg shadow-sm">
-                    <Mail className="w-4 h-4 text-gray-800" />
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
-                <div className="flex items-center justify-between">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-medium text-gray-700 mb-0.5">Total Reviews</p>
-                    <p className="text-xl font-bold text-gray-900">{stats.totalReviews}</p>
-                  </div>
-                  <div className="p-2 bg-white rounded-lg shadow-sm">
-                    <Star className="w-4 h-4 text-gray-800" />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* Additional Stats Component */}
+        <Stats
+          role="clinic"
+          config={{
+            tokenKey: 'clinicToken',
+            primaryColor: '#3b82f6',
+            permissions: {
+              canAccessJobs: modulesWithPermission.some(key => 
+                key === 'clinic_jobs' || key === 'jobs'
+              ) || modulesWithPermission.length === 0,
+              canAccessBlogs: modulesWithPermission.some(key => 
+                key === 'clinic_blogs' || key === 'blogs'
+              ) || modulesWithPermission.length === 0,
+              canAccessApplications: modulesWithPermission.some(key => 
+                key === 'clinic_jobs' || key === 'jobs'
+              ) || modulesWithPermission.length === 0,
+            }
+          }}
+        />
 
         {/* Additional Stats Component */}
         <Stats

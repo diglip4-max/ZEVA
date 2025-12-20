@@ -19,7 +19,7 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
     localStorage.removeItem('agentToken');
     // sessionStorage.removeItem('resetEmail');
     //  sessionStorage.removeItem('clinicEmailForReset');
-    window.location.href = '/lead';
+    window.location.href = '/staff';
   };
   const leadUserRaw = localStorage.getItem('agentUser');
   const leadUser = leadUserRaw ? JSON.parse(leadUserRaw) : null;
