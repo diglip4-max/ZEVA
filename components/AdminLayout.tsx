@@ -35,15 +35,19 @@ const AdminLayout = ({
         <div className="fixed lg:sticky top-0 left-0 z-30 h-screen">
           <AdminSidebar 
             onItemsChange={setSidebarItems}
+            externalIsDesktopHidden={isDesktopHidden}
+            externalIsMobileOpen={isMobileOpen}
+            onExternalToggleDesktop={() => setIsDesktopHidden(!isDesktopHidden)}
+            onExternalToggleMobile={() => setIsMobileOpen(!isMobileOpen)}
           />
         </div>
       )}
 
       {/* Main Content Area */}
       <div className="flex min-h-screen flex-1 flex-col lg:ml-0">
-        {/* Header - Higher z-index than sidebar to prevent overlap */}
+        {/* Header */}
         {!hideHeader && (
-          <div className="sticky top-0 z-40">
+          <div className="z-40">
             <AdminHeader 
               handleToggleDesktop={() => setIsDesktopHidden(!isDesktopHidden)}
               handleToggleMobile={() => setIsMobileOpen(!isMobileOpen)}

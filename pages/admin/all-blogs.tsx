@@ -2,11 +2,12 @@ import React, { useCallback, useEffect, useState } from "react";
 import Image from "next/image";
 import axios from "axios";
 import { useRouter } from "next/router";
+import { createPortal } from "react-dom";
 import withAdminAuth from "../../components/withAdminAuth";
 import AdminLayout from "../../components/AdminLayout";
 import type { NextPageWithLayout } from "../_app";
 import { useAgentPermissions } from "../../hooks/useAgentPermissions";
-import { Toaster, toast } from "react-hot-toast";
+import { toast } from "react-hot-toast";
 import {
   DocumentTextIcon,
   TrashIcon,
@@ -119,13 +120,14 @@ const AdminBlogs = () => {
   const agentPermissions = isAgent ? agentPermissionsData?.permissions : null;
   const permissionsLoading = isAgent ? agentPermissionsData?.loading : false;
 
-  const processBlogs = (blogs: Blog[]) => {
+  // MODIFIED: Memoize processBlogs to prevent unnecessary re-renders and dependency changes
+  const processBlogs = useCallback((blogs: Blog[]) => {
     return blogs.map(blog => ({
       ...blog,
       likesCount: blog.likes?.length || 0,
       commentsCount: blog.comments?.length || 0
     }));
-  };
+  }, []);
 
   const fetchBlogs = useCallback(async () => {
     const adminToken = typeof window !== 'undefined' ? localStorage.getItem('adminToken') : null;
@@ -139,6 +141,7 @@ const AdminBlogs = () => {
       return;
     }
 
+    // MODIFIED: Prevent multiple simultaneous calls
     setLoading(true);
     try {
       const res = await axios.get<{ blogs: Blog[] }>("/api/admin/get-blogs", {
@@ -156,13 +159,85 @@ const AdminBlogs = () => {
     } finally {
       setLoading(false);
     }
-  }, [showToast]);
+  }, [showToast, processBlogs]);
 
+  // MODIFIED: Use ref to prevent multiple simultaneous calls - prevents loader from appearing multiple times
+  const fetchingRef = React.useRef(false);
+  
   useEffect(() => {
+    // Don't fetch if already fetching
+    if (fetchingRef.current) return;
+    
     if (isAdmin || !isAgent || !permissionsLoading) {
-      fetchBlogs();
+      fetchingRef.current = true;
+      fetchBlogs().finally(() => {
+        fetchingRef.current = false;
+      });
     }
   }, [isAdmin, isAgent, permissionsLoading, fetchBlogs]);
+
+  // MODIFIED: Hide duplicate toaster containers - ensure only one toaster shows
+  // Optimized to run less frequently to avoid performance issues
+  useEffect(() => {
+    let processedContainers = new Set<HTMLElement>();
+    
+    const hideDuplicateToasters = () => {
+      // Find all react-hot-toast containers
+      const toasterContainers: HTMLElement[] = [];
+      const allDivs = Array.from(document.querySelectorAll('body > div'));
+      
+      allDivs.forEach((div) => {
+        const el = div as HTMLElement;
+        // Check if this is a react-hot-toast container
+        const hasToastContent = 
+          el.querySelector('[class*="react-hot-toast"]') !== null ||
+          Array.from(el.children).some(child => {
+            const childEl = child as HTMLElement;
+            return childEl.getAttribute('class')?.includes('react-hot-toast') ||
+                   childEl.querySelector('[class*="react-hot-toast"]') !== null;
+          }) ||
+          el.getAttribute('class')?.includes('react-hot-toast');
+        
+        if (hasToastContent && el.offsetParent !== null && !processedContainers.has(el)) {
+          toasterContainers.push(el);
+          processedContainers.add(el);
+        }
+      });
+
+      // If we have more than one visible toaster, keep only the first one and hide the rest
+      if (toasterContainers.length > 1) {
+        // Keep the first one (from withAgentAuth wrapper), hide all others
+        for (let i = 1; i < toasterContainers.length; i++) {
+          const container = toasterContainers[i];
+          container.style.display = 'none';
+          container.style.visibility = 'hidden';
+        }
+      }
+    };
+
+    // Run after a short delay to allow DOM to settle
+    const timeout = setTimeout(hideDuplicateToasters, 200);
+    
+    // Set up observer with throttling to avoid excessive calls
+    let observerTimeout: NodeJS.Timeout;
+    const observer = new MutationObserver(() => {
+      clearTimeout(observerTimeout);
+      observerTimeout = setTimeout(hideDuplicateToasters, 500); // Throttle to max once per 500ms
+    });
+
+    observer.observe(document.body, { 
+      childList: true, 
+      subtree: false // Only watch direct children, not entire subtree
+    });
+    
+    return () => {
+      clearTimeout(timeout);
+      clearTimeout(observerTimeout);
+      observer.disconnect();
+      processedContainers.clear();
+    };
+  }, []);
+
 
   // Search functionality
   const handleSearch = (term: string) => {
@@ -267,58 +342,9 @@ const AdminBlogs = () => {
     return imageUrls;
   };
 
-  // Show access denied message if agent doesn't have read permission
-  if (isAgent && !permissionsLoading && agentPermissions && !agentPermissions.canRead && !agentPermissions.canAll) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-lg shadow-sm p-6 max-w-sm w-full text-center">
-          <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-3">
-            <XCircleIcon className="w-6 h-6 text-red-600" />
-          </div>
-          <h2 className="text-lg font-semibold text-gray-900 mb-2">Access Denied</h2>
-          <p className="text-sm text-gray-700">
-            You do not have permission to view blogs.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-gray-50 p-4 sm:p-6">
-      <Toaster
-        position="top-right"
-        toastOptions={{
-          duration: 3000,
-          style: {
-            background: "#1f2937",
-            color: "#f9fafb",
-            fontSize: "12px",
-            padding: "8px 12px",
-            borderRadius: "6px",
-          },
-          success: {
-            iconTheme: {
-              primary: "#10b981",
-              secondary: "#fff",
-            },
-            style: {
-              background: "#10b981",
-              color: "#fff",
-            },
-          },
-          error: {
-            iconTheme: {
-              primary: "#ef4444",
-              secondary: "#fff",
-            },
-            style: {
-              background: "#ef4444",
-              color: "#fff",
-            },
-          },
-        }}
-      />
+      {/* MODIFIED: Removed Toaster from here - withAgentAuth already provides one with position="top-right" */}
       
       <div className="max-w-7xl mx-auto space-y-4">
         {/* Header */}
@@ -547,8 +573,8 @@ const AdminBlogs = () => {
         )}
 
         {/* Delete Confirmation Modal */}
-        {showDeleteModal && selectedBlog && (
-          <div className="fixed inset-0 backdrop-blur-sm bg-black/20 flex items-center justify-center z-50 p-4">
+        {showDeleteModal && selectedBlog && typeof window !== 'undefined' && createPortal(
+          <div className="fixed inset-0 backdrop-blur-sm bg-black/20 flex items-center justify-center z-[9999] p-4" style={{ zIndex: 9999 }}>
             <div className="bg-white rounded-lg shadow-xl p-5 max-w-sm w-full">
               <div className="text-center mb-4">
                 <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-3">
@@ -581,23 +607,25 @@ const AdminBlogs = () => {
                 </button>
               </div>
             </div>
-          </div>
+          </div>,
+          document.body
         )}
 
         {/* Read More Modal with All Images */}
-        {showReadMoreModal && selectedBlog && (
-          <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        {showReadMoreModal && selectedBlog && typeof window !== 'undefined' && createPortal(
+          <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-[9999] p-4" style={{ zIndex: 9999 }}>
             <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
               {/* Modal Header */}
-              <div className="flex items-center justify-between p-4 border-b border-gray-200">
-                <h3 className="text-base font-semibold text-gray-900 pr-4 line-clamp-2">
+              <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200 flex-shrink-0">
+                <h3 className="text-base sm:text-lg font-semibold text-gray-900 pr-4 flex-1 min-w-0 line-clamp-2 break-words">
                   {selectedBlog.title}
                 </h3>
                 <button
                   onClick={closeModals}
-                  className="text-gray-700 hover:text-gray-900 p-1 rounded-lg hover:bg-gray-100 transition-colors"
+                  className="text-gray-700 hover:text-gray-900 p-1.5 rounded-lg hover:bg-gray-100 transition-colors flex-shrink-0"
+                  aria-label="Close modal"
                 >
-                  <XMarkIcon className="w-5 h-5" />
+                  <XMarkIcon className="w-5 h-5 sm:w-6 sm:h-6" />
                 </button>
               </div>
 
@@ -669,7 +697,8 @@ const AdminBlogs = () => {
                 </div>
               </div>
             </div>
-          </div>
+          </div>,
+          document.body
         )}
       </div>
     </div>

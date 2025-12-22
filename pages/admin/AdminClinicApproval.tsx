@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import axios from "axios";
+import { createPortal } from "react-dom";
 import AdminLayout from "../../components/AdminLayout";
 import withAdminAuth from "../../components/withAdminAuth";
 import type { NextPageWithLayout } from "../_app";
@@ -77,6 +78,7 @@ function AdminClinicApproval() {
   const [selectedLocation, setSelectedLocation] = useState<{
     lat: number;
     lng: number;
+    address?: string;
   } | null>(null);
   const [mapVisible, setMapVisible] = useState(false);
   const [confirmAction, setConfirmAction] = useState<{
@@ -97,11 +99,15 @@ function AdminClinicApproval() {
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
   const [isAgent, setIsAgent] = useState<boolean>(false);
   
+  // MODIFIED: Check if we're on an agent route synchronously (router.pathname is available immediately)
+  // This allows permissions to start loading on first render for agent routes
+  const isAgentRoute = router.pathname?.startsWith('/agent/') || 
+                       (typeof window !== 'undefined' && window.location.pathname?.startsWith('/agent/'));
+  
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const adminToken = !!localStorage.getItem('adminToken');
       const agentToken = !!localStorage.getItem('agentToken');
-      const isAgentRoute = router.pathname?.startsWith('/agent/') || window.location.pathname?.startsWith('/agent/');
       
       if (isAgentRoute && agentToken) {
         setIsAdmin(false);
@@ -117,11 +123,16 @@ function AdminClinicApproval() {
         setIsAgent(false);
       }
     }
-  }, [router.pathname]);
+  }, [router.pathname, isAgentRoute]);
   
-  const agentPermissionsData: any = useAgentPermissions(isAgent ? "admin_approval_clinic" : (null as any));
+  // MODIFIED: Start fetching permissions immediately if on agent route (check route synchronously)
+  // This ensures permissions start loading before isAgent state is set, preventing premature access denied
+  const shouldCheckPermissions = isAgentRoute || (typeof window !== 'undefined' && !!localStorage.getItem('agentToken'));
+  
+  const agentPermissionsData: any = useAgentPermissions(shouldCheckPermissions ? "admin_approval_clinic" : (null as any));
   const agentPermissions = isAgent ? agentPermissionsData?.permissions : null;
-  const permissionsLoading = isAgent ? agentPermissionsData?.loading : false;
+  // MODIFIED: Also show loading if we're on agent route but haven't determined if user is agent yet
+  const permissionsLoading = shouldCheckPermissions ? agentPermissionsData?.loading : false;
 
   const itemsPerPage = 12;
 
@@ -258,11 +269,18 @@ function AdminClinicApproval() {
 
       const location = response.data.results[0]?.geometry?.location;
       if (location) {
-        setSelectedLocation(location);
+        setSelectedLocation({ ...location, address });
+        setMapVisible(true);
+      } else {
+        // Fallback: show map with address string if geocoding fails
+        setSelectedLocation({ lat: 0, lng: 0, address });
         setMapVisible(true);
       }
     } catch (err) {
       console.error("Map fetch failed:", err);
+      // Fallback: show map with address string on error
+      setSelectedLocation({ lat: 0, lng: 0, address });
+      setMapVisible(true);
     }
   };
 
@@ -415,18 +433,22 @@ function AdminClinicApproval() {
 
   const hasReadPermission = isAdmin || (isAgent && agentPermissions && (agentPermissions.canRead === true || agentPermissions.canAll === true));
 
+  // MODIFIED: Show loading if data is loading OR permissions are loading
   if (loading || (isAgent && permissionsLoading)) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-800 mx-auto"></div>
-          <p className="mt-4 text-gray-700">Loading clinics...</p>
+          <p className="mt-4 text-gray-700">
+            {(isAgent && permissionsLoading) ? 'Loading permissions...' : 'Loading clinics...'}
+          </p>
         </div>
       </div>
     );
   }
 
-  if (isAgent && !hasReadPermission) {
+  // MODIFIED: Only show access denied if permissions have finished loading and user doesn't have permission
+  if (isAgent && !permissionsLoading && !hasReadPermission) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-lg shadow-sm p-8 max-w-md w-full text-center">
@@ -660,8 +682,8 @@ function AdminClinicApproval() {
       </div>
 
       {/* Confirmation Modal */}
-      {confirmAction.show && (
-        <div className="fixed inset-0 backdrop-blur-sm bg-black/20 flex items-center justify-center z-50 p-4">
+      {confirmAction.show && typeof window !== 'undefined' && createPortal(
+        <div className="fixed inset-0 backdrop-blur-sm bg-black/20 flex items-center justify-center z-[9999] p-4" style={{ zIndex: 9999 }}>
           <div className="bg-white rounded-lg shadow-xl p-8 max-w-md w-full">
             <div className="text-center">
               <div className="mx-auto mb-4 w-16 h-16 rounded-full flex items-center justify-center">
@@ -732,74 +754,103 @@ function AdminClinicApproval() {
       )}
 
       {/* Map Modal */}
-      {mapVisible && selectedLocation && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
-            <div className="flex items-center justify-between p-4 border-b border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-900">Clinic Location</h3>
+      {mapVisible && selectedLocation && typeof window !== 'undefined' && createPortal(
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[9999] p-4" style={{ zIndex: 9999 }}>
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200 flex-shrink-0">
+              <h3 className="text-lg sm:text-xl font-semibold text-gray-900 flex items-center gap-2">
+                <MapPinIcon className="w-5 h-5 text-blue-600" />
+                <span>Clinic Location</span>
+              </h3>
               <button
                 onClick={() => setMapVisible(false)}
-                className="text-gray-700 hover:text-gray-900 p-1"
+                className="text-gray-700 hover:text-gray-900 p-1.5 rounded-lg hover:bg-gray-100 transition-colors flex-shrink-0"
+                aria-label="Close map"
               >
-                <XCircleIcon className="w-6 h-6" />
+                <XCircleIcon className="w-5 h-5 sm:w-6 sm:h-6" />
               </button>
             </div>
-            <div className="p-4">
-              <div className="mb-4 p-3 bg-gray-50 rounded-lg">
-                <div className="flex flex-col gap-2">
-                  <span className="font-mono text-sm text-gray-700">
-                    {convertToDMS(selectedLocation.lat, selectedLocation.lng)}
-                  </span>
-                  {plusCode && (
-                    <span className="text-sm text-gray-700">
-                      {plusCode} {addressSummary}
+            <div className="p-4 sm:p-6 flex-1 overflow-hidden flex flex-col">
+              {(selectedLocation.lat !== 0 || selectedLocation.lng !== 0) && (
+                <div className="mb-4 p-3 bg-gray-50 rounded-lg flex-shrink-0">
+                  <div className="flex flex-col gap-2">
+                    <span className="font-mono text-sm text-gray-700">
+                      {convertToDMS(selectedLocation.lat, selectedLocation.lng)}
                     </span>
-                  )}
+                    {plusCode && (
+                      <span className="text-sm text-gray-700">
+                        {plusCode} {addressSummary}
+                      </span>
+                    )}
+                    {selectedLocation.address && (
+                      <span className="text-sm text-gray-700">
+                        {selectedLocation.address}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex gap-3 mt-3">
+                    <a
+                      href={`https://www.google.com/maps/dir/?api=1&destination=${selectedLocation.lat},${selectedLocation.lng}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm text-gray-700 hover:text-gray-900 font-medium underline"
+                    >
+                      Directions
+                    </a>
+                    <a
+                      href={`https://www.google.com/maps?q=${selectedLocation.lat},${selectedLocation.lng}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm text-gray-700 hover:text-gray-900 font-medium underline"
+                    >
+                      View larger map
+                    </a>
+                  </div>
                 </div>
-                <div className="flex gap-3 mt-3">
-                  <a
-                    href={`https://www.google.com/maps/dir/?api=1&destination=${selectedLocation.lat},${selectedLocation.lng}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm text-gray-700 hover:text-gray-900 font-medium underline"
+              )}
+              <div className="w-full flex-1 min-h-[400px]">
+                {selectedLocation.lat !== 0 && selectedLocation.lng !== 0 ? (
+                  <GoogleMap
+                    mapContainerStyle={{ width: "100%", height: "100%" }}
+                    center={selectedLocation}
+                    zoom={15}
                   >
-                    Directions
-                  </a>
-                  <a
-                    href={`https://www.google.com/maps?q=${selectedLocation.lat},${selectedLocation.lng}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm text-gray-700 hover:text-gray-900 font-medium underline"
-                  >
-                    View larger map
-                  </a>
-                </div>
-              </div>
-              <div className="w-full h-96">
-                <GoogleMap
-                  mapContainerStyle={{ width: "100%", height: "100%" }}
-                  center={selectedLocation}
-                  zoom={15}
-                >
-                  <Marker position={selectedLocation} />
-                </GoogleMap>
+                    <Marker position={selectedLocation} />
+                  </GoogleMap>
+                ) : (
+                  <iframe
+                    width="100%"
+                    height="100%"
+                    frameBorder="0"
+                    style={{ border: 0, borderRadius: "8px" }}
+                    src={`https://www.google.com/maps?q=${encodeURIComponent(
+                      selectedLocation.address || ""
+                    )}&z=16&output=embed`}
+                    allowFullScreen
+                  />
+                )}
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Treatments Modal */}
-      {selectedClinicForTreatments && (
-        <div className="fixed inset-0 backdrop-blur-sm bg-black/20 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl p-6 max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold text-gray-900">Available Treatments</h2>
+      {selectedClinicForTreatments && typeof window !== 'undefined' && createPortal(
+        <div className="fixed inset-0 backdrop-blur-sm bg-black/20 flex items-center justify-center z-[9999] p-4" style={{ zIndex: 9999 }}>
+          <div className="bg-white rounded-lg shadow-xl p-4 sm:p-6 max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between mb-4 flex-shrink-0">
+              <h2 className="text-lg sm:text-xl font-semibold text-gray-900 flex items-center gap-2">
+                <BeakerIcon className="w-5 h-5 text-indigo-600" />
+                <span>Available Treatments</span>
+              </h2>
               <button
                 onClick={() => setSelectedClinicForTreatments(null)}
-                className="text-gray-700 hover:text-gray-900"
+                className="text-gray-700 hover:text-gray-900 p-1.5 rounded-lg hover:bg-gray-100 transition-colors flex-shrink-0"
+                aria-label="Close treatments"
               >
-                <XCircleIcon className="w-6 h-6" />
+                <XCircleIcon className="w-5 h-5 sm:w-6 sm:h-6" />
               </button>
             </div>
             <div className="overflow-y-auto flex-1">
@@ -827,31 +878,33 @@ function AdminClinicApproval() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Detail Modal */}
-      {detailClinic && (
-        <div className="fixed inset-0 backdrop-blur-sm bg-black/30 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden">
+      {detailClinic && typeof window !== 'undefined' && createPortal(
+        <div className="fixed inset-0 backdrop-blur-sm bg-black/30 flex items-center justify-center z-[9999] p-4" style={{ zIndex: 9999 }}>
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col">
             {/* Header */}
-            <div className="flex items-center justify-between p-4 border-b border-slate-200 bg-slate-50">
-              <div className="flex items-center gap-2">
-                <HomeIcon className="w-5 h-5 text-slate-600" />
-                <h3 className="text-lg font-semibold text-slate-900">
+            <div className="flex items-center justify-between p-4 sm:p-6 border-b border-slate-200 bg-slate-50 flex-shrink-0">
+              <div className="flex items-center gap-2 min-w-0 flex-1">
+                <HomeIcon className="w-5 h-5 text-slate-600 flex-shrink-0" />
+                <h3 className="text-base sm:text-lg font-semibold text-slate-900 truncate">
                   {detailClinic.name}
                 </h3>
               </div>
               <button
                 onClick={() => setDetailClinic(null)}
-                className="text-slate-500 hover:text-slate-900 p-1 rounded hover:bg-slate-200 transition-colors"
+                className="text-slate-500 hover:text-slate-900 p-1.5 rounded-lg hover:bg-slate-200 transition-colors flex-shrink-0"
+                aria-label="Close details"
               >
                 <XCircleIcon className="w-5 h-5" />
               </button>
             </div>
 
             {/* Compact Content */}
-            <div className="p-4 space-y-3">
+            <div className="p-4 sm:p-6 space-y-3 overflow-y-auto flex-1">
               {/* Owner */}
               <div className="flex items-start gap-3 text-sm">
                 <UserGroupIcon className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
@@ -929,16 +982,17 @@ function AdminClinicApproval() {
             </div>
 
             {/* Footer */}
-            <div className="border-t border-slate-200 p-3 bg-slate-50 flex justify-end">
+            <div className="border-t border-slate-200 p-3 sm:p-4 bg-slate-50 flex justify-end flex-shrink-0">
               <button
                 onClick={() => setDetailClinic(null)}
-                className="rounded-lg bg-slate-800 hover:bg-slate-700 text-white px-4 py-1.5 text-xs font-medium transition-colors"
+                className="rounded-lg bg-slate-800 hover:bg-slate-700 text-white px-4 py-2 text-sm font-medium transition-colors"
               >
                 Close
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
