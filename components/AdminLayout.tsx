@@ -21,10 +21,20 @@ const AdminLayout = ({
   hideHeader = false,
 }: AdminLayoutProps) => {
   const [sidebarItems, setSidebarItems] = useState<NavItem[]>([]);
+  const [isDesktopHidden, setIsDesktopHidden] = useState(false);
+  const [isMobileOpen, setIsMobileOpen] = useState(false);
 
   if (hideSidebar && hideHeader) {
     return <>{children}</>;
   }
+
+  const toggleDesktop = () => {
+    setIsDesktopHidden(!isDesktopHidden);
+  };
+
+  const toggleMobile = () => {
+    setIsMobileOpen(!isMobileOpen);
+  };
 
   return (
     <div className="flex min-h-screen bg-gray-50" role="application">
@@ -33,17 +43,25 @@ const AdminLayout = ({
         <div className="fixed lg:sticky top-0 left-0 z-50 h-screen">
           <AdminSidebar 
             onItemsChange={setSidebarItems}
+            externalIsDesktopHidden={isDesktopHidden}
+            externalIsMobileOpen={isMobileOpen}
+            onExternalToggleDesktop={toggleDesktop}
+            onExternalToggleMobile={toggleMobile}
           />
         </div>
       )}
 
       {/* Main Content Area */}
       <div className="flex min-h-screen flex-1 flex-col lg:ml-0">
-        {/* Header - Hidden on mobile when sidebar might be open */}
+        {/* Header */}
         {!hideHeader && (
-          <div className="sticky top-0 z-10 hidden lg:block">
+          <div className="z-40">
             <AdminHeader 
               sidebarItems={sidebarItems}
+              isDesktopHidden={isDesktopHidden}
+              isMobileOpen={isMobileOpen}
+              onToggleDesktop={toggleDesktop}
+              onToggleMobile={toggleMobile}
             />
           </div>
         )}

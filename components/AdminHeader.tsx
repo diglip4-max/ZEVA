@@ -8,11 +8,19 @@ interface AdminHeaderProps {
     children?: Array<{ label: string; path?: string }>;
   }>;
   onSearch?: (query: string) => void;
+  isDesktopHidden?: boolean;
+  isMobileOpen?: boolean;
+  onToggleDesktop?: () => void;
+  onToggleMobile?: () => void;
 }
 
 const AdminHeader: React.FC<AdminHeaderProps> = ({
   sidebarItems = [],
   onSearch,
+  isDesktopHidden = false,
+  isMobileOpen = false,
+  onToggleDesktop,
+  onToggleMobile,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Array<{ label: string; path?: string }>>([]);
@@ -82,11 +90,61 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
   };
 
   return (
-    <header className="w-full bg-white border-b border-gray-200 shadow-sm sticky top-0 z-40 backdrop-blur-sm bg-white/95">
+    <header className="w-full bg-white border-b border-gray-200 shadow-sm z-[49] backdrop-blur-sm bg-white/95">
       <div className="px-3 py-2.5 sm:px-4 sm:py-3 lg:px-6">
-        <div className="flex items-center gap-2 sm:gap-3 lg:gap-4">
-          {/* Center: Search Bar - Responsive width */}
-          <div className="relative flex-1 min-w-0 max-w-full sm:max-w-xs md:max-w-sm lg:max-w-md">
+        <div className="flex items-center justify-between gap-2 sm:gap-3 lg:gap-4">
+          {/* Left: Hamburger buttons - Always visible, priority positioning */}
+          <div className="flex items-center gap-2 flex-shrink-0 relative z-[51] min-w-[2.5rem]">
+            {/* Mobile Hamburger - Always visible on mobile, changes to X when sidebar is open */}
+            {onToggleMobile && (
+              <button
+                onClick={onToggleMobile}
+                className="p-2 rounded-lg bg-white hover:bg-gray-100 transition-all duration-200 lg:hidden shadow-sm border border-gray-200 relative z-[51] flex-shrink-0"
+                aria-label={isMobileOpen ? "Close sidebar" : "Open sidebar"}
+              >
+                {isMobileOpen ? (
+                  <svg
+                    className="w-5 h-5 text-gray-700 transition-transform duration-300"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                ) : (
+                  <svg
+                    className="w-5 h-5 text-gray-700 transition-transform duration-300"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                  </svg>
+                )}
+              </button>
+            )}
+
+            {/* Desktop Hamburger - Only show when sidebar is hidden */}
+            {onToggleDesktop && isDesktopHidden && (
+              <button
+                onClick={onToggleDesktop}
+                className="hidden lg:inline-flex p-2 rounded-lg bg-white hover:bg-gray-100 transition-colors duration-200 shadow-sm border border-gray-200 relative z-[51] flex-shrink-0"
+                aria-label="Toggle sidebar"
+              >
+                <svg
+                  className="w-5 h-5 text-gray-700 transition-transform duration-300"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              </button>
+            )}
+          </div>
+
+          {/* Center: Search Bar - Responsive width with adjusted mobile spacing */}
+          <div className="relative flex-1 min-w-0 max-w-full sm:max-w-xs md:max-w-sm lg:max-w-md mx-2 sm:mx-3 lg:mx-4">
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <svg
@@ -129,8 +187,8 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
             )}
           </div>
 
-          {/* Right: User Profile - Responsive */}
-          <div className="flex items-center gap-1.5 sm:gap-2 lg:gap-3 flex-shrink-0">
+          {/* Right: User Profile - Always aligned to right corner */}
+          <div className="flex items-center gap-1.5 sm:gap-2 lg:gap-3 flex-shrink-0 ml-auto">
             {/* Profile Text - Hidden on mobile, shown on larger screens */}
             <div className="hidden md:block text-right min-w-0">
               <div className="text-sm font-semibold text-gray-900 truncate max-w-[140px] lg:max-w-[180px]">

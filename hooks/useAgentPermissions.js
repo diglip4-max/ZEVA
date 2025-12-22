@@ -25,6 +25,10 @@ export function useAgentPermissions(moduleKey, subModuleName = null) {
 
   useEffect(() => {
     const fetchPermissions = async () => {
+      // MODIFIED: Always reset loading to true when moduleKey changes to ensure proper loading state
+      setLoading(true);
+      setError(null);
+      
       // If moduleKey is null/undefined, skip fetching (for non-agent users)
       if (!moduleKey) {
         setPermissions({
