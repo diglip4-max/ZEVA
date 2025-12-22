@@ -1,10 +1,6 @@
 import React, { useState } from 'react';
 
 interface AdminHeaderProps {
-  handleToggleDesktop?: () => void;
-  handleToggleMobile?: () => void;
-  isDesktopHidden?: boolean;
-  isMobileOpen?: boolean;
   sidebarItems?: Array<{
     label: string;
     path?: string;
@@ -15,24 +11,12 @@ interface AdminHeaderProps {
 }
 
 const AdminHeader: React.FC<AdminHeaderProps> = ({
-  handleToggleDesktop,
-  handleToggleMobile,
-  isDesktopHidden = false,
-  isMobileOpen = false,
   sidebarItems = [],
   onSearch,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Array<{ label: string; path?: string }>>([]);
   const [showSearchResults, setShowSearchResults] = useState(false);
-
-  const toggleDesktop = () => {
-    if (handleToggleDesktop) handleToggleDesktop();
-  };
-
-  const toggleMobile = () => {
-    if (handleToggleMobile) handleToggleMobile();
-  };
 
   const storedUser = JSON.parse(localStorage.getItem('adminUser') || '{}');
   const email = storedUser.email;
@@ -101,45 +85,6 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
     <header className="w-full bg-white border-b border-gray-200 shadow-sm sticky top-0 z-40 backdrop-blur-sm bg-white/95">
       <div className="px-3 py-2.5 sm:px-4 sm:py-3 lg:px-6">
         <div className="flex items-center gap-2 sm:gap-3 lg:gap-4">
-          {/* Left: Hamburger buttons */}
-          <div className="flex items-center gap-2 flex-shrink-0">
-            {/* Mobile Hamburger - Only show when sidebar is closed */}
-            {handleToggleMobile && !isMobileOpen && (
-              <button
-                onClick={toggleMobile}
-                className="p-2 rounded-lg hover:bg-gray-100 transition-colors duration-200 lg:hidden"
-                aria-label="Toggle sidebar"
-              >
-                <svg
-                  className="w-5 h-5 text-gray-700 transition-transform duration-300"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                </svg>
-              </button>
-            )}
-
-            {/* Desktop Hamburger - Only show when sidebar is hidden */}
-            {handleToggleDesktop && isDesktopHidden && (
-              <button
-                onClick={toggleDesktop}
-                className="hidden lg:inline-flex p-2 rounded-lg hover:bg-gray-100 transition-colors duration-200"
-                aria-label="Toggle sidebar"
-              >
-                <svg
-                  className="w-5 h-5 text-gray-700 transition-transform duration-300"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                </svg>
-              </button>
-            )}
-          </div>
-
           {/* Center: Search Bar - Responsive width */}
           <div className="relative flex-1 min-w-0 max-w-full sm:max-w-xs md:max-w-sm lg:max-w-md">
             <div className="relative">
