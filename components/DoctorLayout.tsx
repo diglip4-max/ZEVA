@@ -36,8 +36,8 @@ const DoctorLayout = ({ children }: { children: React.ReactNode }) => {
 
       {/* Main Content Area */}
       <div className="flex flex-col flex-1 min-h-screen max-h-screen transition-all duration-300">
-        {/* Header */}
-        <div className="sticky top-0 z-20">
+        {/* Header - Hidden on mobile when sidebar might be open */}
+        <div className="sticky top-0 z-10 hidden lg:block">
           <DoctorHeader
             handleToggleDesktop={handleToggleDesktop}
             handleToggleMobile={handleToggleMobile}

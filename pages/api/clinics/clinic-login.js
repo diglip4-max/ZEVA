@@ -19,6 +19,7 @@ export default async function handler(req, res) {
 
   try {
     const user = await User.findOne({ email });
+    console.log('user', user);
 
     if (!user || user.role !== "clinic") {
       return res
@@ -36,6 +37,7 @@ export default async function handler(req, res) {
     if (!clinic || !clinic.isApproved) {
       return res.status(403).json({ message: "Clinic not approved by admin." });
     }
+    console.log('clinic details', clinic);
 
     // 🔍 Debug: Ensure JWT_SECRET is properly set
     const jwtSecret = process.env.JWT_SECRET;
@@ -53,6 +55,7 @@ export default async function handler(req, res) {
       jwtSecret,
       { expiresIn: "1d" }
     );
+    console.log('token', token);
 
     return res.status(200).json({
       message: "Login successful",

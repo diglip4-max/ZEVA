@@ -82,7 +82,15 @@ function LeadForm() {
   }, [token]);
 
   const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    if (e.target.name === 'phone') {
+      // Only allow digits and limit to 10 digits
+      const value = e.target.value.replace(/\D/g, '');
+      if (value.length <= 10) {
+        setFormData({ ...formData, phone: value });
+      }
+    } else {
+      setFormData({ ...formData, [e.target.name]: e.target.value });
+    }
   };
 
   const handleTreatmentChange = (e) => {
@@ -146,6 +154,12 @@ function LeadForm() {
     // Check permission before submitting
     if (!permissions.canCreate && !permissions.canAll) {
       alert("You do not have permission to create leads");
+      return;
+    }
+
+    // Validate phone number
+    if (!formData.phone || formData.phone.length !== 10) {
+      alert("Please enter a valid 10-digit phone number");
       return;
     }
     
@@ -289,13 +303,21 @@ function LeadForm() {
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">Phone Number *</label>
                 <input 
+                  type="tel"
                   name="phone" 
-                  placeholder="Enter phone number" 
+                  placeholder="Enter 10-digit phone number" 
                   value={formData.phone} 
                   onChange={handleChange} 
+                  maxLength={10}
                   className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                   required
                 />
+                {formData.phone.length > 0 && formData.phone.length !== 10 && (
+                  <p className="text-xs text-red-500 mt-1">Phone number must be exactly 10 digits</p>
+                )}
+                {formData.phone.length === 10 && (
+                  <p className="text-xs text-green-600 mt-1">Valid phone number</p>
+                )}
               </div>
             </div>
 

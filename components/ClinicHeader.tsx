@@ -24,18 +24,13 @@ interface SearchResult {
 }
 
 interface ClinicHeaderProps {
-  handleToggleDesktop: () => void;
-  handleToggleMobile: () => void;
-  isDesktopHidden: boolean;
-  isMobileOpen: boolean;
+  handleToggleDesktop?: () => void;
+  handleToggleMobile?: () => void;
+  isDesktopHidden?: boolean;
+  isMobileOpen?: boolean;
 }
 
-const ClinicHeader: React.FC<ClinicHeaderProps> = ({
-  handleToggleDesktop: _handleToggleDesktop,
-  handleToggleMobile: _handleToggleMobile,
-  isDesktopHidden: _isDesktopHidden,
-  isMobileOpen: _isMobileOpen
-}) => {
+const ClinicHeader: React.FC<ClinicHeaderProps> = () => {
   const router = useRouter();
   const [navigationItems, setNavigationItems] = useState<NavigationItem[]>([]);
   const [searchQuery, setSearchQuery] = useState<string>('');

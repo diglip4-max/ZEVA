@@ -1,10 +1,6 @@
 import React, { useState } from 'react';
 
 interface AdminHeaderProps {
-  handleToggleDesktop?: () => void;
-  handleToggleMobile?: () => void;
-  isDesktopHidden?: boolean;
-  isMobileOpen?: boolean;
   sidebarItems?: Array<{
     label: string;
     path?: string;
@@ -12,27 +8,23 @@ interface AdminHeaderProps {
     children?: Array<{ label: string; path?: string }>;
   }>;
   onSearch?: (query: string) => void;
+  isDesktopHidden?: boolean;
+  isMobileOpen?: boolean;
+  onToggleDesktop?: () => void;
+  onToggleMobile?: () => void;
 }
 
 const AdminHeader: React.FC<AdminHeaderProps> = ({
-  handleToggleDesktop,
-  handleToggleMobile,
-  isDesktopHidden = false,
-  isMobileOpen = false,
   sidebarItems = [],
   onSearch,
+  isDesktopHidden = false,
+  isMobileOpen = false,
+  onToggleDesktop,
+  onToggleMobile,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Array<{ label: string; path?: string }>>([]);
   const [showSearchResults, setShowSearchResults] = useState(false);
-
-  const toggleDesktop = () => {
-    if (handleToggleDesktop) handleToggleDesktop();
-  };
-
-  const toggleMobile = () => {
-    if (handleToggleMobile) handleToggleMobile();
-  };
 
   const storedUser = JSON.parse(localStorage.getItem('adminUser') || '{}');
   const email = storedUser.email;
@@ -104,9 +96,9 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
           {/* Left: Hamburger buttons - Always visible, priority positioning */}
           <div className="flex items-center gap-2 flex-shrink-0 relative z-[51] min-w-[2.5rem]">
             {/* Mobile Hamburger - Always visible on mobile, changes to X when sidebar is open */}
-            {handleToggleMobile && (
+            {onToggleMobile && (
               <button
-                onClick={toggleMobile}
+                onClick={onToggleMobile}
                 className="p-2 rounded-lg bg-white hover:bg-gray-100 transition-all duration-200 lg:hidden shadow-sm border border-gray-200 relative z-[51] flex-shrink-0"
                 aria-label={isMobileOpen ? "Close sidebar" : "Open sidebar"}
               >
@@ -133,9 +125,9 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
             )}
 
             {/* Desktop Hamburger - Only show when sidebar is hidden */}
-            {handleToggleDesktop && isDesktopHidden && (
+            {onToggleDesktop && isDesktopHidden && (
               <button
-                onClick={toggleDesktop}
+                onClick={onToggleDesktop}
                 className="hidden lg:inline-flex p-2 rounded-lg bg-white hover:bg-gray-100 transition-colors duration-200 shadow-sm border border-gray-200 relative z-[51] flex-shrink-0"
                 aria-label="Toggle sidebar"
               >

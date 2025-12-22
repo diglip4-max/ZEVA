@@ -9,17 +9,6 @@ interface ClinicLayoutProps {
 }
 
 const ClinicLayout = ({ children, hideSidebar = false, hideHeader = false }: ClinicLayoutProps) => {
-  const [isDesktopHidden, setIsDesktopHidden] = useState(false);
-  const [isMobileOpen, setIsMobileOpen] = useState(false);
-
-  const handleToggleDesktop = () => {
-    setIsDesktopHidden(prev => !prev);
-  };
-
-  const handleToggleMobile = () => {
-    setIsMobileOpen(prev => !prev);
-  };
-
   // If both sidebar and header are hidden, render children directly without layout wrapper
   if (hideSidebar && hideHeader) {
     return <>{children}</>;
@@ -27,24 +16,19 @@ const ClinicLayout = ({ children, hideSidebar = false, hideHeader = false }: Cli
 
   return (
     <div className="flex min-h-screen bg-gray-100" role="application">
-      {/* Sidebar */}
+      {/* Sidebar - ClinicSidebar manages its own state */}
       {!hideSidebar && (
-        <div className="h-screen sticky top-0 z-30">
+        <div className="h-screen sticky top-0 z-50">
           <ClinicSidebar />
         </div>
       )}
 
       {/* Main Content Area */}
       <div className="flex flex-col flex-1 min-h-screen max-h-screen" style={{ overflowX: 'visible', minWidth: 0 }}>
-        {/* Header */}
+        {/* Header - Hidden on mobile when sidebar might be open */}
         {!hideHeader && (
-          <div className="sticky top-0 z-20">
-            <ClinicHeader
-              handleToggleDesktop={handleToggleDesktop}
-              handleToggleMobile={handleToggleMobile}
-              isDesktopHidden={isDesktopHidden}
-              isMobileOpen={isMobileOpen}
-            />
+          <div className="sticky top-0 z-10 hidden lg:block">
+            <ClinicHeader />
           </div>
         )}
 

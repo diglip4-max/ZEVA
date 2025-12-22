@@ -81,6 +81,7 @@ const EditableField = ({
   min,
   max,
   step,
+  maxLength,
   isCompact = false,
 }) => (
   <div className="flex-1 min-w-[120px]">
@@ -123,6 +124,7 @@ const EditableField = ({
         min={min}
         max={max}
         step={step}
+        maxLength={maxLength}
         className={`w-full px-2 py-1 text-[10px] border rounded-md focus:ring-1 focus:ring-gray-900 focus:border-gray-900 ${disabled ? "bg-gray-100 cursor-not-allowed text-gray-500" : "bg-white text-gray-900"}`}
       />
     )}
@@ -148,6 +150,16 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
 
   const handleFieldChange = useCallback((e) => {
     const { name, value, type } = e.target;
+    
+    // Handle mobileNumber - only allow digits and limit to 10 digits
+    if (name === "mobileNumber") {
+      const numericValue = value.replace(/\D/g, '');
+      if (numericValue.length <= 10) {
+        setFormData((prev) => ({ ...prev, [name]: numericValue }));
+      }
+      return;
+    }
+    
     let parsedValue = value;
     if (type === "number") {
       parsedValue = value === "" ? "" : Number(value);
@@ -486,10 +498,12 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
                 <EditableField
                   label="Mobile Number"
                   name="mobileNumber"
+                  type="tel"
                   value={canViewMobileNumber ? formData.mobileNumber : ""}
                   onChange={handleFieldChange}
                   required
                   disabled={!canViewMobileNumber}
+                  maxLength={10}
                 />
                 <EditableField
                   label="Gender"
