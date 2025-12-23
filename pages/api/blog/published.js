@@ -360,8 +360,8 @@ export default async function handler(req, res) {
               .json({ success: false, message: "Blog ID required" });
           }
 
-          // Find the existing blog
-          const existingBlog = await Blog.findById(id);
+          // Find the existing blog - must be published status
+          const existingBlog = await Blog.findOne({ _id: id, status: "published" });
           if (!existingBlog) {
             return res
               .status(404)
@@ -372,7 +372,8 @@ export default async function handler(req, res) {
           const isDoctor = me.role === "doctor";
           const isDoctorStaff = me.role === "doctorStaff";
           const isAgent = me.role === "agent";
-          if (error && !isAdmin && !isDoctor && !isDoctorStaff && !isAgent) {
+          // Only return 404 if it's a critical "not found" error
+          if (error && !isAdmin && !isDoctor && !isDoctorStaff && !isAgent && error.includes('not found')) {
             return res.status(404).json({ success: false, message: error });
           }
 

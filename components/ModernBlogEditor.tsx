@@ -19,8 +19,7 @@ import {
   Heading1,
   Heading2,
   Heading3,
-  Plus,
-  Sparkles
+  Plus
 } from 'lucide-react';
 
 interface ModernBlogEditorProps {
@@ -50,8 +49,17 @@ const ModernBlogEditor: React.FC<ModernBlogEditorProps> = ({
   const [showPreview, setShowPreview] = useState(false);
   const [wordCount, setWordCount] = useState(0);
   const [readTime, setReadTime] = useState(0);
+  const [showToolbar, setShowToolbar] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [currentDraftId, setCurrentDraftId] = useState<string | null>(editDraftId || null);
+  const [showVideoOptions, setShowVideoOptions] = useState(false);
   const editorRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const videoInputRef = useRef<HTMLInputElement>(null);
+  const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const lastContentRef = useRef<string>('');
+  const lastTitleRef = useRef<string>('');
 
   const getAuthHeaders = () => {
     const token = localStorage.getItem(tokenKey);
@@ -62,6 +70,26 @@ const ModernBlogEditor: React.FC<ModernBlogEditorProps> = ({
       },
     };
   };
+
+  // Track content changes with MutationObserver to ensure updates are captured
+  useEffect(() => {
+    if (!editorRef.current) return;
+    
+    const observer = new MutationObserver(() => {
+      // Content changed, update state
+      updateContent();
+    });
+    
+    observer.observe(editorRef.current, {
+      childList: true,
+      subtree: true,
+      characterData: true,
+      attributes: true,
+      attributeFilter: ['src', 'href'] // Track image/video src changes
+    });
+    
+    return () => observer.disconnect();
+  }, []);
 
   // Load blog/draft if editing
   useEffect(() => {
@@ -93,9 +121,16 @@ const ModernBlogEditor: React.FC<ModernBlogEditorProps> = ({
         try {
           const res = await axios.get(`/api/blog/draft?id=${editDraftId}`, getAuthHeaders());
           if (res.data.success && res.data.draft) {
-            setTitle(res.data.draft.title || '');
-            setContent(res.data.draft.content || '');
+            const draftTitle = res.data.draft.title || '';
+            const draftContent = res.data.draft.content || '';
+            // Set title - preserve actual title from database, even if empty
+            setTitle(draftTitle);
+            setContent(draftContent);
             setParamlink(res.data.draft.paramlink || '');
+            setCurrentDraftId(editDraftId);
+            // Store last saved values to prevent overwriting - use actual saved values
+            lastTitleRef.current = draftTitle || '';
+            lastContentRef.current = draftContent || '';
             const postedBy = res.data.draft.postedBy;
             setAuthorName(
               typeof postedBy === 'object' && postedBy !== null
@@ -105,7 +140,7 @@ const ModernBlogEditor: React.FC<ModernBlogEditorProps> = ({
             // Set content in editor after a brief delay
             setTimeout(() => {
               if (editorRef.current) {
-                editorRef.current.innerHTML = res.data.draft.content || '';
+                editorRef.current.innerHTML = draftContent;
               }
             }, 100);
           }
@@ -135,6 +170,66 @@ const ModernBlogEditor: React.FC<ModernBlogEditorProps> = ({
     setWordCount(words.length);
     setReadTime(Math.ceil(words.length / 200)); // Average reading speed: 200 words/min
   }, [content]);
+
+  // Auto-save functionality - saves every 1 minute (60 seconds)
+  useEffect(() => {
+    // Clear any existing timer
+    if (autoSaveTimerRef.current) {
+      clearInterval(autoSaveTimerRef.current);
+    }
+
+    // Set up auto-save interval (1 minute = 60000ms)
+    autoSaveTimerRef.current = setInterval(() => {
+      // Only auto-save if there's content and we have a draft ID (to update, not create new)
+      // This ensures we only create one draft, then update it
+      if (currentDraftId || editDraftId) {
+        // We have an existing draft, update it
+        if (title || content || (editorRef.current && editorRef.current.innerHTML.trim() !== '')) {
+          saveDraft(true); // true indicates auto-save
+        }
+      } else {
+        // No draft yet, but only create one if user has typed something
+        const hasContent = title || (editorRef.current && editorRef.current.innerHTML.trim() !== '');
+        if (hasContent) {
+          saveDraft(true); // This will create the first draft
+        }
+      }
+    }, 60000); // 1 minute (60 seconds)
+
+    // Cleanup on unmount
+    return () => {
+      if (autoSaveTimerRef.current) {
+        clearInterval(autoSaveTimerRef.current);
+      }
+    };
+  }, [currentDraftId, editDraftId]); // Re-run when draft ID changes
+
+  // Ensure editor always has cursor when empty
+  useEffect(() => {
+    if (editorRef.current) {
+      const checkCursor = () => {
+        if (editorRef.current) {
+          const isEmpty = !editorRef.current.textContent || editorRef.current.textContent.trim() === '';
+          if (isEmpty && editorRef.current.innerHTML === '') {
+            // Add a paragraph to ensure cursor is visible
+            editorRef.current.innerHTML = '<p><br></p>';
+            const range = document.createRange();
+            const selection = window.getSelection();
+            if (selection && editorRef.current.firstChild) {
+              range.setStart(editorRef.current.firstChild, 0);
+              range.collapse(true);
+              selection.removeAllRanges();
+              selection.addRange(range);
+            }
+          }
+        }
+      };
+      
+      // Check on mount and after content changes
+      const timer = setTimeout(checkCursor, 100);
+      return () => clearTimeout(timer);
+    }
+  }, []);
 
   // Format text with proper selection handling
   const formatText = (command: string, value?: string) => {
@@ -179,6 +274,8 @@ const ModernBlogEditor: React.FC<ModernBlogEditorProps> = ({
       const htmlContent = editorRef.current.innerHTML || '';
       // Always update content, even if empty (will be handled in save)
       setContent(htmlContent);
+      // Also update lastContentRef for change detection
+      lastContentRef.current = htmlContent;
     }
   };
 
@@ -190,7 +287,207 @@ const ModernBlogEditor: React.FC<ModernBlogEditorProps> = ({
     updateContent();
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const removeImage = (imageContainer: HTMLElement) => {
+    if (!editorRef.current) return;
+    
+    // Create a paragraph after the image for cursor positioning
+    const p = document.createElement('p');
+    p.innerHTML = '<br>';
+    
+    // Insert paragraph after image container - use insertAdjacentElement for safety
+    if (imageContainer.parentNode) {
+      imageContainer.insertAdjacentElement('afterend', p);
+    } else {
+      editorRef.current.appendChild(p);
+    }
+    
+    // Remove the image container
+    imageContainer.remove();
+    
+    // Set cursor in the new paragraph
+    const range = document.createRange();
+    range.selectNodeContents(p);
+    range.collapse(true);
+    const selection = window.getSelection();
+    if (selection) {
+      selection.removeAllRanges();
+      selection.addRange(range);
+    }
+    
+    editorRef.current.focus();
+    updateContent();
+  };
+
+  const insertVideoFromUrl = (url: string) => {
+    if (!editorRef.current || !url.trim()) return;
+    
+    editorRef.current.focus();
+    
+    let embedUrl = url.trim();
+    let videoType = 'iframe';
+    
+    // YouTube URL handling
+    if (url.includes('youtube.com/watch?v=')) {
+      const videoId = url.split('v=')[1]?.split('&')[0];
+      embedUrl = `https://www.youtube.com/embed/${videoId}`;
+    } else if (url.includes('youtu.be/')) {
+      const videoId = url.split('youtu.be/')[1]?.split('?')[0];
+      embedUrl = `https://www.youtube.com/embed/${videoId}`;
+    } else if (url.includes('youtube.com/embed/')) {
+      embedUrl = url;
+    }
+    // Vimeo URL handling
+    else if (url.includes('vimeo.com/')) {
+      const videoId = url.split('vimeo.com/')[1]?.split('?')[0];
+      embedUrl = `https://player.vimeo.com/video/${videoId}`;
+    }
+    // Dailymotion URL handling
+    else if (url.includes('dailymotion.com/video/')) {
+      const videoId = url.split('dailymotion.com/video/')[1]?.split('?')[0];
+      embedUrl = `https://www.dailymotion.com/embed/video/${videoId}`;
+    } else if (url.includes('dai.ly/')) {
+      const videoId = url.split('dai.ly/')[1]?.split('?')[0];
+      embedUrl = `https://www.dailymotion.com/embed/video/${videoId}`;
+    }
+    // Direct video file (MP4, WebM, etc.)
+    else if (url.match(/\.(mp4|webm|ogg|mov|avi|wmv|flv)(\?.*)?$/i)) {
+      videoType = 'video';
+    }
+    // Generic iframe URL
+    else if (url.includes('embed') || url.includes('iframe')) {
+      embedUrl = url;
+    }
+    // If none match, try to use as direct video URL
+    else {
+      videoType = 'video';
+    }
+    
+    const container = document.createElement('div');
+    container.style.position = 'relative';
+    container.style.margin = '16px 0';
+    container.style.textAlign = 'center';
+    container.style.display = 'inline-block';
+    container.style.width = '100%';
+    container.className = 'video-container';
+    
+    let mediaElement: HTMLElement;
+    
+    if (videoType === 'video') {
+      const video = document.createElement('video');
+      video.src = embedUrl;
+      video.controls = true;
+      video.style.width = '100%';
+      video.style.maxWidth = '100%';
+      video.style.height = 'auto';
+      video.style.borderRadius = '12px';
+      video.style.display = 'block';
+      mediaElement = video;
+    } else {
+      const iframe = document.createElement('iframe');
+      iframe.src = embedUrl;
+      iframe.width = '100%';
+      iframe.height = '400';
+      iframe.style.maxWidth = '100%';
+      iframe.style.borderRadius = '12px';
+      iframe.style.border = 'none';
+      iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
+      iframe.allowFullscreen = true;
+      mediaElement = iframe;
+    }
+    
+    // Create remove button
+    const removeBtn = document.createElement('button');
+    removeBtn.innerHTML = '×';
+    removeBtn.style.position = 'absolute';
+    removeBtn.style.top = '8px';
+    removeBtn.style.right = '8px';
+    removeBtn.style.width = '32px';
+    removeBtn.style.height = '32px';
+    removeBtn.style.borderRadius = '50%';
+    removeBtn.style.backgroundColor = 'rgba(0, 0, 0, 0.6)';
+    removeBtn.style.color = 'white';
+    removeBtn.style.border = 'none';
+    removeBtn.style.cursor = 'pointer';
+    removeBtn.style.display = 'flex';
+    removeBtn.style.alignItems = 'center';
+    removeBtn.style.justifyContent = 'center';
+    removeBtn.style.fontSize = '20px';
+    removeBtn.style.fontWeight = 'bold';
+    removeBtn.style.opacity = '0';
+    removeBtn.style.transition = 'opacity 0.2s';
+    removeBtn.style.zIndex = '10';
+    removeBtn.onclick = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const p = document.createElement('p');
+      p.innerHTML = '<br>';
+      if (container.parentNode) {
+        container.insertAdjacentElement('afterend', p);
+      } else {
+        editorRef.current?.appendChild(p);
+      }
+      container.remove();
+      const range = document.createRange();
+      range.selectNodeContents(p);
+      range.collapse(true);
+      const selection = window.getSelection();
+      if (selection) {
+        selection.removeAllRanges();
+        selection.addRange(range);
+      }
+      editorRef.current?.focus();
+      updateContent();
+    };
+    
+    container.onmouseenter = () => {
+      removeBtn.style.opacity = '1';
+    };
+    container.onmouseleave = () => {
+      removeBtn.style.opacity = '0';
+    };
+    
+    container.appendChild(mediaElement);
+    container.appendChild(removeBtn);
+    
+    const p = document.createElement('p');
+    p.innerHTML = '<br>';
+    
+    const selection = window.getSelection();
+    if (selection && selection.rangeCount > 0) {
+      const range = selection.getRangeAt(0);
+      range.deleteContents();
+      range.insertNode(container);
+      
+      if (container.parentNode) {
+        container.insertAdjacentElement('afterend', p);
+      } else {
+        editorRef.current.appendChild(p);
+      }
+      
+      const newRange = document.createRange();
+      newRange.selectNodeContents(p);
+      newRange.collapse(true);
+      selection.removeAllRanges();
+      selection.addRange(newRange);
+    } else {
+      editorRef.current.appendChild(container);
+      editorRef.current.appendChild(p);
+      
+      const range = document.createRange();
+      range.selectNodeContents(p);
+      range.collapse(true);
+      const newSelection = window.getSelection();
+      if (newSelection) {
+        newSelection.removeAllRanges();
+        newSelection.addRange(range);
+      }
+    }
+    
+    editorRef.current.focus();
+    updateContent();
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -204,38 +501,122 @@ const ModernBlogEditor: React.FC<ModernBlogEditorProps> = ({
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const imageUrl = event.target?.result as string;
+    // Show loading state
+    showToast('Uploading image...', 'success');
+    
+    try {
+      // Upload image to server first to avoid base64 in content (prevents 413 error)
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      const token = localStorage.getItem(tokenKey);
+      
+      // Upload to server
+      const uploadResponse = await axios.post(
+        '/api/blog/upload',
+        formData,
+        {
+          headers: {
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            // Don't set Content-Type - let browser set it with boundary for multipart/form-data
+          },
+        }
+      );
+      
+      if (!uploadResponse.data || !uploadResponse.data.url) {
+        throw new Error('Upload failed: No URL returned from server');
+      }
+      
+      const imageUrl = uploadResponse.data.url;
+      
       if (editorRef.current) {
         editorRef.current.focus();
+        
+        // Create container div for image with remove button
+        const container = document.createElement('div');
+        container.style.position = 'relative';
+        container.style.margin = '16px 0';
+        container.style.display = 'inline-block';
+        container.style.width = '100%';
+        container.className = 'image-container';
         
         const img = document.createElement('img');
         img.src = imageUrl;
         img.style.maxWidth = '100%';
         img.style.height = 'auto';
         img.style.borderRadius = '12px';
-        img.style.margin = '16px 0';
         img.style.display = 'block';
         img.alt = 'Uploaded image';
+        
+        // Create remove button
+        const removeBtn = document.createElement('button');
+        removeBtn.innerHTML = '×';
+        removeBtn.style.position = 'absolute';
+        removeBtn.style.top = '8px';
+        removeBtn.style.right = '8px';
+        removeBtn.style.width = '32px';
+        removeBtn.style.height = '32px';
+        removeBtn.style.borderRadius = '50%';
+        removeBtn.style.backgroundColor = 'rgba(0, 0, 0, 0.6)';
+        removeBtn.style.color = 'white';
+        removeBtn.style.border = 'none';
+        removeBtn.style.cursor = 'pointer';
+        removeBtn.style.display = 'flex';
+        removeBtn.style.alignItems = 'center';
+        removeBtn.style.justifyContent = 'center';
+        removeBtn.style.fontSize = '20px';
+        removeBtn.style.fontWeight = 'bold';
+        removeBtn.style.opacity = '0';
+        removeBtn.style.transition = 'opacity 0.2s';
+        removeBtn.onclick = (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          removeImage(container);
+        };
+        
+        // Show remove button on hover
+        container.onmouseenter = () => {
+          removeBtn.style.opacity = '1';
+        };
+        container.onmouseleave = () => {
+          removeBtn.style.opacity = '0';
+        };
+        
+        container.appendChild(img);
+        container.appendChild(removeBtn);
+        
+        // Create paragraph after image for cursor positioning
+        const p = document.createElement('p');
+        p.innerHTML = '<br>';
         
         const selection = window.getSelection();
         if (selection && selection.rangeCount > 0) {
           const range = selection.getRangeAt(0);
           range.deleteContents();
-          range.insertNode(img);
+          range.insertNode(container);
           
-          // Move cursor after image
-          range.setStartAfter(img);
-          range.collapse(true);
+          // Insert paragraph after container - use insertAdjacentElement for safety
+          if (container.parentNode) {
+            container.insertAdjacentElement('afterend', p);
+          } else {
+            editorRef.current.appendChild(p);
+          }
+          
+          // Move cursor to the paragraph after image
+          const newRange = document.createRange();
+          newRange.selectNodeContents(p);
+          newRange.collapse(true);
           selection.removeAllRanges();
-          selection.addRange(range);
+          selection.addRange(newRange);
         } else {
           // Append at end
-          editorRef.current.appendChild(img);
+          editorRef.current.appendChild(container);
+          editorRef.current.appendChild(p);
+          
+          // Set cursor in the paragraph
           const range = document.createRange();
-          range.selectNodeContents(editorRef.current);
-          range.collapse(false);
+          range.selectNodeContents(p);
+          range.collapse(true);
           const newSelection = window.getSelection();
           if (newSelection) {
             newSelection.removeAllRanges();
@@ -243,18 +624,170 @@ const ModernBlogEditor: React.FC<ModernBlogEditorProps> = ({
           }
         }
         
+        editorRef.current.focus();
+        
+        // Force content update immediately after image insertion
+        setTimeout(() => {
+          updateContent();
+          // Trigger input event to ensure content is tracked
+          const inputEvent = new Event('input', { bubbles: true });
+          editorRef.current?.dispatchEvent(inputEvent);
+        }, 100);
+        
+        showToast('Image uploaded successfully', 'success');
+      }
+    } catch (error: any) {
+      console.error('Error uploading image:', error);
+      const errorMessage = error.response?.data?.error || error.message || 'Failed to upload image';
+      showToast(errorMessage, 'error');
+      alert(`Failed to upload image: ${errorMessage}`);
+    } finally {
+      // Reset input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  const handleVideoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 100 * 1024 * 1024) {
+      alert('Video size should be less than 100MB');
+      return;
+    }
+
+    if (!file.type.startsWith('video/')) {
+      alert('Please select a valid video file');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const videoUrl = event.target?.result as string;
+      if (editorRef.current) {
+        editorRef.current.focus();
+        
+        const container = document.createElement('div');
+        container.style.position = 'relative';
+        container.style.margin = '16px 0';
+        container.style.textAlign = 'center';
+        container.style.display = 'inline-block';
+        container.style.width = '100%';
+        container.className = 'video-container';
+        
+        const video = document.createElement('video');
+        video.src = videoUrl;
+        video.controls = true;
+        video.style.width = '100%';
+        video.style.maxWidth = '100%';
+        video.style.height = 'auto';
+        video.style.borderRadius = '12px';
+        video.style.display = 'block';
+        
+        // Create remove button
+        const removeBtn = document.createElement('button');
+        removeBtn.innerHTML = '×';
+        removeBtn.style.position = 'absolute';
+        removeBtn.style.top = '8px';
+        removeBtn.style.right = '8px';
+        removeBtn.style.width = '32px';
+        removeBtn.style.height = '32px';
+        removeBtn.style.borderRadius = '50%';
+        removeBtn.style.backgroundColor = 'rgba(0, 0, 0, 0.6)';
+        removeBtn.style.color = 'white';
+        removeBtn.style.border = 'none';
+        removeBtn.style.cursor = 'pointer';
+        removeBtn.style.display = 'flex';
+        removeBtn.style.alignItems = 'center';
+        removeBtn.style.justifyContent = 'center';
+        removeBtn.style.fontSize = '20px';
+        removeBtn.style.fontWeight = 'bold';
+        removeBtn.style.opacity = '0';
+        removeBtn.style.transition = 'opacity 0.2s';
+        removeBtn.style.zIndex = '10';
+        removeBtn.onclick = (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          const p = document.createElement('p');
+          p.innerHTML = '<br>';
+          if (container.parentNode) {
+            container.insertAdjacentElement('afterend', p);
+          } else {
+            editorRef.current?.appendChild(p);
+          }
+          container.remove();
+          const range = document.createRange();
+          range.selectNodeContents(p);
+          range.collapse(true);
+          const selection = window.getSelection();
+          if (selection) {
+            selection.removeAllRanges();
+            selection.addRange(range);
+          }
+          editorRef.current?.focus();
+          updateContent();
+        };
+        
+        container.onmouseenter = () => {
+          removeBtn.style.opacity = '1';
+        };
+        container.onmouseleave = () => {
+          removeBtn.style.opacity = '0';
+        };
+        
+        container.appendChild(video);
+        container.appendChild(removeBtn);
+        
+        const p = document.createElement('p');
+        p.innerHTML = '<br>';
+        
+        const selection = window.getSelection();
+        if (selection && selection.rangeCount > 0) {
+          const range = selection.getRangeAt(0);
+          range.deleteContents();
+          range.insertNode(container);
+          
+          if (container.parentNode) {
+            container.insertAdjacentElement('afterend', p);
+          } else {
+            editorRef.current.appendChild(p);
+          }
+          
+          const newRange = document.createRange();
+          newRange.selectNodeContents(p);
+          newRange.collapse(true);
+          selection.removeAllRanges();
+          selection.addRange(newRange);
+        } else {
+          editorRef.current.appendChild(container);
+          editorRef.current.appendChild(p);
+          
+          const range = document.createRange();
+          range.selectNodeContents(p);
+          range.collapse(true);
+          const newSelection = window.getSelection();
+          if (newSelection) {
+            newSelection.removeAllRanges();
+            newSelection.addRange(range);
+          }
+        }
+        
+        editorRef.current.focus();
         updateContent();
       }
     };
     reader.onerror = () => {
-      alert('Error reading image file');
+      alert('Error reading video file');
     };
     reader.readAsDataURL(file);
     
     // Reset input
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
+    if (videoInputRef.current) {
+      videoInputRef.current.value = '';
     }
+    setShowVideoOptions(false);
   };
 
   const addTopic = () => {
@@ -284,21 +817,36 @@ const ModernBlogEditor: React.FC<ModernBlogEditorProps> = ({
     }
   }, [title]);
 
-  const saveDraft = async () => {
-    // Require some content to save
-    if (!title && !content) {
-      alert('Please enter at least a title or content');
-      return;
-    }
+  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => {
+      setToast(null);
+    }, 3000);
+  };
 
-    // Always capture content from editor before saving
-    let finalContent = content;
+  const saveDraft = async (isAutoSave: boolean = false) => {
+    // Always capture content directly from editor DOM (most up-to-date)
+    // Don't rely on state which might be stale
+    let finalContent = '';
     if (editorRef.current) {
-      const editorContent = editorRef.current.innerHTML || '';
-      // Update state with editor content
-      if (editorContent) {
-        finalContent = editorContent;
-        setContent(editorContent);
+      finalContent = editorRef.current.innerHTML || '';
+      // Update state with editor content to keep it in sync
+      setContent(finalContent);
+    } else {
+      // Fallback to state if editor ref is not available
+      finalContent = content || '';
+    }
+    
+    // Get current title from state - use actual value, don't default yet
+    const currentTitleFromState = title?.trim() || '';
+    const currentContent = finalContent || '<p><br></p>';
+    
+    // Skip auto-save if no changes detected (prevents saving same content multiple times)
+    if (isAutoSave) {
+      // Compare with last saved content and title to avoid duplicate saves
+      // Use the actual title from state, not the defaulted one
+      if (currentContent === lastContentRef.current && currentTitleFromState === lastTitleRef.current) {
+        return; // No changes, skip save to avoid creating duplicate drafts
       }
     }
     
@@ -308,64 +856,148 @@ const ModernBlogEditor: React.FC<ModernBlogEditorProps> = ({
       finalContent = '<p><br></p>';
     }
 
+    // Determine draft ID to use (before try block for error handling)
+    const draftIdToUse = currentDraftId || editDraftId;
+    
+    // Determine effective title - always preserve user's title, never overwrite with "Untitled Draft"
+    let effectiveTitle: string;
+    
+    if (draftIdToUse) {
+      // Existing draft - prioritize title from state (what user typed)
+      // If state is empty, use last saved title to preserve existing title
+      if (currentTitleFromState && currentTitleFromState.trim() !== '') {
+        // User has typed a title - use it
+        effectiveTitle = currentTitleFromState;
+      } else if (lastTitleRef.current && lastTitleRef.current.trim() !== '' && lastTitleRef.current !== 'Untitled Draft') {
+        // No title in state, but we have a saved title - preserve it
+        effectiveTitle = lastTitleRef.current;
+      } else {
+        // Truly no title exists - only then use default
+        effectiveTitle = 'Untitled Draft';
+      }
+    } else {
+      // New draft - use title from state or default to "Untitled Draft"
+      effectiveTitle = currentTitleFromState || 'Untitled Draft';
+    }
+    
+    // Final check - ensure title is not empty (API requirement)
+    // But don't overwrite if user has a title
+    if (!effectiveTitle || effectiveTitle.trim() === '') {
+      effectiveTitle = 'Untitled Draft';
+    }
+
     // Ensure paramlink exists by auto-generating when missing
     let effectiveParamlink = paramlink?.trim();
     if (!effectiveParamlink) {
-      const base = (title || 'untitled').toString();
+      const base = (effectiveTitle || 'untitled').toString();
       effectiveParamlink = slugify(base).slice(0, 60) || `untitled-${Date.now()}`;
       setParamlink(effectiveParamlink);
     }
 
-    // Ensure title exists
-    const effectiveTitle = (title || 'Untitled Draft').trim();
-
-    setIsLoading(true);
+    if (!isAutoSave) {
+      setIsLoading(true);
+    }
+    
     try {
-      // Always send title, content, and paramlink (all non-empty)
+      // Final validation - ensure all fields are non-empty (API requirement)
+      if (!effectiveTitle || effectiveTitle.trim() === '') {
+        effectiveTitle = 'Untitled Draft';
+      }
+      if (!finalContent || finalContent.trim() === '') {
+        finalContent = '<p><br></p>';
+      }
+      if (!effectiveParamlink || effectiveParamlink.trim() === '') {
+        const base = (effectiveTitle || 'untitled').toString();
+        effectiveParamlink = slugify(base).slice(0, 60) || `untitled-${Date.now()}`;
+        setParamlink(effectiveParamlink);
+      }
+      
       const draftData = {
-        title: effectiveTitle,
+        title: effectiveTitle.trim(),
         content: finalContent,
-        paramlink: effectiveParamlink,
+        paramlink: effectiveParamlink.trim(),
       };
       
-      // Final validation - ensure all fields are non-empty strings
-      if (!draftData.title || draftData.title.length === 0) {
-        alert('Title is required');
-        setIsLoading(false);
-        return;
-      }
-      if (!draftData.content || draftData.content.length === 0) {
-        alert('Content is required');
-        setIsLoading(false);
-        return;
-      }
-      if (!draftData.paramlink || draftData.paramlink.length === 0) {
-        alert('URL slug is required');
-        setIsLoading(false);
-        return;
-      }
+      // Don't update title state after saving - preserve what user has typed
+      // The title state should only be updated by user input, not by save operation
 
-      if (editDraftId) {
-        await axios.put(
-          `/api/blog/draft?id=${editDraftId}`,
+      let response;
+      
+      // Add timeout to prevent hanging requests
+      const axiosConfig = {
+        ...getAuthHeaders(),
+        timeout: 30000, // 30 seconds timeout
+      };
+      
+      if (draftIdToUse) {
+        // Update existing draft
+        response = await axios.put(
+          `/api/blog/draft?id=${draftIdToUse}`,
           draftData,
-          getAuthHeaders()
+          axiosConfig
         );
       } else {
-        await axios.post(
+        // Create new draft
+        response = await axios.post(
           '/api/blog/draft',
           draftData,
-          getAuthHeaders()
+          axiosConfig
         );
+        // Save the draft ID for future updates
+        if (response.data?.success && response.data?.draft?._id) {
+          setCurrentDraftId(response.data.draft._id);
+        }
       }
+      
+      // Update last saved content and title
+      lastContentRef.current = finalContent;
+      lastTitleRef.current = effectiveTitle;
+      setLastSaved(new Date());
+      
       if (onSave) onSave();
-      alert('Draft saved successfully!');
+      
+      if (isAutoSave) {
+        showToast('Draft auto-saved', 'success');
+      } else {
+        showToast('Draft saved successfully!', 'success');
+      }
     } catch (error: any) {
       console.error('Error saving draft:', error);
-      const errorMessage = error.response?.data?.message || error.response?.data?.error || 'Failed to save draft';
-      alert(errorMessage);
+      console.error('Draft data sent:', { 
+        title: effectiveTitle, 
+        contentLength: finalContent.length, 
+        paramlink: effectiveParamlink,
+        draftId: draftIdToUse 
+      });
+      
+      let errorMessage = 'Failed to save draft';
+      if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+        // Request timeout
+        errorMessage = 'Request timed out. Please check your connection and try again.';
+        console.error('Request timeout:', error);
+      } else if (error.response) {
+        // Server responded with error
+        errorMessage = error.response.data?.message || error.response.data?.error || `Server error: ${error.response.status}`;
+        console.error('Server error response:', error.response.data);
+      } else if (error.request) {
+        // Request was made but no response received
+        errorMessage = 'Network error: Unable to connect to server. Please check your internet connection.';
+        console.error('Network error - no response:', error.request);
+      } else {
+        // Something else happened
+        errorMessage = error.message || 'Unknown error occurred';
+        console.error('Error setting up request:', error.message);
+      }
+      
+      if (isAutoSave) {
+        showToast('Auto-save failed', 'error');
+      } else {
+        showToast(errorMessage, 'error');
+      }
     } finally {
-      setIsLoading(false);
+      if (!isAutoSave) {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -418,263 +1050,516 @@ const ModernBlogEditor: React.FC<ModernBlogEditorProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-6xl h-[90vh] flex flex-col overflow-hidden">
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-purple-50 to-pink-50">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl">
-              <Sparkles className="w-5 h-5 text-white" />
+      {/* Video Options Modal */}
+      {showVideoOptions && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setShowVideoOptions(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-semibold text-gray-900">Add Video</h3>
+              <button
+                onClick={() => setShowVideoOptions(false)}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-600" />
+              </button>
             </div>
-            <div>
-              <h2 className="text-xl font-bold text-gray-900">
-                {editBlogId || editDraftId ? 'Edit Post' : 'Create New Post'}
-              </h2>
-              <p className="text-sm text-gray-500">Write something amazing</p>
+            <div className="space-y-3">
+              <button
+                onClick={() => {
+                  videoInputRef.current?.click();
+                }}
+                className="w-full flex items-center gap-3 p-4 border-2 border-gray-200 rounded-xl hover:border-purple-500 hover:bg-purple-50 transition-all group"
+              >
+                <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-500 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <Video className="w-6 h-6 text-white" />
+                </div>
+                <div className="text-left">
+                  <div className="font-semibold text-gray-900">Upload Video</div>
+                  <div className="text-sm text-gray-500">Upload a video file from your device</div>
+                </div>
+              </button>
+              <button
+                onClick={() => {
+                  setShowVideoOptions(false);
+                  const url = prompt('Enter video URL (YouTube, Vimeo, Dailymotion, or direct video link):');
+                  if (url && url.trim()) {
+                    insertVideoFromUrl(url);
+                  }
+                }}
+                className="w-full flex items-center gap-3 p-4 border-2 border-gray-200 rounded-xl hover:border-purple-500 hover:bg-purple-50 transition-all group"
+              >
+                <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <LinkIcon className="w-6 h-6 text-white" />
+                </div>
+                <div className="text-left">
+                  <div className="font-semibold text-gray-900">Add URL</div>
+                  <div className="text-sm text-gray-500">Paste a video link (YouTube, Vimeo, etc.)</div>
+                </div>
+              </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Toaster Notification */}
+      {toast && (
+        <div className="fixed top-4 right-4 z-[60] animate-in slide-in-from-top-5">
+          <div className={`px-6 py-3 rounded-lg shadow-lg flex items-center gap-3 ${
+            toast.type === 'success' 
+              ? 'bg-green-500 text-white' 
+              : 'bg-red-500 text-white'
+          }`}>
+            <span>{toast.message}</span>
+            <button
+              onClick={() => setToast(null)}
+              className="ml-2 hover:opacity-70"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-6xl h-[90vh] flex flex-col overflow-hidden">
+        {/* Header - Compact */}
+        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
+          <h2 className="text-lg font-semibold text-gray-900">
+            {editBlogId || editDraftId ? 'Edit Post' : 'New Post'}
+          </h2>
           <div className="flex items-center gap-2">
             <button
               onClick={() => setShowPreview(!showPreview)}
               className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
               title="Preview"
             >
-              <Eye className="w-5 h-5 text-gray-600" />
+              <Eye className="w-4 h-4 text-gray-600" />
             </button>
             <button
               onClick={onClose}
               className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
             >
-              <X className="w-5 h-5 text-gray-600" />
+              <X className="w-4 h-4 text-gray-600" />
             </button>
           </div>
         </div>
 
-        <div className="flex-1 overflow-hidden flex">
+        {/* Title at Top */}
+        <div className="px-6 py-4 border-b border-gray-200">
+          <input
+            type="text"
+            placeholder="Title..."
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            className="w-full text-3xl font-bold border-none outline-none placeholder-gray-400"
+          />
+        </div>
+
+        <div className="flex-1 overflow-hidden flex relative">
           {/* Main Editor */}
           <div className={`flex-1 flex flex-col ${showPreview ? 'w-1/2' : 'w-full'} transition-all duration-300`}>
-            {/* Toolbar */}
-            <div className="p-4 border-b border-gray-200 bg-white">
-              <div className="flex items-center gap-2 flex-wrap">
+            {/* Floating Toolbar in Corner */}
+            <div className="absolute top-4 right-4 z-10">
+              <div className="relative">
+                {/* Plus Button */}
                 <button
-                  onClick={(e) => {
-                    e.preventDefault();
-                    formatText('bold');
-                  }}
-                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                  title="Bold"
-                  type="button"
+                  onClick={() => setShowToolbar(!showToolbar)}
+                  className="w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white rounded-full shadow-lg flex items-center justify-center transition-all transform hover:scale-110"
+                  title="Formatting Options"
                 >
-                  <Bold className="w-4 h-4" />
+                  <Plus className={`w-6 h-6 transition-transform ${showToolbar ? 'rotate-45' : ''}`} />
                 </button>
-                <button
-                  onClick={(e) => {
-                    e.preventDefault();
-                    formatText('italic');
-                  }}
-                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                  title="Italic"
-                  type="button"
-                >
-                  <Italic className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => formatText('underline')}
-                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                  title="Underline"
-                >
-                  <Underline className="w-4 h-4" />
-                </button>
-                <div className="w-px h-6 bg-gray-300 mx-1" />
-                <button
-                  onClick={(e) => {
-                    e.preventDefault();
-                    formatText('formatBlock', '<h1>');
-                  }}
-                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                  title="Heading 1"
-                  type="button"
-                >
-                  <Heading1 className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.preventDefault();
-                    formatText('formatBlock', '<h2>');
-                  }}
-                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                  title="Heading 2"
-                  type="button"
-                >
-                  <Heading2 className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.preventDefault();
-                    formatText('formatBlock', '<h3>');
-                  }}
-                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                  title="Heading 3"
-                  type="button"
-                >
-                  <Heading3 className="w-4 h-4" />
-                </button>
-                <div className="w-px h-6 bg-gray-300 mx-1" />
-                <button
-                  onClick={() => formatText('justifyLeft')}
-                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                  title="Align Left"
-                >
-                  <AlignLeft className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => formatText('justifyCenter')}
-                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                  title="Align Center"
-                >
-                  <AlignCenter className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => formatText('justifyRight')}
-                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                  title="Align Right"
-                >
-                  <AlignRight className="w-4 h-4" />
-                </button>
-                <div className="w-px h-6 bg-gray-300 mx-1" />
-                <button
-                  onClick={() => formatText('insertUnorderedList')}
-                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                  title="Bullet List"
-                >
-                  <List className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => formatText('insertOrderedList')}
-                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                  title="Numbered List"
-                >
-                  <List className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => formatText('formatBlock', '<blockquote>')}
-                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                  title="Quote"
-                >
-                  <Quote className="w-4 h-4" />
-                </button>
-                <div className="w-px h-6 bg-gray-300 mx-1" />
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                  title="Insert Image"
-                >
-                  <ImageIcon className="w-4 h-4" />
-                </button>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleImageUpload}
-                  className="hidden"
-                />
-                <button
-                  onClick={() => {
-                    const url = prompt('Enter YouTube or video URL:');
-                    if (url && editorRef.current) {
-                      editorRef.current.focus();
+                
+                {/* Expanded Toolbar */}
+                {showToolbar && (
+                  <div className="absolute top-14 right-0 bg-white rounded-xl shadow-2xl border border-gray-200 p-3 min-w-[220px] max-h-[85vh] overflow-y-auto z-20">
+                    <div className="flex flex-col gap-1">
+                      <div className="text-xs font-semibold text-gray-500 mb-2 px-2">Text Format</div>
+                      <div className="flex items-center gap-1 flex-wrap">
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            formatText('bold');
+                            setShowToolbar(false);
+                          }}
+                          className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                          title="Bold"
+                          type="button"
+                        >
+                          <Bold className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            formatText('italic');
+                            setShowToolbar(false);
+                          }}
+                          className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                          title="Italic"
+                          type="button"
+                        >
+                          <Italic className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => {
+                            formatText('underline');
+                            setShowToolbar(false);
+                          }}
+                          className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                          title="Underline"
+                        >
+                          <Underline className="w-4 h-4" />
+                        </button>
+                      </div>
                       
-                      let embedUrl = url;
-                      // Convert YouTube URL to embed format
-                      if (url.includes('youtube.com/watch?v=')) {
-                        const videoId = url.split('v=')[1]?.split('&')[0];
-                        embedUrl = `https://www.youtube.com/embed/${videoId}`;
-                      } else if (url.includes('youtu.be/')) {
-                        const videoId = url.split('youtu.be/')[1]?.split('?')[0];
-                        embedUrl = `https://www.youtube.com/embed/${videoId}`;
-                      }
+                      <div className="border-t border-gray-200 my-2"></div>
+                      <div className="text-xs font-semibold text-gray-500 mb-2 px-2">Headings</div>
+                      <div className="flex items-center gap-1 flex-wrap">
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            formatText('formatBlock', '<h1>');
+                            setShowToolbar(false);
+                          }}
+                          className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                          title="Heading 1"
+                          type="button"
+                        >
+                          <Heading1 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            formatText('formatBlock', '<h2>');
+                            setShowToolbar(false);
+                          }}
+                          className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                          title="Heading 2"
+                          type="button"
+                        >
+                          <Heading2 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            formatText('formatBlock', '<h3>');
+                            setShowToolbar(false);
+                          }}
+                          className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                          title="Heading 3"
+                          type="button"
+                        >
+                          <Heading3 className="w-4 h-4" />
+                        </button>
+                      </div>
                       
-                      const container = document.createElement('div');
-                      container.style.margin = '16px 0';
-                      container.style.textAlign = 'center';
+                      <div className="border-t border-gray-200 my-2"></div>
+                      <div className="text-xs font-semibold text-gray-500 mb-2 px-2">Alignment</div>
+                      <div className="flex items-center gap-1 flex-wrap">
+                        <button
+                          onClick={() => {
+                            formatText('justifyLeft');
+                            setShowToolbar(false);
+                          }}
+                          className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                          title="Align Left"
+                        >
+                          <AlignLeft className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => {
+                            formatText('justifyCenter');
+                            setShowToolbar(false);
+                          }}
+                          className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                          title="Align Center"
+                        >
+                          <AlignCenter className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => {
+                            formatText('justifyRight');
+                            setShowToolbar(false);
+                          }}
+                          className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                          title="Align Right"
+                        >
+                          <AlignRight className="w-4 h-4" />
+                        </button>
+                      </div>
                       
-                      const iframe = document.createElement('iframe');
-                      iframe.src = embedUrl;
-                      iframe.width = '100%';
-                      iframe.height = '400';
-                      iframe.style.maxWidth = '100%';
-                      iframe.style.borderRadius = '12px';
-                      iframe.style.border = 'none';
-                      iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture';
-                      iframe.allowFullscreen = true;
+                      <div className="border-t border-gray-200 my-2"></div>
+                      <div className="text-xs font-semibold text-gray-500 mb-2 px-2">Lists & More</div>
+                      <div className="flex items-center gap-1 flex-wrap">
+                        <button
+                          onClick={() => {
+                            formatText('insertUnorderedList');
+                            setShowToolbar(false);
+                          }}
+                          className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                          title="Bullet List"
+                        >
+                          <List className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => {
+                            formatText('insertOrderedList');
+                            setShowToolbar(false);
+                          }}
+                          className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                          title="Numbered List"
+                        >
+                          <List className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => {
+                            formatText('formatBlock', '<blockquote>');
+                            setShowToolbar(false);
+                          }}
+                          className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                          title="Quote"
+                        >
+                          <Quote className="w-4 h-4" />
+                        </button>
+                      </div>
                       
-                      container.appendChild(iframe);
-                      
-                      const selection = window.getSelection();
-                      if (selection && selection.rangeCount > 0) {
-                        const range = selection.getRangeAt(0);
-                        range.deleteContents();
-                        range.insertNode(container);
-                        range.setStartAfter(container);
-                        range.collapse(true);
-                        selection.removeAllRanges();
-                        selection.addRange(range);
-                      } else {
-                        editorRef.current.appendChild(container);
-                      }
-                      
-                      updateContent();
-                    }
-                  }}
-                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                  title="Insert Video"
-                >
-                  <Video className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => {
-                    const selection = window.getSelection();
-                    if (!selection || selection.rangeCount === 0 || selection.toString().trim() === '') {
-                      alert('Please select text to create a link');
-                      return;
-                    }
-                    
-                    const url = prompt('Enter link URL:', 'https://');
-                    if (url && url.trim()) {
-                      if (!url.startsWith('http://') && !url.startsWith('https://')) {
-                        formatText('createLink', `https://${url}`);
-                      } else {
-                        formatText('createLink', url);
-                      }
-                    }
-                  }}
-                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                  title="Insert Link"
-                >
-                  <LinkIcon className="w-4 h-4" />
-                </button>
+                      <div className="border-t border-gray-200 my-2"></div>
+                      <div className="text-xs font-semibold text-gray-500 mb-2 px-2">Media</div>
+                      <div className="flex items-center gap-1 flex-wrap">
+                        <button
+                          onClick={() => {
+                            fileInputRef.current?.click();
+                            setShowToolbar(false);
+                          }}
+                          className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                          title="Insert Image"
+                        >
+                          <ImageIcon className="w-4 h-4" />
+                        </button>
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          accept="image/*"
+                          onChange={handleImageUpload}
+                          className="hidden"
+                        />
+                        <button
+                          onClick={() => {
+                            setShowVideoOptions(true);
+                            setShowToolbar(false);
+                          }}
+                          className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                          title="Insert Video"
+                        >
+                          <Video className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => {
+                            const selection = window.getSelection();
+                            if (!selection || selection.rangeCount === 0 || selection.toString().trim() === '') {
+                              alert('Please select text to create a link');
+                              setShowToolbar(false);
+                              return;
+                            }
+                            
+                            const url = prompt('Enter link URL:', 'https://');
+                            if (url && url.trim()) {
+                              if (!url.startsWith('http://') && !url.startsWith('https://')) {
+                                formatText('createLink', `https://${url}`);
+                              } else {
+                                formatText('createLink', url);
+                              }
+                            }
+                            setShowToolbar(false);
+                          }}
+                          className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                          title="Insert Link"
+                        >
+                          <LinkIcon className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
             {/* Editor Content */}
             <div className="flex-1 overflow-y-auto p-6">
-              {/* Title */}
-              <input
-                type="text"
-                placeholder="Write a catchy title..."
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                className="w-full text-4xl font-bold mb-6 border-none outline-none placeholder-gray-400"
-              />
-
-              {/* Author Name */}
+              {/* Story/Content Editor */}
               <div className="mb-4">
-                <input
-                  type="text"
-                  placeholder="Author name (optional)"
-                  value={authorName}
-                  onChange={(e) => setAuthorName(e.target.value)}
-                  className="w-full text-lg text-gray-600 border-none outline-none placeholder-gray-400"
-                />
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Story</label>
+              </div>
+
+              {/* Comprehensive Toolbar - All in One Line */}
+              <div className="mb-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                <div className="flex items-center gap-2 flex-wrap">
+                  {/* Text Formatting */}
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault();
+                      formatText('bold');
+                    }}
+                    className="p-2 hover:bg-white rounded-lg transition-colors border border-transparent hover:border-gray-300"
+                    title="Bold (Ctrl+B)"
+                  >
+                    <Bold className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault();
+                      formatText('italic');
+                    }}
+                    className="p-2 hover:bg-white rounded-lg transition-colors border border-transparent hover:border-gray-300"
+                    title="Italic (Ctrl+I)"
+                  >
+                    <Italic className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => formatText('underline')}
+                    className="p-2 hover:bg-white rounded-lg transition-colors border border-transparent hover:border-gray-300"
+                    title="Underline (Ctrl+U)"
+                  >
+                    <Underline className="w-4 h-4" />
+                  </button>
+                  
+                  <div className="w-px h-6 bg-gray-300 mx-1" />
+                  
+                  {/* Headings */}
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault();
+                      formatText('formatBlock', '<h1>');
+                    }}
+                    className="p-2 hover:bg-white rounded-lg transition-colors border border-transparent hover:border-gray-300"
+                    title="Heading 1"
+                  >
+                    <Heading1 className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault();
+                      formatText('formatBlock', '<h2>');
+                    }}
+                    className="p-2 hover:bg-white rounded-lg transition-colors border border-transparent hover:border-gray-300"
+                    title="Heading 2"
+                  >
+                    <Heading2 className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.preventDefault();
+                      formatText('formatBlock', '<h3>');
+                    }}
+                    className="p-2 hover:bg-white rounded-lg transition-colors border border-transparent hover:border-gray-300"
+                    title="Heading 3"
+                  >
+                    <Heading3 className="w-4 h-4" />
+                  </button>
+                  
+                  <div className="w-px h-6 bg-gray-300 mx-1" />
+                  
+                  {/* Alignment */}
+                  <button
+                    onClick={() => formatText('justifyLeft')}
+                    className="p-2 hover:bg-white rounded-lg transition-colors border border-transparent hover:border-gray-300"
+                    title="Align Left"
+                  >
+                    <AlignLeft className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => formatText('justifyCenter')}
+                    className="p-2 hover:bg-white rounded-lg transition-colors border border-transparent hover:border-gray-300"
+                    title="Align Center"
+                  >
+                    <AlignCenter className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => formatText('justifyRight')}
+                    className="p-2 hover:bg-white rounded-lg transition-colors border border-transparent hover:border-gray-300"
+                    title="Align Right"
+                  >
+                    <AlignRight className="w-4 h-4" />
+                  </button>
+                  
+                  <div className="w-px h-6 bg-gray-300 mx-1" />
+                  
+                  {/* Lists & Quote */}
+                  <button
+                    onClick={() => formatText('insertUnorderedList')}
+                    className="p-2 hover:bg-white rounded-lg transition-colors border border-transparent hover:border-gray-300"
+                    title="Bullet List"
+                  >
+                    <List className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => formatText('insertOrderedList')}
+                    className="p-2 hover:bg-white rounded-lg transition-colors border border-transparent hover:border-gray-300"
+                    title="Numbered List"
+                  >
+                    <List className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => formatText('formatBlock', '<blockquote>')}
+                    className="p-2 hover:bg-white rounded-lg transition-colors border border-transparent hover:border-gray-300"
+                    title="Quote"
+                  >
+                    <Quote className="w-4 h-4" />
+                  </button>
+                  
+                  <div className="w-px h-6 bg-gray-300 mx-1" />
+                  
+                  {/* Media */}
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="p-2 hover:bg-white rounded-lg transition-colors border border-transparent hover:border-gray-300"
+                    title="Insert Image"
+                  >
+                    <ImageIcon className="w-4 h-4" />
+                  </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    className="hidden"
+                  />
+                  <button
+                    onClick={() => setShowVideoOptions(true)}
+                    className="p-2 hover:bg-white rounded-lg transition-colors border border-transparent hover:border-gray-300"
+                    title="Insert Video"
+                  >
+                    <Video className="w-4 h-4" />
+                  </button>
+                  <input
+                    ref={videoInputRef}
+                    type="file"
+                    accept="video/*"
+                    onChange={handleVideoUpload}
+                    className="hidden"
+                  />
+                  <button
+                    onClick={() => {
+                      const selection = window.getSelection();
+                      if (!selection || selection.rangeCount === 0 || selection.toString().trim() === '') {
+                        alert('Please select text to create a link');
+                        return;
+                      }
+                      
+                      const url = prompt('Enter link URL:', 'https://');
+                      if (url && url.trim()) {
+                        if (!url.startsWith('http://') && !url.startsWith('https://')) {
+                          formatText('createLink', `https://${url}`);
+                        } else {
+                          formatText('createLink', url);
+                        }
+                      }
+                    }}
+                    className="p-2 hover:bg-white rounded-lg transition-colors border border-transparent hover:border-gray-300"
+                    title="Insert Link"
+                  >
+                    <LinkIcon className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
 
               {/* Featured Image */}
@@ -701,9 +1586,38 @@ const ModernBlogEditor: React.FC<ModernBlogEditorProps> = ({
                 onInput={updateContent}
                 onPaste={handlePaste}
                 onBlur={updateContent}
+                onKeyDown={() => {
+                  // Ensure cursor is visible after key presses
+                  if (editorRef.current) {
+                    setTimeout(() => {
+                      const selection = window.getSelection();
+                      if (selection && selection.rangeCount > 0) {
+                        const range = selection.getRangeAt(0);
+                        // Ensure cursor is visible
+                        try {
+                          range.collapse(true);
+                          selection.removeAllRanges();
+                          selection.addRange(range);
+                        } catch (err) {
+                          // Ignore errors
+                        }
+                      }
+                    }, 0);
+                  }
+                }}
+                onClick={() => {
+                  // Ensure cursor is visible on click
+                  if (editorRef.current) {
+                    setTimeout(() => {
+                      editorRef.current?.focus();
+                    }, 0);
+                  }
+                }}
                 className="min-h-[400px] text-lg leading-relaxed text-gray-700 focus:outline-none prose prose-lg max-w-none"
                 style={{
                   wordBreak: 'break-word',
+                  caretColor: '#9333ea', // Purple cursor color for visibility
+                  outline: 'none',
                 }}
                 suppressContentEditableWarning={true}
               />
@@ -711,7 +1625,7 @@ const ModernBlogEditor: React.FC<ModernBlogEditorProps> = ({
               {/* Topics */}
               <div className="mt-8 pt-6 border-t border-gray-200">
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Topics / Tags
+                  #Hashtags
                 </label>
                 <div className="flex flex-wrap gap-2 mb-3">
                   {topics.map((topic) => (
@@ -775,10 +1689,15 @@ const ModernBlogEditor: React.FC<ModernBlogEditorProps> = ({
               <div className="flex items-center gap-4 text-sm text-gray-600">
                 <span>{wordCount} words</span>
                 <span>{readTime} min read</span>
+                {lastSaved && (
+                  <span className="text-xs text-gray-500">
+                    Last saved: {lastSaved.toLocaleTimeString()}
+                  </span>
+                )}
               </div>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={saveDraft}
+                  onClick={() => saveDraft(false)}
                   disabled={isLoading}
                   className="px-4 py-2 bg-gray-200 hover:bg-gray-300 rounded-lg font-medium transition-colors disabled:opacity-50"
                 >

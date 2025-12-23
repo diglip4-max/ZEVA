@@ -371,8 +371,12 @@ function ModernBlogForm() {
       if (draftsRes.status === 200) {
         const drafts = draftsRes.data?.drafts || draftsRes.data || [];
         // Sanitize all drafts to ensure no objects are rendered
+        // Also filter out any published posts that might have slipped through
         const sanitized = Array.isArray(drafts)
-          ? drafts.map(sanitizePost).filter((p): p is PostType => p !== null)
+          ? drafts
+              .map(sanitizePost)
+              .filter((p): p is PostType => p !== null)
+              .filter((p) => p.status === 'draft' || !p.status) // Only show drafts, filter out published
           : [];
         setDraftPosts(sanitized);
       }
