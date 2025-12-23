@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import axios from 'axios';
 import { useRouter } from 'next/router';
 import CreateAgentModal from '../../components/CreateAgentModal';
@@ -1126,16 +1127,19 @@ const ManageAgentsPage: NextPageWithLayout = () => {
         adminToken={adminToken || undefined}
       />
 
-      {/* Agent Permission Modal */}
-      {permissionAgent && (
-        <AgentPermissionModal
-          isOpen={!!permissionAgent}
-          onClose={() => setPermissionAgent(null)}
-          agentId={permissionAgent._id}
-          agentName={permissionAgent.name}
-          token={adminToken || null}
-          userRole="admin"
-        />
+      {/* MODIFIED: Agent Permission Modal - Using Portal to render outside layout stacking context */}
+      {permissionAgent && typeof window !== 'undefined' && createPortal(
+        <div style={{ zIndex: 9999 }} className="fixed inset-0">
+          <AgentPermissionModal
+            isOpen={!!permissionAgent}
+            onClose={() => setPermissionAgent(null)}
+            agentId={permissionAgent._id}
+            agentName={permissionAgent.name}
+            token={adminToken || null}
+            userRole="admin"
+          />
+        </div>,
+        document.body
       )}
 
       {/* Delete Confirmation Modal */}

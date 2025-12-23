@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/router";
 import axios from "axios";
+import { createPortal } from "react-dom";
 import AdminLayout from "../../components/AdminLayout";
 import withAdminAuth from "../../components/withAdminAuth";
 import type { NextPageWithLayout } from "../_app";
@@ -165,11 +166,15 @@ function AdminDoctors() {
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
   const [isAgent, setIsAgent] = useState<boolean>(false);
   
+  // MODIFIED: Check if we're on an agent route synchronously (router.pathname is available immediately)
+  // This allows permissions to start loading on first render for agent routes
+  const isAgentRoute = router.pathname?.startsWith('/agent/') || 
+                       (typeof window !== 'undefined' && window.location.pathname?.startsWith('/agent/'));
+  
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const adminToken = !!localStorage.getItem('adminToken');
       const agentToken = !!localStorage.getItem('agentToken');
-      const isAgentRoute = router.pathname?.startsWith('/agent/') || window.location.pathname?.startsWith('/agent/');
       
       if (isAgentRoute && agentToken) {
         setIsAdmin(false);
@@ -185,11 +190,16 @@ function AdminDoctors() {
         setIsAgent(false);
       }
     }
-  }, [router.pathname]);
+  }, [router.pathname, isAgentRoute]);
   
-  const agentPermissionsData: any = useAgentPermissions(isAgent ? "admin_approval_doctors" : (null as any));
+  // MODIFIED: Start fetching permissions immediately if on agent route (check route synchronously)
+  // This ensures permissions start loading before isAgent state is set, preventing premature access denied
+  const shouldCheckPermissions = isAgentRoute || (typeof window !== 'undefined' && !!localStorage.getItem('agentToken'));
+  
+  const agentPermissionsData: any = useAgentPermissions(shouldCheckPermissions ? "admin_approval_doctors" : (null as any));
   const agentPermissions = isAgent ? agentPermissionsData?.permissions : null;
-  const permissionsLoading = isAgent ? agentPermissionsData?.loading : false;
+  // MODIFIED: Also show loading if we're on agent route but haven't determined if user is agent yet
+  const permissionsLoading = shouldCheckPermissions ? agentPermissionsData?.loading : false;
 
   const fetchDoctors = async () => {
     setLoading(true);
@@ -588,7 +598,8 @@ function AdminDoctors() {
                 {action.charAt(0).toUpperCase() + action.slice(1)}
               </button>
             ))}
-            {canManagePassword && (
+            {/* MODIFIED: Password management only shown for approved doctors, not pending or declined */}
+            {canManagePassword && activeTab !== "pending" && doctor.user.isApproved && (
               <button
                 onClick={() => openPasswordModal(doctor)}
                 className={`rounded-lg border px-4 py-2 text-sm font-semibold transition ${
@@ -623,18 +634,27 @@ function AdminDoctors() {
 
   const hasReadPermission = isAdmin || (isAgent && agentPermissions && (agentPermissions.canRead === true || agentPermissions.canAll === true));
 
-  if (loading || (isAgent && permissionsLoading)) {
+  // MODIFIED: Show loading if:
+  // 1. Data is loading, OR
+  // 2. We're on agent route and permissions are still loading (even if isAgent not set yet)
+  if (loading || permissionsLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-800 mx-auto"></div>
-          <p className="mt-4 text-gray-700">Loading doctors...</p>
+          <p className="mt-4 text-gray-700">
+            {permissionsLoading ? 'Loading permissions...' : 'Loading doctors...'}
+          </p>
         </div>
       </div>
     );
   }
 
-  if (isAgent && !hasReadPermission) {
+  // MODIFIED: Only show access denied if:
+  // 1. User is an agent (determined), AND
+  // 2. Permissions have finished loading (permissionsLoading is false), AND
+  // 3. User doesn't have permission
+  if (isAgent && !permissionsLoading && !hasReadPermission) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-lg shadow-sm p-8 max-w-md w-full text-center">
@@ -881,8 +901,8 @@ function AdminDoctors() {
       </div>
 
       {/* Confirmation Modal */}
-      {confirmAction.show && (
-        <div className="fixed inset-0 backdrop-blur-sm bg-black/20 flex items-center justify-center z-50 p-4">
+      {confirmAction.show && typeof window !== 'undefined' && createPortal(
+        <div className="fixed inset-0 backdrop-blur-sm bg-black/20 flex items-center justify-center z-[9999] p-4" style={{ zIndex: 9999 }}>
           <div className="bg-white rounded-lg shadow-xl p-8 max-w-md w-full">
             <div className="text-center">
               <div className="mx-auto mb-4 w-16 h-16 rounded-full flex items-center justify-center">
@@ -949,24 +969,29 @@ function AdminDoctors() {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Map Modal */}
-      {mapVisible && selectedLocation && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
-            <div className="flex items-center justify-between p-4 border-b border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-900">Doctor Location</h3>
+      {mapVisible && selectedLocation && typeof window !== 'undefined' && createPortal(
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[9999] p-4" style={{ zIndex: 9999 }}>
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200 flex-shrink-0">
+              <h3 className="text-lg sm:text-xl font-semibold text-gray-900 flex items-center gap-2">
+                <MapPinIcon className="w-5 h-5 text-blue-600" />
+                <span>Doctor Location</span>
+              </h3>
               <button
                 onClick={() => setMapVisible(false)}
-                className="text-gray-700 hover:text-gray-900"
+                className="text-gray-700 hover:text-gray-900 p-1.5 rounded-lg hover:bg-gray-100 transition-colors flex-shrink-0"
+                aria-label="Close map"
               >
-                <XCircleIcon className="w-6 h-6" />
+                <XCircleIcon className="w-5 h-5 sm:w-6 sm:h-6" />
               </button>
             </div>
-            <div className="p-4">
-              <div className="w-full h-96">
+            <div className="p-4 sm:p-6 flex-1 overflow-hidden">
+              <div className="w-full h-full min-h-[400px]">
                 {selectedLocation.lat !== 0 && selectedLocation.lng !== 0 ? (
                   <GoogleMap
                     mapContainerStyle={{ width: "100%", height: "100%" }}
@@ -990,20 +1015,25 @@ function AdminDoctors() {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Treatments Modal */}
-      {treatmentsModal.open && treatmentsModal.doctor && (
-        <div className="fixed inset-0 backdrop-blur-sm bg-black/20 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl p-6 max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold text-gray-900">Available Treatments</h2>
+      {treatmentsModal.open && treatmentsModal.doctor && typeof window !== 'undefined' && createPortal(
+        <div className="fixed inset-0 backdrop-blur-sm bg-black/20 flex items-center justify-center z-[9999] p-4" style={{ zIndex: 9999 }}>
+          <div className="bg-white rounded-lg shadow-xl p-4 sm:p-6 max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between mb-4 flex-shrink-0">
+              <h2 className="text-lg sm:text-xl font-semibold text-gray-900 flex items-center gap-2">
+                <BeakerIcon className="w-5 h-5 text-indigo-600" />
+                <span>Available Treatments</span>
+              </h2>
               <button
                 onClick={() => setTreatmentsModal({ open: false, doctor: null })}
-                className="text-gray-700 hover:text-gray-900"
+                className="text-gray-700 hover:text-gray-900 p-1.5 rounded-lg hover:bg-gray-100 transition-colors flex-shrink-0"
+                aria-label="Close treatments"
               >
-                <XCircleIcon className="w-6 h-6" />
+                <XCircleIcon className="w-5 h-5 sm:w-6 sm:h-6" />
               </button>
             </div>
             <div className="overflow-y-auto flex-1">
@@ -1040,12 +1070,13 @@ function AdminDoctors() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Password Modal */}
-      {passwordModal.show && (
-        <div className="fixed inset-0 backdrop-blur-sm bg-black/20 flex items-center justify-center z-50 p-4">
+      {passwordModal.show && typeof window !== 'undefined' && createPortal(
+        <div className="fixed inset-0 backdrop-blur-sm bg-black/20 flex items-center justify-center z-[9999] p-4" style={{ zIndex: 9999 }}>
           <div className="bg-white rounded-lg shadow-xl p-8 max-w-md w-full">
             <div className="text-center mb-6">
               <div className="mx-auto mb-4 w-16 h-16 rounded-full flex items-center justify-center bg-blue-100">
@@ -1179,31 +1210,33 @@ function AdminDoctors() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Detail Modal */}
-      {detailDoctor && (
-        <div className="fixed inset-0 backdrop-blur-sm bg-black/30 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden">
+      {detailDoctor && typeof window !== 'undefined' && createPortal(
+        <div className="fixed inset-0 backdrop-blur-sm bg-black/30 flex items-center justify-center z-[9999] p-4" style={{ zIndex: 9999 }}>
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col">
             {/* Header */}
-            <div className="flex items-center justify-between p-4 border-b border-slate-200 bg-slate-50">
-              <div className="flex items-center gap-2">
-                <UserGroupIcon className="w-5 h-5 text-slate-600" />
-                <h3 className="text-lg font-semibold text-slate-900">
+            <div className="flex items-center justify-between p-4 sm:p-6 border-b border-slate-200 bg-slate-50 flex-shrink-0">
+              <div className="flex items-center gap-2 min-w-0 flex-1">
+                <UserGroupIcon className="w-5 h-5 text-slate-600 flex-shrink-0" />
+                <h3 className="text-base sm:text-lg font-semibold text-slate-900 truncate">
                   {detailDoctor.user.name}
                 </h3>
               </div>
               <button
                 onClick={() => setDetailDoctor(null)}
-                className="text-slate-500 hover:text-slate-900 p-1 rounded hover:bg-slate-200 transition-colors"
+                className="text-slate-500 hover:text-slate-900 p-1.5 rounded-lg hover:bg-slate-200 transition-colors flex-shrink-0"
+                aria-label="Close details"
               >
                 <XCircleIcon className="w-5 h-5" />
               </button>
             </div>
 
             {/* Compact Content */}
-            <div className="p-4 space-y-3">
+            <div className="p-4 sm:p-6 space-y-3 overflow-y-auto flex-1">
               {/* Degree */}
               <div className="flex items-center gap-3 text-sm">
                 <BriefcaseIcon className="w-4 h-4 text-indigo-600 flex-shrink-0" />
@@ -1226,8 +1259,8 @@ function AdminDoctors() {
                 </div>
               </div>
 
-              {/* Password Status */}
-              {canManagePassword && (
+              {/* MODIFIED: Password Status - Only shown for approved/declined doctors, not pending */}
+              {canManagePassword && detailDoctor.user.isApproved && (
                 <div className="flex items-start gap-3 text-sm">
                   <svg className="w-4 h-4 text-slate-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
@@ -1340,16 +1373,17 @@ function AdminDoctors() {
             </div>
 
             {/* Footer */}
-            <div className="border-t border-slate-200 p-3 bg-slate-50 flex justify-end">
+            <div className="border-t border-slate-200 p-3 sm:p-4 bg-slate-50 flex justify-end flex-shrink-0">
               <button
                 onClick={() => setDetailDoctor(null)}
-                className="rounded-lg bg-slate-800 hover:bg-slate-700 text-white px-4 py-1.5 text-xs font-medium transition-colors"
+                className="rounded-lg bg-slate-800 hover:bg-slate-700 text-white px-4 py-2 text-sm font-medium transition-colors"
               >
                 Close
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
