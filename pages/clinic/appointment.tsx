@@ -2336,12 +2336,14 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                                           )}
                                         </div>
                                       </div>
-                                      <div className="flex items-center gap-0.5 mt-auto">
-                                        <Clock className="w-2 h-2 opacity-90 flex-shrink-0" />
-                                        <p className="truncate text-[9px] font-semibold opacity-95 leading-tight">
-                                          {formatTime(apt.fromTime)} - {formatTime(apt.toTime)}
-                                        </p>
-                                      </div>
+                                      {!isShortAppointment && (
+                                        <div className="flex items-center gap-0.5 mt-auto">
+                                          <Clock className="w-2 h-2 opacity-90 flex-shrink-0" />
+                                          <p className="truncate text-[9px] font-semibold opacity-95 leading-tight">
+                                            {formatTime(apt.fromTime)} - {formatTime(apt.toTime)}
+                                          </p>
+                                        </div>
+                                      )}
                                     </div>
                                   </div>
                                 );
@@ -2522,12 +2524,14 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                                           )}
                                         </div>
                                       </div>
-                                      <div className="flex items-center gap-0.5 mt-auto">
-                                        <Clock className="w-2 h-2 opacity-90 dark:opacity-90 flex-shrink-0 text-gray-700 dark:text-gray-800" />
-                                        <p className="truncate text-[9px] font-semibold opacity-95 dark:opacity-95 leading-tight text-gray-700 dark:text-gray-800">
-                                          {formatTime(apt.fromTime)} - {formatTime(apt.toTime)}
-                                        </p>
-                                      </div>
+                                      {!isShortAppointment && (
+                                        <div className="flex items-center gap-0.5 mt-auto">
+                                          <Clock className="w-2 h-2 opacity-90 dark:opacity-90 flex-shrink-0 text-gray-700 dark:text-gray-800" />
+                                          <p className="truncate text-[9px] font-semibold opacity-95 dark:opacity-95 leading-tight text-gray-700 dark:text-gray-800">
+                                            {formatTime(apt.fromTime)} - {formatTime(apt.toTime)}
+                                          </p>
+                                        </div>
+                                      )}
                                     </div>
                                   </div>
                                 );

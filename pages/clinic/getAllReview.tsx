@@ -438,12 +438,33 @@ function ClinicReviews() {
 
   const stats = getRatingStats();
 
-  if (loading) {
+  // Show loading state
+  if (loading || !permissionsLoaded) {
     return (
       <div className="w-full p-4 flex items-center justify-center min-h-screen">
         <div className="text-center">
           <div className="w-8 h-8 border-3 border-blue-200 rounded-full animate-spin mx-auto" style={{ borderTopColor: '#3b82f6' }}></div>
           <p className="text-gray-600 mt-3 text-sm animate-pulse">Loading reviews...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show full-page access denied message when read permission is false
+  if (permissionsLoaded && !permissions.canRead) {
+    return (
+      <div className="w-full min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white rounded-xl border border-red-200 shadow-lg p-8 text-center">
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <MessageSquare className="w-8 h-8 text-red-600" />
+          </div>
+          <h2 className="text-xl font-bold text-gray-900 mb-2">Access Denied</h2>
+          <p className="text-sm text-gray-700 mb-4">
+            You do not have permission to view clinic reviews.
+          </p>
+          <p className="text-xs text-gray-600">
+            Please contact your administrator to request access to the Reviews module.
+          </p>
         </div>
       </div>
     );
@@ -466,21 +487,10 @@ function ClinicReviews() {
         </div>
       </div>
 
-      {/* Error or Permission Denied */}
+      {/* Error Message */}
       {error && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-2.5">
           <p className="text-xs sm:text-sm text-red-700">{error}</p>
-        </div>
-      )}
-
-      {/* Permission Denied Message */}
-      {permissionsLoaded && !permissions.canRead && !error && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-center">
-          <div className="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-3">
-            <MessageSquare className="w-6 h-6 text-yellow-600" />
-          </div>
-          <h3 className="text-sm font-semibold text-yellow-900 mb-1">Access Denied</h3>
-          <p className="text-xs text-yellow-700">You do not have permission to view clinic reviews. Please contact your administrator.</p>
         </div>
       )}
 
