@@ -1012,8 +1012,10 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                 No payment history found
               </div>
             ) : (
-              <div className="overflow-x-auto rounded border border-gray-200 dark:border-gray-300 shadow-sm max-w-full">
-                <table className="w-full border-collapse min-w-[600px] sm:min-w-[700px] md:min-w-full">
+              // <div className="overflow-x-auto rounded border border-gray-200 dark:border-gray-300 shadow-sm max-w-full">
+              <div className="flex-1 overflow-auto rounded border border-gray-200 dark:border-gray-300 shadow-sm">
+  <table className="w-full border-collapse text-[9px] sm:text-[10px]">
+               {/* <table className="w-full border-collapse min-w-[600px] sm:min-w-[700px] md:min-w-full"> */}
                   <thead>
                     <tr className="bg-gray-800 dark:bg-gray-700 border-b border-gray-700 dark:border-gray-600">
                       <th className="px-1 sm:px-1.5 py-2 text-left text-[9px] sm:text-[10px] font-semibold text-white border-r border-gray-700 dark:border-gray-600 whitespace-nowrap">Invoice ID</th>
