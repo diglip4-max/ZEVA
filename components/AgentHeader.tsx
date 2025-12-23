@@ -1,19 +1,14 @@
 import React, { useState, useEffect } from 'react';
 
 interface ClinicHeaderProps {
-  handleToggleDesktop: () => void;
   handleToggleMobile: () => void;
-  isDesktopHidden: boolean;
   isMobileOpen: boolean;
 }
 
 const ClinicHeader: React.FC<ClinicHeaderProps> = ({
-  handleToggleDesktop,
   handleToggleMobile,
-  isDesktopHidden,
   isMobileOpen
 }) => {
-  const [screenWidth, setScreenWidth] = useState<number | null>(null);
   const [tokenUser, setTokenUser] = useState<{ name?: string; email?: string } | null>(null);
 
   const handleLogout = () => {
@@ -61,22 +56,7 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
   }, []);
 
 
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      setScreenWidth(window.innerWidth);
-      const handleResize = () => setScreenWidth(window.innerWidth);
-      window.addEventListener('resize', handleResize);
-      return () => window.removeEventListener('resize', handleResize);
-    }
-  }, []);
 
-  const handleResponsiveToggle = () => {
-    if (screenWidth && screenWidth < 1024) {
-      handleToggleMobile();
-    } else {
-      handleToggleDesktop();
-    }
-  };
 
 //   const getInitials = (name: string) => {
 //     return name
@@ -92,23 +72,20 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
       <div className="flex items-center justify-between gap-2">
         {/* Left: Toggle + Brand */}
         <div className="flex items-center gap-2 sm:gap-4 min-w-0">
+          {/* Mobile Hamburger - Only visible on mobile */}
           <button
-            onClick={handleResponsiveToggle}
-            className="p-1.5 sm:p-2 rounded-lg hover:bg-gray-100 transition-colors duration-200 flex-shrink-0"
+            onClick={handleToggleMobile}
+            className="p-1.5 sm:p-2 rounded-lg hover:bg-gray-100 transition-colors duration-200 flex-shrink-0 lg:hidden"
             aria-label="Toggle sidebar"
           >
             <svg
-              className={`w-4 h-4 sm:w-5 sm:h-5 text-gray-600 transition-transform duration-300 ${screenWidth && screenWidth < 1024 && (isDesktopHidden || isMobileOpen) ? 'rotate-90' : ''}`}
+              className={`w-4 h-4 sm:w-5 sm:h-5 text-gray-600 transition-transform duration-300 ${isMobileOpen ? 'rotate-90' : ''}`}
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
             >
-              {screenWidth && screenWidth < 1024 ? (
-                (isDesktopHidden || isMobileOpen) ? (
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                ) : (
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                )
+              {isMobileOpen ? (
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               ) : (
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
               )}

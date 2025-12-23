@@ -123,6 +123,10 @@ interface NavigationItemFromAPI {
 
 interface ClinicSidebarProps {
   className?: string;
+  externalIsDesktopHidden?: boolean;
+  externalIsMobileOpen?: boolean;
+  onExternalToggleDesktop?: () => void;
+  onExternalToggleMobile?: () => void;
 }
 
 // Professional icon mapping for clinic sidebar - using Lucide React icons
@@ -353,10 +357,20 @@ const iconMap: { [key: string]: React.ReactNode } = {
   // Default fallback for any unmapped icons
 };
 
-const ClinicSidebar: FC<ClinicSidebarProps> = ({ className }) => {
+const ClinicSidebar: FC<ClinicSidebarProps> = ({ 
+  className,
+  externalIsDesktopHidden,
+  externalIsMobileOpen,
+  onExternalToggleDesktop,
+  onExternalToggleMobile,
+}) => {
   const router = useRouter();
-  const [isDesktopHidden, setIsDesktopHidden] = useState(false);
-  const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const [internalIsDesktopHidden, setInternalIsDesktopHidden] = useState(false);
+  const [internalIsMobileOpen, setInternalIsMobileOpen] = useState(false);
+  
+  // Use external state if provided, otherwise use internal state
+  const isDesktopHidden = externalIsDesktopHidden !== undefined ? externalIsDesktopHidden : internalIsDesktopHidden;
+  const isMobileOpen = externalIsMobileOpen !== undefined ? externalIsMobileOpen : internalIsMobileOpen;
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const [selectedItem, setSelectedItem] = useState<string | null>(null);
   const [items, setItems] = useState<NavItem[]>([]);
@@ -372,13 +386,17 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({ className }) => {
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === "Escape" && isMobileOpen) {
-        setIsMobileOpen(false);
+        if (onExternalToggleMobile && externalIsMobileOpen) {
+          onExternalToggleMobile(); // Toggle to close
+        } else {
+          setInternalIsMobileOpen(false);
+        }
       }
     };
 
     document.addEventListener("keydown", handleEscape);
     return () => document.removeEventListener("keydown", handleEscape);
-  }, [isMobileOpen]);
+  }, [isMobileOpen, onExternalToggleMobile, externalIsMobileOpen]);
 
   // Prevent body scroll when mobile menu is open
   useEffect(() => {
@@ -524,19 +542,35 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({ className }) => {
   }, [items]);
 
   const handleToggleDesktop = () => {
-    setIsDesktopHidden(!isDesktopHidden);
+    if (onExternalToggleDesktop && externalIsDesktopHidden !== undefined) {
+      onExternalToggleDesktop();
+    } else {
+      setInternalIsDesktopHidden(!isDesktopHidden);
+    }
   };
 
   const handleToggleMobile = () => {
-    setIsMobileOpen(!isMobileOpen);
+    if (onExternalToggleMobile && externalIsMobileOpen !== undefined) {
+      onExternalToggleMobile();
+    } else {
+      setInternalIsMobileOpen(!isMobileOpen);
+    }
   };
 
   const handleCloseMobile = () => {
-    setIsMobileOpen(false);
+    if (onExternalToggleMobile && externalIsMobileOpen) {
+      onExternalToggleMobile(); // Toggle to close
+    } else {
+      setInternalIsMobileOpen(false);
+    }
   };
 
   const handleItemClick = () => {
-    setIsMobileOpen(false);
+    if (onExternalToggleMobile && externalIsMobileOpen) {
+      onExternalToggleMobile(); // Toggle to close
+    } else {
+      setInternalIsMobileOpen(false);
+    }
   };
 
   // Avoid click firing after drag
@@ -600,36 +634,40 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({ className }) => {
 
   return (
     <>
-      {/* Mobile Toggle Button - Only shows when sidebar is closed */}
-      <button
-        onClick={handleToggleMobile}
-        className={clsx(
-          "fixed top-4 left-4 z-[100] bg-white text-gray-700 p-3 rounded-lg shadow-lg transition-all duration-200 border-2 border-gray-300 hover:bg-gray-50 hover:border-gray-400 lg:hidden touch-manipulation",
-          {
-            block: !isMobileOpen,
-            hidden: isMobileOpen,
-          }
-        )}
-        aria-label="Open mobile menu"
-        style={{ WebkitTapHighlightColor: 'transparent' }}
-      >
-        <Menu className="w-6 h-6" />
-      </button>
+      {/* Mobile Toggle Button - Only shows when sidebar is closed and no external state */}
+      {(!onExternalToggleMobile || externalIsMobileOpen === undefined) && (
+        <button
+          onClick={handleToggleMobile}
+          className={clsx(
+            "fixed top-4 left-4 z-[100] bg-white text-gray-700 p-3 rounded-lg shadow-lg transition-all duration-200 border-2 border-gray-300 hover:bg-gray-50 hover:border-gray-400 lg:hidden touch-manipulation",
+            {
+              block: !isMobileOpen,
+              hidden: isMobileOpen,
+            }
+          )}
+          aria-label="Open mobile menu"
+          style={{ WebkitTapHighlightColor: 'transparent' }}
+        >
+          <Menu className="w-6 h-6" />
+        </button>
+      )}
 
-      {/* Desktop Toggle Button */}
-      <button
-        onClick={handleToggleDesktop}
-        className={clsx(
-          "fixed top-4 left-4 z-[60] bg-white text-gray-700 p-2.5 rounded-lg shadow-md transition-all duration-200 border border-gray-200 hover:bg-gray-50 hover:border-gray-300 hidden lg:block",
-          {
-            "lg:block": isDesktopHidden,
-            "lg:hidden": !isDesktopHidden,
-          }
-        )}
-        aria-label="Toggle desktop sidebar"
-      >
-        <Menu className="w-5 h-5" />
-      </button>
+      {/* Desktop Toggle Button - Only shows when no external state */}
+      {(!onExternalToggleDesktop || externalIsDesktopHidden === undefined) && (
+        <button
+          onClick={handleToggleDesktop}
+          className={clsx(
+            "fixed top-4 left-4 z-[60] bg-white text-gray-700 p-2.5 rounded-lg shadow-md transition-all duration-200 border border-gray-200 hover:bg-gray-50 hover:border-gray-300 hidden lg:block",
+            {
+              "lg:block": isDesktopHidden,
+              "lg:hidden": !isDesktopHidden,
+            }
+          )}
+          aria-label="Toggle desktop sidebar"
+        >
+          <Menu className="w-5 h-5" />
+        </button>
+      )}
 
       {/* Mobile Overlay - Covers entire screen when sidebar is open */}
       {isMobileOpen && (
