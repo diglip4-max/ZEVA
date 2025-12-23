@@ -1,8 +1,5 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  experimental: {
-    enableFeedbackButton: false, // 🔥 This disables the floating "N" button
-  },
   images: {
     domains: [
       "localhost",             // for local development
@@ -30,19 +27,11 @@ const nextConfig = {
     }
     return config;
   },
-  // Disable symlink resolution to avoid Windows issues
-  outputFileTracing: true,
   // Ensure proper file handling on Windows
   onDemandEntries: {
     maxInactiveAge: 25 * 1000,
     pagesBufferLength: 2,
   },
-  // Additional Windows-specific optimizations
-  ...(process.platform === 'win32' && {
-    // Reduce file system operations on Windows
-    swcMinify: true,
-    compress: true,
-  }),
 };
 
 module.exports = nextConfig;

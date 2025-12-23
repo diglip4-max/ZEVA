@@ -17,7 +17,6 @@ import {
   XCircleIcon,
   ArrowPathIcon,
   BoltIcon,
-  CheckCircleIcon,
 } from '@heroicons/react/24/outline';
 import {
   BarChart,
