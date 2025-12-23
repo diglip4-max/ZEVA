@@ -270,13 +270,13 @@ const AdminSidebar: FC<AdminSidebarProps> = ({
     }
   };
 
-  const handleToggleMobile = () => {
-    if (onExternalToggleMobile) {
-      onExternalToggleMobile();
-    } else {
-      setInternalIsMobileOpen(!internalIsMobileOpen);
-    }
-  };
+  // const handleToggleMobile = () => {
+  //   if (onExternalToggleMobile) {
+  //     onExternalToggleMobile();
+  //   } else {
+  //     setInternalIsMobileOpen(!internalIsMobileOpen);
+  //   }
+  // };
 
   const handleCloseMobile = () => {
     if (onExternalToggleMobile && externalIsMobileOpen) {
