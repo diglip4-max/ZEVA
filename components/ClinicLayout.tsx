@@ -1,4 +1,4 @@
-
+import React, { useState } from 'react';
 import ClinicSidebar from './ClinicSidebar';
 import ClinicHeader from './ClinicHeader';
 
@@ -9,6 +9,17 @@ interface ClinicLayoutProps {
 }
 
 const ClinicLayout = ({ children, hideSidebar = false, hideHeader = false }: ClinicLayoutProps) => {
+  const [isDesktopHidden, setIsDesktopHidden] = useState(false);
+  const [isMobileOpen, setIsMobileOpen] = useState(false);
+
+  const handleToggleDesktop = () => {
+    setIsDesktopHidden(!isDesktopHidden);
+  };
+
+  const handleToggleMobile = () => {
+    setIsMobileOpen(!isMobileOpen);
+  };
+
   // If both sidebar and header are hidden, render children directly without layout wrapper
   if (hideSidebar && hideHeader) {
     return <>{children}</>;
@@ -16,19 +27,29 @@ const ClinicLayout = ({ children, hideSidebar = false, hideHeader = false }: Cli
 
   return (
     <div className="flex min-h-screen bg-gray-100" role="application">
-      {/* Sidebar - ClinicSidebar manages its own state */}
+      {/* Sidebar - ClinicSidebar with external state */}
       {!hideSidebar && (
         <div className="h-screen sticky top-0 z-50">
-          <ClinicSidebar />
+          <ClinicSidebar 
+            externalIsDesktopHidden={isDesktopHidden}
+            externalIsMobileOpen={isMobileOpen}
+            onExternalToggleDesktop={handleToggleDesktop}
+            onExternalToggleMobile={handleToggleMobile}
+          />
         </div>
       )}
 
       {/* Main Content Area */}
       <div className="flex flex-col flex-1 min-h-screen max-h-screen" style={{ overflowX: 'visible', minWidth: 0 }}>
-        {/* Header - Hidden on mobile when sidebar might be open */}
+        {/* Header - Visible on both mobile and desktop */}
         {!hideHeader && (
-          <div className="sticky top-0 z-10 hidden lg:block">
-            <ClinicHeader />
+          <div className="sticky top-0 z-10">
+            <ClinicHeader 
+              handleToggleDesktop={handleToggleDesktop}
+              handleToggleMobile={handleToggleMobile}
+              isDesktopHidden={isDesktopHidden}
+              isMobileOpen={isMobileOpen}
+            />
           </div>
         )}
 
