@@ -14,17 +14,51 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
   isMobileOpen
 }) => {
   const [screenWidth, setScreenWidth] = useState<number | null>(null);
+  const [tokenUser, setTokenUser] = useState<{ name?: string; email?: string } | null>(null);
 
   const handleLogout = () => {
     localStorage.removeItem('agentToken');
+    localStorage.removeItem('userToken');
+    localStorage.removeItem('agentUser');
     // sessionStorage.removeItem('resetEmail');
     //  sessionStorage.removeItem('clinicEmailForReset');
     window.location.href = '/staff';
   };
-  const leadUserRaw = localStorage.getItem('agentUser');
-  const leadUser = leadUserRaw ? JSON.parse(leadUserRaw) : null;
-  console.log('lead token', leadUserRaw);
-//   console.log('clinicTokensss', localStorage.getItem('clinicToken'));
+
+  useEffect(() => {
+    // Get user info from localStorage (stored during login)
+    const getUserInfo = () => {
+      if (typeof window !== 'undefined') {
+        // First try to get from agentUser
+        const agentUserRaw = localStorage.getItem('agentUser');
+        if (agentUserRaw) {
+          try {
+            const user = JSON.parse(agentUserRaw);
+            setTokenUser({ name: user.name, email: user.email });
+            return;
+          } catch (error) {
+            console.error('Error parsing agentUser:', error);
+          }
+        }
+        
+        // Fallback: decode token if agentUser is not available
+        const token = localStorage.getItem('agentToken') || localStorage.getItem('userToken');
+        if (token) {
+          try {
+            const parts = token.split('.');
+            if (parts.length === 3) {
+              const payload = JSON.parse(atob(parts[1]));
+              setTokenUser({ name: payload.name, email: payload.email });
+            }
+          } catch (error) {
+            console.error('Error decoding token in header:', error);
+          }
+        }
+      }
+    };
+    
+    getUserInfo();
+  }, []);
 
 
   useEffect(() => {
@@ -103,17 +137,17 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
         <div className="flex items-center gap-1.5 sm:gap-3 flex-shrink-0">
           <div className="hidden md:block text-right">
             <div className="text-xs sm:text-sm font-medium text-gray-900 truncate max-w-[120px] sm:max-w-none">
-              {leadUser?.name || ''}
+              {tokenUser?.name || ''}
             </div>
             <div className="text-[10px] sm:text-xs text-gray-500 truncate max-w-[120px] sm:max-w-none">
-              {leadUser?.email || ''}
+              {tokenUser?.email || ''}
             </div>
           </div>
           
           <div className="flex items-center gap-1.5 sm:gap-3">
             <div className="w-7 h-7 sm:w-9 sm:h-9 bg-[#2D9AA5] rounded-full flex items-center justify-center flex-shrink-0">
               <span className="text-white font-medium text-[10px] sm:text-sm">
-                {leadUser?.name?.charAt(0)?.toUpperCase() || 'D'}
+                {tokenUser?.name?.charAt(0)?.toUpperCase() || 'D'}
               </span>
             </div>
             

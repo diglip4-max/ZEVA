@@ -26,6 +26,7 @@ export default function StaffDoctorLogin() {
 
       if (tokenKey === "agentToken") {
         localStorage.setItem("agentToken", token);
+        localStorage.setItem("agentUser", JSON.stringify(user)); // Store user info for header
         localStorage.removeItem("userToken");
         // Clear form after successful login
         setForm({ email: "", password: "" });
@@ -33,6 +34,7 @@ export default function StaffDoctorLogin() {
       } else {
         // doctorStaff (userToken) should also land on the agent dashboard
         localStorage.setItem("userToken", token);
+        localStorage.setItem("agentUser", JSON.stringify(user)); // Store user info for header
         localStorage.removeItem("agentToken");
         // Clear form after successful login
         setForm({ email: "", password: "" });
