@@ -1,7 +1,7 @@
 import dbConnect from "../../../../lib/database";
 import PatientRegistration from "../../../../models/PatientRegistration";
-import { getAuthorizedStaffUser } from "../../lead-ms/permissions-helper";
-import { checkClinicPermission } from "../../../lead-ms/permissions-helper";
+import { getAuthorizedStaffUser } from "../../../../server/staff/authHelpers";
+import { checkClinicPermission } from "../../lead-ms/permissions-helper";
 import { checkAgentPermission } from "../../agent/permissions-helper";
 import Clinic from "../../../../models/Clinic";
 
