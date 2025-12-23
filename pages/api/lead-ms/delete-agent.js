@@ -47,23 +47,35 @@ export default async function handler(req, res) {
       if (!hasPermission) {
         return res.status(403).json({ success: false, message: error || "You do not have permission to delete agents" });
       }
-    } else if (["agent", "doctorStaff", "doctor"].includes(me.role)) {
+    } else if (me.role === "doctor") {
       clinicContextId = me.clinicId || null;
       if (!clinicContextId) {
         return res.status(403).json({ success: false, message: "You are not associated with any clinic" });
       }
-
-      // Doctors share clinic-level permissions, others use agent permissions
-      if (me.role === "doctor") {
-        const { hasPermission, error } = await checkClinicPermission(clinicContextId, "create_agent", "delete", null, "doctor");
-        if (!hasPermission) {
-          return res.status(403).json({ success: false, message: error || "You do not have permission to delete agents" });
-        }
-      } else {
-        const { hasPermission, error } = await checkAgentPermission(me._id, "create_agent", "delete");
-        if (!hasPermission) {
-          return res.status(403).json({ success: false, message: error || "You do not have permission to delete agents" });
-        }
+      // Doctors share clinic-level permissions
+      const { hasPermission, error } = await checkClinicPermission(clinicContextId, "create_agent", "delete", null, "doctor");
+      if (!hasPermission) {
+        return res.status(403).json({ success: false, message: error || "You do not have permission to delete agents" });
+      }
+    } else if (me.role === "agent") {
+      // For agent role (agentToken): Check agent permissions
+      clinicContextId = me.clinicId || null;
+      if (!clinicContextId) {
+        return res.status(403).json({ success: false, message: "You are not associated with any clinic" });
+      }
+      const { hasPermission, error } = await checkAgentPermission(me._id, "create_agent", "delete");
+      if (!hasPermission) {
+        return res.status(403).json({ success: false, message: error || "You do not have permission to delete agents" });
+      }
+    } else if (me.role === "doctorStaff") {
+      // For doctorStaff role (userToken): Check agent permissions
+      clinicContextId = me.clinicId || null;
+      if (!clinicContextId) {
+        return res.status(403).json({ success: false, message: "You are not associated with any clinic" });
+      }
+      const { hasPermission, error } = await checkAgentPermission(me._id, "create_agent", "delete");
+      if (!hasPermission) {
+        return res.status(403).json({ success: false, message: error || "You do not have permission to delete agents" });
       }
     } else {
       return res.status(403).json({ success: false, message: "You do not have permission to delete agents" });

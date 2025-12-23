@@ -93,10 +93,36 @@ const ManageAgentsPage = () => {
     isAgentRoute ? 'create_agent' : null
   );
 
-  const agentCanRead = agentPermissions.canRead || agentPermissions.canAll;
-  const agentCanCreate = agentPermissions.canCreate || agentPermissions.canAll;
-  const agentCanUpdate = agentPermissions.canUpdate || agentPermissions.canAll;
-  const agentCanDelete = agentPermissions.canDelete || agentPermissions.canAll;
+  // Use strict boolean checks - only true if explicitly true
+  const agentCanRead = agentPermissions.canRead === true || agentPermissions.canAll === true;
+  const agentCanCreate = agentPermissions.canCreate === true || agentPermissions.canAll === true;
+  const agentCanUpdate = agentPermissions.canUpdate === true || agentPermissions.canAll === true;
+  const agentCanDelete = agentPermissions.canDelete === true || agentPermissions.canAll === true;
+
+  // Debug logging to track permission values
+  useEffect(() => {
+    if (isAgentRoute && !permissionsLoading) {
+      console.log('🔍 Agent Permissions Debug:', {
+        rawPermissions: agentPermissions,
+        parsed: {
+          agentCanRead,
+          agentCanCreate,
+          agentCanUpdate,
+          agentCanDelete
+        },
+        context: {
+          isAgentRoute,
+          isOwnerUser
+        },
+        final: {
+          canRead,
+          canCreate,
+          canUpdate,
+          canDelete
+        }
+      });
+    }
+  }, [isAgentRoute, permissionsLoading]);
 
   const [clinicPerms, setClinicPerms] = useState({
     canCreate: true,
@@ -162,12 +188,26 @@ const ManageAgentsPage = () => {
   const canClinicUpdate = clinicPerms.canUpdate;
   const canClinicDelete = clinicPerms.canDelete;
 
-  // If accessing through agent portal as owner (clinic/doctor/admin), grant full permissions
-  // Otherwise, use agent permissions if agent route, or clinic permissions if clinic route
-  const canRead = (isAgentRoute && isOwnerUser) ? true : (isAgentRoute ? agentCanRead : canClinicRead);
-  const canCreate = (isAgentRoute && isOwnerUser) ? true : (isAgentRoute ? agentCanCreate : canClinicCreate);
-  const canUpdate = (isAgentRoute && isOwnerUser) ? true : (isAgentRoute ? agentCanUpdate : canClinicUpdate);
-  const canDelete = (isAgentRoute && isOwnerUser) ? true : (isAgentRoute ? agentCanDelete : canClinicDelete);
+  // Use permissions from API - respect actual permissions from the API response
+  // For agent route: use agent permissions from API (don't override with owner permissions)
+  // For clinic route: use clinic permissions from API
+  // Only grant full permissions if user is admin/clinic/doctor accessing their OWN portal (not agent route)
+  // When accessing through agent route, always use API permissions regardless of token type
+  const canRead = isAgentRoute 
+    ? agentCanRead  // Agent route: always use API permissions
+    : (isOwnerUser ? true : canClinicRead); // Clinic route: owner gets full access, else use API permissions
+    
+  const canCreate = isAgentRoute 
+    ? agentCanCreate  // Agent route: always use API permissions
+    : (isOwnerUser ? true : canClinicCreate);
+    
+  const canUpdate = isAgentRoute 
+    ? agentCanUpdate  // Agent route: always use API permissions
+    : (isOwnerUser ? true : canClinicUpdate);
+    
+  const canDelete = isAgentRoute 
+    ? agentCanDelete  // Agent route: always use API permissions
+    : (isOwnerUser ? true : canClinicDelete);
 
   async function loadAgents() {
     try {
@@ -177,6 +217,14 @@ const ManageAgentsPage = () => {
       if (data.success) setAgents(data.agents || []);
     } catch (err) {
       console.error(err);
+      // Don't show error toast if read permission is false (access denied scenario)
+      // Also check for 403 status code (Forbidden/Access Denied)
+      const status = err.response?.status;
+      if (!canRead || status === 403) {
+        // Access denied - don't show error message
+        return;
+      }
+      // Only show error for other failures (network errors, etc.)
       toast.error('Failed to load agents');
     }
   }
@@ -189,6 +237,14 @@ const ManageAgentsPage = () => {
       if (data.success) setDoctorStaff(data.agents || []);
     } catch (err) {
       console.error(err);
+      // Don't show error toast if read permission is false (access denied scenario)
+      // Also check for 403 status code (Forbidden/Access Denied)
+      const status = err.response?.status;
+      if (!canRead || status === 403) {
+        // Access denied - don't show error message
+        return;
+      }
+      // Only show error for other failures (network errors, etc.)
       toast.error('Failed to load doctor staff');
     }
   }
@@ -362,7 +418,8 @@ const ManageAgentsPage = () => {
     setIsCreateOpen(true);
   };
 
-  if ((isAgentRoute && permissionsLoading) || isLoading) {
+  // Wait for permissions to load before showing UI
+  if ((isAgentRoute && permissionsLoading) || (isClinicUser && clinicPermsLoading) || isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <div className="text-center">
@@ -373,18 +430,72 @@ const ManageAgentsPage = () => {
     );
   }
 
-  if (isAgentRoute && !canRead) {
-    return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-        <div className="max-w-md mx-auto text-center bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-6 shadow-sm">
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">Access denied</h2>
-          <p className="text-sm text-gray-700 dark:text-gray-400">
-            You do not have permission to view the Create Agent module. Please contact your
-            administrator.
-          </p>
+  // If read permission is false but create is true, show only create button
+  // If both read and create are false, show access denied
+  if (!canRead) {
+    if (canCreate) {
+      // Show create button only
+      return (
+        <div className="w-full min-h-screen bg-gray-50 dark:bg-gray-900 py-6 px-4 sm:px-6 lg:px-8">
+          <Toaster
+            position="top-right"
+            toastOptions={{
+              className: 'text-sm font-medium',
+              style: { background: '#1f2937', color: '#f8fafc' },
+            }}
+          />
+          <div className="w-full max-w-7xl mx-auto space-y-4 sm:space-y-6">
+            {/* Header Section */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div>
+                <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100">Team Management</h1>
+                <p className="text-xs sm:text-sm text-gray-700 dark:text-gray-400 mt-1">Manage agents and doctor staff accounts</p>
+              </div>
+            </div>
+
+            {/* Access Denied Message */}
+            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-8 text-center">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">Access Denied</h2>
+              <p className="text-sm text-gray-700 dark:text-gray-400 mb-4">
+                You do not have permission to view team members. However, you can create new members.
+              </p>
+              {canCreate && (
+                <button
+                  onClick={handleCreateClick}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-gray-900 dark:bg-blue-600 hover:bg-gray-800 dark:hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm"
+                >
+                  <UserPlus className="w-4 h-4" />
+                  Add {activeView === 'agents' ? 'Agent' : 'Doctor'}
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Create Agent Modal */}
+          <CreateAgentModal
+            isOpen={isCreateOpen}
+            onClose={() => setIsCreateOpen(false)}
+            onCreated={loadAll}
+            token={clinicToken || undefined}
+            doctorToken={doctorToken || undefined}
+            adminToken={adminToken || undefined}
+          />
         </div>
-      </div>
-    );
+      );
+    } else {
+      // Show full access denied
+      return (
+        <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+          <div className="max-w-md mx-auto text-center bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-6 shadow-sm">
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">Access denied</h2>
+            <p className="text-sm text-gray-700 dark:text-gray-400">
+              You do not have permission to view the Create Agent module. Please contact your
+              administrator.
+            </p>
+          </div>
+        </div>
+      );
+    }
   }
 
   return (
@@ -577,83 +688,86 @@ const ManageAgentsPage = () => {
                           </div>
                         </div>
                       </div>
-                      <div className="relative flex-shrink-0">
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setMenuAgentId(menuAgentId === agent._id ? null : agent._id);
-                          }}
-                          className="w-8 h-8 inline-flex items-center justify-center rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-600 transition-colors"
-                          aria-label="More actions"
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4 text-gray-600 dark:text-gray-400">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 12a.75.75 0 11-1.5 0 .75.75 0 011.5 0zM12.75 12a.75.75 0 11-1.5 0 .75.75 0 011.5 0zM18.75 12a.75.75 0 11-1.5 0 .75.75 0 011.5 0z" />
-                          </svg>
-                        </button>
-                        {menuAgentId === agent._id && (
-                          <>
-                            <div
-                              className="fixed inset-0 z-10"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setMenuAgentId(null);
-                              }}
-                            />
-                            <div className="absolute right-0 mt-1 w-40 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg z-20">
-                              {canUpdate && (
-                                <>
-                                  <button
-                                    className="w-full text-left px-3 py-2 text-[11px] hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 transition-colors"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setPasswordAgent(agent);
-                                      setMenuAgentId(null);
-                                    }}
-                                  >
-                                    Change password
-                                  </button>
-                                  <button
-                                    className="w-full text-left px-3 py-2 text-[11px] hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 transition-colors border-t border-gray-200 dark:border-gray-700"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setPermissionAgent(agent);
-                                      setMenuAgentId(null);
-                                    }}
-                                  >
-                                    Rights
-                                  </button>
-                                  {agent.role === 'doctorStaff' && (
+                      {/* Only show 3-dot menu if canUpdate or canDelete is true */}
+                      {(canUpdate || canDelete) && (
+                        <div className="relative flex-shrink-0">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setMenuAgentId(menuAgentId === agent._id ? null : agent._id);
+                            }}
+                            className="w-8 h-8 inline-flex items-center justify-center rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-600 transition-colors"
+                            aria-label="More actions"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4 text-gray-600 dark:text-gray-400">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 12a.75.75 0 11-1.5 0 .75.75 0 011.5 0zM12.75 12a.75.75 0 11-1.5 0 .75.75 0 011.5 0zM18.75 12a.75.75 0 11-1.5 0 .75.75 0 011.5 0z" />
+                            </svg>
+                          </button>
+                          {menuAgentId === agent._id && (
+                            <>
+                              <div
+                                className="fixed inset-0 z-10"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setMenuAgentId(null);
+                                }}
+                              />
+                              <div className="absolute right-0 mt-1 w-40 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg z-20">
+                                {canUpdate && (
+                                  <>
+                                    <button
+                                      className="w-full text-left px-3 py-2 text-[11px] hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 transition-colors"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setPasswordAgent(agent);
+                                        setMenuAgentId(null);
+                                      }}
+                                    >
+                                      Change password
+                                    </button>
                                     <button
                                       className="w-full text-left px-3 py-2 text-[11px] hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 transition-colors border-t border-gray-200 dark:border-gray-700"
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        setTreatmentAgent(agent);
+                                        setPermissionAgent(agent);
                                         setMenuAgentId(null);
                                       }}
                                     >
-                                      Add Treatment
+                                      Rights
                                     </button>
-                                  )}
-                                </>
-                              )}
-                              {canDelete && (
-                                <button
-                                  className="w-full text-left px-3 py-2 text-[11px] hover:bg-red-50 dark:hover:bg-red-900/30 text-red-700 dark:text-red-400 transition-colors border-t border-gray-200 dark:border-gray-700 flex items-center gap-2"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setDeleteAgent(agent);
-                                    setMenuAgentId(null);
-                                  }}
-                                >
-                                  <Trash2 className="w-3 h-3" />
-                                  Delete
-                                </button>
-                              )}
-                            </div>
-                          </>
-                        )}
-                      </div>
+                                    {agent.role === 'doctorStaff' && (
+                                      <button
+                                        className="w-full text-left px-3 py-2 text-[11px] hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 transition-colors border-t border-gray-200 dark:border-gray-700"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setTreatmentAgent(agent);
+                                          setMenuAgentId(null);
+                                        }}
+                                      >
+                                        Add Treatment
+                                      </button>
+                                    )}
+                                  </>
+                                )}
+                                {canDelete && (
+                                  <button
+                                    className="w-full text-left px-3 py-2 text-[11px] hover:bg-red-50 dark:hover:bg-red-900/30 text-red-700 dark:text-red-400 transition-colors border-t border-gray-200 dark:border-gray-700 flex items-center gap-2"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setDeleteAgent(agent);
+                                      setMenuAgentId(null);
+                                    }}
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                    Delete
+                                  </button>
+                                )}
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      )}
                     </div>
 
                     {/* Card Body */}
