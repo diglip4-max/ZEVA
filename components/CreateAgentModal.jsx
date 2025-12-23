@@ -1,13 +1,32 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
-const CreateAgentModal = ({ isOpen, onClose, onCreated, token, doctorToken, adminToken }) => {
+const CreateAgentModal = ({ isOpen, onClose, onCreated, token, doctorToken, adminToken, defaultRole }) => {
+  // Note: 'token' prop represents clinicToken (clinic users)
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState('agent'); // Default to agent
+  const [role, setRole] = useState(defaultRole || 'agent'); // Default to passed role or 'agent'
   const [submitting, setSubmitting] = useState(false);
+
+  // Update role when defaultRole changes (e.g., when user switches between Agents/Doctors tabs)
+  useEffect(() => {
+    if (defaultRole && defaultRole !== role) {
+      setRole(defaultRole);
+    }
+  }, [defaultRole]);
+
+  // Reset form when modal closes
+  useEffect(() => {
+    if (!isOpen) {
+      setName('');
+      setEmail('');
+      setPhone('');
+      setPassword('');
+      setRole(defaultRole || 'agent');
+    }
+  }, [isOpen, defaultRole]);
 
   if (!isOpen) return null;
 
@@ -46,7 +65,7 @@ const CreateAgentModal = ({ isOpen, onClose, onCreated, token, doctorToken, admi
         { headers: { Authorization: `Bearer ${authToken}` } }
       );
       if (data?.success) {
-        setName(''); setEmail(''); setPhone(''); setPassword(''); setRole('agent');
+        setName(''); setEmail(''); setPhone(''); setPassword(''); setRole(defaultRole || 'agent');
         onCreated?.();
         onClose?.();
       } else {
@@ -64,8 +83,10 @@ const CreateAgentModal = ({ isOpen, onClose, onCreated, token, doctorToken, admi
     }
   }
 
-  // Show role selector only if adminToken is present (admin can create both agent and doctorStaff)
-  const showRoleSelector = !!adminToken;
+  // Show role selector if adminToken, clinicToken (token), or doctorToken is present
+  // All these roles should be able to choose between agent and doctorStaff
+  // token = clinicToken (clinic users), doctorToken = doctor users, adminToken = admin users
+  const showRoleSelector = !!(adminToken || token || doctorToken);
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">

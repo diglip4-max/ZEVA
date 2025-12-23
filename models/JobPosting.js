@@ -17,7 +17,7 @@ const JobPostingSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    enum: ['clinic', 'doctor'],
+    enum: ['clinic', 'doctor', 'agent', 'doctorStaff'],
     required: true,
   },
   companyName: { type: String, required: true },

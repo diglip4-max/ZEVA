@@ -4,7 +4,6 @@ import { useRouter } from 'next/router';
 import axios from 'axios';
 import {
   Users,
-  UserCheck,
   CheckCircle,
   XCircle,
   Clock,
@@ -479,6 +478,7 @@ const ManageAgentsPage = () => {
             token={clinicToken || undefined}
             doctorToken={doctorToken || undefined}
             adminToken={adminToken || undefined}
+            defaultRole={activeView === 'doctorStaff' ? 'doctorStaff' : 'agent'}
           />
         </div>
       );
@@ -831,6 +831,7 @@ const ManageAgentsPage = () => {
         token={clinicToken || undefined}
         doctorToken={doctorToken || undefined}
         adminToken={adminToken || undefined}
+        defaultRole={activeView === 'doctorStaff' ? 'doctorStaff' : 'agent'}
       />
 
       {/* Agent Permission Modal */}
