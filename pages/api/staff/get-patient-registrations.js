@@ -1,6 +1,9 @@
 import dbConnect from "../../../lib/database";
 import PatientRegistration from "../../../models/PatientRegistration";
 import { getAuthorizedStaffUser } from "../../../server/staff/authHelpers";
+import { checkClinicPermission } from "../lead-ms/permissions-helper";
+import { checkAgentPermission } from "../agent/permissions-helper";
+import Clinic from "../../../models/Clinic";
 
 export default async function handler(req, res) {
   await dbConnect();
@@ -11,6 +14,55 @@ export default async function handler(req, res) {
       const user = await getAuthorizedStaffUser(req, {
         allowedRoles: ["staff", "doctorStaff", "doctor", "clinic", "agent", "admin"],
       });
+
+      // ✅ Check permissions for reading patients (admin bypasses all checks)
+      if (user.role !== 'admin') {
+        // For clinic role: Check clinic permissions
+        if (user.role === 'clinic') {
+          const clinic = await Clinic.findOne({ owner: user._id });
+          if (clinic) {
+            const { hasPermission: clinicHasPermission, error: clinicError } = await checkClinicPermission(
+              clinic._id,
+              "patient_registration",
+              "read"
+            );
+            if (!clinicHasPermission) {
+              return res.status(403).json({
+                success: false,
+                message: clinicError || "You do not have permission to view patients"
+              });
+            }
+          }
+        }
+        // For agent role (agentToken): Check agent permissions
+        else if (user.role === 'agent') {
+          const { hasPermission: agentHasPermission, error: agentError } = await checkAgentPermission(
+            user._id,
+            "patient_registration",
+            "read"
+          );
+          if (!agentHasPermission) {
+            return res.status(403).json({
+              success: false,
+              message: agentError || "You do not have permission to view patients"
+            });
+          }
+        }
+        // For doctorStaff role (userToken): Check agent permissions
+        else if (user.role === 'doctorStaff') {
+          const { hasPermission: agentHasPermission, error: agentError } = await checkAgentPermission(
+            user._id,
+            "patient_registration",
+            "read"
+          );
+          if (!agentHasPermission) {
+            return res.status(403).json({
+              success: false,
+              message: agentError || "You do not have permission to view patients"
+            });
+          }
+        }
+      }
 
       const { emrNumber, invoiceNumber, name, phone, claimStatus, applicationStatus } = req.query;
 
@@ -65,6 +117,55 @@ export default async function handler(req, res) {
       const user = await getAuthorizedStaffUser(req, {
         allowedRoles: ["staff", "doctorStaff", "doctor", "clinic", "agent", "admin"],
       });
+
+      // ✅ Check permissions for updating patients (admin bypasses all checks)
+      if (user.role !== 'admin') {
+        // For clinic role: Check clinic permissions
+        if (user.role === 'clinic') {
+          const clinic = await Clinic.findOne({ owner: user._id });
+          if (clinic) {
+            const { hasPermission: clinicHasPermission, error: clinicError } = await checkClinicPermission(
+              clinic._id,
+              "patient_registration",
+              "update"
+            );
+            if (!clinicHasPermission) {
+              return res.status(403).json({
+                success: false,
+                message: clinicError || "You do not have permission to update patients"
+              });
+            }
+          }
+        }
+        // For agent role (agentToken): Check agent permissions
+        else if (user.role === 'agent') {
+          const { hasPermission: agentHasPermission, error: agentError } = await checkAgentPermission(
+            user._id,
+            "patient_registration",
+            "update"
+          );
+          if (!agentHasPermission) {
+            return res.status(403).json({
+              success: false,
+              message: agentError || "You do not have permission to update patients"
+            });
+          }
+        }
+        // For doctorStaff role (userToken): Check agent permissions
+        else if (user.role === 'doctorStaff') {
+          const { hasPermission: agentHasPermission, error: agentError } = await checkAgentPermission(
+            user._id,
+            "patient_registration",
+            "update"
+          );
+          if (!agentHasPermission) {
+            return res.status(403).json({
+              success: false,
+              message: agentError || "You do not have permission to update patients"
+            });
+          }
+        }
+      }
       const { id, status } = req.body;
 
       if (!id || !status) {
@@ -91,6 +192,55 @@ export default async function handler(req, res) {
       const user = await getAuthorizedStaffUser(req, {
         allowedRoles: ["staff", "doctorStaff", "doctor", "clinic", "agent", "admin"],
       });
+
+      // ✅ Check permissions for deleting patients (admin bypasses all checks)
+      if (user.role !== 'admin') {
+        // For clinic role: Check clinic permissions
+        if (user.role === 'clinic') {
+          const clinic = await Clinic.findOne({ owner: user._id });
+          if (clinic) {
+            const { hasPermission: clinicHasPermission, error: clinicError } = await checkClinicPermission(
+              clinic._id,
+              "patient_registration",
+              "delete"
+            );
+            if (!clinicHasPermission) {
+              return res.status(403).json({
+                success: false,
+                message: clinicError || "You do not have permission to delete patients"
+              });
+            }
+          }
+        }
+        // For agent role (agentToken): Check agent permissions
+        else if (user.role === 'agent') {
+          const { hasPermission: agentHasPermission, error: agentError } = await checkAgentPermission(
+            user._id,
+            "patient_registration",
+            "delete"
+          );
+          if (!agentHasPermission) {
+            return res.status(403).json({
+              success: false,
+              message: agentError || "You do not have permission to delete patients"
+            });
+          }
+        }
+        // For doctorStaff role (userToken): Check agent permissions
+        else if (user.role === 'doctorStaff') {
+          const { hasPermission: agentHasPermission, error: agentError } = await checkAgentPermission(
+            user._id,
+            "patient_registration",
+            "delete"
+          );
+          if (!agentHasPermission) {
+            return res.status(403).json({
+              success: false,
+              message: agentError || "You do not have permission to delete patients"
+            });
+          }
+        }
+      }
       const { id } = req.body;
 
       if (!id) {

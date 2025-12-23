@@ -41,8 +41,22 @@ export default async function handler(req, res) {
           }
         }
       }
-      // For agent/doctorStaff role: Check agent permissions
-      else if (me.role === 'agent' || me.role === 'doctorStaff') {
+      // For agent role (agentToken): Check agent permissions
+      else if (me.role === 'agent') {
+        const { hasPermission: agentHasPermission, error: agentError } = await checkAgentPermission(
+          me._id,
+          "create_agent",
+          "read"
+        );
+        if (!agentHasPermission) {
+          return res.status(403).json({
+            success: false,
+            message: agentError || "You do not have permission to view agents"
+          });
+        }
+      }
+      // For doctorStaff role (userToken): Check agent permissions
+      else if (me.role === 'doctorStaff') {
         const { hasPermission: agentHasPermission, error: agentError } = await checkAgentPermission(
           me._id,
           "create_agent",
@@ -221,8 +235,22 @@ export default async function handler(req, res) {
           }
         }
       }
-      // For agent/doctorStaff role: Check agent permissions
-      else if (me.role === 'agent' || me.role === 'doctorStaff') {
+      // For agent role (agentToken): Check agent permissions
+      else if (me.role === 'agent') {
+        const { hasPermission: agentHasPermission, error: agentError } = await checkAgentPermission(
+          me._id,
+          "create_agent",
+          requiredAction
+        );
+        if (!agentHasPermission) {
+          return res.status(403).json({
+            success: false,
+            message: agentError || `You do not have permission to ${requiredAction} agents`
+          });
+        }
+      }
+      // For doctorStaff role (userToken): Check agent permissions
+      else if (me.role === 'doctorStaff') {
         const { hasPermission: agentHasPermission, error: agentError } = await checkAgentPermission(
           me._id,
           "create_agent",

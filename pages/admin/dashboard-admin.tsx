@@ -58,9 +58,9 @@ const AdminDashboard = () => {
   
   // Quick Actions
   const quickActions = [
-    { label: 'Approve Doctors', icon: UserGroupIcon, path: '/admin/approval-doctors', color: 'from-blue-500 to-blue-600' },
-    { label: 'Manage Clinics', icon: HomeIcon, path: '/admin/approval-doctors', color: 'from-green-500 to-green-600' },
-    { label: 'View Jobs', icon: BriefcaseIcon, path: '/admin/manage-job', color: 'from-purple-500 to-purple-600' },
+    { label: 'Approve Doctors', icon: UserGroupIcon, path: '/admin/approve-doctors', color: 'from-blue-500 to-blue-600' },
+    { label: 'Manage Clinics', icon: HomeIcon, path: '/admin/AdminClinicApproval', color: 'from-green-500 to-green-600' },
+    { label: 'View Jobs', icon: BriefcaseIcon, path: '/admin/job-manage', color: 'from-purple-500 to-purple-600' },
     { label: 'Create Agent', icon: UserPlusIcon, path: '/admin/create-agent', color: 'from-indigo-500 to-indigo-600' },
   ];
 

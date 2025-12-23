@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import PatientRegistration from "../staff/patient-registration";
 import PatientInformation from "../staff/patient-information";
@@ -6,6 +6,56 @@ import ClinicLayout from '../../components/ClinicLayout';
 import withClinicAuth from '../../components/withClinicAuth';
 import { X, UserPlus } from "lucide-react";
 import PatientUpdateForm from "../../components/patient/PatientUpdateForm";
+import axios from "axios";
+
+const TOKEN_PRIORITY = [
+  "clinicToken",
+  "doctorToken",
+  "agentToken",
+  "staffToken",
+  "userToken",
+  "adminToken",
+];
+
+const getStoredToken = () => {
+  if (typeof window === "undefined") return null;
+  for (const key of TOKEN_PRIORITY) {
+    try {
+      const value =
+        window.localStorage.getItem(key) ||
+        window.sessionStorage.getItem(key);
+      if (value) return value;
+    } catch (error) {
+      console.warn(`Unable to read ${key} from storage`, error);
+    }
+  }
+  return null;
+};
+
+const getAuthHeaders = () => {
+  const token = getStoredToken();
+  return token ? { Authorization: `Bearer ${token}` } : null;
+};
+
+const getUserRole = () => {
+  if (typeof window === "undefined") return null;
+  try {
+    for (const key of TOKEN_PRIORITY) {
+      const token = window.localStorage.getItem(key) || window.sessionStorage.getItem(key);
+      if (token) {
+        try {
+          const payload = JSON.parse(atob(token.split('.')[1]));
+          return payload.role || null;
+        } catch (e) {
+          continue;
+        }
+      }
+    }
+  } catch (error) {
+    console.error("Error getting user role:", error);
+  }
+  return null;
+};
 
 function ClinicPatientRegistration() {
   const router = useRouter();
@@ -104,6 +154,170 @@ const PatientRegistrationWrapper = ({ onSuccess }) => {
 
 // Enhanced Patient Information component with Register button
 function PatientInformationWithButton({ onRegisterClick, refreshKey, onEditPatient }) {
+  const [permissions, setPermissions] = useState({
+    canRead: false,
+    canUpdate: false,
+    canDelete: false,
+    canCreate: false,
+  });
+  const [permissionsLoaded, setPermissionsLoaded] = useState(false);
+
+  // Fetch permissions
+  useEffect(() => {
+    const fetchPermissions = async () => {
+      try {
+        const authHeaders = getAuthHeaders();
+        if (!authHeaders) {
+          setPermissions({
+            canRead: false,
+            canUpdate: false,
+            canDelete: false,
+            canCreate: false,
+          });
+          setPermissionsLoaded(true);
+          return;
+        }
+
+        const userRole = getUserRole();
+        
+        // Clinic and doctor roles have full access by default - no need to check permissions
+        if (userRole === "clinic" || userRole === "doctor") {
+          setPermissions({
+            canRead: true,
+            canUpdate: true,
+            canDelete: true,
+            canCreate: true,
+          });
+          setPermissionsLoaded(true);
+          return;
+        }
+
+        // For agents, staff, and doctorStaff, fetch from /api/agent/permissions
+        if (["agent", "staff", "doctorStaff"].includes(userRole || "")) {
+          let permissionsData = null;
+          try {
+            // Get agentId from token
+            const token = getStoredToken();
+            if (token) {
+              const payload = JSON.parse(atob(token.split('.')[1]));
+              const agentId = payload.userId || payload.id;
+              
+              if (agentId) {
+                const res = await axios.get(`/api/agent/permissions?agentId=${agentId}`, {
+                  headers: authHeaders,
+                });
+                
+                if (res.data.success && res.data.data) {
+                  permissionsData = res.data.data;
+                }
+              }
+            }
+          } catch (err) {
+            console.error("Error fetching agent permissions:", err);
+          }
+
+          if (permissionsData && permissionsData.permissions) {
+            const modulePermission = permissionsData.permissions.find((p) => {
+              if (!p?.module) return false;
+              if (p.module === "patient_registration") return true;
+              if (p.module === "clinic_patient_registration") return true;
+              if (p.module.startsWith("clinic_") && p.module.slice(7) === "patient_registration") {
+                return true;
+              }
+              return false;
+            });
+
+            if (modulePermission) {
+              const actions = modulePermission.actions || {};
+              
+              // Module-level "all" grants all permissions
+              const moduleAll = actions.all === true || actions.all === "true" || String(actions.all).toLowerCase() === "true";
+              const moduleRead = actions.read === true || actions.read === "true" || String(actions.read).toLowerCase() === "true";
+              const moduleUpdate = actions.update === true || actions.update === "true" || String(actions.update).toLowerCase() === "true";
+              const moduleDelete = actions.delete === true || actions.delete === "true" || String(actions.delete).toLowerCase() === "true";
+              const moduleCreate = actions.create === true || actions.create === "true" || String(actions.create).toLowerCase() === "true";
+
+              setPermissions({
+                canRead: moduleAll || moduleRead,
+                canUpdate: moduleAll || moduleUpdate,
+                canDelete: moduleAll || moduleDelete,
+                canCreate: moduleAll || moduleCreate,
+              });
+            } else {
+              // No permissions found for this module, default to false
+              setPermissions({
+                canRead: false,
+                canUpdate: false,
+                canDelete: false,
+                canCreate: false,
+              });
+            }
+          } else {
+            // API failed or no permissions data, default to false
+            setPermissions({
+              canRead: false,
+              canUpdate: false,
+              canDelete: false,
+              canCreate: false,
+            });
+          }
+        } else {
+          // Unknown role, default to false
+          setPermissions({
+            canRead: false,
+            canUpdate: false,
+            canDelete: false,
+            canCreate: false,
+          });
+        }
+        setPermissionsLoaded(true);
+        } catch (err) {
+        console.error("Error fetching permissions:", err);
+        // On error, default to false (no permissions)
+        setPermissions({
+          canRead: false,
+          canUpdate: false,
+          canDelete: false,
+          canCreate: false,
+        });
+        setPermissionsLoaded(true);
+      }
+    };
+
+    fetchPermissions();
+  }, []);
+
+  // Don't render until permissions are loaded
+  if (!permissionsLoaded) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-2 border-gray-300 border-t-blue-600"></div>
+      </div>
+    );
+  }
+
+  // If both canRead and canCreate are false, show access denied message
+  if (!permissions.canRead && !permissions.canCreate) {
+    return (
+      <div className="bg-white rounded-lg p-6 sm:p-8 border border-gray-200 shadow-sm">
+        <div className="text-center max-w-md mx-auto">
+          <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center mx-auto mb-3">
+            <UserPlus className="w-6 h-6 text-red-600" />
+          </div>
+          <h3 className="text-lg font-bold text-gray-900 mb-2">
+            Access Denied
+          </h3>
+          <p className="text-sm text-gray-700 mb-3">
+            You do not have permission to view patient information.
+          </p>
+          <p className="text-xs text-gray-600">
+            Please contact your administrator to request access to the Patient Registration module.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div>
       {/* Header with Register Button - Matching clinic dashboard theme */}
@@ -114,6 +328,17 @@ function PatientInformationWithButton({ onRegisterClick, refreshKey, onEditPatie
               <h1 className="text-sm sm:text-base font-bold text-gray-900">Patient Management</h1>
               <p className="text-[10px] sm:text-xs text-gray-700 mt-0.5">View and manage all patient records</p>
             </div>
+<<<<<<< HEAD
+            {permissions.canCreate && (
+              <button
+                onClick={onRegisterClick}
+                className="inline-flex items-center justify-center gap-1.5 bg-gray-800 hover:bg-gray-900 text-white px-3 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs sm:text-sm font-medium"
+              >
+                <UserPlus className="h-4 w-4" />
+                <span>Register Patient</span>
+              </button>
+            )}
+=======
             <button
               onClick={onRegisterClick}
               className="inline-flex items-center justify-center gap-1 bg-gray-800 hover:bg-gray-900 text-white px-2.5 py-1.5 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-[10px] sm:text-xs font-medium"
@@ -121,16 +346,38 @@ function PatientInformationWithButton({ onRegisterClick, refreshKey, onEditPatie
               <UserPlus className="h-3 w-3" />
               <span>Register Patient</span>
             </button>
+>>>>>>> 50fc871353b7cd55318c14e980907793acb843d0
           </div>
         </div>
       </div>
 
-      {/* Patient Information Content - key prop forces remount on refresh */}
-      <PatientInformation key={refreshKey} hideHeader={true} onEditPatient={onEditPatient} />
+      {/* Patient Information Content - Show access denied if canRead is false, otherwise show patient list */}
+      {!permissions.canRead ? (
+        <div className="bg-white rounded-lg p-6 sm:p-8 border border-gray-200 shadow-sm">
+          <div className="text-center max-w-md mx-auto">
+            <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center mx-auto mb-3">
+              <UserPlus className="w-6 h-6 text-red-600" />
+            </div>
+            <h3 className="text-lg font-bold text-gray-900 mb-2">
+              Access Denied
+            </h3>
+            <p className="text-sm text-gray-700 mb-3">
+              You do not have permission to view patient information.
+            </p>
+            <p className="text-xs text-gray-600">
+              Please contact your administrator to request access to view patients.
+            </p>
+          </div>
+        </div>
+      ) : (
+        <PatientInformation key={refreshKey} hideHeader={true} onEditPatient={onEditPatient} permissions={permissions} />
+      )}
     </div>
   );
 }
 
+// Layout: _app.tsx will use ClinicLayout for /clinic/* routes
+// and force AgentLayout for /agent/* routes (overriding this)
 ClinicPatientRegistration.getLayout = function PageLayout(page) {
   return <ClinicLayout>{page}</ClinicLayout>;
 };
