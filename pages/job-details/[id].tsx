@@ -3,7 +3,7 @@ import axios from "axios";
 import { useRouter } from "next/router";
 import { useAuth } from "@/context/AuthContext";
 import AuthModal from "../../components/AuthModal";
-import { FaWhatsapp, FaBriefcase, FaMapMarkerAlt, FaClock, FaMoneyBillWave, FaUsers, FaCalendarAlt, FaGraduationCap, FaLanguage, FaBuilding, FaChevronDown, FaChevronUp } from "react-icons/fa";
+import { FaWhatsapp, FaMapMarkerAlt, FaClock, FaMoneyBillWave, FaUsers, FaCalendarAlt, FaBuilding, FaChevronDown, FaChevronUp } from "react-icons/fa";
 
 interface Job {
   _id: string;

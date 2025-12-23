@@ -328,7 +328,6 @@ function PatientInformationWithButton({ onRegisterClick, refreshKey, onEditPatie
               <h1 className="text-sm sm:text-base font-bold text-gray-900">Patient Management</h1>
               <p className="text-[10px] sm:text-xs text-gray-700 mt-0.5">View and manage all patient records</p>
             </div>
-<<<<<<< HEAD
             {permissions.canCreate && (
               <button
                 onClick={onRegisterClick}
@@ -338,15 +337,6 @@ function PatientInformationWithButton({ onRegisterClick, refreshKey, onEditPatie
                 <span>Register Patient</span>
               </button>
             )}
-=======
-            <button
-              onClick={onRegisterClick}
-              className="inline-flex items-center justify-center gap-1 bg-gray-800 hover:bg-gray-900 text-white px-2.5 py-1.5 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-[10px] sm:text-xs font-medium"
-            >
-              <UserPlus className="h-3 w-3" />
-              <span>Register Patient</span>
-            </button>
->>>>>>> 50fc871353b7cd55318c14e980907793acb843d0
           </div>
         </div>
       </div>
