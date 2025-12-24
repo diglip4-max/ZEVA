@@ -23,6 +23,7 @@ import {
   RefreshCw,
   BookOpen,
   FileText,
+  Hash,
 } from "lucide-react";
 import parse from "html-react-parser";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
@@ -408,6 +409,17 @@ const BlogDetailsModal: React.FC<BlogDetailsModalProps> = ({
 }) => {
   if (!isOpen || !blog) return null;
 
+  // Extract hashtags/topics from content
+  const extractTopics = (content: string | undefined): string[] => {
+    if (!content || typeof content !== 'string') return [];
+    // Remove HTML tags to get plain text, then extract hashtags
+    const textContent = content.replace(/<[^>]*>/g, ' ');
+    // Extract hashtags from content - matches #hashtag pattern (word characters only)
+    const hashtagRegex = /#(\w+)/g;
+    const matches = textContent.match(hashtagRegex);
+    return matches ? [...new Set(matches.map(m => m.substring(1)))] : []; // Remove duplicates
+  };
+
   return (
     <>
       <style jsx global>{`
@@ -640,6 +652,21 @@ const BlogDetailsModal: React.FC<BlogDetailsModalProps> = ({
                   </div>
                 </div>
               </div>
+
+              {/* Hashtags/Topics Section */}
+              {extractTopics(blog.content).length > 0 && (
+                <div className="mb-6 flex flex-wrap gap-2">
+                  {extractTopics(blog.content).map((topic) => (
+                    <span
+                      key={topic}
+                      className="inline-flex items-center gap-1 px-3 py-1.5 bg-gradient-to-r from-purple-100 to-pink-100 text-purple-700 rounded-full text-sm font-medium"
+                    >
+                      <Hash className="w-4 h-4" />
+                      {topic}
+                    </span>
+                  ))}
+                </div>
+              )}
 
               {/* Blog Content */}
               <div className="prose prose-lg max-w-none mb-8">

@@ -8,6 +8,7 @@ import { useAuth } from "@/context/AuthContext";
 import AuthModal from "../../components/AuthModal";
 import SocialMediaShare from "../../components/SocialMediaShare";
 import { Toaster, toast } from "react-hot-toast";
+import { Hash } from "lucide-react";
 import dbConnect from "../../lib/database";
 import BlogModel from "../../models/Blog";
 
@@ -115,6 +116,17 @@ export default function BlogDetail({ initialBlog, seo }: BlogDetailProps) {
       return window.location.origin;
     }
     return "https://zeva360.com";
+  };
+
+  // Extract hashtags/topics from content
+  const extractTopics = (content: string | undefined): string[] => {
+    if (!content || typeof content !== 'string') return [];
+    // Remove HTML tags to get plain text, then extract hashtags
+    const textContent = content.replace(/<[^>]*>/g, ' ');
+    // Extract hashtags from content - matches #hashtag pattern (word characters only)
+    const hashtagRegex = /#(\w+)/g;
+    const matches = textContent.match(hashtagRegex);
+    return matches ? [...new Set(matches.map(m => m.substring(1)))] : []; // Remove duplicates
   };
   const toggleCommentExpansion = (commentId: string) => {
     setExpandedComments((prev) => ({
@@ -840,6 +852,20 @@ export default function BlogDetail({ initialBlog, seo }: BlogDetailProps) {
         {/* Article Content */}
         <div className="bg-white shadow-2xl">
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16 lg:py-20">
+            {/* Hashtags/Topics Section */}
+            {extractTopics(blog.content).length > 0 && (
+              <div className="mb-6 sm:mb-8 flex flex-wrap gap-1.5 sm:gap-2">
+                {extractTopics(blog.content).map((topic) => (
+                  <span
+                    key={topic}
+                    className="inline-flex items-center gap-1 px-2 sm:px-3 py-1 sm:py-1.5 bg-gradient-to-r from-purple-100 to-pink-100 text-purple-700 rounded-full text-xs sm:text-sm font-medium"
+                  >
+                    <Hash className="w-3 h-3 sm:w-4 sm:h-4" />
+                    {topic}
+                  </span>
+                ))}
+              </div>
+            )}
             <article className="blog-content">{parse(blog.content)}</article>
           </div>
         </div>

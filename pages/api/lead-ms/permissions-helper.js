@@ -10,65 +10,46 @@ import User from "../../../models/Users";
  * @returns {Object} { clinicId, error }
  */
 export async function getClinicIdFromUser(user) {
-  try {
-    await dbConnect();
-  } catch (dbError) {
-    console.error("Database connection error in getClinicIdFromUser:", dbError);
-    return { clinicId: null, error: "Database connection error", isAdmin: false };
-  }
+  await dbConnect();
   
   if (!user) {
-    return { clinicId: null, error: "User not found", isAdmin: false };
+    return { clinicId: null, error: "User not found" };
   }
 
-  // Admin users don't need clinic ID
-  if (user.role === "admin") {
-    return { clinicId: null, error: null, isAdmin: true };
-  }
-
-  try {
-    if (user.role === "clinic") {
-      const clinic = await Clinic.findOne({ owner: user._id }).select("_id");
-      if (!clinic) {
-        return { clinicId: null, error: "Clinic not found for this user", isAdmin: false };
-      }
-      return { clinicId: clinic._id, error: null, isAdmin: false };
-    } else if (user.role === "agent") {
-      if (!user.clinicId) {
-        return { clinicId: null, error: "Agent is not assigned to any clinic", isAdmin: false };
-      }
-      const clinic = await Clinic.findById(user.clinicId).select("_id");
-      if (!clinic) {
-        return { clinicId: null, error: "Clinic not found for this agent", isAdmin: false };
-      }
-      return { clinicId: clinic._id, error: null, isAdmin: false };
-    } else if (user.role === "doctor") {
-      if (!user.clinicId) {
-        return { clinicId: null, error: "Doctor is not assigned to any clinic", isAdmin: false };
-      }
-      const clinic = await Clinic.findById(user.clinicId).select("_id");
-      if (!clinic) {
-        return { clinicId: null, error: "Clinic not found for this doctor", isAdmin: false };
-      }
-      return { clinicId: clinic._id, error: null, isAdmin: false };
-    } else if (user.role === "doctorStaff" || user.role === "staff") {
-      if (!user.clinicId) {
-        return { clinicId: null, error: `${user.role === "doctorStaff" ? "Doctor staff" : "Staff"} is not assigned to any clinic`, isAdmin: false };
-      }
-      const clinic = await Clinic.findById(user.clinicId).select("_id");
-      if (!clinic) {
-        return { clinicId: null, error: `Clinic not found for this ${user.role === "doctorStaff" ? "doctor staff" : "staff"}`, isAdmin: false };
-      }
-      return { clinicId: clinic._id, error: null, isAdmin: false };
+  if (user.role === "clinic") {
+    const clinic = await Clinic.findOne({ owner: user._id }).select("_id");
+    if (!clinic) {
+      return { clinicId: null, error: "Clinic not found for this user" };
     }
-    
-    // For other roles, return with isAdmin: false
-    return { clinicId: null, error: "Invalid user role", isAdmin: false };
-  } catch (error) {
-    console.error("Error in getClinicIdFromUser:", error);
-    return { clinicId: null, error: "Error fetching clinic information", isAdmin: false };
-  }
-} else if (user.role === "admin") {
+    return { clinicId: clinic._id, error: null };
+  } else if (user.role === "agent") {
+    if (!user.clinicId) {
+      return { clinicId: null, error: "Agent is not assigned to any clinic" };
+    }
+    const clinic = await Clinic.findById(user.clinicId).select("_id");
+    if (!clinic) {
+      return { clinicId: null, error: "Clinic not found for this agent" };
+    }
+    return { clinicId: clinic._id, error: null };
+  } else if (user.role === "doctor") {
+    if (!user.clinicId) {
+      return { clinicId: null, error: "Doctor is not assigned to any clinic" };
+    }
+    const clinic = await Clinic.findById(user.clinicId).select("_id");
+    if (!clinic) {
+      return { clinicId: null, error: "Clinic not found for this doctor" };
+    }
+    return { clinicId: clinic._id, error: null };
+  } else if (user.role === "doctorStaff" || user.role === "staff") {
+    if (!user.clinicId) {
+      return { clinicId: null, error: `${user.role === "doctorStaff" ? "Doctor staff" : "Staff"} is not assigned to any clinic` };
+    }
+    const clinic = await Clinic.findById(user.clinicId).select("_id");
+    if (!clinic) {
+      return { clinicId: null, error: `Clinic not found for this ${user.role === "doctorStaff" ? "doctor staff" : "staff"}` };
+    }
+    return { clinicId: clinic._id, error: null };
+  } else if (user.role === "admin") {
     // Admin has all permissions, return null to skip permission checks
     return { clinicId: null, error: null, isAdmin: true };
   }
@@ -382,4 +363,3 @@ export async function getModulePermissions(clinicId, moduleKey) {
     return { permissions: null, error: "Error getting permissions" };
   }
 }
-

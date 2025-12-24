@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
-import DoctorLayout from "../../../components/DoctorLayout";
-import withDoctorAuth from "../../../components/withDoctorAuth";
-import LeadViewModal from "../../../components/LeadViewModal";
+import DoctorLayout from "../../components/DoctorLayout";
+import withDoctorAuth from "../../components/withDoctorAuth";
+import LeadViewModal from "../../components/LeadViewModal";
 
 const LeadsPage = () => {
   const [leads, setLeads] = useState([]);

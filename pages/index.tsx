@@ -1,7 +1,7 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/router";
-import axios from "axios";
+
 import React from "react";
 import Head from "next/head";
 import AuthModal from "../components/AuthModal";
@@ -32,12 +32,6 @@ interface Clinic {
   pricing?: string;
   timings?: string;
   phone?: string;
-}
-
-interface ReviewData {
-  averageRating: number;
-  totalReviews: number;
-  reviews: unknown[];
 }
 
 export default function Home(): React.ReactElement {

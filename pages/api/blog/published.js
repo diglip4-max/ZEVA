@@ -189,6 +189,7 @@ export default async function handler(req, res) {
           }
 
           const { title, content, paramlink } = req.body;
+          const { draftId } = req.query; // Check if publishing from a draft
 
           if (!title || !content || !paramlink) {
             return res.status(400).json({
@@ -198,6 +199,51 @@ export default async function handler(req, res) {
             });
           }
 
+          // If publishing from a draft, update the draft to published instead of creating new
+          if (draftId) {
+            // Find the existing draft
+            const existingDraft = await Blog.findOne({ 
+              _id: draftId, 
+              status: "draft",
+              postedBy: me._id 
+            });
+
+            if (!existingDraft) {
+              return res.status(404).json({
+                success: false,
+                message: "Draft not found or you don't have permission to publish it",
+              });
+            }
+
+            // Check if paramlink conflicts with other published blogs (excluding this draft)
+            const existingPublished = await Blog.findOne({
+              paramlink,
+              status: "published",
+              _id: { $ne: draftId },
+            });
+            if (existingPublished) {
+              return res
+                .status(409)
+                .json({ success: false, message: "Paramlink already exists" });
+            }
+
+            // Update the draft to published status
+            const updatedBlog = await Blog.findByIdAndUpdate(
+              draftId,
+              {
+                title: title.trim(),
+                content: content.trim(),
+                paramlink: paramlink.trim(),
+                status: "published",
+                updatedAt: new Date(),
+              },
+              { new: true, runValidators: true }
+            ).populate("postedBy", "name email");
+
+            return res.status(200).json({ success: true, blog: updatedBlog });
+          }
+
+          // If not publishing from a draft, create a new published blog
           // Only disallow if a published blog already has the paramlink
           const existing = await Blog.findOne({ paramlink, status: "published" });
           if (existing) {

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Star, Mail, Settings, Lock, TrendingUp, Users, FileText, Briefcase, MessageSquare, Calendar, CreditCard, BarChart3, Activity, CheckCircle2, XCircle, Crown, Building2, User, Zap, Clock, ArrowUpRight, ArrowDownRight, Bell, Plus, Eye } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, LabelList, Cell, LineChart, Line, Tooltip } from 'recharts';
+import { Star, Mail, Settings, Lock, TrendingUp, Users, FileText, Briefcase, MessageSquare, Calendar, CreditCard, BarChart3, Activity, XCircle, CheckCircle2, ArrowUpRight, ArrowDownRight, User, Crown } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, LabelList, LineChart, Line, Tooltip } from 'recharts';
 import Stats from '../../components/Stats';
 import ClinicLayout from '../../components/ClinicLayout';
 import withClinicAuth from '../../components/withClinicAuth';
@@ -595,14 +595,6 @@ const ClinicDashboard: NextPageWithLayout = () => {
       subscriptionPercentage
     };
   }, [allModules, navigationItems, restrictedModules]);
-
-  // Prepare chart data for graphical representation (must be before any conditional returns)
-  const subscriptionChartData = useMemo(() => {
-    return [
-      { name: 'Active', value: subscriptionSummary.subscribedModules, color: '#1f2937' }, // gray-800
-      { name: 'Locked', value: subscriptionSummary.restrictedCount, color: '#6b7280' },
-    ];
-  }, [subscriptionSummary]);
 
   const statsChartData = useMemo(() => {
     return [

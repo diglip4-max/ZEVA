@@ -2,8 +2,8 @@ import { useState, useEffect } from "react";
 import axios from "axios";
 import AgentLayout from '../../../components/AgentLayout';
 import withAgentAuth from '../../../components/withAgentAuth';
-import CreateLeadModal from '../../components/CreateLeadModal';
-import LeadViewModal from '../../components/LeadViewModal';
+import CreateLeadModal from '../../../components/CreateLeadModal';
+import LeadViewModal from '../../../components/LeadViewModal';
 import { PlusCircle } from "lucide-react";
 
 function LeadsPage() {

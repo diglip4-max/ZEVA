@@ -604,7 +604,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({ className }) => {
       <button
         onClick={handleToggleMobile}
         className={clsx(
-          "fixed top-4 left-4 z-[100] bg-white text-gray-700 p-3 rounded-lg shadow-lg transition-all duration-200 border-2 border-gray-300 hover:bg-gray-50 hover:border-gray-400 lg:hidden touch-manipulation",
+          "fixed top-2 right-2 sm:top-2.5 sm:right-2.5 md:top-3 md:right-3 z-[100] bg-white text-gray-700 p-2 sm:p-2 md:p-2.5 rounded-lg shadow-lg transition-all duration-200 border-2 border-gray-300 hover:bg-gray-50 hover:border-gray-400 lg:hidden touch-manipulation",
           {
             block: !isMobileOpen,
             hidden: isMobileOpen,
@@ -613,7 +613,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({ className }) => {
         aria-label="Open mobile menu"
         style={{ WebkitTapHighlightColor: 'transparent' }}
       >
-        <Menu className="w-6 h-6" />
+        <Menu className="w-5 h-5 sm:w-5 sm:h-5 md:w-5 md:h-5" />
       </button>
 
       {/* Desktop Toggle Button */}

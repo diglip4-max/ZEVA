@@ -750,7 +750,8 @@ function AdminClinicApproval() {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Map Modal */}
