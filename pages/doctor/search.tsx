@@ -101,14 +101,14 @@ export default function FindDoctor() {
   const resultsRef = useRef<HTMLDivElement>(null);
 
   // Add missing state variables
-  const [priceRange, setPriceRange] = useState([0, 5000]);
+  const [priceRange, setPriceRange] = useState([0, 50000]);
   // const [selectedTreatments, setSelectedTreatments] = useState<string[]>([]);
   const [selectedTimes, setSelectedTimes] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState('relevance');
 
   // Add the clearAllFilters function
   const clearFilters = () => {
-    setPriceRange([0, 5000]);
+    setPriceRange([0, 50000]);
     setSelectedTimes([]);
     setStarFilter(0);
     setSortBy('relevance');
@@ -622,6 +622,8 @@ export default function FindDoctor() {
       // Check if service matches in degree OR in treatments array
       const matchesService = !selectedService || (() => {
         const serviceLower = selectedService.toLowerCase();
+        // Split service by hyphens and spaces to check for partial matches
+        const serviceParts = serviceLower.split(/[- ]+/).filter(p => p.length > 0);
         
         // Check degree field
         if (doctor.degree && doctor.degree.toLowerCase().includes(serviceLower)) {
@@ -631,25 +633,61 @@ export default function FindDoctor() {
         // Check treatments array
         if (doctor.treatments && Array.isArray(doctor.treatments)) {
           return doctor.treatments.some((treatment: any) => {
-            // Check mainTreatment
-            if (treatment.mainTreatment && 
-                treatment.mainTreatment.toLowerCase().includes(serviceLower)) {
+            const mainTreatmentLower = treatment.mainTreatment?.toLowerCase() || '';
+            const mainTreatmentSlugLower = treatment.mainTreatmentSlug?.toLowerCase() || '';
+            
+            // Check if service contains treatment or treatment contains service
+            if (mainTreatmentLower && (
+              mainTreatmentLower.includes(serviceLower) || 
+              serviceLower.includes(mainTreatmentLower)
+            )) {
               return true;
             }
-            // Check mainTreatmentSlug
-            if (treatment.mainTreatmentSlug && 
-                treatment.mainTreatmentSlug.toLowerCase() === serviceLower) {
+            
+            // Check if service contains treatment slug or treatment slug contains service
+            if (mainTreatmentSlugLower && (
+              mainTreatmentSlugLower.includes(serviceLower) || 
+              serviceLower.includes(mainTreatmentSlugLower) ||
+              mainTreatmentSlugLower === serviceLower
+            )) {
               return true;
             }
+            
+            // Check if any part of the service matches the treatment (for "vaccination-pediatrics" matching "pediatrics")
+            if (serviceParts.length > 0 && mainTreatmentSlugLower) {
+              if (serviceParts.some(part => mainTreatmentSlugLower.includes(part) || part.includes(mainTreatmentSlugLower))) {
+                return true;
+              }
+            }
+            
             // Check subTreatments
             if (treatment.subTreatments && Array.isArray(treatment.subTreatments)) {
               return treatment.subTreatments.some((sub: any) => {
-                if (sub.name && sub.name.toLowerCase().includes(serviceLower)) {
+                const subNameLower = sub.name?.toLowerCase() || '';
+                const subSlugLower = sub.slug?.toLowerCase() || '';
+                
+                if (subNameLower && (
+                  subNameLower.includes(serviceLower) || 
+                  serviceLower.includes(subNameLower)
+                )) {
                   return true;
                 }
-                if (sub.slug && sub.slug.toLowerCase() === serviceLower) {
+                
+                if (subSlugLower && (
+                  subSlugLower.includes(serviceLower) || 
+                  serviceLower.includes(subSlugLower) ||
+                  subSlugLower === serviceLower
+                )) {
                   return true;
                 }
+                
+                // Check if any part of the service matches the sub treatment
+                if (serviceParts.length > 0 && subSlugLower) {
+                  if (serviceParts.some(part => subSlugLower.includes(part) || part.includes(subSlugLower))) {
+                    return true;
+                  }
+                }
+                
                 return false;
               });
             }
@@ -662,9 +700,10 @@ export default function FindDoctor() {
           const treatmentArray = Array.isArray(doctor.treatment) 
             ? doctor.treatment 
             : [doctor.treatment];
-          return treatmentArray.some((t: string) => 
-            t.toLowerCase().includes(serviceLower)
-          );
+          return treatmentArray.some((t: string) => {
+            const tLower = t.toLowerCase();
+            return tLower.includes(serviceLower) || serviceLower.includes(tLower);
+          });
         }
         
         return false;

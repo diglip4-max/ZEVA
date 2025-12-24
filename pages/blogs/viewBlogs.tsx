@@ -4,6 +4,7 @@ import { useRouter } from "next/router";
 import Head from "next/head";
 import Link from "next/link";
 import parse from "html-react-parser";
+import { Hash } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import AuthModal from "../../components/AuthModal";
 
@@ -337,6 +338,17 @@ export default function BlogList() {
     return cleanContent;
   };
 
+  // Extract hashtags/topics from content
+  const extractTopics = (content: string | undefined): string[] => {
+    if (!content || typeof content !== 'string') return [];
+    // Remove HTML tags to get plain text, then extract hashtags
+    const textContent = content.replace(/<[^>]*>/g, ' ');
+    // Extract hashtags from content - matches #hashtag pattern (word characters only)
+    const hashtagRegex = /#(\w+)/g;
+    const matches = textContent.match(hashtagRegex);
+    return matches ? [...new Set(matches.map(m => m.substring(1)))] : []; // Remove duplicates
+  };
+
 return (
   <>
     <Head>
@@ -538,6 +550,26 @@ return (
                               })}
                             </span>
                           </div>
+
+                          {/* Hashtags/Topics */}
+                          {extractTopics(blog.content).length > 0 && (
+                            <div className="flex flex-wrap gap-1 mb-2">
+                              {extractTopics(blog.content).slice(0, 3).map((topic) => (
+                                <span
+                                  key={topic}
+                                  className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-gradient-to-r from-purple-100 to-pink-100 text-purple-700 rounded-full text-xs font-medium"
+                                >
+                                  <Hash className="w-2.5 h-2.5" />
+                                  {topic}
+                                </span>
+                              ))}
+                              {extractTopics(blog.content).length > 3 && (
+                                <span className="inline-flex items-center px-1.5 py-0.5 text-purple-600 text-xs font-medium">
+                                  +{extractTopics(blog.content).length - 3}
+                                </span>
+                              )}
+                            </div>
+                          )}
 
                           {/* Compact Content preview */}
                           <div className="text-gray-600 text-sm mb-3 line-clamp-2">

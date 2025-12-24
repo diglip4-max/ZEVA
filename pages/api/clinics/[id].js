@@ -56,7 +56,7 @@ function getBaseUrl() {
   if (process.env.NODE_ENV === "production") {
     return "https://zeva360.com";
   }
- return process.env.NEXT_PUBLIC_BASE_URL ;
+  return process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
 }
 
 export default async function handler(req, res) {
@@ -175,9 +175,25 @@ export default async function handler(req, res) {
 
       // Ensure photos are absolute URLs
       if (clinic.photos && Array.isArray(clinic.photos)) {
-        clinic.photos = clinic.photos.map((photo) =>
-          photo.startsWith("http") ? photo : `${getBaseUrl()}${photo}`
-        );
+        clinic.photos = clinic.photos.map((photo) => {
+          if (!photo) return photo;
+          // If already an absolute URL, return as is
+          if (photo.startsWith("http://") || photo.startsWith("https://")) {
+            return photo;
+          }
+          // If it's a file system path, extract the uploads part
+          if (photo.includes("uploads/")) {
+            const uploadsIndex = photo.indexOf("uploads/");
+            const relativePath = "/" + photo.substring(uploadsIndex);
+            return `${getBaseUrl()}${relativePath}`;
+          }
+          // If it starts with /, prepend base URL
+          if (photo.startsWith("/")) {
+            return `${getBaseUrl()}${photo}`;
+          }
+          // Otherwise, prepend /uploads/clinic/ if it looks like a filename
+          return `${getBaseUrl()}/uploads/clinic/${photo}`;
+        });
       }
       if (clinic.licenseDocumentUrl) {
         clinic.licenseDocumentUrl = clinic.licenseDocumentUrl.startsWith("http")
@@ -386,9 +402,25 @@ export default async function handler(req, res) {
         updatedClinic.photos &&
         Array.isArray(updatedClinic.photos)
       ) {
-        updatedClinic.photos = updatedClinic.photos.map((photo) =>
-          photo.startsWith("http") ? photo : `${getBaseUrl()}${photo}`
-        );
+        updatedClinic.photos = updatedClinic.photos.map((photo) => {
+          if (!photo) return photo;
+          // If already an absolute URL, return as is
+          if (photo.startsWith("http://") || photo.startsWith("https://")) {
+            return photo;
+          }
+          // If it's a file system path, extract the uploads part
+          if (photo.includes("uploads/")) {
+            const uploadsIndex = photo.indexOf("uploads/");
+            const relativePath = "/" + photo.substring(uploadsIndex);
+            return `${getBaseUrl()}${relativePath}`;
+          }
+          // If it starts with /, prepend base URL
+          if (photo.startsWith("/")) {
+            return `${getBaseUrl()}${photo}`;
+          }
+          // Otherwise, prepend /uploads/clinic/ if it looks like a filename
+          return `${getBaseUrl()}/uploads/clinic/${photo}`;
+        });
       }
       if (updatedClinic && updatedClinic.licenseDocumentUrl) {
         updatedClinic.licenseDocumentUrl =

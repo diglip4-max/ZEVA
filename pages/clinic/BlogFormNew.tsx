@@ -359,6 +359,7 @@ function ModernBlogForm() {
         }),
       ]);
 
+      let publishedPostsData: PostType[] = [];
       if (publishedRes.status === 200) {
         const blogs = publishedRes.data?.blogs || publishedRes.data || [];
         // The published API should already include likes and comments
@@ -366,13 +367,31 @@ function ModernBlogForm() {
         const sanitized = Array.isArray(blogs)
           ? blogs.map(sanitizePost).filter((p): p is PostType => p !== null)
           : [];
-        setPublishedPosts(sanitized);
+        publishedPostsData = sanitized;
+        setPublishedPosts(publishedPostsData);
       }
+      
       if (draftsRes.status === 200) {
         const drafts = draftsRes.data?.drafts || draftsRes.data || [];
+        // Get published post IDs to exclude from drafts
+        const publishedIds = new Set(
+          publishedPostsData.map((p) => p._id)
+        );
+        
         // Sanitize all drafts to ensure no objects are rendered
+        // Also filter out any published posts that might have slipped through
         const sanitized = Array.isArray(drafts)
-          ? drafts.map(sanitizePost).filter((p): p is PostType => p !== null)
+          ? drafts
+              .map(sanitizePost)
+              .filter((p): p is PostType => p !== null)
+              .filter((p) => {
+                // Only include if it's a draft AND not in published posts
+                const isDraftStatus = p.status === 'draft' || (!p.status && p.status !== 'published');
+                const notInPublished = !publishedIds.has(p._id);
+                // Also check if status is explicitly published
+                const notPublishedStatus = p.status !== 'published';
+                return isDraftStatus && notInPublished && notPublishedStatus;
+              })
           : [];
         setDraftPosts(sanitized);
       }
@@ -388,6 +407,16 @@ function ModernBlogForm() {
       loadPosts();
     }
   }, [permissionsLoaded, currentUserId]);
+
+  // Remove published posts from drafts when publishedPosts changes
+  useEffect(() => {
+    if (publishedPosts.length > 0 && draftPosts.length > 0) {
+      const publishedIds = new Set(publishedPosts.map(p => p._id));
+      setDraftPosts(prevDrafts => 
+        prevDrafts.filter(draft => !publishedIds.has(draft._id))
+      );
+    }
+  }, [publishedPosts]);
 
   const handleCreatePost = () => {
     if (!permissions.canCreate) {
@@ -635,9 +664,9 @@ function ModernBlogForm() {
     const safeDate = formatDate(post.createdAt);
     
     return (
-      <article className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden group">
+      <article className="bg-white rounded-xl sm:rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden group">
         {imageUrl && (
-          <div className="relative h-64 overflow-hidden">
+          <div className="relative h-48 sm:h-56 md:h-64 overflow-hidden">
             <img
               src={imageUrl}
               alt={post.title}
@@ -645,89 +674,89 @@ function ModernBlogForm() {
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
             {type === 'drafts' && (
-              <div className="absolute top-4 left-4 px-3 py-1 bg-amber-500 text-white rounded-full text-xs font-semibold">
+              <div className="absolute top-2 sm:top-3 md:top-4 left-2 sm:left-3 md:left-4 px-2 sm:px-2.5 md:px-3 py-0.5 sm:py-1 bg-amber-500 text-white rounded-full text-xs font-semibold">
                 Draft
               </div>
             )}
           </div>
         )}
         
-        <div className="p-6">
+        <div className="p-4 sm:p-5 md:p-6">
           {/* Topics */}
           {topics.length > 0 && (
-            <div className="flex flex-wrap gap-2 mb-3">
+            <div className="flex flex-wrap gap-1.5 sm:gap-2 mb-2 sm:mb-3">
               {topics.slice(0, 3).map((topic) => (
                 <span
                   key={topic}
-                  className="inline-flex items-center gap-1 px-2.5 py-1 bg-gradient-to-r from-purple-100 to-pink-100 text-purple-700 rounded-full text-xs font-medium"
+                  className="inline-flex items-center gap-1 px-2 sm:px-2.5 py-0.5 sm:py-1 bg-gradient-to-r from-purple-100 to-pink-100 text-purple-700 rounded-full text-xs font-medium"
                 >
                   <Hash className="w-3 h-3" />
-                  {topic}
+                  <span className="truncate max-w-[80px] sm:max-w-none">{topic}</span>
                 </span>
               ))}
             </div>
           )}
 
           {/* Title */}
-          <h2 className="text-2xl font-bold text-gray-900 mb-3 line-clamp-2 group-hover:text-purple-600 transition-colors">
+          <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900 mb-2 sm:mb-3 line-clamp-2 group-hover:text-purple-600 transition-colors">
             {safeTitle}
           </h2>
 
           {/* Excerpt */}
-          <p className="text-gray-600 mb-4 line-clamp-3 leading-relaxed">
+          <p className="text-sm sm:text-base text-gray-600 mb-3 sm:mb-4 line-clamp-3 leading-relaxed">
             {safeExcerpt}
           </p>
 
           {/* Author & Meta */}
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center">
-                <User className="w-5 h-5 text-white" />
+          <div className="flex items-center justify-between mb-3 sm:mb-4">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center flex-shrink-0">
+                <User className="w-4 h-4 sm:w-4.5 sm:h-4.5 md:w-5 md:h-5 text-white" />
               </div>
-              <div>
-                <p className="text-sm font-semibold text-gray-900">
+              <div className="min-w-0 flex-1">
+                <p className="text-xs sm:text-sm font-semibold text-gray-900 truncate">
                   {authorName}
                 </p>
                 <p className="text-xs text-gray-500 flex items-center gap-1">
-                  <Clock className="w-3 h-3" />
-                  {safeDate}
+                  <Clock className="w-3 h-3 flex-shrink-0" />
+                  <span className="truncate">{safeDate}</span>
                 </p>
               </div>
             </div>
           </div>
 
           {/* Actions */}
-          <div className="flex items-center justify-between pt-4 border-t border-gray-100">
-            <div className="flex items-center gap-4 text-sm text-gray-500">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between pt-3 sm:pt-4 border-t border-gray-100 gap-3 sm:gap-0">
+            <div className="flex items-center gap-3 sm:gap-4 text-xs sm:text-sm text-gray-500">
               {type === 'published' && (
                 <>
                   <button 
                     onClick={() => handleLike(post._id)}
-                    className={`flex items-center gap-1.5 transition-colors ${
+                    className={`flex items-center gap-1 sm:gap-1.5 transition-colors ${
                       post.liked 
                         ? 'text-red-500 hover:text-red-600' 
                         : 'hover:text-red-500'
                     }`}
                   >
-                    <Heart className={`w-4 h-4 ${post.liked ? 'fill-current' : ''}`} />
+                    <Heart className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${post.liked ? 'fill-current' : ''}`} />
                     <span>{Number(post.likesCount || post.likes) || 0}</span>
                   </button>
                   <button 
                     onClick={() => openCommentsModal(post)}
-                    className="flex items-center gap-1.5 hover:text-blue-500 transition-colors"
+                    className="flex items-center gap-1 sm:gap-1.5 hover:text-blue-500 transition-colors"
                   >
-                    <MessageCircle className="w-4 h-4" />
+                    <MessageCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                     <span>{Number(post.commentsCount || post.comments) || 0}</span>
                   </button>
-                  <button className="flex items-center gap-1.5 hover:text-green-500 transition-colors">
-                    <Eye className="w-4 h-4" />
+                  <button className="flex items-center gap-1 sm:gap-1.5 hover:text-green-500 transition-colors">
+                    <Eye className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                     <span>{Number(post.views) || 0}</span>
                   </button>
                 </>
               )}
             </div>
             
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
               {type === 'published' && (
                 <>
                   <button
@@ -735,27 +764,27 @@ function ModernBlogForm() {
                       setSelectedPostDetail(post);
                       setShowPostDetailModal(true);
                     }}
-                    className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                    className="p-1.5 sm:p-2 hover:bg-gray-100 rounded-lg transition-colors"
                     title="View Full Post"
                   >
-                    <Eye className="w-4 h-4 text-gray-600" />
+                    <Eye className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-600" />
                   </button>
                   <a
                     href={`${getBaseUrl()}/blogs/${post.paramlink}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="p-2 hover:bg-blue-100 rounded-lg transition-colors"
+                    className="p-1.5 sm:p-2 hover:bg-blue-100 rounded-lg transition-colors"
                     title="Open in New Tab"
                   >
-                    <ExternalLink className="w-4 h-4 text-blue-600" />
+                    <ExternalLink className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-600" />
                   </a>
                   {permissions.canUpdatePublished && (
                     <button
                       onClick={() => handleEditUrl(post)}
-                      className="p-2 hover:bg-blue-100 rounded-lg transition-colors"
+                      className="p-1.5 sm:p-2 hover:bg-blue-100 rounded-lg transition-colors"
                       title="Edit URL"
                     >
-                      <LinkIcon className="w-4 h-4 text-blue-600" />
+                      <LinkIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-600" />
                     </button>
                   )}
                   <div className="p-0">
@@ -763,7 +792,7 @@ function ModernBlogForm() {
                       blogTitle={safeTitle}
                       blogUrl={`${getBaseUrl()}/blogs/${post.paramlink}`}
                       blogDescription={safeExcerpt}
-                      triggerClassName="p-2 hover:bg-purple-100 rounded-lg transition-colors"
+                      triggerClassName="p-1.5 sm:p-2 hover:bg-purple-100 rounded-lg transition-colors"
                     />
                   </div>
                 </>
@@ -771,19 +800,19 @@ function ModernBlogForm() {
               {permissions.canUpdatePublished && (
                 <button
                   onClick={() => handleEditPost(post._id, type)}
-                  className="p-2 hover:bg-purple-100 rounded-lg transition-colors"
+                  className="p-1.5 sm:p-2 hover:bg-purple-100 rounded-lg transition-colors"
                   title="Edit"
                 >
-                  <Edit3 className="w-4 h-4 text-purple-600" />
+                  <Edit3 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-purple-600" />
                 </button>
               )}
               {permissions.canDeletePublished && (
                 <button
                   onClick={() => handleDeletePost(post._id, type)}
-                  className="p-2 hover:bg-red-100 rounded-lg transition-colors"
+                  className="p-1.5 sm:p-2 hover:bg-red-100 rounded-lg transition-colors"
                   title="Delete"
                 >
-                  <Trash2 className="w-4 h-4 text-red-600" />
+                  <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-red-600" />
                 </button>
               )}
             </div>
@@ -804,6 +833,9 @@ function ModernBlogForm() {
     );
   }
 
+  // Get all published post IDs to exclude from drafts
+  const publishedPostIds = new Set(publishedPosts.map(p => p._id));
+
   const allPosts = [...publishedPosts, ...draftPosts]
     .filter(post => post && typeof post === 'object' && post._id && post.title) // Ensure valid post objects
     .sort((a, b) => 
@@ -822,30 +854,30 @@ function ModernBlogForm() {
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50/30 to-blue-50/40">
       {/* Header */}
       <div className="sticky top-0 z-20 bg-white/90 backdrop-blur-xl border-b border-purple-200/50 shadow-lg">
-        <div className="max-w-7xl mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="p-2 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl">
-                <Sparkles className="w-6 h-6 text-white" />
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 py-3 sm:py-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+            <div className="flex items-center gap-2 sm:gap-4">
+              <div className="p-1.5 sm:p-2 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl">
+                <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-white" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+                <h1 className="text-lg sm:text-xl md:text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
                   Blog Studio
                 </h1>
-                <p className="text-sm text-gray-500">Create & Share Your Stories</p>
+                <p className="text-xs sm:text-sm text-gray-500 hidden sm:block">Create & Share Your Stories</p>
               </div>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto pr-10 sm:pr-12 md:pr-0">
               {/* Search */}
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <div className="relative flex-1 sm:flex-initial">
+                <Search className="absolute left-2 sm:left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
                 <input
                   type="text"
                   placeholder="Search posts..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 pr-4 py-2 w-64 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  className="pl-8 sm:pl-10 pr-3 sm:pr-4 py-1.5 sm:py-2 w-full sm:w-48 md:w-64 bg-gray-50 border border-gray-200 rounded-lg sm:rounded-xl text-sm sm:text-base focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                 />
               </div>
 
@@ -853,37 +885,44 @@ function ModernBlogForm() {
               {permissions.canCreate && (
                 <button
                   onClick={handleCreatePost}
-                  className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all transform hover:scale-105"
+                  className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 md:px-6 py-1.5 sm:py-2 md:py-2.5 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white rounded-lg sm:rounded-xl text-sm sm:text-base font-semibold shadow-lg hover:shadow-xl transition-all transform hover:scale-105 whitespace-nowrap"
                 >
-                  <PlusCircle className="w-5 h-5" />
-                  New Post
+                  <PlusCircle className="w-4 h-4 sm:w-5 sm:h-5" />
+                  <span className="hidden sm:inline">New Post</span>
+                  <span className="sm:hidden">New</span>
                 </button>
               )}
             </div>
           </div>
 
           {/* Tabs */}
-          <div className="flex items-center gap-2 mt-4">
+          <div className="flex items-center gap-1.5 sm:gap-2 mt-3 sm:mt-4 overflow-x-auto scrollbar-hide -mx-3 sm:mx-0 px-3 sm:px-0">
             {[
-              { id: 'feed' as TabType, label: 'Feed', icon: Sparkles },
-              { id: 'published' as TabType, label: 'Published', icon: Bookmark },
-              { id: 'drafts' as TabType, label: 'Drafts', icon: Edit3 },
-              { id: 'trending' as TabType, label: 'Trending', icon: Flame },
-              { id: 'analytics' as TabType, label: 'Analytics', icon: BarChart3 },
+              { id: 'feed' as TabType, label: 'Feed', icon: Sparkles, description: 'View all blog posts' },
+              { id: 'published' as TabType, label: 'Published', icon: Bookmark, description: 'View published posts' },
+              { id: 'drafts' as TabType, label: 'Drafts', icon: Edit3, description: 'View draft posts' },
+              { id: 'trending' as TabType, label: 'Trending', icon: Flame, description: 'View trending posts' },
+              { id: 'analytics' as TabType, label: 'Analytics', icon: BarChart3, description: 'View blog analytics' },
             ].map((tab) => {
               const Icon = tab.icon;
               return (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition-all ${
+                  title={tab.label}
+                  className={`flex items-center gap-1 sm:gap-2 px-2.5 sm:px-3 md:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl text-xs sm:text-sm md:text-base font-medium transition-all whitespace-nowrap group relative ${
                     activeTab === tab.id
                       ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg'
                       : 'text-gray-600 hover:bg-gray-100'
                   }`}
                 >
-                  <Icon className="w-4 h-4" />
-                  {tab.label}
+                  <Icon className="w-3 h-3 sm:w-4 sm:h-4" />
+                  <span className="hidden xs:inline">{tab.label}</span>
+                  {/* Custom Tooltip - Shows on hover above icon */}
+                  <span className="absolute -top-9 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white text-xs px-2.5 py-1.5 rounded-md opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 pointer-events-none whitespace-nowrap z-50 shadow-lg">
+                    {tab.label}
+                    <span className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-px border-4 border-transparent border-t-gray-900"></span>
+                  </span>
                 </button>
               );
             })}
@@ -892,7 +931,7 @@ function ModernBlogForm() {
       </div>
 
       {/* Content */}
-      <div className="max-w-7xl mx-auto px-6 py-8">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8">
         {loading ? (
           <div className="flex items-center justify-center py-20">
             <div className="animate-spin rounded-full h-12 w-12 border-4 border-purple-200 border-t-purple-600"></div>
@@ -900,7 +939,7 @@ function ModernBlogForm() {
         ) : (
           <>
             {(activeTab === 'feed' || activeTab === 'published' || activeTab === 'trending') && (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 md:gap-6">
                 {filteredPosts
                   .filter(post => activeTab === 'feed' || (activeTab === 'published' && post.status === 'published') || (activeTab === 'trending' && post.status === 'published'))
                   .map((post) => (
@@ -914,9 +953,15 @@ function ModernBlogForm() {
             )}
 
             {activeTab === 'drafts' && (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 md:gap-6">
                 {filteredPosts
-                  .filter(post => post.status === 'draft')
+                  .filter(post => {
+                    // Only show drafts that are not published
+                    // Check both status and if the post ID exists in published posts
+                    const isDraft = post.status === 'draft' || (!post.status && !publishedPostIds.has(post._id));
+                    const notPublished = !publishedPostIds.has(post._id);
+                    return isDraft && notPublished;
+                  })
                   .map((post) => (
                     <PostCard key={post._id} post={post} type="drafts" />
                   ))}
@@ -924,23 +969,23 @@ function ModernBlogForm() {
             )}
 
             {activeTab === 'analytics' && (
-              <div className="bg-white rounded-2xl shadow-lg p-8">
-                <h2 className="text-2xl font-bold mb-6">Analytics</h2>
-                <p className="text-gray-600">Analytics features coming soon...</p>
+              <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg p-4 sm:p-6 md:p-8">
+                <h2 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6">Analytics</h2>
+                <p className="text-sm sm:text-base text-gray-600">Analytics features coming soon...</p>
               </div>
             )}
 
             {filteredPosts.length === 0 && (
-              <div className="text-center py-20">
-                <div className="w-24 h-24 bg-gradient-to-br from-purple-400 to-pink-400 rounded-3xl flex items-center justify-center mx-auto mb-6">
-                  <Sparkles className="w-12 h-12 text-white" />
+              <div className="text-center py-12 sm:py-16 md:py-20">
+                <div className="w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 bg-gradient-to-br from-purple-400 to-pink-400 rounded-2xl sm:rounded-3xl flex items-center justify-center mx-auto mb-4 sm:mb-6">
+                  <Sparkles className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 text-white" />
                 </div>
-                <h3 className="text-2xl font-bold text-gray-900 mb-2">No posts yet</h3>
-                <p className="text-gray-600 mb-6">Start creating amazing content!</p>
+                <h3 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">No posts yet</h3>
+                <p className="text-sm sm:text-base text-gray-600 mb-4 sm:mb-6 px-4">Start creating amazing content!</p>
                 {permissions.canCreate && (
                   <button
                     onClick={handleCreatePost}
-                    className="px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all"
+                    className="px-4 sm:px-6 py-2 sm:py-3 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white rounded-lg sm:rounded-xl text-sm sm:text-base font-semibold shadow-lg hover:shadow-xl transition-all"
                   >
                     Create Your First Post
                   </button>
@@ -963,59 +1008,62 @@ function ModernBlogForm() {
             setEditDraftId(null);
             loadPosts();
           }}
-          onSave={loadPosts}
+          onSave={() => {
+            // Reload posts to get fresh data from API
+            loadPosts();
+          }}
         />
       )}
 
       {/* Comments Modal */}
       {showCommentsModal && selectedPostForComments && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-2 sm:p-4">
+          <div className="bg-white rounded-xl sm:rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] sm:max-h-[80vh] flex flex-col">
             {/* Header */}
-            <div className="flex items-center justify-between p-6 border-b border-gray-200">
-              <h2 className="text-2xl font-bold text-gray-900">Comments</h2>
+            <div className="flex items-center justify-between p-4 sm:p-5 md:p-6 border-b border-gray-200">
+              <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Comments</h2>
               <button
                 onClick={() => {
                   setShowCommentsModal(false);
                   setSelectedPostForComments(null);
                   setNewComment('');
                 }}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                className="p-1.5 sm:p-2 hover:bg-gray-100 rounded-lg transition-colors"
               >
-                <X className="w-5 h-5 text-gray-600" />
+                <X className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600" />
               </button>
             </div>
 
             {/* Comments List */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+            <div className="flex-1 overflow-y-auto p-4 sm:p-5 md:p-6 space-y-3 sm:space-y-4">
               {selectedPostForComments.commentsArray && selectedPostForComments.commentsArray.length > 0 ? (
                 selectedPostForComments.commentsArray.map((comment) => (
-                  <div key={comment._id} className="bg-gray-50 rounded-lg p-4">
+                  <div key={comment._id} className="bg-gray-50 rounded-lg p-3 sm:p-4">
                     <div className="flex items-start justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center">
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center flex-shrink-0">
                           <span className="text-white text-xs font-semibold">
                             {comment.username.charAt(0).toUpperCase()}
                           </span>
                         </div>
-                        <div>
-                          <p className="text-sm font-semibold text-gray-900">{comment.username}</p>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs sm:text-sm font-semibold text-gray-900 truncate">{comment.username}</p>
                           <p className="text-xs text-gray-500">
                             {formatDate(comment.createdAt)}
                           </p>
                         </div>
                       </div>
                     </div>
-                    <p className="text-gray-700 mb-2">{comment.text}</p>
+                    <p className="text-sm sm:text-base text-gray-700 mb-2 break-words">{comment.text}</p>
                     {comment.replies && comment.replies.length > 0 && (
-                      <div className="mt-3 ml-4 space-y-2 border-l-2 border-purple-200 pl-4">
+                      <div className="mt-3 ml-2 sm:ml-4 space-y-2 border-l-2 border-purple-200 pl-3 sm:pl-4">
                         {comment.replies.map((reply) => (
                           <div key={reply._id} className="bg-white rounded p-2">
-                            <div className="flex items-center gap-2 mb-1">
+                            <div className="flex items-center gap-2 mb-1 flex-wrap">
                               <span className="text-xs font-semibold text-gray-700">{reply.username}</span>
                               <span className="text-xs text-gray-500">{formatDate(reply.createdAt)}</span>
                             </div>
-                            <p className="text-sm text-gray-600">{reply.text}</p>
+                            <p className="text-xs sm:text-sm text-gray-600 break-words">{reply.text}</p>
                           </div>
                         ))}
                       </div>
@@ -1023,15 +1071,15 @@ function ModernBlogForm() {
                   </div>
                 ))
               ) : (
-                <div className="text-center py-12">
-                  <MessageCircle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-600">No comments yet. Be the first to comment!</p>
+                <div className="text-center py-8 sm:py-12">
+                  <MessageCircle className="w-10 h-10 sm:w-12 sm:h-12 text-gray-400 mx-auto mb-3 sm:mb-4" />
+                  <p className="text-sm sm:text-base text-gray-600">No comments yet. Be the first to comment!</p>
                 </div>
               )}
             </div>
 
             {/* Comment Input */}
-            <div className="p-6 border-t border-gray-200">
+            <div className="p-4 sm:p-5 md:p-6 border-t border-gray-200">
               <div className="flex gap-2">
                 <input
                   type="text"
@@ -1044,12 +1092,12 @@ function ModernBlogForm() {
                       handleAddComment(selectedPostForComments._id);
                     }
                   }}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  className="flex-1 px-3 sm:px-4 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                 />
                 <button
                   onClick={() => handleAddComment(selectedPostForComments._id)}
                   disabled={commenting || !newComment.trim()}
-                  className="px-6 py-2 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white rounded-lg font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-4 sm:px-6 py-2 text-sm sm:text-base bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white rounded-lg font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
                 >
                   {commenting ? 'Posting...' : 'Post'}
                 </button>
@@ -1061,19 +1109,19 @@ function ModernBlogForm() {
 
       {/* Edit URL Modal */}
       {showEditUrlModal && editUrlPost && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full border border-gray-100">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-2 sm:p-4">
+          <div className="bg-white rounded-xl sm:rounded-2xl shadow-2xl max-w-lg w-full border border-gray-100 max-h-[90vh] sm:max-h-[85vh] flex flex-col overflow-hidden">
             {/* Header */}
-            <div className="relative p-6 border-b border-gray-100">
-              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-purple-500 to-pink-500 rounded-t-2xl"></div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-2xl flex items-center justify-center shadow-lg">
-                    <LinkIcon className="w-6 h-6 text-white" />
+            <div className="relative p-4 sm:p-5 md:p-6 border-b border-gray-100 flex-shrink-0">
+              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-purple-500 to-pink-500 rounded-t-xl sm:rounded-t-2xl"></div>
+              <div className="flex items-center justify-between gap-2 sm:gap-3">
+                <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg flex-shrink-0">
+                    <LinkIcon className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                   </div>
-                  <div>
-                    <h3 className="text-xl font-bold text-gray-900">Edit Blog URL</h3>
-                    <p className="text-sm text-gray-500 mt-1">Update title and URL slug</p>
+                  <div className="min-w-0">
+                    <h3 className="text-lg sm:text-xl font-bold text-gray-900 truncate">Edit Blog URL</h3>
+                    <p className="text-xs sm:text-sm text-gray-500 mt-0.5 sm:mt-1 hidden sm:block">Update title and URL slug</p>
                   </div>
                 </div>
                 <button
@@ -1082,38 +1130,38 @@ function ModernBlogForm() {
                     setEditUrlPost(null);
                     setEditUrlError('');
                   }}
-                  className="w-10 h-10 bg-gray-100 hover:bg-red-100 rounded-xl flex items-center justify-center transition-all duration-200 group"
+                  className="w-8 h-8 sm:w-10 sm:h-10 bg-gray-100 hover:bg-red-100 rounded-lg sm:rounded-xl flex items-center justify-center transition-all duration-200 group flex-shrink-0"
                 >
-                  <X className="w-5 h-5 text-gray-600 group-hover:text-red-600" />
+                  <X className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600 group-hover:text-red-600" />
                 </button>
               </div>
             </div>
 
             {/* Form Content */}
-            <div className="p-6 space-y-6">
+            <div className="p-4 sm:p-5 md:p-6 space-y-4 sm:space-y-6 overflow-y-auto flex-1">
               {/* Blog Title */}
               <div className="space-y-2">
-                <label className="block text-sm font-semibold text-gray-700">
+                <label className="block text-xs sm:text-sm font-semibold text-gray-700">
                   Blog Title
                 </label>
                 <input
                   type="text"
                   value={editUrlTitle}
                   onChange={(e) => setEditUrlTitle(e.target.value)}
-                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-purple-200 focus:border-purple-400 transition-all duration-200 bg-gray-50 hover:bg-white"
+                  className="w-full px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base border-2 border-gray-200 rounded-lg sm:rounded-xl focus:outline-none focus:ring-4 focus:ring-purple-200 focus:border-purple-400 transition-all duration-200 bg-gray-50 hover:bg-white"
                   placeholder="Enter blog title..."
                 />
               </div>
 
               {/* URL Preview */}
               <div className="space-y-2">
-                <label className="block text-sm font-semibold text-gray-700">
+                <label className="block text-xs sm:text-sm font-semibold text-gray-700">
                   Blog URL Slug
                 </label>
-                <div className="border-2 rounded-xl p-4 mb-3 bg-gradient-to-r from-purple-50 to-pink-50 border-purple-200">
-                  <div className="flex items-center gap-2 text-sm">
-                    <span className="text-gray-600">{getBaseUrl()}/blogs/</span>
-                    <span className="font-mono font-semibold text-purple-700">
+                <div className="border-2 rounded-lg sm:rounded-xl p-3 sm:p-4 mb-3 bg-gradient-to-r from-purple-50 to-pink-50 border-purple-200 overflow-x-auto">
+                  <div className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm min-w-0">
+                    <span className="text-gray-600 whitespace-nowrap flex-shrink-0">{getBaseUrl()}/blogs/</span>
+                    <span className="font-mono font-semibold text-purple-700 truncate">
                       {editUrlParamlink || '...'}
                     </span>
                   </div>
@@ -1122,33 +1170,33 @@ function ModernBlogForm() {
                   type="text"
                   value={editUrlParamlink}
                   onChange={(e) => setEditUrlParamlink(slugify(e.target.value))}
-                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-4 focus:ring-purple-200 focus:border-purple-400 transition-all duration-200 bg-gray-50 hover:bg-white"
+                  className="w-full px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base border-2 border-gray-200 rounded-lg sm:rounded-xl focus:outline-none focus:ring-4 focus:ring-purple-200 focus:border-purple-400 transition-all duration-200 bg-gray-50 hover:bg-white"
                   placeholder="blog-url-slug"
                 />
                 {editUrlError && (
-                  <div className="flex items-center gap-2 text-red-600 text-sm mt-2 bg-red-50 p-3 rounded-lg border border-red-200">
-                    <X className="w-4 h-4" />
-                    {editUrlError}
+                  <div className="flex items-center gap-2 text-red-600 text-xs sm:text-sm mt-2 bg-red-50 p-2 sm:p-3 rounded-lg border border-red-200">
+                    <X className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
+                    <span className="break-words">{editUrlError}</span>
                   </div>
                 )}
               </div>
             </div>
 
             {/* Action Buttons */}
-            <div className="p-6 border-t border-gray-100 flex gap-3">
+            <div className="p-4 sm:p-5 md:p-6 border-t border-gray-100 flex gap-2 sm:gap-3 flex-shrink-0">
               <button
                 onClick={() => {
                   setShowEditUrlModal(false);
                   setEditUrlPost(null);
                   setEditUrlError('');
                 }}
-                className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 py-3 px-6 rounded-xl font-semibold transition-all duration-200"
+                className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 py-2.5 sm:py-3 px-4 sm:px-6 rounded-lg sm:rounded-xl text-sm sm:text-base font-semibold transition-all duration-200"
               >
                 Cancel
               </button>
               <button
                 onClick={handleSaveUrl}
-                className="flex-1 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white py-3 px-6 rounded-xl font-semibold transition-all duration-200 transform hover:scale-[1.02] shadow-lg hover:shadow-xl"
+                className="flex-1 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white py-2.5 sm:py-3 px-4 sm:px-6 rounded-lg sm:rounded-xl text-sm sm:text-base font-semibold transition-all duration-200 transform hover:scale-[1.02] shadow-lg hover:shadow-xl"
               >
                 Save Changes
               </button>
@@ -1159,67 +1207,67 @@ function ModernBlogForm() {
 
       {/* Post Detail Modal - View Complete Post */}
       {showPostDetailModal && selectedPostDetail && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
-          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl my-8 flex flex-col max-h-[90vh]">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-2 sm:p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl sm:rounded-3xl shadow-2xl w-full max-w-4xl my-4 sm:my-6 md:my-8 flex flex-col max-h-[95vh] sm:max-h-[90vh]">
             {/* Header */}
-            <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-purple-50 to-pink-50 sticky top-0 z-10">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl">
-                  <Eye className="w-5 h-5 text-white" />
+            <div className="flex items-center justify-between p-4 sm:p-5 md:p-6 border-b border-gray-200 bg-gradient-to-r from-purple-50 to-pink-50 sticky top-0 z-10 flex-shrink-0">
+              <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                <div className="p-1.5 sm:p-2 bg-gradient-to-br from-purple-500 to-pink-500 rounded-lg sm:rounded-xl flex-shrink-0">
+                  <Eye className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
                 </div>
-                <div>
-                  <h2 className="text-xl font-bold text-gray-900">Post Preview</h2>
-                  <p className="text-sm text-gray-500">View complete post content</p>
+                <div className="min-w-0">
+                  <h2 className="text-lg sm:text-xl font-bold text-gray-900 truncate">Post Preview</h2>
+                  <p className="text-xs sm:text-sm text-gray-500 hidden sm:block">View complete post content</p>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
                 <a
                   href={`${getBaseUrl()}/blogs/${selectedPostDetail.paramlink}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="p-2 hover:bg-blue-100 rounded-lg transition-colors"
+                  className="p-1.5 sm:p-2 hover:bg-blue-100 rounded-lg transition-colors"
                   title="Open in New Tab"
                 >
-                  <ExternalLink className="w-5 h-5 text-blue-600" />
+                  <ExternalLink className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
                 </a>
                 <button
                   onClick={() => {
                     setShowPostDetailModal(false);
                     setSelectedPostDetail(null);
                   }}
-                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                  className="p-1.5 sm:p-2 hover:bg-gray-100 rounded-lg transition-colors"
                 >
-                  <X className="w-5 h-5 text-gray-600" />
+                  <X className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600" />
                 </button>
               </div>
             </div>
 
             {/* Post Content */}
-            <div className="flex-1 overflow-y-auto p-8">
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-8">
               {/* Featured Image */}
               {extractFirstImage(selectedPostDetail.content) && (
-                <div className="mb-6">
+                <div className="mb-4 sm:mb-6">
                   <img
                     src={extractFirstImage(selectedPostDetail.content) || ''}
                     alt={selectedPostDetail.title}
-                    className="w-full h-96 object-cover rounded-2xl shadow-lg"
+                    className="w-full h-48 sm:h-64 md:h-80 lg:h-96 object-cover rounded-xl sm:rounded-2xl shadow-lg"
                   />
                 </div>
               )}
 
               {/* Title */}
-              <h1 className="text-4xl font-bold text-gray-900 mb-4">
+              <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 mb-3 sm:mb-4 break-words">
                 {selectedPostDetail.title}
               </h1>
 
               {/* Author & Meta */}
-              <div className="flex items-center gap-4 mb-6 pb-6 border-b border-gray-200">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center">
-                    <User className="w-6 h-6 text-white" />
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-4 sm:mb-6 pb-4 sm:pb-6 border-b border-gray-200">
+                <div className="flex items-center gap-2 sm:gap-3">
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center flex-shrink-0">
+                    <User className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                   </div>
-                  <div>
-                    <p className="text-sm font-semibold text-gray-900">
+                  <div className="min-w-0">
+                    <p className="text-xs sm:text-sm font-semibold text-gray-900 truncate">
                       {(() => {
                         if (!selectedPostDetail.postedBy) return 'Anonymous';
                         if (typeof selectedPostDetail.postedBy === 'string') return selectedPostDetail.postedBy;
@@ -1227,22 +1275,22 @@ function ModernBlogForm() {
                       })()}
                     </p>
                     <p className="text-xs text-gray-500 flex items-center gap-1">
-                      <Clock className="w-3 h-3" />
-                      {formatDate(selectedPostDetail.createdAt)}
+                      <Clock className="w-3 h-3 flex-shrink-0" />
+                      <span>{formatDate(selectedPostDetail.createdAt)}</span>
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-4 ml-auto text-sm text-gray-500">
-                  <div className="flex items-center gap-1.5">
-                    <Heart className={`w-4 h-4 ${selectedPostDetail.liked ? 'fill-current text-red-500' : ''}`} />
+                <div className="flex items-center gap-3 sm:gap-4 text-xs sm:text-sm text-gray-500">
+                  <div className="flex items-center gap-1 sm:gap-1.5">
+                    <Heart className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${selectedPostDetail.liked ? 'fill-current text-red-500' : ''}`} />
                     <span>{Number(selectedPostDetail.likesCount || selectedPostDetail.likes) || 0}</span>
                   </div>
-                  <div className="flex items-center gap-1.5">
-                    <MessageCircle className="w-4 h-4" />
+                  <div className="flex items-center gap-1 sm:gap-1.5">
+                    <MessageCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                     <span>{Number(selectedPostDetail.commentsCount || selectedPostDetail.comments) || 0}</span>
                   </div>
-                  <div className="flex items-center gap-1.5">
-                    <Eye className="w-4 h-4" />
+                  <div className="flex items-center gap-1 sm:gap-1.5">
+                    <Eye className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                     <span>{Number(selectedPostDetail.views) || 0}</span>
                   </div>
                 </div>
@@ -1250,11 +1298,11 @@ function ModernBlogForm() {
 
               {/* Topics */}
               {extractTopics(selectedPostDetail.content).length > 0 && (
-                <div className="mb-6 flex flex-wrap gap-2">
+                <div className="mb-4 sm:mb-6 flex flex-wrap gap-1.5 sm:gap-2">
                   {extractTopics(selectedPostDetail.content).map((topic) => (
                     <span
                       key={topic}
-                      className="inline-flex items-center gap-1 px-3 py-1.5 bg-gradient-to-r from-purple-100 to-pink-100 text-purple-700 rounded-full text-sm font-medium"
+                      className="inline-flex items-center gap-1 px-2 sm:px-3 py-1 sm:py-1.5 bg-gradient-to-r from-purple-100 to-pink-100 text-purple-700 rounded-full text-xs sm:text-sm font-medium"
                     >
                       <Hash className="w-3 h-3" />
                       {topic}
@@ -1265,7 +1313,7 @@ function ModernBlogForm() {
 
               {/* Full Content */}
               <div
-                className="prose prose-lg max-w-none text-gray-700 leading-relaxed"
+                className="prose prose-sm sm:prose-base md:prose-lg max-w-none text-gray-700 leading-relaxed"
                 dangerouslySetInnerHTML={{ __html: selectedPostDetail.content }}
                 style={{
                   wordBreak: 'break-word',
@@ -1273,17 +1321,17 @@ function ModernBlogForm() {
               />
 
               {/* Actions Footer */}
-              <div className="mt-8 pt-6 border-t border-gray-200 flex items-center justify-between">
-                <div className="flex items-center gap-3">
+              <div className="mt-6 sm:mt-8 pt-4 sm:pt-6 border-t border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0">
+                <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
                   <button
                     onClick={() => handleLike(selectedPostDetail._id)}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition-all ${
+                    className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl text-xs sm:text-sm font-medium transition-all ${
                       selectedPostDetail.liked
                         ? 'bg-red-50 text-red-600 border-2 border-red-200'
                         : 'bg-gray-50 text-gray-600 border-2 border-gray-200 hover:bg-red-50 hover:text-red-600 hover:border-red-200'
                     }`}
                   >
-                    <Heart className={`w-5 h-5 ${selectedPostDetail.liked ? 'fill-current' : ''}`} />
+                    <Heart className={`w-4 h-4 sm:w-5 sm:h-5 ${selectedPostDetail.liked ? 'fill-current' : ''}`} />
                     <span>{Number(selectedPostDetail.likesCount || selectedPostDetail.likes) || 0}</span>
                   </button>
                   <button
@@ -1291,9 +1339,9 @@ function ModernBlogForm() {
                       setShowPostDetailModal(false);
                       openCommentsModal(selectedPostDetail);
                     }}
-                    className="flex items-center gap-2 px-4 py-2 bg-gray-50 text-gray-600 border-2 border-gray-200 rounded-xl font-medium hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 transition-all"
+                    className="flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 bg-gray-50 text-gray-600 border-2 border-gray-200 rounded-lg sm:rounded-xl text-xs sm:text-sm font-medium hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 transition-all"
                   >
-                    <MessageCircle className="w-5 h-5" />
+                    <MessageCircle className="w-4 h-4 sm:w-5 sm:h-5" />
                     <span>{Number(selectedPostDetail.commentsCount || selectedPostDetail.comments) || 0}</span>
                   </button>
                   <div className="p-0">
@@ -1301,7 +1349,7 @@ function ModernBlogForm() {
                       blogTitle={selectedPostDetail.title}
                       blogUrl={`${getBaseUrl()}/blogs/${selectedPostDetail.paramlink}`}
                       blogDescription={extractText(selectedPostDetail.content, 200)}
-                      triggerClassName="px-4 py-2 bg-gray-50 text-gray-600 border-2 border-gray-200 rounded-xl font-medium hover:bg-purple-50 hover:text-purple-600 hover:border-purple-200 transition-all"
+                      triggerClassName="px-3 sm:px-4 py-1.5 sm:py-2 bg-gray-50 text-gray-600 border-2 border-gray-200 rounded-lg sm:rounded-xl text-xs sm:text-sm font-medium hover:bg-purple-50 hover:text-purple-600 hover:border-purple-200 transition-all"
                     />
                   </div>
                 </div>
@@ -1312,9 +1360,9 @@ function ModernBlogForm() {
                         setShowPostDetailModal(false);
                         handleEditPost(selectedPostDetail._id, 'published');
                       }}
-                      className="px-4 py-2 bg-purple-50 text-purple-600 border-2 border-purple-200 rounded-xl font-medium hover:bg-purple-100 transition-all"
+                      className="px-3 sm:px-4 py-1.5 sm:py-2 bg-purple-50 text-purple-600 border-2 border-purple-200 rounded-lg sm:rounded-xl text-xs sm:text-sm font-medium hover:bg-purple-100 transition-all"
                     >
-                      <Edit3 className="w-4 h-4 inline mr-2" />
+                      <Edit3 className="w-3.5 h-3.5 sm:w-4 sm:h-4 inline mr-1.5 sm:mr-2" />
                       Edit
                     </button>
                   )}

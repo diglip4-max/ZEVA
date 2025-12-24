@@ -147,6 +147,11 @@ const JobStats: React.FC<JobStatsProps> = ({
   const [applicationsError, setApplicationsError] = useState<string>('');
   const [applicationsLoading, setApplicationsLoading] = useState<boolean>(true);
 
+  // Extract permission values to create stable dependencies
+  const canAccessJobs = config.permissions?.canAccessJobs !== false;
+  const canAccessBlogs = config.permissions?.canAccessBlogs !== false;
+  const canAccessApplications = config.permissions?.canAccessApplications !== false;
+
   const fetchJobs = useCallback(async (): Promise<void> => {
     try {
       setLoading(true);
@@ -160,7 +165,7 @@ const JobStats: React.FC<JobStatsProps> = ({
       }
 
       // Check if job access is explicitly denied via permissions
-      if (config.permissions?.canAccessJobs === false) {
+      if (!canAccessJobs) {
         setJobs([]);
         setLoading(false);
         return;
@@ -200,7 +205,7 @@ const JobStats: React.FC<JobStatsProps> = ({
     } finally {
       setLoading(false);
     }
-  }, [config.tokenKey, config.permissions]);
+  }, [config.tokenKey, canAccessJobs]);
 
   const fetchBlogs = useCallback(async (): Promise<void> => {
     try {
@@ -216,7 +221,7 @@ const JobStats: React.FC<JobStatsProps> = ({
       }
 
       // Check if blog access is explicitly denied via permissions
-      if (config.permissions?.canAccessBlogs === false) {
+      if (!canAccessBlogs) {
         setBlogs([]);
         setBlogLoading(false);
         return;
@@ -270,7 +275,7 @@ const JobStats: React.FC<JobStatsProps> = ({
     } finally {
       setBlogLoading(false);
     }
-  }, [config.tokenKey, config.permissions]);
+  }, [config.tokenKey, canAccessBlogs]);
 
   const fetchApplications = useCallback(async (): Promise<void> => {
     try {
@@ -284,7 +289,7 @@ const JobStats: React.FC<JobStatsProps> = ({
       }
 
       // Check if application access is explicitly denied via permissions
-      if (config.permissions?.canAccessApplications === false) {
+      if (!canAccessApplications) {
         setApplications([]);
         setApplicationsLoading(false);
         return;
@@ -325,7 +330,7 @@ const JobStats: React.FC<JobStatsProps> = ({
     } finally {
       setApplicationsLoading(false);
     }
-  }, [config.tokenKey, config.permissions]);
+  }, [config.tokenKey, canAccessApplications]);
 
   useEffect(() => {
     fetchJobs();
@@ -410,61 +415,32 @@ const JobStats: React.FC<JobStatsProps> = ({
     return topAppliedJobs.reduce((sum, j) => sum + j.count, 0);
   }, [topAppliedJobs]);
 
-  if (loading) {
-    return (
-      <div className="w-full">
-        <div className="animate-pulse">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            {[...Array(4)].map((_, i) => (
-              <div key={i} className="bg-white p-6 rounded-xl border border-gray-200">
-                <div className="h-4 bg-gray-300 rounded w-1/2 mb-2"></div>
-                <div className="h-8 bg-gray-300 rounded w-1/3 mb-1"></div>
-                <div className="h-3 bg-gray-300 rounded w-3/4"></div>
-              </div>
-            ))}
-          </div>
-          <div className="bg-white p-6 rounded-xl border border-gray-200">
-            <div className="h-6 bg-gray-300 rounded w-1/3 mb-4"></div>
-            <div className="space-y-3">
-              {[...Array(4)].map((_, i) => (
-                <div key={i} className="flex justify-between items-center">
-                  <div className="h-4 bg-gray-300 rounded w-1/4"></div>
-                  <div className="h-4 bg-gray-300 rounded w-12"></div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // Don't return early - show stats even while loading or if there's an error
+  // This ensures job stats are always visible
 
-  if (error) {
-    return (
-      <div className="w-full">
-        <div className="bg-red-50 border border-red-200 rounded-xl p-6">
-          <div className="flex items-center gap-3">
-            <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <div>
-              <h3 className="font-medium text-red-900">Unable to load statistics</h3>
-              <p className="text-sm text-red-700">{error}</p>
-            </div>
+return (
+  <div className="w-full space-y-4 sm:space-y-6 px-2 sm:px-4 lg:px-0">
+    {/* Error Banner - Show error but don't block stats */}
+    {error && (
+      <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+        <div className="flex items-center gap-3">
+          <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <div className="flex-1">
+            <h3 className="font-medium text-red-900">Unable to load some statistics</h3>
+            <p className="text-sm text-red-700">{error}</p>
           </div>
           <button 
             onClick={fetchJobs}
-            className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors duration-200"
+            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors duration-200 text-sm"
           >
             Retry
           </button>
         </div>
       </div>
-    );
-  }
+    )}
 
-return (
-  <div className="w-full space-y-4 sm:space-y-6 px-2 sm:px-4 lg:px-0">
     {/* Main Statistics Cards */}
     <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
       
@@ -473,10 +449,19 @@ return (
         <div className="flex items-center justify-between">
           <div className="min-w-0 flex-1">
             <p className="text-xs sm:text-sm font-medium text-gray-600">Total Jobs</p>
-            <p className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold text-gray-900 mt-1">{stats.totalJobs}</p>
-            <p className="text-xs text-gray-500 mt-1 truncate">
-              {stats.totalOpenings} total openings
-            </p>
+            {loading ? (
+              <div className="mt-1">
+                <div className="h-6 sm:h-8 md:h-10 bg-gray-200 rounded animate-pulse"></div>
+                <div className="h-3 bg-gray-200 rounded mt-2 w-2/3 animate-pulse"></div>
+              </div>
+            ) : (
+              <>
+                <p className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold text-gray-900 mt-1">{stats.totalJobs}</p>
+                <p className="text-xs text-gray-500 mt-1 truncate">
+                  {stats.totalOpenings} total openings
+                </p>
+              </>
+            )}
           </div>
           <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 bg-[#2D9AA5]/10 rounded-lg sm:rounded-xl flex items-center justify-center flex-shrink-0">
             <svg className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-[#2D9AA5]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -491,10 +476,19 @@ return (
         <div className="flex items-center justify-between">
           <div className="min-w-0 flex-1">
             <p className="text-xs sm:text-sm font-medium text-gray-600">Active Jobs</p>
-            <p className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold text-green-600 mt-1">{stats.activeJobs}</p>
-            <p className="text-xs text-gray-500 mt-1 truncate">
-              {stats.totalJobs > 0 ? Math.round((stats.activeJobs / stats.totalJobs) * 100) : 0}% of total
-            </p>
+            {loading ? (
+              <div className="mt-1">
+                <div className="h-6 sm:h-8 md:h-10 bg-gray-200 rounded animate-pulse"></div>
+                <div className="h-3 bg-gray-200 rounded mt-2 w-2/3 animate-pulse"></div>
+              </div>
+            ) : (
+              <>
+                <p className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold text-green-600 mt-1">{stats.activeJobs}</p>
+                <p className="text-xs text-gray-500 mt-1 truncate">
+                  {stats.totalJobs > 0 ? Math.round((stats.activeJobs / stats.totalJobs) * 100) : 0}% of total
+                </p>
+              </>
+            )}
           </div>
           <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 bg-green-100 rounded-lg sm:rounded-xl flex items-center justify-center flex-shrink-0">
             <svg className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -509,10 +503,19 @@ return (
         <div className="flex items-center justify-between">
           <div className="min-w-0 flex-1">
             <p className="text-xs sm:text-sm font-medium text-gray-600">Inactive Jobs</p>
-            <p className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold text-orange-600 mt-1">{stats.inactiveJobs}</p>
-            <p className="text-xs text-gray-500 mt-1 truncate">
-              {stats.totalJobs > 0 ? Math.round((stats.inactiveJobs / stats.totalJobs) * 100) : 0}% of total
-            </p>
+            {loading ? (
+              <div className="mt-1">
+                <div className="h-6 sm:h-8 md:h-10 bg-gray-200 rounded animate-pulse"></div>
+                <div className="h-3 bg-gray-200 rounded mt-2 w-2/3 animate-pulse"></div>
+              </div>
+            ) : (
+              <>
+                <p className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold text-orange-600 mt-1">{stats.inactiveJobs}</p>
+                <p className="text-xs text-gray-500 mt-1 truncate">
+                  {stats.totalJobs > 0 ? Math.round((stats.inactiveJobs / stats.totalJobs) * 100) : 0}% of total
+                </p>
+              </>
+            )}
           </div>
           <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 bg-orange-100 rounded-lg sm:rounded-xl flex items-center justify-center flex-shrink-0">
             <svg className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -527,8 +530,17 @@ return (
         <div className="flex items-center justify-between">
           <div className="min-w-0 flex-1">
             <p className="text-xs sm:text-sm font-medium text-gray-600">Job Types</p>
-            <p className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold text-[#2D9AA5] mt-1">{Object.keys(stats.jobTypeStats).length}</p>
-            <p className="text-xs text-gray-500 mt-1">Different categories</p>
+            {loading ? (
+              <div className="mt-1">
+                <div className="h-6 sm:h-8 md:h-10 bg-gray-200 rounded animate-pulse"></div>
+                <div className="h-3 bg-gray-200 rounded mt-2 w-2/3 animate-pulse"></div>
+              </div>
+            ) : (
+              <>
+                <p className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold text-[#2D9AA5] mt-1">{Object.keys(stats.jobTypeStats).length}</p>
+                <p className="text-xs text-gray-500 mt-1">Different categories</p>
+              </>
+            )}
           </div>
           <div className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 bg-[#2D9AA5]/10 rounded-lg sm:rounded-xl flex items-center justify-center flex-shrink-0">
             <svg className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-[#2D9AA5]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -539,125 +551,126 @@ return (
       </div>
     </div>
 
-    {/* Job Types Pie Chart */}
-    {sortedJobTypes.length > 0 && (
+    {/* Job Types Distribution - Show when there are jobs */}
+    {stats.totalJobs > 0 && (
       <div className="bg-white p-3 sm:p-4 rounded-lg border border-gray-200">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 gap-2">
-          <h3 className="text-xs sm:text-sm font-semibold text-gray-900">Job Types Distribution</h3>
-          <span className="text-xs text-gray-500">{stats.totalJobs} total jobs</span>
-        </div>
-        
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
-          {/* Pie Chart */}
-          <div className="h-48 sm:h-56 md:h-64 flex items-center justify-center order-2 xl:order-1">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <defs>
-                  <linearGradient id="pieGrad1" x1="0" y1="0" x2="1" y2="1">
-                    <stop offset="0%" stopColor="#2D9AA5" />
-                    <stop offset="100%" stopColor="#0ea5e9" />
-                  </linearGradient>
-                  <linearGradient id="pieGrad2" x1="0" y1="0" x2="1" y2="1">
-                    <stop offset="0%" stopColor="#22c55e" />
-                    <stop offset="100%" stopColor="#16a34a" />
-                  </linearGradient>
-                  <linearGradient id="pieGrad3" x1="0" y1="0" x2="1" y2="1">
-                    <stop offset="0%" stopColor="#a855f7" />
-                    <stop offset="100%" stopColor="#7c3aed" />
-                  </linearGradient>
-                  <linearGradient id="pieGrad4" x1="0" y1="0" x2="1" y2="1">
-                    <stop offset="0%" stopColor="#f97316" />
-                    <stop offset="100%" stopColor="#ea580c" />
-                  </linearGradient>
-                  <linearGradient id="pieGrad5" x1="0" y1="0" x2="1" y2="1">
-                    <stop offset="0%" stopColor="#ec4899" />
-                    <stop offset="100%" stopColor="#db2777" />
-                  </linearGradient>
-                  <linearGradient id="pieGrad6" x1="0" y1="0" x2="1" y2="1">
-                    <stop offset="0%" stopColor="#6366f1" />
-                    <stop offset="100%" stopColor="#4f46e5" />
-                  </linearGradient>
-                </defs>
-                <Pie
-                  data={sortedJobTypes.map(([jobType, count],) => ({
-                    name: jobType,
-                    value: count,
-                    percentage: stats.totalJobs > 0 ? Math.round((count / stats.totalJobs) * 100) : 0
-                  }))}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={({ name, percentage}) => {
-                    if (window.innerWidth < 640) return `${percentage}%`;
-                    if (window.innerWidth < 768) return `${name.length > 8 ? name.substring(0, 8) + '...' : name} (${percentage}%)`;
-                    return `${name} (${percentage}%)`;
-                  }}
-                  innerRadius={window.innerWidth < 640 ? 40 : window.innerWidth < 768 ? 60 : pieInnerRadius}
-                  outerRadius={window.innerWidth < 640 ? 80 : window.innerWidth < 768 ? 100 : pieOuterRadius}
-                  fill="#8884d8"
-                  dataKey="value"
-                >
-                  {sortedJobTypes.map((_, index) => {
-                    const fills = [
-                      'url(#pieGrad1)',
-                      'url(#pieGrad2)',
-                      'url(#pieGrad3)',
-                      'url(#pieGrad4)',
-                      'url(#pieGrad5)',
-                      'url(#pieGrad6)'
-                    ];
-                    return <Cell key={`cell-${index}`} fill={fills[index % fills.length]} stroke="#ffffff" strokeWidth={1} />;
-                  })}
-                  <Label 
-                    value={`${stats.totalJobs} Jobs`} 
-                    position="center" 
-                    fill="#111827" 
-                    fontSize={window.innerWidth < 640 ? 12 : window.innerWidth < 768 ? 14 : 16} 
-                  />
-                </Pie>
-                {/* Removed Tooltip to show data always */}
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
+        {sortedJobTypes.length > 0 ? (
+          <>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 gap-2">
+              <h3 className="text-xs sm:text-sm font-semibold text-gray-900">Job Types Distribution</h3>
+              <span className="text-xs text-gray-500">{stats.totalJobs} total jobs</span>
+            </div>
+            
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+              {/* Pie Chart */}
+              <div className="h-48 sm:h-56 md:h-64 flex items-center justify-center order-2 xl:order-1">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <defs>
+                      <linearGradient id="pieGrad1" x1="0" y1="0" x2="1" y2="1">
+                        <stop offset="0%" stopColor="#2D9AA5" />
+                        <stop offset="100%" stopColor="#0ea5e9" />
+                      </linearGradient>
+                      <linearGradient id="pieGrad2" x1="0" y1="0" x2="1" y2="1">
+                        <stop offset="0%" stopColor="#22c55e" />
+                        <stop offset="100%" stopColor="#16a34a" />
+                      </linearGradient>
+                      <linearGradient id="pieGrad3" x1="0" y1="0" x2="1" y2="1">
+                        <stop offset="0%" stopColor="#a855f7" />
+                        <stop offset="100%" stopColor="#7c3aed" />
+                      </linearGradient>
+                      <linearGradient id="pieGrad4" x1="0" y1="0" x2="1" y2="1">
+                        <stop offset="0%" stopColor="#f97316" />
+                        <stop offset="100%" stopColor="#ea580c" />
+                      </linearGradient>
+                      <linearGradient id="pieGrad5" x1="0" y1="0" x2="1" y2="1">
+                        <stop offset="0%" stopColor="#ec4899" />
+                        <stop offset="100%" stopColor="#db2777" />
+                      </linearGradient>
+                      <linearGradient id="pieGrad6" x1="0" y1="0" x2="1" y2="1">
+                        <stop offset="0%" stopColor="#6366f1" />
+                        <stop offset="100%" stopColor="#4f46e5" />
+                      </linearGradient>
+                    </defs>
+                    <Pie
+                      data={sortedJobTypes.map(([jobType, count],) => ({
+                        name: jobType,
+                        value: count,
+                        percentage: stats.totalJobs > 0 ? Math.round((count / stats.totalJobs) * 100) : 0
+                      }))}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      label={({ name, percentage}) => {
+                        if (window.innerWidth < 640) return `${percentage}%`;
+                        if (window.innerWidth < 768) return `${name.length > 8 ? name.substring(0, 8) + '...' : name} (${percentage}%)`;
+                        return `${name} (${percentage}%)`;
+                      }}
+                      innerRadius={window.innerWidth < 640 ? 40 : window.innerWidth < 768 ? 60 : pieInnerRadius}
+                      outerRadius={window.innerWidth < 640 ? 80 : window.innerWidth < 768 ? 100 : pieOuterRadius}
+                      fill="#8884d8"
+                      dataKey="value"
+                    >
+                      {sortedJobTypes.map((_, index) => {
+                        const fills = [
+                          'url(#pieGrad1)',
+                          'url(#pieGrad2)',
+                          'url(#pieGrad3)',
+                          'url(#pieGrad4)',
+                          'url(#pieGrad5)',
+                          'url(#pieGrad6)'
+                        ];
+                        return <Cell key={`cell-${index}`} fill={fills[index % fills.length]} stroke="#ffffff" strokeWidth={1} />;
+                      })}
+                      <Label 
+                        value={`${stats.totalJobs} Jobs`} 
+                        position="center" 
+                        fill="#111827" 
+                        fontSize={window.innerWidth < 640 ? 12 : window.innerWidth < 768 ? 14 : 16} 
+                      />
+                    </Pie>
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
 
-          {/* Legend with always visible data */}
-          <div className="space-y-1.5 sm:space-y-2 order-1 xl:order-2">
-            {sortedJobTypes.map(([jobType, count], index) => {
-              const percentage = stats.totalJobs > 0 ? (count / stats.totalJobs) * 100 : 0;
-              const colors = [
-                'bg-[#2D9AA5]',
-                'bg-green-500', 
-                'bg-purple-500',
-                'bg-orange-500',
-                'bg-pink-500',
-                'bg-indigo-500'
-              ];
-              
-              return (
-                <div key={jobType} className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
-                    <div className={`w-3 h-3 rounded-full flex-shrink-0 ${colors[index % colors.length]}`}></div>
-                    <span className="font-medium text-gray-700 flex-1 text-xs sm:text-sm md:text-base truncate" title={jobType}>{jobType}</span>
-                  </div>
-                  <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
-                    <div className="w-12 sm:w-16 md:w-24 lg:w-32 bg-gray-200 rounded-full h-2">
-                      <div 
-                        className={`h-2 rounded-full transition-all duration-300 ${colors[index % colors.length]}`}
-                        style={{ width: `${percentage}%` }}
-                      ></div>
+              {/* Legend with always visible data */}
+              <div className="space-y-1.5 sm:space-y-2 order-1 xl:order-2">
+                {sortedJobTypes.map(([jobType, count], index) => {
+                  const percentage = stats.totalJobs > 0 ? (count / stats.totalJobs) * 100 : 0;
+                  const colors = [
+                    'bg-[#2D9AA5]',
+                    'bg-green-500', 
+                    'bg-purple-500',
+                    'bg-orange-500',
+                    'bg-pink-500',
+                    'bg-indigo-500'
+                  ];
+                  
+                  return (
+                    <div key={jobType} className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                        <div className={`w-3 h-3 rounded-full flex-shrink-0 ${colors[index % colors.length]}`}></div>
+                        <span className="font-medium text-gray-700 flex-1 text-xs sm:text-sm md:text-base truncate" title={jobType}>{jobType}</span>
+                      </div>
+                      <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
+                        <div className="w-12 sm:w-16 md:w-24 lg:w-32 bg-gray-200 rounded-full h-2">
+                          <div 
+                            className={`h-2 rounded-full transition-all duration-300 ${colors[index % colors.length]}`}
+                            style={{ width: `${percentage}%` }}
+                          ></div>
+                        </div>
+                        <div className="text-right min-w-[45px] sm:min-w-[50px] md:min-w-[60px]">
+                          <span className="font-bold text-gray-900 text-xs sm:text-sm md:text-base">{count}</span>
+                          <span className="text-xs sm:text-sm text-gray-500 ml-1">({Math.round(percentage)}%)</span>
+                        </div>
+                      </div>
                     </div>
-                    <div className="text-right min-w-[45px] sm:min-w-[50px] md:min-w-[60px]">
-                      <span className="font-bold text-gray-900 text-xs sm:text-sm md:text-base">{count}</span>
-                      <span className="text-xs sm:text-sm text-gray-500 ml-1">({Math.round(percentage)}%)</span>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {Object.keys(stats.jobTypeStats).length === 0 && (
+                  );
+                })}
+              </div>
+            </div>
+          </>
+        ) : (
           <div className="text-center py-6 sm:py-8">
             <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <svg className="w-6 h-6 sm:w-8 sm:h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -668,7 +681,7 @@ return (
           </div>
         )}
 
-        {/* Top Jobs by Applications */}
+        {/* Top Jobs by Applications - Always show when there are jobs */}
         <div className="mt-3 bg-gray-50 p-2 sm:p-3 rounded-lg border border-gray-200">
           <div className="flex items-center justify-between mb-2">
             <h4 className="text-xs sm:text-sm font-semibold text-gray-900">Top Jobs by Applications</h4>
@@ -729,7 +742,6 @@ return (
                       tick={{ fontSize: window.innerWidth < 640 ? 10 : xAxisFontSize }} 
                       width={window.innerWidth < 640 ? 80 : (isSm || isMd) ? 140 : 110} 
                     />
-                    {/* Removed Tooltip to show data always */}
                     <Bar dataKey="applications" fill="url(#appsGradient)" radius={[6, 6, 0, 0]} barSize={window.innerWidth < 640 ? 16 : 22}>
                       <LabelList 
                         dataKey="applications" 
@@ -779,7 +791,6 @@ return (
                         <Cell key={`apps-slice-${idx}`} fill={`url(#appsDonut${(idx % 3) + 1})`} stroke="#ffffff" strokeWidth={1} />
                       ))}
                     </Pie>
-                    {/* Removed Tooltip to show data always */}
                     <Legend 
                       wrapperStyle={{ 
                         fontSize: `${window.innerWidth < 640 ? 10 : legendFontSize}px`,
