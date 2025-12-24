@@ -28,6 +28,21 @@ const CreateAgentModal = ({ isOpen, onClose, onCreated, token, doctorToken, admi
     }
   }, [isOpen, defaultRole]);
 
+  // Lock body scroll and hide header when modal is open
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+      document.body.classList.add('modal-open');
+    } else {
+      document.body.style.overflow = 'unset';
+      document.body.classList.remove('modal-open');
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+      document.body.classList.remove('modal-open');
+    };
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   // Determine which token to use: priority should match the actual logged-in user context
@@ -89,7 +104,7 @@ const CreateAgentModal = ({ isOpen, onClose, onCreated, token, doctorToken, admi
   const showRoleSelector = !!(adminToken || token || doctorToken);
 
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
       <div className="w-full max-w-md bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-xl">
         <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 flex items-center justify-between">
           <h3 className="text-base font-medium text-gray-900 dark:text-gray-100">Create {role === 'doctorStaff' ? 'Doctor Staff' : 'Agent'}</h3>

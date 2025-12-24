@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 interface AdminHeaderProps {
   sidebarItems?: Array<{
@@ -25,6 +25,26 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Array<{ label: string; path?: string }>>([]);
   const [showSearchResults, setShowSearchResults] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // Check if modal is open by checking body class
+  useEffect(() => {
+    const checkModalOpen = () => {
+      setIsModalOpen(document.body.classList.contains('modal-open'));
+    };
+
+    // Check initially
+    checkModalOpen();
+
+    // Watch for changes using MutationObserver
+    const observer = new MutationObserver(checkModalOpen);
+    observer.observe(document.body, {
+      attributes: true,
+      attributeFilter: ['class']
+    });
+
+    return () => observer.disconnect();
+  }, []);
 
   const storedUser = JSON.parse(localStorage.getItem('adminUser') || '{}');
   const email = storedUser.email;
@@ -88,6 +108,11 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
     setSearchResults([]);
     setShowSearchResults(false);
   };
+
+  // Hide header when modal is open
+  if (isModalOpen) {
+    return null;
+  }
 
   return (
     <header className="w-full bg-white border-b border-gray-200 shadow-sm z-[49] backdrop-blur-sm bg-white/95">
