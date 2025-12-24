@@ -472,7 +472,7 @@ function AddRoomPage({ contextOverride = null }) {
         setMessage({ type: "success", text: successMsg });
         toast.success(successMsg, { duration: 3000 });
         setRoomName("");
-        await loadRooms();
+        await loadRooms(false);
       } else {
         const errorMsg = res.data.message || "Failed to create room";
         setMessage({ type: "error", text: errorMsg });
@@ -515,7 +515,7 @@ function AddRoomPage({ contextOverride = null }) {
         toast.success(successMsg, { duration: 3000 });
         setEditingRoomId(null);
         setEditingRoomName("");
-        await loadRooms();
+        await loadRooms(false);
       } else {
         const errorMsg = res.data.message || "Failed to update room";
         setMessage({ type: "error", text: errorMsg });
@@ -557,7 +557,7 @@ function AddRoomPage({ contextOverride = null }) {
               setEditingRoomId(null);
               setEditingRoomName("");
             }
-            await loadRooms();
+            await loadRooms(false);
           } else {
             const errorMsg = res.data.message || "Failed to delete room";
             setMessage({ type: "error", text: errorMsg });
@@ -913,6 +913,16 @@ function AddRoomPage({ contextOverride = null }) {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <style dangerouslySetInnerHTML={{__html: `
+        [data-hot-toast][data-type="error"] button[aria-label="Close"] {
+          color: #fff !important;
+          opacity: 0.9;
+        }
+        [data-hot-toast][data-type="error"] button[aria-label="Close"]:hover {
+          opacity: 1;
+          color: #fff !important;
+        }
+      `}} />
       <div className="p-3 sm:p-4 lg:p-5 space-y-3 lg:space-y-4">
       <Toaster
         position="top-right"
@@ -937,8 +947,8 @@ function AddRoomPage({ contextOverride = null }) {
           },
           error: {
             iconTheme: {
-              primary: "#ef4444",
-              secondary: "#fff",
+              primary: "#fff",
+              secondary: "#ef4444",
             },
             style: {
               background: "#ef4444",

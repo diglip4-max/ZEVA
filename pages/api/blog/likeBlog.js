@@ -22,24 +22,53 @@ export default async function handler(req, res) {
       .json({ success: false, error: "Blog ID is required" });
   }
 
-  const blog = await Blog.findById(blogId);
-  if (!blog) {
-    return res.status(404).json({ success: false, error: "Blog not found" });
+  try {
+    const blog = await Blog.findById(blogId);
+    if (!blog) {
+      return res.status(404).json({ success: false, error: "Blog not found" });
+    }
+
+    // Ensure likes array exists (initialize if undefined/null)
+    if (!blog.likes || !Array.isArray(blog.likes)) {
+      blog.likes = [];
+    }
+
+    // Check if user already liked the blog
+    const alreadyLiked = blog.likes.some((id) => {
+      if (!id) return false;
+      // Handle both ObjectId and string comparisons
+      return id.toString() === user._id.toString() || id.equals(user._id);
+    });
+
+    if (alreadyLiked) {
+      // Unlike: remove user from likes array
+      blog.likes = blog.likes.filter((id) => {
+        if (!id) return false;
+        return id.toString() !== user._id.toString() && !id.equals(user._id);
+      });
+    } else {
+      // Like: add user to likes array (avoid duplicates)
+      const userAlreadyInLikes = blog.likes.some((id) => {
+        if (!id) return false;
+        return id.toString() === user._id.toString() || id.equals(user._id);
+      });
+      if (!userAlreadyInLikes) {
+        blog.likes.push(user._id);
+      }
+    }
+
+    await blog.save();
+
+    res.status(200).json({
+      success: true,
+      likesCount: blog.likes ? blog.likes.length : 0,
+      liked: !alreadyLiked,
+    });
+  } catch (error) {
+    console.error('Error in likeBlog API:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Internal server error',
+    });
   }
-
-  const alreadyLiked = blog.likes.some((id) => id.equals(user._id));
-
-  if (alreadyLiked) {
-    blog.likes = blog.likes.filter((id) => !id.equals(user._id)); // unlike
-  } else {
-    blog.likes.push(user._id); // like
-  }
-
-  await blog.save();
-
-  res.status(200).json({
-    success: true,
-    likesCount: blog.likes.length,
-    liked: !alreadyLiked,
-  });
 }
