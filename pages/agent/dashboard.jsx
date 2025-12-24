@@ -1,9 +1,17 @@
 import React, { useState, useEffect } from "react";
 import AgentLayout from "../../components/AgentLayout"; // ✅ use Agent layout
 import withAgentAuth from "../../components/withAgentAuth"; // ✅ use Agent auth
+import { AuroraBackground } from "@/components/ui/aurora-bento-grid";
+import { Typewriter } from "@/components/ui/typewriter-text";
+import axios from "axios";
+import { useRouter } from "next/router";
 
 const AgentDashboard = () => {
   const [userInfo, setUserInfo] = useState({ name: "", email: "" });
+  const [navigationItems, setNavigationItems] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [dateTime, setDateTime] = useState("");
+  const router = useRouter();
 
   useEffect(() => {
     // Decode JWT token to get user info
@@ -50,44 +58,207 @@ const AgentDashboard = () => {
     }
   }, []);
 
-  return (
-    <div className="min-h-screen p-6 bg-gray-50">
-      <div className="max-w-4xl mx-auto bg-white shadow rounded-lg p-8">
-        {/* User Info Section at the top */}
-        <div className="mb-6 pb-6 border-b border-gray-200">
-          {userInfo.name && (
-            <h1 className="text-3xl font-bold text-gray-900">
-              Hi, {userInfo.name}!
-            </h1>
-          )}
-          {!userInfo.name && (
-            <h1 className="text-3xl font-bold text-gray-900">Hi, Agent!</h1>
-          )}
-          {userInfo.email && (
-            <p className="mt-2 text-sm text-gray-600">{userInfo.email}</p>
-          )}
-          <p className="mt-3 text-sm text-gray-600">
-            Welcome to your agent dashboard.
-          </p>
-        </div>
+  // Fetch navigation items from the same API as sidebar (single source of truth)
+  useEffect(() => {
+    const fetchNavigationAndPermissions = async () => {
+      try {
+        setIsLoading(true);
+        const agentToken =
+          typeof window !== "undefined"
+            ? localStorage.getItem("agentToken") || sessionStorage.getItem("agentToken")
+            : null;
+        const userToken =
+          typeof window !== "undefined"
+            ? localStorage.getItem("userToken") || sessionStorage.getItem("userToken")
+            : null;
+        const token = agentToken || userToken;
 
-        {/* quick stats / placeholder */}
-        <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="p-4 border rounded">
-            Leads
-            <br />
-            <span className="text-xl font-semibold">--</span>
+        if (!token) {
+          setNavigationItems([]);
+          setIsLoading(false);
+          return;
+        }
+
+        const res = await axios.get("/api/agent/sidebar-permissions", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (res.data.success) {
+          // Filter out dashboard item itself and items without paths
+          const filteredItems = (res.data.navigationItems || [])
+            .filter(item => {
+              // Exclude dashboard item and items without paths
+              const isDashboard = item.path === "/agent/dashboard" || 
+                                 item.path === "/agent/agent-dashboard" ||
+                                 item.moduleKey?.toLowerCase().includes("dashboard");
+              return !isDashboard && item.path;
+            })
+            .map(item => ({
+              label: item.label,
+              path: item.path,
+              icon: item.icon,
+              description: item.description || item.label,
+              moduleKey: item.moduleKey,
+              order: item.order || 999,
+              subModules: item.subModules || []
+            }))
+            .sort((a, b) => (a.order || 0) - (b.order || 0));
+
+          setNavigationItems(filteredItems);
+        } else {
+          console.error("Error fetching navigation items:", res.data.message);
+          setNavigationItems([]);
+        }
+      } catch (err) {
+        console.error("Error fetching navigation items and permissions:", err);
+        setNavigationItems([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchNavigationAndPermissions();
+
+    // Re-fetch on route changes to ensure permissions are always up-to-date
+    const handleRouteChange = () => {
+      fetchNavigationAndPermissions();
+    };
+
+    router.events.on('routeChangeComplete', handleRouteChange);
+    
+    return () => {
+      router.events.off('routeChangeComplete', handleRouteChange);
+    };
+  }, [router]);
+
+  // Update date and time
+  useEffect(() => {
+    const updateDateTime = () => {
+      const now = new Date();
+      const day = now.toLocaleDateString('en-US', { weekday: 'short' });
+      const month = now.toLocaleDateString('en-US', { month: 'short' });
+      const dayNum = now.getDate();
+      const time = now.toLocaleTimeString('en-US', { 
+        hour: '2-digit', 
+        minute: '2-digit',
+        hour12: true 
+      });
+      
+      setDateTime(`${day}, ${month} ${dayNum} • ${time}`);
+    };
+
+    updateDateTime();
+    const interval = setInterval(updateDateTime, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  // Render icon from emoji string or return as-is
+  const renderIcon = (iconString) => {
+    if (!iconString) return null;
+    // If it's an emoji, render it directly
+    if (typeof iconString === 'string' && iconString.length <= 2) {
+      return <span className="text-2xl">{iconString}</span>;
+    }
+    // Otherwise, treat as text/emoji
+    return <span className="text-xl">{iconString}</span>;
+  };
+
+  return (
+    <div className="min-h-screen text-white relative overflow-hidden">
+      <AuroraBackground />
+      
+      <div className="relative z-10 p-2 md:p-3">
+        <div className="max-w-7xl mt-1 mx-auto">
+          {/* User Info Section at the top */}
+          <div className="mb-1 pb-3 border-b border-white/20 flex flex-col md:flex-row md:items-start md:justify-between gap-3">
+            {/* Left side - Name and Welcome */}
+            <div className="flex-1">
+              {userInfo.name && (
+                <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-gray-900 dark:text-white leading-tight tracking-tight" style={{ fontFamily: 'system-ui, -apple-system, sans-serif', letterSpacing: '-0.02em' }}>
+                  Hi, {userInfo.name}
+                </h1>
+              )}
+              {!userInfo.name && (
+                <h1 className="text-2xl md:text-3xl lg:text-4xl font-bold text-gray-900 dark:text-white leading-tight tracking-tight" style={{ fontFamily: 'system-ui, -apple-system, sans-serif', letterSpacing: '-0.02em' }}>Hi, Agent!</h1>
+              )}
+              <div className="mt-1 text-sm md:text-base font-medium text-gray-600 dark:text-gray-300 leading-relaxed tracking-normal" style={{ fontFamily: 'system-ui, -apple-system, sans-serif', letterSpacing: '0.01em' }}>
+                <Typewriter
+                  text={["Welcome to your agent dashboard.", "Manage your leads efficiently.", "Track your performance.", "Stay organized and productive."]}
+                  speed={100}
+                  loop={true}
+                  className="text-sm md:text-base font-medium text-gray-600 dark:text-gray-300"
+                />
+              </div>
+            </div>
+
+            {/* Right side - Date and Time */}
+            <div className="bg-cyan-800 dark:bg-cyan-800 rounded-lg px-2 py-1.5 md:px-2.5 md:py-1.5 shadow-md">
+              <div className="text-white font-bold text-xs md:text-sm whitespace-nowrap" style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}>
+                {dateTime}
+              </div>
+            </div>
           </div>
-          <div className="p-4 border rounded">
-            Conversions
-            <br />
-            <span className="text-xl font-semibold">--</span>
-          </div>
-          <div className="p-4 border rounded">
-            Tasks
-            <br />
-            <span className="text-xl font-semibold">--</span>
-          </div>
+
+          {/* Permission-based Dashboard Cards */}
+          {isLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="text-gray-600 dark:text-gray-400">Loading dashboard...</div>
+            </div>
+          ) : navigationItems.length === 0 ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="text-gray-600 dark:text-gray-400 text-center">
+                <p className="text-lg font-semibold mb-2">No modules available</p>
+                <p className="text-sm">You don't have permissions to view any dashboard modules yet.</p>
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 md:gap-3 mt-3">
+              {navigationItems.map((item, index) => (
+                <div
+                  key={item.moduleKey || index}
+                  onClick={() => item.path && router.push(item.path)}
+                  className={`
+                    group relative rounded-lg bg-gradient-to-br from-cyan-600 to-cyan-400 
+                    hover:shadow-lg transition-all duration-200 cursor-pointer
+                    border border-transparent hover:border-white/20
+                    flex flex-col justify-between
+                    p-2.5 md:p-3 min-h-[120px] md:min-h-[130px]
+                    ${item.path ? 'hover:scale-[1.02]' : 'opacity-60 cursor-not-allowed'}
+                  `}
+                >
+                  {/* Icon */}
+                  <div className="flex items-start justify-between mb-1.5">
+                    <div className="p-1.5 bg-white/10 rounded-md backdrop-blur-sm">
+                      {renderIcon(item.icon)}
+                    </div>
+                    {item.subModules && item.subModules.length > 0 && (
+                      <span className="text-xs text-white/70 bg-white/10 px-1.5 py-0.5 rounded">
+                        {item.subModules.length}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Content */}
+                  <div className="flex-1 flex flex-col justify-end">
+                    <h3 className="text-base md:text-lg font-bold text-white leading-tight mb-0.5">
+                      {item.label}
+                    </h3>
+                    <p className="text-xs md:text-sm text-white/70 leading-relaxed line-clamp-2">
+                      {item.description}
+                    </p>
+                  </div>
+
+                  {/* Hover indicator */}
+                  <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <svg className="w-4 h-4 text-white/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>

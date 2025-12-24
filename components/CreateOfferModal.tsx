@@ -56,6 +56,8 @@ export default function CreateOfferModal({
     canRead: false,
   });
   const [resolvedToken, setResolvedToken] = useState<string>("");
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [showSuccessPopup, setShowSuccessPopup] = useState(false);
 
   const resolveTokenFromContext = () => {
     if (token) return token;
@@ -195,6 +197,8 @@ export default function CreateOfferModal({
 
     if (mode === "create") {
       setForm(getInitialForm());
+      setErrors({});
+      setShowSuccessPopup(false);
       return;
     }
 
@@ -244,6 +248,15 @@ export default function CreateOfferModal({
     const type = (target as HTMLInputElement).type as string;
     const checked = (target as HTMLInputElement).checked as boolean;
 
+    // Clear error for this field when user starts typing
+    if (errors[name]) {
+      setErrors({ ...errors, [name]: "" });
+    }
+    if (errors[name.split(".")[0]]) {
+      const baseKey = name.split(".")[0];
+      setErrors({ ...errors, [baseKey]: "" });
+    }
+
     if (["value", "perUserLimit", "maxUses"].includes(name)) {
       setForm((prev) => ({ ...prev, [name]: value ? Number(value) : null }));
       return;
@@ -286,9 +299,78 @@ export default function CreateOfferModal({
     }));
   };
 
+  const validateForm = (): boolean => {
+    const newErrors: Record<string, string> = {};
+
+    // Title validation
+    if (!form.title || form.title.trim().length === 0) {
+      newErrors.title = "Offer title is required";
+    } else if (form.title.trim().length < 3) {
+      newErrors.title = "Title must be at least 3 characters";
+    }
+
+    // Value validation
+    if (form.type !== "free Consult") {
+      if (!form.value || form.value <= 0) {
+        newErrors.value = "Value must be greater than 0";
+      }
+      if (form.type === "percentage" && form.value > 100) {
+        newErrors.value = "Percentage cannot exceed 100%";
+      }
+    }
+
+    // Start date validation
+    if (!form.startsAt || form.startsAt.trim().length === 0) {
+      newErrors.startsAt = "Start date is required";
+    }
+
+    // End date validation
+    if (!form.endsAt || form.endsAt.trim().length === 0) {
+      newErrors.endsAt = "End date is required";
+    }
+
+    // Date comparison validation
+    if (form.startsAt && form.endsAt) {
+      const startDate = new Date(form.startsAt);
+      const endDate = new Date(form.endsAt);
+      if (endDate <= startDate) {
+        newErrors.endsAt = "End date must be after start date";
+      }
+    }
+
+    // Max uses validation
+    if (form.maxUses !== null && form.maxUses !== undefined && form.maxUses < 1) {
+      newErrors.maxUses = "Maximum uses must be at least 1";
+    }
+
+    // Per user limit validation
+    if (!form.perUserLimit || form.perUserLimit < 1) {
+      newErrors.perUserLimit = "Uses per user must be at least 1";
+    }
+
+    // UTM Source validation (if provided, must be valid)
+    if (form.utm.source && form.utm.source.trim().length > 0) {
+      if (form.utm.source.trim().length < 2) {
+        newErrors["utm.source"] = "UTM source must be at least 2 characters";
+      }
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!clinicId) return alert("Clinic ID not loaded yet.");
+    
+    // Validate form before submitting
+    if (!validateForm()) {
+      return;
+    }
+
+    if (!clinicId) {
+      setErrors({ ...errors, clinic: "Clinic ID not loaded yet." });
+      return;
+    }
 
     // ✅ Strict permission checks before submitting
     if (mode === "create" && permissions.canCreate !== true) {
@@ -340,7 +422,13 @@ export default function CreateOfferModal({
       
       if (data.success) {
         onCreated(data.offer);
-        onClose();
+        setShowSuccessPopup(true);
+        // Close modal after 2 seconds
+        setTimeout(() => {
+          setShowSuccessPopup(false);
+          onClose();
+          setErrors({});
+        }, 2000);
       } else {
         alert(data.message || `Failed to ${mode} offer`);
       }
@@ -395,10 +483,15 @@ export default function CreateOfferModal({
                   name="title"
                   value={form.title}
                   onChange={handleChange}
-                  className="text-gray-900 w-full border border-gray-200 rounded-lg px-2.5 py-2 focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all text-xs sm:text-sm"
+                  className={`text-gray-900 w-full border rounded-lg px-2.5 py-2 focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all text-xs sm:text-sm ${
+                    errors.title ? "border-red-500" : "border-gray-200"
+                  }`}
                   placeholder="e.g., Summer Special Discount"
                   required
                 />
+                {errors.title && (
+                  <p className="text-red-500 text-[10px] mt-1">{errors.title}</p>
+                )}
               </div>
 
               <div>
@@ -439,9 +532,16 @@ export default function CreateOfferModal({
                     name="value"
                     value={form.value}
                     onChange={handleChange}
-                    className="text-gray-900 w-full border border-gray-200 rounded-lg px-2.5 py-2 focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all text-xs sm:text-sm"
+                    min="0"
+                    step={form.type === "percentage" ? "1" : "0.01"}
+                    className={`text-gray-900 w-full border rounded-lg px-2.5 py-2 focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all text-xs sm:text-sm ${
+                      errors.value ? "border-red-500" : "border-gray-200"
+                    }`}
                     placeholder="0"
                   />
+                  {errors.value && (
+                    <p className="text-red-500 text-[10px] mt-1">{errors.value}</p>
+                  )}
                 </div>
               </div>
             </div>
@@ -458,8 +558,13 @@ export default function CreateOfferModal({
                     name="startsAt"
                     value={form.startsAt}
                     onChange={handleChange}
-                    className="text-gray-900 w-full border border-gray-200 rounded-lg px-2.5 py-2 focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all text-xs sm:text-sm"
+                    className={`text-gray-900 w-full border rounded-lg px-2.5 py-2 focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all text-xs sm:text-sm ${
+                      errors.startsAt ? "border-red-500" : "border-gray-200"
+                    }`}
                   />
+                  {errors.startsAt && (
+                    <p className="text-red-500 text-[10px] mt-1">{errors.startsAt}</p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">End Date & Time</label>
@@ -468,8 +573,13 @@ export default function CreateOfferModal({
                     name="endsAt"
                     value={form.endsAt}
                     onChange={handleChange}
-                    className="text-gray-900 w-full border border-gray-200 rounded-lg px-2.5 py-2 focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all text-xs sm:text-sm"
+                    className={`text-gray-900 w-full border rounded-lg px-2.5 py-2 focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all text-xs sm:text-sm ${
+                      errors.endsAt ? "border-red-500" : "border-gray-200"
+                    }`}
                   />
+                  {errors.endsAt && (
+                    <p className="text-red-500 text-[10px] mt-1">{errors.endsAt}</p>
+                  )}
                 </div>
               </div>
 
@@ -481,9 +591,15 @@ export default function CreateOfferModal({
                     name="maxUses"
                     value={form.maxUses || ""}
                     onChange={handleChange}
-                    className="text-gray-900 w-full border border-gray-200 rounded-lg px-2.5 py-2 focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all text-xs sm:text-sm"
+                    min="1"
+                    className={`text-gray-900 w-full border rounded-lg px-2.5 py-2 focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all text-xs sm:text-sm ${
+                      errors.maxUses ? "border-red-500" : "border-gray-200"
+                    }`}
                     placeholder="Unlimited"
                   />
+                  {errors.maxUses && (
+                    <p className="text-red-500 text-[10px] mt-1">{errors.maxUses}</p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">Uses Per User</label>
@@ -492,9 +608,15 @@ export default function CreateOfferModal({
                     name="perUserLimit"
                     value={form.perUserLimit}
                     onChange={handleChange}
-                    className="text-gray-900 w-full border border-gray-200 rounded-lg px-2.5 py-2 focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all text-xs sm:text-sm"
+                    min="1"
+                    className={`text-gray-900 w-full border rounded-lg px-2.5 py-2 focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all text-xs sm:text-sm ${
+                      errors.perUserLimit ? "border-red-500" : "border-gray-200"
+                    }`}
                     placeholder="1"
                   />
+                  {errors.perUserLimit && (
+                    <p className="text-red-500 text-[10px] mt-1">{errors.perUserLimit}</p>
+                  )}
                 </div>
               </div>
             </div>
@@ -530,9 +652,14 @@ export default function CreateOfferModal({
                     name="utm.source"
                     value={form.utm.source}
                     onChange={handleChange}
-                    className="text-gray-900 w-full border border-gray-200 rounded-lg px-2.5 py-2 focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all text-xs sm:text-sm"
+                    className={`text-gray-900 w-full border rounded-lg px-2.5 py-2 focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all text-xs sm:text-sm ${
+                      errors["utm.source"] ? "border-red-500" : "border-gray-200"
+                    }`}
                     placeholder="clinic"
                   />
+                  {errors["utm.source"] && (
+                    <p className="text-red-500 text-[10px] mt-1">{errors["utm.source"]}</p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">UTM Medium</label>
@@ -654,6 +781,35 @@ export default function CreateOfferModal({
           </div>
         </form>
       </div>
+
+      {/* Success Popup */}
+      {showSuccessPopup && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-lg shadow-2xl p-6 max-w-sm w-full mx-4 transform transition-all">
+            <div className="text-center">
+              <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-green-100 mb-4">
+                <svg
+                  className="h-8 w-8 text-green-600"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M5 13l4 4L19 7"
+                  />
+                </svg>
+              </div>
+              <h3 className="text-xl font-bold text-gray-900 mb-2">Offer Submitted!</h3>
+              <p className="text-sm text-gray-600">
+                Your offer has been {mode === "create" ? "created" : "updated"} successfully.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
