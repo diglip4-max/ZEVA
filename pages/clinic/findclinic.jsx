@@ -89,7 +89,7 @@ export default function Home() {
     const [isVisible, setIsVisible] = useState(false);
 
     // Add missing state variables for filters
-    const [priceRange, setPriceRange] = useState([0, 5000]);
+    const [priceRange, setPriceRange] = useState([0, 40000]);
     const [selectedTimes, setSelectedTimes] = useState([]);
     const [sortBy, setSortBy] = useState('relevance');
     const [hasSearched, setHasSearched] = useState(false);
@@ -527,7 +527,7 @@ export default function Home() {
         if (ratingFilter > 0) {
             filters.push(`${ratingFilter}★ & up`);
         }
-        if (priceRange[0] > 0 || priceRange[1] < 5000) {
+        if (priceRange[0] > 0 || priceRange[1] < 10000) {
             filters.push(
                 `₹${priceRange[0].toLocaleString()} - ₹${priceRange[1].toLocaleString()}`
             );
