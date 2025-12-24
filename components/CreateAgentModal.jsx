@@ -1,13 +1,47 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
-const CreateAgentModal = ({ isOpen, onClose, onCreated, token, doctorToken, adminToken }) => {
+const CreateAgentModal = ({ isOpen, onClose, onCreated, token, doctorToken, adminToken, defaultRole }) => {
+  // Note: 'token' prop represents clinicToken (clinic users)
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState('agent'); // Default to agent
+  const [role, setRole] = useState(defaultRole || 'agent'); // Default to passed role or 'agent'
   const [submitting, setSubmitting] = useState(false);
+
+  // Update role when defaultRole changes (e.g., when user switches between Agents/Doctors tabs)
+  useEffect(() => {
+    if (defaultRole && defaultRole !== role) {
+      setRole(defaultRole);
+    }
+  }, [defaultRole]);
+
+  // Reset form when modal closes
+  useEffect(() => {
+    if (!isOpen) {
+      setName('');
+      setEmail('');
+      setPhone('');
+      setPassword('');
+      setRole(defaultRole || 'agent');
+    }
+  }, [isOpen, defaultRole]);
+
+  // Lock body scroll and hide header when modal is open
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+      document.body.classList.add('modal-open');
+    } else {
+      document.body.style.overflow = 'unset';
+      document.body.classList.remove('modal-open');
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+      document.body.classList.remove('modal-open');
+    };
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -46,7 +80,7 @@ const CreateAgentModal = ({ isOpen, onClose, onCreated, token, doctorToken, admi
         { headers: { Authorization: `Bearer ${authToken}` } }
       );
       if (data?.success) {
-        setName(''); setEmail(''); setPhone(''); setPassword(''); setRole('agent');
+        setName(''); setEmail(''); setPhone(''); setPassword(''); setRole(defaultRole || 'agent');
         onCreated?.();
         onClose?.();
       } else {
@@ -64,11 +98,13 @@ const CreateAgentModal = ({ isOpen, onClose, onCreated, token, doctorToken, admi
     }
   }
 
-  // Show role selector only if adminToken is present (admin can create both agent and doctorStaff)
-  const showRoleSelector = !!adminToken;
+  // Show role selector if adminToken, clinicToken (token), or doctorToken is present
+  // All these roles should be able to choose between agent and doctorStaff
+  // token = clinicToken (clinic users), doctorToken = doctor users, adminToken = admin users
+  const showRoleSelector = !!(adminToken || token || doctorToken);
 
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
       <div className="w-full max-w-md bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-xl">
         <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 flex items-center justify-between">
           <h3 className="text-base font-medium text-gray-900 dark:text-gray-100">Create {role === 'doctorStaff' ? 'Doctor Staff' : 'Agent'}</h3>

@@ -61,9 +61,7 @@ const AgentLayout = ({ children }: { children: React.ReactNode }) => {
         {/* Header - Hidden on mobile when sidebar might be open */}
         <div className="flex-shrink-0 z-10 bg-white sticky top-0 hidden lg:block">
           <AgentHeader
-            handleToggleDesktop={handleToggleDesktop}
             handleToggleMobile={handleToggleMobile}
-            isDesktopHidden={isDesktopHidden}
             isMobileOpen={isMobileOpen}
           />
         </div>

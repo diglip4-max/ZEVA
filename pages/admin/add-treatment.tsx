@@ -564,13 +564,13 @@ const AddTreatment: NextPageWithLayout = () => {
                 <p className="text-xs text-gray-700">Add and manage treatments</p>
               </div>
             </div>
-            <button
+            {/* <button
               onClick={fetchTreatments}
               disabled={fetching}
               className="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-50"
             >
               {fetching ? 'Loading...' : 'Refresh'}
-            </button>
+            </button> */}
           </div>
         </div>
 

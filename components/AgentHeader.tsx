@@ -1,48 +1,62 @@
 import React, { useState, useEffect } from 'react';
 
 interface ClinicHeaderProps {
-  handleToggleDesktop: () => void;
   handleToggleMobile: () => void;
-  isDesktopHidden: boolean;
   isMobileOpen: boolean;
 }
 
 const ClinicHeader: React.FC<ClinicHeaderProps> = ({
-  handleToggleDesktop,
   handleToggleMobile,
-  isDesktopHidden,
   isMobileOpen
 }) => {
-  const [screenWidth, setScreenWidth] = useState<number | null>(null);
+  const [tokenUser, setTokenUser] = useState<{ name?: string; email?: string } | null>(null);
 
   const handleLogout = () => {
     localStorage.removeItem('agentToken');
+    localStorage.removeItem('userToken');
+    localStorage.removeItem('agentUser');
     // sessionStorage.removeItem('resetEmail');
     //  sessionStorage.removeItem('clinicEmailForReset');
     window.location.href = '/staff';
   };
-  const leadUserRaw = localStorage.getItem('agentUser');
-  const leadUser = leadUserRaw ? JSON.parse(leadUserRaw) : null;
-  console.log('lead token', leadUserRaw);
-//   console.log('clinicTokensss', localStorage.getItem('clinicToken'));
-
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      setScreenWidth(window.innerWidth);
-      const handleResize = () => setScreenWidth(window.innerWidth);
-      window.addEventListener('resize', handleResize);
-      return () => window.removeEventListener('resize', handleResize);
-    }
+    // Get user info from localStorage (stored during login)
+    const getUserInfo = () => {
+      if (typeof window !== 'undefined') {
+        // First try to get from agentUser
+        const agentUserRaw = localStorage.getItem('agentUser');
+        if (agentUserRaw) {
+          try {
+            const user = JSON.parse(agentUserRaw);
+            setTokenUser({ name: user.name, email: user.email });
+            return;
+          } catch (error) {
+            console.error('Error parsing agentUser:', error);
+          }
+        }
+        
+        // Fallback: decode token if agentUser is not available
+        const token = localStorage.getItem('agentToken') || localStorage.getItem('userToken');
+        if (token) {
+          try {
+            const parts = token.split('.');
+            if (parts.length === 3) {
+              const payload = JSON.parse(atob(parts[1]));
+              setTokenUser({ name: payload.name, email: payload.email });
+            }
+          } catch (error) {
+            console.error('Error decoding token in header:', error);
+          }
+        }
+      }
+    };
+    
+    getUserInfo();
   }, []);
 
-  const handleResponsiveToggle = () => {
-    if (screenWidth && screenWidth < 1024) {
-      handleToggleMobile();
-    } else {
-      handleToggleDesktop();
-    }
-  };
+
+
 
 //   const getInitials = (name: string) => {
 //     return name
@@ -58,23 +72,20 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
       <div className="flex items-center justify-between gap-2">
         {/* Left: Toggle + Brand */}
         <div className="flex items-center gap-2 sm:gap-4 min-w-0">
+          {/* Mobile Hamburger - Only visible on mobile */}
           <button
-            onClick={handleResponsiveToggle}
-            className="p-1.5 sm:p-2 rounded-lg hover:bg-gray-100 transition-colors duration-200 flex-shrink-0"
+            onClick={handleToggleMobile}
+            className="p-1.5 sm:p-2 rounded-lg hover:bg-gray-100 transition-colors duration-200 flex-shrink-0 lg:hidden"
             aria-label="Toggle sidebar"
           >
             <svg
-              className={`w-4 h-4 sm:w-5 sm:h-5 text-gray-600 transition-transform duration-300 ${screenWidth && screenWidth < 1024 && (isDesktopHidden || isMobileOpen) ? 'rotate-90' : ''}`}
+              className={`w-4 h-4 sm:w-5 sm:h-5 text-gray-600 transition-transform duration-300 ${isMobileOpen ? 'rotate-90' : ''}`}
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
             >
-              {screenWidth && screenWidth < 1024 ? (
-                (isDesktopHidden || isMobileOpen) ? (
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                ) : (
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                )
+              {isMobileOpen ? (
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               ) : (
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
               )}
@@ -103,17 +114,17 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
         <div className="flex items-center gap-1.5 sm:gap-3 flex-shrink-0">
           <div className="hidden md:block text-right">
             <div className="text-xs sm:text-sm font-medium text-gray-900 truncate max-w-[120px] sm:max-w-none">
-              {leadUser?.name || ''}
+              {tokenUser?.name || ''}
             </div>
             <div className="text-[10px] sm:text-xs text-gray-500 truncate max-w-[120px] sm:max-w-none">
-              {leadUser?.email || ''}
+              {tokenUser?.email || ''}
             </div>
           </div>
           
           <div className="flex items-center gap-1.5 sm:gap-3">
             <div className="w-7 h-7 sm:w-9 sm:h-9 bg-[#2D9AA5] rounded-full flex items-center justify-center flex-shrink-0">
               <span className="text-white font-medium text-[10px] sm:text-sm">
-                {leadUser?.name?.charAt(0)?.toUpperCase() || 'D'}
+                {tokenUser?.name?.charAt(0)?.toUpperCase() || 'D'}
               </span>
             </div>
             

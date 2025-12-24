@@ -4,13 +4,13 @@ import { useRouter } from 'next/router';
 import axios from 'axios';
 import {
   Users,
-  UserCheck,
   CheckCircle,
   XCircle,
   Clock,
   UserPlus,
   RefreshCw,
   Trash2,
+  X,
 } from 'lucide-react';
 import { Toaster, toast } from 'react-hot-toast';
 import CreateAgentModal from '../../components/CreateAgentModal';
@@ -479,6 +479,7 @@ const ManageAgentsPage = () => {
             token={clinicToken || undefined}
             doctorToken={doctorToken || undefined}
             adminToken={adminToken || undefined}
+            defaultRole={activeView === 'doctorStaff' ? 'doctorStaff' : 'agent'}
           />
         </div>
       );
@@ -831,6 +832,7 @@ const ManageAgentsPage = () => {
         token={clinicToken || undefined}
         doctorToken={doctorToken || undefined}
         adminToken={adminToken || undefined}
+        defaultRole={activeView === 'doctorStaff' ? 'doctorStaff' : 'agent'}
       />
 
       {/* Agent Permission Modal */}
@@ -861,9 +863,19 @@ const ManageAgentsPage = () => {
       {passwordAgent && (
         <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
           <div className="w-full max-w-sm bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-xl">
-            <div className="px-5 py-3.5 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
-              <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Change password</h3>
-              <p className="text-[11px] text-gray-700 dark:text-gray-400 mt-0.5">{passwordAgent.name} • {passwordAgent.email}</p>
+            <div className="px-5 py-3.5 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 flex items-start justify-between">
+              <div className="flex-1 min-w-0 pr-2">
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Change password</h3>
+                <p className="text-[11px] text-gray-700 dark:text-gray-400 mt-0.5">{passwordAgent.name} • {passwordAgent.email}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setPasswordAgent(null); setNewPassword(''); setConfirmPassword(''); }}
+                className="flex-shrink-0 p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+                aria-label="Close"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
             <form onSubmit={handleResetPasswordSubmit} className="p-5">
               <div className="space-y-3.5">

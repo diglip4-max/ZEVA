@@ -1117,15 +1117,21 @@ const ManageAgentsPage: NextPageWithLayout = () => {
         </div>
       </div>
 
-      {/* Create Agent Modal */}
-      <CreateAgentModal
-        isOpen={isCreateOpen}
-        onClose={() => setIsCreateOpen(false)}
-        onCreated={loadAll}
-        token={undefined}
-        doctorToken={undefined}
-        adminToken={adminToken || undefined}
-      />
+      {/* Create Agent Modal - Using Portal to render outside layout stacking context */}
+      {isCreateOpen && typeof window !== 'undefined' && createPortal(
+        <div style={{ zIndex: 9999 }} className="fixed inset-0">
+          <CreateAgentModal
+            isOpen={isCreateOpen}
+            onClose={() => setIsCreateOpen(false)}
+            onCreated={loadAll}
+            token={undefined}
+            doctorToken={undefined}
+            adminToken={adminToken || undefined}
+            defaultRole={activeView === 'doctorStaff' ? 'doctorStaff' : 'agent'}
+          />
+        </div>,
+        document.body
+      )}
 
       {/* MODIFIED: Agent Permission Modal - Using Portal to render outside layout stacking context */}
       {permissionAgent && typeof window !== 'undefined' && createPortal(

@@ -526,7 +526,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
   return (
     <>
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-1 sm:p-2 bg-black/50 backdrop-blur-md transition-all duration-300 animate-in fade-in">
-      <div className="bg-white dark:bg-gray-50 rounded shadow-2xl max-w-4xl w-full max-h-[98vh] sm:max-h-[95vh] overflow-hidden flex flex-col transform transition-all duration-300 scale-100 opacity-100 animate-in slide-in-from-bottom-4 zoom-in-95">
+      <div className="bg-white mt-6 dark:bg-gray-50 rounded shadow-2xl max-w-4xl w-full max-h-[98vh] sm:max-h-[95vh] overflow-hidden flex flex-col transform transition-all duration-300 scale-100 opacity-100 animate-in slide-in-from-bottom-4 zoom-in-95" style={{ minHeight: '600px' }}>
         {/* Header with Tabs */}
         <div className="sticky top-0 bg-gray-800 dark:bg-gray-700 border-b border-gray-700 dark:border-gray-600 z-10 shadow">
           <div className="px-1.5 sm:px-2 py-1 sm:py-1.5 flex items-center justify-between">
@@ -569,46 +569,47 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
           </div>
         </div>
 
-        {/* Content */}
+        {/* Content - Fixed height container for equal sizing */}
+        <div className="flex-1 overflow-hidden flex flex-col min-h-0" style={{ minHeight: '480px', height: '100%' }}>
         {activeTab === "billing" ? (
-        <form id="billing-form" onSubmit={handleSubmit} className="p-1.5 sm:p-2 space-y-1.5 sm:space-y-2 overflow-y-auto flex-1 pb-1.5 sm:pb-2">
+        <form id="billing-form" onSubmit={handleSubmit} className="p-1 sm:p-1.5 space-y-2 sm:space-y-2.5 overflow-y-auto flex-1 min-h-0 w-full h-full pb-1 sm:pb-1.5" style={{ height: '100%', width: '100%' }}>
           {errors.general && (
-            <div className="bg-red-50 dark:bg-red-100 border-l-2 border-red-500 dark:border-red-600 rounded p-1 flex items-start gap-1 text-red-700 dark:text-red-900 shadow-sm animate-in slide-in-from-top-2 fade-in" role="alert">
-              <AlertCircle className="w-2.5 h-2.5 flex-shrink-0 mt-0.5 animate-pulse" />
-              <p className="text-[9px] sm:text-[10px] font-medium">{errors.general}</p>
+            <div className="bg-red-50 dark:bg-red-100 border-l-2 border-red-500 dark:border-red-600 rounded p-1.5 flex items-start gap-1.5 text-red-700 dark:text-red-900 shadow-sm animate-in slide-in-from-top-2 fade-in mb-2" role="alert">
+              <AlertCircle className="w-3 h-3 flex-shrink-0 mt-0.5 animate-pulse" />
+              <p className="text-[10px] sm:text-[11px] font-medium">{errors.general}</p>
             </div>
           )}
 
           {/* First Row: Invoice Number, Invoice Date, Appointment Details */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1.5">
-            <div>
-              <label className="block text-[9px] sm:text-[10px] font-medium text-gray-700 dark:text-gray-800 mb-0.5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 mt-2 mb-2">
+            <div className="mt-1 mb-1">
+              <label className="block text-[10px] sm:text-[11px] font-medium text-gray-700 dark:text-gray-800 mb-1">
                 Invoice Number <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
                 value={formData.invoiceNumber}
                 onChange={(e) => setFormData((prev) => ({ ...prev, invoiceNumber: e.target.value }))}
-                className="w-full px-1.5 py-0.5 text-[9px] sm:text-[10px] border border-gray-300 dark:border-gray-300 rounded bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-1 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all outline-none"
+                className="w-full px-2 py-1 text-[10px] sm:text-[11px] border border-gray-300 dark:border-gray-300 rounded bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-1 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all outline-none"
                 required
               />
             </div>
-            <div>
-              <label className="block text-[9px] sm:text-[10px] font-medium text-gray-700 dark:text-gray-800 mb-0.5">
+            <div className="mt-1 mb-1">
+              <label className="block text-[10px] sm:text-[11px] font-medium text-gray-700 dark:text-gray-800 mb-1">
                 Invoice Date <span className="text-red-500">*</span>
               </label>
               <input
                 type="date"
                 value={formData.invoicedDate}
                 onChange={(e) => setFormData((prev) => ({ ...prev, invoicedDate: e.target.value }))}
-                className="w-full px-1.5 py-0.5 text-[9px] sm:text-[10px] border border-gray-300 dark:border-gray-300 rounded bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-1 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all outline-none"
+                className="w-full px-2 py-1 text-[10px] sm:text-[11px] border border-gray-300 dark:border-gray-300 rounded bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-1 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all outline-none"
                 required
               />
             </div>
-            <div>
-              <label className="block text-[9px] sm:text-[10px] font-medium text-gray-700 dark:text-gray-800 mb-0.5">Appointment Details</label>
-              <div className="bg-gray-50 dark:bg-gray-100 rounded p-1 border border-gray-200 dark:border-gray-300">
-                <div className="text-[8px] sm:text-[9px] text-gray-700 dark:text-gray-800">
+            <div className="mt-1 mb-1">
+              <label className="block text-[10px] sm:text-[11px] font-medium text-gray-700 dark:text-gray-800 mb-1">Appointment Details</label>
+              <div className="bg-gray-50 dark:bg-gray-100 rounded p-1.5 border border-gray-200 dark:border-gray-300">
+                <div className="text-[9px] sm:text-[10px] text-gray-700 dark:text-gray-800">
                   <span className="text-gray-600 dark:text-gray-600">Dr:</span> <span className="font-semibold text-gray-900 dark:text-gray-900">{appointment?.doctorName || "-"}</span> | 
                   <span className="text-gray-600 dark:text-gray-600 ml-1">Date:</span> <span className="font-semibold text-gray-900 dark:text-gray-900">{appointment?.startDate || "-"}</span> | 
                   <span className="text-gray-600 dark:text-gray-600 ml-1">Time:</span> <span className="font-semibold text-gray-900 dark:text-gray-900">{appointment?.fromTime && appointment?.toTime ? `${appointment.fromTime}-${appointment.toTime}` : "-"}</span>
@@ -618,9 +619,9 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
           </div>
 
           {/* Second Row: Patient Information (Read-only display) - Single Line */}
-          <div className="rounded border border-gray-200 dark:border-gray-300 bg-gray-50 dark:bg-gray-100 p-1">
-            <label className="block text-[8px] sm:text-[9px] font-bold text-gray-800 dark:text-gray-900 mb-0.5 uppercase tracking-wider">Patient/Client Information</label>
-            <div className="text-[8px] sm:text-[9px] text-gray-700 dark:text-gray-800 flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+          <div className="rounded border border-gray-200 dark:border-gray-300 bg-gray-50 dark:bg-gray-100 p-1.5 mt-2 mb-2">
+            <label className="block text-[9px] sm:text-[10px] font-bold text-gray-800 dark:text-gray-900 mb-1 uppercase tracking-wider">Patient/Client Information</label>
+            <div className="text-[9px] sm:text-[10px] text-gray-700 dark:text-gray-800 flex flex-wrap items-center gap-x-2 gap-y-1">
               <span><span className="text-gray-600 dark:text-gray-600 font-medium">Name:</span> <span className="font-semibold text-gray-900 dark:text-gray-900">{formData.firstName || (appointment?.patientName ? appointment.patientName.split(" ")[0] : "") || "-"} {formData.lastName || (appointment?.patientName ? appointment.patientName.split(" ").slice(1).join(" ") : "") || "-"}</span></span> |
               <span><span className="text-gray-600 dark:text-gray-600 font-medium">Mobile:</span> <span className="font-semibold text-gray-900 dark:text-gray-900">{formData.mobileNumber || appointment?.patientNumber || "-"}</span></span> |
               <span><span className="text-gray-600 dark:text-gray-600 font-medium">Email:</span> <span className="font-semibold text-gray-900 dark:text-gray-900">{formData.email || appointment?.patientEmail || "-"}</span></span> |
@@ -630,11 +631,11 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
           </div>
 
           {/* Service Selection - Inline */}
-          <div className="rounded border border-gray-200 dark:border-gray-300 bg-gray-50 dark:bg-gray-100 p-1">
-            <label className="block text-[8px] sm:text-[9px] font-bold text-gray-800 dark:text-gray-900 mb-0.5 uppercase tracking-wider">
+          <div className="rounded border border-gray-200 dark:border-gray-300 bg-gray-50 dark:bg-gray-100 p-1.5 mt-2 mb-2">
+            <label className="block text-[9px] sm:text-[10px] font-bold text-gray-800 dark:text-gray-900 mb-1 uppercase tracking-wider">
               Service Type <span className="text-red-500">*</span>
             </label>
-            <div className="flex flex-col sm:flex-row gap-1.5">
+            <div className="flex flex-col sm:flex-row gap-2">
               <label className="flex items-center gap-2 cursor-pointer group">
                 <input
                   type="radio"
@@ -646,9 +647,9 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                   }}
                   className="w-4 h-4 text-gray-600 focus:ring-2 focus:ring-gray-500 cursor-pointer"
                 />
-                <span className="text-[10px] sm:text-xs font-medium text-gray-700 dark:text-gray-800 group-hover:text-gray-900 transition-colors">Treatment</span>
+                <span className="text-[11px] sm:text-xs font-medium text-gray-700 dark:text-gray-800 group-hover:text-gray-900 transition-colors">Treatment</span>
               </label>
-              <label className="flex items-center gap-1.5 cursor-pointer group">
+              <label className="flex items-center gap-2 cursor-pointer group">
                 <input
                   type="radio"
                   value="Package"
@@ -657,17 +658,17 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                     setSelectedService(e.target.value as "Package");
                     setFormData((prev) => ({ ...prev, service: "Package" }));
                   }}
-                  className="w-3.5 h-3.5 text-gray-600 focus:ring-1 focus:ring-gray-500 cursor-pointer"
+                  className="w-4 h-4 text-gray-600 focus:ring-2 focus:ring-gray-500 cursor-pointer"
                 />
-                <span className="text-[10px] sm:text-xs font-medium text-gray-700 dark:text-gray-800 group-hover:text-gray-900 transition-colors">Package</span>
+                <span className="text-[11px] sm:text-xs font-medium text-gray-700 dark:text-gray-800 group-hover:text-gray-900 transition-colors">Package</span>
               </label>
             </div>
           </div>
 
           {/* Treatment Selection */}
           {selectedService === "Treatment" && (
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
+            <div className="mt-2 mb-2 relative z-20">
+              <label className="block text-[11px] sm:text-xs font-medium text-gray-700 dark:text-gray-800 mb-1">
                 Select Treatment <span className="text-red-500">*</span>
               </label>
               <div className="relative" ref={treatmentDropdownRef}>
@@ -689,8 +690,8 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                   <ChevronDown className={`w-3 h-3 text-gray-400 transition-transform ${treatmentDropdownOpen ? 'rotate-180' : ''}`} />
                 </button>
                 {treatmentDropdownOpen && (
-                  <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-64 overflow-hidden flex flex-col">
-                    <div className="p-1.5 border-b border-gray-200 sticky top-0 bg-white z-20">
+                  <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-64 overflow-hidden flex flex-col">
+                    <div className="p-1.5 border-b border-gray-200 sticky top-0 bg-white z-50">
                       <input
                         type="text"
                         placeholder="Type to search or scroll to select..."
@@ -706,13 +707,13 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                             setTreatmentDropdownOpen(false);
                           }
                         }}
-                        className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        className="w-full px-2 py-1 text-[11px] sm:text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
                         autoFocus
                       />
                     </div>
                     <div className="overflow-y-auto max-h-56">
                       {filteredTreatments.length === 0 ? (
-                        <div className="p-2 text-center text-xs text-gray-500">
+                        <div className="p-2 text-center text-[11px] sm:text-xs text-gray-500">
                           {treatmentSearchQuery.trim() ? `No treatments found` : "No treatments available"}
                         </div>
                       ) : (
@@ -790,25 +791,25 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
 
           {/* Package Selection */}
           {selectedService === "Package" && (
-            <div className="space-y-2">
+            <div className="space-y-2 mt-2 mb-2 relative z-20">
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
+                <label className="block text-[11px] sm:text-xs font-medium text-gray-700 dark:text-gray-800 mb-1">
                   Select Package <span className="text-red-500">*</span>
                 </label>
                 <div className="relative" ref={packageDropdownRef}>
                   <button
                     type="button"
                     onClick={() => setPackageDropdownOpen(!packageDropdownOpen)}
-                    className="w-full flex items-center justify-between px-2 py-1.5 bg-white border border-gray-300 rounded text-xs text-gray-700 hover:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full flex items-center justify-between px-2 py-1.5 bg-white border border-gray-300 rounded text-[11px] sm:text-xs text-gray-700 hover:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
                   >
-                    <span className="text-gray-500 text-xs">
+                    <span className="text-gray-500 text-[11px] sm:text-xs">
                       {selectedPackage ? selectedPackage.name : "Start typing to search for packages..."}
                     </span>
                     <ChevronDown className={`w-3 h-3 text-gray-400 transition-transform ${packageDropdownOpen ? 'rotate-180' : ''}`} />
                   </button>
                   {packageDropdownOpen && (
-                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-48 overflow-hidden flex flex-col">
-                      <div className="p-1.5 border-b border-gray-200 sticky top-0 bg-white">
+                    <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-48 overflow-hidden flex flex-col">
+                      <div className="p-1.5 border-b border-gray-200 sticky top-0 bg-white z-50">
                         <input
                           type="text"
                           placeholder="Search packages..."
@@ -818,13 +819,13 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                             setPackageSearchQuery(e.target.value);
                           }}
                           onClick={(e) => e.stopPropagation()}
-                          className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          className="w-full px-2 py-1 text-[11px] sm:text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
                           autoFocus
                         />
                       </div>
                       <div className="overflow-y-auto max-h-40">
                         {filteredPackages.length === 0 ? (
-                          <div className="p-2 text-center text-xs text-gray-500">
+                          <div className="p-2 text-center text-[11px] sm:text-xs text-gray-500">
                             {packageSearchQuery.trim() ? `No packages found` : "Start typing to search..."}
                           </div>
                         ) : (
@@ -837,7 +838,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                                   e.stopPropagation();
                                   handlePackageSelect(pkg);
                                 }}
-                                className="w-full text-left px-2 py-1 rounded text-xs text-gray-700 hover:bg-gray-50 transition-colors"
+                                className="w-full text-left px-2 py-1 rounded text-[11px] sm:text-xs text-gray-700 hover:bg-gray-50 transition-colors"
                               >
                                 {pkg.name} - {pkg.price}
                               </button>
@@ -909,11 +910,11 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
           )}
 
           {/* Payment Details - Inline */}
-          <div className="rounded border border-gray-200 dark:border-gray-300 bg-gray-50 dark:bg-gray-100 p-1">
-            <h4 className="text-[8px] sm:text-[9px] font-bold text-gray-800 dark:text-gray-900 mb-0.5 uppercase tracking-wider">Payment Details</h4>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-1">
-              <div>
-                <label className="block text-[8px] sm:text-[9px] font-medium text-gray-700 dark:text-gray-800 mb-0.5">
+          <div className="rounded border border-gray-200 dark:border-gray-300 bg-gray-50 dark:bg-gray-100 p-1.5 mt-2 mb-2">
+            <h4 className="text-[9px] sm:text-[10px] font-bold text-gray-800 dark:text-gray-900 mb-1 uppercase tracking-wider">Payment Details</h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-2">
+              <div className="mt-1 mb-1">
+                <label className="block text-[9px] sm:text-[10px] font-medium text-gray-700 dark:text-gray-800 mb-1">
                   Total Amount <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -921,11 +922,11 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                   step="0.01"
                   value={totalPrice.toFixed(2)}
                   readOnly
-                  className="w-full px-1 py-0.5 text-[9px] sm:text-[10px] border border-gray-300 dark:border-gray-300 rounded bg-gray-100 dark:bg-gray-200 text-gray-900 dark:text-gray-900 font-semibold"
+                  className="w-full px-2 py-1 text-[10px] sm:text-[11px] border border-gray-300 dark:border-gray-300 rounded bg-gray-100 dark:bg-gray-200 text-gray-900 dark:text-gray-900 font-semibold"
                 />
               </div>
-              <div>
-                <label className="block text-[8px] sm:text-[9px] font-medium text-gray-700 dark:text-gray-800 mb-0.5">
+              <div className="mt-1 mb-1">
+                <label className="block text-[9px] sm:text-[10px] font-medium text-gray-700 dark:text-gray-800 mb-1">
                   Paid <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -933,38 +934,38 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                   step="0.01"
                   value={formData.paid}
                   onChange={(e) => setFormData((prev) => ({ ...prev, paid: e.target.value }))}
-                  className="w-full px-1 py-0.5 text-[9px] sm:text-[10px] border border-gray-300 dark:border-gray-300 rounded bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-1 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all outline-none"
+                  className="w-full px-2 py-1 text-[10px] sm:text-[11px] border border-gray-300 dark:border-gray-300 rounded bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-1 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all outline-none"
                   required
                 />
               </div>
-              <div>
-                <label className="block text-[8px] sm:text-[9px] font-medium text-gray-700 dark:text-gray-800 mb-0.5">Pending</label>
+              <div className="mt-1 mb-1">
+                <label className="block text-[9px] sm:text-[10px] font-medium text-gray-700 dark:text-gray-800 mb-1">Pending</label>
                 <input
                   type="number"
                   step="0.01"
                   value={formData.pending || "0.00"}
                   onChange={(e) => setFormData((prev) => ({ ...prev, pending: e.target.value }))}
-                  className="w-full px-1 py-0.5 text-[9px] sm:text-[10px] border border-gray-300 dark:border-gray-300 rounded bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-1 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all outline-none"
+                  className="w-full px-2 py-1 text-[10px] sm:text-[11px] border border-gray-300 dark:border-gray-300 rounded bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-1 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all outline-none"
                 />
               </div>
-              <div>
-                <label className="block text-[8px] sm:text-[9px] font-medium text-gray-700 dark:text-gray-800 mb-0.5">Advance</label>
+              <div className="mt-1 mb-1">
+                <label className="block text-[9px] sm:text-[10px] font-medium text-gray-700 dark:text-gray-800 mb-1">Advance</label>
                 <input
                   type="number"
                   step="0.01"
                   value={formData.advance}
                   onChange={(e) => setFormData((prev) => ({ ...prev, advance: e.target.value }))}
-                  className="w-full px-1 py-0.5 text-[9px] sm:text-[10px] border border-gray-300 dark:border-gray-300 rounded bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-1 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all outline-none"
+                  className="w-full px-2 py-1 text-[10px] sm:text-[11px] border border-gray-300 dark:border-gray-300 rounded bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-1 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all outline-none"
                 />
               </div>
-              <div>
-                <label className="block text-[8px] sm:text-[9px] font-medium text-gray-700 dark:text-gray-800 mb-0.5">
+              <div className="mt-1 mb-1">
+                <label className="block text-[9px] sm:text-[10px] font-medium text-gray-700 dark:text-gray-800 mb-1">
                   Payment Method <span className="text-red-500">*</span>
                 </label>
                 <select
                   value={formData.paymentMethod}
                   onChange={(e) => setFormData((prev) => ({ ...prev, paymentMethod: e.target.value }))}
-                  className="w-full px-1 py-0.5 text-[9px] sm:text-[10px] border border-gray-300 dark:border-gray-300 rounded bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-1 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all outline-none"
+                  className="w-full px-2 py-1 text-[10px] sm:text-[11px] border border-gray-300 dark:border-gray-300 rounded bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-1 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all outline-none"
                   required
                 >
                   <option value="Cash">Cash</option>
@@ -978,81 +979,104 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
           </div>
 
           {/* Additional Fields - Inline - Smaller boxes - Same line */}
-          <div className="flex gap-1.5 items-start">
-            <div className="flex-1">
-              <label className="block text-[8px] sm:text-[9px] font-medium text-gray-700 dark:text-gray-800 mb-0.5">Referred By</label>
+          <div className="flex gap-2 items-start mt-2 mb-2">
+            <div className="flex-1 mt-1 mb-1">
+              <label className="block text-[9px] sm:text-[10px] font-medium text-gray-700 dark:text-gray-800 mb-1">Referred By</label>
               <input
                 type="text"
                 value={formData.referredBy}
                 onChange={(e) => setFormData((prev) => ({ ...prev, referredBy: e.target.value }))}
-                className="w-full px-1 py-0.5 text-[9px] sm:text-[10px] border border-gray-300 dark:border-gray-300 rounded bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-1 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all outline-none h-[22px] sm:h-[24px]"
+                className="w-full px-2 py-1 text-[10px] sm:text-[11px] border border-gray-300 dark:border-gray-300 rounded bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-1 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all outline-none"
               />
             </div>
-            <div className="flex-1">
-              <label className="block text-[8px] sm:text-[9px] font-medium text-gray-700 dark:text-gray-800 mb-0.5">Notes</label>
+            <div className="flex-1 mt-1 mb-1">
+              <label className="block text-[9px] sm:text-[10px] font-medium text-gray-700 dark:text-gray-800 mb-1">Notes</label>
               <textarea
                 value={formData.notes}
                 onChange={(e) => setFormData((prev) => ({ ...prev, notes: e.target.value }))}
-                className="w-full px-1 py-0.5 text-[9px] sm:text-[10px] border border-gray-300 dark:border-gray-300 rounded bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-1 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all resize-none outline-none h-[22px] sm:h-[24px]"
-                rows={1}
+                className="w-full px-2 py-1 text-[10px] sm:text-[11px] border border-gray-300 dark:border-gray-300 rounded bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-1 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all resize-none outline-none min-h-[36px]"
+                rows={2}
               />
             </div>
+          </div>
+
+          {/* Action Buttons - Create and Cancel */}
+          <div className="flex items-center justify-end gap-2 mt-4 mb-2 pt-2 border-t border-gray-200 dark:border-gray-300">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 text-[11px] sm:text-xs font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-400"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={loading}
+              className="px-4 py-2 text-[11px] sm:text-xs font-medium text-white bg-gray-900 dark:bg-blue-600 rounded hover:bg-black dark:hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500 dark:focus:ring-blue-400 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? 'Creating...' : 'Create Billing'}
+            </button>
           </div>
         </form>
         ) : (
           /* Payment History Tab */
-          <div className="p-1.5 sm:p-2 overflow-y-auto flex-1">
+          <div className="p-1 sm:p-1.5 overflow-y-auto flex-1 min-h-0 w-full h-full flex flex-col" style={{ height: '100%', width: '100%' }}>
             {loadingHistory ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
-                <span className="ml-2 text-[10px] sm:text-xs text-gray-500 dark:text-gray-600">Loading history...</span>
+              <div className="flex-1 flex items-center justify-center min-h-0 mt-2 mb-2">
+                <div className="text-center">
+                  <Loader2 className="w-4 h-4 animate-spin text-gray-400 mx-auto mb-2" />
+                  <span className="text-[11px] sm:text-xs text-gray-500 dark:text-gray-600">Loading history...</span>
+                </div>
               </div>
             ) : billingHistory.length === 0 ? (
-              <div className="text-center py-8 text-[10px] sm:text-xs text-gray-500 dark:text-gray-600 bg-white dark:bg-gray-50 rounded border border-gray-200 dark:border-gray-300">
-                No payment history found
+              <div className="flex-1 flex items-center justify-center min-h-0 mt-2 mb-2">
+                <div className="text-center py-8 px-4 text-[11px] sm:text-xs text-gray-500 dark:text-gray-600 bg-white dark:bg-gray-50 rounded border border-gray-200 dark:border-gray-300 w-full">
+                  No payment history found
+                </div>
               </div>
             ) : (
-              <div className="overflow-x-auto rounded border border-gray-200 dark:border-gray-300 shadow-sm max-w-full">
-                <table className="w-full border-collapse min-w-[600px] sm:min-w-[700px] md:min-w-full">
+              <div className="flex-1 overflow-auto rounded border border-gray-200 dark:border-gray-300 shadow-sm min-h-0 w-full h-full mt-2 mb-2" style={{ height: '100%', width: '100%' }}>
+                <table className="w-full border-collapse text-[10px] sm:text-[11px]">
+               {/* <table className="w-full border-collapse min-w-[600px] sm:min-w-[700px] md:min-w-full"> */}
                   <thead>
                     <tr className="bg-gray-800 dark:bg-gray-700 border-b border-gray-700 dark:border-gray-600">
-                      <th className="px-1 sm:px-1.5 py-2 text-left text-[9px] sm:text-[10px] font-semibold text-white border-r border-gray-700 dark:border-gray-600 whitespace-nowrap">Invoice ID</th>
-                      <th className="px-1 sm:px-1.5 py-2 text-left text-[9px] sm:text-[10px] font-semibold text-white border-r border-gray-700 dark:border-gray-600 whitespace-nowrap">Treatment/Package</th>
-                      <th className="px-1 sm:px-1.5 py-2 text-right text-[9px] sm:text-[10px] font-semibold text-white border-r border-gray-700 dark:border-gray-600 whitespace-nowrap">Total</th>
-                      <th className="px-1 sm:px-1.5 py-2 text-right text-[9px] sm:text-[10px] font-semibold text-white border-r border-gray-700 dark:border-gray-600 whitespace-nowrap">Paid</th>
-                      <th className="px-1 sm:px-1.5 py-2 text-right text-[9px] sm:text-[10px] font-semibold text-white border-r border-gray-700 dark:border-gray-600 whitespace-nowrap">Pending</th>
-                      <th className="px-1 sm:px-1.5 py-2 text-right text-[9px] sm:text-[10px] font-semibold text-white border-r border-gray-700 dark:border-gray-600 whitespace-nowrap">Advance</th>
-                      <th className="px-1 sm:px-1.5 py-2 text-center text-[9px] sm:text-[10px] font-semibold text-white border-r border-gray-700 dark:border-gray-600 whitespace-nowrap">Qty</th>
-                      <th className="px-1 sm:px-1.5 py-2 text-center text-[9px] sm:text-[10px] font-semibold text-white border-r border-gray-700 dark:border-gray-600 whitespace-nowrap">Session</th>
-                      <th className="px-1 sm:px-1.5 py-2 text-center text-[9px] sm:text-[10px] font-semibold text-white whitespace-nowrap">Method</th>
+                      <th className="px-2 py-2.5 text-left text-[10px] sm:text-[11px] font-semibold text-white border-r border-gray-700 dark:border-gray-600 whitespace-nowrap">Invoice ID</th>
+                      <th className="px-2 py-2.5 text-left text-[10px] sm:text-[11px] font-semibold text-white border-r border-gray-700 dark:border-gray-600 whitespace-nowrap">Treatment/Package</th>
+                      <th className="px-2 py-2.5 text-right text-[10px] sm:text-[11px] font-semibold text-white border-r border-gray-700 dark:border-gray-600 whitespace-nowrap">Total</th>
+                      <th className="px-2 py-2.5 text-right text-[10px] sm:text-[11px] font-semibold text-white border-r border-gray-700 dark:border-gray-600 whitespace-nowrap">Paid</th>
+                      <th className="px-2 py-2.5 text-right text-[10px] sm:text-[11px] font-semibold text-white border-r border-gray-700 dark:border-gray-600 whitespace-nowrap">Pending</th>
+                      <th className="px-2 py-2.5 text-right text-[10px] sm:text-[11px] font-semibold text-white border-r border-gray-700 dark:border-gray-600 whitespace-nowrap">Advance</th>
+                      <th className="px-2 py-2.5 text-center text-[10px] sm:text-[11px] font-semibold text-white border-r border-gray-700 dark:border-gray-600 whitespace-nowrap">Qty</th>
+                      <th className="px-2 py-2.5 text-center text-[10px] sm:text-[11px] font-semibold text-white border-r border-gray-700 dark:border-gray-600 whitespace-nowrap">Session</th>
+                      <th className="px-2 py-2.5 text-center text-[10px] sm:text-[11px] font-semibold text-white whitespace-nowrap">Method</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white dark:bg-gray-50 divide-y divide-gray-200 dark:divide-gray-300">
                     {billingHistory.map((billing) => (
                       <tr key={billing._id} className="hover:bg-gray-50 dark:hover:bg-gray-100 transition-colors">
-                        <td className="px-1 sm:px-1.5 py-2 text-[9px] sm:text-[10px] text-gray-900 dark:text-gray-900 border-r border-gray-200 dark:border-gray-300 font-medium">{billing.invoiceNumber}</td>
-                        <td className="px-1 sm:px-1.5 py-2 text-[9px] sm:text-[10px] text-gray-700 dark:text-gray-700 border-r border-gray-200 dark:border-gray-300 max-w-[120px] sm:max-w-[150px] truncate">
+                        <td className="px-2 py-2.5 text-[10px] sm:text-[11px] text-gray-900 dark:text-gray-900 border-r border-gray-200 dark:border-gray-300 font-medium">{billing.invoiceNumber}</td>
+                        <td className="px-2 py-2.5 text-[10px] sm:text-[11px] text-gray-700 dark:text-gray-700 border-r border-gray-200 dark:border-gray-300 max-w-[120px] sm:max-w-[150px] truncate">
                           {billing.service === "Treatment" ? billing.treatment || "-" : billing.package || "-"}
                         </td>
-                        <td className="px-1 sm:px-1.5 py-2 text-[9px] sm:text-[10px] text-gray-900 dark:text-gray-900 text-right font-semibold border-r border-gray-200 dark:border-gray-300">
+                        <td className="px-2 py-2.5 text-[10px] sm:text-[11px] text-gray-900 dark:text-gray-900 text-right font-semibold border-r border-gray-200 dark:border-gray-300">
                           {billing.amount?.toFixed(2) || "0.00"}
                         </td>
-                        <td className="px-1 sm:px-1.5 py-2 text-[9px] sm:text-[10px] text-gray-900 dark:text-gray-900 text-right border-r border-gray-200 dark:border-gray-300">
+                        <td className="px-2 py-2.5 text-[10px] sm:text-[11px] text-gray-900 dark:text-gray-900 text-right border-r border-gray-200 dark:border-gray-300">
                           {billing.paid?.toFixed(2) || "0.00"}
                         </td>
-                        <td className="px-1 sm:px-1.5 py-2 text-[9px] sm:text-[10px] text-gray-900 dark:text-gray-900 text-right border-r border-gray-200 dark:border-gray-300">
+                        <td className="px-2 py-2.5 text-[10px] sm:text-[11px] text-gray-900 dark:text-gray-900 text-right border-r border-gray-200 dark:border-gray-300">
                           {billing.pending?.toFixed(2) || "0.00"}
                         </td>
-                        <td className="px-1 sm:px-1.5 py-2 text-[9px] sm:text-[10px] text-gray-900 dark:text-gray-900 text-right border-r border-gray-200 dark:border-gray-300">
+                        <td className="px-2 py-2.5 text-[10px] sm:text-[11px] text-gray-900 dark:text-gray-900 text-right border-r border-gray-200 dark:border-gray-300">
                           {billing.advance?.toFixed(2) || "0.00"}
                         </td>
-                        <td className="px-1 sm:px-1.5 py-2 text-[9px] sm:text-[10px] text-gray-700 dark:text-gray-700 text-center border-r border-gray-200 dark:border-gray-300">
+                        <td className="px-2 py-2.5 text-[10px] sm:text-[11px] text-gray-700 dark:text-gray-700 text-center border-r border-gray-200 dark:border-gray-300">
                           {billing.quantity || "-"}
                         </td>
-                        <td className="px-1 sm:px-1.5 py-2 text-[9px] sm:text-[10px] text-gray-700 dark:text-gray-700 text-center border-r border-gray-200 dark:border-gray-300">
+                        <td className="px-2 py-2.5 text-[10px] sm:text-[11px] text-gray-700 dark:text-gray-700 text-center border-r border-gray-200 dark:border-gray-300">
                           {billing.sessions || "-"}
                         </td>
-                        <td className="px-1 sm:px-1.5 py-2 text-[9px] sm:text-[10px] text-gray-700 dark:text-gray-700 text-center">
+                        <td className="px-2 py-2.5 text-[10px] sm:text-[11px] text-gray-700 dark:text-gray-700 text-center">
                           {billing.paymentMethod || "-"}
                         </td>
                       </tr>
@@ -1063,36 +1087,10 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
             )}
           </div>
         )}
+        </div>
 
         {/* Submit Button - Fixed at bottom - Only show for billing tab */}
-        {activeTab === "billing" && (
-        <div className="sticky bottom-0 left-0 right-0 z-30 pt-1 pb-1 px-1.5 sm:px-2 border-t border-gray-200 dark:border-gray-300 bg-white dark:bg-gray-50 shadow-[0_-1px_2px_-1px_rgba(0,0,0,0.1)] dark:shadow-[0_-1px_2px_-1px_rgba(0,0,0,0.2)]">
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-1">
-            <button
-              type="button"
-              onClick={onClose}
-              className="w-full sm:w-auto px-2 py-0.5 border border-gray-300 dark:border-gray-400 rounded text-[9px] sm:text-[10px] font-medium text-gray-700 dark:text-gray-900 bg-white dark:bg-gray-100 hover:bg-gray-50 dark:hover:bg-gray-200 hover:border-gray-400 dark:hover:border-gray-500 focus:outline-none focus:ring-1 focus:ring-gray-400 dark:focus:ring-gray-500 transition-all duration-200"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              form="billing-form"
-              disabled={loading}
-              className="w-full sm:w-auto px-2.5 sm:px-3 py-0.5 sm:py-1 rounded text-[9px] sm:text-[10px] font-semibold bg-gray-800 dark:bg-gray-700 text-white hover:bg-gray-900 dark:hover:bg-gray-800 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-0.5"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="w-2.5 h-2.5 animate-spin" />
-                  Creating...
-                </>
-              ) : (
-                "Create Billing"
-              )}
-            </button>
-          </div>
-        </div>
-        )}
+      
       </div>
     </div>
     </>
