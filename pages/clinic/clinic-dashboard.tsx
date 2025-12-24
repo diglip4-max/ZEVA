@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Star, Mail, Settings, Lock, TrendingUp, Users, FileText, Briefcase, MessageSquare, Calendar, CreditCard, BarChart3, Activity, XCircle, CheckCircle2, ArrowUpRight, ArrowDownRight, User, Crown } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, LabelList, LineChart, Line, Tooltip } from 'recharts';
+import { Star, Mail, Settings, Lock, TrendingUp, Users, FileText, Briefcase, MessageSquare, Calendar, CreditCard, BarChart3, Activity, XCircle, CheckCircle2, ArrowUpRight, ArrowDownRight, User, Crown, Stethoscope, Building2, Package, Gift, DoorOpen, FolderTree } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, LabelList, LineChart, Line, Tooltip, PieChart, Pie, Cell, Legend } from 'recharts';
 import Stats from '../../components/Stats';
 import ClinicLayout from '../../components/ClinicLayout';
 import withClinicAuth from '../../components/withClinicAuth';
@@ -12,6 +12,16 @@ interface Stats {
   totalReviews: number;
   totalEnquiries: number;
   totalClinics?: number;
+  totalAppointments?: number;
+  totalLeads?: number;
+  totalTreatments?: number;
+  totalRooms?: number;
+  totalDepartments?: number;
+  totalPackages?: number;
+  totalOffers?: number;
+  appointmentStatusBreakdown?: { [key: string]: number };
+  leadStatusBreakdown?: { [key: string]: number };
+  offerStatusBreakdown?: { [key: string]: number };
 }
 
 interface DashboardStatsResponse {
@@ -86,7 +96,21 @@ interface ClinicInfo {
 }
 
 const ClinicDashboard: NextPageWithLayout = () => {
-  const [stats, setStats] = useState<Stats>({ totalReviews: 0, totalEnquiries: 0, totalClinics: 0 });
+  const [stats, setStats] = useState<Stats>({
+    totalReviews: 0,
+    totalEnquiries: 0,
+    totalClinics: 0,
+    totalAppointments: 0,
+    totalLeads: 0,
+    totalTreatments: 0,
+    totalRooms: 0,
+    totalDepartments: 0,
+    totalPackages: 0,
+    totalOffers: 0,
+    appointmentStatusBreakdown: {},
+    leadStatusBreakdown: {},
+    offerStatusBreakdown: {},
+  });
   const [loading, setLoading] = useState<boolean>(true);
   const [currentTime, setCurrentTime] = useState<Date>(new Date());
   const [clinicUser, setClinicUser] = useState<ClinicUser | null>(null);
@@ -509,7 +533,21 @@ const ClinicDashboard: NextPageWithLayout = () => {
   useEffect(() => {
     if (!permissionsLoaded) return;
     if (['agent', 'doctorStaff'].includes(userRole || '') && !moduleAccess.canRead) {
-      setStats({ totalReviews: 0, totalEnquiries: 0, totalClinics: 0 });
+      setStats({
+        totalReviews: 0,
+        totalEnquiries: 0,
+        totalClinics: 0,
+        totalAppointments: 0,
+        totalLeads: 0,
+        totalTreatments: 0,
+        totalRooms: 0,
+        totalDepartments: 0,
+        totalPackages: 0,
+        totalOffers: 0,
+        appointmentStatusBreakdown: {},
+        leadStatusBreakdown: {},
+        offerStatusBreakdown: {},
+      });
       setLoading(false);
       return;
     }
@@ -526,11 +564,39 @@ const ClinicDashboard: NextPageWithLayout = () => {
         if (data.success) {
           setStats(data.stats);
         } else if (res.status === 403) {
-          setStats({ totalReviews: 0, totalEnquiries: 0, totalClinics: 0 });
+          setStats({
+            totalReviews: 0,
+            totalEnquiries: 0,
+            totalClinics: 0,
+            totalAppointments: 0,
+            totalLeads: 0,
+            totalTreatments: 0,
+            totalRooms: 0,
+            totalDepartments: 0,
+            totalPackages: 0,
+            totalOffers: 0,
+            appointmentStatusBreakdown: {},
+            leadStatusBreakdown: {},
+            offerStatusBreakdown: {},
+          });
         }
       } catch (error: any) {
         if (error?.response?.status === 403) {
-          setStats({ totalReviews: 0, totalEnquiries: 0, totalClinics: 0 });
+          setStats({
+            totalReviews: 0,
+            totalEnquiries: 0,
+            totalClinics: 0,
+            totalAppointments: 0,
+            totalLeads: 0,
+            totalTreatments: 0,
+            totalRooms: 0,
+            totalDepartments: 0,
+            totalPackages: 0,
+            totalOffers: 0,
+            appointmentStatusBreakdown: {},
+            leadStatusBreakdown: {},
+            offerStatusBreakdown: {},
+          });
         }
       } finally {
         setLoading(false);
@@ -575,6 +641,38 @@ const ClinicDashboard: NextPageWithLayout = () => {
     return navigationItems.map(item => item.moduleKey);
   }, [navigationItems]);
 
+  // Memoize permissions config to prevent unnecessary re-renders
+  // Calculate permissions values first
+  const hasJobsPermission = useMemo(() => 
+    modulesWithPermission.some(key => key === 'clinic_jobs' || key === 'jobs') || modulesWithPermission.length === 0,
+    [modulesWithPermission]
+  );
+  
+  const hasBlogsPermission = useMemo(() => 
+    modulesWithPermission.some(key => key === 'clinic_blogs' || key === 'blogs') || modulesWithPermission.length === 0,
+    [modulesWithPermission]
+  );
+  
+  const hasApplicationsPermission = useMemo(() => 
+    modulesWithPermission.some(key => key === 'clinic_jobs' || key === 'jobs') || modulesWithPermission.length === 0,
+    [modulesWithPermission]
+  );
+
+  // Create stable permissions object - only recreate when values actually change
+  const statsPermissions = useMemo(() => ({
+    canAccessJobs: hasJobsPermission,
+    canAccessBlogs: hasBlogsPermission,
+    canAccessApplications: hasApplicationsPermission,
+  }), [hasJobsPermission, hasBlogsPermission, hasApplicationsPermission]);
+
+  // Memoize the entire Stats config to prevent unnecessary re-fetches
+  // This ensures the config object reference only changes when permissions actually change
+  const statsConfig = useMemo(() => ({
+    tokenKey: 'clinicToken' as const,
+    primaryColor: '#3b82f6',
+    permissions: statsPermissions
+  }), [statsPermissions]);
+
   // Get restricted modules (all modules minus modules with permission)
   const restrictedModules = useMemo(() => {
     const permissionKeys = new Set(modulesWithPermission);
@@ -600,8 +698,39 @@ const ClinicDashboard: NextPageWithLayout = () => {
     return [
       { name: 'Reviews', value: stats.totalReviews },
       { name: 'Enquiries', value: stats.totalEnquiries },
+      { name: 'Appointments', value: stats.totalAppointments || 0 },
+      { name: 'Leads', value: stats.totalLeads || 0 },
+      { name: 'Offers', value: stats.totalOffers || 0 },
     ];
   }, [stats]);
+
+  // Prepare breakdown chart data
+  const appointmentStatusData = useMemo(() => {
+    if (!stats.appointmentStatusBreakdown) return [];
+    return Object.entries(stats.appointmentStatusBreakdown).map(([status, count]) => ({
+      name: status,
+      value: count,
+    }));
+  }, [stats.appointmentStatusBreakdown]);
+
+  const leadStatusData = useMemo(() => {
+    if (!stats.leadStatusBreakdown) return [];
+    return Object.entries(stats.leadStatusBreakdown).map(([status, count]) => ({
+      name: status,
+      value: count,
+    }));
+  }, [stats.leadStatusBreakdown]);
+
+  const offerStatusData = useMemo(() => {
+    if (!stats.offerStatusBreakdown) return [];
+    return Object.entries(stats.offerStatusBreakdown).map(([status, count]) => ({
+      name: status,
+      value: count,
+    }));
+  }, [stats.offerStatusBreakdown]);
+
+  // Colors for pie charts
+  const pieColors = ['#2D9AA5', '#22c55e', '#a855f7', '#f97316', '#ec4899', '#6366f1', '#ef4444', '#10b981', '#3b82f6', '#f59e0b'];
 
   // Render stat card component - Enhanced modern design
   const renderStatCard = (
@@ -712,10 +841,10 @@ const ClinicDashboard: NextPageWithLayout = () => {
         {/* Dashboard Header */}
         <div className="mb-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
+                <div>
               <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-1">
-                {clinicInfo.name || 'Clinic Dashboard'}
-              </h1>
+                    {clinicInfo.name || 'Clinic Dashboard'}
+                  </h1>
               <div className="flex items-center gap-3 text-sm text-gray-600">
                 <div className="flex items-center gap-1.5">
                   <User className="w-4 h-4" />
@@ -724,9 +853,9 @@ const ClinicDashboard: NextPageWithLayout = () => {
                 <span>•</span>
                 <span>{formatDate(currentTime)}</span>
                 <span>•</span>
-                <span className="font-semibold">{formatTime(currentTime)}</span>
-              </div>
-            </div>
+                  <span className="font-semibold">{formatTime(currentTime)}</span>
+                </div>
+                </div>
             <div className="bg-gray-900 text-white px-4 py-2 rounded-lg">
               <p className="text-sm font-medium">{getGreeting()}</p>
             </div>
@@ -737,7 +866,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
           {/* Left Column - Stats Cards */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Key Statistics Row */}
+            {/* Key Statistics Row - Primary */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               {renderStatCard(
                 'Total Reviews',
@@ -769,6 +898,63 @@ const ClinicDashboard: NextPageWithLayout = () => {
               )}
             </div>
 
+            {/* Additional Statistics Row */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+              {renderStatCard(
+                'Appointments',
+                stats.totalAppointments || 0,
+                <Calendar className="w-5 h-5" />,
+                true,
+                'appointments'
+              )}
+              {renderStatCard(
+                'Leads',
+                stats.totalLeads || 0,
+                <Users className="w-5 h-5" />,
+                true,
+                'leads'
+              )}
+              {renderStatCard(
+                'Treatments',
+                stats.totalTreatments || 0,
+                <Stethoscope className="w-5 h-5" />,
+                true,
+                'treatments'
+              )}
+              {renderStatCard(
+                'Rooms',
+                stats.totalRooms || 0,
+                <DoorOpen className="w-5 h-5" />,
+                true,
+                'rooms'
+              )}
+              {renderStatCard(
+                'Departments',
+                stats.totalDepartments || 0,
+                <Building2 className="w-5 h-5" />,
+                true,
+                'departments'
+              )}
+                </div>
+
+            {/* Packages and Offers Row */}
+            <div className="grid grid-cols-2 sm:grid-cols-2 gap-4">
+              {renderStatCard(
+                'Packages',
+                stats.totalPackages || 0,
+                <Package className="w-5 h-5" />,
+                true,
+                'packages'
+              )}
+              {renderStatCard(
+                'Offers',
+                stats.totalOffers || 0,
+                <Gift className="w-5 h-5" />,
+                true,
+                'offers'
+              )}
+            </div>
+
             {/* Quick Actions */}
             <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
               <h3 className="text-sm font-semibold text-gray-900 mb-3">Quick Actions</h3>
@@ -792,7 +978,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
             </div>
 
             {/* Analytics Charts */}
-            {(stats.totalEnquiries > 0 || stats.totalReviews > 0) && (
+            {(stats.totalEnquiries > 0 || stats.totalReviews > 0 || (stats.totalAppointments || 0) > 0 || (stats.totalLeads || 0) > 0) && (
               <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
                 <h3 className="text-sm font-semibold text-gray-900 mb-4">Analytics Overview</h3>
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -870,7 +1056,97 @@ const ClinicDashboard: NextPageWithLayout = () => {
                   </div>
                 </div>
               </div>
+              )}
+
+            {/* Status Breakdown Charts */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              {/* Appointment Status Breakdown */}
+              {appointmentStatusData.length > 0 && (
+                <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
+                  <h3 className="text-sm font-semibold text-gray-900 mb-4">Appointment Status</h3>
+                  <div className="h-64">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={appointmentStatusData}
+                          cx="50%"
+                          cy="50%"
+                          labelLine={false}
+                          label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                          outerRadius={80}
+                          fill="#8884d8"
+                          dataKey="value"
+                        >
+                          {appointmentStatusData.map((_entry, index) => (
+                            <Cell key={`cell-${index}`} fill={pieColors[index % pieColors.length]} />
+                          ))}
+                        </Pie>
+                        <Tooltip />
+                        <Legend />
+                      </PieChart>
+                    </ResponsiveContainer>
+              </div>
+                </div>
+              )}
+
+              {/* Lead Status Breakdown */}
+              {leadStatusData.length > 0 && (
+                <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
+                  <h3 className="text-sm font-semibold text-gray-900 mb-4">Lead Status</h3>
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                          data={leadStatusData}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                          label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                      outerRadius={80}
+                      fill="#8884d8"
+                          dataKey="value" 
+                    >
+                          {leadStatusData.map((_entry, index) => (
+                            <Cell key={`cell-${index}`} fill={pieColors[index % pieColors.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                    <Legend />
+                  </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+              </div>
             )}
+
+              {/* Offer Status Breakdown */}
+              {offerStatusData.length > 0 && (
+                <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
+                  <h3 className="text-sm font-semibold text-gray-900 mb-4">Offer Status</h3>
+                  <div className="h-64">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={offerStatusData}
+                          cx="50%"
+                          cy="50%"
+                          labelLine={false}
+                          label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                          outerRadius={80}
+                          fill="#8884d8"
+                          dataKey="value"
+                        >
+                          {offerStatusData.map((_entry, index) => (
+                            <Cell key={`cell-${index}`} fill={pieColors[index % pieColors.length]} />
+                          ))}
+                        </Pie>
+                        <Tooltip />
+                        <Legend />
+                      </PieChart>
+                    </ResponsiveContainer>
+              </div>
+            </div>
+                  )}
+                </div>
           </div>
 
           {/* Right Column - Subscription & Modules */}
@@ -908,9 +1184,9 @@ const ClinicDashboard: NextPageWithLayout = () => {
                     <span className="text-xs font-medium text-gray-700">Total Modules</span>
                     <span className="text-lg font-bold text-gray-900">{subscriptionSummary.totalModules}</span>
                   </div>
+                  </div>
                 </div>
-              </div>
-            </div>
+          </div>
 
             {/* Feature Breakdown - Compact */}
             <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
@@ -975,44 +1251,11 @@ const ClinicDashboard: NextPageWithLayout = () => {
         </div>
 
 
-        {/* Additional Stats Component */}
+        {/* Additional Stats Component - Job and Blog Analytics */}
+        {/* Always render - Stats component handles its own loading/error states */}
         <Stats
           role="clinic"
-          config={{
-            tokenKey: 'clinicToken',
-            primaryColor: '#3b82f6',
-            permissions: {
-              canAccessJobs: modulesWithPermission.some(key => 
-                key === 'clinic_jobs' || key === 'jobs'
-              ) || modulesWithPermission.length === 0,
-              canAccessBlogs: modulesWithPermission.some(key => 
-                key === 'clinic_blogs' || key === 'blogs'
-              ) || modulesWithPermission.length === 0,
-              canAccessApplications: modulesWithPermission.some(key => 
-                key === 'clinic_jobs' || key === 'jobs'
-              ) || modulesWithPermission.length === 0,
-            }
-          }}
-        />
-
-        {/* Additional Stats Component */}
-        <Stats
-          role="clinic"
-          config={{
-            tokenKey: 'clinicToken',
-            primaryColor: '#3b82f6',
-            permissions: {
-              canAccessJobs: modulesWithPermission.some(key => 
-                key === 'clinic_jobs' || key === 'jobs'
-              ) || modulesWithPermission.length === 0,
-              canAccessBlogs: modulesWithPermission.some(key => 
-                key === 'clinic_blogs' || key === 'blogs'
-              ) || modulesWithPermission.length === 0,
-              canAccessApplications: modulesWithPermission.some(key => 
-                key === 'clinic_jobs' || key === 'jobs'
-              ) || modulesWithPermission.length === 0,
-            }
-          }}
+          config={statsConfig}
         />
       </div>
     </div>

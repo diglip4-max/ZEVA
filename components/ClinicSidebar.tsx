@@ -634,6 +634,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
 
   return (
     <>
+<<<<<<< HEAD
       {/* Mobile Toggle Button - Shows when sidebar is closed */}
       {!isMobileOpen && (
         <button
@@ -645,6 +646,8 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
           <Menu className="w-4 h-4" />
         </button>
       )}
+=======
+>>>>>>> cac6787105afa6986ae22027936778fbef792dab
 
       {/* Desktop Toggle Button - Shows when sidebar is hidden */}
       {isDesktopHidden && (
