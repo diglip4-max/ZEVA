@@ -1,7 +1,8 @@
 // components/common/JobStats.tsx
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import axios from 'axios';
-import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend, ResponsiveContainer, Label, LabelList } from 'recharts';
+import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend, ResponsiveContainer, Label, LabelList, Tooltip } from 'recharts';
+import { FileText, BarChart3, XCircle } from 'lucide-react';
 
 // Type definitions (matching your existing Job interface)
 interface Job {
@@ -186,9 +187,9 @@ const JobStats: React.FC<JobStatsProps> = ({
         }
 
         setJobs(res.data.jobs || []);
-      } catch (axiosError: any) {
+      } catch (axiosError: unknown) {
         // Handle 403 errors gracefully
-        if (axiosError.response?.status === 403) {
+        if (axios.isAxiosError(axiosError) && axiosError.response?.status === 403) {
           setJobs([]);
           setError('');
           return;
@@ -256,9 +257,9 @@ const JobStats: React.FC<JobStatsProps> = ({
           return postedBy && postedBy._id === userId;
         });
         setBlogs(mine);
-      } catch (axiosError: any) {
+      } catch (axiosError: unknown) {
         // Handle 403 errors gracefully
-        if (axiosError.response?.status === 403) {
+        if (axios.isAxiosError(axiosError) && axiosError.response?.status === 403) {
           setBlogs([]);
           setBlogError('');
           return;
@@ -311,9 +312,9 @@ const JobStats: React.FC<JobStatsProps> = ({
 
         const list = (res.data?.applications || []) as ApplicationItem[];
         setApplications(Array.isArray(list) ? list : []);
-      } catch (axiosError: any) {
+      } catch (axiosError: unknown) {
         // Handle 403 errors gracefully
-        if (axiosError.response?.status === 403) {
+        if (axios.isAxiosError(axiosError) && axiosError.response?.status === 403) {
           setApplications([]);
           setApplicationsError('');
           return;
@@ -384,9 +385,7 @@ const JobStats: React.FC<JobStatsProps> = ({
   const {isSm, isMd } = useBreakpoints();
   const nameMaxLen = isMd ? 25 : 15;
   const xAxisFontSize = isSm || isMd ? 12 : 10;
-  const yAxisFontSize = xAxisFontSize;
   const legendFontSize = xAxisFontSize + (isMd ? 2 : 0);
-  const tooltipFontSize = xAxisFontSize + (isMd ? 2 : 0);
   const barCount = isMd ? 5 : 3;
   const pieOuterRadius = isMd ? 140 : (isSm ? 110 : 90);
   const pieInnerRadius = Math.round(pieOuterRadius * 0.6);
@@ -418,28 +417,28 @@ const JobStats: React.FC<JobStatsProps> = ({
   // Don't return early - show stats even while loading or if there's an error
   // This ensures job stats are always visible
 
-return (
-  <div className="w-full space-y-4 sm:space-y-6 px-2 sm:px-4 lg:px-0">
-    {/* Error Banner - Show error but don't block stats */}
-    {error && (
-      <div className="bg-red-50 border border-red-200 rounded-xl p-4">
-        <div className="flex items-center gap-3">
-          <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          <div className="flex-1">
-            <h3 className="font-medium text-red-900">Unable to load some statistics</h3>
-            <p className="text-sm text-red-700">{error}</p>
+  return (
+    <div className="w-full space-y-4 sm:space-y-6 px-2 sm:px-4 lg:px-0">
+      {/* Error Banner - Show error but don't block stats */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+          <div className="flex items-center gap-3">
+            <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <div className="flex-1">
+              <h3 className="font-medium text-red-900">Unable to load some statistics</h3>
+              <p className="text-sm text-red-700">{error}</p>
+            </div>
+            <button 
+              onClick={fetchJobs}
+              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors duration-200 text-sm"
+            >
+              Retry
+            </button>
           </div>
-          <button 
-            onClick={fetchJobs}
-            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors duration-200 text-sm"
-          >
-            Retry
-          </button>
         </div>
-      </div>
-    )}
+      )}
 
     {/* Main Statistics Cards */}
     <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
@@ -593,7 +592,7 @@ return (
                       </linearGradient>
                     </defs>
                     <Pie
-                      data={sortedJobTypes.map(([jobType, count],) => ({
+                      data={sortedJobTypes.map(([jobType, count]) => ({
                         name: jobType,
                         value: count,
                         percentage: stats.totalJobs > 0 ? Math.round((count / stats.totalJobs) * 100) : 0
@@ -806,150 +805,228 @@ return (
       </div>
     )}
 
-    {/* Blog Statistics with Bar Chart */}
-    <div className="bg-white p-3 sm:p-4 rounded-lg border border-gray-200">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 gap-2">
-        <h3 className="text-xs sm:text-sm font-semibold text-gray-900">Blog Statistics</h3>
-        {blogLoading ? (
-          <span className="text-xs text-gray-500">Loading…</span>
-        ) : (
-          <span className="text-xs text-gray-500">{totalBlogs} total blogs</span>
+      {/* Blog Statistics - Enhanced Design */}
+      <div className="bg-gradient-to-br from-white to-gray-50 rounded-xl border-2 border-gray-200 shadow-lg p-6 mb-6 relative overflow-hidden">
+      {/* Decorative Background Elements */}
+      <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-br from-blue-200/20 to-purple-200/20 rounded-full blur-3xl -mr-20 -mt-20"></div>
+      <div className="absolute bottom-0 left-0 w-32 h-32 bg-gradient-to-tr from-green-200/20 to-blue-200/20 rounded-full blur-2xl -ml-16 -mb-16"></div>
+      
+      <div className="relative z-10">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-3">
+          <div className="flex items-center gap-3">
+            <div className="p-3 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl shadow-lg">
+              <FileText className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <h3 className="text-xl font-bold text-gray-900">Blog Statistics</h3>
+              <p className="text-xs text-gray-600">Track your blog performance</p>
+            </div>
+          </div>
+          {blogLoading ? (
+            <div className="flex items-center gap-2 text-sm text-gray-500">
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+              <span>Loading…</span>
+            </div>
+          ) : (
+            <div className="px-4 py-2 bg-gradient-to-r from-blue-100 to-purple-100 rounded-lg border border-blue-200">
+              <span className="text-sm font-semibold text-blue-700">{totalBlogs} Total Blogs</span>
+            </div>
+          )}
+        </div>
+
+        {blogError && (
+          <div className="bg-red-50 border-2 border-red-200 rounded-lg p-4 mb-6 text-sm text-red-700 flex items-center gap-2">
+            <XCircle className="w-5 h-5 flex-shrink-0" />
+            <span>{blogError}</span>
+          </div>
+        )}
+
+        {/* Blog summary cards - Enhanced */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+          {/* Total Blogs Card */}
+          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl border-2 border-blue-200 p-5 hover:shadow-lg transition-all duration-300">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <p className="text-sm font-medium text-gray-600 mb-1">Total Blogs</p>
+                <p className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">{totalBlogs}</p>
+              </div>
+              <div className="p-3 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl shadow-md">
+                <FileText className="w-6 h-6 text-white" />
+              </div>
+            </div>
+            <div className="flex items-center gap-2 text-xs text-gray-600">
+              <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+              <span>All published blogs</span>
+            </div>
+          </div>
+
+          {/* Top Liked Blogs Card */}
+          <div className="bg-gradient-to-br from-pink-50 to-rose-50 rounded-xl border-2 border-pink-200 p-5 hover:shadow-lg transition-all duration-300">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="p-2 bg-gradient-to-br from-pink-500 to-rose-600 rounded-lg">
+                <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <p className="text-sm font-semibold text-gray-900">Top 3 Most Liked</p>
+            </div>
+            <div className="space-y-2">
+              {(blogLoading ? [] : topLikedBlogs).map((b, index) => (
+                <div key={b._id} className="flex items-center justify-between gap-2 p-2 bg-white/60 rounded-lg border border-pink-100 hover:bg-white transition-colors">
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <span className="text-xs font-bold text-pink-600 w-4">{index + 1}</span>
+                    <span className="text-xs text-gray-800 truncate flex-1" title={b.title}>{b.title}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 flex-shrink-0 px-2 py-1 bg-pink-100 rounded-lg">
+                    <svg className="w-3.5 h-3.5 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" />
+                    </svg>
+                    <span className="text-xs font-bold text-pink-700">{b.likesCount || 0}</span>
+                  </div>
+                </div>
+              ))}
+              {!blogLoading && topLikedBlogs.length === 0 && (
+                <p className="text-xs text-gray-500 text-center py-2">No liked blogs yet</p>
+              )}
+            </div>
+          </div>
+
+          {/* Top Commented Blogs Card */}
+          <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-xl border-2 border-emerald-200 p-5 hover:shadow-lg transition-all duration-300 sm:col-span-2 lg:col-span-1">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="p-2 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-lg">
+                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                </svg>
+              </div>
+              <p className="text-sm font-semibold text-gray-900">Top 3 Most Commented</p>
+            </div>
+            <div className="space-y-2">
+              {(blogLoading ? [] : topCommentedBlogs).map((b, index) => (
+                <div key={b._id} className="flex items-center justify-between gap-2 p-2 bg-white/60 rounded-lg border border-emerald-100 hover:bg-white transition-colors">
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <span className="text-xs font-bold text-emerald-600 w-4">{index + 1}</span>
+                    <span className="text-xs text-gray-800 truncate flex-1" title={b.title}>{b.title}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 flex-shrink-0 px-2 py-1 bg-emerald-100 rounded-lg">
+                    <svg className="w-3.5 h-3.5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                    </svg>
+                    <span className="text-xs font-bold text-emerald-700">{b.commentsCount || 0}</span>
+                  </div>
+                </div>
+              ))}
+              {!blogLoading && topCommentedBlogs.length === 0 && (
+                <p className="text-xs text-gray-500 text-center py-2">No comments yet</p>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Bar Chart for Blog Performance - Enhanced */}
+        {!blogLoading && (topLikedBlogs.length > 0 || topCommentedBlogs.length > 0) && (
+          <div className="bg-white rounded-xl border-2 border-gray-200 p-6 mt-6 shadow-sm">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-2.5 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg shadow-md">
+                <BarChart3 className="w-5 h-5 text-white" />
+              </div>
+              <h4 className="text-lg font-bold text-gray-900">Blog Engagement Overview</h4>
+            </div>
+            <div className="h-64 sm:h-72 md:h-80">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={[
+                    ...topLikedBlogs.map(blog => ({
+                      name: blog.title.length > (window.innerWidth < 640 ? 10 : nameMaxLen) 
+                        ? blog.title.substring(0, window.innerWidth < 640 ? 10 : nameMaxLen) + '...' 
+                        : blog.title,
+                      likes: blog.likesCount || 0,
+                      comments: topCommentedBlogs.find(c => c._id === blog._id)?.commentsCount || 0
+                    })),
+                    ...topCommentedBlogs
+                      .filter(blog => !topLikedBlogs.find(l => l._id === blog._id))
+                      .map(blog => ({
+                        name: blog.title.length > (window.innerWidth < 640 ? 10 : nameMaxLen) 
+                          ? blog.title.substring(0, window.innerWidth < 640 ? 10 : nameMaxLen) + '...' 
+                          : blog.title,
+                        likes: 0,
+                        comments: blog.commentsCount || 0
+                      }))
+                  ].slice(0, window.innerWidth < 640 ? 3 : barCount)}
+                  margin={{
+                    top: 20,
+                    right: window.innerWidth < 640 ? 20 : (isSm || isMd) ? 30 : 20,
+                    left: window.innerWidth < 640 ? 5 : (isSm || isMd) ? 20 : 10,
+                    bottom: window.innerWidth < 640 ? 50 : (isSm || isMd) ? 80 : 60,
+                  }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis 
+                    dataKey="name" 
+                    tick={{ fontSize: window.innerWidth < 640 ? 10 : 12, fill: '#6b7280' }}
+                    angle={window.innerWidth < 640 ? -90 : isMd ? -45 : -60}
+                    textAnchor="end"
+                    height={window.innerWidth < 640 ? 50 : (isSm || isMd) ? 80 : 60}
+                    interval={0}
+                    axisLine={{ stroke: '#d1d5db' }}
+                    tickLine={{ stroke: '#d1d5db' }}
+                  />
+                  <YAxis 
+                    tick={{ fontSize: window.innerWidth < 640 ? 10 : 12, fill: '#6b7280' }}
+                    axisLine={{ stroke: '#d1d5db' }}
+                    tickLine={{ stroke: '#d1d5db' }}
+                  />
+                  
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: '#fff', 
+                      border: '1px solid #e5e7eb',
+                      borderRadius: '8px',
+                      fontSize: '12px',
+                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                    }}
+                  />
+                  
+                  <Legend 
+                    wrapperStyle={{ 
+                      fontSize: `${window.innerWidth < 640 ? 11 : 13}px`,
+                      paddingTop: '10px'
+                    }} 
+                  />
+                  <Bar dataKey="likes" fill="url(#likesGradient)" name="Likes" radius={[8, 8, 0, 0]}>
+                    <LabelList 
+                      dataKey="likes" 
+                      position="top" 
+                      style={{ fontSize: window.innerWidth < 640 ? 10 : 12, fontWeight: 600, fill: '#ec4899' }} 
+                    />
+                  </Bar>
+                  <Bar dataKey="comments" fill="url(#commentsGradient)" name="Comments" radius={[8, 8, 0, 0]}>
+                    <LabelList 
+                      dataKey="comments" 
+                      position="top" 
+                      style={{ fontSize: window.innerWidth < 640 ? 10 : 12, fontWeight: 600, fill: '#10b981' }} 
+                    />
+                  </Bar>
+                  <defs>
+                    <linearGradient id="likesGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#ec4899" stopOpacity={1}/>
+                      <stop offset="100%" stopColor="#f472b6" stopOpacity={0.8}/>
+                    </linearGradient>
+                    <linearGradient id="commentsGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#10b981" stopOpacity={1}/>
+                      <stop offset="100%" stopColor="#34d399" stopOpacity={0.8}/>
+                    </linearGradient>
+                  </defs>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
         )}
       </div>
-
-      {blogError && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4 text-xs sm:text-sm text-red-700">
-          {blogError}
-        </div>
-      )}
-
-      {/* Blog summary cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3 mb-3">
-        <div className="bg-gray-50 p-2 sm:p-3 rounded-lg border border-gray-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs text-gray-600">Total Blogs</p>
-              <p className="text-base sm:text-lg md:text-xl font-bold text-gray-900 mt-0.5">{totalBlogs}</p>
-            </div>
-            <div className="w-6 h-6 sm:w-7 sm:h-7 bg-[#2D9AA5]/10 rounded-lg flex items-center justify-center flex-shrink-0">
-              <svg className="w-3 h-3 sm:w-4 sm:h-4 text-[#2D9AA5]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 20l9-5-9-5-9 5 9 5z" />
-              </svg>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-gray-50 p-2 sm:p-3 rounded-lg border border-gray-200">
-          <p className="text-xs font-medium text-gray-600 mb-1.5">Top 3 Most Liked</p>
-          <div className="space-y-1">
-            {(blogLoading ? [] : topLikedBlogs).map((b) => (
-              <div key={b._id} className="flex items-center justify-between gap-2">
-                <span className="text-xs text-gray-800 truncate flex-1" title={b.title}>{b.title}</span>
-                <div className="flex items-center gap-1 flex-shrink-0">
-                  <svg className="w-3 h-3 text-red-500" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" />
-                  </svg>
-                  <span className="text-xs font-semibold text-[#2D9AA5]">{b.likesCount || 0}</span>
-                </div>
-              </div>
-            ))}
-            {!blogLoading && topLikedBlogs.length === 0 && (
-              <p className="text-xs sm:text-sm text-gray-500">No data</p>
-            )}
-          </div>
-        </div>
-
-        <div className="bg-gray-50 p-2 sm:p-3 rounded-lg border border-gray-200 sm:col-span-2 lg:col-span-1">
-          <p className="text-xs font-medium text-gray-600 mb-1.5">Top 3 Most Commented</p>
-          <div className="space-y-1">
-            {(blogLoading ? [] : topCommentedBlogs).map((b) => (
-              <div key={b._id} className="flex items-center justify-between gap-2">
-                <span className="text-xs text-gray-800 truncate flex-1" title={b.title}>{b.title}</span>
-                <div className="flex items-center gap-1 flex-shrink-0">
-                  <svg className="w-3 h-3 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                  </svg>
-                  <span className="text-xs font-semibold text-green-700">{b.commentsCount || 0}</span>
-                </div>
-              </div>
-            ))}
-            {!blogLoading && topCommentedBlogs.length === 0 && (
-              <p className="text-xs sm:text-sm text-gray-500">No data</p>
-            )}
-          </div>
-        </div>
       </div>
 
-      {/* Bar Chart for Blog Performance with always visible data */}
-      {!blogLoading && (topLikedBlogs.length > 0 || topCommentedBlogs.length > 0) && (
-        <div className="text-black h-40 sm:h-48 md:h-56 mt-3">
-          <h4 className="text-xs sm:text-sm font-semibold text-gray-700 mb-2">Blog Engagement Overview</h4>
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart
-              data={[
-                ...topLikedBlogs.map(blog => ({
-                  name: blog.title.length > (window.innerWidth < 640 ? 10 : nameMaxLen) 
-                    ? blog.title.substring(0, window.innerWidth < 640 ? 10 : nameMaxLen) + '...' 
-                    : blog.title,
-                  likes: blog.likesCount || 0,
-                  comments: topCommentedBlogs.find(c => c._id === blog._id)?.commentsCount || 0
-                })),
-                ...topCommentedBlogs
-                  .filter(blog => !topLikedBlogs.find(l => l._id === blog._id))
-                  .map(blog => ({
-                    name: blog.title.length > (window.innerWidth < 640 ? 10 : nameMaxLen) 
-                      ? blog.title.substring(0, window.innerWidth < 640 ? 10 : nameMaxLen) + '...' 
-                      : blog.title,
-                    likes: 0,
-                    comments: blog.commentsCount || 0
-                  }))
-              ].slice(0, window.innerWidth < 640 ? 3 : barCount)}
-              margin={{
-                top: 10,
-                right: window.innerWidth < 640 ? 20 : (isSm || isMd) ? 30 : 10,
-                left: window.innerWidth < 640 ? 5 : (isSm || isMd) ? 20 : 10,
-                bottom: window.innerWidth < 640 ? 40 : (isSm || isMd) ? 60 : 40,
-              }}
-            >
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis 
-                dataKey="name" 
-                tick={{ fontSize: window.innerWidth < 640 ? 9 : xAxisFontSize }}
-                angle={window.innerWidth < 640 ? -90 : isMd ? -45 : -60}
-                textAnchor="end"
-                height={window.innerWidth < 640 ? 50 : (isSm || isMd) ? 80 : 60}
-                interval={0}
-              />
-              <YAxis tick={{ fontSize: window.innerWidth < 640 ? 9 : yAxisFontSize }} />
-              
-              {/* Removed Tooltip to show data always */}
-              
-              <Legend 
-                wrapperStyle={{ 
-                  fontSize: `${window.innerWidth < 640 ? 10 : legendFontSize}px` 
-                }} 
-              />
-              <Bar dataKey="likes" fill="#2D9AA5" name="Likes" radius={[2, 2, 0, 0]}>
-                <LabelList 
-                  dataKey="likes" 
-                  position="top" 
-                  style={{ fontSize: window.innerWidth < 640 ? 9 : tooltipFontSize }} 
-                />
-              </Bar>
-              <Bar dataKey="comments" fill="#22c55e" name="Comments" radius={[2, 2, 0, 0]}>
-                <LabelList 
-                  dataKey="comments" 
-                  position="top" 
-                  style={{ fontSize: window.innerWidth < 640 ? 9 : tooltipFontSize }} 
-                />
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      )}
-    </div>
-
-    {/* Empty State */}
+      {/* Empty State */}
     {stats.totalJobs === 0 && (
       <div className="bg-white p-4 sm:p-6 md:p-8 rounded-lg sm:rounded-xl border border-gray-200 text-center">
         <div className="w-10 h-10 sm:w-12 sm:h-12 md:w-16 md:h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">

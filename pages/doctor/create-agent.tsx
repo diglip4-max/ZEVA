@@ -360,6 +360,7 @@ const ManageAgentsPage: NextPageWithLayout = () => {
         token={undefined}
         doctorToken={doctorToken || undefined}
         adminToken={adminToken || undefined}
+        defaultRole={activeView === 'doctorStaff' ? 'doctorStaff' : 'agent'}
       />
 
       {/* Agent Permission Modal */}
