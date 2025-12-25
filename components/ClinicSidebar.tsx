@@ -634,20 +634,40 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
 
   return (
     <>
-<<<<<<< HEAD
-      {/* Mobile Toggle Button - Shows when sidebar is closed */}
-      {!isMobileOpen && (
+      {/* Mobile Toggle Button - Only shows when sidebar is closed and no external state */}
+      {(!onExternalToggleMobile || externalIsMobileOpen === undefined) && (
         <button
           onClick={handleToggleMobile}
-          className="fixed top-3 left-3 z-[100] bg-white text-gray-700 p-1.5 rounded-lg shadow-md transition-all duration-200 border border-gray-200 hover:bg-gray-50 hover:border-gray-300 hover:shadow-lg lg:hidden touch-manipulation flex items-center justify-center"
+          className={clsx(
+            "fixed top-4 left-4 z-[100] bg-white text-gray-700 p-3 rounded-lg shadow-lg transition-all duration-200 border-2 border-gray-300 hover:bg-gray-50 hover:border-gray-400 lg:hidden touch-manipulation",
+            {
+              block: !isMobileOpen,
+              hidden: isMobileOpen,
+            }
+          )}
           aria-label="Open mobile menu"
           style={{ WebkitTapHighlightColor: 'transparent' }}
         >
-          <Menu className="w-4 h-4" />
+          <Menu className="w-6 h-6" />
         </button>
       )}
-=======
->>>>>>> cac6787105afa6986ae22027936778fbef792dab
+
+      {/* Desktop Toggle Button - Only shows when no external state */}
+      {(!onExternalToggleDesktop || externalIsDesktopHidden === undefined) && (
+        <button
+          onClick={handleToggleDesktop}
+          className={clsx(
+            "fixed top-4 left-4 z-[60] bg-white text-gray-700 p-2.5 rounded-lg shadow-md transition-all duration-200 border border-gray-200 hover:bg-gray-50 hover:border-gray-300 hidden lg:block",
+            {
+              "lg:block": isDesktopHidden,
+              "lg:hidden": !isDesktopHidden,
+            }
+          )}
+          aria-label="Toggle desktop sidebar"
+        >
+          <Menu className="w-5 h-5" />
+        </button>
+      )}
 
       {/* Desktop Toggle Button - Shows when sidebar is hidden */}
       {isDesktopHidden && (
