@@ -24,7 +24,15 @@ import {
   BarChart3,
   ExternalLink,
   X,
-  Link as LinkIcon
+  Link as LinkIcon,
+  RefreshCw,
+  TrendingUp,
+  TrendingDown,
+  Activity,
+  Target,
+  Award,
+  Users,
+  Calendar
 } from 'lucide-react';
 import { useAgentPermissions } from '../../hooks/useAgentPermissions';
 
@@ -116,6 +124,9 @@ function ModernBlogForm() {
   const [permissionsLoaded, setPermissionsLoaded] = useState(false);
   const [hasAgentToken, setHasAgentToken] = useState(false);
   const [isAgentRoute, setIsAgentRoute] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
+  const [analyticsData, setAnalyticsData] = useState<any>(null);
 
   const tokenKey = isAgentRoute ? "agentToken" : "clinicToken";
 
@@ -340,14 +351,19 @@ function ModernBlogForm() {
     };
   };
 
-  const loadPosts = async () => {
+  const loadPosts = async (showRefreshIndicator = false) => {
     if (!permissions.canReadPublished) {
       setLoading(false);
+      setIsRefreshing(false);
       return;
     }
 
     try {
-      setLoading(true);
+      if (showRefreshIndicator) {
+        setIsRefreshing(true);
+      } else {
+        setLoading(true);
+      }
       const [publishedRes, draftsRes] = await Promise.all([
         axios.get("/api/blog/published", {
           ...getAuthHeaders(),
@@ -399,7 +415,12 @@ function ModernBlogForm() {
       console.error('Error loading posts:', error);
     } finally {
       setLoading(false);
+      setIsRefreshing(false);
     }
+  };
+
+  const handleRefresh = async () => {
+    await loadPosts(true);
   };
 
   useEffect(() => {
@@ -407,6 +428,36 @@ function ModernBlogForm() {
       loadPosts();
     }
   }, [permissionsLoaded, currentUserId]);
+
+  // Load analytics data
+  const loadAnalytics = async () => {
+    if (!permissions.canReadAnalytics) {
+      return;
+    }
+
+    try {
+      setAnalyticsLoading(true);
+      const res = await axios.get("/api/blog/getAuthorCommentsAndLikes", {
+        ...getAuthHeaders(),
+        validateStatus: (status) => status === 200 || status === 403,
+      });
+
+      if (res.status === 200 && res.data.success) {
+        setAnalyticsData(res.data);
+      }
+    } catch (error) {
+      console.error('Error loading analytics:', error);
+    } finally {
+      setAnalyticsLoading(false);
+    }
+  };
+
+  // Load analytics when analytics tab is active
+  useEffect(() => {
+    if (activeTab === 'analytics' && permissionsLoaded && permissions.canReadAnalytics) {
+      loadAnalytics();
+    }
+  }, [activeTab, permissionsLoaded, permissions.canReadAnalytics]);
 
   // Remove published posts from drafts when publishedPosts changes
   useEffect(() => {
@@ -881,6 +932,16 @@ function ModernBlogForm() {
                 />
               </div>
 
+              {/* Refresh Button */}
+              <button
+                onClick={handleRefresh}
+                disabled={isRefreshing || loading}
+                className="flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 bg-white hover:bg-gray-100 border border-gray-200 rounded-lg sm:rounded-xl text-gray-600 hover:text-purple-600 transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none shadow-sm hover:shadow-md"
+                title="Refresh posts"
+              >
+                <RefreshCw className={`w-4 h-4 sm:w-5 sm:h-5 ${isRefreshing ? 'animate-spin' : ''}`} />
+              </button>
+
               {/* Create Button */}
               {permissions.canCreate && (
                 <button
@@ -969,9 +1030,607 @@ function ModernBlogForm() {
             )}
 
             {activeTab === 'analytics' && (
-              <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg p-4 sm:p-6 md:p-8">
-                <h2 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6">Analytics</h2>
-                <p className="text-sm sm:text-base text-gray-600">Analytics features coming soon...</p>
+              <div className="space-y-4 sm:space-y-6">
+                {!permissions.canReadAnalytics ? (
+                  <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg p-6 sm:p-8 md:p-12 text-center">
+                    <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-purple-400 to-pink-400 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                      <BarChart3 className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
+                    </div>
+                    <h3 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">Access Restricted</h3>
+                    <p className="text-sm sm:text-base text-gray-600">You don't have permission to view analytics.</p>
+                  </div>
+                ) : analyticsLoading ? (
+                  <div className="flex items-center justify-center py-20">
+                    <div className="flex flex-col items-center gap-4">
+                      <div className="animate-spin rounded-full h-12 w-12 border-4 border-purple-200 border-t-purple-600"></div>
+                      <p className="text-purple-700 text-sm font-medium">Loading analytics...</p>
+                    </div>
+                  </div>
+                ) : analyticsData ? (
+                  <>
+                    {/* Overview Stats Cards */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5 md:gap-6">
+                      {/* Total Posts */}
+                      <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl sm:rounded-2xl shadow-lg p-4 sm:p-6 text-white">
+                        <div className="flex items-center justify-between mb-2 sm:mb-3">
+                          <div className="p-2 sm:p-2.5 bg-white/20 rounded-lg">
+                            <Bookmark className="w-4 h-4 sm:w-5 sm:h-5" />
+                          </div>
+                          <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 opacity-80" />
+                        </div>
+                        <p className="text-xs sm:text-sm opacity-90 mb-1">Total Posts</p>
+                        <p className="text-2xl sm:text-3xl md:text-4xl font-bold">
+                          {analyticsData.blogs?.length || publishedPosts.length || 0}
+                        </p>
+                        <p className="text-xs sm:text-sm opacity-75 mt-1 sm:mt-2">
+                          {draftPosts.length} drafts
+                        </p>
+                      </div>
+
+                      {/* Total Views */}
+                      <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl sm:rounded-2xl shadow-lg p-4 sm:p-6 text-white">
+                        <div className="flex items-center justify-between mb-2 sm:mb-3">
+                          <div className="p-2 sm:p-2.5 bg-white/20 rounded-lg">
+                            <Eye className="w-4 h-4 sm:w-5 sm:h-5" />
+                          </div>
+                          <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 opacity-80" />
+                        </div>
+                        <p className="text-xs sm:text-sm opacity-90 mb-1">Total Views</p>
+                        <p className="text-2xl sm:text-3xl md:text-4xl font-bold">
+                          {publishedPosts.reduce((sum: number, post: PostType) => sum + (post.views || 0), 0).toLocaleString()}
+                        </p>
+                        <p className="text-xs sm:text-sm opacity-75 mt-1 sm:mt-2">
+                          All time
+                        </p>
+                      </div>
+
+                      {/* Total Likes */}
+                      <div className="bg-gradient-to-br from-pink-500 to-pink-600 rounded-xl sm:rounded-2xl shadow-lg p-4 sm:p-6 text-white">
+                        <div className="flex items-center justify-between mb-2 sm:mb-3">
+                          <div className="p-2 sm:p-2.5 bg-white/20 rounded-lg">
+                            <Heart className="w-4 h-4 sm:w-5 sm:h-5" />
+                          </div>
+                          <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 opacity-80" />
+                        </div>
+                        <p className="text-xs sm:text-sm opacity-90 mb-1">Total Likes</p>
+                        <p className="text-2xl sm:text-3xl md:text-4xl font-bold">
+                          {analyticsData.blogs?.reduce((sum: number, blog: any) => sum + (blog.likesCount || 0), 0) || 
+                           publishedPosts.reduce((sum: number, post: PostType) => sum + (post.likesCount || post.likes || 0), 0).toLocaleString()}
+                        </p>
+                        <p className="text-xs sm:text-sm opacity-75 mt-1 sm:mt-2">
+                          Across all posts
+                        </p>
+                      </div>
+
+                      {/* Total Comments */}
+                      <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-xl sm:rounded-2xl shadow-lg p-4 sm:p-6 text-white">
+                        <div className="flex items-center justify-between mb-2 sm:mb-3">
+                          <div className="p-2 sm:p-2.5 bg-white/20 rounded-lg">
+                            <MessageCircle className="w-4 h-4 sm:w-5 sm:h-5" />
+                          </div>
+                          <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5 opacity-80" />
+                        </div>
+                        <p className="text-xs sm:text-sm opacity-90 mb-1">Total Comments</p>
+                        <p className="text-2xl sm:text-3xl md:text-4xl font-bold">
+                          {analyticsData.blogs?.reduce((sum: number, blog: any) => sum + (blog.commentsCount || 0), 0) || 
+                           publishedPosts.reduce((sum: number, post: PostType) => sum + (post.commentsCount || post.comments || 0), 0).toLocaleString()}
+                        </p>
+                        <p className="text-xs sm:text-sm opacity-75 mt-1 sm:mt-2">
+                          User engagement
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Charts Section */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5 md:gap-6">
+                      {/* Engagement Distribution Chart */}
+                      <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg p-4 sm:p-6 md:p-8">
+                        <div className="flex items-center justify-between mb-4 sm:mb-6">
+                          <div className="flex items-center gap-2 sm:gap-3">
+                            <div className="p-2 sm:p-2.5 bg-gradient-to-br from-purple-100 to-pink-100 rounded-lg">
+                              <Target className="w-4 h-4 sm:w-5 sm:h-5 text-purple-600" />
+                            </div>
+                            <h3 className="text-lg sm:text-xl font-bold text-gray-900">Engagement Distribution</h3>
+                          </div>
+                        </div>
+                        {(() => {
+                          const totalLikes = analyticsData.blogs?.reduce((sum: number, blog: any) => sum + (blog.likesCount || 0), 0) || 
+                                            publishedPosts.reduce((sum: number, post: PostType) => sum + (post.likesCount || post.likes || 0), 0);
+                          const totalComments = analyticsData.blogs?.reduce((sum: number, blog: any) => sum + (blog.commentsCount || 0), 0) || 
+                                               publishedPosts.reduce((sum: number, post: PostType) => sum + (post.commentsCount || post.comments || 0), 0);
+                          const totalViews = publishedPosts.reduce((sum: number, post: PostType) => sum + (post.views || 0), 0);
+                          const total = totalLikes + totalComments + totalViews;
+                          const likesPercent = total > 0 ? (totalLikes / total) * 100 : 0;
+                          const commentsPercent = total > 0 ? (totalComments / total) * 100 : 0;
+                          const viewsPercent = total > 0 ? (totalViews / total) * 100 : 0;
+                          
+                          return (
+                            <div className="space-y-4">
+                              {/* Donut Chart */}
+                              <div className="relative w-full h-48 sm:h-56 flex items-center justify-center">
+                                <svg className="w-full h-full transform -rotate-90" viewBox="0 0 200 200">
+                                  <circle
+                                    cx="100"
+                                    cy="100"
+                                    r="80"
+                                    fill="none"
+                                    stroke="#e5e7eb"
+                                    strokeWidth="20"
+                                  />
+                                  <circle
+                                    cx="100"
+                                    cy="100"
+                                    r="80"
+                                    fill="none"
+                                    stroke="#ec4899"
+                                    strokeWidth="20"
+                                    strokeDasharray={`${likesPercent * 5.026} 502.6`}
+                                    strokeDashoffset="0"
+                                    className="transition-all duration-1000"
+                                  />
+                                  <circle
+                                    cx="100"
+                                    cy="100"
+                                    r="80"
+                                    fill="none"
+                                    stroke="#3b82f6"
+                                    strokeWidth="20"
+                                    strokeDasharray={`${commentsPercent * 5.026} 502.6`}
+                                    strokeDashoffset={`-${likesPercent * 5.026}`}
+                                    className="transition-all duration-1000"
+                                  />
+                                  <circle
+                                    cx="100"
+                                    cy="100"
+                                    r="80"
+                                    fill="none"
+                                    stroke="#8b5cf6"
+                                    strokeWidth="20"
+                                    strokeDasharray={`${viewsPercent * 5.026} 502.6`}
+                                    strokeDashoffset={`-${(likesPercent + commentsPercent) * 5.026}`}
+                                    className="transition-all duration-1000"
+                                  />
+                                </svg>
+                                <div className="absolute inset-0 flex items-center justify-center">
+                                  <div className="text-center">
+                                    <p className="text-2xl sm:text-3xl font-bold text-gray-900">
+                                      {total.toLocaleString()}
+                                    </p>
+                                    <p className="text-xs sm:text-sm text-gray-500">Total</p>
+                                  </div>
+                                </div>
+                              </div>
+                              
+                              {/* Legend */}
+                              <div className="space-y-2 sm:space-y-3">
+                                <div className="flex items-center justify-between p-2 sm:p-3 bg-pink-50 rounded-lg">
+                                  <div className="flex items-center gap-2 sm:gap-3">
+                                    <div className="w-3 h-3 sm:w-4 sm:h-4 rounded-full bg-pink-500"></div>
+                                    <span className="text-sm sm:text-base font-medium text-gray-700">Likes</span>
+                                  </div>
+                                  <div className="text-right">
+                                    <span className="text-sm sm:text-base font-bold text-gray-900">{totalLikes.toLocaleString()}</span>
+                                    <span className="text-xs text-gray-500 ml-2">{likesPercent.toFixed(1)}%</span>
+                                  </div>
+                                </div>
+                                <div className="flex items-center justify-between p-2 sm:p-3 bg-blue-50 rounded-lg">
+                                  <div className="flex items-center gap-2 sm:gap-3">
+                                    <div className="w-3 h-3 sm:w-4 sm:h-4 rounded-full bg-blue-500"></div>
+                                    <span className="text-sm sm:text-base font-medium text-gray-700">Comments</span>
+                                  </div>
+                                  <div className="text-right">
+                                    <span className="text-sm sm:text-base font-bold text-gray-900">{totalComments.toLocaleString()}</span>
+                                    <span className="text-xs text-gray-500 ml-2">{commentsPercent.toFixed(1)}%</span>
+                                  </div>
+                                </div>
+                                <div className="flex items-center justify-between p-2 sm:p-3 bg-purple-50 rounded-lg">
+                                  <div className="flex items-center gap-2 sm:gap-3">
+                                    <div className="w-3 h-3 sm:w-4 sm:h-4 rounded-full bg-purple-500"></div>
+                                    <span className="text-sm sm:text-base font-medium text-gray-700">Views</span>
+                                  </div>
+                                  <div className="text-right">
+                                    <span className="text-sm sm:text-base font-bold text-gray-900">{totalViews.toLocaleString()}</span>
+                                    <span className="text-xs text-gray-500 ml-2">{viewsPercent.toFixed(1)}%</span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })()}
+                      </div>
+
+                      {/* Performance Metrics with Progress Bars */}
+                      <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg p-4 sm:p-6 md:p-8">
+                        <div className="flex items-center justify-between mb-4 sm:mb-6">
+                          <div className="flex items-center gap-2 sm:gap-3">
+                            <div className="p-2 sm:p-2.5 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-lg">
+                              <Award className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
+                            </div>
+                            <h3 className="text-lg sm:text-xl font-bold text-gray-900">Performance Metrics</h3>
+                          </div>
+                        </div>
+                        {(() => {
+                          const totalViews = publishedPosts.reduce((sum: number, post: PostType) => sum + (post.views || 0), 0);
+                          const totalLikes = analyticsData.blogs?.reduce((sum: number, blog: any) => sum + (blog.likesCount || 0), 0) || 
+                                            publishedPosts.reduce((sum: number, post: PostType) => sum + (post.likesCount || post.likes || 0), 0);
+                          const totalComments = analyticsData.blogs?.reduce((sum: number, blog: any) => sum + (blog.commentsCount || 0), 0) || 
+                                               publishedPosts.reduce((sum: number, post: PostType) => sum + (post.commentsCount || post.comments || 0), 0);
+                          const totalPosts = analyticsData.blogs?.length || publishedPosts.length || 1;
+                          const avgViews = totalPosts > 0 ? (totalViews / totalPosts) : 0;
+                          const avgLikes = totalPosts > 0 ? (totalLikes / totalPosts) : 0;
+                          const avgComments = totalPosts > 0 ? (totalComments / totalPosts) : 0;
+                          
+                          // Normalize for progress bars (assuming max values)
+                          const maxViews = Math.max(avgViews, 100);
+                          const maxLikes = Math.max(avgLikes, 50);
+                          const maxComments = Math.max(avgComments, 20);
+                          
+                          return (
+                            <div className="space-y-4 sm:space-y-5">
+                              <div>
+                                <div className="flex items-center justify-between mb-2">
+                                  <span className="text-sm sm:text-base font-medium text-gray-700">Avg. Views per Post</span>
+                                  <span className="text-sm sm:text-base font-bold text-gray-900">{Math.round(avgViews).toLocaleString()}</span>
+                                </div>
+                                <div className="w-full bg-gray-200 rounded-full h-3 sm:h-4 overflow-hidden">
+                                  <div
+                                    className="bg-gradient-to-r from-blue-500 to-blue-600 h-full rounded-full transition-all duration-1000 ease-out"
+                                    style={{ width: `${Math.min((avgViews / maxViews) * 100, 100)}%` }}
+                                  ></div>
+                                </div>
+                              </div>
+                              
+                              <div>
+                                <div className="flex items-center justify-between mb-2">
+                                  <span className="text-sm sm:text-base font-medium text-gray-700">Avg. Likes per Post</span>
+                                  <span className="text-sm sm:text-base font-bold text-gray-900">{avgLikes.toFixed(1)}</span>
+                                </div>
+                                <div className="w-full bg-gray-200 rounded-full h-3 sm:h-4 overflow-hidden">
+                                  <div
+                                    className="bg-gradient-to-r from-pink-500 to-pink-600 h-full rounded-full transition-all duration-1000 ease-out"
+                                    style={{ width: `${Math.min((avgLikes / maxLikes) * 100, 100)}%` }}
+                                  ></div>
+                                </div>
+                              </div>
+                              
+                              <div>
+                                <div className="flex items-center justify-between mb-2">
+                                  <span className="text-sm sm:text-base font-medium text-gray-700">Avg. Comments per Post</span>
+                                  <span className="text-sm sm:text-base font-bold text-gray-900">{avgComments.toFixed(1)}</span>
+                                </div>
+                                <div className="w-full bg-gray-200 rounded-full h-3 sm:h-4 overflow-hidden">
+                                  <div
+                                    className="bg-gradient-to-r from-indigo-500 to-indigo-600 h-full rounded-full transition-all duration-1000 ease-out"
+                                    style={{ width: `${Math.min((avgComments / maxComments) * 100, 100)}%` }}
+                                  ></div>
+                                </div>
+                              </div>
+                              
+                              <div className="pt-3 sm:pt-4 border-t border-gray-200">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-sm sm:text-base font-medium text-gray-700">Engagement Rate</span>
+                                  <span className="text-lg sm:text-xl font-bold text-purple-600">
+                                    {totalPosts > 0 ? (((totalLikes + totalComments) / (totalPosts * 10)) * 100).toFixed(1) : '0'}%
+                                  </span>
+                                </div>
+                                <div className="mt-2 w-full bg-gray-200 rounded-full h-3 sm:h-4 overflow-hidden">
+                                  <div
+                                    className="bg-gradient-to-r from-purple-500 to-pink-500 h-full rounded-full transition-all duration-1000 ease-out"
+                                    style={{ width: `${Math.min(totalPosts > 0 ? ((totalLikes + totalComments) / (totalPosts * 10)) * 100 : 0, 100)}%` }}
+                                  ></div>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    </div>
+
+                    {/* Top Posts Bar Chart */}
+                    <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg p-4 sm:p-6 md:p-8">
+                      <div className="flex items-center justify-between mb-4 sm:mb-6">
+                        <div className="flex items-center gap-2 sm:gap-3">
+                          <div className="p-2 sm:p-2.5 bg-gradient-to-br from-yellow-100 to-orange-100 rounded-lg">
+                            <BarChart3 className="w-4 h-4 sm:w-5 sm:h-5 text-orange-600" />
+                          </div>
+                          <h3 className="text-lg sm:text-xl font-bold text-gray-900">Top Posts Performance</h3>
+                        </div>
+                      </div>
+                      {(() => {
+                        const postsWithMetrics = publishedPosts.map((post: PostType) => {
+                          const blogData = analyticsData.blogs?.find((b: any) => b._id === post._id);
+                          const views = post.views || 0;
+                          const likes = blogData?.likesCount || post.likesCount || post.likes || 0;
+                          const comments = blogData?.commentsCount || post.commentsCount || post.comments || 0;
+                          const engagement = views + likes + comments;
+                          return { ...post, views, likes, comments, engagement };
+                        }).sort((a, b) => b.engagement - a.engagement).slice(0, 5);
+
+                        if (postsWithMetrics.length === 0) {
+                          return (
+                            <div className="text-center py-8 sm:py-12">
+                              <BarChart3 className="w-12 h-12 sm:w-16 sm:h-16 text-gray-400 mx-auto mb-3 sm:mb-4" />
+                              <p className="text-sm sm:text-base text-gray-600">No published posts yet to analyze</p>
+                            </div>
+                          );
+                        }
+
+                        const maxEngagement = Math.max(...postsWithMetrics.map((p: any) => p.engagement), 1);
+
+                        return (
+                          <div className="space-y-4 sm:space-y-5">
+                            {postsWithMetrics.map((post: any, index: number) => (
+                              <div key={post._id} className="space-y-2">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                                    <div className="flex-shrink-0 w-6 h-6 sm:w-8 sm:h-8 bg-gradient-to-br from-purple-500 to-pink-500 rounded-lg flex items-center justify-center text-white font-bold text-xs sm:text-sm">
+                                      {index + 1}
+                                    </div>
+                                    <h4 className="text-xs sm:text-sm md:text-base font-semibold text-gray-900 truncate">
+                                      {post.title}
+                                    </h4>
+                                  </div>
+                                  <span className="text-xs sm:text-sm font-bold text-gray-900 ml-2">
+                                    {post.engagement.toLocaleString()}
+                                  </span>
+                                </div>
+                                <div className="relative w-full bg-gray-200 rounded-full h-4 sm:h-5 overflow-hidden">
+                                  <div
+                                    className="absolute inset-0 bg-gradient-to-r from-purple-500 via-pink-500 to-orange-500 h-full rounded-full transition-all duration-1000 ease-out"
+                                    style={{ width: `${(post.engagement / maxEngagement) * 100}%` }}
+                                  ></div>
+                                </div>
+                                <div className="flex items-center gap-3 sm:gap-4 text-xs text-gray-500">
+                                  <span className="flex items-center gap-1">
+                                    <Eye className="w-3 h-3 text-blue-600" />
+                                    {post.views.toLocaleString()}
+                                  </span>
+                                  <span className="flex items-center gap-1">
+                                    <Heart className="w-3 h-3 text-red-600" />
+                                    {post.likes.toLocaleString()}
+                                  </span>
+                                  <span className="flex items-center gap-1">
+                                    <MessageCircle className="w-3 h-3 text-indigo-600" />
+                                    {post.comments.toLocaleString()}
+                                  </span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      })()}
+                    </div>
+
+                    {/* Top Performing Posts - Enhanced */}
+                    <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg p-4 sm:p-6 md:p-8">
+                      <div className="flex items-center justify-between mb-4 sm:mb-6">
+                        <div className="flex items-center gap-2 sm:gap-3">
+                          <div className="p-2 sm:p-2.5 bg-gradient-to-br from-yellow-100 to-orange-100 rounded-lg">
+                            <Flame className="w-4 h-4 sm:w-5 sm:h-5 text-orange-600" />
+                          </div>
+                          <h3 className="text-lg sm:text-xl font-bold text-gray-900">Top Performing Posts</h3>
+                        </div>
+                        <button
+                          onClick={loadAnalytics}
+                          disabled={analyticsLoading}
+                          className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                          title="Refresh analytics"
+                        >
+                          <RefreshCw className={`w-4 h-4 sm:w-5 sm:h-5 text-gray-600 ${analyticsLoading ? 'animate-spin' : ''}`} />
+                        </button>
+                      </div>
+                      <div className="space-y-3 sm:space-y-4">
+                        {(() => {
+                          const postsWithMetrics = publishedPosts.map((post: PostType) => {
+                            const blogData = analyticsData.blogs?.find((b: any) => b._id === post._id);
+                            const views = post.views || 0;
+                            const likes = blogData?.likesCount || post.likesCount || post.likes || 0;
+                            const comments = blogData?.commentsCount || post.commentsCount || post.comments || 0;
+                            const engagement = views + likes + comments;
+                            return { ...post, views, likes, comments, engagement };
+                          }).sort((a, b) => b.engagement - a.engagement).slice(0, 5);
+
+                          if (postsWithMetrics.length === 0) {
+                            return (
+                              <div className="text-center py-8 sm:py-12">
+                                <BarChart3 className="w-12 h-12 sm:w-16 sm:h-16 text-gray-400 mx-auto mb-3 sm:mb-4" />
+                                <p className="text-sm sm:text-base text-gray-600">No published posts yet to analyze</p>
+                              </div>
+                            );
+                          }
+
+                          const maxEngagement = Math.max(...postsWithMetrics.map((p: any) => p.engagement), 1);
+
+                          return postsWithMetrics.map((post: any, index: number) => {
+                            const medalColors = [
+                              'from-yellow-400 to-yellow-600',
+                              'from-gray-300 to-gray-500',
+                              'from-orange-400 to-orange-600',
+                              'from-purple-400 to-purple-600',
+                              'from-pink-400 to-pink-600'
+                            ];
+                            
+                            return (
+                              <div
+                                key={post._id}
+                                className="group p-3 sm:p-4 bg-gradient-to-r from-white to-gray-50 rounded-lg sm:rounded-xl hover:shadow-lg transition-all border border-gray-200 hover:border-purple-300"
+                              >
+                                <div className="flex items-start gap-3 sm:gap-4">
+                                  <div className={`flex-shrink-0 w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br ${medalColors[index]} rounded-xl flex items-center justify-center text-white font-bold text-base sm:text-lg shadow-lg`}>
+                                    {index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : index + 1}
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <h4 className="text-sm sm:text-base md:text-lg font-bold text-gray-900 mb-2 sm:mb-3 line-clamp-2 group-hover:text-purple-600 transition-colors">
+                                      {post.title}
+                                    </h4>
+                                    
+                                    {/* Mini Bar Chart */}
+                                    <div className="mb-2 sm:mb-3">
+                                      <div className="flex items-center gap-2 mb-1">
+                                        <span className="text-xs text-gray-500">Engagement</span>
+                                        <span className="text-xs font-bold text-purple-600">{post.engagement.toLocaleString()}</span>
+                                      </div>
+                                      <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                                        <div
+                                          className="bg-gradient-to-r from-purple-500 via-pink-500 to-orange-500 h-full rounded-full transition-all duration-1000 ease-out"
+                                          style={{ width: `${(post.engagement / maxEngagement) * 100}%` }}
+                                        ></div>
+                                      </div>
+                                    </div>
+                                    
+                                    {/* Metrics Grid */}
+                                    <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-2">
+                                      <div className="flex items-center gap-1.5 p-2 bg-blue-50 rounded-lg">
+                                        <Eye className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-600 flex-shrink-0" />
+                                        <div className="min-w-0">
+                                          <p className="text-xs text-gray-500">Views</p>
+                                          <p className="text-xs sm:text-sm font-bold text-gray-900 truncate">{post.views.toLocaleString()}</p>
+                                        </div>
+                                      </div>
+                                      <div className="flex items-center gap-1.5 p-2 bg-pink-50 rounded-lg">
+                                        <Heart className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-red-600 flex-shrink-0" />
+                                        <div className="min-w-0">
+                                          <p className="text-xs text-gray-500">Likes</p>
+                                          <p className="text-xs sm:text-sm font-bold text-gray-900 truncate">{post.likes.toLocaleString()}</p>
+                                        </div>
+                                      </div>
+                                      <div className="flex items-center gap-1.5 p-2 bg-indigo-50 rounded-lg">
+                                        <MessageCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-indigo-600 flex-shrink-0" />
+                                        <div className="min-w-0">
+                                          <p className="text-xs text-gray-500">Comments</p>
+                                          <p className="text-xs sm:text-sm font-bold text-gray-900 truncate">{post.comments.toLocaleString()}</p>
+                                        </div>
+                                      </div>
+                                    </div>
+                                    
+                                    <div className="flex items-center gap-2 text-xs text-gray-500">
+                                      <Clock className="w-3 h-3" />
+                                      <span>{formatDate(post.createdAt)}</span>
+                                    </div>
+                                  </div>
+                                  <a
+                                    href={`${getBaseUrl()}/blogs/${post.paramlink}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex-shrink-0 p-2 hover:bg-purple-100 rounded-lg transition-colors group/link"
+                                    title="View post"
+                                  >
+                                    <ExternalLink className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600 group-hover/link:text-purple-600" />
+                                  </a>
+                                </div>
+                              </div>
+                            );
+                          });
+                        })()}
+                      </div>
+                    </div>
+
+                    {/* Recent Activity - Enhanced */}
+                    <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg p-4 sm:p-6 md:p-8">
+                      <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
+                        <div className="p-2 sm:p-2.5 bg-gradient-to-br from-green-100 to-emerald-100 rounded-lg">
+                          <Calendar className="w-4 h-4 sm:w-5 sm:h-5 text-green-600" />
+                        </div>
+                        <h3 className="text-lg sm:text-xl font-bold text-gray-900">Recent Activity Timeline</h3>
+                      </div>
+                      <div className="space-y-3 sm:space-y-4">
+                        {(() => {
+                          const recentPosts = publishedPosts
+                            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                            .slice(0, 5);
+
+                          if (recentPosts.length === 0) {
+                            return (
+                              <div className="text-center py-8 sm:py-12">
+                                <Calendar className="w-12 h-12 sm:w-16 sm:h-16 text-gray-400 mx-auto mb-3 sm:mb-4" />
+                                <p className="text-sm sm:text-base text-gray-600">No recent activity</p>
+                              </div>
+                            );
+                          }
+
+                          return recentPosts.map((post: PostType, index: number) => {
+                            const blogData = analyticsData.blogs?.find((b: any) => b._id === post._id);
+                            const engagement = (blogData?.likesCount || post.likesCount || post.likes || 0) + 
+                                             (blogData?.commentsCount || post.commentsCount || post.comments || 0);
+                            
+                            return (
+                              <div
+                                key={post._id}
+                                className="relative flex items-start gap-3 sm:gap-4 pl-6 sm:pl-8"
+                              >
+                                {/* Timeline Line */}
+                                {index < recentPosts.length - 1 && (
+                                  <div className="absolute left-3 sm:left-4 top-8 sm:top-10 w-0.5 h-full bg-gradient-to-b from-purple-200 to-pink-200"></div>
+                                )}
+                                
+                                {/* Timeline Dot */}
+                                <div className="absolute left-2 sm:left-3 top-2 sm:top-3 w-3 h-3 sm:w-4 sm:h-4 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full border-2 border-white shadow-lg z-10"></div>
+                                
+                                {/* Content Card */}
+                                <div className="flex-1 p-3 sm:p-4 bg-gradient-to-r from-gray-50 to-white rounded-lg sm:rounded-xl border border-gray-200 hover:border-purple-300 hover:shadow-md transition-all">
+                                  <div className="flex items-start justify-between gap-2 sm:gap-3">
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-sm sm:text-base font-semibold text-gray-900 truncate mb-1 sm:mb-2">
+                                        {post.title}
+                                      </p>
+                                      <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs text-gray-500 mb-2">
+                                        <span className="flex items-center gap-1">
+                                          <Clock className="w-3 h-3" />
+                                          {formatDate(post.createdAt)}
+                                        </span>
+                                        <span className="flex items-center gap-1">
+                                          <Eye className="w-3 h-3 text-blue-600" />
+                                          {post.views || 0}
+                                        </span>
+                                      </div>
+                                      
+                                      {/* Mini Engagement Bars */}
+                                      <div className="flex items-center gap-2">
+                                        <div className="flex-1 bg-gray-200 rounded-full h-1.5 sm:h-2 overflow-hidden">
+                                          <div
+                                            className="bg-gradient-to-r from-purple-500 to-pink-500 h-full rounded-full"
+                                            style={{ width: `${Math.min((engagement / 100) * 100, 100)}%` }}
+                                          ></div>
+                                        </div>
+                                        <span className="text-xs font-semibold text-purple-600 whitespace-nowrap">
+                                          {engagement} pts
+                                        </span>
+                                      </div>
+                                    </div>
+                                    
+                                    <div className="flex flex-col items-end gap-1">
+                                      <div className="flex items-center gap-1.5 px-2 py-1 bg-purple-100 rounded-lg">
+                                        <Activity className="w-3 h-3 text-purple-600" />
+                                        <span className="text-xs font-bold text-purple-600">{engagement}</span>
+                                      </div>
+                                      <p className="text-xs text-gray-500">engagement</p>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          });
+                        })()}
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg p-6 sm:p-8 md:p-12 text-center">
+                    <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-purple-400 to-pink-400 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                      <BarChart3 className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
+                    </div>
+                    <h3 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">No Analytics Data</h3>
+                    <p className="text-sm sm:text-base text-gray-600 mb-4">Start publishing posts to see analytics.</p>
+                    {permissions.canCreate && (
+                      <button
+                        onClick={handleCreatePost}
+                        className="px-4 sm:px-6 py-2 sm:py-3 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white rounded-lg sm:rounded-xl text-sm sm:text-base font-semibold shadow-lg hover:shadow-xl transition-all"
+                      >
+                        Create Your First Post
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 

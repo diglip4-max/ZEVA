@@ -19,7 +19,12 @@ export default async function handler(req, res) {
   }
 
   try {
-    const blog = await Blog.findById(blogId);
+    // Try to find by paramlink first (for SEO-friendly URLs), then fallback to _id
+    let blog = await Blog.findOne({ paramlink: blogId, status: "published" });
+    if (!blog) {
+      // Fallback to MongoDB _id
+      blog = await Blog.findById(blogId);
+    }
     if (!blog) {
       return res.status(404).json({ success: false, error: 'Blog not found' });
     }

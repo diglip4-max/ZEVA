@@ -634,21 +634,29 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
 
   return (
     <>
+<<<<<<< HEAD
+      {/* Mobile Toggle Button - Shows when sidebar is closed */}
+      {!isMobileOpen && (
+        <button
+          onClick={handleToggleMobile}
+          className="fixed top-3 left-3 z-[100] bg-white text-gray-700 p-1.5 rounded-lg shadow-md transition-all duration-200 border border-gray-200 hover:bg-gray-50 hover:border-gray-300 hover:shadow-lg lg:hidden touch-manipulation flex items-center justify-center"
+          aria-label="Open mobile menu"
+          style={{ WebkitTapHighlightColor: 'transparent' }}
+        >
+          <Menu className="w-4 h-4" />
+        </button>
+      )}
+=======
+>>>>>>> cac6787105afa6986ae22027936778fbef792dab
 
-      {/* Desktop Toggle Button - Only shows when no external state */}
-      {(!onExternalToggleDesktop || externalIsDesktopHidden === undefined) && (
+      {/* Desktop Toggle Button - Shows when sidebar is hidden */}
+      {isDesktopHidden && (
         <button
           onClick={handleToggleDesktop}
-          className={clsx(
-            "fixed top-4 left-4 z-[60] bg-white text-gray-700 p-2.5 rounded-lg shadow-md transition-all duration-200 border border-gray-200 hover:bg-gray-50 hover:border-gray-300 hidden lg:block",
-            {
-              "lg:block": isDesktopHidden,
-              "lg:hidden": !isDesktopHidden,
-            }
-          )}
+          className="fixed top-3 left-3 z-[100] bg-white text-gray-700 p-1.5 rounded-lg shadow-md transition-all duration-200 border border-gray-200 hover:bg-gray-50 hover:border-gray-300 hover:shadow-lg hidden lg:flex items-center justify-center"
           aria-label="Toggle desktop sidebar"
         >
-          <Menu className="w-5 h-5" />
+          <Menu className="w-4 h-4" />
         </button>
       )}
 
@@ -946,7 +954,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                 </div>
               </div>
             </div>
-
+            
             {/* Mobile Navigation */}
             <nav className="flex-1 overflow-y-auto px-3 py-4 min-h-0">
               <div className="text-gray-700 text-xs font-semibold uppercase tracking-wider mb-3 px-2">

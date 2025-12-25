@@ -1292,9 +1292,18 @@ export const getServerSideProps: GetServerSideProps<BlogDetailProps> = async ({
     const { id } = params as { id: string };
     await dbConnect();
 
-    const blogDoc = await BlogModel.findById(id)
+    // Try to find by paramlink first (for SEO-friendly URLs), then fallback to _id
+    let blogDoc = await BlogModel.findOne({ paramlink: id, status: "published" })
       .populate("postedBy", "name _id")
-      .lean<BlogDoc>(); // ✅ properly typed plain object;
+      .lean<BlogDoc>();
+    
+    if (!blogDoc) {
+      // Fallback to MongoDB _id
+      blogDoc = await BlogModel.findById(id)
+        .populate("postedBy", "name _id")
+        .lean<BlogDoc>();
+    }
+    
     if (!blogDoc) {
       return { notFound: true };
     }
