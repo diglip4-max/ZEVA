@@ -202,12 +202,9 @@ const CustomAsyncSelect = forwardRef<any, CustomAsyncSelectProps>(
     const customLoadingMessage = () => loadingMessage;
 
     return (
-      <div className={className}>
+      <div className={`w-full space-y-2 ${className}`}>
         {label && (
-          <label
-            htmlFor={name}
-            className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1"
-          >
+          <label htmlFor={name} className="block text-sm text-gray-800">
             {label}
             {required && <span className="text-red-500 ml-0.5">*</span>}
           </label>
