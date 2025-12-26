@@ -39,94 +39,101 @@ export default async function handler(req, res) {
         return res.status(404).json({ success: false, message: "Clinic not found for this user" });
       }
       clinicId = clinic._id;
-    } else if (me.role === "agent" || me.role === "doctorStaff" || me.role === "doctor") {
+    } else if (me.role === "agent" || me.role === "doctorStaff") {
       // Fetch fresh user data to ensure we have the latest clinicId
       const freshUser = await User.findById(me._id).select('clinicId');
       if (!freshUser || !freshUser.clinicId) {
         return res.status(403).json({ 
           success: false, 
-          message: `${me.role === "doctor" ? "Doctor" : me.role === "agent" ? "Agent" : "Doctor staff"} not linked to a clinic` 
+          message: `${me.role === "agent" ? "Agent" : "Doctor staff"} not linked to a clinic` 
         });
       }
       clinicId = freshUser.clinicId;
+    } else if (me.role === "doctor") {
+      // Doctors can operate independently without clinicId
+      // Skip clinicId check for doctors
     }
 
-    // ✅ Verify job access: Allow if user is admin, posted the job, or job belongs to their clinic
+    // ✅ Verify job access: Allow if user is admin, posted the job, job belongs to their clinic, or (for doctors) doctorId matches
     if (me.role !== "admin") {
-      const isJobOwner = job.postedBy.toString() === me._id.toString();
-      
-      // Get the job's clinicId (from job.clinicId or from job poster's clinicId)
-      let jobClinicId = null;
-      if (job.clinicId) {
-        jobClinicId = job.clinicId;
+      if (me.role === "doctor") {
+        // For doctors, check if they own the job via doctorId or postedBy
+        const isJobOwner = job.postedBy.toString() === me._id.toString() || 
+                          (job.doctorId && job.doctorId.toString() === me._id.toString());
+        if (!isJobOwner) {
+          return res.status(403).json({ success: false, message: "Not allowed to access this job" });
+        }
       } else {
-        // If job.clinicId is not set, get it from the job poster
-        const jobPoster = await User.findById(job.postedBy).select('clinicId role');
-        if (jobPoster) {
-          if (jobPoster.clinicId) {
-            jobClinicId = jobPoster.clinicId;
-          } else if (jobPoster.role === "clinic") {
-            // If job poster is clinic role, find their clinic
-            const posterClinic = await Clinic.findOne({ owner: jobPoster._id }).select("_id");
-            if (posterClinic) {
-              jobClinicId = posterClinic._id;
+        const isJobOwner = job.postedBy.toString() === me._id.toString();
+        
+        // Get the job's clinicId (from job.clinicId or from job poster's clinicId)
+        let jobClinicId = null;
+        if (job.clinicId) {
+          jobClinicId = job.clinicId;
+        } else {
+          // If job.clinicId is not set, get it from the job poster
+          const jobPoster = await User.findById(job.postedBy).select('clinicId role');
+          if (jobPoster) {
+            if (jobPoster.clinicId) {
+              jobClinicId = jobPoster.clinicId;
+            } else if (jobPoster.role === "clinic") {
+              // If job poster is clinic role, find their clinic
+              const posterClinic = await Clinic.findOne({ owner: jobPoster._id }).select("_id");
+              if (posterClinic) {
+                jobClinicId = posterClinic._id;
+              }
             }
           }
         }
-      }
       
-      // Verify clinic membership - ensure both clinicIds are compared as strings
-      let hasAccess = false;
-      if (isJobOwner) {
-        hasAccess = true;
-      } else if (clinicId && jobClinicId) {
-        // Check if job's clinicId matches user's clinicId (compare as strings)
-        const userClinicIdStr = clinicId.toString();
-        const jobClinicIdStr = jobClinicId.toString();
-        hasAccess = userClinicIdStr === jobClinicIdStr;
         
-        console.log('[Toggle Job] Clinic verification:', {
-          userRole: me.role,
-          userId: me._id.toString(),
-          userClinicId: userClinicIdStr,
-          jobClinicId: jobClinicIdStr,
-          jobPostedBy: job.postedBy.toString(),
-          isJobOwner,
-          hasAccess
-        });
-      }
-      
-      if (!hasAccess) {
-        return res.status(403).json({ success: false, message: "Not allowed to access this job" });
+        // Verify clinic membership - ensure both clinicIds are compared as strings
+        let hasAccess = false;
+        if (isJobOwner) {
+          hasAccess = true;
+        } else if (clinicId && jobClinicId) {
+          // Check if job's clinicId matches user's clinicId (compare as strings)
+          const userClinicIdStr = clinicId.toString();
+          const jobClinicIdStr = jobClinicId.toString();
+          hasAccess = userClinicIdStr === jobClinicIdStr;
+        }
+        
+        if (!hasAccess) {
+          return res.status(403).json({ success: false, message: "Not allowed to access this job" });
+        }
       }
     }
 
-    // ✅ Check permission for updating jobs (only for doctorStaff and agent, clinic/admin/doctor bypass)
+    // ✅ Check permission for toggling jobs (only for doctorStaff and agent, clinic/admin/doctor bypass)
     if (!["admin", "clinic", "doctor"].includes(me.role) && clinicId) {
       if (['agent', 'doctorStaff'].includes(me.role)) {
         const { checkAgentPermission } = await import("../agent/permissions-helper");
         const { hasPermission, error: permissionError } = await checkAgentPermission(
           me._id,
-          "job_posting", // moduleKey
-          "update", // action
-          null // subModuleName
+          "job_posting",
+          "update",
+          null
         );
         if (!hasPermission) {
           return res.status(403).json({
             success: false,
-            message: permissionError || "You do not have permission to update jobs"
+            message: permissionError || "You do not have permission to toggle job status"
           });
         }
       }
-      // Clinic, admin, and doctor users bypass permission checks
     }
 
+    // Update job status
     job.isActive = isActive;
     await job.save();
 
-    return res.status(200).json({ success: true, job });
+    return res.status(200).json({ 
+      success: true, 
+      message: `Job ${isActive ? 'activated' : 'deactivated'} successfully`,
+      job 
+    });
   } catch (error) {
-    console.error("Error toggling job:", error);
+    console.error('[Toggle Job] Error:', error);
     return res.status(500).json({ success: false, message: "Internal server error" });
   }
 }

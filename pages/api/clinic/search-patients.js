@@ -1,6 +1,7 @@
 import dbConnect from "../../../lib/database";
 import PatientRegistration from "../../../models/PatientRegistration";
 import { getUserFromReq } from "../lead-ms/auth";
+import { getClinicIdFromUser } from "../lead-ms/permissions-helper";
 
 export default async function handler(req, res) {
   await dbConnect();
@@ -11,24 +12,57 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Verify clinic authentication
-    const clinicUser = await getUserFromReq(req);
-    if (!clinicUser) {
+    // Verify authentication
+    const authUser = await getUserFromReq(req);
+    if (!authUser) {
       return res.status(401).json({ success: false, message: "Unauthorized" });
     }
-    if (clinicUser.role !== "clinic") {
-      return res.status(403).json({ success: false, message: "Access denied. Clinic role required." });
+
+    // Allow clinic, admin, agent, doctor, doctorStaff, and staff roles
+    if (!["clinic", "admin", "agent", "doctor", "doctorStaff", "staff"].includes(authUser.role)) {
+      return res.status(403).json({ success: false, message: "Access denied" });
+    }
+
+    // Get clinicId for permission checks
+    let { clinicId, error, isAdmin } = await getClinicIdFromUser(authUser);
+    if (error && !isAdmin) {
+      return res.status(404).json({ success: false, message: error });
+    }
+
+    // Check permission for agent and doctorStaff roles - require create permission on appointment module
+    // Clinic, doctor, staff roles have full access by default, admin bypasses
+    if (!isAdmin && clinicId && ["agent", "doctorStaff"].includes(authUser.role)) {
+      const { checkAgentPermission } = await import("../agent/permissions-helper");
+      const result = await checkAgentPermission(
+        authUser._id,
+        "clinic_Appointment",
+        "create"
+      );
+
+      // If module doesn't exist in permissions yet, allow access by default
+      if (!result.hasPermission && result.error && result.error.includes("not found in agent permissions")) {
+        // Module not set up yet - allow access by default for agent/doctorStaff
+        console.log(`[search-patients] Module clinic_Appointment not found in permissions for user ${authUser._id}, allowing access by default`);
+      } else if (!result.hasPermission) {
+        // Permission explicitly denied
+        return res.status(403).json({
+          success: false,
+          message: result.error || "You do not have permission to search patients"
+        });
+      }
     }
 
     const { search } = req.query;
 
-    if (!search || search.trim().length < 2) {
+    // Allow single character search for better UX
+    if (!search || search.trim().length < 1) {
       return res.status(200).json({ success: true, patients: [] });
     }
 
     const searchTerm = search.trim();
 
-    // Search by firstName, lastName, mobileNumber, or email
+    // Search by firstName, lastName, mobileNumber, email, or EMR number
+    // Using case-insensitive regex for partial matching
     const patients = await PatientRegistration.find({
       $or: [
         { firstName: { $regex: searchTerm, $options: "i" } },
@@ -36,10 +70,12 @@ export default async function handler(req, res) {
         { mobileNumber: { $regex: searchTerm, $options: "i" } },
         { email: { $regex: searchTerm, $options: "i" } },
         { emrNumber: { $regex: searchTerm, $options: "i" } },
+        // Also search in full name combination
+        { $expr: { $regexMatch: { input: { $concat: ["$firstName", " ", "$lastName"] }, regex: searchTerm, options: "i" } } },
       ],
     })
       .select("_id firstName lastName mobileNumber email emrNumber gender")
-      .limit(20)
+      .limit(30) // Increased limit for better results
       .sort({ createdAt: -1 })
       .lean();
 

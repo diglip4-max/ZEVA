@@ -1,5 +1,6 @@
 import React from 'react';
-import { Calendar, Heart, Baby, Target, ChevronRight, Clock, TrendingUp, Flower, Layout } from 'lucide-react';
+import Head from 'next/head';
+import { Calendar, Heart, Baby, Target, ChevronRight, Clock, TrendingUp, Flower } from 'lucide-react';
 import L1 from '../../../components/Layout';
 
 const PregnancyOvulationPage = () => {
@@ -12,7 +13,49 @@ const PregnancyOvulationPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-indigo-50">
+    <>
+      <Head>
+        {/* Schema Markup - Pregnancy & Periods Tracker WebPage */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": ["WebPage", "MedicalWebPage"],
+              "name": "Pregnancy & Periods Tracker",
+              "url": "https://zeva360.com/calculator/pregnancy-and-ovulation/pregnancy&ovulation",
+              "description": "ZEVA Pregnancy & Periods Tracker helps women track menstrual cycles, predict ovulation, and monitor pregnancy milestones with accurate, personalized insights in a secure and easy-to-use platform.",
+              "isPartOf": {
+                "@type": "WebSite",
+                "name": "ZEVA",
+                "url": "https://zeva360.com"
+              },
+              "publisher": {
+                "@type": "Organization",
+                "name": "ZEVA",
+                "url": "https://zeva360.com",
+                "logo": {
+                  "@type": "ImageObject",
+                  "url": "https://zeva360.com/logo.png"
+                }
+              },
+              "mainEntity": {
+                "@type": "SoftwareApplication",
+                "name": "Pregnancy & Periods Tracker",
+                "applicationCategory": "HealthApplication",
+                "operatingSystem": "Web",
+                "description": "A free women's health tracking tool to monitor menstrual cycles, estimate ovulation windows, and follow week-by-week pregnancy development with health tips and reminders.",
+                "offers": {
+                  "@type": "Offer",
+                  "price": "0",
+                  "priceCurrency": "USD"
+                }
+              }
+            })
+          }}
+        />
+      </Head>
+      <div className="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-indigo-50">
       {/* Hero Section with Background Image */}
       <div className="relative overflow-hidden">
         {/* Background with subtle pattern */}
@@ -39,8 +82,7 @@ const PregnancyOvulationPage = () => {
               </h1>
 
               <p className="text-xl text-gray-600 max-w-3xl mx-auto lg:mx-0 leading-relaxed">
-                Take control of your reproductive health with our comprehensive tracking tools.
-                Monitor your cycle, predict ovulation, and track pregnancy milestones with precision and care.
+              Take control of your reproductive health with ZEVA’s Women’s Health Tracking Hub, designed to support you at every stage of your journey. Our intelligent tracking tools help you monitor menstrual cycles, predict ovulation, and track pregnancy milestones with accuracy, care, and confidence.
               </p>
             </div>
             
@@ -245,6 +287,7 @@ const PregnancyOvulationPage = () => {
 
       </div>
     </div>
+    </>
   );
 };
 

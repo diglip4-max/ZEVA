@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import Head from 'next/head'
 import { Heart, Play, Square, Info } from 'lucide-react';
 
 function HeartRateMonitor(){
@@ -44,7 +45,74 @@ function HeartRateMonitor(){
   const status: string = getHeartRateStatus(currentBPM, age);
 
 return (
-  <div className="min-h-screen bg-white">
+  <>
+    <Head>
+      <title>Heart Rate Monitor | Track Cardiovascular Health – ZEVA</title>
+      <meta
+        name="description"
+        content="Use ZEVA's Heart Rate Monitor to track your heart rate, assess cardiovascular health, and stay informed about your fitness and wellness."
+      />
+      <meta
+        name="keywords"
+        content="Heart Rate Monitor, heart rate tracker, pulse rate monitor, cardiovascular health tool, heart health calculator, resting heart rate check, fitness heart rate tool, health monitoring app, ZEVA heart monitor"
+      />
+      <meta property="og:title" content="Heart Rate Monitor | Track Cardiovascular Health – ZEVA" />
+      <meta
+        property="og:description"
+        content="Use ZEVA's Heart Rate Monitor to track your heart rate, assess cardiovascular health, and stay informed about your fitness and wellness."
+      />
+      <meta property="og:type" content="website" />
+      <meta name="twitter:card" content="summary_large_image" />
+      <meta name="twitter:title" content="Heart Rate Monitor | Track Cardiovascular Health – ZEVA" />
+      <meta
+        name="twitter:description"
+        content="Use ZEVA's Heart Rate Monitor to track your heart rate, assess cardiovascular health, and stay informed about your fitness and wellness."
+      />
+      {/* Schema Markup - Heart Rate Monitor WebPage */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "MedicalWebPage",
+            "name": "Heart Rate Monitor",
+            "url": "https://zeva360.com/calculator/heartrate",
+            "description": "Monitor your heart rate and cardiovascular health with ZEVA's Heart Rate Monitor. A free, easy-to-use tool to track pulse rate, understand heart health, and support daily wellness goals.",
+            "isPartOf": {
+              "@type": "WebSite",
+              "name": "ZEVA",
+              "url": "https://zeva360.com"
+            },
+            "publisher": {
+              "@type": "Organization",
+              "name": "ZEVA",
+              "url": "https://zeva360.com",
+              "logo": {
+                "@type": "ImageObject",
+                "url": "https://zeva360.com/logo.png"
+              }
+            },
+            "about": {
+              "@type": "MedicalCondition",
+              "name": "Cardiovascular Health",
+              "description": "Monitoring heart rate to assess cardiovascular fitness and overall heart health."
+            },
+            "mainEntity": {
+              "@type": "SoftwareApplication",
+              "name": "Heart Rate Monitor",
+              "applicationCategory": "HealthApplication",
+              "operatingSystem": "Web",
+              "offers": {
+                "@type": "Offer",
+                "price": "0",
+                "priceCurrency": "USD"
+              }
+            }
+          })
+        }}
+      />
+    </Head>
+    <div className="min-h-screen bg-white">
     <div className="max-w-6xl mx-auto p-6">
       
       {/* Header */}
@@ -214,6 +282,7 @@ return (
       )}
     </div>
   </div>
+  </>
 );
 };
 

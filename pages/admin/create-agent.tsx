@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import axios from 'axios';
 import { useRouter } from 'next/router';
 import CreateAgentModal from '../../components/CreateAgentModal';
@@ -15,7 +16,6 @@ import {
   XMarkIcon,
   CheckCircleIcon,
   XCircleIcon,
-  ClockIcon,
   EllipsisVerticalIcon,
   KeyIcon,
   ShieldCheckIcon,
@@ -520,7 +520,7 @@ const ManageAgentsPage: NextPageWithLayout = () => {
                 >
                   Agents ({totalAgents})
                 </button>
-                <button
+                {/* <button
                   onClick={() => {
                     setActiveView('doctorStaff');
                     setCurrentPage(1);
@@ -533,7 +533,7 @@ const ManageAgentsPage: NextPageWithLayout = () => {
                   }`}
                 >
                   Doctor Staff ({totalDoctorStaff})
-                </button>
+                </button> */}
               </nav>
               
               {/* Create Button */}
@@ -1117,26 +1117,35 @@ const ManageAgentsPage: NextPageWithLayout = () => {
         </div>
       </div>
 
-      {/* Create Agent Modal */}
-      <CreateAgentModal
-        isOpen={isCreateOpen}
-        onClose={() => setIsCreateOpen(false)}
-        onCreated={loadAll}
-        token={undefined}
-        doctorToken={undefined}
-        adminToken={adminToken || undefined}
-      />
+      {/* Create Agent Modal - Using Portal to render outside layout stacking context */}
+      {isCreateOpen && typeof window !== 'undefined' && createPortal(
+        <div style={{ zIndex: 9999 }} className="fixed inset-0">
+          <CreateAgentModal
+            isOpen={isCreateOpen}
+            onClose={() => setIsCreateOpen(false)}
+            onCreated={loadAll}
+            token={undefined}
+            doctorToken={undefined}
+            adminToken={adminToken || undefined}
+            defaultRole={activeView === 'doctorStaff' ? 'doctorStaff' : 'agent'}
+          />
+        </div>,
+        document.body
+      )}
 
-      {/* Agent Permission Modal */}
-      {permissionAgent && (
-        <AgentPermissionModal
-          isOpen={!!permissionAgent}
-          onClose={() => setPermissionAgent(null)}
-          agentId={permissionAgent._id}
-          agentName={permissionAgent.name}
-          token={adminToken || null}
-          userRole="admin"
-        />
+      {/* MODIFIED: Agent Permission Modal - Using Portal to render outside layout stacking context */}
+      {permissionAgent && typeof window !== 'undefined' && createPortal(
+        <div style={{ zIndex: 9999 }} className="fixed inset-0">
+          <AgentPermissionModal
+            isOpen={!!permissionAgent}
+            onClose={() => setPermissionAgent(null)}
+            agentId={permissionAgent._id}
+            agentName={permissionAgent.name}
+            token={adminToken || null}
+            userRole="admin"
+          />
+        </div>,
+        document.body
       )}
 
       {/* Delete Confirmation Modal */}

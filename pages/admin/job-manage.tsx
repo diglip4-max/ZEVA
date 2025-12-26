@@ -3,6 +3,7 @@
 import axios from "axios";
 import React, { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { useRouter } from "next/router";
+import { createPortal } from "react-dom";
 
 import AdminLayout from "../../components/AdminLayout";
 import withAdminAuth from "../../components/withAdminAuth";
@@ -23,7 +24,6 @@ import {
   BuildingOfficeIcon,
   MagnifyingGlassIcon,
   FunnelIcon,
-  ArrowPathIcon,
   Squares2X2Icon as GridIcon,
   Bars3Icon as ListIcon,
 } from "@heroicons/react/24/outline";
@@ -1119,32 +1119,36 @@ function AdminJobs() {
         )}
 
         {/* Job Details Modal */}
-        {showJobDetails && selectedJob && (
-          <div className="fixed inset-0 backdrop-blur-sm bg-black/20 flex items-center justify-center z-50 p-4">
+        {showJobDetails && selectedJob && typeof window !== 'undefined' && createPortal(
+          <div className="fixed inset-0 backdrop-blur-sm bg-black/20 flex items-center justify-center z-[9999] p-4" style={{ zIndex: 9999 }}>
             <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
               {/* Header */}
-              <div className="bg-gray-800 rounded-t-2xl p-6 text-white relative overflow-hidden">
+              <div className="bg-gray-800 rounded-t-2xl p-4 sm:p-6 text-white relative overflow-hidden flex-shrink-0">
                 <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-16 translate-x-16"></div>
                 <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/10 rounded-full translate-y-12 -translate-x-12"></div>
-                <div className="relative flex items-start justify-between gap-4">
-                  <div className="flex-1">
-                    <h2 className="text-2xl font-bold mb-2 flex items-center gap-3">
-                      <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
-                        <BriefcaseIcon className="w-5 h-5" />
+                <div className="relative flex items-start justify-between gap-4 min-w-0">
+                  <div className="flex-1 min-w-0 pr-2">
+                    <h2 className="text-xl sm:text-2xl font-bold mb-2 flex items-center gap-2 sm:gap-3 flex-wrap">
+                      <div className="w-7 h-7 sm:w-8 sm:h-8 bg-white/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                        <BriefcaseIcon className="w-4 h-4 sm:w-5 sm:h-5" />
                       </div>
-                      {selectedJob.jobTitle}
+                      <span className="break-words">{selectedJob.jobTitle}</span>
                     </h2>
-                    <div className="flex flex-wrap items-center gap-4 text-sm text-white/90">
-                      <div className="flex items-center gap-1">
-                        <BuildingOfficeIcon className="w-4 h-4" />
-                        <span>{selectedJob.companyName}</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <MapPinIcon className="w-4 h-4" />
-                        <span>{selectedJob.location}</span>
-                      </div>
+                    <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs sm:text-sm text-white/90">
+                      {selectedJob.companyName && (
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <BuildingOfficeIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
+                          <span className="truncate">{selectedJob.companyName}</span>
+                        </div>
+                      )}
+                      {selectedJob.location && (
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <MapPinIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
+                          <span className="truncate">{selectedJob.location}</span>
+                        </div>
+                      )}
                       {selectedJob.status && (
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap flex-shrink-0 ${
                           selectedJob.status === 'approved' ? 'bg-green-500 text-white' :
                           selectedJob.status === 'pending' ? 'bg-yellow-500 text-white' :
                           'bg-red-500 text-white'
@@ -1159,9 +1163,10 @@ function AdminJobs() {
                       setShowJobDetails(false);
                       setSelectedJob(null);
                     }}
-                    className="text-white/80 hover:text-white hover:bg-white/20 rounded-lg p-2 transition-colors"
+                    className="text-white/80 hover:text-white hover:bg-white/20 rounded-lg p-2 transition-colors flex-shrink-0"
+                    aria-label="Close modal"
                   >
-                    <XMarkIcon className="w-6 h-6" />
+                    <XMarkIcon className="w-5 h-5 sm:w-6 sm:h-6" />
                   </button>
                 </div>
               </div>
@@ -1472,12 +1477,13 @@ function AdminJobs() {
                 </div>
               </div>
             </div>
-          </div>
+          </div>,
+          document.body
         )}
 
         {/* Confirmation Modal */}
-        {confirmationModal.isOpen && (
-          <div className="fixed inset-0 backdrop-blur-sm bg-black/20 flex items-center justify-center z-50 p-4">
+        {confirmationModal.isOpen && typeof window !== 'undefined' && createPortal(
+          <div className="fixed inset-0 backdrop-blur-sm bg-black/20 flex items-center justify-center z-[9999] p-4" style={{ zIndex: 9999 }}>
             <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 p-8 max-w-md w-full transform transition-all duration-300 ease-out">
               <div className="text-center">
                 <div className="mx-auto mb-4 w-16 h-16 rounded-full flex items-center justify-center">
@@ -1537,7 +1543,8 @@ function AdminJobs() {
                 </div>
               </div>
             </div>
-          </div>
+          </div>,
+          document.body
         )}
       </div>
     </div>

@@ -32,11 +32,7 @@ import {
   CartesianGrid,
   ResponsiveContainer,
   Tooltip,
-  PieChart,
-  Pie,
   Cell,
-  LineChart,
-  Line,
 } from "recharts";
 
 interface User {
@@ -604,13 +600,11 @@ function DoctorDashboard() {
   const [photoError, setPhotoError] = useState("");
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
   const [treatments, setTreatments] = useState<Treatment[]>([]);
-  const dropdownRef = useRef<HTMLDivElement>(null);
   const [geocodingStatus, setGeocodingStatus] = useState<string>("");
   const addressDebounceTimer = useRef<NodeJS.Timeout | null>(null);
   const [showCustomTreatmentInput, setShowCustomTreatmentInput] =
     useState(false);
   const [newTreatment, setNewTreatment] = useState("");
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
   const reviewChartData = useMemo(
     () => [
@@ -634,22 +628,6 @@ function DoctorDashboard() {
   );
   const distributionColors = ["#3b82f6", "#8b5cf6", "#f59e0b"];
 
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(event.target as Node)
-      ) {
-        setIsDropdownOpen(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, []);
 
   useEffect(() => {
     const fetchTreatments = async () => {

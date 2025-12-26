@@ -53,7 +53,7 @@ export default async function handler(req, res) {
   await runMiddleware(req, res, uploadMiddleware);
 
   try {
-    const { name, phone, email, specialization, degree, experience, address } =
+    const { name, phone, email, specialization, degree, experience, address, latitude, longitude } =
       req.body;
 
     // Validate experience
@@ -75,20 +75,38 @@ export default async function handler(req, res) {
       ? req.files["resume"][0].path.replace("public", "").replace(/\\/g, "/")
       : "";
 
-    // Use Google Maps API to get coordinates
-    const geoRes = await axios.get(
-      "https://maps.googleapis.com/maps/api/geocode/json",
-      {
-        params: {
-          address,
-          key: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY,
-        },
-      }
-    );
+    // Use provided coordinates if available, otherwise geocode the address
+    let location = null;
+    const parsedLat = parseFloat(latitude);
+    const parsedLng = parseFloat(longitude);
+    
+    if (!isNaN(parsedLat) && !isNaN(parsedLng) && parsedLat !== 0 && parsedLng !== 0) {
+      // Use provided coordinates
+      location = {
+        lat: parsedLat,
+        lng: parsedLng
+      };
+    } else {
+      // Try to geocode the address if coordinates not provided
+      try {
+        const geoRes = await axios.get(
+          "https://maps.googleapis.com/maps/api/geocode/json",
+          {
+            params: {
+              address,
+              key: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY,
+            },
+          }
+        );
 
-    const location = geoRes.data.results[0]?.geometry.location;
-    if (!location) {
-      return res.status(400).json({ message: "Invalid address" });
+        location = geoRes.data.results[0]?.geometry.location;
+        if (!location) {
+          return res.status(400).json({ message: "Invalid address. Please set location on map." });
+        }
+      } catch (geoError) {
+        console.error("Geocoding error:", geoError);
+        return res.status(400).json({ message: "Invalid address. Please set location on map." });
+      }
     }
 
     // Create user

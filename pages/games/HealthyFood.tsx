@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import Head from 'next/head';
 import {Timer, RotateCcw, Target, Flame, Star } from 'lucide-react';
 
 interface FoodItem {
@@ -320,7 +321,59 @@ function HealthyFoodPickerGame() {
 
   if (gameState === 'menu') {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center p-4">
+      <>
+        <Head>
+          <title>Healthy Food Picker Game – Smash Junk & Choose Greens</title>
+          <meta
+            name="description"
+            content="Play the Healthy Food Picker Game on Zeva to beat the clock, smash junk food, and pick healthy greens. Have fun while learning nutrition and building healthy eating habits."
+          />
+          <meta
+            name="keywords"
+            content="Healthy Food Picker Game, nutrition game, healthy eating game, smash junk food, interactive health game, pick healthy greens, fun health game, diet and nutrition game, online wellness game, Zeva health game, food choices game, healthy habits game, interactive nutrition game, beat the clock game, educational health game"
+          />
+          
+          {/* Schema Markup - Healthy Food Picker Game WebPage */}
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{
+              __html: JSON.stringify({
+                "@context": "https://schema.org",
+                "@type": "WebPage",
+                "name": "Healthy Food Picker Game",
+                "url": "https://zeva360.com/games/HealthyFood",
+                "description": "Healthy Food Picker Game by ZEVA is a fun and educational nutrition game where users smash junk food, grab healthy greens, and learn smart eating habits while racing against the clock.",
+                "isPartOf": {
+                  "@type": "WebSite",
+                  "name": "ZEVA",
+                  "url": "https://zeva360.com"
+                },
+                "publisher": {
+                  "@type": "Organization",
+                  "name": "ZEVA",
+                  "url": "https://zeva360.com",
+                  "logo": {
+                    "@type": "ImageObject",
+                    "url": "https://zeva360.com/logo.png"
+                  }
+                },
+                "mainEntity": {
+                  "@type": "SoftwareApplication",
+                  "name": "Healthy Food Picker Game",
+                  "applicationCategory": "HealthApplication",
+                  "operatingSystem": "Web",
+                  "description": "An interactive nutrition-based game that promotes healthy eating habits by encouraging players to choose nutritious foods and avoid junk food through fast-paced challenges.",
+                  "offers": {
+                    "@type": "Offer",
+                    "price": "0",
+                    "priceCurrency": "USD"
+                  }
+                }
+              })
+            }}
+          />
+        </Head>
+        <div className="min-h-screen bg-white flex items-center justify-center p-4">
         <div className="bg-white rounded-lg border border-gray-200 p-8 text-center max-w-md w-full">
           <div className="mb-6">
             <h1 className="text-3xl font-bold text-gray-900 mb-2">Healthy Food Picker</h1>
@@ -360,12 +413,65 @@ function HealthyFoodPickerGame() {
           </button>
         </div>
       </div>
+      </>
     );
   }
 
   if (gameState === 'gameOver') {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center p-4">
+      <>
+        <Head>
+          <title>Healthy Food Picker Game – Smash Junk & Choose Greens</title>
+          <meta
+            name="description"
+            content="Play the Healthy Food Picker Game on Zeva to beat the clock, smash junk food, and pick healthy greens. Have fun while learning nutrition and building healthy eating habits."
+          />
+          <meta
+            name="keywords"
+            content="Healthy Food Picker Game, nutrition game, healthy eating game, smash junk food, interactive health game, pick healthy greens, fun health game, diet and nutrition game, online wellness game, Zeva health game, food choices game, healthy habits game, interactive nutrition game, beat the clock game, educational health game"
+          />
+          
+          {/* Schema Markup - Healthy Food Picker Game WebPage */}
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{
+              __html: JSON.stringify({
+                "@context": "https://schema.org",
+                "@type": "WebPage",
+                "name": "Healthy Food Picker Game",
+                "url": "https://zeva360.com/games/HealthyFood",
+                "description": "Healthy Food Picker Game by ZEVA is a fun and educational nutrition game where users smash junk food, grab healthy greens, and learn smart eating habits while racing against the clock.",
+                "isPartOf": {
+                  "@type": "WebSite",
+                  "name": "ZEVA",
+                  "url": "https://zeva360.com"
+                },
+                "publisher": {
+                  "@type": "Organization",
+                  "name": "ZEVA",
+                  "url": "https://zeva360.com",
+                  "logo": {
+                    "@type": "ImageObject",
+                    "url": "https://zeva360.com/logo.png"
+                  }
+                },
+                "mainEntity": {
+                  "@type": "SoftwareApplication",
+                  "name": "Healthy Food Picker Game",
+                  "applicationCategory": "HealthApplication",
+                  "operatingSystem": "Web",
+                  "description": "An interactive nutrition-based game that promotes healthy eating habits by encouraging players to choose nutritious foods and avoid junk food through fast-paced challenges.",
+                  "offers": {
+                    "@type": "Offer",
+                    "price": "0",
+                    "priceCurrency": "USD"
+                  }
+                }
+              })
+            }}
+          />
+        </Head>
+        <div className="min-h-screen bg-white flex items-center justify-center p-4">
         <div className="bg-white rounded-lg border border-gray-200 p-8 text-center w-full max-w-md">
           
           <h2 className="text-3xl font-bold text-gray-900 mb-4">Game Complete!</h2>
@@ -430,11 +536,64 @@ function HealthyFoodPickerGame() {
           </div>
         </div>
       </div>
+      </>
     );
   }
 
   return (
-    <div className="min-h-screen bg-white p-4">
+    <>
+      <Head>
+        <title>Healthy Food Picker Game – Smash Junk & Choose Greens</title>
+        <meta
+          name="description"
+          content="Play the Healthy Food Picker Game on Zeva to beat the clock, smash junk food, and pick healthy greens. Have fun while learning nutrition and building healthy eating habits."
+        />
+        <meta
+          name="keywords"
+          content="Healthy Food Picker Game, nutrition game, healthy eating game, smash junk food, interactive health game, pick healthy greens, fun health game, diet and nutrition game, online wellness game, Zeva health game, food choices game, healthy habits game, interactive nutrition game, beat the clock game, educational health game"
+        />
+        
+        {/* Schema Markup - Healthy Food Picker Game WebPage */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "WebPage",
+              "name": "Healthy Food Picker Game",
+              "url": "https://zeva360.com/games/HealthyFood",
+              "description": "Healthy Food Picker Game by ZEVA is a fun and educational nutrition game where users smash junk food, grab healthy greens, and learn smart eating habits while racing against the clock.",
+              "isPartOf": {
+                "@type": "WebSite",
+                "name": "ZEVA",
+                "url": "https://zeva360.com"
+              },
+              "publisher": {
+                "@type": "Organization",
+                "name": "ZEVA",
+                "url": "https://zeva360.com",
+                "logo": {
+                  "@type": "ImageObject",
+                  "url": "https://zeva360.com/logo.png"
+                }
+              },
+              "mainEntity": {
+                "@type": "SoftwareApplication",
+                "name": "Healthy Food Picker Game",
+                "applicationCategory": "HealthApplication",
+                "operatingSystem": "Web",
+                "description": "An interactive nutrition-based game that promotes healthy eating habits by encouraging players to choose nutritious foods and avoid junk food through fast-paced challenges.",
+                "offers": {
+                  "@type": "Offer",
+                  "price": "0",
+                  "priceCurrency": "USD"
+                }
+              }
+            })
+          }}
+        />
+      </Head>
+      <div className="min-h-screen bg-white p-4">
       <div className="max-w-6xl mx-auto">
         <div className="bg-white rounded-lg border border-gray-200 p-4 mb-4">
           <div className="grid grid-cols-4 md:grid-cols-7 gap-3 text-center">
@@ -565,6 +724,7 @@ function HealthyFoodPickerGame() {
         </div>
       </div>
     </div>
+    </>
   );
 }
 

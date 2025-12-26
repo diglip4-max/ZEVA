@@ -41,10 +41,55 @@ export default function Home() {
 
     const [clinicReviews, setClinicReviews] = useState({});
 
+    // Helper function to convert text to slug
+    const textToSlug = (text) => {
+        if (!text) return '';
+        return text
+            .toLowerCase()
+            .trim()
+            .replace(/[^\w\s-]/g, '') // Remove special characters
+            .replace(/\s+/g, '-') // Replace spaces with hyphens
+            .replace(/-+/g, '-'); // Replace multiple hyphens with single hyphen
+    };
+
+    // Helper function to convert slug back to readable text
+    const slugToText = (slug) => {
+        if (!slug) return '';
+        return slug
+            .split('-')
+            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+            .join(' ');
+    };
+
+    // Update URL with search parameters - ALWAYS use values from input fields
+    const updateURL = (treatment, location) => {
+        // Set flag to prevent useEffect from interfering
+        isUpdatingURL.current = true;
+        
+        const params = new URLSearchParams();
+        if (treatment) {
+            params.set('treatment', textToSlug(treatment));
+        }
+        if (location) {
+            // Always use the actual location value from input - no special handling
+            params.set('location', textToSlug(location));
+        }
+        const newUrl = params.toString() 
+            ? `${router.pathname}?${params.toString()}`
+            : router.pathname;
+        
+        router.replace(newUrl, undefined, { shallow: true });
+        
+        // Reset flag after a short delay to allow URL to update
+        setTimeout(() => {
+            isUpdatingURL.current = false;
+        }, 100);
+    };
+
     const [isVisible, setIsVisible] = useState(false);
 
     // Add missing state variables for filters
-    const [priceRange, setPriceRange] = useState([0, 5000]);
+    const [priceRange, setPriceRange] = useState([0, 40000]);
     const [selectedTimes, setSelectedTimes] = useState([]);
     const [sortBy, setSortBy] = useState('relevance');
     const [hasSearched, setHasSearched] = useState(false);
@@ -55,6 +100,8 @@ export default function Home() {
         budgetFriendly: false,
     });
     const loadingToastId = useRef(null);
+    const hasSearchedFromURL = useRef(false);
+    const isUpdatingURL = useRef(false); // Flag to prevent useEffect from interfering during URL updates
 
     // Add the clearFilters function
     const clearFilters = () => {
@@ -223,6 +270,48 @@ export default function Home() {
 
         loadPersistedState();
     }, []);
+
+    // Separate useEffect for URL query parameters to avoid conflicts with localStorage
+    useEffect(() => {
+        if (!router.isReady || hasSearchedFromURL.current || isUpdatingURL.current) return; // Wait for router to be ready and prevent duplicate searches, and don't interfere during URL updates
+        
+        const { treatment, location } = router.query;
+        if (treatment || location) {
+            const treatmentText = treatment ? slugToText(String(treatment)) : '';
+            const locationText = location ? slugToText(String(location)) : '';
+            
+            // Only proceed if we have at least a location and haven't searched yet
+            // Also check if the current form values don't match URL params (to avoid overwriting manual input)
+            const currentTreatmentMatches = !treatmentText || (query.trim().toLowerCase() === treatmentText.toLowerCase() || selectedService.toLowerCase() === treatmentText.toLowerCase());
+            const currentLocationMatches = !locationText || manualPlace.trim().toLowerCase() === locationText.toLowerCase();
+            
+            if (locationText && locationText !== 'near-me' && !hasSearched && !currentLocationMatches) {
+                hasSearchedFromURL.current = true;
+                
+                // Set the form values
+                if (treatmentText) {
+                    setQuery(treatmentText);
+                    setSelectedService(treatmentText);
+                }
+                setManualPlace(locationText);
+
+                // Auto-search with a small delay to ensure state is set
+                setTimeout(() => {
+                    searchByPlaceFromURL(locationText, treatmentText || null);
+                }, 300);
+            } else if (locationText === 'near-me' && treatmentText && !hasSearched && !currentTreatmentMatches) {
+                hasSearchedFromURL.current = true;
+                
+                // Handle near-me case
+                setQuery(treatmentText);
+                setSelectedService(treatmentText);
+                // Trigger locateMe after a delay
+                setTimeout(() => {
+                    locateMe();
+                }, 300);
+            }
+        }
+    }, [router.isReady, router.query.treatment, router.query.location, hasSearched]);
 
     // Save search state to localStorage whenever it changes
     useEffect(() => {
@@ -397,11 +486,30 @@ export default function Home() {
 
     const handleSearch = () => {
         if (!validateSearchInputs()) return;
+        // Reset URL search flag so manual searches work
+        hasSearchedFromURL.current = false;
+        
+        // ALWAYS get values directly from input fields
+        const treatmentValue = query.trim();
+        const locationValue = manualPlace.trim();
+        
         // If query has value but selectedService doesn't, set selectedService to query
-        if (query.trim() && !selectedService) {
-            setSelectedService(query.trim());
+        const serviceToUse = treatmentValue && !selectedService ? treatmentValue : selectedService;
+        if (treatmentValue && !selectedService) {
+            setSelectedService(treatmentValue);
         }
-        searchByPlace();
+        
+        // Make sure we have a valid location
+        if (!locationValue) {
+            toast.error("Please enter a valid location");
+            return;
+        }
+        
+        // Update URL immediately with values from input fields
+        updateURL(serviceToUse || treatmentValue, locationValue);
+        
+        // Then proceed with search
+        searchByPlace(serviceToUse);
     };
 
     const toggleQuickFilter = (filterKey) => {
@@ -419,7 +527,7 @@ export default function Home() {
         if (ratingFilter > 0) {
             filters.push(`${ratingFilter}★ & up`);
         }
-        if (priceRange[0] > 0 || priceRange[1] < 5000) {
+        if (priceRange[0] > 0 || priceRange[1] < 10000) {
             filters.push(
                 `₹${priceRange[0].toLocaleString()} - ₹${priceRange[1].toLocaleString()}`
             );
@@ -510,6 +618,9 @@ export default function Home() {
     };
 
     const locateMe = () => {
+        // Reset URL search flag so manual searches work
+        hasSearchedFromURL.current = false;
+        
         setLoading(true);
         clearPersistedState(); // Clear old state when starting new search
         if (typeof window === "undefined" || !navigator.geolocation) {
@@ -517,12 +628,23 @@ export default function Home() {
             setLoading(false);
             return;
         }
+        
+        // Get values from input fields
+        const treatmentValue = query.trim();
+        const locationValue = manualPlace.trim();
+        const serviceToUse = selectedService || treatmentValue;
+        
+        // Update URL with values from input fields (if location is empty, use "near-me")
+        const locationForURL = locationValue || 'near-me';
+        updateURL(serviceToUse || treatmentValue, locationForURL);
+        
         const locatingToast = toast.loading("Locating you...");
         navigator.geolocation.getCurrentPosition(
             (pos) => {
                 const { latitude, longitude } = pos.coords;
                 setCoords({ lat: latitude, lng: longitude });
                 setHasSearched(true);
+                
                 fetchClinics(latitude, longitude);
                 toast.success("Location detected");
                 toast.dismiss(locatingToast);
@@ -535,7 +657,8 @@ export default function Home() {
         );
     };
 
-    const searchByPlace = async () => {
+    const searchByPlace = async (serviceOverride = null) => {
+        // ALWAYS get location value directly from input field
         const placeQuery = manualPlace.trim();
         if (!placeQuery) {
             setFormErrors((prev) => ({ ...prev, location: "Please add a location" }));
@@ -555,7 +678,42 @@ export default function Home() {
             setFormErrors((prev) => ({ ...prev, location: "" }));
             toast.success(`Location pinned: ${placeQuery}`);
             setHasSearched(true);
-            fetchClinics(res.data.lat, res.data.lng);
+            
+            // Get values from input fields for URL update
+            const treatmentValue = query.trim();
+            const serviceToUse = serviceOverride || selectedService || treatmentValue;
+            
+            // Update URL with values from input fields - always use actual input values
+            updateURL(serviceToUse || treatmentValue, placeQuery);
+            
+            fetchClinics(res.data.lat, res.data.lng, serviceOverride);
+        } catch {
+            toast.error("We couldn't find that place. Try a nearby landmark.");
+            setLoading(false);
+        } finally {
+            toast.dismiss(geocodeToastId);
+        }
+    };
+
+    // Separate function for URL-based searches (to avoid infinite loops)
+    const searchByPlaceFromURL = async (locationText, serviceText = null) => {
+        if (!locationText) return;
+
+        setLoading(true);
+        clearPersistedState();
+        const geocodeToastId = toast.loading("Validating location...");
+        try {
+            const res = await axios.get("/api/clinics/geocode", {
+                params: { place: locationText },
+            });
+
+            setCoords({ lat: res.data.lat, lng: res.data.lng });
+            setFormErrors((prev) => ({ ...prev, location: "" }));
+            setHasSearched(true);
+            
+            // Use the service from URL if provided
+            const serviceToUse = serviceText || selectedService || query.trim();
+            fetchClinics(res.data.lat, res.data.lng, serviceText);
         } catch {
             toast.error("We couldn't find that place. Try a nearby landmark.");
             setLoading(false);
@@ -657,7 +815,7 @@ export default function Home() {
     return (
         <>
             <Head>
-                <title>ZEVA Healthcare Directory - Find Trusted Ayurveda Clinics & Medical Professionals</title>
+                <title>ZEVA Healthcare Directory - Find Trusted Clinics & Medical Professionals You Can Rely On </title>
                 <meta name="description" content="Discover verified Ayurveda clinics with transparent pricing, authentic treatments, and patient reviews. Search by location, treatment type, or clinic name to find the best healthcare providers near you." />
                 <meta name="keywords" content="Ayurveda clinics, healthcare directory, medical professionals, Ayurveda treatments, Panchakarma, verified clinics, healthcare search, medical directory, ZEVA healthcare" />
                 <meta property="og:title" content="ZEVA Healthcare Directory - Find Trusted Ayurveda Clinics" />
@@ -667,6 +825,43 @@ export default function Home() {
                 <meta name="twitter:title" content="ZEVA Healthcare Directory" />
                 <meta name="twitter:description" content="Find trusted Ayurveda clinics and medical professionals with transparent pricing and verified reviews." />
                 <link rel="canonical" href="https://zevahealthcare.com/clinic/findclinic" />
+                {/* Schema Markup - Search Health Center WebPage */}
+                <script
+                    type="application/ld+json"
+                    dangerouslySetInnerHTML={{
+                        __html: JSON.stringify({
+                            "@context": "https://schema.org",
+                            "@type": "MedicalWebPage",
+                            "name": "Search Health Center",
+                            "url": "https://zeva360.com/clinic/findclinic",
+                            "description": "Find verified healthcare centers and clinics near you with ZEVA. Search by location, specialty, or clinic name to access authentic treatments, transparent pricing, and patient reviews.",
+                            "publisher": {
+                                "@type": "Organization",
+                                "name": "ZEVA",
+                                "url": "https://zeva360.com",
+                                "logo": {
+                                    "@type": "ImageObject",
+                                    "url": "https://zeva360.com/logo.png"
+                                }
+                            },
+                            "about": {
+                                "@type": "MedicalOrganization",
+                                "name": "Healthcare Centers & Clinics",
+                                "description": "Trusted medical centers and clinics providing verified healthcare services across multiple specialties."
+                            },
+                            "mainEntity": {
+                                "@type": "Website",
+                                "name": "Search Health Center",
+                                "url": "https://zeva360.com/search-health-center",
+                                "potentialAction": {
+                                    "@type": "SearchAction",
+                                    "target": "https://zeva360.com/search-health-center?query={search_term_string}",
+                                    "query-input": "required name=search_term_string"
+                                }
+                            }
+                        })
+                    }}
+                />
             </Head>
             <div className="min-h-screen bg-[#f8fafc]">
                 {/* Auth Modal */}
@@ -698,12 +893,14 @@ export default function Home() {
                                     ZEVA Healthcare Directory
                                 </h1>
                                 <p className="text-xs sm:text-sm text-[#64748b] mt-0.5">
-                                    Trusted Ayurveda Clinics & Medical Professionals
+                                Trusted Clinics & Medical Professionals You Can Rely On
                                 </p>
+
+
                             </div>
                         </div>
                         <p className="text-sm sm:text-base text-[#475569] max-w-2xl mx-auto mt-3">
-                            Discover verified Ayurveda clinics with transparent pricing, authentic treatments, and patient reviews
+                        ZEVA Healthcare Directory helps you quickly find verified clinics and trusted medical professionals, offering transparent details and real patient reviews to choose care with confidence.
                         </p>
                     </div>
 
@@ -1456,7 +1653,7 @@ export default function Home() {
                                                                 </a>
                                                             )}
                                                             <a
-                                                                href={`/clinics/${clinic._id}`}
+                                                                href={`/clinics/${textToSlug(clinic.name)}?c=${clinic._id}`}
                                                                 className="px-2.5 py-1 text-xs text-white bg-gradient-to-r from-[#0284c7] to-[#0ea5e9] hover:from-[#0369a1] hover:to-[#0284c7] rounded-lg font-medium transition-all shadow-sm hover:shadow whitespace-nowrap"
                                                             >
                                                                 View Details
@@ -1612,7 +1809,8 @@ export default function Home() {
                                 Welcome to ZEVA Healthcare Directory
                             </h2>
                             <p className="text-base text-[#475569] max-w-2xl mx-auto mb-6">
-                                Discover trusted Ayurveda clinics and medical professionals in your area. Search by location, treatment, or clinic name to find the best healthcare providers.
+                            ZEVA connects patients with verified clinics and certified medical professionals in their area. Every listed clinic goes through a verification process to ensure proper credentials, experience, and quality standards. This helps you make informed healthcare decisions without uncertainty.
+
                             </p>
                         </div>
                         
@@ -1627,7 +1825,8 @@ export default function Home() {
                                         ZEVA Healthcare Trust
                                     </h2>
                                     <p className="text-sm sm:text-base text-[#64748b]">
-                                        Your trusted platform for authentic Ayurveda healthcare. We connect patients with verified clinics, ensuring quality care and transparent services.
+                                    ZEVA is built on trust and transparency. We focus on connecting patients with clinics that follow ethical practices, provide authentic treatments, and maintain clear communication.
+
                                     </p>
                                 </div>
                             </div>
@@ -1667,23 +1866,33 @@ export default function Home() {
                             </div>
                             
                             <div className="bg-white/90 backdrop-blur-sm rounded-lg p-5 border border-white/50">
-                                <h3 className="text-lg font-bold text-[#1e293b] mb-4 text-center">Why Trust ZEVA Healthcare?</h3>
+                                <h3 className="text-lg font-bold text-[#1e293b] mb-4 text-center">Why Users Trust ZEVA:
+</h3>
                                 <div className="grid sm:grid-cols-2 gap-3 text-sm text-[#475569]">
                                     <div className="flex items-start">
                                         <span className="text-[#0284c7] font-bold mr-2 text-lg">✓</span>
-                                        <span>Authentic Ayurveda treatments from certified and experienced practitioners</span>
+                                        <span>Verified Clinics – All clinics are checked for certifications and credentials
+
+</span>
                                     </div>
                                     <div className="flex items-start">
                                         <span className="text-[#0284c7] font-bold mr-2 text-lg">✓</span>
-                                        <span>Comprehensive clinic profiles with photos, services, and timings</span>
+                                        <span>Real Patient Reviews – Honest ratings from verified patients
+ 
+
+</span>
                                     </div>
                                     <div className="flex items-start">
                                         <span className="text-[#0284c7] font-bold mr-2 text-lg">✓</span>
-                                        <span>Advanced search filters for price range, ratings, and availability</span>
+                                        <span>Transparent Pricing – Clear consultation fees with no hidden charges
+
+
+</span>
                                     </div>
                                     <div className="flex items-start">
                                         <span className="text-[#0284c7] font-bold mr-2 text-lg">✓</span>
-                                        <span>Secure enquiry and booking system ensuring patient privacy and safety</span>
+                                        <span>Easy Search & Navigation – Accurate location results and directions
+                                        </span>
                                     </div>
                                 </div>
                             </div>

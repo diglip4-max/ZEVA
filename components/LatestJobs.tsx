@@ -16,12 +16,6 @@ type Job = {
     jobTitle?: string;
 };
 
-type CategoryStat = {
-    name: string;
-    growth: string;
-    icon: string;
-};
-
 interface LatestJobsSliderProps {
     className?: string;
 }
@@ -33,8 +27,7 @@ const LatestJobsSlider: React.FC<LatestJobsSliderProps> = ({ className = "" }) =
     const [searchQuery, setSearchQuery] = useState("");
     const [searchLocation, setSearchLocation] = useState("");
     const [searchSalary, setSearchSalary] = useState("");
-    const [sortBy, setSortBy] = useState("relevance");
-    const [categoryStats, setCategoryStats] = useState<CategoryStat[]>([]);
+    const [sortBy, _setSortBy] = useState("relevance");
 
     const fetchLatestJobs = async () => {
         try {
@@ -54,25 +47,8 @@ const LatestJobsSlider: React.FC<LatestJobsSliderProps> = ({ className = "" }) =
         }
     };
 
-    const fetchCategoryStats = async () => {
-        try {
-            const res = await axios.get<{ stats: CategoryStat[] }>(`/api/job-postings/category-stats`);
-            setCategoryStats(res.data.stats || []);
-        } catch (err) {
-            // console.error("Error fetching category stats:", err);
-            // Fallback to default stats if API fails
-            ; setCategoryStats([
-                { name: "Technology", growth: "+25%", icon: "💻" },
-                { name: "Healthcare", growth: "+18%", icon: "🏥" },
-                { name: "Finance", growth: "+12%", icon: "💰" },
-                { name: "Education", growth: "+15%", icon: "🎓" }
-            ])
-        }
-    };
-
     useEffect(() => {
         fetchLatestJobs();
-        fetchCategoryStats();
     }, []);
 
     // Search and filter logic
@@ -203,16 +179,6 @@ const LatestJobsSlider: React.FC<LatestJobsSliderProps> = ({ className = "" }) =
     };
 
     const hasActiveSearch = searchQuery || searchLocation || searchSalary;
-
-    const getCategoryColor = (index: number) => {
-        const colors = ['text-blue-600', 'text-green-600', 'text-purple-600', 'text-orange-600'];
-        return colors[index % colors.length];
-    };
-
-    const getCategoryBgColor = (index: number) => {
-        const colors = ['bg-blue-50', 'bg-green-50', 'bg-purple-50', 'bg-orange-50'];
-        return colors[index % colors.length];
-    };
 
     return (
         <div className={`w-full ${className}`}>

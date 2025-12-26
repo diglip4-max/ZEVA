@@ -1,6 +1,7 @@
 "use client";
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/router";
+import { createPortal } from "react-dom";
 import { Search, FileText, FileSpreadsheet, X, ChevronLeft, ChevronRight, Users, ClipboardList, DollarSign, Calendar, CheckCircle, XCircle, Clock, CreditCard, TrendingUp } from "lucide-react";
 import AdminLayout from "../../components/AdminLayout";
 import withAdminAuth from "../../components/withAdminAuth";
@@ -658,20 +659,24 @@ const AdminPatientClaims = () => {
       </div>
 
       {/* Patient Detail Modal with Blurred Background */}
-      {selectedPatient && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 backdrop-blur-sm bg-black/20">
-          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-gray-200">
-            <div className="sticky top-0 bg-white border-b border-gray-200 p-3 sm:p-4 flex justify-between items-center z-10">
-              <h2 className="text-lg sm:text-xl font-bold text-gray-900">Patient Details</h2>
+      {selectedPatient && typeof window !== 'undefined' && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 backdrop-blur-sm bg-black/20" style={{ zIndex: 9999 }}>
+          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col shadow-2xl border border-gray-200">
+            <div className="sticky top-0 bg-white border-b border-gray-200 p-4 sm:p-6 flex justify-between items-center z-10 flex-shrink-0">
+              <h2 className="text-lg sm:text-xl font-bold text-gray-900 flex items-center gap-2">
+                <Users className="w-5 h-5 text-blue-600" />
+                <span>Patient Details</span>
+              </h2>
               <button
                 onClick={() => setSelectedPatient(null)}
-                className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors text-gray-900"
+                className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors text-gray-900 flex-shrink-0"
+                aria-label="Close modal"
               >
                 <X size={20} />
               </button>
             </div>
 
-            <div className="p-4 sm:p-5 space-y-4">
+            <div className="p-4 sm:p-5 space-y-4 overflow-y-auto flex-1">
               {/* Personal Information */}
               <div>
                 <h3 className="text-base font-semibold text-gray-900 mb-2 border-b border-gray-300 pb-1.5">Personal Information</h3>
@@ -753,7 +758,8 @@ const AdminPatientClaims = () => {
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

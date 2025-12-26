@@ -56,19 +56,20 @@ export const clinicNavigationItems = [
     order: 7,
   },
   {
+    label: "Patient Registration",
+    path: "/clinic/patient-registration",
+    icon: "🧍‍♂️",
+    description: "Register and manage patients",
+    moduleKey: "clinic_patient_registration",
+    order: 9,
+  },
+  {
     label: "Staff Management",
     icon: "users",
     description: "Manage Staff",
     moduleKey: "staff_management",
-    order: 9,
+    order: 10,
     children: [
-      {
-        label: "Patient Registration",
-        path: "/clinic/patient-registration",
-        icon: "user-plus",
-        description: "Manage clinic",
-        order: 3,
-      },
       {
         label: "Patient Information",
         path: "/clinic/patient-information",
@@ -119,14 +120,14 @@ export const clinicNavigationItems = [
     icon: "gift",
     description: "Manage Offers",
     moduleKey: "create_offers",
-    order: 8,
+    order: 11,
   },
   {
     label: "Marketing",
     icon: "bar-chart",
     description: "Manage Marketing",
     moduleKey: "marketing",
-    order: 10,
+    order: 12,
     children: [
       {
         label: "SMS marketing",
@@ -157,7 +158,7 @@ export const clinicNavigationItems = [
     icon: "briefcase",
     description: "Manage job postings",
     moduleKey: "job_posting",
-    order: 11,
+    order: 13,
   },
   {
     label: "Write Blog",
@@ -165,7 +166,6 @@ export const clinicNavigationItems = [
     icon: "file-text",
     description: "Manage Blogs",
     moduleKey: "write_blog",
-    order: 12,
+    order: 14,
   },
 ];
-

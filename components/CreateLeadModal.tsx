@@ -144,7 +144,15 @@ export default function CreateLeadModal({
       HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
     >
   ) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    if (e.target.name === 'phone') {
+      // Only allow digits and limit to 10 digits
+      const value = e.target.value.replace(/\D/g, '');
+      if (value.length <= 10) {
+        setFormData({ ...formData, phone: value });
+      }
+    } else {
+      setFormData({ ...formData, [e.target.name]: e.target.value });
+    }
   };
 
   const handleTreatmentChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -191,6 +199,12 @@ export default function CreateLeadModal({
     // Check permission before submitting
     if (!canCreate) {
       alert("You do not have permission to create leads");
+      return;
+    }
+
+    // Validate phone number
+    if (!formData.phone || formData.phone.length !== 10) {
+      alert("Please enter a valid 10-digit phone number");
       return;
     }
 
@@ -291,14 +305,21 @@ export default function CreateLeadModal({
                     Phone <span className="text-red-500">*</span>
                   </label>
                   <input
-                    type="text"
+                    type="tel"
                     name="phone"
                     value={formData.phone}
                     onChange={handleChange}
+                    maxLength={10}
                     className="w-full border border-gray-200 rounded-lg px-2.5 py-2 focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all text-xs sm:text-sm"
-                    placeholder="Enter phone number"
+                    placeholder="Enter 10-digit phone number"
                     required
                   />
+                  {formData.phone.length > 0 && formData.phone.length !== 10 && (
+                    <p className="text-[10px] text-red-500 mt-1">Phone number must be exactly 10 digits</p>
+                  )}
+                  {formData.phone.length === 10 && (
+                    <p className="text-[10px] text-green-600 mt-1">Valid phone number</p>
+                  )}
                 </div>
               </div>
 

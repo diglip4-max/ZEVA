@@ -4,28 +4,49 @@ import dbConnect from "../../../lib/database";
 import User from "../../../models/Users";
 
 export async function getUserFromReq(req) {
-  await dbConnect();
+  try {
+    await dbConnect();
+  } catch (dbError) {
+    console.error("Database connection error in getUserFromReq:", dbError);
+    return null;
+  }
+
   try { 
     const auth = req.headers.authorization || "";
-    // console.log("Authorization header:", req.headers.authorization);
+    
+    if (!auth) {
+      return null;
+    }
 
- const token = auth?.toLowerCase().startsWith("bearer ")
-    ? auth.slice(7)
-    : null;
-    // console.log("Extracted token:", token);
-    if (!token) return null;
+    const token = auth?.toLowerCase().startsWith("bearer ")
+      ? auth.slice(7)
+      : null;
+    
+    if (!token) {
+      return null;
+    }
+
+    if (!process.env.JWT_SECRET) {
+      console.error("JWT_SECRET is not set in environment variables");
+      return null;
+    }
 
     const payload = jwt.verify(token, process.env.JWT_SECRET);
     
     // Handle different token formats:
     // Admin uses 'id', others use 'userId'
     const userId = payload?.userId || payload?.id;
-    if (!userId) return null;
+    if (!userId) {
+      return null;
+    }
 
     const user = await User.findById(userId);
     return user || null;
   } catch (e) {
-    console.error("Auth error:", e.message);
+    // Don't log JWT errors as they're expected for invalid tokens
+    if (e.name !== 'JsonWebTokenError' && e.name !== 'TokenExpiredError') {
+      console.error("Auth error in getUserFromReq:", e.message);
+    }
     return null;
   }
 }

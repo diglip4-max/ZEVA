@@ -3,7 +3,7 @@ import axios from "axios";
 import { useRouter } from "next/router";
 import { useAuth } from "@/context/AuthContext";
 import AuthModal from "../../components/AuthModal";
-import { FaWhatsapp, FaBriefcase, FaMapMarkerAlt, FaClock, FaMoneyBillWave, FaUsers, FaCalendarAlt, FaGraduationCap, FaLanguage, FaBuilding, FaChevronDown, FaChevronUp } from "react-icons/fa";
+import { FaWhatsapp, FaMapMarkerAlt, FaClock, FaMoneyBillWave, FaUsers, FaCalendarAlt, FaBuilding, FaChevronDown, FaChevronUp } from "react-icons/fa";
 
 interface Job {
   _id: string;
@@ -37,7 +37,7 @@ interface User {
 
 const JobDetail: React.FC = () => {
   const router = useRouter();
-  const { id } = router.query;
+  const { id } = router.query; // This will be the slug now
   const { user, isAuthenticated } = useAuth() as {
     user: User | null;
     isAuthenticated: boolean;
@@ -55,14 +55,113 @@ const JobDetail: React.FC = () => {
   const shouldApplyAfterLogin = useRef(false);
   const descriptionRef = useRef<HTMLDivElement>(null);
 
+  // Helper: extract full MongoDB ObjectId from slug
+  // Format: job-title-abc12345def67890 (title + full 24-char ID at the end)
+  const extractJobIdFromSlug = (slug: string): string | null => {
+    if (!slug) return null;
+    
+    // MongoDB ObjectId is 24 hex characters
+    // Try to extract it from the end of the slug
+    const objectIdPattern = /([a-f0-9]{24})$/i;
+    const match = slug.match(objectIdPattern);
+    
+    if (match) {
+      return match[1]; // Return the full 24-character ID
+    }
+    
+    return null;
+  };
+
   useEffect(() => {
-    if (id) {
-      axios
-        .get<{ jobs: Job[] }>(`/api/job-postings/all?jobId=${id}`)
-        .then((res) => setJob(res.data.jobs[0]))
-        .catch(console.error);
+    if (id && typeof id === 'string') {
+      // Check if it's a MongoDB ObjectId (24 hex characters) - backward compatibility
+      const isObjectId = /^[a-f0-9]{24}$/i.test(id);
+      
+      if (isObjectId) {
+        // Old URL format with ID - fetch directly by ID
+        console.log("🔍 Detected ObjectId, fetching by ID:", id);
+        axios
+          .get<{ jobs: Job[] }>(`/api/job-postings/all?jobId=${id}`)
+          .then((res) => {
+            if (res.data.jobs && res.data.jobs.length > 0) {
+              setJob(res.data.jobs[0]);
+            } else {
+              // If not found, try searching by slug
+              searchJobBySlug(id);
+            }
+          })
+          .catch(() => {
+            // If error, try searching by slug
+            searchJobBySlug(id);
+          });
+      } else {
+        // New URL format with slug - search by job title
+        searchJobBySlug(id);
+      }
     }
   }, [id]);
+
+  const searchJobBySlug = async (slug: string) => {
+    console.log("🔍 Searching job by slug (optimized):", slug);
+    
+    // OPTIMIZED APPROACH: Extract full ID from slug and query directly
+    const jobId = extractJobIdFromSlug(slug);
+    
+    if (jobId) {
+      // Direct database lookup by ID - FASTEST and most efficient
+      console.log("⚡ Using optimized lookup by ID:", jobId);
+      try {
+        const res = await axios.get<{ jobs: Job[] }>(`/api/job-postings/all?jobId=${jobId}`);
+        
+        if (res.data.jobs && res.data.jobs.length > 0) {
+          const foundJob = res.data.jobs[0];
+          console.log("✅ Found job by ID (optimized):", foundJob.jobTitle);
+          setJob(foundJob);
+          return;
+        } else {
+          console.error("❌ Job not found for ID:", jobId);
+          router.push('/job-listings');
+          return;
+        }
+      } catch (error) {
+        console.error("Error fetching job by ID:", error);
+        router.push('/job-listings');
+        return;
+      }
+    }
+    
+    // Fallback: If no ID found in slug, try title-based search (backward compatibility)
+    console.log("⚠️ No ID in slug, falling back to title search");
+    try {
+      const res = await axios.get<{ jobs: Job[] }>(`/api/job-postings/all`);
+      const allJobs = res.data.jobs || [];
+      
+      // Extract title part from slug (everything before the ID part)
+      const titlePart = slug.replace(/-[a-f0-9]{24}$/i, '').replace(/-+$/, '');
+      
+      const foundJob = allJobs.find(job => {
+        if (!job.jobTitle) return false;
+        const jobTitleSlug = job.jobTitle
+          .toLowerCase()
+          .trim()
+          .replace(/[^\w\s-]/g, "")
+          .replace(/\s+/g, "-")
+          .replace(/-+/g, "-");
+        return jobTitleSlug === titlePart;
+      });
+      
+      if (foundJob) {
+        console.log("✅ Found job by title (fallback):", foundJob.jobTitle);
+        setJob(foundJob);
+      } else {
+        console.error("❌ Job not found for slug:", slug);
+        router.push('/job-listings');
+      }
+    } catch (error) {
+      console.error("Error searching job by slug:", error);
+      router.push('/job-listings');
+    }
+  };
 
   useEffect(() => {
     if (isAuthenticated && shouldApplyAfterLogin.current) {

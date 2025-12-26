@@ -89,7 +89,7 @@ export const games = [
   {
     id: 'fitwithzeva',
     title: 'Be Fit with Zeva',
-    description: 'Fun exercises boost immunity & strength',
+    description: 'Fun Exercises to Boost Immunity & Strength',
     icon: Heart,
     bgColor: 'bg-gradient-to-br from-purple-500 to-purple-600',
     category: 'Fitness',
@@ -98,7 +98,7 @@ export const games = [
   {
     id: 'quiz',
     title: 'Health Quiz Challenge',
-    description: 'Test your health knowledge with quizzes',
+    description: 'Test Your Health Knowledge Online',
     icon: BookOpen,
     bgColor: 'bg-gradient-to-br from-blue-500 to-blue-600',
     category: 'Puzzle',
@@ -107,7 +107,7 @@ export const games = [
   {
     id: 'flipcards',
     title: 'FitFlip Cards',
-    description: 'Match exercises, burn calories fast',
+    description: 'Fun Exercise Game to Burn Calories Fast',
     icon: Dumbbell,
     bgColor: 'bg-gradient-to-br from-teal-500 to-teal-600',
     category: 'Action',

@@ -3,6 +3,8 @@ import dbConnect from "../../../lib/database";
 import User from "../../../models/Users";
 import Clinic from "../../../models/Clinic";  
 import { getUserFromReq, requireRole } from "./auth";
+import { checkClinicPermission } from "./permissions-helper";
+import { checkAgentPermission } from "../agent/permissions-helper";
 
 export default async function handler(req, res) {
   await dbConnect();
@@ -15,6 +17,55 @@ export default async function handler(req, res) {
   // ✅ Allow admin, clinic, agent, doctor, or doctorStaff
   if (!requireRole(user, ["admin", "clinic", "agent", "doctor", "doctorStaff", "staff"])) {
     return res.status(403).json({ success: false, message: "Access denied" });
+  }
+
+  // ✅ Check permissions for reading agents (admin bypasses all checks)
+  if (user.role !== 'admin') {
+    // For clinic role: Check clinic permissions
+    if (user.role === 'clinic') {
+      const clinic = await Clinic.findOne({ owner: user._id });
+      if (clinic) {
+        const { hasPermission: clinicHasPermission, error: clinicError } = await checkClinicPermission(
+          clinic._id,
+          "create_agent",
+          "read"
+        );
+        if (!clinicHasPermission) {
+          return res.status(403).json({
+            success: false,
+            message: clinicError || "You do not have permission to view agents"
+          });
+        }
+      }
+    }
+    // For agent role (agentToken): Check agent permissions
+    else if (user.role === 'agent') {
+      const { hasPermission: agentHasPermission, error: agentError } = await checkAgentPermission(
+        user._id,
+        "create_agent",
+        "read"
+      );
+      if (!agentHasPermission) {
+        return res.status(403).json({
+          success: false,
+          message: agentError || "You do not have permission to view agents"
+        });
+      }
+    }
+    // For doctorStaff role (userToken): Check agent permissions
+    else if (user.role === 'doctorStaff') {
+      const { hasPermission: agentHasPermission, error: agentError } = await checkAgentPermission(
+        user._id,
+        "create_agent",
+        "read"
+      );
+      if (!agentHasPermission) {
+        return res.status(403).json({
+          success: false,
+          message: agentError || "You do not have permission to view agents"
+        });
+      }
+    }
   }
 
   if (req.method === "GET") {

@@ -28,37 +28,47 @@ const AdminLayout = ({
     return <>{children}</>;
   }
 
+  const toggleDesktop = () => {
+    setIsDesktopHidden(!isDesktopHidden);
+  };
+
+  const toggleMobile = () => {
+    setIsMobileOpen(!isMobileOpen);
+  };
+
   return (
     <div className="flex min-h-screen bg-gray-50" role="application">
       {/* Sidebar */}
       {!hideSidebar && (
-        <div className="sticky top-0 z-30 h-screen">
+        <div className="fixed lg:sticky top-0 left-0 z-50 h-screen">
           <AdminSidebar 
             onItemsChange={setSidebarItems}
+            externalIsDesktopHidden={isDesktopHidden}
+            externalIsMobileOpen={isMobileOpen}
+            onExternalToggleDesktop={toggleDesktop}
+            onExternalToggleMobile={toggleMobile}
           />
         </div>
       )}
 
       {/* Main Content Area */}
-      <div className="flex min-h-screen max-h-screen flex-1 flex-col">
+      <div className="flex min-h-screen flex-1 flex-col lg:ml-0">
         {/* Header */}
         {!hideHeader && (
-          <div className="sticky top-0 z-20">
+          <div className="z-40">
             <AdminHeader 
-              handleToggleDesktop={() => setIsDesktopHidden(!isDesktopHidden)}
-              handleToggleMobile={() => setIsMobileOpen(!isMobileOpen)}
+              sidebarItems={sidebarItems}
               isDesktopHidden={isDesktopHidden}
               isMobileOpen={isMobileOpen}
-              sidebarItems={sidebarItems}
+              onToggleDesktop={toggleDesktop}
+              onToggleMobile={toggleMobile}
             />
           </div>
         )}
 
         {/* Page Content */}
         <main
-          className={`flex-1 overflow-y-auto ${
-            hideSidebar && hideHeader ? '' : ''
-          }`}
+          className="flex-1 overflow-y-auto relative z-0"
           role="main"
         >
           {children}

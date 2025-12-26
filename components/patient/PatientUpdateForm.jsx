@@ -81,6 +81,7 @@ const EditableField = ({
   min,
   max,
   step,
+  maxLength,
   isCompact = false,
 }) => (
   <div className="flex-1 min-w-[120px]">
@@ -123,6 +124,7 @@ const EditableField = ({
         min={min}
         max={max}
         step={step}
+        maxLength={maxLength}
         className={`w-full px-2 py-1 text-[10px] border rounded-md focus:ring-1 focus:ring-gray-900 focus:border-gray-900 ${disabled ? "bg-gray-100 cursor-not-allowed text-gray-500" : "bg-white text-gray-900"}`}
       />
     )}
@@ -148,6 +150,16 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
 
   const handleFieldChange = useCallback((e) => {
     const { name, value, type } = e.target;
+    
+    // Handle mobileNumber - only allow digits and limit to 10 digits
+    if (name === "mobileNumber") {
+      const numericValue = value.replace(/\D/g, '');
+      if (numericValue.length <= 10) {
+        setFormData((prev) => ({ ...prev, [name]: numericValue }));
+      }
+      return;
+    }
+    
     let parsedValue = value;
     if (type === "number") {
       parsedValue = value === "" ? "" : Number(value);
@@ -174,7 +186,6 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
           ...data,
           invoicedDate: data.invoicedDate ? data.invoicedDate.slice(0, 16) : "",
         });
-        showToast("Patient data loaded successfully", "success");
       } catch (err) {
         console.error(err);
         setFetchError(err.message || "Failed to fetch data");
@@ -288,6 +299,12 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
         });
         showToast(result.message || "Patient updated successfully", "success");
         if (onUpdated) onUpdated();
+        // Close modal after successful update (with small delay to show toast)
+        if (onClose) {
+          setTimeout(() => {
+            onClose();
+          }, 1500);
+        }
       } else {
         showToast(result.message || "Failed to update patient details", "error");
       }
@@ -363,54 +380,40 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
             )}
           </div>
         ) : (
-          <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-3 py-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+          <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-2 py-1.5">
             <div>
-              <h1 className="text-sm font-bold flex items-center gap-1">
+              <h1 className="text-xs font-bold flex items-center gap-1">
                 <FileText className="w-3 h-3" />
                 Patient & Invoice Management
               </h1>
-              <p className="text-indigo-100 mt-0.5 text-[9px]">View and update patient information</p>
-            </div>
-            <div className="flex items-center gap-2">
-              {onClose && (
-                <button
-                  onClick={onClose}
-                  className="px-2 py-1 rounded-lg bg-white/10 text-white border border-white/30 hover:bg-white/20 transition-colors text-[10px] font-medium"
-                >
-                  Close
-                </button>
-              )}
-              <div className="bg-white/10 backdrop-blur-sm rounded-lg px-2 py-1 text-left">
-                <div className="text-[9px] text-indigo-100">Logged in as</div>
-                <div className="text-[9px] text-indigo-200">Clinic Staff</div>
-              </div>
+              <p className="text-indigo-100 mt-0.5 text-[8px]">View and update patient information</p>
             </div>
           </div>
         )}
 
-        <div className={`${embedded ? 'p-2 space-y-2 flex-1 overflow-y-auto' : 'p-3 sm:p-4 md:p-6 lg:p-8 space-y-4 sm:space-y-5 md:space-y-6'}`}>
+        <div className={`${embedded ? 'p-1.5 space-y-1.5 flex-1 overflow-y-auto' : 'p-2 sm:p-3 md:p-4 space-y-2 sm:space-y-3 md:space-y-4'}`}>
           {/* Tabs */}
-          <div className="flex gap-1 border-b border-gray-200 mb-2">
+          <div className="flex gap-1 border-b border-gray-200 mb-1.5">
             <button
               onClick={() => setActiveTab("update")}
-              className={`px-3 py-1.5 text-[10px] font-medium transition-colors flex items-center gap-1 ${
+              className={`px-2 py-1 text-[9px] font-medium transition-colors flex items-center gap-1 ${
                 activeTab === "update"
                   ? "text-gray-900 border-b-2 border-gray-900"
                   : "text-gray-600 hover:text-gray-900"
               }`}
             >
-              <Edit className="w-3 h-3" />
+              <Edit className="w-2.5 h-2.5" />
               Update Patient
             </button>
             <button
               onClick={() => setActiveTab("paymentHistory")}
-              className={`px-3 py-1.5 text-[10px] font-medium transition-colors flex items-center gap-1 ${
+              className={`px-2 py-1 text-[9px] font-medium transition-colors flex items-center gap-1 ${
                 activeTab === "paymentHistory"
                   ? "text-gray-900 border-b-2 border-gray-900"
                   : "text-gray-600 hover:text-gray-900"
               }`}
             >
-              <DollarSign className="w-3 h-3" />
+              <DollarSign className="w-2.5 h-2.5" />
               Payment History
             </button>
           </div>
@@ -418,12 +421,12 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
           {/* Update Patient Tab */}
           {activeTab === "update" && (
             <>
-            <div className={`bg-white rounded-lg p-2 border border-gray-200`}>
-              <h2 className={`text-xs font-semibold text-gray-900 mb-1 flex items-center gap-1`}>
-                <Calendar className={`w-3 h-3 text-gray-700 flex-shrink-0`} />
+            <div className={`bg-white rounded-lg p-1.5 border border-gray-200`}>
+              <h2 className={`text-[10px] font-semibold text-gray-900 mb-1 flex items-center gap-1`}>
+                <Calendar className={`w-2.5 h-2.5 text-gray-700 flex-shrink-0`} />
                 Invoice Information
               </h2>
-              <div className={`flex flex-wrap gap-2 items-end`}>
+              <div className={`flex flex-wrap gap-1.5 items-end`}>
                 <EditableField
                   label="Invoice Number"
                   name="invoiceNumber"
@@ -451,12 +454,12 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
               </div>
             </div>
 
-            <div className={`bg-white rounded-lg p-2 border border-gray-200`}>
-              <h2 className={`text-xs font-semibold text-gray-900 mb-1 flex items-center gap-1`}>
-                <User className={`w-3 h-3 text-gray-700`} />
+            <div className={`bg-white rounded-lg p-1.5 border border-gray-200`}>
+              <h2 className={`text-[10px] font-semibold text-gray-900 mb-1 flex items-center gap-1`}>
+                <User className={`w-2.5 h-2.5 text-gray-700`} />
                 Patient Information
               </h2>
-              <div className={`flex flex-wrap gap-2 items-end`}>
+              <div className={`flex flex-wrap gap-1.5 items-end`}>
                 <EditableField
                   label="EMR Number"
                   name="emrNumber"
@@ -486,10 +489,12 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
                 <EditableField
                   label="Mobile Number"
                   name="mobileNumber"
+                  type="tel"
                   value={canViewMobileNumber ? formData.mobileNumber : ""}
                   onChange={handleFieldChange}
                   required
                   disabled={!canViewMobileNumber}
+                  maxLength={10}
                 />
                 <EditableField
                   label="Gender"
@@ -544,9 +549,9 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
               </div>
             </div>
 
-            <div className={`bg-white rounded-lg p-2 border border-gray-200`}>
-              <h2 className={`text-xs font-semibold text-gray-900 mb-1`}>Insurance Details</h2>
-              <div className={`flex flex-wrap gap-2 items-end`}>
+            <div className={`bg-white rounded-lg p-1.5 border border-gray-200`}>
+              <h2 className={`text-[10px] font-semibold text-gray-900 mb-1`}>Insurance Details</h2>
+              <div className={`flex flex-wrap gap-1.5 items-end`}>
                 <EditableField
                   label="Insurance"
                   name="insurance"
@@ -628,10 +633,10 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
             </div>
 
             {/* Actions */}
-            <div className="flex justify-end gap-2 pt-1">
+            <div className="flex justify-end gap-1.5 pt-1">
               <button
                 onClick={handleFullUpdate}
-                className="px-3 py-1 text-[10px] bg-gray-900 text-white rounded-md hover:bg-gray-800 transition font-medium shadow-sm"
+                className="px-2.5 py-1 text-[9px] bg-gray-900 text-white rounded-md hover:bg-gray-800 transition font-medium shadow-sm"
               >
                 Update Patient
               </button>
@@ -641,53 +646,53 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
 
           {/* Payment History Tab */}
           {activeTab === "paymentHistory" && (
-            <div className="bg-white rounded-lg p-2 border border-gray-200">
-              <h2 className="text-xs font-semibold text-gray-900 mb-2 flex items-center gap-1">
-                <DollarSign className="w-3 h-3 text-gray-700" />
+            <div className="bg-white rounded-lg p-1.5 border border-gray-200">
+              <h2 className="text-[10px] font-semibold text-gray-900 mb-1.5 flex items-center gap-1">
+                <DollarSign className="w-2.5 h-2.5 text-gray-700" />
                 Payment History
               </h2>
               
               {loadingBillingHistory ? (
-                <div className="flex items-center justify-center py-8">
-                  <Loader2 className="w-4 h-4 animate-spin text-gray-500 mr-2" />
-                  <span className="text-[10px] text-gray-500">Loading payment history...</span>
+                <div className="flex items-center justify-center py-6">
+                  <Loader2 className="w-3 h-3 animate-spin text-gray-500 mr-1.5" />
+                  <span className="text-[9px] text-gray-500">Loading payment history...</span>
                 </div>
               ) : billingHistory.length === 0 ? (
-                <div className="text-center py-8">
-                  <p className="text-[10px] text-gray-500">No payment history found</p>
+                <div className="text-center py-6">
+                  <p className="text-[9px] text-gray-500">No payment history found</p>
                 </div>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full text-[10px]">
+                  <table className="w-full text-[9px]">
                     <thead>
                       <tr className="bg-blue-900 text-white">
-                        <th className="px-2 py-1 text-left font-medium">Invoice ID</th>
-                        <th className="px-2 py-1 text-left font-medium">Treatment/Package</th>
-                        <th className="px-2 py-1 text-left font-medium">Total Amount</th>
-                        <th className="px-2 py-1 text-left font-medium">Paid</th>
-                        <th className="px-2 py-1 text-left font-medium">Pending</th>
-                        <th className="px-2 py-1 text-left font-medium">Advance</th>
-                        <th className="px-2 py-1 text-left font-medium">Quantity</th>
-                        <th className="px-2 py-1 text-left font-medium">Session</th>
-                        <th className="px-2 py-1 text-left font-medium">Payment Method</th>
-                        <th className="px-2 py-1 text-left font-medium">Date</th>
+                        <th className="px-1.5 py-0.5 text-left font-medium">Invoice ID</th>
+                        <th className="px-1.5 py-0.5 text-left font-medium">Treatment/Package</th>
+                        <th className="px-1.5 py-0.5 text-left font-medium">Total Amount</th>
+                        <th className="px-1.5 py-0.5 text-left font-medium">Paid</th>
+                        <th className="px-1.5 py-0.5 text-left font-medium">Pending</th>
+                        <th className="px-1.5 py-0.5 text-left font-medium">Advance</th>
+                        <th className="px-1.5 py-0.5 text-left font-medium">Quantity</th>
+                        <th className="px-1.5 py-0.5 text-left font-medium">Session</th>
+                        <th className="px-1.5 py-0.5 text-left font-medium">Payment Method</th>
+                        <th className="px-1.5 py-0.5 text-left font-medium">Date</th>
                       </tr>
                     </thead>
                     <tbody>
                       {billingHistory.map((billing, index) => (
                         <tr key={billing._id || index} className="border-b border-gray-200 hover:bg-gray-50">
-                          <td className="px-2 py-1 text-gray-900">{billing.invoiceNumber || "-"}</td>
-                          <td className="px-2 py-1 text-gray-900">
+                          <td className="px-1.5 py-0.5 text-gray-900">{billing.invoiceNumber || "-"}</td>
+                          <td className="px-1.5 py-0.5 text-gray-900">
                             {billing.service === "Treatment" ? billing.treatment : billing.package || "-"}
                           </td>
-                          <td className="px-2 py-1 text-gray-900">₹{billing.amount?.toFixed(2) || "0.00"}</td>
-                          <td className="px-2 py-1 text-gray-900">₹{billing.paid?.toFixed(2) || "0.00"}</td>
-                          <td className="px-2 py-1 text-gray-900">₹{billing.pending?.toFixed(2) || "0.00"}</td>
-                          <td className="px-2 py-1 text-gray-900">₹{billing.advance?.toFixed(2) || "0.00"}</td>
-                          <td className="px-2 py-1 text-gray-900">{billing.quantity || "-"}</td>
-                          <td className="px-2 py-1 text-gray-900">{billing.sessions || "-"}</td>
-                          <td className="px-2 py-1 text-gray-900">{billing.paymentMethod || "-"}</td>
-                          <td className="px-2 py-1 text-gray-900">
+                          <td className="px-1.5 py-0.5 text-gray-900">₹{billing.amount?.toFixed(2) || "0.00"}</td>
+                          <td className="px-1.5 py-0.5 text-gray-900">₹{billing.paid?.toFixed(2) || "0.00"}</td>
+                          <td className="px-1.5 py-0.5 text-gray-900">₹{billing.pending?.toFixed(2) || "0.00"}</td>
+                          <td className="px-1.5 py-0.5 text-gray-900">₹{billing.advance?.toFixed(2) || "0.00"}</td>
+                          <td className="px-1.5 py-0.5 text-gray-900">{billing.quantity || "-"}</td>
+                          <td className="px-1.5 py-0.5 text-gray-900">{billing.sessions || "-"}</td>
+                          <td className="px-1.5 py-0.5 text-gray-900">{billing.paymentMethod || "-"}</td>
+                          <td className="px-1.5 py-0.5 text-gray-900">
                             {billing.invoicedDate ? new Date(billing.invoicedDate).toLocaleDateString() : "-"}
                           </td>
                         </tr>

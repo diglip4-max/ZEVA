@@ -91,6 +91,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
   const [totalPrice, setTotalPrice] = useState(0);
   const [billingHistory, setBillingHistory] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [activeTab, setActiveTab] = useState<"billing" | "history">("billing");
 
   // Form data
   const [formData, setFormData] = useState({
@@ -505,12 +506,15 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
   if (!isOpen || !appointment) return null;
 
   const filteredTreatments = treatments.filter((t) => {
-    if (!treatmentSearchQuery.trim()) return false;
+    // If search query is empty, show all treatments
+    if (!treatmentSearchQuery.trim()) {
+      return t.type === "sub";
+    }
     const query = treatmentSearchQuery.toLowerCase();
     if (t.type === "sub") {
       return t.name.toLowerCase().includes(query) || (t.mainTreatment?.toLowerCase().includes(query) || false);
     }
-    return false; // Only show sub-treatments
+    return false;
   });
 
   const filteredPackages = packages.filter((pkg) => {
@@ -520,93 +524,119 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
   });
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center p-2 bg-black/50 backdrop-blur-sm">
-      <div className="bg-white rounded-lg shadow-2xl max-w-6xl w-full max-h-[95vh] overflow-y-auto">
-        {/* Header */}
-        <div className="sticky top-0 bg-white border-b border-gray-200 px-4 py-2 flex items-center justify-between">
-          <h2 className="text-lg font-bold text-gray-900">Billing</h2>
-          <button
-            onClick={onClose}
-            className="p-1.5 hover:bg-gray-100 rounded-lg transition"
-          >
-            <X className="w-4 h-4" />
-          </button>
+    <>
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-1 sm:p-2 bg-black/50 backdrop-blur-md transition-all duration-300 animate-in fade-in">
+      <div className="bg-white mt-6 dark:bg-gray-50 rounded shadow-2xl max-w-4xl w-full max-h-[98vh] sm:max-h-[95vh] overflow-hidden flex flex-col transform transition-all duration-300 scale-100 opacity-100 animate-in slide-in-from-bottom-4 zoom-in-95" style={{ minHeight: '600px' }}>
+        {/* Header with Tabs */}
+        <div className="sticky top-0 bg-gray-800 dark:bg-gray-700 border-b border-gray-700 dark:border-gray-600 z-10 shadow">
+          <div className="px-1.5 sm:px-2 py-1 sm:py-1.5 flex items-center justify-between">
+            <div className="flex items-center gap-1">
+              <div className="p-0.5 bg-gray-700 dark:bg-gray-600 rounded">
+                <Search className="w-3 h-3 text-white" />
+              </div>
+              <h2 className="text-[10px] sm:text-xs font-bold text-white">Billing</h2>
+            </div>
+            <button
+              onClick={onClose}
+              className="p-0.5 hover:bg-gray-700 dark:hover:bg-gray-600 rounded transition-all duration-200 focus:outline-none focus:ring-1 focus:ring-gray-500 text-white"
+              aria-label="Close modal"
+            >
+              <X className="w-3 h-3" />
+            </button>
+          </div>
+          {/* Tabs */}
+          <div className="flex border-t border-gray-700 dark:border-gray-600">
+            <button
+              onClick={() => setActiveTab("billing")}
+              className={`flex-1 px-1.5 py-1 text-[9px] sm:text-[10px] font-medium transition-colors ${
+                activeTab === "billing"
+                  ? "bg-gray-700 dark:bg-gray-600 text-white border-b-2 border-white"
+                  : "text-gray-300 hover:text-white hover:bg-gray-700/50"
+              }`}
+            >
+              Create Billing
+            </button>
+            <button
+              onClick={() => setActiveTab("history")}
+              className={`flex-1 px-1.5 py-1 text-[9px] sm:text-[10px] font-medium transition-colors ${
+                activeTab === "history"
+                  ? "bg-gray-700 dark:bg-gray-600 text-white border-b-2 border-white"
+                  : "text-gray-300 hover:text-white hover:bg-gray-700/50"
+              }`}
+            >
+              Payment History
+            </button>
+          </div>
         </div>
 
-        {/* Content */}
-        <form onSubmit={handleSubmit} className="p-4 space-y-3">
+        {/* Content - Fixed height container for equal sizing */}
+        <div className="flex-1 overflow-hidden flex flex-col min-h-0" style={{ minHeight: '480px', height: '100%' }}>
+        {activeTab === "billing" ? (
+        <form id="billing-form" onSubmit={handleSubmit} className="p-1 sm:p-1.5 space-y-2 sm:space-y-2.5 overflow-y-auto flex-1 min-h-0 w-full h-full pb-1 sm:pb-1.5" style={{ height: '100%', width: '100%' }}>
           {errors.general && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-2 flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 text-red-600" />
-              <span className="text-red-700 text-xs">{errors.general}</span>
+            <div className="bg-red-50 dark:bg-red-100 border-l-2 border-red-500 dark:border-red-600 rounded p-1.5 flex items-start gap-1.5 text-red-700 dark:text-red-900 shadow-sm animate-in slide-in-from-top-2 fade-in mb-2" role="alert">
+              <AlertCircle className="w-3 h-3 flex-shrink-0 mt-0.5 animate-pulse" />
+              <p className="text-[10px] sm:text-[11px] font-medium">{errors.general}</p>
             </div>
           )}
 
           {/* First Row: Invoice Number, Invoice Date, Appointment Details */}
-          <div className="grid grid-cols-3 gap-3">
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-0.5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 mt-2 mb-2">
+            <div className="mt-1 mb-1">
+              <label className="block text-[10px] sm:text-[11px] font-medium text-gray-700 dark:text-gray-800 mb-1">
                 Invoice Number <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
                 value={formData.invoiceNumber}
                 onChange={(e) => setFormData((prev) => ({ ...prev, invoiceNumber: e.target.value }))}
-                className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-gray-900 focus:border-gray-900 outline-none"
+                className="w-full px-2 py-1 text-[10px] sm:text-[11px] border border-gray-300 dark:border-gray-300 rounded bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-1 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all outline-none"
                 required
               />
             </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-0.5">
+            <div className="mt-1 mb-1">
+              <label className="block text-[10px] sm:text-[11px] font-medium text-gray-700 dark:text-gray-800 mb-1">
                 Invoice Date <span className="text-red-500">*</span>
               </label>
               <input
                 type="date"
                 value={formData.invoicedDate}
                 onChange={(e) => setFormData((prev) => ({ ...prev, invoicedDate: e.target.value }))}
-                className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-gray-900 focus:border-gray-900 outline-none"
+                className="w-full px-2 py-1 text-[10px] sm:text-[11px] border border-gray-300 dark:border-gray-300 rounded bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-1 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all outline-none"
                 required
               />
             </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-0.5">Appointment Details</label>
-              <div className="bg-gray-50 rounded p-2 border border-gray-300">
-                <div className="text-xs text-gray-700">
-                  <span className="text-gray-600">Doctor:</span> <span className="font-medium">{appointment.doctorName}</span> | 
-                  <span className="text-gray-600 ml-1">Date:</span> <span className="font-medium">{appointment.startDate}</span> | 
-                  <span className="text-gray-600 ml-1">Time:</span> <span className="font-medium">{appointment.fromTime}-{appointment.toTime}</span>
+            <div className="mt-1 mb-1">
+              <label className="block text-[10px] sm:text-[11px] font-medium text-gray-700 dark:text-gray-800 mb-1">Appointment Details</label>
+              <div className="bg-gray-50 dark:bg-gray-100 rounded p-1.5 border border-gray-200 dark:border-gray-300">
+                <div className="text-[9px] sm:text-[10px] text-gray-700 dark:text-gray-800">
+                  <span className="text-gray-600 dark:text-gray-600">Dr:</span> <span className="font-semibold text-gray-900 dark:text-gray-900">{appointment?.doctorName || "-"}</span> | 
+                  <span className="text-gray-600 dark:text-gray-600 ml-1">Date:</span> <span className="font-semibold text-gray-900 dark:text-gray-900">{appointment?.startDate || "-"}</span> | 
+                  <span className="text-gray-600 dark:text-gray-600 ml-1">Time:</span> <span className="font-semibold text-gray-900 dark:text-gray-900">{appointment?.fromTime && appointment?.toTime ? `${appointment.fromTime}-${appointment.toTime}` : "-"}</span>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Second Row: Patient Information (Read-only display) */}
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-0.5">Patient/Client</label>
-            <div className="bg-gray-50 rounded p-2 border border-gray-300">
-              <div className="flex flex-wrap items-center gap-3 text-xs">
-                <span className="text-gray-600">First Name:</span> <span className="font-medium text-gray-900">{formData.firstName || appointment.patientName.split(" ")[0] || "-"}</span>
-                <span className="text-gray-400">|</span>
-                <span className="text-gray-600">Last Name:</span> <span className="font-medium text-gray-900">{formData.lastName || appointment.patientName.split(" ").slice(1).join(" ") || "-"}</span>
-                <span className="text-gray-400">|</span>
-                <span className="text-gray-600">Mobile:</span> <span className="font-medium text-gray-900">{formData.mobileNumber || appointment.patientNumber || "-"}</span>
-                <span className="text-gray-400">|</span>
-                <span className="text-gray-600">Email:</span> <span className="font-medium text-gray-900">{formData.email || appointment.patientEmail || "-"}</span>
-                <span className="text-gray-400">|</span>
-                <span className="text-gray-600">Gender:</span> <span className="font-medium text-gray-900">{formData.gender || appointment.gender || "-"}</span>
-                <span className="text-gray-400">|</span>
-                <span className="text-gray-600">EMR:</span> <span className="font-medium text-gray-900">{formData.emrNumber || appointment.emrNumber || "-"}</span>
-              </div>
+          {/* Second Row: Patient Information (Read-only display) - Single Line */}
+          <div className="rounded border border-gray-200 dark:border-gray-300 bg-gray-50 dark:bg-gray-100 p-1.5 mt-2 mb-2">
+            <label className="block text-[9px] sm:text-[10px] font-bold text-gray-800 dark:text-gray-900 mb-1 uppercase tracking-wider">Patient/Client Information</label>
+            <div className="text-[9px] sm:text-[10px] text-gray-700 dark:text-gray-800 flex flex-wrap items-center gap-x-2 gap-y-1">
+              <span><span className="text-gray-600 dark:text-gray-600 font-medium">Name:</span> <span className="font-semibold text-gray-900 dark:text-gray-900">{formData.firstName || (appointment?.patientName ? appointment.patientName.split(" ")[0] : "") || "-"} {formData.lastName || (appointment?.patientName ? appointment.patientName.split(" ").slice(1).join(" ") : "") || "-"}</span></span> |
+              <span><span className="text-gray-600 dark:text-gray-600 font-medium">Mobile:</span> <span className="font-semibold text-gray-900 dark:text-gray-900">{formData.mobileNumber || appointment?.patientNumber || "-"}</span></span> |
+              <span><span className="text-gray-600 dark:text-gray-600 font-medium">Email:</span> <span className="font-semibold text-gray-900 dark:text-gray-900">{formData.email || appointment?.patientEmail || "-"}</span></span> |
+              <span><span className="text-gray-600 dark:text-gray-600 font-medium">Gender:</span> <span className="font-semibold text-gray-900 dark:text-gray-900">{formData.gender || appointment?.gender || "-"}</span></span> |
+              <span><span className="text-gray-600 dark:text-gray-600 font-medium">EMR:</span> <span className="font-semibold text-gray-900 dark:text-gray-900">{formData.emrNumber || appointment?.emrNumber || "-"}</span></span>
             </div>
           </div>
 
           {/* Service Selection - Inline */}
-          <div className="flex items-center gap-3">
-            <label className="text-xs font-medium text-gray-700">
-              Service Type <span className="text-red-500">*</span>:
+          <div className="rounded border border-gray-200 dark:border-gray-300 bg-gray-50 dark:bg-gray-100 p-1.5 mt-2 mb-2">
+            <label className="block text-[9px] sm:text-[10px] font-bold text-gray-800 dark:text-gray-900 mb-1 uppercase tracking-wider">
+              Service Type <span className="text-red-500">*</span>
             </label>
-            <div className="flex gap-3">
-              <label className="flex items-center gap-1.5 cursor-pointer">
+            <div className="flex flex-col sm:flex-row gap-2">
+              <label className="flex items-center gap-2 cursor-pointer group">
                 <input
                   type="radio"
                   value="Treatment"
@@ -615,11 +645,11 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                     setSelectedService(e.target.value as "Treatment");
                     setFormData((prev) => ({ ...prev, service: "Treatment" }));
                   }}
-                  className="w-3 h-3"
+                  className="w-4 h-4 text-gray-600 focus:ring-2 focus:ring-gray-500 cursor-pointer"
                 />
-                <span className="text-xs">Treatment</span>
+                <span className="text-[11px] sm:text-xs font-medium text-gray-700 dark:text-gray-800 group-hover:text-gray-900 transition-colors">Treatment</span>
               </label>
-              <label className="flex items-center gap-1.5 cursor-pointer">
+              <label className="flex items-center gap-2 cursor-pointer group">
                 <input
                   type="radio"
                   value="Package"
@@ -628,48 +658,63 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                     setSelectedService(e.target.value as "Package");
                     setFormData((prev) => ({ ...prev, service: "Package" }));
                   }}
-                  className="w-3 h-3"
+                  className="w-4 h-4 text-gray-600 focus:ring-2 focus:ring-gray-500 cursor-pointer"
                 />
-                <span className="text-xs">Package</span>
+                <span className="text-[11px] sm:text-xs font-medium text-gray-700 dark:text-gray-800 group-hover:text-gray-900 transition-colors">Package</span>
               </label>
             </div>
           </div>
 
           {/* Treatment Selection */}
           {selectedService === "Treatment" && (
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
+            <div className="mt-2 mb-2 relative z-20">
+              <label className="block text-[11px] sm:text-xs font-medium text-gray-700 dark:text-gray-800 mb-1">
                 Select Treatment <span className="text-red-500">*</span>
               </label>
               <div className="relative" ref={treatmentDropdownRef}>
                 <button
                   type="button"
-                  onClick={() => setTreatmentDropdownOpen(!treatmentDropdownOpen)}
+                  onClick={() => {
+                    setTreatmentDropdownOpen(!treatmentDropdownOpen);
+                    if (!treatmentDropdownOpen) {
+                      setTreatmentSearchQuery(""); // Clear search when opening
+                    }
+                  }}
                   className="w-full flex items-center justify-between px-2 py-1.5 bg-white border border-gray-300 rounded text-xs text-gray-700 hover:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 >
-                  <span className="text-gray-500 text-xs">Start typing to search for treatments...</span>
+                  <span className="text-gray-500 text-xs">
+                    {selectedTreatments.length > 0 
+                      ? `${selectedTreatments.length} treatment(s) selected`
+                      : "Click to select treatments or type to search..."}
+                  </span>
                   <ChevronDown className={`w-3 h-3 text-gray-400 transition-transform ${treatmentDropdownOpen ? 'rotate-180' : ''}`} />
                 </button>
                 {treatmentDropdownOpen && (
-                  <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-48 overflow-hidden flex flex-col">
-                    <div className="p-1.5 border-b border-gray-200 sticky top-0 bg-white">
+                  <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-64 overflow-hidden flex flex-col">
+                    <div className="p-1.5 border-b border-gray-200 sticky top-0 bg-white z-50">
                       <input
                         type="text"
-                        placeholder="Search treatments..."
+                        placeholder="Type to search or scroll to select..."
                         value={treatmentSearchQuery}
                         onChange={(e) => {
                           e.stopPropagation();
                           setTreatmentSearchQuery(e.target.value);
                         }}
                         onClick={(e) => e.stopPropagation()}
-                        className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        onKeyDown={(e) => {
+                          e.stopPropagation();
+                          if (e.key === "Escape") {
+                            setTreatmentDropdownOpen(false);
+                          }
+                        }}
+                        className="w-full px-2 py-1 text-[11px] sm:text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
                         autoFocus
                       />
                     </div>
-                    <div className="overflow-y-auto max-h-40">
+                    <div className="overflow-y-auto max-h-56">
                       {filteredTreatments.length === 0 ? (
-                        <div className="p-2 text-center text-xs text-gray-500">
-                          {treatmentSearchQuery.trim() ? `No treatments found` : "Start typing to search..."}
+                        <div className="p-2 text-center text-[11px] sm:text-xs text-gray-500">
+                          {treatmentSearchQuery.trim() ? `No treatments found` : "No treatments available"}
                         </div>
                       ) : (
                         <div className="p-1">
@@ -683,7 +728,10 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                                   e.stopPropagation();
                                   handleTreatmentToggle(treatment);
                                 }}
-                                className={`w-full text-left px-2 py-1 rounded text-xs transition-colors ${
+                                onMouseDown={(e) => {
+                                  e.preventDefault(); // Prevent input blur
+                                }}
+                                className={`w-full text-left px-2 py-1.5 rounded text-xs transition-colors ${
                                   isSelected
                                     ? "bg-blue-50 text-blue-700 font-medium"
                                     : "text-gray-700 hover:bg-gray-50"
@@ -743,25 +791,25 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
 
           {/* Package Selection */}
           {selectedService === "Package" && (
-            <div className="space-y-2">
+            <div className="space-y-2 mt-2 mb-2 relative z-20">
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
+                <label className="block text-[11px] sm:text-xs font-medium text-gray-700 dark:text-gray-800 mb-1">
                   Select Package <span className="text-red-500">*</span>
                 </label>
                 <div className="relative" ref={packageDropdownRef}>
                   <button
                     type="button"
                     onClick={() => setPackageDropdownOpen(!packageDropdownOpen)}
-                    className="w-full flex items-center justify-between px-2 py-1.5 bg-white border border-gray-300 rounded text-xs text-gray-700 hover:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full flex items-center justify-between px-2 py-1.5 bg-white border border-gray-300 rounded text-[11px] sm:text-xs text-gray-700 hover:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
                   >
-                    <span className="text-gray-500 text-xs">
+                    <span className="text-gray-500 text-[11px] sm:text-xs">
                       {selectedPackage ? selectedPackage.name : "Start typing to search for packages..."}
                     </span>
                     <ChevronDown className={`w-3 h-3 text-gray-400 transition-transform ${packageDropdownOpen ? 'rotate-180' : ''}`} />
                   </button>
                   {packageDropdownOpen && (
-                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-48 overflow-hidden flex flex-col">
-                      <div className="p-1.5 border-b border-gray-200 sticky top-0 bg-white">
+                    <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-48 overflow-hidden flex flex-col">
+                      <div className="p-1.5 border-b border-gray-200 sticky top-0 bg-white z-50">
                         <input
                           type="text"
                           placeholder="Search packages..."
@@ -771,13 +819,13 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                             setPackageSearchQuery(e.target.value);
                           }}
                           onClick={(e) => e.stopPropagation()}
-                          className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          className="w-full px-2 py-1 text-[11px] sm:text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
                           autoFocus
                         />
                       </div>
                       <div className="overflow-y-auto max-h-40">
                         {filteredPackages.length === 0 ? (
-                          <div className="p-2 text-center text-xs text-gray-500">
+                          <div className="p-2 text-center text-[11px] sm:text-xs text-gray-500">
                             {packageSearchQuery.trim() ? `No packages found` : "Start typing to search..."}
                           </div>
                         ) : (
@@ -790,7 +838,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                                   e.stopPropagation();
                                   handlePackageSelect(pkg);
                                 }}
-                                className="w-full text-left px-2 py-1 rounded text-xs text-gray-700 hover:bg-gray-50 transition-colors"
+                                className="w-full text-left px-2 py-1 rounded text-[11px] sm:text-xs text-gray-700 hover:bg-gray-50 transition-colors"
                               >
                                 {pkg.name} - {pkg.price}
                               </button>
@@ -862,182 +910,190 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
           )}
 
           {/* Payment Details - Inline */}
-          <div className="grid grid-cols-5 gap-2">
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-0.5">
-                Total Amount <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="number"
-                step="0.01"
-                value={totalPrice.toFixed(2)}
-                readOnly
-                className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded bg-gray-50 text-gray-900 font-semibold"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-0.5">
-                Paid <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="number"
-                step="0.01"
-                value={formData.paid}
-                onChange={(e) => setFormData((prev) => ({ ...prev, paid: e.target.value }))}
-                className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-gray-900 focus:border-gray-900 outline-none"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-0.5">Pending</label>
-              <input
-                type="number"
-                step="0.01"
-                value={formData.pending || "0.00"}
-                onChange={(e) => setFormData((prev) => ({ ...prev, pending: e.target.value }))}
-                className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-gray-900 focus:border-gray-900 outline-none"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-0.5">Advance</label>
-              <input
-                type="number"
-                step="0.01"
-                value={formData.advance}
-                onChange={(e) => setFormData((prev) => ({ ...prev, advance: e.target.value }))}
-                className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-gray-900 focus:border-gray-900 outline-none"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-0.5">
-                Payment Method <span className="text-red-500">*</span>
-              </label>
-              <select
-                value={formData.paymentMethod}
-                onChange={(e) => setFormData((prev) => ({ ...prev, paymentMethod: e.target.value }))}
-                className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-gray-900 focus:border-gray-900 outline-none"
-                required
-              >
-                <option value="Cash">Cash</option>
-                <option value="Card">Card</option>
-                <option value="BT">BT</option>
-                <option value="Tabby">Tabby</option>
-                <option value="Tamara">Tamara</option>
-              </select>
+          <div className="rounded border border-gray-200 dark:border-gray-300 bg-gray-50 dark:bg-gray-100 p-1.5 mt-2 mb-2">
+            <h4 className="text-[9px] sm:text-[10px] font-bold text-gray-800 dark:text-gray-900 mb-1 uppercase tracking-wider">Payment Details</h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-2">
+              <div className="mt-1 mb-1">
+                <label className="block text-[9px] sm:text-[10px] font-medium text-gray-700 dark:text-gray-800 mb-1">
+                  Total Amount <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={totalPrice.toFixed(2)}
+                  readOnly
+                  className="w-full px-2 py-1 text-[10px] sm:text-[11px] border border-gray-300 dark:border-gray-300 rounded bg-gray-100 dark:bg-gray-200 text-gray-900 dark:text-gray-900 font-semibold"
+                />
+              </div>
+              <div className="mt-1 mb-1">
+                <label className="block text-[9px] sm:text-[10px] font-medium text-gray-700 dark:text-gray-800 mb-1">
+                  Paid <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={formData.paid}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, paid: e.target.value }))}
+                  className="w-full px-2 py-1 text-[10px] sm:text-[11px] border border-gray-300 dark:border-gray-300 rounded bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-1 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all outline-none"
+                  required
+                />
+              </div>
+              <div className="mt-1 mb-1">
+                <label className="block text-[9px] sm:text-[10px] font-medium text-gray-700 dark:text-gray-800 mb-1">Pending</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={formData.pending || "0.00"}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, pending: e.target.value }))}
+                  className="w-full px-2 py-1 text-[10px] sm:text-[11px] border border-gray-300 dark:border-gray-300 rounded bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-1 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all outline-none"
+                />
+              </div>
+              <div className="mt-1 mb-1">
+                <label className="block text-[9px] sm:text-[10px] font-medium text-gray-700 dark:text-gray-800 mb-1">Advance</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={formData.advance}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, advance: e.target.value }))}
+                  className="w-full px-2 py-1 text-[10px] sm:text-[11px] border border-gray-300 dark:border-gray-300 rounded bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-1 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all outline-none"
+                />
+              </div>
+              <div className="mt-1 mb-1">
+                <label className="block text-[9px] sm:text-[10px] font-medium text-gray-700 dark:text-gray-800 mb-1">
+                  Payment Method <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={formData.paymentMethod}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, paymentMethod: e.target.value }))}
+                  className="w-full px-2 py-1 text-[10px] sm:text-[11px] border border-gray-300 dark:border-gray-300 rounded bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-1 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all outline-none"
+                  required
+                >
+                  <option value="Cash">Cash</option>
+                  <option value="Card">Card</option>
+                  <option value="BT">BT</option>
+                  <option value="Tabby">Tabby</option>
+                  <option value="Tamara">Tamara</option>
+                </select>
+              </div>
             </div>
           </div>
 
-          {/* Additional Fields - Inline */}
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-0.5">Referred By</label>
+          {/* Additional Fields - Inline - Smaller boxes - Same line */}
+          <div className="flex gap-2 items-start mt-2 mb-2">
+            <div className="flex-1 mt-1 mb-1">
+              <label className="block text-[9px] sm:text-[10px] font-medium text-gray-700 dark:text-gray-800 mb-1">Referred By</label>
               <input
                 type="text"
                 value={formData.referredBy}
                 onChange={(e) => setFormData((prev) => ({ ...prev, referredBy: e.target.value }))}
-                className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-gray-900 focus:border-gray-900 outline-none"
+                className="w-full px-2 py-1 text-[10px] sm:text-[11px] border border-gray-300 dark:border-gray-300 rounded bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-1 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all outline-none"
               />
             </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-0.5">Notes</label>
+            <div className="flex-1 mt-1 mb-1">
+              <label className="block text-[9px] sm:text-[10px] font-medium text-gray-700 dark:text-gray-800 mb-1">Notes</label>
               <textarea
                 value={formData.notes}
                 onChange={(e) => setFormData((prev) => ({ ...prev, notes: e.target.value }))}
-                className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-gray-900 focus:border-gray-900 outline-none"
+                className="w-full px-2 py-1 text-[10px] sm:text-[11px] border border-gray-300 dark:border-gray-300 rounded bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-1 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all resize-none outline-none min-h-[36px]"
                 rows={2}
               />
             </div>
           </div>
 
-          {/* Submit Button */}
-          <div className="flex items-center justify-end gap-2 pt-2 border-t border-gray-200">
+          {/* Action Buttons - Create and Cancel */}
+          <div className="flex items-center justify-end gap-2 mt-4 mb-2 pt-2 border-t border-gray-200 dark:border-gray-300">
             <button
               type="button"
               onClick={onClose}
-              className="px-3 py-1.5 text-xs text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 transition"
+              className="px-4 py-2 text-[11px] sm:text-xs font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-400"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="px-4 py-1.5 text-xs bg-gray-900 text-white rounded hover:bg-gray-800 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
+              className="px-4 py-2 text-[11px] sm:text-xs font-medium text-white bg-gray-900 dark:bg-blue-600 rounded hover:bg-black dark:hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500 dark:focus:ring-blue-400 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? (
-                <>
-                  <Loader2 className="w-3 h-3 animate-spin" />
-                  Creating...
-                </>
-              ) : (
-                "Create Billing"
-              )}
+              {loading ? 'Creating...' : 'Create Billing'}
             </button>
           </div>
         </form>
-
-        {/* Billing History Table */}
-        <div className="border-t border-gray-200 p-4">
-          <h3 className="text-xs font-semibold text-gray-900 mb-2">Payment History</h3>
-          {loadingHistory ? (
-            <div className="flex items-center justify-center py-4">
-              <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
-              <span className="ml-2 text-xs text-gray-500">Loading history...</span>
-            </div>
-          ) : billingHistory.length === 0 ? (
-            <div className="text-center py-4 text-xs text-gray-500">No payment history found</div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse">
-                <thead>
-                  <tr className="bg-blue-900 border-b border-blue-800">
-                    <th className="px-2 py-1.5 text-left text-xs font-medium text-white border-r border-blue-800">Invoice ID</th>
-                    <th className="px-2 py-1.5 text-left text-xs font-medium text-white border-r border-blue-800">Treatment/Package</th>
-                    <th className="px-2 py-1.5 text-right text-xs font-medium text-white border-r border-blue-800">Total Amount</th>
-                    <th className="px-2 py-1.5 text-right text-xs font-medium text-white border-r border-blue-800">Paid</th>
-                    <th className="px-2 py-1.5 text-right text-xs font-medium text-white border-r border-blue-800">Pending</th>
-                    <th className="px-2 py-1.5 text-right text-xs font-medium text-white border-r border-blue-800">Advance</th>
-                    <th className="px-2 py-1.5 text-center text-xs font-medium text-white border-r border-blue-800">Quantity</th>
-                    <th className="px-2 py-1.5 text-center text-xs font-medium text-white border-r border-blue-800">Session</th>
-                    <th className="px-2 py-1.5 text-center text-xs font-medium text-white">Payment Method</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {billingHistory.map((billing) => (
-                    <tr key={billing._id} className="hover:bg-gray-50">
-                      <td className="px-2 py-1.5 text-xs text-gray-900 border-r border-gray-200">{billing.invoiceNumber}</td>
-                      <td className="px-2 py-1.5 text-xs text-gray-700 border-r border-gray-200">
-                        {billing.service === "Treatment" ? billing.treatment || "-" : billing.package || "-"}
-                      </td>
-                      <td className="px-2 py-1.5 text-xs text-gray-900 text-right font-medium border-r border-gray-200">
-                        {billing.amount?.toFixed(2) || "0.00"}
-                      </td>
-                      <td className="px-2 py-1.5 text-xs text-gray-900 text-right border-r border-gray-200">
-                        {billing.paid?.toFixed(2) || "0.00"}
-                      </td>
-                      <td className="px-2 py-1.5 text-xs text-gray-900 text-right border-r border-gray-200">
-                        {billing.pending?.toFixed(2) || "0.00"}
-                      </td>
-                      <td className="px-2 py-1.5 text-xs text-gray-900 text-right border-r border-gray-200">
-                        {billing.advance?.toFixed(2) || "0.00"}
-                      </td>
-                      <td className="px-2 py-1.5 text-xs text-gray-700 text-center border-r border-gray-200">
-                        {billing.quantity || "-"}
-                      </td>
-                      <td className="px-2 py-1.5 text-xs text-gray-700 text-center border-r border-gray-200">
-                        {billing.sessions || "-"}
-                      </td>
-                      <td className="px-2 py-1.5 text-xs text-gray-700 text-center">
-                        {billing.paymentMethod || "-"}
-                      </td>
+        ) : (
+          /* Payment History Tab */
+          <div className="p-1 sm:p-1.5 overflow-y-auto flex-1 min-h-0 w-full h-full flex flex-col" style={{ height: '100%', width: '100%' }}>
+            {loadingHistory ? (
+              <div className="flex-1 flex items-center justify-center min-h-0 mt-2 mb-2">
+                <div className="text-center">
+                  <Loader2 className="w-4 h-4 animate-spin text-gray-400 mx-auto mb-2" />
+                  <span className="text-[11px] sm:text-xs text-gray-500 dark:text-gray-600">Loading history...</span>
+                </div>
+              </div>
+            ) : billingHistory.length === 0 ? (
+              <div className="flex-1 flex items-center justify-center min-h-0 mt-2 mb-2">
+                <div className="text-center py-8 px-4 text-[11px] sm:text-xs text-gray-500 dark:text-gray-600 bg-white dark:bg-gray-50 rounded border border-gray-200 dark:border-gray-300 w-full">
+                  No payment history found
+                </div>
+              </div>
+            ) : (
+              <div className="flex-1 overflow-auto rounded border border-gray-200 dark:border-gray-300 shadow-sm min-h-0 w-full h-full mt-2 mb-2" style={{ height: '100%', width: '100%' }}>
+                <table className="w-full border-collapse text-[10px] sm:text-[11px]">
+               {/* <table className="w-full border-collapse min-w-[600px] sm:min-w-[700px] md:min-w-full"> */}
+                  <thead>
+                    <tr className="bg-gray-800 dark:bg-gray-700 border-b border-gray-700 dark:border-gray-600">
+                      <th className="px-2 py-2.5 text-left text-[10px] sm:text-[11px] font-semibold text-white border-r border-gray-700 dark:border-gray-600 whitespace-nowrap">Invoice ID</th>
+                      <th className="px-2 py-2.5 text-left text-[10px] sm:text-[11px] font-semibold text-white border-r border-gray-700 dark:border-gray-600 whitespace-nowrap">Treatment/Package</th>
+                      <th className="px-2 py-2.5 text-right text-[10px] sm:text-[11px] font-semibold text-white border-r border-gray-700 dark:border-gray-600 whitespace-nowrap">Total</th>
+                      <th className="px-2 py-2.5 text-right text-[10px] sm:text-[11px] font-semibold text-white border-r border-gray-700 dark:border-gray-600 whitespace-nowrap">Paid</th>
+                      <th className="px-2 py-2.5 text-right text-[10px] sm:text-[11px] font-semibold text-white border-r border-gray-700 dark:border-gray-600 whitespace-nowrap">Pending</th>
+                      <th className="px-2 py-2.5 text-right text-[10px] sm:text-[11px] font-semibold text-white border-r border-gray-700 dark:border-gray-600 whitespace-nowrap">Advance</th>
+                      <th className="px-2 py-2.5 text-center text-[10px] sm:text-[11px] font-semibold text-white border-r border-gray-700 dark:border-gray-600 whitespace-nowrap">Qty</th>
+                      <th className="px-2 py-2.5 text-center text-[10px] sm:text-[11px] font-semibold text-white border-r border-gray-700 dark:border-gray-600 whitespace-nowrap">Session</th>
+                      <th className="px-2 py-2.5 text-center text-[10px] sm:text-[11px] font-semibold text-white whitespace-nowrap">Method</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+                  </thead>
+                  <tbody className="bg-white dark:bg-gray-50 divide-y divide-gray-200 dark:divide-gray-300">
+                    {billingHistory.map((billing) => (
+                      <tr key={billing._id} className="hover:bg-gray-50 dark:hover:bg-gray-100 transition-colors">
+                        <td className="px-2 py-2.5 text-[10px] sm:text-[11px] text-gray-900 dark:text-gray-900 border-r border-gray-200 dark:border-gray-300 font-medium">{billing.invoiceNumber}</td>
+                        <td className="px-2 py-2.5 text-[10px] sm:text-[11px] text-gray-700 dark:text-gray-700 border-r border-gray-200 dark:border-gray-300 max-w-[120px] sm:max-w-[150px] truncate">
+                          {billing.service === "Treatment" ? billing.treatment || "-" : billing.package || "-"}
+                        </td>
+                        <td className="px-2 py-2.5 text-[10px] sm:text-[11px] text-gray-900 dark:text-gray-900 text-right font-semibold border-r border-gray-200 dark:border-gray-300">
+                          {billing.amount?.toFixed(2) || "0.00"}
+                        </td>
+                        <td className="px-2 py-2.5 text-[10px] sm:text-[11px] text-gray-900 dark:text-gray-900 text-right border-r border-gray-200 dark:border-gray-300">
+                          {billing.paid?.toFixed(2) || "0.00"}
+                        </td>
+                        <td className="px-2 py-2.5 text-[10px] sm:text-[11px] text-gray-900 dark:text-gray-900 text-right border-r border-gray-200 dark:border-gray-300">
+                          {billing.pending?.toFixed(2) || "0.00"}
+                        </td>
+                        <td className="px-2 py-2.5 text-[10px] sm:text-[11px] text-gray-900 dark:text-gray-900 text-right border-r border-gray-200 dark:border-gray-300">
+                          {billing.advance?.toFixed(2) || "0.00"}
+                        </td>
+                        <td className="px-2 py-2.5 text-[10px] sm:text-[11px] text-gray-700 dark:text-gray-700 text-center border-r border-gray-200 dark:border-gray-300">
+                          {billing.quantity || "-"}
+                        </td>
+                        <td className="px-2 py-2.5 text-[10px] sm:text-[11px] text-gray-700 dark:text-gray-700 text-center border-r border-gray-200 dark:border-gray-300">
+                          {billing.sessions || "-"}
+                        </td>
+                        <td className="px-2 py-2.5 text-[10px] sm:text-[11px] text-gray-700 dark:text-gray-700 text-center">
+                          {billing.paymentMethod || "-"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
         </div>
+
+        {/* Submit Button - Fixed at bottom - Only show for billing tab */}
+      
       </div>
     </div>
+    </>
   );
 };
 

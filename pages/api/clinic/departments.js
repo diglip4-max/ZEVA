@@ -35,10 +35,15 @@ export default async function handler(req, res) {
   // GET: Fetch all departments for this clinic
   if (req.method === "GET") {
     try {
-      // Check read permission
+      // Determine which module to check permissions for based on query parameter
+      // Default to "clinic_addRoom" for backward compatibility
+      // When accessed from create-agent page, it should check "clinic_create_agent"
+      const moduleToCheck = req.query.module || "clinic_addRoom";
+      
+      // Check read permission for the specified module
       const { hasPermission, error: permError } = await checkClinicPermission(
         clinicId,
-        "clinic_addRoom",
+        moduleToCheck,
         "read"
       );
 
@@ -71,10 +76,13 @@ export default async function handler(req, res) {
   // POST: Create a new department
   if (req.method === "POST") {
     try {
-      // Check create permission
+      // Determine which module to check permissions for based on query parameter or body
+      const moduleToCheck = req.query.module || req.body.module || "clinic_addRoom";
+      
+      // Check create permission for the specified module
       const { hasPermission, error: permError } = await checkClinicPermission(
         clinicId,
-        "clinic_addRoom",
+        moduleToCheck,
         "create",
       );
 
@@ -135,10 +143,13 @@ export default async function handler(req, res) {
   // PUT: Update an existing department
   if (req.method === "PUT") {
     try {
-      // Check update permission
+      // Determine which module to check permissions for based on query parameter or body
+      const moduleToCheck = req.query.module || req.body.module || "clinic_addRoom";
+      
+      // Check update permission for the specified module
       const { hasPermission, error: permError } = await checkClinicPermission(
         clinicId,
-        "clinic_addRoom",
+        moduleToCheck,
         "update",
       );
 
@@ -199,10 +210,13 @@ export default async function handler(req, res) {
   // DELETE: Delete a department
   if (req.method === "DELETE") {
     try {
-      // Check delete permission
+      // Determine which module to check permissions for based on query parameter
+      const moduleToCheck = req.query.module || "clinic_addRoom";
+      
+      // Check delete permission for the specified module
       const { hasPermission, error: permError } = await checkClinicPermission(
         clinicId,
-        "clinic_addRoom",
+        moduleToCheck,
         "delete",
       );
 

@@ -78,11 +78,10 @@ function EnquiryFormPage() {
     }
   };
 
-  // Handle phone input - only allow numbers
+  // Handle phone input - only allow numbers and limit to 10 digits
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    const phonePattern = /^[0-9]*$/;
-    if (phonePattern.test(value)) {
+    const value = e.target.value.replace(/\D/g, '');
+    if (value.length <= 10) {
       setFormData({ ...formData, phone: value });
     }
   };
@@ -94,6 +93,12 @@ function EnquiryFormPage() {
     if (!isAuthenticated) {
       setAuthModalMode('login');
       setShowAuthModal(true);
+      return;
+    }
+
+    // Validate phone number
+    if (!formData.phone || formData.phone.length !== 10) {
+      alert("Please enter a valid 10-digit phone number");
       return;
     }
 
@@ -366,7 +371,8 @@ function EnquiryFormPage() {
                       <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 sm:w-5 sm:h-5" />
                       <input
                         type="tel"
-                        placeholder="Phone Number"
+                        placeholder="Enter 10-digit phone number"
+                        maxLength={10}
                         className="w-full pl-10 sm:pl-12 pr-4 py-3 sm:py-4 border border-gray-200 rounded-xl transition-all duration-200 text-gray-700 text-sm sm:text-base"
                         onFocus={(e) => {
                           const input = e.currentTarget;
@@ -384,6 +390,12 @@ function EnquiryFormPage() {
                         onChange={handlePhoneChange}
                         required
                       />
+                      {formData.phone.length > 0 && formData.phone.length !== 10 && (
+                        <p className="text-xs text-red-500 mt-1 ml-1">Phone number must be exactly 10 digits</p>
+                      )}
+                      {formData.phone.length === 10 && (
+                        <p className="text-xs text-green-600 mt-1 ml-1">Valid phone number</p>
+                      )}
                     </div>
 
                     <div className="relative">

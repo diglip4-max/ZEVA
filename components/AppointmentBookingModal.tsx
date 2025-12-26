@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-import { X, Search, Plus, Loader2, Calendar, Clock, User, Building2, Stethoscope, AlertCircle } from "lucide-react";
+import { X, Search, Plus, Loader2, Calendar, Building2, Stethoscope, AlertCircle } from "lucide-react";
 
 interface AppointmentBookingModalProps {
   isOpen: boolean;
@@ -56,7 +56,7 @@ export default function AppointmentBookingModal({
   doctorId,
   doctorName,
   slotTime,
-  slotDisplayTime,
+  slotDisplayTime: _slotDisplayTime,
   defaultDate,
   defaultRoomId,
   bookedFrom, // No default - use the prop value directly
@@ -172,15 +172,27 @@ export default function AppointmentBookingModal({
       console.log("defaultRoomId:", defaultRoomId, "doctorId:", doctorId);
       console.log("==========================================");
       setCurrentBookedFrom(newBookedFrom);
+      
+      // Reset patient search fields when modal opens
+      setPatientSearch("");
+      setSearchResults([]);
+      setSelectedPatient(null);
+      setShowAddPatient(false);
+    } else {
+      // Also reset when modal closes
+      setPatientSearch("");
+      setSearchResults([]);
+      setSelectedPatient(null);
+      setShowAddPatient(false);
     }
   }, [slotTime, isOpen, defaultDate, doctorId, defaultRoomId, bookedFrom, propFromTime, propToTime]);
 
-  // Search patients
+  // Search patients - trigger on single character
   useEffect(() => {
-    if (patientSearch.trim().length >= 2) {
+    if (patientSearch.trim().length >= 1) {
       const searchTimeout = setTimeout(() => {
         searchPatients();
-      }, 300);
+      }, 200); // Reduced delay for faster response
       return () => clearTimeout(searchTimeout);
     } else {
       setSearchResults([]);
@@ -455,9 +467,22 @@ export default function AppointmentBookingModal({
   const departmentNames =
     doctorDepartments.length > 0 ? doctorDepartments.map((dept) => dept.name).filter(Boolean) : [];
 
+  // Check if all required fields are filled
+  const isFormValid = Boolean(
+    selectedPatient &&
+    roomId &&
+    selectedDoctorId &&
+    status &&
+    followType &&
+    startDate &&
+    fromTime &&
+    toTime &&
+    !loading
+  );
+
   return (
     <div 
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm transition-opacity"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-md transition-all duration-300 animate-in fade-in"
       onClick={(e) => {
         if (e.target === e.currentTarget) {
           onClose();
@@ -468,15 +493,23 @@ export default function AppointmentBookingModal({
       aria-labelledby="modal-title"
     >
       <div 
-        className="bg-white dark:bg-gray-50 rounded-xl shadow-2xl max-w-5xl w-full max-h-[95vh] overflow-hidden flex flex-col transform transition-all duration-200 scale-100 opacity-100"
+        className="bg-white dark:bg-gray-50 rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col transform transition-all duration-300 scale-100 opacity-100 animate-in slide-in-from-bottom-4 zoom-in-95"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="sticky top-0 bg-white dark:bg-gray-50 border-b border-gray-200 dark:border-gray-300 px-6 py-4 flex items-center justify-between z-10">
-          <h2 id="modal-title" className="text-base font-semibold text-gray-900 dark:text-gray-900">Book Appointment</h2>
+        <div className="sticky top-0 bg-gray-800 dark:bg-gray-700 border-b border-gray-700 dark:border-gray-600 px-4 py-3 flex items-center justify-between z-10 shadow-lg">
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 bg-gray-700 dark:bg-gray-600 rounded-lg">
+              <Calendar className="w-4 h-4 text-white" />
+            </div>
+            <div>
+              <h2 id="modal-title" className="text-base font-bold text-white">Book Appointment</h2>
+              <p className="text-[10px] text-gray-300 mt-0.5">Schedule a new appointment</p>
+            </div>
+          </div>
           <button
             onClick={onClose}
-            className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-200 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-700 text-gray-900 dark:text-gray-900"
+            className="p-1.5 hover:bg-gray-700 dark:hover:bg-gray-600 rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-gray-500 text-white hover:scale-110 active:scale-95"
             aria-label="Close modal"
           >
             <X className="w-4 h-4" />
@@ -484,29 +517,45 @@ export default function AppointmentBookingModal({
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-5 overflow-y-auto flex-1 pb-6">
+        <form id="appointment-form" onSubmit={handleSubmit} className="p-4 space-y-4 overflow-y-auto flex-1 pb-4">
           {error && (
-            <div className="bg-red-50 dark:bg-red-100 border border-red-200 dark:border-red-300 rounded-lg p-3 flex items-start gap-2 text-red-700 dark:text-red-900" role="alert">
-              <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
-              <p className="text-xs">{error}</p>
+            <div className="bg-red-50 dark:bg-red-100 border-l-4 border-red-500 dark:border-red-600 rounded-lg p-4 flex items-start gap-3 text-red-700 dark:text-red-900 shadow-md animate-in slide-in-from-top-2 fade-in" role="alert">
+              <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5 animate-pulse" />
+              <p className="text-xs font-medium">{error}</p>
             </div>
           )}
 
-          <div className="rounded-lg border border-gray-200 dark:border-gray-300 bg-gradient-to-br from-blue-50/50 to-indigo-50/30 dark:from-blue-100/50 dark:to-indigo-100/50 p-4">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              <div className="flex-1 min-w-0">
-                <p className="text-[10px] font-semibold text-gray-600 dark:text-gray-700 uppercase tracking-wide mb-1">
-                  Doctor
-                </p>
-                <p className="text-xs font-semibold text-gray-900 dark:text-gray-900 truncate">
-                  {selectedDoctor?.name || doctorName || "Select a doctor"}
-                </p>
-                {selectedDoctor?.email && (
-                  <p className="text-[10px] text-gray-600 dark:text-gray-700 truncate">{selectedDoctor.email}</p>
-                )}
+          <div className="rounded-xl border-2 border-gray-200 dark:border-gray-300 bg-gray-50 dark:bg-gray-100 p-5 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.01]">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div className="flex items-center gap-3 flex-1 min-w-0">
+                <div className="p-2.5 bg-gray-700 dark:bg-gray-600 rounded-xl shadow-md">
+                  <Stethoscope className="w-5 h-5 text-white" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] font-bold text-gray-600 dark:text-gray-700 uppercase tracking-wider mb-1.5">
+                    Selected Doctor
+                  </p>
+                  <p className="text-sm font-bold text-gray-900 dark:text-gray-900 truncate flex items-center gap-2">
+                    {selectedDoctor?.name || doctorName || "Select a doctor"}
+                    {selectedDoctor && (
+                      <span className="px-2 py-0.5 bg-gray-200 dark:bg-gray-300 text-gray-700 dark:text-gray-800 rounded-full text-[9px] font-semibold">
+                        ✓ Verified
+                      </span>
+                    )}
+                  </p>
+                  {selectedDoctor?.email && (
+                    <p className="text-[10px] text-gray-600 dark:text-gray-700 truncate mt-1 flex items-center gap-1">
+                      <span className="w-1 h-1 bg-gray-400 rounded-full"></span>
+                      {selectedDoctor.email}
+                    </p>
+                  )}
+                </div>
               </div>
-              <div className="text-[10px] text-gray-700 dark:text-gray-800">
-                <p className="font-semibold text-gray-900 dark:text-gray-900 mb-1.5">Departments</p>
+              <div className="text-[10px] text-gray-700 dark:text-gray-800 bg-white dark:bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-300">
+                <p className="font-bold text-gray-900 dark:text-gray-900 mb-2 flex items-center gap-1.5">
+                  <Building2 className="w-3.5 h-3.5 text-gray-600 dark:text-gray-700" />
+                  Departments
+                </p>
                 {doctorDeptLoading ? (
                   <div className="flex items-center gap-2 text-gray-600 dark:text-gray-700">
                     <Loader2 className="w-3 h-3 animate-spin" />
@@ -515,25 +564,25 @@ export default function AppointmentBookingModal({
                 ) : doctorDeptError ? (
                   <p className="text-red-600 dark:text-red-700 text-[10px]">{doctorDeptError}</p>
                 ) : departmentNames.length > 0 ? (
-                  <div className="flex flex-wrap gap-1">
+                  <div className="flex flex-wrap gap-1.5">
                     {departmentNames.map((name, idx) => (
                       <span
                         key={`${name}-${idx}`}
-                        className="px-1.5 py-0.5 rounded bg-white dark:bg-gray-100 border border-gray-200 dark:border-gray-300 text-[9px] text-gray-700 dark:text-gray-800"
+                        className="px-2 py-1 rounded-md bg-gray-200 dark:bg-gray-300 border border-gray-300 dark:border-gray-400 text-[9px] font-semibold text-gray-700 dark:text-gray-800 hover:scale-105 transition-transform cursor-default"
                       >
                         {name}
                       </span>
                     ))}
                   </div>
                 ) : (
-                  <p className="text-gray-600 dark:text-gray-800 text-[10px]">No departments</p>
+                  <p className="text-gray-500 dark:text-gray-600 text-[10px] italic">No departments assigned</p>
                 )}
               </div>
             </div>
           </div>
 
           {/* Room, Doctor, Status - 3 fields in one row */}
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-3 gap-4 pb-16 relative z-10">
             {/* Room Field */}
             <div>
               <label htmlFor="room-select" className="block text-xs font-medium text-gray-700 dark:text-gray-800 mb-1.5">
@@ -548,9 +597,10 @@ export default function AppointmentBookingModal({
                     setFieldErrors({ ...fieldErrors, roomId: "" });
                   }
                 }}
-                className={`w-full border rounded-lg px-3 py-2 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 border-gray-300 dark:border-gray-300 focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-700 focus:border-gray-900 dark:focus:border-gray-700 transition-all ${
-                  fieldErrors.roomId ? "border-red-500 dark:border-red-500" : ""
+                className={`w-full border rounded-lg px-3 py-2.5 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 border-gray-300 dark:border-gray-300 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm ${
+                  fieldErrors.roomId ? "border-red-500 dark:border-red-500 ring-2 ring-red-200 dark:ring-red-300" : ""
                 }`}
+                style={{ zIndex: 1001, position: 'relative' }}
                 required
                 aria-invalid={!!fieldErrors.roomId}
                 aria-describedby={fieldErrors.roomId ? "room-error" : undefined}
@@ -581,9 +631,10 @@ export default function AppointmentBookingModal({
                     setFieldErrors({ ...fieldErrors, doctorId: "" });
                   }
                 }}
-                className={`w-full border rounded-lg px-3 py-2 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 border-gray-300 dark:border-gray-300 focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-700 focus:border-gray-900 dark:focus:border-gray-700 transition-all ${
-                  fieldErrors.doctorId ? "border-red-500 dark:border-red-500" : ""
+                className={`w-full border rounded-lg px-3 py-2.5 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 border-gray-300 dark:border-gray-300 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm ${
+                  fieldErrors.doctorId ? "border-red-500 dark:border-red-500 ring-2 ring-red-200 dark:ring-red-300" : ""
                 }`}
+                style={{ zIndex: 1000, position: 'relative' }}
                 required
                 aria-invalid={!!fieldErrors.doctorId}
                 aria-describedby={fieldErrors.doctorId ? "doctor-error" : undefined}
@@ -613,9 +664,10 @@ export default function AppointmentBookingModal({
                     setFieldErrors({ ...fieldErrors, status: "" });
                   }
                 }}
-                className={`w-full border rounded-lg px-3 py-2 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 border-gray-300 dark:border-gray-300 focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-700 focus:border-gray-900 dark:focus:border-gray-700 transition-all ${
-                  fieldErrors.status ? "border-red-500 dark:border-red-500" : ""
+                className={`w-full border rounded-lg px-3 py-2.5 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 border-gray-300 dark:border-gray-300 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm ${
+                  fieldErrors.status ? "border-red-500 dark:border-red-500 ring-2 ring-red-200 dark:ring-red-300" : ""
                 }`}
+                style={{ zIndex: 999, position: 'relative' }}
                 required
                 aria-invalid={!!fieldErrors.status}
                 aria-describedby={fieldErrors.status ? "status-error" : undefined}
@@ -647,9 +699,9 @@ export default function AppointmentBookingModal({
                     setFieldErrors({ ...fieldErrors, patientId: "" });
                   }
                 }}
-                placeholder="Search by name, mobile, email, or EMR number..."
-                className={`w-full border rounded-lg pl-9 pr-9 py-2 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 placeholder-gray-400 dark:placeholder-gray-600 border-gray-300 dark:border-gray-300 focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-700 focus:border-gray-900 dark:focus:border-gray-700 transition-all ${
-                  fieldErrors.patientId ? "border-red-500 dark:border-red-500" : ""
+                placeholder="Type to search patients (name, mobile, email, EMR)..."
+                className={`w-full border rounded-lg pl-10 pr-10 py-2.5 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 placeholder-gray-400 dark:placeholder-gray-600 border-gray-300 dark:border-gray-300 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm ${
+                  fieldErrors.patientId ? "border-red-500 dark:border-red-500 ring-2 ring-red-200 dark:ring-red-300" : ""
                 }`}
                 aria-invalid={!!fieldErrors.patientId}
                 aria-describedby={fieldErrors.patientId ? "patient-error" : undefined}
@@ -662,10 +714,12 @@ export default function AppointmentBookingModal({
               <p id="patient-error" className="mt-1 text-[10px] text-red-600 dark:text-red-700" role="alert">{fieldErrors.patientId}</p>
             )}
 
-            {/* Search Results */}
+            {/* Search Results - Compact & Attractive */}
             {searchResults.length > 0 && (
-              <div className="mt-2 border border-gray-200 dark:border-gray-300 rounded-lg max-h-48 overflow-y-auto bg-white dark:bg-gray-50">
-                {searchResults.map((patient) => (
+              <div className="mt-1.5 border border-purple-200 dark:border-purple-300 rounded-lg max-h-40 overflow-y-auto bg-gradient-to-b from-white to-purple-50/30 dark:from-gray-50 dark:to-purple-50/20 shadow-md animate-in slide-in-from-top-2 fade-in">
+                {searchResults
+                  .filter((patient) => !selectedPatient || patient._id !== selectedPatient._id)
+                  .map((patient, idx) => (
                   <div
                     key={patient._id}
                     onClick={() => {
@@ -673,19 +727,68 @@ export default function AppointmentBookingModal({
                       setPatientSearch(patient.fullName);
                       setSearchResults([]);
                     }}
-                    className="p-2.5 hover:bg-gray-50 dark:hover:bg-gray-200 cursor-pointer border-b border-gray-100 dark:border-gray-300 last:border-b-0"
+                    className="p-1.5 hover:bg-purple-100/50 dark:hover:bg-purple-200/30 cursor-pointer border-b border-purple-100 dark:border-purple-200 last:border-b-0 transition-all duration-150 hover:shadow-sm active:scale-[0.98]"
+                    style={{ animationDelay: `${idx * 30}ms` }}
                   >
-                    <p className="font-medium text-xs text-gray-900 dark:text-gray-900">{patient.fullName}</p>
-                    <p className="text-[10px] text-gray-500 dark:text-gray-700">{patient.mobileNumber} • {patient.email || "No email"}</p>
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-6 h-6 rounded-full bg-gradient-to-br from-purple-500 to-purple-600 dark:from-purple-600 dark:to-purple-700 flex items-center justify-center text-white text-[9px] font-bold flex-shrink-0 shadow-sm">
+                        {patient.fullName.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-bold text-[9px] text-gray-900 dark:text-gray-900 truncate leading-tight">{patient.fullName}</p>
+                        <div className="flex items-center gap-1 mt-0.5 flex-wrap">
+                          <span className="text-[8px] text-gray-600 dark:text-gray-700 font-medium">{patient.mobileNumber}</span>
+                          {patient.email && (
+                            <>
+                              <span className="text-[7px] text-gray-400">•</span>
+                              <span className="text-[8px] text-gray-600 dark:text-gray-700 truncate max-w-[120px]">{patient.email}</span>
+                            </>
+                          )}
+                          {patient.emrNumber && (
+                            <>
+                              <span className="text-[7px] text-gray-400">•</span>
+                              <span className="text-[8px] text-purple-600 dark:text-purple-700 font-semibold">EMR: {patient.emrNumber}</span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 ))}
               </div>
             )}
 
-            {/* Selected Patient */}
+            {/* Selected Patient - Compact & Attractive */}
             {selectedPatient && (
-              <div className="mt-2 p-2.5 bg-blue-50 dark:bg-blue-100 border border-blue-200 dark:border-blue-300 rounded-lg">
-                <p className="text-xs font-medium text-blue-900 dark:text-blue-800">Selected: {selectedPatient.fullName}</p>
+              <div className="mt-1 p-1.5 bg-gradient-to-r from-purple-600 to-purple-500 dark:from-purple-700 dark:to-purple-600 rounded-md shadow-sm border border-purple-400 dark:border-purple-500">
+                <div className="flex items-center gap-1.5">
+                  <div className="w-4 h-4 rounded-full bg-white/20 dark:bg-white/10 flex items-center justify-center text-white text-[8px] font-bold flex-shrink-0">
+                    {selectedPatient.fullName.charAt(0).toUpperCase()}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[9px] font-bold text-white truncate leading-tight">{selectedPatient.fullName}</p>
+                    <div className="flex items-center gap-0.5 mt-0.5 flex-wrap">
+                      <span className="text-[7px] text-white/90 font-medium">{selectedPatient.mobileNumber}</span>
+                      {selectedPatient.email && (
+                        <>
+                          <span className="text-[6px] text-white/70">•</span>
+                          <span className="text-[7px] text-white/90 truncate max-w-[90px]">{selectedPatient.email}</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedPatient(null);
+                      setPatientSearch("");
+                    }}
+                    className="flex-shrink-0 w-3.5 h-3.5 rounded-full bg-white/20 hover:bg-white/30 flex items-center justify-center transition-colors"
+                    title="Clear selection"
+                  >
+                    <X className="w-2 h-2 text-white" />
+                  </button>
+                </div>
               </div>
             )}
 
@@ -693,56 +796,56 @@ export default function AppointmentBookingModal({
             <button
               type="button"
               onClick={() => setShowAddPatient(!showAddPatient)}
-              className="mt-2 flex items-center gap-2 text-blue-600 dark:text-blue-700 hover:text-blue-700 dark:hover:text-blue-800 text-xs font-medium"
+              className="mt-3 flex items-center gap-2 px-4 py-2 bg-gray-700 dark:bg-gray-600 hover:bg-gray-800 dark:hover:bg-gray-700 text-white rounded-lg text-xs font-semibold shadow-md hover:shadow-lg transition-all duration-200 hover:scale-105 active:scale-95"
             >
-              <Plus className="w-3.5 h-3.5" />
+              <Plus className="w-4 h-4" />
               Add New Patient
             </button>
           </div>
 
           {/* Add Patient Form */}
           {showAddPatient && (
-            <div className="border border-gray-200 dark:border-gray-300 rounded-lg p-4 space-y-4 bg-gray-50 dark:bg-gray-100">
-              <h3 className="text-xs font-medium text-gray-900 dark:text-gray-900">Add New Patient</h3>
-              <div className="grid grid-cols-3 gap-4">
+            <div className="border-2 border-gray-200 dark:border-gray-300 rounded-lg p-2.5 space-y-2 bg-gray-50 dark:bg-gray-100 shadow-md animate-in slide-in-from-top-2 fade-in">
+              <h3 className="text-[10px] font-medium text-gray-900 dark:text-gray-900">Add New Patient</h3>
+              <div className="grid grid-cols-4 gap-2">
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-800 mb-1">EMR Number</label>
+                  <label className="block text-[10px] font-medium text-gray-700 dark:text-gray-800 mb-0.5">EMR Number</label>
                   <input
                     type="text"
                     value={addPatientForm.emrNumber}
                     onChange={(e) => setAddPatientForm({ ...addPatientForm, emrNumber: e.target.value })}
-                    className="w-full border border-gray-300 dark:border-gray-300 rounded-lg px-3 py-2 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900"
+                    className="w-full border border-gray-300 dark:border-gray-300 rounded-lg px-2 py-1.5 text-[10px] bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-800 mb-1">
+                  <label className="block text-[10px] font-medium text-gray-700 dark:text-gray-800 mb-0.5">
                     First Name <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
                     value={addPatientForm.firstName}
                     onChange={(e) => setAddPatientForm({ ...addPatientForm, firstName: e.target.value })}
-                    className="w-full border border-gray-300 dark:border-gray-300 rounded-lg px-3 py-2 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900"
+                    className="w-full border border-gray-300 dark:border-gray-300 rounded-lg px-2 py-1.5 text-[10px] bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm"
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-800 mb-1">Last Name</label>
+                  <label className="block text-[10px] font-medium text-gray-700 dark:text-gray-800 mb-0.5">Last Name</label>
                   <input
                     type="text"
                     value={addPatientForm.lastName}
                     onChange={(e) => setAddPatientForm({ ...addPatientForm, lastName: e.target.value })}
-                    className="w-full border border-gray-300 dark:border-gray-300 rounded-lg px-3 py-2 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900"
+                    className="w-full border border-gray-300 dark:border-gray-300 rounded-lg px-2 py-1.5 text-[10px] bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-800 mb-1">
+                  <label className="block text-[10px] font-medium text-gray-700 dark:text-gray-800 mb-0.5">
                     Gender <span className="text-red-500">*</span>
                   </label>
                   <select
                     value={addPatientForm.gender}
                     onChange={(e) => setAddPatientForm({ ...addPatientForm, gender: e.target.value })}
-                    className="w-full border border-gray-300 dark:border-gray-300 rounded-lg px-3 py-2 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900"
+                    className="w-full border border-gray-300 dark:border-gray-300 rounded-lg px-2 py-1.5 text-[10px] bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm"
                     required
                   >
                     <option value="">Select</option>
@@ -752,61 +855,63 @@ export default function AppointmentBookingModal({
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-800 mb-1">Email</label>
+                  <label className="block text-[10px] font-medium text-gray-700 dark:text-gray-800 mb-0.5">Email</label>
                   <input
                     type="email"
                     value={addPatientForm.email}
                     onChange={(e) => setAddPatientForm({ ...addPatientForm, email: e.target.value })}
-                    className="w-full border border-gray-300 dark:border-gray-300 rounded-lg px-3 py-2 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900"
+                    className="w-full border border-gray-300 dark:border-gray-300 rounded-lg px-2 py-1.5 text-[10px] bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-800 mb-1">
+                  <label className="block text-[10px] font-medium text-gray-700 dark:text-gray-800 mb-0.5">
                     Mobile Number <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="tel"
                     value={addPatientForm.mobileNumber}
                     onChange={(e) => setAddPatientForm({ ...addPatientForm, mobileNumber: e.target.value })}
-                    className="w-full border border-gray-300 dark:border-gray-300 rounded-lg px-3 py-2 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900"
+                    className="w-full border border-gray-300 dark:border-gray-300 rounded-lg px-2 py-1.5 text-[10px] bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm"
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-800 mb-1">Referred By</label>
+                  <label className="block text-[10px] font-medium text-gray-700 dark:text-gray-800 mb-0.5">Referred By</label>
                   <input
                     type="text"
                     value={addPatientForm.referredBy}
                     onChange={(e) => setAddPatientForm({ ...addPatientForm, referredBy: e.target.value })}
-                    className="w-full border border-gray-300 dark:border-gray-300 rounded-lg px-3 py-2 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900"
+                    className="w-full border border-gray-300 dark:border-gray-300 rounded-lg px-2 py-1.5 text-[10px] bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-800 mb-1">Patient Type</label>
+                  <label className="block text-[10px] font-medium text-gray-700 dark:text-gray-800 mb-0.5">Patient Type</label>
                   <select
                     value={addPatientForm.patientType}
                     onChange={(e) => setAddPatientForm({ ...addPatientForm, patientType: e.target.value })}
-                    className="w-full border border-gray-300 dark:border-gray-300 rounded-lg px-3 py-2 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900"
+                    className="w-full border border-gray-300 dark:border-gray-300 rounded-lg px-2 py-1.5 text-[10px] bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm"
                   >
                     <option value="New">New</option>
                     <option value="Old">Old</option>
                   </select>
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={handleAddPatient}
-                disabled={addingPatient}
-                className="w-full bg-blue-600 text-white py-2 rounded-lg text-xs font-medium hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2"
-              >
-                {addingPatient && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                {addingPatient ? "Adding..." : "Add Patient"}
-              </button>
+              <div className="flex justify-center mt-2">
+                <button
+                  type="button"
+                  onClick={handleAddPatient}
+                  disabled={addingPatient}
+                  className="bg-gray-700 dark:bg-gray-600 hover:bg-gray-800 dark:hover:bg-gray-700 text-white px-4 py-1.5 rounded-lg text-[10px] font-semibold disabled:opacity-50 flex items-center justify-center gap-1.5 shadow-md hover:shadow-lg transition-all duration-200 hover:scale-105 active:scale-95 disabled:hover:scale-100"
+                >
+                  {addingPatient && <Loader2 className="w-3 h-3 animate-spin" />}
+                  {addingPatient ? "Adding..." : "Add Patient"}
+                </button>
+              </div>
             </div>
           )}
 
           {/* Follow Type, Referral, Emergency - 3 fields in one row */}
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-3 gap-4 pb-16 relative z-10">
             {/* Follow Type */}
             <div>
               <label className="block text-xs font-medium text-gray-700 dark:text-gray-800 mb-1.5">
@@ -820,9 +925,10 @@ export default function AppointmentBookingModal({
                     setFieldErrors({ ...fieldErrors, followType: "" });
                   }
                 }}
-                className={`w-full border rounded-lg px-3 py-2 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 border-gray-300 dark:border-gray-300 focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-700 focus:border-gray-900 dark:focus:border-gray-700 ${
-                  fieldErrors.followType ? "border-red-500 dark:border-red-500" : ""
+                className={`w-full border rounded-lg px-3 py-2.5 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 border-gray-300 dark:border-gray-300 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm ${
+                  fieldErrors.followType ? "border-red-500 dark:border-red-500 ring-2 ring-red-200 dark:ring-red-300" : ""
                 }`}
+                style={{ zIndex: 1001, position: 'relative' }}
                 required
               >
                 <option value="first time">First Time</option>
@@ -840,7 +946,8 @@ export default function AppointmentBookingModal({
               <select
                 value={referral}
                 onChange={(e) => setReferral(e.target.value)}
-                className="w-full border border-gray-300 dark:border-gray-300 rounded-lg px-3 py-2 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-700 focus:border-gray-900 dark:focus:border-gray-700"
+                className="w-full border border-gray-300 dark:border-gray-300 rounded-lg px-3 py-2.5 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm"
+                style={{ zIndex: 1000, position: 'relative' }}
               >
                 <option value="direct">Direct</option>
                 <option value="referral">Referral</option>
@@ -853,7 +960,8 @@ export default function AppointmentBookingModal({
               <select
                 value={emergency}
                 onChange={(e) => setEmergency(e.target.value)}
-                className="w-full border border-gray-300 dark:border-gray-300 rounded-lg px-3 py-2 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-700 focus:border-gray-900 dark:focus:border-gray-700"
+                className="w-full border border-gray-300 dark:border-gray-300 rounded-lg px-3 py-2.5 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm"
+                style={{ zIndex: 999, position: 'relative' }}
               >
                 <option value="no">No</option>
                 <option value="yes">Yes</option>
@@ -876,8 +984,8 @@ export default function AppointmentBookingModal({
                     setFieldErrors({ ...fieldErrors, startDate: "" });
                   }
                 }}
-                className={`w-full border rounded-lg px-3 py-2 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 border-gray-300 dark:border-gray-300 focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-700 focus:border-gray-900 dark:focus:border-gray-700 ${
-                  fieldErrors.startDate ? "border-red-500 dark:border-red-500" : ""
+                className={`w-full border rounded-lg px-3 py-2.5 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 border-gray-300 dark:border-gray-300 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm ${
+                  fieldErrors.startDate ? "border-red-500 dark:border-red-500 ring-2 ring-red-200 dark:ring-red-300" : ""
                 }`}
                 required
               />
@@ -893,8 +1001,8 @@ export default function AppointmentBookingModal({
                 type="time"
                 value={fromTime}
                 onChange={(e) => handleFromTimeChange(e.target.value)}
-                className={`w-full border rounded-lg px-3 py-2 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 border-gray-300 dark:border-gray-300 focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-700 focus:border-gray-900 dark:focus:border-gray-700 ${
-                  fieldErrors.fromTime ? "border-red-500 dark:border-red-500" : ""
+                className={`w-full border rounded-lg px-3 py-2.5 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 border-gray-300 dark:border-gray-300 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm ${
+                  fieldErrors.fromTime ? "border-red-500 dark:border-red-500 ring-2 ring-red-200 dark:ring-red-300" : ""
                 }`}
                 required
               />
@@ -915,8 +1023,8 @@ export default function AppointmentBookingModal({
                     setFieldErrors({ ...fieldErrors, toTime: "" });
                   }
                 }}
-                className={`w-full border rounded-lg px-3 py-2 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 border-gray-300 dark:border-gray-300 focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-700 focus:border-gray-900 dark:focus:border-gray-700 ${
-                  fieldErrors.toTime ? "border-red-500 dark:border-red-500" : ""
+                className={`w-full border rounded-lg px-3 py-2.5 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 border-gray-300 dark:border-gray-300 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm ${
+                  fieldErrors.toTime ? "border-red-500 dark:border-red-500 ring-2 ring-red-200 dark:ring-red-300" : ""
                 }`}
                 required
               />
@@ -928,48 +1036,39 @@ export default function AppointmentBookingModal({
 
           {/* Notes */}
           <div>
-            <label className="block text-xs font-medium text-gray-700 dark:text-gray-800 mb-1.5">Notes</label>
+            <label className="block text-xs font-medium text-gray-700 dark:text-gray-800 mb-1.5 flex items-center gap-2">
+              <span>Notes</span>
+              <span className="text-[10px] text-gray-500 dark:text-gray-600 font-normal">(Optional)</span>
+            </label>
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               rows={3}
-              className="w-full border border-gray-300 dark:border-gray-300 rounded-lg px-3 py-2 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 placeholder-gray-400 dark:placeholder-gray-600 focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-700 focus:border-gray-900 dark:focus:border-gray-700"
-              placeholder="Additional notes..."
+              className="w-full border border-gray-300 dark:border-gray-300 rounded-lg px-3 py-2.5 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 placeholder-gray-400 dark:placeholder-gray-600 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm resize-none"
+              placeholder="Add any additional notes or special instructions..."
             />
           </div>
         </form>
 
         {/* Actions - Fixed at bottom outside form */}
-        <div className="sticky bottom-0 left-0 right-0 z-30 pt-4 pb-4 px-6 border-t border-gray-200 dark:border-gray-300 bg-white dark:bg-gray-50 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1),0_-2px_4px_-1px_rgba(0,0,0,0.06)] dark:shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1),0_-2px_4px_-1px_rgba(0,0,0,0.06)]">
-          <div className="flex gap-3">
+        <div className="sticky bottom-0 left-0 right-0 z-30 pt-3 pb-3 px-4 border-t border-gray-200 dark:border-gray-300 bg-white dark:bg-gray-50 shadow-[0_-4px_8px_-2px_rgba(0,0,0,0.1)] dark:shadow-[0_-4px_8px_-2px_rgba(0,0,0,0.2)]">
+          <div className="flex gap-2">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-2.5 border border-gray-300 dark:border-gray-300 rounded-lg text-xs font-medium text-gray-700 dark:text-gray-900 bg-white dark:bg-gray-100 hover:bg-gray-50 dark:hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-700 transition-colors"
+              className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-400 rounded-lg text-xs font-medium text-gray-700 dark:text-gray-900 bg-white dark:bg-gray-100 hover:bg-gray-50 dark:hover:bg-gray-200 hover:border-gray-400 dark:hover:border-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-400 dark:focus:ring-gray-500 transition-all duration-200 hover:scale-105 active:scale-95 shadow-sm hover:shadow-md"
             >
               Cancel
             </button>
             <button
-              type="button"
-              onClick={(e) => {
-                e.preventDefault();
-                const syntheticEvent = {
-                  preventDefault: () => {},
-                } as unknown as React.FormEvent<HTMLFormElement>;
-                handleSubmit(syntheticEvent);
-              }}
-              disabled={
-                loading || 
-                !selectedPatient || 
-                !roomId || 
-                !selectedDoctorId || 
-                !status || 
-                !followType || 
-                !startDate || 
-                !fromTime || 
-                !toTime
-              }
-              className="flex-1 px-4 py-2.5 bg-gray-900 dark:bg-gray-700 text-white dark:text-white rounded-lg text-xs font-medium hover:bg-gray-800 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-gray-900 dark:focus:ring-gray-700 focus:ring-offset-2 dark:focus:ring-offset-gray-100 transition-colors"
+              type="submit"
+              form="appointment-form"
+              disabled={!isFormValid}
+              className={`flex-1 px-3 py-2 rounded-lg text-xs font-medium flex items-center justify-center gap-1.5 focus:outline-none focus:ring-2 focus:ring-offset-1 transition-all duration-200 shadow-md ${
+                isFormValid
+                  ? "bg-gray-800 dark:bg-gray-700 hover:bg-gray-900 dark:hover:bg-gray-800 text-white hover:scale-105 active:scale-95 hover:shadow-lg focus:ring-gray-500 cursor-pointer"
+                  : "bg-gray-400 dark:bg-gray-500 text-gray-200 dark:text-gray-300 cursor-not-allowed opacity-60 hover:scale-100 active:scale-100 shadow-none"
+              }`}
             >
               {loading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
               {loading ? "Booking..." : "Book Appointment"}

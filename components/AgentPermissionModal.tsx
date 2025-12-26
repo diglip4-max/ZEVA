@@ -1,7 +1,6 @@
 'use client';
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import toast from 'react-hot-toast';
 
 interface SubModule {
   name: string;
@@ -192,6 +191,7 @@ const AgentPermissionModal: React.FC<AgentPermissionModalProps> = ({
           });
 
           // Filter navigation items based on clinic permissions
+          // Show ALL modules that exist in clinic permissions, regardless of action values
           items = items
             .map((item: NavigationItem) => {
               // Try multiple lookup strategies for moduleKey matching
@@ -199,17 +199,14 @@ const AgentPermissionModal: React.FC<AgentPermissionModalProps> = ({
                 permissionMap[item.moduleKey.replace('clinic_', '')] ||
                 permissionMap[item.moduleKey.replace(/^(admin|clinic|doctor)_/, '')];
 
-              // Check if module has read permission
-              const hasModuleRead = modulePerm && (
-                modulePerm.moduleActions.read === true ||
-                modulePerm.moduleActions.all === true
-              );
-
-              if (!hasModuleRead) {
-                return null; // Don't show this module at all
+              // Show module if it exists in clinic permissions (regardless of action values)
+              // Only hide if the module doesn't exist in clinic permissions at all
+              if (!modulePerm) {
+                return null; // Don't show this module if it's not in clinic permissions
               }
 
               // Filter submodules based on permissions
+              // Show ALL submodules that exist in clinic permissions, regardless of action values
               let filteredSubModules = [];
               if (item.subModules && item.subModules.length > 0) {
                 filteredSubModules = item.subModules
@@ -218,13 +215,10 @@ const AgentPermissionModal: React.FC<AgentPermissionModalProps> = ({
                       return null;
                     }
                     const subModulePerm = modulePerm?.subModules[subModule.name];
-                    const hasSubModuleRead = subModulePerm && (
-                      subModulePerm.read === true ||
-                      subModulePerm.all === true
-                    );
 
-                    // Only include submodule if it has read permission
-                    if (hasSubModuleRead) {
+                    // Show submodule if it exists in clinic permissions (regardless of action values)
+                    // Only hide if the submodule doesn't exist in clinic permissions at all
+                    if (subModulePerm) {
                       return subModule;
                     }
                     return null;
@@ -241,11 +235,14 @@ const AgentPermissionModal: React.FC<AgentPermissionModalProps> = ({
         }
 
         setNavigationItems(items);
-        // Auto-expand modules with sub-modules
-        const modulesWithSubModules = items.filter((item: NavigationItem) =>
-          item.subModules && item.subModules.length > 0
-        );
-        setExpandedModules(new Set(modulesWithSubModules.map((item: NavigationItem) => item.moduleKey)));
+        // ISSUE FIXED: Removed auto-expansion of modules with submodules
+        // Previously, all modules with submodules were automatically expanded on load
+        // Now modules will only expand when user clicks on them
+        // The removed code was:
+        // const modulesWithSubModules = items.filter((item: NavigationItem) =>
+        //   item.subModules && item.subModules.length > 0
+        // );
+        // setExpandedModules(new Set(modulesWithSubModules.map((item: NavigationItem) => item.moduleKey)));
       }
     } catch (err) {
       console.error('Error fetching navigation items:', err);
@@ -734,8 +731,9 @@ const AgentPermissionModal: React.FC<AgentPermissionModalProps> = ({
 
   if (!isOpen) return null;
 
+  // MODIFIED: Increased z-index to ensure modal appears above sidebar
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm" style={{ zIndex: 9999 }}>
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden flex flex-col border border-slate-200">
         {/* Header */}
         <div className="px-6 py-4 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-white flex items-center justify-between">

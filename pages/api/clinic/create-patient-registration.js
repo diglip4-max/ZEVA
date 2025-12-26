@@ -5,6 +5,8 @@ import User from "../../../models/Users";
 import Clinic from "../../../models/Clinic";
 import Appointment from "../../../models/Appointment";
 import { getUserFromReq } from "../lead-ms/auth";
+import { checkClinicPermission } from "../lead-ms/permissions-helper";
+import { checkAgentPermission } from "../agent/permissions-helper";
 
 export default async function handler(req, res) {
   await dbConnect();
@@ -17,6 +19,55 @@ export default async function handler(req, res) {
     const clinicUser = await getUserFromReq(req);
     if (!clinicUser) {
       return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
+
+    // ✅ Check permissions for creating patients (admin bypasses all checks)
+    if (clinicUser.role !== 'admin') {
+      // For clinic role: Check clinic permissions
+      if (clinicUser.role === 'clinic') {
+        const clinic = await Clinic.findOne({ owner: clinicUser._id });
+        if (clinic) {
+          const { hasPermission: clinicHasPermission, error: clinicError } = await checkClinicPermission(
+            clinic._id,
+            "patient_registration",
+            "create"
+          );
+          if (!clinicHasPermission) {
+            return res.status(403).json({
+              success: false,
+              message: clinicError || "You do not have permission to create patients"
+            });
+          }
+        }
+      }
+      // For agent role (agentToken): Check agent permissions
+      else if (clinicUser.role === 'agent') {
+        const { hasPermission: agentHasPermission, error: agentError } = await checkAgentPermission(
+          clinicUser._id,
+          "patient_registration",
+          "create"
+        );
+        if (!agentHasPermission) {
+          return res.status(403).json({
+            success: false,
+            message: agentError || "You do not have permission to create patients"
+          });
+        }
+      }
+      // For doctorStaff role (userToken): Check agent permissions
+      else if (clinicUser.role === 'doctorStaff') {
+        const { hasPermission: agentHasPermission, error: agentError } = await checkAgentPermission(
+          clinicUser._id,
+          "patient_registration",
+          "create"
+        );
+        if (!agentHasPermission) {
+          return res.status(403).json({
+            success: false,
+            message: agentError || "You do not have permission to create patients"
+          });
+        }
+      }
     }
 
     // Find clinic

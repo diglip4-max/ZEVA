@@ -1,11 +1,10 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Star, Mail, Settings, Lock, TrendingUp, Users, FileText, Briefcase, MessageSquare, Calendar, CreditCard, BarChart3, Activity, CheckCircle2, XCircle, Crown, Building2, User } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, LabelList, PieChart, Pie, Cell, LineChart, Line, Tooltip, Legend } from 'recharts';
+import { Star, Mail, Settings, Lock, TrendingUp, Users, FileText, Briefcase, MessageSquare, Calendar, CreditCard, BarChart3, Activity, XCircle, CheckCircle2, ArrowUpRight, ArrowDownRight, User, Crown, Stethoscope, Building2, Package, Gift, DoorOpen, UserPlus } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, LabelList, LineChart, Line, Tooltip, PieChart, Pie, Cell, Legend } from 'recharts';
 import Stats from '../../components/Stats';
 import ClinicLayout from '../../components/ClinicLayout';
 import withClinicAuth from '../../components/withClinicAuth';
 import type { NextPageWithLayout } from '../_app';
-import Link from 'next/link';
 import axios from 'axios';
 
 // Type definitions
@@ -13,6 +12,18 @@ interface Stats {
   totalReviews: number;
   totalEnquiries: number;
   totalClinics?: number;
+  totalAppointments?: number;
+  totalLeads?: number;
+  totalTreatments?: number;
+  totalRooms?: number;
+  totalDepartments?: number;
+  totalPackages?: number;
+  totalOffers?: number;
+  totalPatients?: number;
+  totalJobs?: number;
+  appointmentStatusBreakdown?: { [key: string]: number };
+  leadStatusBreakdown?: { [key: string]: number };
+  offerStatusBreakdown?: { [key: string]: number };
 }
 
 interface DashboardStatsResponse {
@@ -26,10 +37,6 @@ interface ClinicUser {
   [key: string]: unknown;
 }
 
-interface ChartData {
-  name: string;
-  value: number;
-}
 
 interface NavigationItem {
   _id: string;
@@ -91,7 +98,21 @@ interface ClinicInfo {
 }
 
 const ClinicDashboard: NextPageWithLayout = () => {
-  const [stats, setStats] = useState<Stats>({ totalReviews: 0, totalEnquiries: 0, totalClinics: 0 });
+  const [stats, setStats] = useState<Stats>({
+    totalReviews: 0,
+    totalEnquiries: 0,
+    totalClinics: 0,
+    totalAppointments: 0,
+    totalLeads: 0,
+    totalTreatments: 0,
+    totalRooms: 0,
+    totalDepartments: 0,
+    totalPackages: 0,
+    totalOffers: 0,
+    appointmentStatusBreakdown: {},
+    leadStatusBreakdown: {},
+    offerStatusBreakdown: {},
+  });
   const [loading, setLoading] = useState<boolean>(true);
   const [currentTime, setCurrentTime] = useState<Date>(new Date());
   const [clinicUser, setClinicUser] = useState<ClinicUser | null>(null);
@@ -99,7 +120,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
   const [moduleStats, setModuleStats] = useState<ModuleStats>({});
   const [allModules, setAllModules] = useState<NavigationItem[]>([]);
   const [clinicInfo, setClinicInfo] = useState<ClinicInfo>({});
-  const [permissions, setPermissions] = useState<SidebarResponse['permissions']>([]);
+  const [_permissions, setPermissions] = useState<SidebarResponse['permissions']>([]);
   const [statsLoading, setStatsLoading] = useState<boolean>(true);
   const [accessDenied, setAccessDenied] = useState(false);
   const [accessMessage, setAccessMessage] = useState('You do not have permission to view this dashboard.');
@@ -109,7 +130,17 @@ const ClinicDashboard: NextPageWithLayout = () => {
     canCreate: true,
   });
   const [permissionsLoaded, setPermissionsLoaded] = useState(false);
+  const [navigationItemsLoaded, setNavigationItemsLoaded] = useState(false);
   const [userRole, setUserRole] = useState<string | null>(null);
+  const [quickActions] = useState([
+    { label: 'New Review', icon: Star, path: '/clinic/getAllReview', color: 'bg-yellow-500' },
+    { label: 'New Enquiry', icon: Mail, path: '/clinic/get-Enquiry', color: 'bg-blue-500' },
+    { label: 'Add Staff', icon: Users, path: '/clinic/patient-information', color: 'bg-green-500' },
+    { label: 'Create Blog', icon: FileText, path: '/clinic/BlogForm', color: 'bg-purple-500' },
+    { label: 'Job Posting', icon: Briefcase, path: '/clinic/job-posting', color: 'bg-indigo-500' },
+    { label: 'Create Agent', icon: UserPlus, path: '/admin/create-agent', color: 'bg-teal-500' },
+    { label: 'Create Lead', icon: UserPlus, path: '/clinic/lead-create-lead', color: 'bg-orange-500' },
+  ]);
 
   // Icon mapping
   const iconMap: { [key: string]: React.ReactNode } = {
@@ -165,8 +196,13 @@ const ClinicDashboard: NextPageWithLayout = () => {
         }
       } catch (error: any) {
         if (axios.isAxiosError(error) && error.response?.status === 403) {
+          // Only set access denied if user is agent/doctorStaff and doesn't have permission
+          // Don't set it for clinic/doctor roles as they have full access
+          const role = getUserRole();
+          if (['agent', 'doctorStaff'].includes(role || '')) {
           setAccessDenied(true);
           setAccessMessage('Your clinic account does not have permission to view this dashboard.');
+          }
         } else {
           console.error('Error fetching clinic info:', error);
           setClinicInfo({
@@ -233,7 +269,11 @@ const ClinicDashboard: NextPageWithLayout = () => {
       try {
         const headers = getAuthHeaders();
         if (!headers.Authorization) {
+          console.warn("⚠️ No authorization token found");
           setModuleAccess({ canRead: false, canUpdate: false, canCreate: false });
+          setAccessDenied(true);
+          setAccessMessage('Authentication required. Please log in again.');
+          setPermissionsLoaded(true);
           return;
         }
 
@@ -242,23 +282,78 @@ const ClinicDashboard: NextPageWithLayout = () => {
           { headers }
         );
 
+        console.log("🔍 Full API response:", JSON.stringify(res.data, null, 2));
+
         if (res.data?.success && res.data.permissions) {
           const actions = res.data.permissions.actions || {};
-          const canAll =
-            actions.all === true ||
-            actions.all === 'true' ||
-            String(actions.all).toLowerCase() === 'true';
-          setModuleAccess({
-            canRead: canAll || actions.read === true,
-            canUpdate: canAll || actions.update === true,
-            canCreate: canAll || actions.create === true,
+          
+          // Helper to convert value to boolean
+          const toBool = (value: any): boolean => {
+            if (value === true || value === false) return value;
+            if (typeof value === "string") {
+              const lowered = value.toLowerCase();
+              return lowered === "true" || lowered === "1" || lowered === "yes";
+            }
+            return Boolean(value);
+          };
+          
+          const canAll = toBool(actions.all);
+          const canRead = toBool(actions.read);
+          const canUpdate = toBool(actions.update);
+          const canCreate = toBool(actions.create);
+          
+          console.log("📊 Dashboard permissions check:", {
+            module: res.data.permissions.module,
+            rawActions: actions,
+            convertedActions: {
+              all: canAll,
+              read: canRead,
+              update: canUpdate,
+              create: canCreate,
+            },
+            finalAccess: {
+              canRead: canAll || canRead,
+              canUpdate: canAll || canUpdate,
+              canCreate: canAll || canCreate,
+            }
           });
+          
+          const finalCanRead = canAll || canRead;
+          const finalCanUpdate = canAll || canUpdate;
+          const finalCanCreate = canAll || canCreate;
+          
+          console.log("🔐 Setting moduleAccess:", {
+            canRead: finalCanRead,
+            canUpdate: finalCanUpdate,
+            canCreate: finalCanCreate,
+          });
+          
+          setModuleAccess({
+            canRead: finalCanRead,
+            canUpdate: finalCanUpdate,
+            canCreate: finalCanCreate,
+          });
+          
+          // Reset accessDenied if permission is granted
+          if (finalCanRead) {
+            console.log("✅ Access granted - setting accessDenied to false");
+            setAccessDenied(false);
         } else {
+            console.log("❌ Access denied - setting accessDenied to true");
+            setAccessDenied(true);
+            setAccessMessage('You do not have read permission for the clinic dashboard.');
+          }
+        } else {
+          console.warn("⚠️ No permissions data received or success is false:", res.data);
           setModuleAccess({ canRead: false, canUpdate: false, canCreate: false });
+          setAccessDenied(true);
+          setAccessMessage('Unable to verify permissions. Access denied.');
         }
       } catch (error) {
         console.error('Error fetching dashboard permissions:', error);
         setModuleAccess({ canRead: false, canUpdate: false, canCreate: false });
+        setAccessDenied(true);
+        setAccessMessage('Error loading permissions. Please try again.');
       } finally {
         setPermissionsLoaded(true);
       }
@@ -267,13 +362,48 @@ const ClinicDashboard: NextPageWithLayout = () => {
     fetchPermissions();
   }, [getAuthHeaders, getUserRole]);
 
+  // Reset accessDenied when permissions are granted
+  useEffect(() => {
+    if (!permissionsLoaded) return;
+    
+    // For agent and doctorStaff, check if they have read permission
+    if (['agent', 'doctorStaff'].includes(userRole || '')) {
+      if (moduleAccess.canRead) {
+        console.log("✅ Resetting accessDenied to false - read permission granted");
+        setAccessDenied(false);
+      } else {
+        console.log("❌ Setting accessDenied to true - read permission denied");
+        setAccessDenied(true);
+        setAccessMessage('You do not have read permission for the clinic dashboard.');
+      }
+    } else {
+      // For other roles (clinic, doctor, admin), always grant access
+      setAccessDenied(false);
+    }
+  }, [permissionsLoaded, moduleAccess.canRead, userRole]);
+
   // Fetch sidebar navigation items (which already have permissions applied)
   useEffect(() => {
     if (!permissionsLoaded) return;
-    if (['agent', 'doctorStaff'].includes(userRole || '') && !moduleAccess.canRead) {
+    
+    // Only check access for agent and doctorStaff roles
+    if (['agent', 'doctorStaff'].includes(userRole || '')) {
+      console.log("🔍 Checking access for role:", userRole, "canRead:", moduleAccess.canRead);
+      
+      if (!moduleAccess.canRead) {
+        console.log("❌ Access denied - moduleAccess.canRead is false");
       setAccessDenied(true);
+        setAccessMessage('You do not have read permission for the clinic dashboard.');
       setLoading(false);
+      setNavigationItemsLoaded(true);
       return;
+      } else {
+        console.log("✅ Access granted - moduleAccess.canRead is true");
+        setAccessDenied(false);
+      }
+    } else {
+      // For other roles (clinic, doctor, etc.), always grant access
+      setAccessDenied(false);
     }
 
     const fetchNavigationItems = async (): Promise<void> => {
@@ -291,7 +421,10 @@ const ClinicDashboard: NextPageWithLayout = () => {
           localStorage.getItem('adminToken') || 
           sessionStorage.getItem('adminToken');
           
-        if (!token) return;
+        if (!token) {
+          setNavigationItemsLoaded(true);
+          return;
+        }
 
         const res = await axios.get<SidebarResponse>('/api/clinic/sidebar-permissions', {
           headers: { Authorization: `Bearer ${token}` },
@@ -302,14 +435,31 @@ const ClinicDashboard: NextPageWithLayout = () => {
           if (res.data.permissions) {
             setPermissions(res.data.permissions);
           }
+          // If we successfully got navigation items, ensure access is not denied
+          // (unless permissions explicitly deny it)
+          if (['agent', 'doctorStaff'].includes(userRole || '')) {
+            if (moduleAccess.canRead) {
+              setAccessDenied(false);
+            }
+          } else {
+            setAccessDenied(false);
+          }
         }
+        setNavigationItemsLoaded(true);
       } catch (error: any) {
         if (axios.isAxiosError(error) && error.response?.status === 403) {
+          // Only set access denied if user is agent/doctorStaff
+          // and doesn't have read permission
+          if (['agent', 'doctorStaff'].includes(userRole || '')) {
+            if (!moduleAccess.canRead) {
           setAccessDenied(true);
           setAccessMessage('You do not have permission to view the dashboard modules.');
+            }
+          }
         } else {
           console.error('Error fetching navigation items:', error);
         }
+        setNavigationItemsLoaded(true);
       }
     };
 
@@ -319,10 +469,20 @@ const ClinicDashboard: NextPageWithLayout = () => {
   // Fetch all available modules (to show restricted ones)
   useEffect(() => {
     if (!permissionsLoaded) return;
-    if (['agent', 'doctorStaff'].includes(userRole || '') && !moduleAccess.canRead) {
+    
+    // Only check access for agent and doctorStaff roles
+    if (['agent', 'doctorStaff'].includes(userRole || '')) {
+      if (!moduleAccess.canRead) {
       setAccessDenied(true);
+        setAccessMessage('You do not have read permission for the clinic dashboard.');
       setLoading(false);
       return;
+      } else {
+        setAccessDenied(false);
+      }
+    } else {
+      // For other roles, always grant access
+      setAccessDenied(false);
     }
 
     const fetchAllModules = async (): Promise<void> => {
@@ -351,8 +511,14 @@ const ClinicDashboard: NextPageWithLayout = () => {
         }
       } catch (error: any) {
         if (axios.isAxiosError(error) && error.response?.status === 403) {
+          // Only set access denied if user is agent/doctorStaff and doesn't have read permission
+          // Don't block access just because we can't fetch all modules
+          if (['agent', 'doctorStaff'].includes(userRole || '')) {
+            if (!moduleAccess.canRead) {
           setAccessDenied(true);
           setAccessMessage('Access to module information is restricted for your account.');
+            }
+          }
         } else {
           console.error('Error fetching all modules:', error);
         }
@@ -380,6 +546,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
       }
 
       const statsMap: ModuleStats = {};
+      let dashboardStatsData: Stats | null = null;
 
       // Fetch basic dashboard stats
       try {
@@ -387,21 +554,150 @@ const ClinicDashboard: NextPageWithLayout = () => {
           headers: { Authorization: `Bearer ${token}` },
         });
         const data: DashboardStatsResponse = await res.json();
-        if (data.success) {
+        if (data.success && data.stats) {
+          dashboardStatsData = data.stats;
           setStats(data.stats);
           
-          // Map to module keys
+          // Map dashboardStats API data to module keys
+          // Common module key patterns
           statsMap['clinic_reviews'] = {
-            value: data.stats.totalReviews,
+            value: data.stats.totalReviews || 0,
+            label: 'Total Reviews',
+            icon: <Star className="w-5 h-5" />,
+            color: '#3b82f6',
+            hasData: true,
+          };
+          statsMap['reviews'] = {
+            value: data.stats.totalReviews || 0,
             label: 'Total Reviews',
             icon: <Star className="w-5 h-5" />,
             color: '#3b82f6',
             hasData: true,
           };
           statsMap['clinic_enquiries'] = {
-            value: data.stats.totalEnquiries,
+            value: data.stats.totalEnquiries || 0,
             label: 'Total Enquiries',
             icon: <Mail className="w-5 h-5" />,
+            color: '#3b82f6',
+            hasData: true,
+          };
+          statsMap['enquiries'] = {
+            value: data.stats.totalEnquiries || 0,
+            label: 'Total Enquiries',
+            icon: <Mail className="w-5 h-5" />,
+            color: '#3b82f6',
+            hasData: true,
+          };
+          statsMap['clinic_appointments'] = {
+            value: data.stats.totalAppointments || 0,
+            label: 'Total Appointments',
+            icon: <Calendar className="w-5 h-5" />,
+            color: '#3b82f6',
+            hasData: true,
+          };
+          statsMap['appointments'] = {
+            value: data.stats.totalAppointments || 0,
+            label: 'Total Appointments',
+            icon: <Calendar className="w-5 h-5" />,
+            color: '#3b82f6',
+            hasData: true,
+          };
+          statsMap['clinic_leads'] = {
+            value: data.stats.totalLeads || 0,
+            label: 'Total Leads',
+            icon: <Users className="w-5 h-5" />,
+            color: '#3b82f6',
+            hasData: true,
+          };
+          statsMap['leads'] = {
+            value: data.stats.totalLeads || 0,
+            label: 'Total Leads',
+            icon: <Users className="w-5 h-5" />,
+            color: '#3b82f6',
+            hasData: true,
+          };
+          statsMap['clinic_offers'] = {
+            value: (data.stats.totalOffers || (data.stats as any).totaloffers) || 0,
+            label: 'Total Offers',
+            icon: <Gift className="w-5 h-5" />,
+            color: '#3b82f6',
+            hasData: true,
+          };
+          statsMap['offers'] = {
+            value: (data.stats.totalOffers || (data.stats as any).totaloffers) || 0,
+            label: 'Total Offers',
+            icon: <Gift className="w-5 h-5" />,
+            color: '#3b82f6',
+            hasData: true,
+          };
+          statsMap['clinic_treatments'] = {
+            value: data.stats.totalTreatments || 0,
+            label: 'Total Treatments',
+            icon: <Stethoscope className="w-5 h-5" />,
+            color: '#3b82f6',
+            hasData: true,
+          };
+          statsMap['treatments'] = {
+            value: data.stats.totalTreatments || 0,
+            label: 'Total Treatments',
+            icon: <Stethoscope className="w-5 h-5" />,
+            color: '#3b82f6',
+            hasData: true,
+          };
+          statsMap['clinic_rooms'] = {
+            value: data.stats.totalRooms || 0,
+            label: 'Total Rooms',
+            icon: <DoorOpen className="w-5 h-5" />,
+            color: '#3b82f6',
+            hasData: true,
+          };
+          statsMap['rooms'] = {
+            value: data.stats.totalRooms || 0,
+            label: 'Total Rooms',
+            icon: <DoorOpen className="w-5 h-5" />,
+            color: '#3b82f6',
+            hasData: true,
+          };
+          statsMap['clinic_packages'] = {
+            value: data.stats.totalPackages || 0,
+            label: 'Total Packages',
+            icon: <Package className="w-5 h-5" />,
+            color: '#3b82f6',
+            hasData: true,
+          };
+          statsMap['packages'] = {
+            value: data.stats.totalPackages || 0,
+            label: 'Total Packages',
+            icon: <Package className="w-5 h-5" />,
+            color: '#3b82f6',
+            hasData: true,
+          };
+          // Map specific modules for first graph
+          statsMap['health_center'] = {
+            value: 1, // Will be updated if clinic count is fetched
+            label: 'Health Centers',
+            icon: <Building2 className="w-5 h-5" />,
+            color: '#3b82f6',
+            hasData: true,
+          };
+          statsMap['enquiry'] = {
+            value: data.stats.totalEnquiries || 0,
+            label: 'Total Enquiries',
+            icon: <Mail className="w-5 h-5" />,
+            color: '#3b82f6',
+            hasData: true,
+          };
+          statsMap['create_lead'] = {
+            value: data.stats.totalLeads || 0,
+            label: 'Total Leads',
+            icon: <Users className="w-5 h-5" />,
+            color: '#3b82f6',
+            hasData: true,
+          };
+          statsMap['assignedLead'] = {
+            value: data.stats.totalLeads || 0,
+            label: 'Assigned Leads',
+            icon: <Users className="w-5 h-5" />,
             color: '#3b82f6',
             hasData: true,
           };
@@ -411,8 +707,14 @@ const ClinicDashboard: NextPageWithLayout = () => {
       }
 
       // Fetch stats for each navigation item based on moduleKey
+      // First check if we already have data from dashboardStats, otherwise fetch from specific APIs
       const statsPromises = navigationItems.map(async (item) => {
         try {
+          // If we already have data from dashboardStats, use it
+          if (statsMap[item.moduleKey]) {
+            return; // Already set, skip
+          }
+
           let statValue: number | string = 0;
           let statLabel = item.label;
           let statColor = '#3b82f6';
@@ -468,10 +770,63 @@ const ClinicDashboard: NextPageWithLayout = () => {
                 hasData = false;
               }
               break;
+            case 'health_center':
+              try {
+                // For health center, show clinic count (usually 1, but could be more)
+                const clinicRes = await axios.get('/api/clinics/myallClinic', {
+                  headers: { Authorization: `Bearer ${token}` },
+                });
+                const clinics = clinicRes.data?.clinics || [];
+                statValue = clinics.length || 1; // At least 1 if clinic exists
+                statLabel = 'Health Centers';
+                hasData = true;
+              } catch (error) {
+                console.error(`Error fetching health center for ${item.moduleKey}:`, error);
+                statValue = 1; // Default to 1 if clinic exists
+                hasData = true;
+              }
+              break;
+            case 'create_agent':
+              try {
+                // Fetch agents count
+                const agentsRes = await axios.get('/api/agent/get-all-agents', {
+                  headers: { Authorization: `Bearer ${token}` },
+                });
+                const agents = agentsRes.data?.agents || agentsRes.data?.data || [];
+                statValue = Array.isArray(agents) ? agents.length : 0;
+                statLabel = 'Total Agents';
+                hasData = true;
+              } catch (error) {
+                console.error(`Error fetching agents for ${item.moduleKey}:`, error);
+                statValue = 0;
+                hasData = false;
+              }
+              break;
+            case 'create_lead':
+            case 'assignedLead':
+              // These are already covered by totalLeads from dashboardStats
+              // But we can show specific counts if needed
+              statValue = dashboardStatsData?.totalLeads || 0;
+              statLabel = item.moduleKey === 'assignedLead' ? 'Assigned Leads' : 'Total Leads';
+              hasData = (dashboardStatsData?.totalLeads || 0) > 0;
+              break;
+            case 'enquiry':
+              // Enquiry module
+              statValue = dashboardStatsData?.totalEnquiries || 0;
+              statLabel = 'Total Enquiries';
+              hasData = (dashboardStatsData?.totalEnquiries || 0) > 0;
+              break;
             default:
-              // For other modules, mark as no data available
+              // For other modules, try to get from dashboardStatsData if available
+              const moduleKeyLower = item.moduleKey.toLowerCase();
+              if (moduleKeyLower.includes('enquiry')) {
+                statValue = dashboardStatsData?.totalEnquiries || 0;
+                statLabel = 'Total Enquiries';
+                hasData = (dashboardStatsData?.totalEnquiries || 0) > 0;
+              } else {
               statValue = 0;
               hasData = false;
+              }
           }
 
           statsMap[item.moduleKey] = {
@@ -508,7 +863,21 @@ const ClinicDashboard: NextPageWithLayout = () => {
   useEffect(() => {
     if (!permissionsLoaded) return;
     if (['agent', 'doctorStaff'].includes(userRole || '') && !moduleAccess.canRead) {
-      setStats({ totalReviews: 0, totalEnquiries: 0, totalClinics: 0 });
+      setStats({
+        totalReviews: 0,
+        totalEnquiries: 0,
+        totalClinics: 0,
+        totalAppointments: 0,
+        totalLeads: 0,
+        totalTreatments: 0,
+        totalRooms: 0,
+        totalDepartments: 0,
+        totalPackages: 0,
+        totalOffers: 0,
+        appointmentStatusBreakdown: {},
+        leadStatusBreakdown: {},
+        offerStatusBreakdown: {},
+      });
       setLoading(false);
       return;
     }
@@ -525,11 +894,39 @@ const ClinicDashboard: NextPageWithLayout = () => {
         if (data.success) {
           setStats(data.stats);
         } else if (res.status === 403) {
-          setStats({ totalReviews: 0, totalEnquiries: 0, totalClinics: 0 });
+          setStats({
+            totalReviews: 0,
+            totalEnquiries: 0,
+            totalClinics: 0,
+            totalAppointments: 0,
+            totalLeads: 0,
+            totalTreatments: 0,
+            totalRooms: 0,
+            totalDepartments: 0,
+            totalPackages: 0,
+            totalOffers: 0,
+            appointmentStatusBreakdown: {},
+            leadStatusBreakdown: {},
+            offerStatusBreakdown: {},
+          });
         }
       } catch (error: any) {
         if (error?.response?.status === 403) {
-          setStats({ totalReviews: 0, totalEnquiries: 0, totalClinics: 0 });
+          setStats({
+            totalReviews: 0,
+            totalEnquiries: 0,
+            totalClinics: 0,
+            totalAppointments: 0,
+            totalLeads: 0,
+            totalTreatments: 0,
+            totalRooms: 0,
+            totalDepartments: 0,
+            totalPackages: 0,
+            totalOffers: 0,
+            appointmentStatusBreakdown: {},
+            leadStatusBreakdown: {},
+            offerStatusBreakdown: {},
+          });
         }
       } finally {
         setLoading(false);
@@ -574,6 +971,60 @@ const ClinicDashboard: NextPageWithLayout = () => {
     return navigationItems.map(item => item.moduleKey);
   }, [navigationItems]);
 
+  // Memoize permissions config to prevent unnecessary re-renders
+  // Calculate permissions values first
+  // For clinic/doctor roles, always allow access. For agent/doctorStaff, check modules
+  const hasJobsPermission = useMemo(() => {
+    // For clinic/doctor roles, always allow (don't wait for navigationItems)
+    if (userRole === 'clinic' || userRole === 'doctor' || !userRole) {
+      return true;
+    }
+    // For agent/doctorStaff, check modules (but default to true while loading)
+    if (!navigationItemsLoaded) {
+      return true; // Default to true while loading for agent/doctorStaff
+    }
+    return modulesWithPermission.some(key => key === 'clinic_jobs' || key === 'jobs');
+  }, [modulesWithPermission, navigationItemsLoaded, userRole]);
+  
+  const hasBlogsPermission = useMemo(() => {
+    // For clinic/doctor roles, always allow (don't wait for navigationItems)
+    if (userRole === 'clinic' || userRole === 'doctor' || !userRole) {
+      return true;
+    }
+    // For agent/doctorStaff, check modules (but default to true while loading)
+    if (!navigationItemsLoaded) {
+      return true; // Default to true while loading for agent/doctorStaff
+    }
+    return modulesWithPermission.some(key => key === 'clinic_blogs' || key === 'blogs');
+  }, [modulesWithPermission, navigationItemsLoaded, userRole]);
+  
+  const hasApplicationsPermission = useMemo(() => {
+    // For clinic/doctor roles, always allow (don't wait for navigationItems)
+    if (userRole === 'clinic' || userRole === 'doctor' || !userRole) {
+      return true;
+    }
+    // For agent/doctorStaff, check modules (but default to true while loading)
+    if (!navigationItemsLoaded) {
+      return true; // Default to true while loading for agent/doctorStaff
+    }
+    return modulesWithPermission.some(key => key === 'clinic_jobs' || key === 'jobs');
+  }, [modulesWithPermission, navigationItemsLoaded, userRole]);
+
+  // Create stable permissions object - only recreate when values actually change
+  const statsPermissions = useMemo(() => ({
+    canAccessJobs: hasJobsPermission,
+    canAccessBlogs: hasBlogsPermission,
+    canAccessApplications: hasApplicationsPermission,
+  }), [hasJobsPermission, hasBlogsPermission, hasApplicationsPermission]);
+
+  // Memoize the entire Stats config to prevent unnecessary re-fetches
+  // This ensures the config object reference only changes when permissions actually change
+  const statsConfig = useMemo(() => ({
+    tokenKey: 'clinicToken' as const,
+    primaryColor: '#3b82f6',
+    permissions: statsPermissions
+  }), [statsPermissions]);
+
   // Get restricted modules (all modules minus modules with permission)
   const restrictedModules = useMemo(() => {
     const permissionKeys = new Set(modulesWithPermission);
@@ -595,51 +1046,133 @@ const ClinicDashboard: NextPageWithLayout = () => {
     };
   }, [allModules, navigationItems, restrictedModules]);
 
-  // Prepare chart data for graphical representation (must be before any conditional returns)
-  const subscriptionChartData = useMemo(() => {
-    return [
-      { name: 'Active', value: subscriptionSummary.subscribedModules, color: '#1f2937' }, // gray-800
-      { name: 'Locked', value: subscriptionSummary.restrictedCount, color: '#6b7280' },
-    ];
-  }, [subscriptionSummary]);
+  // Helper function to get value for a module
+  const getModuleValue = useCallback((item: NavigationItem): number => {
+    // First try to get from moduleStats
+    const moduleStat = moduleStats[item.moduleKey];
+    
+    if (moduleStat?.value !== undefined && moduleStat.value !== null) {
+      if (typeof moduleStat.value === 'number') {
+        return moduleStat.value;
+      } else if (typeof moduleStat.value === 'string') {
+        const parsed = parseFloat(moduleStat.value);
+        return isNaN(parsed) ? 0 : parsed;
+      }
+    }
+    
+    // Fallback: Map moduleKey to stats directly
+    const moduleKeyLower = item.moduleKey.toLowerCase();
+    
+    // Direct moduleKey matching (most reliable)
+    if (moduleKeyLower.includes('review') || moduleKeyLower === 'reviews' || moduleKeyLower === 'clinic_reviews') {
+      return stats.totalReviews || 0;
+    } else if (moduleKeyLower.includes('enquiry') || moduleKeyLower === 'enquiries' || moduleKeyLower === 'clinic_enquiries') {
+      return stats.totalEnquiries || 0;
+    } else if (moduleKeyLower.includes('appointment') || moduleKeyLower === 'appointments' || moduleKeyLower === 'clinic_appointments') {
+      return stats.totalAppointments || 0;
+    } else if (moduleKeyLower.includes('lead') || moduleKeyLower === 'leads' || moduleKeyLower === 'clinic_leads' || moduleKeyLower === 'assignedlead') {
+      return stats.totalLeads || 0;
+    } else if (moduleKeyLower.includes('offer') || moduleKeyLower === 'offers' || moduleKeyLower === 'clinic_offers') {
+      return stats.totalOffers || 0;
+    } else if (moduleKeyLower.includes('treatment') || moduleKeyLower === 'treatments' || moduleKeyLower === 'clinic_treatments') {
+      return stats.totalTreatments || 0;
+    } else if (moduleKeyLower.includes('room') || moduleKeyLower === 'rooms' || moduleKeyLower === 'clinic_rooms') {
+      return stats.totalRooms || 0;
+    } else if (moduleKeyLower.includes('package') || moduleKeyLower === 'packages' || moduleKeyLower === 'clinic_packages') {
+      return stats.totalPackages || 0;
+    } else if (moduleKeyLower.includes('department') || moduleKeyLower === 'departments' || moduleKeyLower === 'clinic_departments') {
+      return stats.totalDepartments || 0;
+    } else if (moduleKeyLower.includes('health') || moduleKeyLower === 'health_center') {
+      // For health center, we might want to show clinic count or 1 if exists
+      return 1; // Or you can fetch actual clinic count
+    }
+    
+    // For modules like create_agent, create_lead, assignedLead - use moduleStats or default
+    return moduleStat?.value as number || 0;
+  }, [moduleStats, stats]);
 
+  // First Graph (Bar Chart): Shows Appointments, Leads, Offers, Jobs
+  const modulesChartData = useMemo(() => {
+    // Use totalJobs from stats API (more accurate than moduleStats)
+    const jobsCount = stats.totalJobs || 0;
+    
+    return [
+      { name: 'Appointments', value: stats.totalAppointments || 0 },
+      { name: 'Leads', value: stats.totalLeads || 0 },
+      { name: 'Offers', value: stats.totalOffers || 0 },
+      { name: 'Jobs', value: jobsCount },
+    ].filter(item => item.value > 0 || !statsLoading); // Show items with data or while loading
+  }, [stats.totalAppointments, stats.totalLeads, stats.totalOffers, stats.totalJobs, statsLoading]);
+
+  // Second Graph (Line Chart): Shows Reviews, Enquiries, Patients, Rooms
   const statsChartData = useMemo(() => {
     return [
-      { name: 'Reviews', value: stats.totalReviews },
-      { name: 'Enquiries', value: stats.totalEnquiries },
-    ];
-  }, [stats]);
+      { name: 'Reviews', value: stats.totalReviews || 0 },
+      { name: 'Enquiries', value: stats.totalEnquiries || 0 },
+      { name: 'Patients', value: stats.totalPatients || 0 },
+      { name: 'Rooms', value: stats.totalRooms || 0 },
+    ].filter(item => item.value > 0 || !statsLoading); // Only show items with data or while loading
+  }, [stats.totalReviews, stats.totalEnquiries, stats.totalPatients, stats.totalRooms, statsLoading]);
 
-  // Render stat card component - Professional minimal design matching sidebar theme
+  // Prepare breakdown chart data
+  const appointmentStatusData = useMemo(() => {
+    if (!stats.appointmentStatusBreakdown) return [];
+    return Object.entries(stats.appointmentStatusBreakdown).map(([status, count]) => ({
+      name: status,
+      value: count,
+    }));
+  }, [stats.appointmentStatusBreakdown]);
+
+  const leadStatusData = useMemo(() => {
+    if (!stats.leadStatusBreakdown) return [];
+    return Object.entries(stats.leadStatusBreakdown).map(([status, count]) => ({
+      name: status,
+      value: count,
+    }));
+  }, [stats.leadStatusBreakdown]);
+
+  const offerStatusData = useMemo(() => {
+    if (!stats.offerStatusBreakdown) return [];
+    return Object.entries(stats.offerStatusBreakdown).map(([status, count]) => ({
+      name: status,
+      value: count,
+    }));
+  }, [stats.offerStatusBreakdown]);
+
+  // Colors for pie charts
+  const pieColors = ['#2D9AA5', '#22c55e', '#a855f7', '#f97316', '#ec4899', '#6366f1', '#ef4444', '#10b981', '#3b82f6', '#f59e0b'];
+
+  // Render stat card component - Enhanced modern design
   const renderStatCard = (
     label: string,
     value: number | string,
     icon: React.ReactNode,
     hasPermission: boolean = true,
-    moduleKey?: string
+    _moduleKey?: string,
+    trend?: { value: number; isPositive: boolean }
   ) => {
     if (!hasPermission) {
       return (
-        <div className="bg-white rounded-lg p-5 border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200 relative">
-          <div className="absolute top-3 right-3 bg-gray-500 text-white px-2 py-1 text-xs font-semibold rounded">
+        <div className="bg-gradient-to-br from-gray-50 to-white rounded-xl p-4 border border-gray-200 shadow-sm hover:shadow-lg transition-all duration-300 relative overflow-hidden group">
+          <div className="absolute top-2 right-2 bg-gray-500 text-white px-2 py-0.5 text-[10px] font-semibold rounded-full">
             LOCKED
           </div>
-          <div className="pt-6">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="p-2.5 bg-gray-100 rounded-lg">
-                <Lock className="w-5 h-5 text-gray-500" />
+          <div className="pt-4">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="p-2 bg-gray-100 rounded-lg group-hover:bg-gray-200 transition-colors">
+                <Lock className="w-4 h-4 text-gray-500" />
               </div>
             </div>
-            <h3 className="text-sm font-semibold text-gray-700 mb-3">{label}</h3>
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
-              <div className="flex items-start gap-2">
-                <XCircle className="w-4 h-4 text-gray-500 flex-shrink-0 mt-0.5" />
+            <h3 className="text-[11px] font-semibold text-gray-700 mb-2 uppercase tracking-wide">{label}</h3>
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-2.5">
+              <div className="flex items-start gap-1.5">
+                <XCircle className="w-3.5 h-3.5 text-gray-500 flex-shrink-0 mt-0.5" />
                 <div>
-                  <p className="text-xs font-medium text-gray-700 mb-1">
+                  <p className="text-[10px] font-medium text-gray-700 mb-0.5">
                     Subscription Required
                   </p>
-                  <p className="text-xs text-gray-700 leading-relaxed">
-                    Contact administrator to enable this feature.
+                  <p className="text-[10px] text-gray-600 leading-relaxed">
+                    Contact administrator
                   </p>
                 </div>
               </div>
@@ -650,28 +1183,34 @@ const ClinicDashboard: NextPageWithLayout = () => {
     }
 
     return (
-      <div className="bg-white rounded-lg p-5 border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200 group">
-        <div className="absolute top-3 right-3 bg-gray-800 text-white px-2 py-1 text-xs font-semibold rounded flex items-center gap-1">
-          <CheckCircle2 className="w-3 h-3" />
+      <div className="bg-gradient-to-br from-white to-gray-50 rounded-xl p-4 border border-gray-200 shadow-sm hover:shadow-xl transition-all duration-300 group relative overflow-hidden">
+        <div className="absolute top-2 right-2 bg-gradient-to-r from-green-600 to-green-700 text-white px-2 py-0.5 text-[10px] font-semibold rounded-full flex items-center gap-1">
+          <CheckCircle2 className="w-2.5 h-2.5" />
           ACTIVE
         </div>
-        <div className="pt-6">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="p-2.5 bg-gray-100 rounded-lg group-hover:bg-gray-200 transition-colors">
+        <div className="pt-4">
+          <div className="flex items-center justify-between mb-2">
+            <div className="p-2 bg-gradient-to-br from-gray-100 to-gray-200 rounded-lg group-hover:from-gray-200 group-hover:to-gray-300 transition-all">
               <div className="text-gray-700">{icon}</div>
             </div>
+            {trend && (
+              <div className={`flex items-center gap-0.5 ${trend.isPositive ? 'text-green-600' : 'text-red-600'}`}>
+                {trend.isPositive ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
+                <span className="text-[10px] font-semibold">{Math.abs(trend.value)}%</span>
+              </div>
+            )}
           </div>
-          <h3 className="text-xs font-medium text-gray-700 mb-2">{label}</h3>
+          <h3 className="text-[10px] font-medium text-gray-600 mb-1.5 uppercase tracking-wide">{label}</h3>
           {statsLoading ? (
-            <div className="flex items-center gap-2">
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-800"></div>
-              <span className="text-sm text-gray-700">Loading...</span>
+            <div className="flex items-center gap-1.5">
+              <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-gray-800"></div>
+              <span className="text-[11px] text-gray-600">Loading...</span>
             </div>
           ) : (
             <>
-              <p className="text-3xl sm:text-4xl font-bold text-gray-900">{value}</p>
+              <p className="text-2xl sm:text-3xl font-bold text-gray-900 mb-1">{value}</p>
               {value === 0 && (
-                <p className="text-xs text-gray-700 mt-1">No data available</p>
+                <p className="text-[10px] text-gray-500 mt-0.5">No data</p>
               )}
             </>
           )}
@@ -707,142 +1246,119 @@ const ClinicDashboard: NextPageWithLayout = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Main Content */}
-      <div className="p-3 sm:p-4 lg:p-5 space-y-3 lg:space-y-4">
-        {/* Professional Header - Compact */}
-        <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
-            <div className="flex-1">
-              <div className="flex items-center gap-2 mb-2">
-                <Building2 className="w-5 h-5 text-gray-700" />
-                <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
-                  {clinicInfo.name || 'Clinic Dashboard'}
-                </h1>
-              </div>
-              <div className="flex items-center gap-3 text-xs sm:text-sm text-gray-700 flex-wrap">
+      {/* Modern Dashboard Layout */}
+      <div className="w-full px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
+        {/* Dashboard Header */}
+        <div className="mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div>
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-1">
+                    {clinicInfo.name || 'Clinic Dashboard'}
+                  </h1>
+              <div className="flex items-center gap-3 text-sm text-gray-600">
                 <div className="flex items-center gap-1.5">
-                  <User className="w-3.5 h-3.5" />
-                  <span className="font-medium">Owner:</span>
+                  <User className="w-4 h-4" />
                   <span>{clinicInfo.ownerName || clinicUser?.name || 'N/A'}</span>
                 </div>
                 <span>•</span>
                 <span>{formatDate(currentTime)}</span>
                 <span>•</span>
-                <span>{formatTime(currentTime)}</span>
-              </div>
-            </div>
-            <div className="bg-gray-50 rounded-lg px-3 py-2 border border-gray-200">
-              <p className="text-xs sm:text-sm font-medium text-gray-700">{getGreeting()}</p>
+                  <span className="font-semibold">{formatTime(currentTime)}</span>
+                </div>
+                </div>
+            <div className="bg-gray-900 text-white px-4 py-2 rounded-lg">
+              <p className="text-sm font-medium">{getGreeting()}</p>
             </div>
           </div>
         </div>
 
-        {/* Subscription Status Summary - Compact */}
-        <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
-          <div className="flex items-center gap-2 mb-3">
-            <BarChart3 className="w-5 h-5 text-gray-700" />
-            <h2 className="text-lg sm:text-xl font-bold text-gray-900">Subscription Overview</h2>
+        {/* Packages and Offers - Enhanced Design */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+          {/* Packages Card */}
+          <div className="bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 rounded-xl border-2 border-indigo-200 shadow-lg p-6 hover:shadow-xl transition-all duration-300 relative overflow-hidden group">
+            {/* Decorative Background Elements */}
+            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-indigo-200/30 to-purple-200/30 rounded-full blur-2xl -mr-16 -mt-16"></div>
+            <div className="absolute bottom-0 left-0 w-24 h-24 bg-gradient-to-tr from-pink-200/30 to-purple-200/30 rounded-full blur-xl -ml-12 -mb-12"></div>
+            
+            <div className="relative z-10">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-3 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl shadow-lg group-hover:scale-110 transition-transform">
+                    <Package className="w-7 h-7 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-900">Packages</h3>
+                    <p className="text-xs text-gray-600">Total available packages</p>
+                  </div>
+                </div>
+                <div className="px-3 py-1 bg-indigo-100 rounded-full">
+                  <span className="text-xs font-semibold text-indigo-700">ACTIVE</span>
+                </div>
+              </div>
+              
+              <div className="mb-4">
+                <div className="text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600 mb-2">
+                  {stats.totalPackages || 0}
+                </div>
+                <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <div className="w-2 h-2 bg-indigo-500 rounded-full animate-pulse"></div>
+                  <span>Available packages</span>
+                </div>
+              </div>
+              
+              <div className="pt-4 border-t border-indigo-200/50">
+                <div className="text-xs text-gray-600">
+                  <span className="font-semibold text-gray-900">Status:</span> Active
+                </div>
+              </div>
+            </div>
           </div>
-          
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-3">
-            {/* Stats Cards - More compact */}
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
-              <div className="flex items-center gap-2 mb-2">
-                <CheckCircle2 className="w-4 h-4 text-gray-800" />
-                <span className="text-xs font-semibold text-gray-700">Active</span>
-              </div>
-              <p className="text-2xl font-bold text-gray-900 mb-1">
-                {navigationItems.length}
-              </p>
-              <p className="text-xs text-gray-700 mb-2">Active modules</p>
-              <div className="bg-gray-100 rounded-full h-1.5">
-                <div 
-                  className="bg-gray-800 h-1.5 rounded-full transition-all duration-500"
-                  style={{ width: `${subscriptionSummary.subscriptionPercentage}%` }}
-                ></div>
-              </div>
-            </div>
 
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
-              <div className="flex items-center gap-2 mb-2">
-                <XCircle className="w-4 h-4 text-gray-500" />
-                <span className="text-xs font-semibold text-gray-700">Locked</span>
+          {/* Offers Card */}
+          <div className="bg-gradient-to-br from-amber-50 via-orange-50 to-red-50 rounded-xl border-2 border-amber-200 shadow-lg p-6 hover:shadow-xl transition-all duration-300 relative overflow-hidden group">
+            {/* Decorative Background Elements */}
+            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-amber-200/30 to-orange-200/30 rounded-full blur-2xl -mr-16 -mt-16"></div>
+            <div className="absolute bottom-0 left-0 w-24 h-24 bg-gradient-to-tr from-red-200/30 to-orange-200/30 rounded-full blur-xl -ml-12 -mb-12"></div>
+            
+            <div className="relative z-10">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-3 bg-gradient-to-br from-amber-500 to-orange-600 rounded-xl shadow-lg group-hover:scale-110 transition-transform">
+                    <Gift className="w-7 h-7 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-900">Offers</h3>
+                    <p className="text-xs text-gray-600">Current active offers</p>
+                  </div>
+                </div>
+                <div className="px-3 py-1 bg-amber-100 rounded-full">
+                  <span className="text-xs font-semibold text-amber-700">ACTIVE</span>
+                </div>
               </div>
-              <p className="text-2xl font-bold text-gray-900 mb-1">
-                {subscriptionSummary.restrictedCount}
-              </p>
-              <p className="text-xs text-gray-700 mb-2">Not subscribed</p>
-              <div className="bg-gray-100 rounded-full h-1.5">
-                <div 
-                  className="bg-gray-500 h-1.5 rounded-full transition-all duration-500"
-                  style={{ width: `${100 - subscriptionSummary.subscriptionPercentage}%` }}
-                ></div>
+              
+              <div className="mb-4">
+                <div className="text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-amber-600 to-orange-600 mb-2">
+                  {stats.totalOffers || 0}
+                </div>
+                <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse"></div>
+                  <span>Active offers</span>
+                </div>
               </div>
-            </div>
-
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
-              <div className="flex items-center gap-2 mb-2">
-                <BarChart3 className="w-4 h-4 text-gray-700" />
-                <span className="text-xs font-semibold text-gray-700">Total</span>
-              </div>
-              <p className="text-2xl font-bold text-gray-900 mb-1">
-                {subscriptionSummary.totalModules}
-              </p>
-              <p className="text-xs text-gray-700">Available modules</p>
-            </div>
-
-            {/* Compact Chart */}
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
-              <h3 className="text-xs font-semibold text-gray-700 mb-2">Distribution</h3>
-              <div className="h-32">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={subscriptionChartData} layout="vertical">
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                    <XAxis type="number" stroke="#6b7280" fontSize={10} />
-                    <YAxis 
-                      type="category" 
-                      dataKey="name" 
-                      stroke="#6b7280" 
-                      fontSize={10}
-                      width={50}
-                    />
-                    <Tooltip 
-                      contentStyle={{ 
-                        backgroundColor: '#fff', 
-                        border: '1px solid #e5e7eb',
-                        borderRadius: '6px',
-                        fontSize: '11px'
-                      }}
-                    />
-                    <Bar 
-                      dataKey="value" 
-                      radius={[0, 4, 4, 0]}
-                    >
-                      {subscriptionChartData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                      <LabelList 
-                        dataKey="value" 
-                        position="right" 
-                        style={{ fill: '#1f2937', fontSize: '11px', fontWeight: '500' }}
-                      />
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
+              
+              <div className="pt-4 border-t border-amber-200/50">
+                <div className="text-xs text-gray-600">
+                  <span className="font-semibold text-gray-900">Status:</span> Active
+                </div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Key Statistics Section - Compact */}
-        <div>
-          <div className="flex items-center gap-2 mb-3">
-            <BarChart3 className="w-5 h-5 text-gray-800" />
-            <h2 className="text-lg sm:text-xl font-bold text-gray-900">Key Statistics</h2>
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            {/* Reviews Stat */}
-            <div>
+        {/* Main Dashboard Content - Full Width */}
+        <div className="space-y-6 mb-6">
+            {/* Key Statistics Row - Primary */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               {renderStatCard(
                 'Total Reviews',
                 stats.totalReviews,
@@ -850,10 +1366,6 @@ const ClinicDashboard: NextPageWithLayout = () => {
                 true,
                 'reviews'
               )}
-            </div>
-
-            {/* Enquiries Stat */}
-            <div>
               {renderStatCard(
                 'Total Enquiries',
                 stats.totalEnquiries,
@@ -861,10 +1373,6 @@ const ClinicDashboard: NextPageWithLayout = () => {
                 true,
                 'enquiries'
               )}
-            </div>
-
-            {/* Active Modules Count */}
-            <div>
               {renderStatCard(
                 'Active Modules',
                 navigationItems.length,
@@ -872,10 +1380,6 @@ const ClinicDashboard: NextPageWithLayout = () => {
                 true,
                 'modules'
               )}
-            </div>
-
-            {/* Subscription Status */}
-            <div>
               {renderStatCard(
                 'Subscription',
                 `${subscriptionSummary.subscriptionPercentage}%`,
@@ -884,213 +1388,186 @@ const ClinicDashboard: NextPageWithLayout = () => {
                 'subscription'
               )}
             </div>
-          </div>
-        </div>
 
-        {/* Detailed Feature Breakdown Section - Compact */}
-        <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
-          <div className="flex items-center gap-2 mb-3">
-            <Settings className="w-5 h-5 text-gray-700" />
-            <h2 className="text-lg sm:text-xl font-bold text-gray-900">Feature Breakdown</h2>
-          </div>
+            {/* Additional Statistics Row */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+              {renderStatCard(
+                'Appointments',
+                stats.totalAppointments || 0,
+                <Calendar className="w-5 h-5" />,
+                true,
+                'appointments'
+              )}
+              {renderStatCard(
+                'Leads',
+                stats.totalLeads || 0,
+                <Users className="w-5 h-5" />,
+                true,
+                'leads'
+              )}
+              {renderStatCard(
+                'Treatments',
+                stats.totalTreatments || 0,
+                <Stethoscope className="w-5 h-5" />,
+                true,
+                'treatments'
+              )}
+              {renderStatCard(
+                'Rooms',
+                stats.totalRooms || 0,
+                <DoorOpen className="w-5 h-5" />,
+                true,
+                'rooms'
+              )}
+              {renderStatCard(
+                'Departments',
+                stats.totalDepartments || 0,
+                <Building2 className="w-5 h-5" />,
+                true,
+                'departments'
+              )}
+                </div>
 
-          <div className="space-y-3">
-            {/* Show modules with permissions */}
-            {allModules.map((module) => {
-              const modulePermission = permissions?.find(p => {
-                const moduleKey = p.module;
-                return moduleKey === module.moduleKey || 
-                       moduleKey === module.moduleKey.replace('clinic_', '') ||
-                       moduleKey === module.moduleKey.replace(/^(admin|clinic|doctor)_/, '');
-              });
-
-              const hasModulePermission = modulePermission && (
-                modulePermission.actions?.read === true || 
-                modulePermission.actions?.all === true
-              );
-
-              // Get all submodules from the module definition
-              const allSubModules = module.subModules || [];
-              
-              // Get submodules that have permission
-              const activeSubModules = allSubModules.filter(subModule => {
-                if (!modulePermission) return false;
-                
-                // Check if module has "all" permission (grants all submodules)
-                if (modulePermission.actions?.all === true) return true;
-                
-                // Check if submodule has explicit permission
-                const subModulePerm = modulePermission.subModules?.find(sm => sm.name === subModule.name);
-                return subModulePerm && (
-                  subModulePerm.actions?.read === true || 
-                  subModulePerm.actions?.all === true
-                );
-              });
-
-              const lockedSubModules = allSubModules.filter(subModule => {
-                if (!modulePermission) return true;
-                
-                // Check if module has "all" permission (grants all submodules)
-                if (modulePermission.actions?.all === true) return false;
-                
-                // Check if submodule has explicit permission
-                const subModulePerm = modulePermission.subModules?.find(sm => sm.name === subModule.name);
-                return !subModulePerm || (
-                  subModulePerm.actions?.read !== true && 
-                  subModulePerm.actions?.all !== true
-                );
-              });
-
-              return (
-                <div key={module._id} className="border border-gray-200 rounded-lg p-3 hover:shadow-md transition-shadow">
-                  <div className="flex items-start justify-between mb-2">
-                    <div className="flex items-center gap-2 flex-1 min-w-0">
-                      <div className="p-1.5 bg-gray-100 rounded-lg flex-shrink-0">
-                        {iconMap[module.icon] || <Activity className="w-4 h-4 text-gray-600" />}
+            {/* Quick Actions */}
+            <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
+              <h3 className="text-sm font-semibold text-gray-900 mb-3">Quick Actions</h3>
+              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
+                {quickActions.map((action, idx) => {
+                  const Icon = action.icon;
+                  return (
+                    <a
+                      key={idx}
+                      href={action.path}
+                      className="flex flex-col items-center justify-center p-3 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 hover:border-gray-300 transition-all group"
+                    >
+                      <div className={`p-2 ${action.color} rounded-lg mb-2 group-hover:scale-110 transition-transform`}>
+                        <Icon className="w-4 h-4 text-white" />
                       </div>
-                      <div className="min-w-0 flex-1">
-                        <h3 className="text-sm font-bold text-gray-900 truncate">{module.label}</h3>
-                        {module.description && (
-                          <p className="text-xs text-gray-700 truncate">{module.description}</p>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 flex-shrink-0 ml-2">
-                      {hasModulePermission ? (
-                        <span className="px-2 py-0.5 bg-gray-100 text-gray-800 text-[10px] font-semibold rounded border border-gray-300 whitespace-nowrap">
-                          <CheckCircle2 className="w-2.5 h-2.5 inline mr-1" />
-                          Active
-                        </span>
-                      ) : (
-                        <span className="px-2 py-0.5 bg-gray-100 text-gray-700 text-[10px] font-semibold rounded border border-gray-300 whitespace-nowrap">
-                          <Lock className="w-2.5 h-2.5 inline mr-1" />
-                          Locked
-                        </span>
-                      )}
-                    </div>
+                      <p className="text-xs font-medium text-gray-700 text-center">{action.label}</p>
+                    </a>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Status Breakdown Charts - Expanded */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Appointment Status Breakdown */}
+              {appointmentStatusData.length > 0 && (
+                <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
+                  <h3 className="text-base font-semibold text-gray-900 mb-6">Appointment Status</h3>
+                  <div className="h-80">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={appointmentStatusData}
+                          cx="50%"
+                          cy="50%"
+                          labelLine={false}
+                          label={({ name, percent }: { name: string; percent?: number }) => `${name}: ${((percent || 0) * 100).toFixed(0)}%`}
+                          outerRadius={100}
+                          fill="#8884d8"
+                          dataKey="value"
+                        >
+                          {appointmentStatusData.map((_entry, index) => (
+                            <Cell key={`cell-${index}`} fill={pieColors[index % pieColors.length]} />
+                          ))}
+                        </Pie>
+                        <Tooltip />
+                        <Legend />
+                      </PieChart>
+                    </ResponsiveContainer>
                   </div>
-
-                  {allSubModules.length > 0 && (
-                    <div className="mt-4 space-y-3">
-                      {/* Active Submodules */}
-                      {activeSubModules.length > 0 && (
-                        <div>
-                          <div className="flex items-center gap-2 mb-2">
-                            <CheckCircle2 className="w-4 h-4 text-blue-600" />
-                            <span className="text-sm font-semibold text-gray-700">
-                              Active Features ({activeSubModules.length})
-                            </span>
-                          </div>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                            {activeSubModules.map((subModule, idx) => (
-                              <div key={idx} className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg p-2">
-                                <CheckCircle2 className="w-4 h-4 text-gray-800 flex-shrink-0" />
-                                <span className="text-sm text-gray-800">{subModule.name}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Locked Submodules */}
-                      {lockedSubModules.length > 0 && (
-                        <div>
-                          <div className="flex items-center gap-2 mb-2">
-                            <XCircle className="w-4 h-4 text-gray-500" />
-                            <span className="text-sm font-semibold text-gray-700">
-                              Locked Features ({lockedSubModules.length})
-                            </span>
-                          </div>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                            {lockedSubModules.map((subModule, idx) => (
-                              <div key={idx} className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg p-2">
-                                <Lock className="w-4 h-4 text-gray-500 flex-shrink-0" />
-                                <span className="text-sm text-gray-700">{subModule.name}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* If no submodules but module is active */}
-                      {allSubModules.length === 0 && hasModulePermission && (
-                        <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg p-3">
-                          <CheckCircle2 className="w-4 h-4 text-gray-800" />
-                          <span className="text-sm text-gray-800">All features are active</span>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* If module is completely locked */}
-                  {!hasModulePermission && (
-                    <div className="mt-4 bg-gray-50 border border-gray-200 rounded-lg p-3">
-                      <div className="flex items-center gap-2">
-                        <Lock className="w-4 h-4 text-gray-500" />
-                        <span className="text-sm text-gray-700">
-                          This entire module is locked. Contact administrator to subscribe.
-                        </span>
-                      </div>
-                    </div>
-                  )}
                 </div>
-              );
-            })}
-          </div>
+              )}
+
+              {/* Lead Status Breakdown */}
+              {leadStatusData.length > 0 && (
+                <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
+                  <h3 className="text-base font-semibold text-gray-900 mb-6">Lead Status</h3>
+                  <div className="h-80">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={leadStatusData}
+                          cx="50%"
+                          cy="50%"
+                          labelLine={false}
+                          label={({ name, percent }: { name: string; percent?: number }) => `${name}: ${((percent || 0) * 100).toFixed(0)}%`}
+                          outerRadius={100}
+                          fill="#8884d8"
+                          dataKey="value" 
+                        >
+                          {leadStatusData.map((_entry, index) => (
+                            <Cell key={`cell-${index}`} fill={pieColors[index % pieColors.length]} />
+                          ))}
+                        </Pie>
+                        <Tooltip />
+                        <Legend />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              )}
+
+              {/* Offer Status Breakdown */}
+              {offerStatusData.length > 0 && (
+                <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
+                  <h3 className="text-base font-semibold text-gray-900 mb-6">Offer Status</h3>
+                  <div className="h-80">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={offerStatusData}
+                          cx="50%"
+                          cy="50%"
+                          labelLine={false}
+                          label={({ name, percent }: { name: string; percent?: number }) => `${name}: ${((percent || 0) * 100).toFixed(0)}%`}
+                          outerRadius={100}
+                          fill="#8884d8"
+                          dataKey="value"
+                        >
+                          {offerStatusData.map((_entry, index) => (
+                            <Cell key={`cell-${index}`} fill={pieColors[index % pieColors.length]} />
+                          ))}
+                        </Pie>
+                        <Tooltip />
+                        <Legend />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+              )}
+            </div>
         </div>
 
-        {/* Restricted Modules Section - Compact */}
-        {restrictedModules.length > 0 && (
-          <div>
-            <div className="flex items-center gap-2 mb-3">
-              <XCircle className="w-5 h-5 text-gray-500" />
-              <h2 className="text-lg sm:text-xl font-bold text-gray-900">Locked Modules</h2>
-              <span className="px-2 py-0.5 bg-gray-100 text-gray-700 text-xs font-semibold rounded border border-gray-300">
-                {subscriptionSummary.restrictedCount} Locked
-              </span>
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-              {restrictedModules.map((item) => (
-                <div key={item._id}>
-                  {renderStatCard(
-                    item.label,
-                    0,
-                    iconMap[item.icon] || <Activity className="w-5 h-5" />,
-                    false,
-                    item.moduleKey
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Analytics Overview Chart - Compact */}
-        {(stats.totalEnquiries > 0 || stats.totalReviews > 0) && (
-          <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-lg sm:text-xl font-bold text-gray-900">Analytics Overview</h2>
-            </div>
-            
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {/* Bar Chart */}
-              <div className="h-48">
+        {/* Analytics Overview - Full Width */}
+        {((stats.totalEnquiries > 0 || stats.totalReviews > 0 || (stats.totalAppointments || 0) > 0 || (stats.totalLeads || 0) > 0 || (stats.totalOffers || 0) > 0 || (stats.totalPatients || 0) > 0 || (stats.totalRooms || 0) > 0) || modulesChartData.length > 0 || statsChartData.length > 0) && (
+          <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 mb-6">
+            <h3 className="text-base font-semibold text-gray-900 mb-6">Analytics Overview</h3>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+              {/* Bar Chart - Appointments, Leads, Offers, Jobs */}
+              <div className="h-80">
+                <h4 className="text-sm font-medium text-gray-700 mb-2">Appointments, Leads, Offers & Jobs</h4>
+                {modulesChartData.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={statsChartData} margin={{ top: 10, right: 20, left: 10, bottom: 40 }}>
+                    <BarChart data={modulesChartData} margin={{ top: 10, right: 20, left: 10, bottom: 40 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                     <XAxis
                       dataKey="name"
-                      tick={{ fill: '#6b7280', fontSize: 11 }}
+                        tick={{ fill: '#6b7280', fontSize: 10 }}
                       axisLine={{ stroke: '#d1d5db' }}
                       tickLine={{ stroke: '#d1d5db' }}
                       angle={-45}
                       textAnchor="end"
-                      height={40}
+                        height={60}
                     />
                     <YAxis
                       tick={{ fill: '#6b7280', fontSize: 11 }}
                       axisLine={{ stroke: '#d1d5db' }}
                       tickLine={{ stroke: '#d1d5db' }}
+                        domain={[0, 'auto']}
+                        type="number"
                     />
                     <Tooltip 
                       contentStyle={{ 
@@ -1099,22 +1576,33 @@ const ClinicDashboard: NextPageWithLayout = () => {
                         borderRadius: '6px',
                         fontSize: '11px'
                       }}
-                    />
-                    <Bar dataKey="value" radius={[4, 4, 0, 0]} fill="#1f2937">
+                        formatter={(value: number, name: string, props: any) => {
+                          if (props.payload?.fullName) {
+                            return [`${value}`, props.payload.fullName];
+                          }
+                          return [value, name];
+                        }}
+                      />
+                      <Bar dataKey="value" radius={[4, 4, 0, 0]} fill="#3b82f6">
                       <LabelList
                         dataKey="value"
                         position="top"
-                        fill="#1f2937"
+                          fill="#3b82f6"
                         fontSize={11}
                         fontWeight={500}
                       />
                     </Bar>
                   </BarChart>
                 </ResponsiveContainer>
+                ) : (
+                  <div className="flex items-center justify-center h-full text-gray-500">
+                    Loading modules data...
               </div>
-
-              {/* Line Chart */}
-              <div className="h-48">
+                )}
+              </div>
+              {/* Line Chart - Reviews, Enquiries, Patients, Rooms */}
+              <div className="h-80">
+                <h4 className="text-sm font-medium text-gray-700 mb-2">Reviews, Enquiries, Patients & Rooms</h4>
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={statsChartData} margin={{ top: 10, right: 20, left: 10, bottom: 10 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
@@ -1128,6 +1616,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                       tick={{ fill: '#6b7280', fontSize: 11 }}
                       axisLine={{ stroke: '#d1d5db' }}
                       tickLine={{ stroke: '#d1d5db' }}
+                      domain={[0, 'auto']}
                     />
                     <Tooltip 
                       contentStyle={{ 
@@ -1140,64 +1629,206 @@ const ClinicDashboard: NextPageWithLayout = () => {
                     <Line 
                       type="monotone" 
                       dataKey="value" 
-                      stroke="#1f2937" 
+                      stroke="#22c55e" 
                       strokeWidth={2}
-                      dot={{ fill: '#1f2937', r: 4 }}
+                      dot={{ fill: '#22c55e', r: 4 }}
                       activeDot={{ r: 6 }}
                     />
                   </LineChart>
                 </ResponsiveContainer>
               </div>
             </div>
-
-            {/* Chart Summary Cards - Compact */}
-            <div className="mt-4 grid grid-cols-2 gap-3">
-              <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
-                <div className="flex items-center justify-between">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-medium text-gray-700 mb-0.5">Total Enquiries</p>
-                    <p className="text-xl font-bold text-gray-900">{stats.totalEnquiries}</p>
-                  </div>
-                  <div className="p-2 bg-white rounded-lg shadow-sm">
-                    <Mail className="w-4 h-4 text-gray-800" />
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
-                <div className="flex items-center justify-between">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-medium text-gray-700 mb-0.5">Total Reviews</p>
-                    <p className="text-xl font-bold text-gray-900">{stats.totalReviews}</p>
-                  </div>
-                  <div className="p-2 bg-white rounded-lg shadow-sm">
-                    <Star className="w-4 h-4 text-gray-800" />
-                  </div>
-                </div>
-              </div>
+            {/* Active vs Inactive Graph */}
+            <div className="h-80">
+              <h3 className="text-base font-semibold text-gray-900 mb-4">Active vs Inactive</h3>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart 
+                  data={[
+                    { name: 'Active', value: navigationItems.length, status: 'Active' },
+                    { name: 'Inactive', value: restrictedModules.length, status: 'Inactive' },
+                    { name: 'Total', value: allModules.length, status: 'Total' }
+                  ]} 
+                  margin={{ top: 10, right: 20, left: 10, bottom: 10 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis
+                    dataKey="name"
+                    tick={{ fill: '#6b7280', fontSize: 11 }}
+                    axisLine={{ stroke: '#d1d5db' }}
+                    tickLine={{ stroke: '#d1d5db' }}
+                  />
+                  <YAxis
+                    tick={{ fill: '#6b7280', fontSize: 11 }}
+                    axisLine={{ stroke: '#d1d5db' }}
+                    tickLine={{ stroke: '#d1d5db' }}
+                  />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: '#fff', 
+                      border: '1px solid #e5e7eb',
+                      borderRadius: '6px',
+                      fontSize: '11px'
+                    }}
+                  />
+                  <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                    <LabelList
+                      dataKey="value"
+                      position="top"
+                      fill="#1f2937"
+                      fontSize={11}
+                      fontWeight={500}
+                    />
+                    {[
+                      { name: 'Active', value: navigationItems.length, status: 'Active' },
+                      { name: 'Inactive', value: restrictedModules.length, status: 'Inactive' },
+                      { name: 'Total', value: allModules.length, status: 'Total' }
+                    ].map((_entry, index) => {
+                      const status = index === 0 ? 'Active' : index === 1 ? 'Inactive' : 'Total';
+                      const fill = status === 'Active' ? '#22c55e' : status === 'Inactive' ? '#ef4444' : '#6366f1';
+                      return <Cell key={`cell-${index}`} fill={fill} />;
+                    })}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
             </div>
           </div>
         )}
 
-        {/* Additional Stats Component */}
-        <Stats
-          role="clinic"
-          config={{
-            tokenKey: 'clinicToken',
-            primaryColor: '#3b82f6',
-            permissions: {
-              canAccessJobs: modulesWithPermission.some(key => 
-                key === 'clinic_jobs' || key === 'jobs'
-              ) || modulesWithPermission.length === 0,
-              canAccessBlogs: modulesWithPermission.some(key => 
-                key === 'clinic_blogs' || key === 'blogs'
-              ) || modulesWithPermission.length === 0,
-              canAccessApplications: modulesWithPermission.some(key => 
-                key === 'clinic_jobs' || key === 'jobs'
-              ) || modulesWithPermission.length === 0,
-            }
-          }}
-        />
+        {/* Subscription Status - Enhanced Design */}
+        <div className="bg-gradient-to-br from-white to-gray-50 rounded-xl border border-gray-200 shadow-lg p-6 mb-6">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg shadow-md">
+                <Crown className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">Subscription Status</h3>
+                <p className="text-xs text-gray-500">Manage your module access</p>
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="text-3xl font-bold text-gray-900">{subscriptionSummary.subscriptionPercentage}%</div>
+              <div className="text-xs text-gray-500">Active</div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            {/* Active Modules Card */}
+            <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg border border-green-200 p-4 hover:shadow-md transition-all">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 bg-green-500 rounded-lg">
+                    <CheckCircle2 className="w-5 h-5 text-white" />
+                  </div>
+                  <span className="text-sm font-semibold text-gray-700">Active Modules</span>
+                </div>
+                <span className="text-2xl font-bold text-green-700">{navigationItems.length}</span>
+              </div>
+              <div className="w-full bg-green-100 rounded-full h-3 overflow-hidden">
+                <div 
+                  className="bg-gradient-to-r from-green-500 to-emerald-500 h-3 rounded-full transition-all duration-500 shadow-sm"
+                  style={{ width: `${subscriptionSummary.subscriptionPercentage}%` }}
+                ></div>
+              </div>
+              <div className="mt-2 text-xs text-gray-600">
+                {subscriptionSummary.subscriptionPercentage > 0 ? (
+                  <span className="text-green-600 font-medium">✓ Fully operational</span>
+                ) : (
+                  <span className="text-gray-500">No active modules</span>
+                )}
+              </div>
+            </div>
+
+            {/* Subscription Card */}
+            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg border border-blue-200 p-4 hover:shadow-md transition-all">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 bg-blue-500 rounded-lg">
+                    <Crown className="w-5 h-5 text-white" />
+                  </div>
+                  <span className="text-sm font-semibold text-gray-700">Subscription</span>
+                </div>
+                <span className="text-2xl font-bold text-blue-700">{subscriptionSummary.subscriptionPercentage}%</span>
+              </div>
+              <div className="w-full bg-blue-100 rounded-full h-3 overflow-hidden">
+                <div 
+                  className="bg-gradient-to-r from-blue-500 to-indigo-500 h-3 rounded-full transition-all duration-500 shadow-sm"
+                  style={{ width: `${subscriptionSummary.subscriptionPercentage}%` }}
+                ></div>
+              </div>
+              <div className="mt-2 text-xs text-gray-600">
+                <span className="text-blue-600 font-medium">
+                  {subscriptionSummary.subscribedModules} of {subscriptionSummary.totalModules} modules
+                </span>
+              </div>
+            </div>
+
+            {/* Locked Modules Card */}
+            <div className="bg-gradient-to-br from-gray-50 to-slate-50 rounded-lg border border-gray-200 p-4 hover:shadow-md transition-all">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 bg-gray-400 rounded-lg">
+                    <Lock className="w-5 h-5 text-white" />
+                  </div>
+                  <span className="text-sm font-semibold text-gray-700">Locked Modules</span>
+                </div>
+                <span className="text-2xl font-bold text-gray-600">{subscriptionSummary.restrictedCount}</span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                <div 
+                  className="bg-gradient-to-r from-gray-400 to-slate-400 h-3 rounded-full transition-all duration-500"
+                  style={{ width: `${100 - subscriptionSummary.subscriptionPercentage}%` }}
+                ></div>
+              </div>
+              <div className="mt-2 text-xs text-gray-600">
+                {subscriptionSummary.restrictedCount > 0 ? (
+                  <span className="text-gray-600 font-medium">Requires upgrade</span>
+                ) : (
+                  <span className="text-green-600 font-medium">All unlocked</span>
+                )}
+              </div>
+            </div>
+          </div>
+          
+          {/* Summary Section */}
+          <div className="bg-white rounded-lg border border-gray-200 p-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <Activity className="w-5 h-5 text-gray-600" />
+                <span className="text-sm font-semibold text-gray-900">Module Summary</span>
+              </div>
+              <span className="text-lg font-bold text-gray-900">{subscriptionSummary.totalModules} Total</span>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="text-center p-3 bg-green-50 rounded-lg border border-green-100">
+                <div className="text-2xl font-bold text-green-700">{navigationItems.length}</div>
+                <div className="text-xs text-gray-600 mt-1">Active</div>
+              </div>
+              <div className="text-center p-3 bg-gray-50 rounded-lg border border-gray-100">
+                <div className="text-2xl font-bold text-gray-700">{subscriptionSummary.restrictedCount}</div>
+                <div className="text-xs text-gray-600 mt-1">Locked</div>
+              </div>
+              <div className="text-center p-3 bg-blue-50 rounded-lg border border-blue-100">
+                <div className="text-2xl font-bold text-blue-700">{subscriptionSummary.subscriptionPercentage}%</div>
+                <div className="text-xs text-gray-600 mt-1">Coverage</div>
+              </div>
+              <div className="text-center p-3 bg-purple-50 rounded-lg border border-purple-100">
+                <div className="text-2xl font-bold text-purple-700">{subscriptionSummary.totalModules}</div>
+                <div className="text-xs text-gray-600 mt-1">Total</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Additional Stats Component - Job and Blog Analytics */}
+        {/* Render after permissions are loaded - for clinic/doctor, this happens immediately */}
+        {permissionsLoaded && (
+          <Stats
+            key={`stats-${permissionsLoaded}-${navigationItemsLoaded}-${userRole || 'default'}`}
+            role="clinic"
+            config={statsConfig}
+          />
+        )}
       </div>
     </div>
   );

@@ -130,7 +130,7 @@ const PatientDetailsModal = ({ isOpen, onClose, patient }) => {
   );
 };
 
-const PatientCard = ({ patient, onUpdate, onViewDetails }) => (
+const PatientCard = ({ patient, onUpdate, onViewDetails, canUpdate = true }) => (
   <div className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
     <div className="flex items-start justify-between mb-3">
       <div className="flex-1 min-w-0">
@@ -160,13 +160,15 @@ const PatientCard = ({ patient, onUpdate, onViewDetails }) => (
       {patient.patientType && <span className="inline-flex px-2 py-1 text-xs font-medium rounded bg-purple-100 text-purple-700">{patient.patientType}</span>}
     </div>
     <div className="flex gap-2">
-      <button onClick={() => onUpdate(patient._id)} className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-gray-800 hover:bg-gray-900 text-white text-sm font-medium rounded-lg transition-colors"><Edit3 className="w-4 h-4" /> Update</button>
-      <button onClick={() => onViewDetails(patient)} className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-gray-700 hover:bg-gray-800 text-white text-sm font-medium rounded-lg transition-colors"><Eye className="w-4 h-4" /> View More</button>
+      {canUpdate && (
+        <button onClick={() => onUpdate(patient._id)} className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-gray-800 hover:bg-gray-900 text-white text-sm font-medium rounded-lg transition-colors"><Edit3 className="w-4 h-4" /> Update</button>
+      )}
+      <button onClick={() => onViewDetails(patient)} className={`${canUpdate ? 'flex-1' : 'w-full'} inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-gray-700 hover:bg-gray-800 text-white text-sm font-medium rounded-lg transition-colors`}><Eye className="w-4 h-4" /> View More</button>
     </div>
   </div>
 );
 
-function PatientFilterUI({ hideHeader = false, onEditPatient }) {
+function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { canRead: true, canUpdate: true, canDelete: true, canCreate: true } }) {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const [patients, setPatients] = useState([]);
@@ -367,13 +369,15 @@ function PatientFilterUI({ hideHeader = false, onEditPatient }) {
                             </td>
                             <td className="py-3 px-3">
                               <div className="flex items-center gap-2">
-                                <button
-                                  onClick={() => handleUpdate(patient._id)}
-                                  className="p-1.5 text-gray-700 hover:bg-gray-100 rounded transition-colors"
-                                  title="Edit"
-                                >
-                                  <Edit3 className="h-4 w-4" />
-                                </button>
+                                {permissions.canUpdate && (
+                                  <button
+                                    onClick={() => handleUpdate(patient._id)}
+                                    className="p-1.5 text-gray-700 hover:bg-gray-100 rounded transition-colors"
+                                    title="Edit"
+                                  >
+                                    <Edit3 className="h-4 w-4" />
+                                  </button>
+                                )}
                                 <button
                                   onClick={() => setDetailsModal({ isOpen: true, patient })}
                                   className="p-1.5 text-gray-700 hover:bg-gray-100 rounded transition-colors"

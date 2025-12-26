@@ -1,6 +1,8 @@
-import React, { useEffect, useState, ChangeEvent } from "react";
+import React, { useEffect, useState, ChangeEvent, useRef, useCallback } from "react";
+import Head from "next/head";
 import axios from "axios";
 import Link from "next/link";
+import { useRouter } from "next/router";
 
 type Job = {
   _id: string;
@@ -27,6 +29,7 @@ type Filters = {
 };
 
 const AllJobs: React.FC = () => {
+  const router = useRouter();
   const [jobs, setJobs] = useState<Job[]>([]);
   const [filters, setFilters] = useState<Filters>({
     location: "",
@@ -41,27 +44,126 @@ const AllJobs: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const jobsPerPage = 6;
 
-  const fetchJobs = async () => {
+  // Helper: convert text to URL-friendly slug
+  // Special handling for values that should stay as-is (like "week", "1-2", etc.)
+  const textToSlug = (text: string, key?: string) => {
+    if (!text) return "";
+    
+    // For time filter, keep "week" as-is (already URL-safe)
+    if (key === "time" && text.toLowerCase() === "week") {
+      return "week";
+    }
+    
+    // For experience filter, keep values like "1-2", "2-4", "7+", "fresher" as-is
+    if (key === "experience") {
+      const expValues = ["fresher", "1-2", "2-4", "4-6", "7+"];
+      if (expValues.includes(text.toLowerCase())) {
+        return text.toLowerCase();
+      }
+    }
+    
+    // For other values, convert to slug
+    return text
+      .toLowerCase()
+      .trim()
+      .replace(/[^\w\s-]/g, "") // remove special chars
+      .replace(/\s+/g, "-") // spaces -> hyphen
+      .replace(/-+/g, "-"); // collapse multiple hyphens
+  };
+
+  // Helper: create SEO-friendly slug from job title with full ID
+  // Format: job-title-abc12345def67890 (title slug + full 24-char ID)
+  // The ID is included for direct database lookup (optimized) but title is prominent for SEO
+  const createJobSlug = (jobTitle: string, jobId: string): string => {
+    if (!jobTitle) return jobId; // Fallback to ID if no title
+    
+    const titleSlug = jobTitle
+      .toLowerCase()
+      .trim()
+      .replace(/[^\w\s-]/g, "") // remove special chars
+      .replace(/\s+/g, "-") // spaces -> hyphen
+      .replace(/-+/g, "-") // collapse multiple hyphens
+      .substring(0, 60); // limit length for SEO (leaving room for ID)
+    
+    // Append full ID for direct database lookup (optimized approach)
+    // This ensures: 1) No conflicts, 2) Fast lookup, 3) SEO-friendly title
+    return `${titleSlug}-${jobId}`;
+  };
+
+
+  // Flag to track initial load
+  const isInitialLoad = useRef(true);
+
+  const fetchJobs = useCallback(async (searchValue?: string, locationValue?: string) => {
+    // Use provided values or fall back to current state values
+    const searchToUse = searchValue !== undefined ? searchValue : searchQuery;
+    const locationToUse = locationValue !== undefined ? locationValue : filters.location;
+    
+    console.log("🔵 API CALL TRIGGERED - fetchJobs called");
+    console.log("📊 Current state:", {
+      searchQuery: searchToUse,
+      location: locationToUse,
+      filters: {
+        jobType: filters.jobType,
+        department: filters.department,
+        skills: filters.skills,
+        salary: filters.salary,
+        time: filters.time,
+        experience: filters.experience,
+      }
+    });
+    
+    // Log search logic
+    if (searchToUse.trim() && locationToUse.trim()) {
+      console.log("🔍 Search Mode: BOTH - Will show jobs matching BOTH job title/company AND location");
+    } else if (searchToUse.trim()) {
+      console.log("🔍 Search Mode: TITLE ONLY - Will show all jobs matching job title/company");
+    } else if (locationToUse.trim()) {
+      console.log("🔍 Search Mode: LOCATION ONLY - Will show all jobs matching location");
+    } else {
+      console.log("🔍 Search Mode: NONE - Will show all jobs");
+    }
+    
     try {
       const params = new URLSearchParams();
-      Object.entries(filters).forEach(([k, v]) => {
+      
+      // Use immediate values for API call (from button click or initial load)
+      const filtersForAPI: Filters = {
+        location: locationToUse,
+        jobType: filters.jobType,
+        department: filters.department,
+        skills: filters.skills,
+        salary: filters.salary,
+        time: filters.time,
+        experience: filters.experience,
+      };
+      
+      Object.entries(filtersForAPI).forEach(([k, v]) => {
         if (v) params.append(k, v);
       });
 
-      // Add search query if it exists
-      if (searchQuery.trim()) {
-        params.append("search", searchQuery.trim());
+      // Use immediate search query for API call
+      if (searchToUse.trim()) {
+        params.append("search", searchToUse.trim());
       }
 
-      const res = await axios.get<{ jobs: Job[] }>(
-        `/api/job-postings/all?${params.toString()}`
-      );
+      const apiUrl = `/api/job-postings/all?${params.toString()}`;
+      console.log("🌐 Making API request to:", apiUrl);
+      console.log("⏰ Timestamp:", new Date().toISOString());
+      
+      const res = await axios.get<{ jobs: Job[] }>(apiUrl);
+      
+      console.log("✅ API Response received:", {
+        jobsCount: res.data.jobs?.length || 0,
+        timestamp: new Date().toISOString()
+      });
+      
       setJobs(res.data.jobs);
       setCurrentPage(1); // Reset to first page when filters change
     } catch (err) {
-      console.error("Error fetching jobs:", err);
+      console.error("❌ Error fetching jobs:", err);
     }
-  };
+  }, [searchQuery, filters]);
 
   const formatPostedDate = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -131,25 +233,142 @@ const AllJobs: React.FC = () => {
     return pages;
   };
 
+  // On first load, clear URL and start fresh
+  const hasInitialized = useRef(false);
   useEffect(() => {
-    fetchJobs();
-  }, [filters, searchQuery]);
+    if (!router.isReady) return;
+    if (hasInitialized.current) return; // Only run once on initial load
+
+    console.log("🚀 Initial load - starting fresh (clearing URL parameters)");
+    
+    // Clear URL parameters on refresh
+    if (Object.keys(router.query).length > 0) {
+      console.log("🧹 Clearing URL parameters");
+      router.replace(router.pathname, undefined, { shallow: true });
+    }
+    
+    // Reset all filters and search to empty
+    setFilters({
+      location: "",
+      jobType: "",
+      department: "",
+      skills: "",
+      salary: "",
+      time: "",
+      experience: "",
+    });
+    setSearchQuery("");
+    
+    isInitialLoad.current = false;
+    hasInitialized.current = true;
+    
+    // Fetch all jobs (no filters) on initial load
+    console.log("🚀 Initial load - fetching all jobs");
+    setTimeout(() => {
+      fetchJobs("", "");
+    }, 0);
+  }, [router.isReady]);
+
+  // URL is only updated when Search Jobs button is clicked (in handleSearchSubmit)
+  // No automatic URL sync on keystroke to prevent unnecessary re-renders
+
+  // No automatic API calls on keystroke - only on button click or initial load
 
   const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    setFilters({ ...filters, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    
+    console.log(`🔧 Filter changed - ${name}:`, value);
+    
+    // For location input, update immediately for UI but debounce will handle API call
+    // For other filters (dropdowns), update immediately and trigger API call
+    setFilters({ ...filters, [name]: value });
+    
+    // For non-location filters (dropdowns), immediately update debounced value to trigger API call
+    if (name !== 'location') {
+      // For dropdowns, we want immediate API calls, so update debounced location if it's not location
+      // Actually, for non-location filters, the useEffect will handle it via filters dependency
+    }
   };
 
   const handleSearchChange = (e: ChangeEvent<HTMLInputElement>) => {
-    setSearchQuery(e.target.value);
+    const value = e.target.value;
+    console.log("🔤 Search input changed:", value);
+    setSearchQuery(value);
   };
 
   const handleSearchSubmit = () => {
-    fetchJobs();
+    console.log("🔘 Search Jobs button clicked!");
+    console.log("📝 Current search values:", {
+      searchQuery,
+      location: filters.location
+    });
+    
+    // Call API with current search and location values
+    fetchJobs(searchQuery, filters.location);
+    
+    // Update URL with current values
+    const params = new URLSearchParams();
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value) {
+        params.set(key, textToSlug(String(value), key as keyof Filters));
+      }
+    });
+    if (searchQuery.trim()) {
+      params.set("search", textToSlug(searchQuery.trim(), "search"));
+    }
+    const newUrl = params.toString()
+      ? `${router.pathname}?${params.toString()}`
+      : router.pathname;
+    router.replace(newUrl, undefined, { shallow: true });
+
     window.scrollTo({ top: window.innerHeight, behavior: "smooth" });
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <>
+      <Head>
+        {/* Schema Markup - Job Posting */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "JobPosting",
+              "title": "Careers at ZEVA",
+              "url": "https://zeva360.com/job-listings",
+              "description": "Explore exciting career opportunities at ZEVA. Discover job openings for healthcare professionals, IT specialists, and wellness experts across multiple locations. Apply for full-time, part-time, or remote positions with transparent salary information.",
+              "hiringOrganization": {
+                "@type": "Organization",
+                "name": "ZEVA",
+                "sameAs": "https://zeva360.com",
+                "logo": "https://zeva360.com/logo.png"
+              },
+              "jobLocation": {
+                "@type": "Place",
+                "address": {
+                  "@type": "PostalAddress",
+                  "streetAddress": "Abu Dhabi, UAE",
+                  "addressLocality": "Abu Dhabi",
+                  "addressCountry": "AE"
+                }
+              },
+              "datePosted": "2025-12-18",
+              "employmentType": "FULL_TIME",
+              "validThrough": "2026-12-31T23:59",
+              "baseSalary": {
+                "@type": "MonetaryAmount",
+                "currency": "AED",
+                "value": {
+                  "@type": "QuantitativeValue",
+                  "value": "70000",
+                  "unitText": "YEAR"
+                }
+              }
+            })
+          }}
+        />
+      </Head>
+      <div className="min-h-screen bg-gray-50">
       {/* Hero Section with Search */}
       <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 text-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
@@ -437,8 +656,10 @@ const AllJobs: React.FC = () => {
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {currentJobs.map((job) => (
-                  <Link key={job._id} href={`/job-details/${job._id}`} className="block">
+                {currentJobs.map((job) => {
+                  const jobSlug = createJobSlug(job.jobTitle || "", job._id);
+                  return (
+                    <Link key={job._id} href={`/job-details/${jobSlug}`} className="block">
                     <div className="bg-white border border-gray-200 rounded-xl p-6 hover:border-teal-500 hover:shadow-lg transition-all duration-200 group h-full flex flex-col">
                       <div className="flex items-start gap-4 mb-4">
                         {/* Company Logo */}
@@ -511,7 +732,8 @@ const AllJobs: React.FC = () => {
                       </div>
                     </div>
                   </Link>
-                ))}
+                  );
+                })}
               </div>
             )}
 
@@ -556,6 +778,7 @@ const AllJobs: React.FC = () => {
         </div>
       </div>
     </div>
+    </>
   );
 };
 

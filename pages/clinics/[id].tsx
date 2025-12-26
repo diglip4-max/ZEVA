@@ -38,9 +38,49 @@ interface Clinic {
   location?: { coordinates: [number, number] };
 }
 
+// Helper function to normalize photo URLs
+const normalizePhotoUrl = (url: string | undefined): string => {
+  if (!url) return '';
+  
+  // If already an absolute URL (http:// or https://), return as is
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    return url;
+  }
+  
+  // If it's a file system path (contains drive letter or backslashes), extract the uploads part
+  if (url.includes('uploads/') && (url.includes(':\\') || url.includes(':/') || url.includes('C:/') || url.includes('D:/'))) {
+    const uploadsIndex = url.indexOf('uploads/');
+    const relativePath = '/' + url.substring(uploadsIndex);
+    return relativePath;
+  }
+  
+  // If it's a file system path without uploads, try to find the public path
+  if (url.includes('public/')) {
+    const publicIndex = url.indexOf('public/');
+    const relativePath = '/' + url.substring(publicIndex + 7); // +7 to skip "public/"
+    return relativePath;
+  }
+  
+  // If it starts with /, return as is (relative URL)
+  if (url.startsWith('/')) {
+    return url;
+  }
+  
+  // Otherwise, prepend /uploads/clinic/ if it looks like a filename
+  if (url.includes('clinicPhoto') || url.match(/\.(jpg|jpeg|png|gif)$/i)) {
+    return '/uploads/clinic/' + url;
+  }
+  
+  // Otherwise, prepend / to make it a relative URL
+  return '/' + url;
+};
+
 export default function ClinicDetail() {
   const router = useRouter();
-  const { id } = router.query as { id?: string };
+  // 'id' from path will be the slug (clinic name)
+  const slug = router.query.id as string | undefined;
+  // Get the actual clinic ID from query parameter (passed as ?c=... in URL to avoid conflict)
+  const clinicId = router.query.c as string | undefined;
 
   const { isAuthenticated } = useAuth(); // ✅ Auth context
 
@@ -60,12 +100,20 @@ export default function ClinicDetail() {
   const navigateToReview = useRef(false);
 
   useEffect(() => {
-    if (!id) return;
+    if (!router.isReady) return;
+    
+    // Get clinic ID from query parameter (passed as ?c=... in URL)
+    // If no query param, check if the path param is actually an ObjectId (24 hex chars) for backward compatibility
+    const isObjectId = slug && /^[0-9a-fA-F]{24}$/.test(slug);
+    // Use query param 'c' if available, otherwise use slug if it's an ObjectId (backward compatibility)
+    const idToUse = clinicId || (isObjectId ? slug : null);
+    
+    if (!idToUse) return;
     const fetchClinic = async () => {
       try {
         setLoading(true);
         setError(null);
-        const res = await axios.get(`/api/clinics/${id}`);
+        const res = await axios.get(`/api/clinics/${idToUse}`);
         setClinic(res.data?.clinic || res.data?.data || res.data);
       } catch {
         setError("Failed to load clinic");
@@ -74,7 +122,7 @@ export default function ClinicDetail() {
       }
     };
     fetchClinic();
-  }, [id]);
+  }, [slug, clinicId, router.isReady]);
 
   useEffect(() => {
     if (!clinic?._id) return;
@@ -231,7 +279,7 @@ export default function ClinicDetail() {
                 <div className="w-full max-w-sm lg:max-w-xs flex-shrink-0">
                   <div className="relative w-full h-48 sm:h-56 lg:h-60 rounded-2xl overflow-hidden shadow-lg border-4 border-white bg-white">
                     <Image
-                      src={clinic.photos[0]}
+                      src={normalizePhotoUrl(clinic.photos[0])}
                       alt={clinic.name}
                       fill
                       className="object-contain"

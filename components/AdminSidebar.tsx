@@ -7,14 +7,12 @@ import {
   HomeIcon,
   CheckCircleIcon,
   UserGroupIcon,
-  DocumentTextIcon,
   NewspaperIcon,
   ChartBarIcon,
   PhoneIcon,
   BriefcaseIcon,
   UserPlusIcon,
   Cog6ToothIcon,
-  WrenchScrewdriverIcon,
   BuildingOfficeIcon,
   DocumentIcon,
   ClipboardDocumentListIcon,
@@ -28,14 +26,12 @@ import {
   HomeIcon as HomeIconSolid,
   CheckCircleIcon as CheckCircleIconSolid,
   UserGroupIcon as UserGroupIconSolid,
-  DocumentTextIcon as DocumentTextIconSolid,
   NewspaperIcon as NewspaperIconSolid,
   ChartBarIcon as ChartBarIconSolid,
   PhoneIcon as PhoneIconSolid,
   BriefcaseIcon as BriefcaseIconSolid,
   UserPlusIcon as UserPlusIconSolid,
   Cog6ToothIcon as Cog6ToothIconSolid,
-  WrenchScrewdriverIcon as WrenchScrewdriverIconSolid,
   BuildingOfficeIcon as BuildingOfficeIconSolid,
   DocumentIcon as DocumentIconSolid,
   ClipboardDocumentListIcon as ClipboardDocumentListIconSolid,
@@ -196,15 +192,30 @@ const navItems: NavItem[] = [
 interface AdminSidebarProps {
   className?: string;
   onItemsChange?: (items: NavItem[]) => void;
+  // External state management (optional - for header-controlled toggles)
+  externalIsDesktopHidden?: boolean;
+  externalIsMobileOpen?: boolean;
+  onExternalToggleDesktop?: () => void;
+  onExternalToggleMobile?: () => void;
 }
 
-const AdminSidebar: FC<AdminSidebarProps> = ({ className, onItemsChange }) => {
+const AdminSidebar: FC<AdminSidebarProps> = ({ 
+  className, 
+  onItemsChange,
+  externalIsDesktopHidden,
+  externalIsMobileOpen,
+  onExternalToggleDesktop,
+  onExternalToggleMobile,
+}) => {
   const router = useRouter();
-  const [hoveredItem, setHoveredItem] = useState<string | null>(null);
-  const [isDesktopHidden, setIsDesktopHidden] = useState(false);
-  const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const [internalIsDesktopHidden, setInternalIsDesktopHidden] = useState(false);
+  const [internalIsMobileOpen, setInternalIsMobileOpen] = useState(false);
+  
+  // Use external state if provided, otherwise use internal state
+  const isDesktopHidden = externalIsDesktopHidden !== undefined ? externalIsDesktopHidden : internalIsDesktopHidden;
+  const isMobileOpen = externalIsMobileOpen !== undefined ? externalIsMobileOpen : internalIsMobileOpen;
+  
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
-  const [selectedItem, setSelectedItem] = useState<string | null>(null);
 
   // Notify parent component of sidebar items for search
   useEffect(() => {
@@ -217,13 +228,17 @@ const AdminSidebar: FC<AdminSidebarProps> = ({ className, onItemsChange }) => {
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && isMobileOpen) {
-        setIsMobileOpen(false);
+        if (onExternalToggleMobile && externalIsMobileOpen) {
+          onExternalToggleMobile(); // Toggle to close
+        } else {
+          setInternalIsMobileOpen(false);
+        }
       }
     };
 
     document.addEventListener('keydown', handleEscape);
     return () => document.removeEventListener('keydown', handleEscape);
-  }, [isMobileOpen]);
+  }, [isMobileOpen, onExternalToggleMobile, externalIsMobileOpen]);
 
   // Prevent body scroll when mobile menu is open
   useEffect(() => {
@@ -238,26 +253,45 @@ const AdminSidebar: FC<AdminSidebarProps> = ({ className, onItemsChange }) => {
     };
   }, [isMobileOpen]);
 
-  const handleRegularItemClick = (label: string) => {
-    setIsMobileOpen(false);
+  const handleRegularItemClick = () => {
+    if (onExternalToggleMobile && externalIsMobileOpen) {
+      onExternalToggleMobile(); // Toggle to close
+    } else {
+      setInternalIsMobileOpen(false);
+    }
     setOpenDropdown(null);
-    setSelectedItem(label);
   };
 
   const handleToggleDesktop = () => {
-    setIsDesktopHidden(!isDesktopHidden);
+    if (onExternalToggleDesktop) {
+      onExternalToggleDesktop();
+    } else {
+      setInternalIsDesktopHidden(!internalIsDesktopHidden);
+    }
   };
 
-  const handleToggleMobile = () => {
-    setIsMobileOpen(!isMobileOpen);
-  };
+  // const handleToggleMobile = () => {
+  //   if (onExternalToggleMobile) {
+  //     onExternalToggleMobile();
+  //   } else {
+  //     setInternalIsMobileOpen(!internalIsMobileOpen);
+  //   }
+  // };
 
   const handleCloseMobile = () => {
-    setIsMobileOpen(false);
+    if (onExternalToggleMobile && externalIsMobileOpen) {
+      onExternalToggleMobile(); // Toggle to close
+    } else {
+      setInternalIsMobileOpen(false);
+    }
   };
 
   const handleItemClick = () => {
-    setIsMobileOpen(false);
+    if (onExternalToggleMobile && externalIsMobileOpen) {
+      onExternalToggleMobile(); // Toggle to close
+    } else {
+      setInternalIsMobileOpen(false);
+    }
   };
 
   const renderIcon = (item: NavItem, isActive: boolean, isDropdownOpen?: boolean) => {
@@ -267,44 +301,14 @@ const AdminSidebar: FC<AdminSidebarProps> = ({ className, onItemsChange }) => {
 
   return (
     <>
-      {/* Mobile Toggle Button - Only shows when sidebar is closed */}
-      <button
-        onClick={handleToggleMobile}
-        className={clsx(
-          "fixed top-4 left-4 z-[60] bg-white text-gray-700 p-2.5 rounded-lg shadow-md transition-all duration-300 border border-gray-200 lg:hidden",
-          {
-            'block': !isMobileOpen,
-            'hidden': isMobileOpen
-          }
-        )}
-        aria-label="Open mobile menu"
-      >
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-        </svg>
-      </button>
+      {/* Fixed toggle buttons are now handled in AdminHeader - hidden here to avoid conflicts */}
+      {/* Mobile Toggle Button - Hidden, using header button instead */}
+      {/* Desktop Toggle Button - Hidden, using header button instead */}
 
-      {/* Desktop Toggle Button */}
-      <button
-        onClick={handleToggleDesktop}
-        className={clsx(
-          "fixed top-4 left-4 z-[60] bg-white text-gray-700 p-2.5 rounded-lg shadow-md transition-all duration-300 border border-gray-200 hidden lg:block",
-          {
-            'lg:block': isDesktopHidden,
-            'lg:hidden': !isDesktopHidden
-          }
-        )}
-        aria-label="Toggle desktop sidebar"
-      >
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-        </svg>
-      </button>
-
-      {/* Mobile Overlay */}
+      {/* Mobile Overlay - Behind sidebar but above content */}
       {isMobileOpen && (
         <div
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 lg:hidden"
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[45] lg:hidden"
           onClick={handleCloseMobile}
           aria-hidden="true"
         />
@@ -341,7 +345,7 @@ const AdminSidebar: FC<AdminSidebarProps> = ({ className, onItemsChange }) => {
             {/* Desktop Close Button */}
             <button
               onClick={handleToggleDesktop}
-              className="absolute right-4 top-4 bg-gray-100 text-gray-700 p-1.5 rounded-md hover:bg-gray-200 transition-all duration-200"
+              className="absolute right-4 top-4 bg-gray-100 text-gray-700 p-1.5 rounded-md hover:bg-gray-200 transition-all duration-200 z-50"
               aria-label="Close sidebar"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -359,7 +363,6 @@ const AdminSidebar: FC<AdminSidebarProps> = ({ className, onItemsChange }) => {
               {navItems.map((item) => {
                 const isActive = router.pathname === item.path;
                 const isDropdownOpen = openDropdown === item.label;
-                const hasChildren = item.children && item.children.length > 0;
 
                 // If item has children => Dropdown
                 if (item.children) {
@@ -375,7 +378,6 @@ const AdminSidebar: FC<AdminSidebarProps> = ({ className, onItemsChange }) => {
                         )}
                         onClick={() => {
                           setOpenDropdown(isDropdownOpen ? null : item.label);
-                          setSelectedItem(item.label);
                         }}
                       >
                         <div className="flex items-center space-x-3">
@@ -485,7 +487,7 @@ const AdminSidebar: FC<AdminSidebarProps> = ({ className, onItemsChange }) => {
                         "hover:bg-gray-50 text-gray-700": !isActive,
                       }
                     )}
-                    onClick={() => handleRegularItemClick(item.label)}
+                    onClick={handleRegularItemClick}
                   >
                     {isActive && (
                       <div className="absolute left-0 top-1/2 transform -translate-y-1/2 w-1 h-5 bg-white rounded-r-full"></div>
@@ -539,9 +541,9 @@ const AdminSidebar: FC<AdminSidebarProps> = ({ className, onItemsChange }) => {
         </div>
       </aside>
 
-      {/* Mobile Sidebar */}
+      {/* Mobile Sidebar - Above overlay, below header button */}
       <div className={clsx(
-        'fixed inset-0 z-50 lg:hidden transition-transform duration-300 ease-in-out',
+        'fixed inset-0 z-[48] lg:hidden transition-transform duration-300 ease-in-out',
         {
           'translate-x-0': isMobileOpen,
           '-translate-x-full': !isMobileOpen,

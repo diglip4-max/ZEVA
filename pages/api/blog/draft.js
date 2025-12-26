@@ -5,6 +5,14 @@ import Clinic from "../../../models/Clinic";
 import { getUserFromReq, requireRole } from "../lead-ms/auth";
 import { getClinicIdFromUser, checkClinicPermission } from "../lead-ms/permissions-helper";
 
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: '10mb', // Increase body size limit to handle large content
+    },
+  },
+};
+
 export default async function handler(req, res) {
   await dbConnect();
   const { method } = req;
@@ -101,8 +109,9 @@ export default async function handler(req, res) {
           }
 
           // Get all drafts for the authenticated user's role
+          // IMPORTANT: Always filter by status: "draft" to exclude published posts
           let draftQuery = {
-            status: "draft",
+            status: "draft", // Ensure only drafts are returned, never published posts
           };
 
           // For agent/doctorStaff, find drafts from their clinic
@@ -121,27 +130,37 @@ export default async function handler(req, res) {
               // Include the current user (agent/doctorStaff) in the list so their own drafts show up
               clinicUserIds.push(me._id);
               
-              draftQuery.$or = [
-                { postedBy: { $in: clinicUserIds } }, // Posted by clinic users (including current user)
-                { role: "admin" }, // Or admin drafts
-              ];
+              // Combine status filter with $or condition
+              draftQuery = {
+                status: "draft", // Always filter by draft status
+                $or: [
+                  { postedBy: { $in: clinicUserIds } }, // Posted by clinic users (including current user)
+                  { role: "admin" }, // Or admin drafts
+                ],
+              };
             } else {
               // Fallback if clinic not found
-              draftQuery.$or = [
-                { postedBy: me._id },
-                { role: "admin" },
-              ];
+              draftQuery = {
+                status: "draft", // Always filter by draft status
+                $or: [
+                  { postedBy: me._id },
+                  { role: "admin" },
+                ],
+              };
             }
           } else if (isAdmin) {
-            // Admin can see all drafts
+            // Admin can see all drafts (but only drafts, not published)
             draftQuery = { status: "draft" };
           } else {
-            // For clinic/doctor, filter by role
-            draftQuery.role = me.role;
-            draftQuery.$or = [
-              { postedBy: me._id }, // User owns the draft
-              { role: "admin" }, // Or user is admin
-            ];
+            // For clinic/doctor, filter by role and status
+            draftQuery = {
+              status: "draft", // Always filter by draft status
+              role: me.role,
+              $or: [
+                { postedBy: me._id }, // User owns the draft
+                { role: "admin" }, // Or user is admin
+              ],
+            };
           }
 
           const drafts = await Blog.find(draftQuery)
@@ -188,13 +207,25 @@ export default async function handler(req, res) {
             }
           }
 
-          const { title, content, paramlink } = req.body;
+          const { title, content, paramlink, isAutoSave } = req.body;
 
-          if (!title || !content || !paramlink) {
-            return res.status(400).json({
-              success: false,
-              message: "Title, content, and paramlink are required for drafts",
-            });
+          // For auto-save (every 2 minutes), allow partial updates - only validate if not auto-save
+          if (!isAutoSave) {
+            // Validate that all required fields are present and non-empty for manual saves
+            if (!title || title.trim() === '' || !content || content.trim() === '' || !paramlink || paramlink.trim() === '') {
+              return res.status(400).json({
+                success: false,
+                message: "Title, content, and paramlink are required and cannot be empty for drafts",
+              });
+            }
+          } else {
+            // For auto-save, only require that at least one field has content
+            if ((!title || title.trim() === '') && (!content || content.trim() === '') && (!paramlink || paramlink.trim() === '')) {
+              return res.status(400).json({
+                success: false,
+                message: "At least one field (title, content, or paramlink) must have content for auto-save",
+              });
+            }
           }
 
           // Allow same paramlink for drafts; only block if a published blog already uses it
@@ -242,12 +273,31 @@ export default async function handler(req, res) {
           }
 
           const { id } = req.query;
-          const { title, content, paramlink } = req.body;
+          const { title, content, paramlink, isAutoSave } = req.body;
 
           if (!id) {
             return res
               .status(400)
               .json({ success: false, message: "Draft ID required" });
+          }
+
+          // For auto-save (every 2 minutes), allow partial updates - only validate if not auto-save
+          if (!isAutoSave) {
+            // Validate that all required fields are present and non-empty for manual saves
+            if (!title || title.trim() === '' || !content || content.trim() === '' || !paramlink || paramlink.trim() === '') {
+              return res.status(400).json({
+                success: false,
+                message: "Title, content, and paramlink are required and cannot be empty for drafts",
+              });
+            }
+          } else {
+            // For auto-save, only require that at least one field has content
+            if ((!title || title.trim() === '') && (!content || content.trim() === '') && (!paramlink || paramlink.trim() === '')) {
+              return res.status(400).json({
+                success: false,
+                message: "At least one field (title, content, or paramlink) must have content for auto-save",
+              });
+            }
           }
 
           // Find the existing draft
@@ -309,22 +359,39 @@ export default async function handler(req, res) {
             }
           }
 
+          // For auto-save, only update fields that are provided (partial update)
+          const updateData = {
+            status: "draft",
+            updatedAt: new Date(),
+          };
+          
+          // Only update fields that are provided and non-empty
+          if (title !== undefined && title !== null && title.trim() !== '') {
+            updateData.title = title;
+          }
+          if (content !== undefined && content !== null && content.trim() !== '') {
+            updateData.content = content;
+          }
+          if (paramlink !== undefined && paramlink !== null && paramlink.trim() !== '') {
+            updateData.paramlink = paramlink;
+          }
+
           const updatedDraft = await Blog.findByIdAndUpdate(
             id,
-            {
-              title,
-              content,
-              paramlink,
-              status: "draft",
-              updatedAt: new Date(),
-            },
+            updateData,
             { new: true, runValidators: true }
           ).populate("postedBy", "name email");
 
           res.status(200).json({ success: true, draft: updatedDraft });
         } catch (error) {
           console.error("Error in PUT draft:", error);
-          res.status(500).json({ success: false, message: "Internal server error" });
+          console.error("Request body:", req.body);
+          console.error("Draft ID:", id);
+          res.status(500).json({ 
+            success: false, 
+            message: error.message || "Internal server error",
+            error: process.env.NODE_ENV === 'development' ? error.stack : undefined
+          });
         }
         break;
 
@@ -343,8 +410,8 @@ export default async function handler(req, res) {
               .json({ success: false, message: "Draft ID required" });
           }
 
-          // Find the existing draft
-          const existingDraft = await Blog.findById(id);
+          // Find the existing draft - must be draft status
+          const existingDraft = await Blog.findOne({ _id: id, status: "draft" });
           if (!existingDraft) {
             return res
               .status(404)
@@ -366,7 +433,8 @@ export default async function handler(req, res) {
           const isDoctor = me.role === "doctor";
           const isDoctorStaff = me.role === "doctorStaff";
           const isAgent = me.role === "agent";
-          if (error && !isAdmin && !isDoctor && !isDoctorStaff && !isAgent) {
+          // Only return 404 if it's a critical "not found" error
+          if (error && !isAdmin && !isDoctor && !isDoctorStaff && !isAgent && error.includes('not found')) {
             return res.status(404).json({ success: false, message: error });
           }
 

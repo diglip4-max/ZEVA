@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import Head from 'next/head';
 import { Play, Pause, RotateCcw, Timer, Trophy, Heart, RefreshCw } from 'lucide-react';
 
 // Type definitions
@@ -251,7 +252,19 @@ function FitnessApp () {
   // Profile Screen
   if (screen === 'profile') {
 return (
-  <div className="min-h-screen bg-white p-4 flex items-center justify-center">
+  <>
+    <Head>
+      <title>Be Fit with Zeva – Fun Exercises to Boost Immunity & Strength</title>
+      <meta
+        name="description"
+        content="Play Be Fit with Zeva, a fun and interactive fitness game that helps boost your immunity, build strength, and stay active. Enjoy free exercises anytime, anywhere, and improve your well-being."
+      />
+      <meta
+        name="keywords"
+        content="Be Fit with Zeva, fitness game, immunity booster exercises, strength building game, interactive fitness, fun health games, free fitness game online, home workout game, wellness exercises, active lifestyle game, exercise challenges, virtual fitness game, health and wellness game, boost strength and immunity, body fitness game"
+      />
+    </Head>
+    <div className="min-h-screen bg-white p-4 flex items-center justify-center">
     <div className="bg-white rounded-lg border border-gray-200 p-6 w-full max-w-2xl">
       <div className="text-center mb-6">
         <div className="w-14 h-14 bg-gray-900 rounded-full flex items-center justify-center mx-auto mb-3">
@@ -321,13 +334,26 @@ return (
       </div>
     </div>
   </div>
+  </>
 );
   }
 
   // Exercise Plan Screen
   if (screen === 'plan') {
     return (
-      <div className="min-h-screen bg-gray-50 p-4">
+      <>
+        <Head>
+          <title>Be Fit with Zeva – Fun Exercises to Boost Immunity & Strength</title>
+          <meta
+            name="description"
+            content="Play Be Fit with Zeva, a fun and interactive fitness game that helps boost your immunity, build strength, and stay active. Enjoy free exercises anytime, anywhere, and improve your well-being."
+          />
+          <meta
+            name="keywords"
+            content="Be Fit with Zeva, fitness game, immunity booster exercises, strength building game, interactive fitness, fun health games, free fitness game online, home workout game, wellness exercises, active lifestyle game, exercise challenges, virtual fitness game, health and wellness game, boost strength and immunity, body fitness game"
+          />
+        </Head>
+        <div className="min-h-screen bg-gray-50 p-4">
         <div className="max-w-7xl mx-auto">
           <div className="bg-white rounded-2xl shadow-xl p-6 mb-8">
             <div className="flex flex-col lg:flex-row items-center justify-between gap-4">
@@ -441,6 +467,7 @@ return (
           </div>
         </div>
       </div>
+      </>
     );
   }
 
@@ -453,7 +480,19 @@ return (
     if (!exercise) return null;
 
     return (
-      <div className="min-h-screen bg-gradient-to-br from-[#2D9AA5] to-blue-600 p-4">
+      <>
+        <Head>
+          <title>Be Fit with Zeva – Fun Exercises to Boost Immunity & Strength</title>
+          <meta
+            name="description"
+            content="Play Be Fit with Zeva, a fun and interactive fitness game that helps boost your immunity, build strength, and stay active. Enjoy free exercises anytime, anywhere, and improve your well-being."
+          />
+          <meta
+            name="keywords"
+            content="Be Fit with Zeva, fitness game, immunity booster exercises, strength building game, interactive fitness, fun health games, free fitness game online, home workout game, wellness exercises, active lifestyle game, exercise challenges, virtual fitness game, health and wellness game, boost strength and immunity, body fitness game"
+          />
+        </Head>
+        <div className="min-h-screen bg-gradient-to-br from-[#2D9AA5] to-blue-600 p-4">
         <div className="max-w-4xl mx-auto">
           {/* Header & Progress */}
           <div className="bg-white/95 backdrop-blur rounded-2xl shadow-xl p-6 mb-6">
@@ -564,6 +603,7 @@ return (
           </div>
         </div>
       </div>
+      </>
     );
   }
 
@@ -573,7 +613,19 @@ return (
     const totalCalories = todayPlan ? todayPlan.exercises.reduce((sum, ex) => sum + ex.calories, 0) : 0;
 
     return (
-      <div className="min-h-screen bg-gradient-to-br from-green-400 via-blue-500 to-purple-600 p-4 flex items-center justify-center">
+      <>
+        <Head>
+          <title>Be Fit with Zeva – Fun Exercises to Boost Immunity & Strength</title>
+          <meta
+            name="description"
+            content="Play Be Fit with Zeva, a fun and interactive fitness game that helps boost your immunity, build strength, and stay active. Enjoy free exercises anytime, anywhere, and improve your well-being."
+          />
+          <meta
+            name="keywords"
+            content="Be Fit with Zeva, fitness game, immunity booster exercises, strength building game, interactive fitness, fun health games, free fitness game online, home workout game, wellness exercises, active lifestyle game, exercise challenges, virtual fitness game, health and wellness game, boost strength and immunity, body fitness game"
+          />
+        </Head>
+        <div className="min-h-screen bg-gradient-to-br from-green-400 via-blue-500 to-purple-600 p-4 flex items-center justify-center">
         <div className="bg-white rounded-3xl shadow-2xl p-8 text-center max-w-lg w-full">
           <div className="relative mb-6">
             <Trophy className="w-20 h-20 text-yellow-500 mx-auto" />
@@ -610,6 +662,7 @@ return (
           </div>
         </div>
       </div>
+      </>
     );
   }
 
