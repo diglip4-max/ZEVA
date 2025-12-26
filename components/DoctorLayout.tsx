@@ -2,16 +2,22 @@ import React, { useState } from 'react';
 import DoctorSidebar from './DoctorSidebar';
 import DoctorHeader from './DoctorHeader';
 
-const DoctorLayout = ({ children }: { children: React.ReactNode }) => {
+interface DoctorLayoutProps {
+  children: React.ReactNode;
+  hideSidebar?: boolean;
+  hideHeader?: boolean;
+}
+
+const DoctorLayout = ({ children, hideSidebar = false, hideHeader = false }: DoctorLayoutProps) => {
   const [isDesktopHidden, setIsDesktopHidden] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
 
   const handleToggleDesktop = () => {
-    setIsDesktopHidden(prev => !prev);
+    setIsDesktopHidden(!isDesktopHidden);
   };
 
   const handleToggleMobile = () => {
-    setIsMobileOpen(prev => !prev);
+    setIsMobileOpen(!isMobileOpen);
   };
 
   const handleCloseMobile = () => {
@@ -22,32 +28,49 @@ const DoctorLayout = ({ children }: { children: React.ReactNode }) => {
     setIsMobileOpen(false);
   };
 
+  // If both sidebar and header are hidden, render children directly without layout wrapper
+  if (hideSidebar && hideHeader) {
+    return <>{children}</>;
+  }
+
   return (
     <div className="flex min-h-screen bg-gray-100" role="application">
-      {/* Sidebar */}
-      <DoctorSidebar
-        isDesktopHidden={isDesktopHidden}
-        isMobileOpen={isMobileOpen}
-        handleToggleDesktop={handleToggleDesktop}
-        handleToggleMobile={handleToggleMobile}
-        handleCloseMobile={handleCloseMobile}
-        handleItemClick={handleItemClick}
-      />
-
-      {/* Main Content Area */}
-      <div className="flex flex-col flex-1 min-h-screen max-h-screen transition-all duration-300">
-        {/* Header - Hidden on mobile when sidebar might be open */}
-        <div className="sticky top-0 z-10 hidden lg:block">
-          <DoctorHeader
-            handleToggleDesktop={handleToggleDesktop}
-            handleToggleMobile={handleToggleMobile}
-            isDesktopHidden={isDesktopHidden}
-            isMobileOpen={isMobileOpen}
+      {/* Sidebar - DoctorSidebar with external state */}
+      {!hideSidebar && (
+        <div className="fixed lg:sticky top-0 left-0 z-50 h-screen">
+          <DoctorSidebar
+            externalIsDesktopHidden={isDesktopHidden}
+            externalIsMobileOpen={isMobileOpen}
+            onExternalToggleDesktop={handleToggleDesktop}
+            onExternalToggleMobile={handleToggleMobile}
           />
         </div>
+      )}
+
+      {/* Main Content Area */}
+      <div className="flex flex-col flex-1 min-h-screen lg:ml-0" style={{ overflowX: 'visible', minWidth: 0 }}>
+        {/* Header - Visible on both mobile and desktop */}
+        {!hideHeader && (
+          <div className="sticky top-0 z-40">
+            <DoctorHeader
+              handleToggleDesktop={handleToggleDesktop}
+              handleToggleMobile={handleToggleMobile}
+              isDesktopHidden={isDesktopHidden}
+              isMobileOpen={isMobileOpen}
+            />
+          </div>
+        )}
 
         {/* Page Content */}
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 md:p-8" role="main">
+        <main 
+          className="flex-1 overflow-y-auto relative z-0" 
+          role="main" 
+          style={{ 
+            overflowX: 'visible',
+            minWidth: 0,
+            width: '100%'
+          }}
+        >
           {children}
         </main>
       </div>
