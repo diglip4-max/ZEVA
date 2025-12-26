@@ -115,7 +115,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
   const [currentTime, setCurrentTime] = useState<Date>(new Date());
   const [clinicUser, setClinicUser] = useState<ClinicUser | null>(null);
   const [navigationItems, setNavigationItems] = useState<NavigationItem[]>([]);
-  const [_moduleStats, setModuleStats] = useState<ModuleStats>({});
+  const [moduleStats, setModuleStats] = useState<ModuleStats>({});
   const [allModules, setAllModules] = useState<NavigationItem[]>([]);
   const [clinicInfo, setClinicInfo] = useState<ClinicInfo>({});
   const [_permissions, setPermissions] = useState<SidebarResponse['permissions']>([]);
@@ -415,6 +415,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
       }
 
       const statsMap: ModuleStats = {};
+      let dashboardStatsData: Stats | null = null;
 
       // Fetch basic dashboard stats
       try {
@@ -422,21 +423,150 @@ const ClinicDashboard: NextPageWithLayout = () => {
           headers: { Authorization: `Bearer ${token}` },
         });
         const data: DashboardStatsResponse = await res.json();
-        if (data.success) {
+        if (data.success && data.stats) {
+          dashboardStatsData = data.stats;
           setStats(data.stats);
           
-          // Map to module keys
+          // Map dashboardStats API data to module keys
+          // Common module key patterns
           statsMap['clinic_reviews'] = {
-            value: data.stats.totalReviews,
+            value: data.stats.totalReviews || 0,
+            label: 'Total Reviews',
+            icon: <Star className="w-5 h-5" />,
+            color: '#3b82f6',
+            hasData: true,
+          };
+          statsMap['reviews'] = {
+            value: data.stats.totalReviews || 0,
             label: 'Total Reviews',
             icon: <Star className="w-5 h-5" />,
             color: '#3b82f6',
             hasData: true,
           };
           statsMap['clinic_enquiries'] = {
-            value: data.stats.totalEnquiries,
+            value: data.stats.totalEnquiries || 0,
             label: 'Total Enquiries',
             icon: <Mail className="w-5 h-5" />,
+            color: '#3b82f6',
+            hasData: true,
+          };
+          statsMap['enquiries'] = {
+            value: data.stats.totalEnquiries || 0,
+            label: 'Total Enquiries',
+            icon: <Mail className="w-5 h-5" />,
+            color: '#3b82f6',
+            hasData: true,
+          };
+          statsMap['clinic_appointments'] = {
+            value: data.stats.totalAppointments || 0,
+            label: 'Total Appointments',
+            icon: <Calendar className="w-5 h-5" />,
+            color: '#3b82f6',
+            hasData: true,
+          };
+          statsMap['appointments'] = {
+            value: data.stats.totalAppointments || 0,
+            label: 'Total Appointments',
+            icon: <Calendar className="w-5 h-5" />,
+            color: '#3b82f6',
+            hasData: true,
+          };
+          statsMap['clinic_leads'] = {
+            value: data.stats.totalLeads || 0,
+            label: 'Total Leads',
+            icon: <Users className="w-5 h-5" />,
+            color: '#3b82f6',
+            hasData: true,
+          };
+          statsMap['leads'] = {
+            value: data.stats.totalLeads || 0,
+            label: 'Total Leads',
+            icon: <Users className="w-5 h-5" />,
+            color: '#3b82f6',
+            hasData: true,
+          };
+          statsMap['clinic_offers'] = {
+            value: (data.stats.totalOffers || (data.stats as any).totaloffers) || 0,
+            label: 'Total Offers',
+            icon: <Gift className="w-5 h-5" />,
+            color: '#3b82f6',
+            hasData: true,
+          };
+          statsMap['offers'] = {
+            value: (data.stats.totalOffers || (data.stats as any).totaloffers) || 0,
+            label: 'Total Offers',
+            icon: <Gift className="w-5 h-5" />,
+            color: '#3b82f6',
+            hasData: true,
+          };
+          statsMap['clinic_treatments'] = {
+            value: data.stats.totalTreatments || 0,
+            label: 'Total Treatments',
+            icon: <Stethoscope className="w-5 h-5" />,
+            color: '#3b82f6',
+            hasData: true,
+          };
+          statsMap['treatments'] = {
+            value: data.stats.totalTreatments || 0,
+            label: 'Total Treatments',
+            icon: <Stethoscope className="w-5 h-5" />,
+            color: '#3b82f6',
+            hasData: true,
+          };
+          statsMap['clinic_rooms'] = {
+            value: data.stats.totalRooms || 0,
+            label: 'Total Rooms',
+            icon: <DoorOpen className="w-5 h-5" />,
+            color: '#3b82f6',
+            hasData: true,
+          };
+          statsMap['rooms'] = {
+            value: data.stats.totalRooms || 0,
+            label: 'Total Rooms',
+            icon: <DoorOpen className="w-5 h-5" />,
+            color: '#3b82f6',
+            hasData: true,
+          };
+          statsMap['clinic_packages'] = {
+            value: data.stats.totalPackages || 0,
+            label: 'Total Packages',
+            icon: <Package className="w-5 h-5" />,
+            color: '#3b82f6',
+            hasData: true,
+          };
+          statsMap['packages'] = {
+            value: data.stats.totalPackages || 0,
+            label: 'Total Packages',
+            icon: <Package className="w-5 h-5" />,
+            color: '#3b82f6',
+            hasData: true,
+          };
+          // Map specific modules for first graph
+          statsMap['health_center'] = {
+            value: 1, // Will be updated if clinic count is fetched
+            label: 'Health Centers',
+            icon: <Building2 className="w-5 h-5" />,
+            color: '#3b82f6',
+            hasData: true,
+          };
+          statsMap['enquiry'] = {
+            value: data.stats.totalEnquiries || 0,
+            label: 'Total Enquiries',
+            icon: <Mail className="w-5 h-5" />,
+            color: '#3b82f6',
+            hasData: true,
+          };
+          statsMap['create_lead'] = {
+            value: data.stats.totalLeads || 0,
+            label: 'Total Leads',
+            icon: <Users className="w-5 h-5" />,
+            color: '#3b82f6',
+            hasData: true,
+          };
+          statsMap['assignedLead'] = {
+            value: data.stats.totalLeads || 0,
+            label: 'Assigned Leads',
+            icon: <Users className="w-5 h-5" />,
             color: '#3b82f6',
             hasData: true,
           };
@@ -446,8 +576,14 @@ const ClinicDashboard: NextPageWithLayout = () => {
       }
 
       // Fetch stats for each navigation item based on moduleKey
+      // First check if we already have data from dashboardStats, otherwise fetch from specific APIs
       const statsPromises = navigationItems.map(async (item) => {
         try {
+          // If we already have data from dashboardStats, use it
+          if (statsMap[item.moduleKey]) {
+            return; // Already set, skip
+          }
+
           let statValue: number | string = 0;
           let statLabel = item.label;
           let statColor = '#3b82f6';
@@ -503,10 +639,63 @@ const ClinicDashboard: NextPageWithLayout = () => {
                 hasData = false;
               }
               break;
+            case 'health_center':
+              try {
+                // For health center, show clinic count (usually 1, but could be more)
+                const clinicRes = await axios.get('/api/clinics/myallClinic', {
+                  headers: { Authorization: `Bearer ${token}` },
+                });
+                const clinics = clinicRes.data?.clinics || [];
+                statValue = clinics.length || 1; // At least 1 if clinic exists
+                statLabel = 'Health Centers';
+                hasData = true;
+              } catch (error) {
+                console.error(`Error fetching health center for ${item.moduleKey}:`, error);
+                statValue = 1; // Default to 1 if clinic exists
+                hasData = true;
+              }
+              break;
+            case 'create_agent':
+              try {
+                // Fetch agents count
+                const agentsRes = await axios.get('/api/agent/get-all-agents', {
+                  headers: { Authorization: `Bearer ${token}` },
+                });
+                const agents = agentsRes.data?.agents || agentsRes.data?.data || [];
+                statValue = Array.isArray(agents) ? agents.length : 0;
+                statLabel = 'Total Agents';
+                hasData = true;
+              } catch (error) {
+                console.error(`Error fetching agents for ${item.moduleKey}:`, error);
+                statValue = 0;
+                hasData = false;
+              }
+              break;
+            case 'create_lead':
+            case 'assignedLead':
+              // These are already covered by totalLeads from dashboardStats
+              // But we can show specific counts if needed
+              statValue = dashboardStatsData?.totalLeads || 0;
+              statLabel = item.moduleKey === 'assignedLead' ? 'Assigned Leads' : 'Total Leads';
+              hasData = (dashboardStatsData?.totalLeads || 0) > 0;
+              break;
+            case 'enquiry':
+              // Enquiry module
+              statValue = dashboardStatsData?.totalEnquiries || 0;
+              statLabel = 'Total Enquiries';
+              hasData = (dashboardStatsData?.totalEnquiries || 0) > 0;
+              break;
             default:
-              // For other modules, mark as no data available
-              statValue = 0;
-              hasData = false;
+              // For other modules, try to get from dashboardStatsData if available
+              const moduleKeyLower = item.moduleKey.toLowerCase();
+              if (moduleKeyLower.includes('enquiry')) {
+                statValue = dashboardStatsData?.totalEnquiries || 0;
+                statLabel = 'Total Enquiries';
+                hasData = (dashboardStatsData?.totalEnquiries || 0) > 0;
+              } else {
+                statValue = 0;
+                hasData = false;
+              }
           }
 
           statsMap[item.moduleKey] = {
@@ -726,15 +915,125 @@ const ClinicDashboard: NextPageWithLayout = () => {
     };
   }, [allModules, navigationItems, restrictedModules]);
 
-  const statsChartData = useMemo(() => {
-    return [
-      { name: 'Reviews', value: stats.totalReviews },
-      { name: 'Enquiries', value: stats.totalEnquiries },
-      { name: 'Appointments', value: stats.totalAppointments || 0 },
-      { name: 'Leads', value: stats.totalLeads || 0 },
-      { name: 'Offers', value: stats.totalOffers || 0 },
+  // Helper function to get value for a module
+  const getModuleValue = useCallback((item: NavigationItem): number => {
+    // First try to get from moduleStats
+    const moduleStat = moduleStats[item.moduleKey];
+    
+    if (moduleStat?.value !== undefined && moduleStat.value !== null) {
+      if (typeof moduleStat.value === 'number') {
+        return moduleStat.value;
+      } else if (typeof moduleStat.value === 'string') {
+        const parsed = parseFloat(moduleStat.value);
+        return isNaN(parsed) ? 0 : parsed;
+      }
+    }
+    
+    // Fallback: Map moduleKey to stats directly
+    const moduleKeyLower = item.moduleKey.toLowerCase();
+    
+    // Direct moduleKey matching (most reliable)
+    if (moduleKeyLower.includes('review') || moduleKeyLower === 'reviews' || moduleKeyLower === 'clinic_reviews') {
+      return stats.totalReviews || 0;
+    } else if (moduleKeyLower.includes('enquiry') || moduleKeyLower === 'enquiries' || moduleKeyLower === 'clinic_enquiries') {
+      return stats.totalEnquiries || 0;
+    } else if (moduleKeyLower.includes('appointment') || moduleKeyLower === 'appointments' || moduleKeyLower === 'clinic_appointments') {
+      return stats.totalAppointments || 0;
+    } else if (moduleKeyLower.includes('lead') || moduleKeyLower === 'leads' || moduleKeyLower === 'clinic_leads' || moduleKeyLower === 'assignedlead') {
+      return stats.totalLeads || 0;
+    } else if (moduleKeyLower.includes('offer') || moduleKeyLower === 'offers' || moduleKeyLower === 'clinic_offers') {
+      return stats.totalOffers || 0;
+    } else if (moduleKeyLower.includes('treatment') || moduleKeyLower === 'treatments' || moduleKeyLower === 'clinic_treatments') {
+      return stats.totalTreatments || 0;
+    } else if (moduleKeyLower.includes('room') || moduleKeyLower === 'rooms' || moduleKeyLower === 'clinic_rooms') {
+      return stats.totalRooms || 0;
+    } else if (moduleKeyLower.includes('package') || moduleKeyLower === 'packages' || moduleKeyLower === 'clinic_packages') {
+      return stats.totalPackages || 0;
+    } else if (moduleKeyLower.includes('department') || moduleKeyLower === 'departments' || moduleKeyLower === 'clinic_departments') {
+      return stats.totalDepartments || 0;
+    } else if (moduleKeyLower.includes('health') || moduleKeyLower === 'health_center') {
+      // For health center, we might want to show clinic count or 1 if exists
+      return 1; // Or you can fetch actual clinic count
+    }
+    
+    // For modules like create_agent, create_lead, assignedLead - use moduleStats or default
+    return moduleStat?.value as number || 0;
+  }, [moduleStats, stats]);
+
+  // First Graph (Bar Chart): Shows specific modules: Manage Health Center, Enquiry, Create Agent, Create Lead, Assigned Leads, and the rest
+  const modulesChartData = useMemo(() => {
+    if (navigationItems.length === 0 || statsLoading) {
+      return [];
+    }
+    
+    // Define the priority modules that should appear first
+    const priorityModuleKeys = [
+      'health_center',      // Manage Health Center
+      'enquiry',            // Enquiry
+      'create_agent',       // Create Agent
+      'create_lead',        // Create Lead
+      'assignedLead',       // Assigned Leads
     ];
-  }, [stats]);
+    
+    // Separate priority and other modules
+    const priorityModules: NavigationItem[] = [];
+    const otherModules: NavigationItem[] = [];
+    const seenKeys = new Set<string>();
+    
+    navigationItems.forEach((item) => {
+      // Avoid duplicates
+      if (seenKeys.has(item.moduleKey)) {
+        return;
+      }
+      seenKeys.add(item.moduleKey);
+      
+      if (priorityModuleKeys.includes(item.moduleKey)) {
+        priorityModules.push(item);
+      } else {
+        // Skip dashboard itself
+        if (item.moduleKey !== 'dashboard') {
+          otherModules.push(item);
+        }
+      }
+    });
+    
+    // Sort priority modules by the order in priorityModuleKeys
+    priorityModules.sort((a, b) => {
+      const indexA = priorityModuleKeys.indexOf(a.moduleKey);
+      const indexB = priorityModuleKeys.indexOf(b.moduleKey);
+      return indexA - indexB;
+    });
+    
+    // Combine: priority modules first, then others
+    const allModules = [...priorityModules, ...otherModules];
+    
+    return allModules.map((item) => {
+      const value = getModuleValue(item);
+      
+      return {
+        name: item.label.length > 15 ? item.label.substring(0, 15) + '...' : item.label,
+        value: value,
+        fullName: item.label,
+        moduleKey: item.moduleKey,
+      };
+    }).filter((item) => item.value > 0 || allModules.length <= 10); // Show all if few modules, otherwise filter zeros
+  }, [navigationItems, moduleStats, stats, statsLoading, getModuleValue]);
+
+  // Second Graph (Line Chart): Shows core statistics from API - distinct from first graph
+  const statsChartData = useMemo(() => {
+    // Only show core statistics that are NOT already shown in the first graph
+    // Exclude: Enquiry (shown in first graph), Leads (shown in first graph)
+    // Include: Reviews, Appointments, Offers, Treatments, Rooms, Packages, Departments
+    return [
+      { name: 'Reviews', value: stats.totalReviews || 0 },
+      { name: 'Appointments', value: stats.totalAppointments || 0 },
+      { name: 'Offers', value: stats.totalOffers || 0 },
+      { name: 'Treatments', value: stats.totalTreatments || 0 },
+      { name: 'Rooms', value: stats.totalRooms || 0 },
+      { name: 'Packages', value: stats.totalPackages || 0 },
+      { name: 'Departments', value: stats.totalDepartments || 0 },
+    ].filter(item => item.value > 0 || !statsLoading); // Only show items with data or while loading
+  }, [stats.totalReviews, stats.totalAppointments, stats.totalOffers, stats.totalTreatments, stats.totalRooms, stats.totalPackages, stats.totalDepartments, statsLoading]);
 
   // Prepare breakdown chart data
   const appointmentStatusData = useMemo(() => {
@@ -1164,49 +1463,67 @@ const ClinicDashboard: NextPageWithLayout = () => {
         </div>
 
         {/* Analytics Overview - Full Width */}
-        {(stats.totalEnquiries > 0 || stats.totalReviews > 0 || (stats.totalAppointments || 0) > 0 || (stats.totalLeads || 0) > 0) && (
+        {((stats.totalEnquiries > 0 || stats.totalReviews > 0 || (stats.totalAppointments || 0) > 0 || (stats.totalLeads || 0) > 0) || modulesChartData.length > 0) && (
           <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 mb-6">
             <h3 className="text-base font-semibold text-gray-900 mb-6">Analytics Overview</h3>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+              {/* Bar Chart - Modules from Sidebar */}
               <div className="h-80">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={statsChartData} margin={{ top: 10, right: 20, left: 10, bottom: 40 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                    <XAxis
-                      dataKey="name"
-                      tick={{ fill: '#6b7280', fontSize: 11 }}
-                      axisLine={{ stroke: '#d1d5db' }}
-                      tickLine={{ stroke: '#d1d5db' }}
-                      angle={-45}
-                      textAnchor="end"
-                      height={40}
-                    />
-                    <YAxis
-                      tick={{ fill: '#6b7280', fontSize: 11 }}
-                      axisLine={{ stroke: '#d1d5db' }}
-                      tickLine={{ stroke: '#d1d5db' }}
-                    />
-                    <Tooltip 
-                      contentStyle={{ 
-                        backgroundColor: '#fff', 
-                        border: '1px solid #e5e7eb',
-                        borderRadius: '6px',
-                        fontSize: '11px'
-                      }}
-                    />
-                    <Bar dataKey="value" radius={[4, 4, 0, 0]} fill="#1f2937">
-                      <LabelList
-                        dataKey="value"
-                        position="top"
-                        fill="#1f2937"
-                        fontSize={11}
-                        fontWeight={500}
+                <h4 className="text-sm font-medium text-gray-700 mb-2">Modules Overview (Sidebar Modules)</h4>
+                {modulesChartData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={modulesChartData} margin={{ top: 10, right: 20, left: 10, bottom: 40 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                      <XAxis
+                        dataKey="name"
+                        tick={{ fill: '#6b7280', fontSize: 10 }}
+                        axisLine={{ stroke: '#d1d5db' }}
+                        tickLine={{ stroke: '#d1d5db' }}
+                        angle={-45}
+                        textAnchor="end"
+                        height={60}
                       />
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
+                      <YAxis
+                        tick={{ fill: '#6b7280', fontSize: 11 }}
+                        axisLine={{ stroke: '#d1d5db' }}
+                        tickLine={{ stroke: '#d1d5db' }}
+                        domain={[0, 'auto']}
+                        type="number"
+                      />
+                      <Tooltip 
+                        contentStyle={{ 
+                          backgroundColor: '#fff', 
+                          border: '1px solid #e5e7eb',
+                          borderRadius: '6px',
+                          fontSize: '11px'
+                        }}
+                        formatter={(value: number, name: string, props: any) => {
+                          if (props.payload?.fullName) {
+                            return [`${value}`, props.payload.fullName];
+                          }
+                          return [value, name];
+                        }}
+                      />
+                      <Bar dataKey="value" radius={[4, 4, 0, 0]} fill="#3b82f6">
+                        <LabelList
+                          dataKey="value"
+                          position="top"
+                          fill="#3b82f6"
+                          fontSize={11}
+                          fontWeight={500}
+                        />
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex items-center justify-center h-full text-gray-500">
+                    Loading modules data...
+                  </div>
+                )}
               </div>
+              {/* Line Chart - Dashboard Stats from API */}
               <div className="h-80">
+                <h4 className="text-sm font-medium text-gray-700 mb-2">Dashboard Statistics (API Data)</h4>
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={statsChartData} margin={{ top: 10, right: 20, left: 10, bottom: 10 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
@@ -1220,6 +1537,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                       tick={{ fill: '#6b7280', fontSize: 11 }}
                       axisLine={{ stroke: '#d1d5db' }}
                       tickLine={{ stroke: '#d1d5db' }}
+                      domain={[0, 'auto']}
                     />
                     <Tooltip 
                       contentStyle={{ 
@@ -1232,9 +1550,9 @@ const ClinicDashboard: NextPageWithLayout = () => {
                     <Line 
                       type="monotone" 
                       dataKey="value" 
-                      stroke="#1f2937" 
+                      stroke="#22c55e" 
                       strokeWidth={2}
-                      dot={{ fill: '#1f2937', r: 4 }}
+                      dot={{ fill: '#22c55e', r: 4 }}
                       activeDot={{ r: 6 }}
                     />
                   </LineChart>
