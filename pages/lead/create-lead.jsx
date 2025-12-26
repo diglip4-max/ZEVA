@@ -50,7 +50,6 @@ function LeadsPage() {
   const [selectedSegment, setSelectedSegment] = useState(
     null
   );
-  console.log({ segment })
 
   const token = typeof window !== "undefined" ? localStorage.getItem("clinicToken") : null;
 

@@ -285,9 +285,7 @@ const SegmentsPage = () => {
 
     // Fetch segments
     const fetchSegments = async () => {
-        console.log("fetch segment called", {
-            token, permissionsLoaded, permissions
-        });
+
         if (!token) return;
 
         // Wait for permissions to load
@@ -311,7 +309,6 @@ const SegmentsPage = () => {
                 headers: { Authorization: `Bearer ${token}` },
             });
 
-            console.log({ segmentData: res.data });
             if (res.data.success) {
                 const segmentsWithEnrichment = res.data?.segments?.map(segment => ({
                     ...segment,
@@ -485,10 +482,13 @@ const SegmentsPage = () => {
                         <div className="mb-6">
                             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                                 <div>
-                                    <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
+                                    <h1
+                                        className="text-xl sm:text-2xl font-bold text-gray-900"
+                                    >
                                         Lead Segments
                                     </h1>
-                                    <p className="mt-1 sm:mt-2 text-xs sm:text-sm text-gray-600">
+                                    <p
+                                        className="mt-1 sm:mt-2 text-xs sm:text-sm text-gray-600">
                                         Organize and manage your lead segments for better targeting
                                     </p>
                                 </div>
