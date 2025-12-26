@@ -739,7 +739,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
               {isLoading ? (
                 <div className="text-xs text-gray-500 px-2">Loading menu…</div>
               ) : (
-                items.map((item, _parentIdx) => {
+                items.map((item, parentIdx) => {
                 const isDropdownOpen = openDropdown === item.label;
                 // If an item is manually selected, only that item should be active
                 // Otherwise, use router pathname to determine active state
@@ -1052,7 +1052,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                             {item.children.map((child) => {
                               const isChildActive = router.pathname === child.path;
                               return child.path ? (
-                                <Link key={child.name} href={child.path} onClick={handleItemClick}>
+                                <Link key={child.label} href={child.path} onClick={handleItemClick}>
                                   <div
                                     className={clsx(
                                       "group relative block rounded-lg transition-all duration-200 cursor-pointer p-2 touch-manipulation",
@@ -1064,13 +1064,13 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                                   >
                                     <div className="flex items-center space-x-2">
                                       <span className="text-xs">{child.icon}</span>
-                                      <span className="text-xs font-medium truncate">{child.name}</span>
+                                      <span className="text-xs font-medium truncate">{child.label}</span>
                                     </div>
                                   </div>
                                 </Link>
                               ) : (
-                                <div key={child.name} className="p-2 text-xs text-gray-500">
-                                  {child.name}
+                                <div key={child.label} className="p-2 text-xs text-gray-500">
+                                  {child.label}
                                 </div>
                               );
                             })}
