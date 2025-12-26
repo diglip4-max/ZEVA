@@ -100,8 +100,8 @@ const routeMap: { [key: string]: () => Promise<any> } = {
   // Staff routes for clinic
   'clinic-staff-dashboard': () => import('../staff/staff-dashboard'),
   'clinic-add-service': () => import('../staff/add-service'),
-  'clinic-patient-registration': () => import('../staff/patient-registration'),
-  'clinic-patient-information': () => import('../staff/patient-information'),
+  'clinic-patient-registration': () => import('../clinic/patient-registration'),
+  'clinic-patient-information': () => import('../clinic/patient-information'),
   'clinic-eodNotes': () => import('../staff/eodNotes'),
   'clinic-AddPettyCashForm': () => import('../staff/AddPettyCashForm'),
   'clinic-add-vendor': () => import('../staff/add-vendor'),
@@ -132,8 +132,8 @@ const routeMap: { [key: string]: () => Promise<any> } = {
   // Staff routes for doctor
   'doctor-staff-dashboard': () => import('../staff/staff-dashboard'),
   'doctor-add-service': () => import('../staff/add-service'),
-  'doctor-patient-registration': () => import('../staff/patient-registration'),
-  'doctor-patient-information': () => import('../staff/patient-information'),
+  'doctor-patient-registration': () => import('../clinic/patient-registration'),
+  'doctor-patient-information': () => import('../clinic/patient-information'),
   'doctor-eodNotes': () => import('../staff/eodNotes'),
   'doctor-AddPettyCashForm': () => import('../staff/AddPettyCashForm'),
   'doctor-add-vendor': () => import('../staff/add-vendor'),

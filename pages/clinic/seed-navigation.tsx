@@ -1,8 +1,9 @@
 'use client';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, ReactElement } from 'react';
 import axios from 'axios';
 import ClinicLayout from '../../components/ClinicLayout';
 import withClinicAuth from '../../components/withClinicAuth';
+import type { NextPageWithLayout } from '../_app';
 
 interface NavigationItem {
   _id?: string;
@@ -238,9 +239,9 @@ const SeedNavigationPage = () => {
   );
 };
 
-SeedNavigationPage.getLayout = (page) => <ClinicLayout>{page}</ClinicLayout>;
+SeedNavigationPage.getLayout = (page: ReactElement) => <ClinicLayout>{page}</ClinicLayout>;
 
-const ProtectedSeedNavigationPage = withClinicAuth(SeedNavigationPage);
+const ProtectedSeedNavigationPage: NextPageWithLayout = withClinicAuth(SeedNavigationPage);
 ProtectedSeedNavigationPage.getLayout = SeedNavigationPage.getLayout;
 
 export default ProtectedSeedNavigationPage;

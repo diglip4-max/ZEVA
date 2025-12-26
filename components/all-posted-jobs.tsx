@@ -520,119 +520,119 @@ const JobManagement: React.FC<JobManagementProps> = ({
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-6xl mx-auto p-4 sm:p-6 lg:p-8">
+    <div className="min-h-screen bg-gray-50 p-1 sm:p-2">
+      <div className="max-w-6xl mx-auto">
         
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center gap-4 mb-6">
-            <div className="w-12 h-12 rounded-xl bg-gray-900 flex items-center justify-center shadow-lg">
-              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        {/* Header - Compact */}
+        <div className="mb-1.5 sm:mb-2">
+          <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center shadow-md">
+              <svg className="w-4 h-4 sm:w-5 sm:h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2-2v2m8 0V6a2 2 0 012 2v6M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m-8 0V6a2 2 0 00-2 2v6.001" />
               </svg>
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">{config.title}</h1>
-              <p className="text-gray-700 mt-1">{config.subtitle}</p>
+              <h1 className="text-base sm:text-lg font-bold text-gray-900">{config.title}</h1>
+              <p className="text-[9px] sm:text-[10px] text-gray-700 mt-0.5">{config.subtitle}</p>
             </div>
           </div>
 
-          {/* Enhanced Stats */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
-            <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                  <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          {/* Enhanced Stats - Compact */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-1.5 sm:gap-2 mb-2">
+            <div className="bg-white p-2 sm:p-3 rounded-lg border border-gray-200 shadow-sm">
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 sm:w-8 sm:h-8 bg-blue-100 rounded-md flex items-center justify-center">
+                  <svg className="w-3 h-3 sm:w-4 sm:h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                   </svg>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-700">Total</p>
-                  <p className="text-xl font-bold text-gray-900">{totalJobs}</p>
+                  <p className="text-[8px] sm:text-[9px] text-gray-700">Total</p>
+                  <p className="text-sm sm:text-base font-bold text-gray-900">{totalJobs}</p>
                 </div>
               </div>
             </div>
 
-            <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-                  <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="bg-white p-2 sm:p-3 rounded-lg border border-gray-200 shadow-sm">
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 sm:w-8 sm:h-8 bg-green-100 rounded-md flex items-center justify-center">
+                  <svg className="w-3 h-3 sm:w-4 sm:h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-700">Active</p>
-                  <p className="text-xl font-bold text-gray-900">{activeJobs}</p>
+                  <p className="text-[8px] sm:text-[9px] text-gray-700">Active</p>
+                  <p className="text-sm sm:text-base font-bold text-gray-900">{activeJobs}</p>
                 </div>
               </div>
             </div>
 
-            <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
-                  <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="bg-white p-2 sm:p-3 rounded-lg border border-gray-200 shadow-sm">
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 sm:w-8 sm:h-8 bg-orange-100 rounded-md flex items-center justify-center">
+                  <svg className="w-3 h-3 sm:w-4 sm:h-4 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636m12.728 12.728L18.364 5.636M5.636 18.364l12.728-12.728" />
                   </svg>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-700">Inactive</p>
-                  <p className="text-xl font-bold text-gray-900">{inactiveJobs}</p>
+                  <p className="text-[8px] sm:text-[9px] text-gray-700">Inactive</p>
+                  <p className="text-sm sm:text-base font-bold text-gray-900">{inactiveJobs}</p>
                 </div>
               </div>
             </div>
 
-            <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-yellow-100 rounded-lg flex items-center justify-center">
-                  <svg className="w-5 h-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="bg-white p-2 sm:p-3 rounded-lg border border-gray-200 shadow-sm">
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 sm:w-8 sm:h-8 bg-yellow-100 rounded-md flex items-center justify-center">
+                  <svg className="w-3 h-3 sm:w-4 sm:h-4 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-700">Pending</p>
-                  <p className="text-xl font-bold text-gray-900">{pendingJobs}</p>
+                  <p className="text-[8px] sm:text-[9px] text-gray-700">Pending</p>
+                  <p className="text-sm sm:text-base font-bold text-gray-900">{pendingJobs}</p>
                 </div>
               </div>
             </div>
 
-            <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-emerald-100 rounded-lg flex items-center justify-center">
-                  <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="bg-white p-2 sm:p-3 rounded-lg border border-gray-200 shadow-sm">
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 sm:w-8 sm:h-8 bg-emerald-100 rounded-md flex items-center justify-center">
+                  <svg className="w-3 h-3 sm:w-4 sm:h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-700">Approved</p>
-                  <p className="text-xl font-bold text-gray-900">{approvedJobs}</p>
+                  <p className="text-[8px] sm:text-[9px] text-gray-700">Approved</p>
+                  <p className="text-sm sm:text-base font-bold text-gray-900">{approvedJobs}</p>
                 </div>
               </div>
             </div>
 
-            <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
-                  <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="bg-white p-2 sm:p-3 rounded-lg border border-gray-200 shadow-sm">
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 sm:w-8 sm:h-8 bg-red-100 rounded-md flex items-center justify-center">
+                  <svg className="w-3 h-3 sm:w-4 sm:h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-700">Declined</p>
-                  <p className="text-xl font-bold text-gray-900">{declinedJobs}</p>
+                  <p className="text-[8px] sm:text-[9px] text-gray-700">Declined</p>
+                  <p className="text-sm sm:text-base font-bold text-gray-900">{declinedJobs}</p>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Enhanced Search and Filter Section */}
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 mb-6">
-            <div className="flex flex-col gap-4">
+          {/* Enhanced Search and Filter Section - Compact */}
+          <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-2 sm:p-3 mb-2">
+            <div className="flex flex-col gap-2 sm:gap-3">
               {/* Main Search Bar and Quick Actions */}
-              <div className="flex flex-col lg:flex-row gap-4">
+              <div className="flex flex-col lg:flex-row gap-2">
                 {/* Search Bar */}
                 <div className="flex-1 relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none">
+                    <svg className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                     </svg>
                   </div>
@@ -641,21 +641,21 @@ const JobManagement: React.FC<JobManagementProps> = ({
                     placeholder="Search jobs by title, company, or department..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="text-black block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="text-black block w-full pl-8 pr-3 py-1.5 sm:py-2 text-[10px] sm:text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-900 focus:border-gray-900 bg-white"
                   />
                 </div>
 
                 {/* Quick Filter Buttons */}
-                <div className="flex gap-2">
+                <div className="flex gap-1.5">
                   <button
                     onClick={() => setShowFilters(!showFilters)}
-                    className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 flex items-center gap-2 ${
+                    className={`px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-md text-[9px] sm:text-[10px] font-medium transition-all duration-200 flex items-center gap-1.5 ${
                       showFilters 
-                        ? 'bg-blue-100 text-blue-700 border border-blue-200' 
+                        ? 'bg-gray-900 text-white' 
                         : 'bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200'
                     }`}
                   >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-3 h-3 sm:w-3.5 sm:h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.207A1 1 0 013 6.5V4z" />
                     </svg>
                     Filters
@@ -663,9 +663,9 @@ const JobManagement: React.FC<JobManagementProps> = ({
                   
                   <button
                     onClick={clearAllFilters}
-                    className="px-4 py-2 text-gray-600 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-all duration-200 font-medium flex items-center gap-2"
+                    className="px-2.5 sm:px-3 py-1.5 sm:py-2 text-gray-600 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-all duration-200 text-[9px] sm:text-[10px] font-medium flex items-center gap-1.5"
                   >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-3 h-3 sm:w-3.5 sm:h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                     </svg>
                     Clear
@@ -673,17 +673,18 @@ const JobManagement: React.FC<JobManagementProps> = ({
                 </div>
               </div>
 
-              {/* Advanced Filters (Collapsible) */}
+              {/* Advanced Filters (Collapsible) - Compact */}
               {showFilters && (
-                <div className="border-t border-gray-200 pt-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="border-t border-gray-200 pt-2 pb-16 mb-2 relative" style={{ zIndex: 1000 }}>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
                     {/* Status Filter */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                    <div className="relative" style={{ zIndex: 1001 }}>
+                      <label className="block text-[9px] sm:text-[10px] font-medium text-gray-700 mb-1">Status</label>
                       <select
                         value={statusFilter}
                         onChange={(e) => setStatusFilter(e.target.value as StatusFilterType)}
-                        className="text-black block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                        className="text-black block w-full px-2 py-1.5 text-[9px] sm:text-[10px] border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-900 focus:border-gray-900 bg-white"
+                        style={{ position: 'relative', zIndex: 1001 }}
                       >
                         <option value="all">All Status</option>
                         <option value="active">Active Jobs</option>
@@ -695,12 +696,13 @@ const JobManagement: React.FC<JobManagementProps> = ({
                     </div>
 
                     {/* Department Filter */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
+                    <div className="relative" style={{ zIndex: 1000 }}>
+                      <label className="block text-[9px] sm:text-[10px] font-medium text-gray-700 mb-1">Department</label>
                       <select
                         value={selectedDepartment}
                         onChange={(e) => setSelectedDepartment(e.target.value)}
-                        className="text-black block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                        className="text-black block w-full px-2 py-1.5 text-[9px] sm:text-[10px] border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-900 focus:border-gray-900 bg-white"
+                        style={{ position: 'relative', zIndex: 1000 }}
                       >
                         <option value="all">All Departments</option>
                         {uniqueDepartments.map(dept => (
@@ -710,12 +712,13 @@ const JobManagement: React.FC<JobManagementProps> = ({
                     </div>
 
                     {/* Job Type Filter */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Job Type</label>
+                    <div className="relative" style={{ zIndex: 999 }}>
+                      <label className="block text-[9px] sm:text-[10px] font-medium text-gray-700 mb-1">Job Type</label>
                       <select
                         value={selectedJobType}
                         onChange={(e) => setSelectedJobType(e.target.value)}
-                        className="text-black block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                        className="text-black block w-full px-2 py-1.5 text-[9px] sm:text-[10px] border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-900 focus:border-gray-900 bg-white"
+                        style={{ position: 'relative', zIndex: 999 }}
                       >
                         <option value="all">All Types</option>
                         {uniqueJobTypes.map(type => (
@@ -725,12 +728,13 @@ const JobManagement: React.FC<JobManagementProps> = ({
                     </div>
 
                     {/* Sort By */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Sort By</label>
+                    <div className="relative" style={{ zIndex: 1001 }}>
+                      <label className="block text-[9px] sm:text-[10px] font-medium text-gray-700 mb-1">Sort By</label>
                       <select
                         value={sortBy}
                         onChange={(e) => setSortBy(e.target.value as SortByType)}
-                        className="text-black block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                        className="text-black block w-full px-2 py-1.5 text-[9px] sm:text-[10px] border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-900 focus:border-gray-900 bg-white"
+                        style={{ position: 'relative', zIndex: 1001 }}
                       >
                         <option value="newest">Newest First</option>
                         <option value="oldest">Oldest First</option>
@@ -742,9 +746,9 @@ const JobManagement: React.FC<JobManagementProps> = ({
                 </div>
               )}
 
-              {/* Results Count and Active Filters */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-gray-100">
-                <div className="text-sm text-gray-700">
+              {/* Results Count and Active Filters - Compact */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2 border-t border-gray-100">
+                <div className="text-[9px] sm:text-[10px] text-gray-700">
                   Showing {filteredAndSortedJobs.length} of {jobs.length} jobs
                   {searchTerm && ` matching "${searchTerm}"`}
                 </div>
@@ -797,12 +801,12 @@ const JobManagement: React.FC<JobManagementProps> = ({
           </div>
         </div>
 
-        {/* Jobs List */}
-        <div className="space-y-4">
+        {/* Jobs List - Compact */}
+        <div className="space-y-1.5 sm:space-y-2 relative" style={{ zIndex: 1 }}>
           {filteredAndSortedJobs.length === 0 ? (
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-12 text-center">
-              <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                <svg className="w-10 h-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 sm:p-8 text-center">
+              <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4">
+                <svg className="w-6 h-6 sm:w-8 sm:h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   {searchTerm || statusFilter !== 'all' || selectedDepartment !== 'all' || selectedJobType !== 'all' ? (
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   ) : (
@@ -810,10 +814,10 @@ const JobManagement: React.FC<JobManagementProps> = ({
                   )}
                 </svg>
               </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-2">
+              <h3 className="text-sm sm:text-base font-bold text-gray-900 mb-1.5">
                 {searchTerm || statusFilter !== 'all' || selectedDepartment !== 'all' || selectedJobType !== 'all' ? 'No Jobs Found' : config.emptyStateTitle}
               </h3>
-              <p className="text-gray-700 mb-6 max-w-md mx-auto">
+              <p className="text-[9px] sm:text-[10px] text-gray-700 mb-4 max-w-md mx-auto">
                 {searchTerm || statusFilter !== 'all' || selectedDepartment !== 'all' || selectedJobType !== 'all'
                   ? 'Try adjusting your search criteria or filters to find what you\'re looking for.' 
                   : config.emptyStateDescription
@@ -821,7 +825,7 @@ const JobManagement: React.FC<JobManagementProps> = ({
               </p>
               {(!searchTerm && statusFilter === 'all' && selectedDepartment === 'all' && selectedJobType === 'all') && (
                 <button 
-                  className="bg-gray-900 text-white px-6 py-3 rounded-xl hover:bg-gray-800 transition-colors font-medium shadow-sm"
+                  className="bg-gray-900 text-white px-4 py-2 rounded-lg hover:bg-gray-800 transition-colors text-[9px] sm:text-[10px] font-medium shadow-sm"
                 >
                   {config.emptyStateButtonText}
                 </button>
@@ -831,60 +835,60 @@ const JobManagement: React.FC<JobManagementProps> = ({
             filteredAndSortedJobs.map(job => {
               const statusConfig = getStatusConfig(job.status);
               return (
-                <div key={job._id} className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200">
-                  <div className="p-4">
+                <div key={job._id} className="bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200">
+                  <div className="p-2 sm:p-3">
                     
-                    {/* Job Header */}
-                    <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
-                      <div className="flex items-start gap-3 flex-1">
-                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center shadow-sm flex-shrink-0 ${
+                    {/* Job Header - Compact */}
+                    <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-2 sm:gap-3">
+                      <div className="flex items-start gap-2 flex-1 min-w-0">
+                        <div className={`w-6 h-6 sm:w-8 sm:h-8 rounded-md flex items-center justify-center shadow-sm flex-shrink-0 ${
                           job.isActive ? statusConfig.bg : 'bg-gray-100'
                         }`}>
-                          <svg className={`w-5 h-5 ${job.isActive ? statusConfig.text.replace('text-', 'text-').replace('-800', '-600') : 'text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <svg className={`w-3 h-3 sm:w-4 sm:h-4 ${job.isActive ? statusConfig.text.replace('text-', 'text-').replace('-800', '-600') : 'text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2-2v2m8 0V6a2 2 0 012 2v6M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m-8 0V6a2 2 0 00-2 2v6.001" />
                           </svg>
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <h3 className="text-lg font-bold text-gray-900">{job.jobTitle}</h3>
+                          <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
+                            <h3 className="text-xs sm:text-sm font-bold text-gray-900 truncate">{job.jobTitle}</h3>
                             {/* Status Badge next to job title */}
-                            <div className={`px-2 py-1 rounded-full text-xs font-semibold flex items-center gap-1 ${statusConfig.bg} ${statusConfig.text}`}>
+                            <div className={`px-1.5 py-0.5 rounded-full text-[8px] sm:text-[9px] font-semibold flex items-center gap-0.5 ${statusConfig.bg} ${statusConfig.text}`}>
                               {statusConfig.icon}
                               {statusConfig.label}
                             </div>
                           </div>
-                          <p className="font-medium text-sm text-gray-700">
+                          <p className="font-medium text-[9px] sm:text-[10px] text-gray-700 truncate">
                             {job.companyName || job.clinicName || job.hospitalName}
                           </p>
                           
-                          {/* Job Details */}
-                          <div className="flex flex-wrap gap-3 mt-2 text-xs text-gray-700">
+                          {/* Job Details - Compact */}
+                          <div className="flex flex-wrap gap-1.5 mt-1.5 text-[8px] sm:text-[9px] text-gray-700">
                             {job.department && (
-                              <span className="flex items-center gap-1">
-                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <span className="flex items-center gap-0.5">
+                                <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l7-3 7 3z" />
                                 </svg>
                                 {job.department}
                               </span>
                             )}
                             {job.jobType && (
-                              <span className="flex items-center gap-1">
-                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <span className="flex items-center gap-0.5">
+                                <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                                 </svg>
                                 {job.jobType}
                               </span>
                             )}
                             {job.location && (
-                              <span className="flex items-center gap-1">
-                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <span className="flex items-center gap-0.5">
+                                <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                                 </svg>
                                 {job.location}
                               </span>
                             )}
                             {job.salary && (
-                              <span className="flex items-center gap-1 font-semibold text-green-600">
+                              <span className="flex items-center gap-0.5 font-semibold text-green-600">
                                 {formatSalary(job.salary)}
                               </span>
                             )}
@@ -892,76 +896,75 @@ const JobManagement: React.FC<JobManagementProps> = ({
                         </div>
                       </div>
                       
-                      {/* Status and Action Buttons */}
-                      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 flex-shrink-0">
-                        {/* Active/Inactive Badge Only */}
-                        <div className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                      {/* Status and Action Buttons - Compact Header Style */}
+                      <div className="flex items-center gap-1 flex-shrink-0 flex-wrap">
+                        {/* Active/Inactive Badge */}
+                        <div className={`px-1.5 py-0.5 rounded-full text-[7px] sm:text-[8px] font-semibold flex items-center gap-0.5 ${
                           job.isActive 
                             ? 'bg-emerald-100 text-emerald-800' 
                             : 'bg-gray-100 text-gray-800'
                         }`}>
-                          {job.isActive ? '🟢 Active' : '🔴 Inactive'}
+                          <div className={`w-1.5 h-1.5 rounded-full ${job.isActive ? 'bg-emerald-600' : 'bg-gray-600'}`}></div>
+                          {job.isActive ? 'Active' : 'Inactive'}
                         </div>
                         
-                        {/* Action Buttons */}
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => setPreviewJob(job)}
-                            className="px-3 py-2 bg-blue-500 text-white hover:bg-blue-600 rounded-lg text-xs font-medium transition-all duration-200 flex items-center gap-1"
-                            title="Preview Job"
-                          >
-                            <Eye className="w-3 h-3" />
-                            Preview
-                          </button>
-                          {permissions.canUpdate && (
-                            <>
-                              <button
-                                onClick={() => {
-                                  setEditJob(job);
-                                  setIsEditing(true);
-                                }}
-                                className="px-3 py-2 bg-gray-700 text-white hover:bg-gray-800 rounded-lg text-xs font-medium transition-all duration-200 flex items-center gap-1"
-                                title="Edit Job"
-                              >
-                                <Edit className="w-3 h-3" />
-                                Edit
-                              </button>
-                              <button
-                                onClick={() => handleToggleJob(job._id, job.isActive, job.jobTitle)}
-                                disabled={job.status !== 'approved'}
-                                className={`px-3 py-2 rounded-lg text-xs font-medium transition-all duration-200 flex items-center gap-1 ${
-                                  job.status !== 'approved'
-                                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                                    : job.isActive 
-                                    ? 'bg-orange-500 text-white hover:bg-orange-600' 
-                                    : 'bg-green-500 text-white hover:bg-green-600'
-                                }`}
-                                title={job.status !== 'approved' ? 'Only approved jobs can be activated/deactivated' : ''}
-                              >
-                                {job.isActive ? <PowerOff className="w-3 h-3" /> : <Power className="w-3 h-3" />}
-                                {job.isActive ? 'Unpublish' : 'Publish'}
-                              </button>
-                            </>
-                          )}
-                          {permissions.canDelete && (
+                        {/* Action Buttons - Compact Header Style */}
+                        <button
+                          onClick={() => setPreviewJob(job)}
+                          className="px-1.5 py-0.5 bg-blue-500 text-white hover:bg-blue-600 rounded text-[7px] sm:text-[8px] font-medium transition-all duration-200 flex items-center gap-0.5"
+                          title="Preview"
+                        >
+                          <Eye className="w-2.5 h-2.5" />
+                          Preview
+                        </button>
+                        {permissions.canUpdate && (
+                          <>
                             <button
-                              onClick={() => handleDeleteJob(job._id, job.jobTitle)}
-                              className="px-3 py-2 bg-red-500 text-white hover:bg-red-600 rounded-lg text-xs font-medium transition-all duration-200 flex items-center gap-1"
-                              title="Delete Job"
+                              onClick={() => {
+                                setEditJob(job);
+                                setIsEditing(true);
+                              }}
+                              className="px-1.5 py-0.5 bg-gray-700 text-white hover:bg-gray-800 rounded text-[7px] sm:text-[8px] font-medium transition-all duration-200 flex items-center gap-0.5"
+                              title="Edit"
                             >
-                              <Trash2 className="w-3 h-3" />
-                              Delete
+                              <Edit className="w-2.5 h-2.5" />
+                              Edit
                             </button>
-                          )}
-                        </div>
+                            <button
+                              onClick={() => handleToggleJob(job._id, job.isActive, job.jobTitle)}
+                              disabled={job.status !== 'approved'}
+                              className={`px-1.5 py-0.5 rounded text-[7px] sm:text-[8px] font-medium transition-all duration-200 flex items-center gap-0.5 ${
+                                job.status !== 'approved'
+                                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                  : job.isActive 
+                                  ? 'bg-orange-500 text-white hover:bg-orange-600' 
+                                  : 'bg-green-500 text-white hover:bg-green-600'
+                              }`}
+                              title={job.status !== 'approved' ? 'Only approved jobs can be activated/deactivated' : ''}
+                            >
+                              {job.isActive ? <PowerOff className="w-2.5 h-2.5" /> : <Power className="w-2.5 h-2.5" />}
+                              {job.isActive ? 'Unpublish' : 'Publish'}
+                            </button>
+                          </>
+                        )}
+                        {permissions.canDelete && (
+                          <button
+                            onClick={() => handleDeleteJob(job._id, job.jobTitle)}
+                            className="px-1.5 py-0.5 bg-red-500 text-white hover:bg-red-600 rounded text-[7px] sm:text-[8px] font-medium transition-all duration-200 flex items-center gap-0.5"
+                            title="Delete"
+                          >
+                            <Trash2 className="w-2.5 h-2.5" />
+                            Delete
+                          </button>
+                        )}
                       </div>
                     </div>
 
-                    {/* Job Status Information Bar */}
+                    {/* Job Status Information Bar - Compact */}
                     {job.status === 'pending' && (
-                      <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                        <div className="flex items-center gap-2 text-sm">
-                          <svg className="w-4 h-4 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded-md">
+                        <div className="flex items-center gap-1.5 text-[9px] sm:text-[10px]">
+                          <svg className="w-3 h-3 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 15.5c-.77.833.192 2.5 1.732 2.5z" />
                           </svg>
                           <span className="text-yellow-800 font-medium">Awaiting admin approval before going live</span>
@@ -970,9 +973,9 @@ const JobManagement: React.FC<JobManagementProps> = ({
                     )}
                     
                     {job.status === 'declined' && (
-                      <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
-                        <div className="flex items-center gap-2 text-sm">
-                          <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded-md">
+                        <div className="flex items-center gap-1.5 text-[9px] sm:text-[10px]">
+                          <svg className="w-3 h-3 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 15.5c-.77.833.192 2.5 1.732 2.5z" />
                           </svg>
                           <span className="text-red-800 font-medium">Job posting was declined - please review and resubmit</span>
@@ -990,7 +993,8 @@ const JobManagement: React.FC<JobManagementProps> = ({
                       </summary>
                       
                       <div className="mt-3 p-4 bg-gray-50 rounded-lg border border-gray-100 text-xs text-gray-700">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-3">
+                        {/* Main details grid - 4 columns on large screens */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-3">
                           <div><strong>Company:</strong> {job.companyName || 'N/A'}</div>
                           <div><strong>Department:</strong> {job.department || 'N/A'}</div>
                           <div><strong>Qualification:</strong> {job.qualification || 'N/A'}</div>
@@ -1004,7 +1008,7 @@ const JobManagement: React.FC<JobManagementProps> = ({
                           
                           {/* Skills Row */}
                           {job.skills && job.skills.length > 0 && (
-                            <div className="sm:col-span-2 lg:col-span-3">
+                            <div className="sm:col-span-2 lg:col-span-4">
                               <strong>Skills:</strong> 
                               <div className="flex flex-wrap gap-1 mt-1">
                                 {job.skills.map((skill, index) => (
@@ -1018,7 +1022,7 @@ const JobManagement: React.FC<JobManagementProps> = ({
                           
                           {/* Perks Row */}
                           {job.perks && job.perks.length > 0 && (
-                            <div className="sm:col-span-2 lg:col-span-3">
+                            <div className="sm:col-span-2 lg:col-span-4">
                               <strong>Perks:</strong> 
                               <div className="flex flex-wrap gap-1 mt-1">
                                 {job.perks.map((perk, index) => (
@@ -1032,7 +1036,7 @@ const JobManagement: React.FC<JobManagementProps> = ({
                           
                           {/* Languages Row */}
                           {job.languagesPreferred && job.languagesPreferred.length > 0 && (
-                            <div className="sm:col-span-2 lg:col-span-3">
+                            <div className="sm:col-span-2 lg:col-span-4">
                               <strong>Languages:</strong> 
                               <div className="flex flex-wrap gap-1 mt-1">
                                 {job.languagesPreferred.map((lang, index) => (
@@ -1046,9 +1050,13 @@ const JobManagement: React.FC<JobManagementProps> = ({
                           
                           {/* Description Row */}
                           {job.description && (
-                            <div className="sm:col-span-2 lg:col-span-3 border-t border-gray-200 pt-3 mt-2">
+                            <div className="sm:col-span-2 lg:col-span-4 border-t border-gray-200 pt-3 mt-2">
                               <strong>Description:</strong>
-                              <p className="mt-1 text-gray-700 leading-relaxed">{job.description}</p>
+                              <div
+                                className="mt-1 text-gray-700 leading-relaxed bg-white rounded-md border border-gray-200 p-3"
+                                // Description may contain basic HTML (e.g., <p> tags) – render it safely
+                                dangerouslySetInnerHTML={{ __html: job.description }}
+                              />
                             </div>
                           )}
                         </div>
@@ -1067,141 +1075,187 @@ const JobManagement: React.FC<JobManagementProps> = ({
 
       {/* Preview Modal - Compact & Sleek */}
       {previewJob && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full overflow-hidden flex flex-col">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-2">
+          <div className="bg-white rounded-lg shadow-2xl max-w-xl w-full overflow-hidden flex flex-col">
             {/* Compact Header */}
-            <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-gray-50">
-              <div className="flex items-center gap-2">
-                <Eye className="w-5 h-5 text-gray-700" />
-                <h2 className="text-lg font-bold text-gray-900">Job Preview</h2>
+            <div className="flex items-center justify-between p-2 border-b border-gray-200 bg-gray-50">
+              <div className="flex items-center gap-1.5">
+                <Eye className="w-4 h-4 text-gray-700" />
+                <h2 className="text-sm font-bold text-gray-900">Job Preview</h2>
               </div>
               <button
                 onClick={() => setPreviewJob(null)}
-                className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-200 rounded-lg transition-colors"
+                className="p-1 text-gray-400 hover:text-gray-700 hover:bg-gray-200 rounded transition-colors"
               >
-                <X className="w-4 h-4" />
+                <X className="w-3 h-3" />
               </button>
             </div>
 
             {/* Compact Content */}
-            <div className="overflow-y-auto max-h-[75vh]">
-              <div className="p-5 space-y-4">
+            <div className="overflow-y-auto max-h-[80vh]">
+              <div className="p-3 space-y-2">
                 {/* Title & Company */}
                 <div>
-                  <h3 className="text-xl font-bold text-gray-900 mb-1">{previewJob.jobTitle}</h3>
-                  <div className="flex items-center gap-1.5 text-sm text-gray-700">
-                    <Building2 className="w-4 h-4" />
-                    <span>{previewJob.companyName || previewJob.clinicName || previewJob.hospitalName}</span>
+                  <h3 className="text-base font-bold text-gray-900 mb-0.5">{previewJob.jobTitle}</h3>
+                  <div className="flex items-center gap-1 text-[10px] text-gray-700">
+                    <Building2 className="w-3 h-3" />
+                    <span className="font-bold">{previewJob.companyName || previewJob.clinicName || previewJob.hospitalName}</span>
                   </div>
                 </div>
 
                 {/* Quick Info Badges */}
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-1">
                   {previewJob.department && (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-50 text-blue-700 rounded-md text-xs font-medium border border-blue-200">
-                      <Briefcase className="w-3 h-3" />
+                    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-blue-50 text-blue-700 rounded text-[9px] font-medium border border-blue-200">
+                      <Briefcase className="w-2.5 h-2.5" />
                       {previewJob.department}
                     </span>
                   )}
                   {previewJob.jobType && (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-green-50 text-green-700 rounded-md text-xs font-medium border border-green-200">
-                      <Clock className="w-3 h-3" />
+                    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-green-50 text-green-700 rounded text-[9px] font-medium border border-green-200">
+                      <Clock className="w-2.5 h-2.5" />
                       {previewJob.jobType}
                     </span>
                   )}
                   {previewJob.location && (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-purple-50 text-purple-700 rounded-md text-xs font-medium border border-purple-200">
-                      <MapPin className="w-3 h-3" />
+                    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-purple-50 text-purple-700 rounded text-[9px] font-medium border border-purple-200">
+                      <MapPin className="w-2.5 h-2.5" />
                       {previewJob.location}
                     </span>
                   )}
                   {previewJob.salary && (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 text-emerald-700 rounded-md text-xs font-semibold border border-emerald-200">
-                      <DollarSign className="w-3 h-3" />
+                    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-emerald-50 text-emerald-700 rounded text-[9px] font-semibold border border-emerald-200">
+                      <DollarSign className="w-2.5 h-2.5" />
                       {formatSalary(previewJob.salary)}
                     </span>
                   )}
                 </div>
 
-                {/* Compact Details Grid */}
-                <div className="grid grid-cols-2 gap-3 pt-3 border-t border-gray-100">
-                  {previewJob.qualification && (
-                    <div className="flex items-start gap-2">
-                      <GraduationCap className="w-4 h-4 text-gray-700 mt-0.5 flex-shrink-0" />
+                {/* Compact Details Grid - 4 Columns */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 pt-2 border-t border-gray-100">
+                  {previewJob.companyName || previewJob.clinicName || previewJob.hospitalName ? (
+                    <div className="flex items-start gap-1">
+                      <Building2 className="w-3 h-3 text-gray-700 mt-0.5 flex-shrink-0" />
                       <div className="min-w-0">
-                        <p className="text-xs text-gray-700 font-medium">Qualification</p>
-                        <p className="text-sm text-gray-900 font-semibold truncate">{previewJob.qualification}</p>
+                        <p className="text-[9px] text-gray-700 font-bold">Company</p>
+                        <p className="text-[10px] text-gray-900 font-semibold truncate">{previewJob.companyName || previewJob.clinicName || previewJob.hospitalName}</p>
+                      </div>
+                    </div>
+                  ) : null}
+                  {previewJob.department && (
+                    <div className="flex items-start gap-1">
+                      <Briefcase className="w-3 h-3 text-gray-700 mt-0.5 flex-shrink-0" />
+                      <div className="min-w-0">
+                        <p className="text-[9px] text-gray-700 font-bold">Department</p>
+                        <p className="text-[10px] text-gray-900 font-semibold truncate">{previewJob.department}</p>
                       </div>
                     </div>
                   )}
-                  {previewJob.experience && (
-                    <div className="flex items-start gap-2">
-                      <Briefcase className="w-4 h-4 text-gray-700 mt-0.5 flex-shrink-0" />
+                  {previewJob.qualification && (
+                    <div className="flex items-start gap-1">
+                      <GraduationCap className="w-3 h-3 text-gray-700 mt-0.5 flex-shrink-0" />
                       <div className="min-w-0">
-                        <p className="text-xs text-gray-700 font-medium">Experience</p>
-                        <p className="text-sm text-gray-900 font-semibold truncate">{previewJob.experience}</p>
+                        <p className="text-[9px] text-gray-700 font-bold">Qualification</p>
+                        <p className="text-[10px] text-gray-900 font-semibold truncate">{previewJob.qualification}</p>
+                      </div>
+                    </div>
+                  )}
+                  {previewJob.jobType && (
+                    <div className="flex items-start gap-1">
+                      <Clock className="w-3 h-3 text-gray-700 mt-0.5 flex-shrink-0" />
+                      <div className="min-w-0">
+                        <p className="text-[9px] text-gray-700 font-bold">Job Type</p>
+                        <p className="text-[10px] text-gray-900 font-semibold truncate">{previewJob.jobType}</p>
                       </div>
                     </div>
                   )}
                   {previewJob.noOfOpenings !== undefined && (
-                    <div className="flex items-start gap-2">
-                      <Users className="w-4 h-4 text-gray-700 mt-0.5 flex-shrink-0" />
+                    <div className="flex items-start gap-1">
+                      <Users className="w-3 h-3 text-gray-700 mt-0.5 flex-shrink-0" />
                       <div className="min-w-0">
-                        <p className="text-xs text-gray-700 font-medium">Openings</p>
-                        <p className="text-sm text-gray-900 font-semibold">{previewJob.noOfOpenings}</p>
+                        <p className="text-[9px] text-gray-700 font-bold">No. of Openings</p>
+                        <p className="text-[10px] text-gray-900 font-semibold">{previewJob.noOfOpenings}</p>
                       </div>
                     </div>
                   )}
                   {previewJob.workingDays && (
-                    <div className="flex items-start gap-2">
-                      <Calendar className="w-4 h-4 text-gray-700 mt-0.5 flex-shrink-0" />
+                    <div className="flex items-start gap-1">
+                      <Calendar className="w-3 h-3 text-gray-700 mt-0.5 flex-shrink-0" />
                       <div className="min-w-0">
-                        <p className="text-xs text-gray-700 font-medium">Working Days</p>
-                        <p className="text-sm text-gray-900 font-semibold truncate">{previewJob.workingDays}</p>
+                        <p className="text-[9px] text-gray-700 font-bold">Working Days</p>
+                        <p className="text-[10px] text-gray-900 font-semibold truncate">{previewJob.workingDays}</p>
+                      </div>
+                    </div>
+                  )}
+                  {previewJob.establishment && (
+                    <div className="flex items-start gap-1">
+                      <Building2 className="w-3 h-3 text-gray-700 mt-0.5 flex-shrink-0" />
+                      <div className="min-w-0">
+                        <p className="text-[9px] text-gray-700 font-bold">Establishment</p>
+                        <p className="text-[10px] text-gray-900 font-semibold truncate">{previewJob.establishment}</p>
                       </div>
                     </div>
                   )}
                   {previewJob.jobTiming && (
-                    <div className="flex items-start gap-2 col-span-2">
-                      <Clock className="w-4 h-4 text-gray-700 mt-0.5 flex-shrink-0" />
+                    <div className="flex items-start gap-1">
+                      <Clock className="w-3 h-3 text-gray-700 mt-0.5 flex-shrink-0" />
                       <div className="min-w-0">
-                        <p className="text-xs text-gray-700 font-medium">Job Timing</p>
-                        <p className="text-sm text-gray-900 font-semibold">{previewJob.jobTiming}</p>
+                        <p className="text-[9px] text-gray-700 font-bold">Job Timing</p>
+                        <p className="text-[10px] text-gray-900 font-semibold truncate">{previewJob.jobTiming}</p>
+                      </div>
+                    </div>
+                  )}
+                  {previewJob.experience && (
+                    <div className="flex items-start gap-1">
+                      <Briefcase className="w-3 h-3 text-gray-700 mt-0.5 flex-shrink-0" />
+                      <div className="min-w-0">
+                        <p className="text-[9px] text-gray-700 font-bold">Experience</p>
+                        <p className="text-[10px] text-gray-900 font-semibold truncate">{previewJob.experience}</p>
+                      </div>
+                    </div>
+                  )}
+                  {previewJob.createdAt && (
+                    <div className="flex items-start gap-1">
+                      <Calendar className="w-3 h-3 text-gray-700 mt-0.5 flex-shrink-0" />
+                      <div className="min-w-0">
+                        <p className="text-[9px] text-gray-700 font-bold">Created</p>
+                        <p className="text-[10px] text-gray-900 font-semibold truncate">
+                          {new Date(previewJob.createdAt).toLocaleDateString()}
+                        </p>
                       </div>
                     </div>
                   )}
                 </div>
 
-                {/* Description - Compact */}
+                {/* Description - Larger Box */}
                 {previewJob.description && (
-                  <div className="pt-3 border-t border-gray-100">
-                    <h4 className="text-sm font-semibold text-gray-900 mb-2 flex items-center gap-1.5">
-                      <FileText className="w-4 h-4" />
+                  <div className="pt-2 border-t border-gray-100 mt-2">
+                    <h4 className="text-[10px] font-bold text-gray-900 mb-1.5 flex items-center gap-1">
+                      <FileText className="w-3 h-3" />
                       Description
                     </h4>
                     <div 
-                      className="prose prose-sm max-w-none text-gray-700 line-clamp-4"
+                      className="max-w-none text-gray-700 text-[10px] leading-relaxed p-2 bg-gray-50 rounded border border-gray-200 min-h-[80px]"
                       dangerouslySetInnerHTML={{ __html: previewJob.description }}
-                      style={{ fontSize: '0.875rem', lineHeight: '1.5' }}
                     />
                   </div>
                 )}
 
                 {/* Skills - Compact */}
                 {previewJob.skills && previewJob.skills.length > 0 && (
-                  <div className="pt-3 border-t border-gray-100">
-                    <h4 className="text-sm font-semibold text-gray-900 mb-2 flex items-center gap-1.5">
-                      <Briefcase className="w-4 h-4" />
+                  <div className="pt-2 border-t border-gray-100">
+                    <h4 className="text-[10px] font-bold text-gray-900 mb-1 flex items-center gap-1">
+                      <Briefcase className="w-3 h-3" />
                       Skills
                     </h4>
-                    <div className="flex flex-wrap gap-1.5">
+                    <div className="flex flex-wrap gap-1">
                       {previewJob.skills.slice(0, 6).map((skill, index) => (
-                        <span key={index} className="px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs font-medium border border-blue-200">
+                        <span key={index} className="px-1.5 py-0.5 bg-blue-50 text-blue-700 rounded text-[9px] font-medium border border-blue-200">
                           {skill}
                         </span>
                       ))}
                       {previewJob.skills.length > 6 && (
-                        <span className="px-2 py-0.5 bg-gray-100 text-gray-700 rounded text-xs font-medium">
+                        <span className="px-1.5 py-0.5 bg-gray-100 text-gray-700 rounded text-[9px] font-medium">
                           +{previewJob.skills.length - 6} more
                         </span>
                       )}
@@ -1211,21 +1265,21 @@ const JobManagement: React.FC<JobManagementProps> = ({
 
                 {/* Perks - Compact */}
                 {previewJob.perks && previewJob.perks.length > 0 && (
-                  <div className="pt-3 border-t border-gray-100">
-                    <h4 className="text-sm font-semibold text-gray-900 mb-2 flex items-center gap-1.5">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="pt-2 border-t border-gray-100">
+                    <h4 className="text-[10px] font-bold text-gray-900 mb-1 flex items-center gap-1">
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
                       </svg>
                       Perks & Benefits
                     </h4>
-                    <div className="flex flex-wrap gap-1.5">
+                    <div className="flex flex-wrap gap-1">
                       {previewJob.perks.slice(0, 5).map((perk, index) => (
-                        <span key={index} className="px-2 py-0.5 bg-green-50 text-green-700 rounded text-xs font-medium border border-green-200">
+                        <span key={index} className="px-1.5 py-0.5 bg-green-50 text-green-700 rounded text-[9px] font-medium border border-green-200">
                           {perk}
                         </span>
                       ))}
                       {previewJob.perks.length > 5 && (
-                        <span className="px-2 py-0.5 bg-gray-100 text-gray-700 rounded text-xs font-medium">
+                        <span className="px-1.5 py-0.5 bg-gray-100 text-gray-700 rounded text-[9px] font-medium">
                           +{previewJob.perks.length - 5} more
                         </span>
                       )}
@@ -1238,23 +1292,23 @@ const JobManagement: React.FC<JobManagementProps> = ({
         </div>
       )}
 
-      {/* Edit Modal */}
+      {/* Edit Modal - Compact */}
       {isEditing && editJob && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-xl shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-hidden flex flex-col my-8">
-            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-2 overflow-y-auto">
+          <div className="bg-white rounded-lg shadow-2xl max-w-5xl w-full max-h-[95vh] overflow-hidden flex flex-col my-4">
+            <div className="flex items-center justify-between p-3 border-b border-gray-200">
               <div>
-                <h2 className="text-2xl font-bold text-gray-900">Edit Job Posting</h2>
-                <p className="text-sm text-gray-700 mt-1">Update your job posting details</p>
+                <h2 className="text-base font-bold text-gray-900">Edit Job Posting</h2>
+                <p className="text-[9px] text-gray-700 mt-0.5">Update your job posting details</p>
               </div>
               <button
                 onClick={() => {
                   setIsEditing(false);
                   setEditJob(null);
                 }}
-                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
             <div className="flex-1 overflow-y-auto">
@@ -1263,6 +1317,7 @@ const JobManagement: React.FC<JobManagementProps> = ({
                 isSubmitting={isSubmitting}
                 title="Edit Job Posting"
                 subtitle="Update your job posting details"
+                isCompact={true}
                 initialData={{
                   companyName: editJob.companyName || '',
                   jobTitle: editJob.jobTitle || '',

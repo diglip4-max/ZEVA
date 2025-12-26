@@ -63,19 +63,21 @@ export const agentNavigationItems = [
     permissionKey: "marketing:manage",
   },
   {
+    label: "Patient Registration",
+    path: "/clinic/patient-registration",
+    icon: "🧍‍♂️",
+    description: "Register and manage patients",
+    moduleKey: "clinic_patient_registration",
+    order: 8,
+    permissionKey: "patient_registration:manage",
+  },
+  {
     label: "Staff Management",
     icon: "👥",
     description: "Manage Staff",
     moduleKey: "staff_management",
     order: 9,
     children: [
-      {
-        label: "Patient Registration",
-        path: "/clinic/patient-registration",
-        icon: "🧍‍♂️",
-        description: "Manage clinic",
-        order: 3,
-      },
       {
         label: "Patient Information",
         path: "/clinic/patient-information",
@@ -121,4 +123,3 @@ export const agentNavigationItems = [
     ],
   }
 ];
-

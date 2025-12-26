@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useMemo, useCallback } from "react";
 import axios from "axios";
-import { Search, Edit2, ExternalLink, Trash2, FileText, BookOpen, ChevronLeft, ChevronRight, X, Edit3, Link, Save, AlertCircle } from "lucide-react";
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
+import { Search, Edit2, ExternalLink, Trash2, FileText, BookOpen, ChevronLeft, ChevronRight, X, Edit3, Link, Save, AlertCircle, Eye, Clock, Globe, Sparkles, Zap, CheckCircle2 } from "lucide-react";
 import SocialMediaShare from "./SocialMediaShare";
 
 type Blog = {
@@ -20,6 +19,7 @@ interface PublishedBlogsProps {
     canUpdate?: boolean;
     canDelete?: boolean;
   };
+  onEditBlog?: (blogId: string, type: 'published' | 'drafts') => void;
 }
 
 const ITEMS_PER_PAGE = 10;
@@ -31,7 +31,8 @@ const PublishedBlogs: React.FC<PublishedBlogsProps> = ({
     canRead: true,
     canUpdate: true,
     canDelete: true,
-  }
+  },
+  onEditBlog
 }) => {
   const [drafts, setDrafts] = useState<Blog[]>([]);
   const [published, setPublished] = useState<Blog[]>([]);
@@ -127,11 +128,6 @@ const PublishedBlogs: React.FC<PublishedBlogsProps> = ({
       drafts: paginate(filteredBlogs.drafts, draftsPage)
     };
   }, [filteredBlogs, publishedPage, draftsPage]);
-
-  const chartData = [
-    { name: 'Published', value: published.length, color: PRIMARY_COLOR },
-    { name: 'Drafts', value: drafts.length, color: '#6B7280' }
-  ];
 
   const slugify = (text: string) =>
     text
@@ -256,77 +252,138 @@ const PublishedBlogs: React.FC<PublishedBlogsProps> = ({
     );
   };
 
+  // ========== REDESIGNED BLOG CARD WITH MODERN UI ==========
   const BlogCard = ({ blog, type }: { blog: Blog; type: 'published' | 'drafts' }) => (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-all duration-200">
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-        <div className="flex-1 min-w-0">
-          <h3 className="font-semibold text-gray-900 text-lg mb-2 line-clamp-2">{blog.title}</h3>
-          <p className="text-sm text-gray-500 mb-2">
-            Created: {new Date(blog.createdAt).toLocaleDateString('en-US', {
-              year: 'numeric',
-              month: 'short',
-              day: 'numeric',
-              hour: '2-digit',
-              minute: '2-digit'
-            })}
-          </p>
+    <div className="group relative bg-gradient-to-br from-white to-slate-50/50 rounded-2xl border border-slate-200/60 p-5 hover:shadow-xl hover:border-blue-300/60 transition-all duration-300 hover:-translate-y-1 backdrop-blur-sm">
+      {/* Status Badge with Icon */}
+      <div className="absolute top-4 right-4">
+        {type === 'published' ? (
+          <div className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 border border-emerald-200/60 rounded-full">
+            <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+            <span className="text-[10px] font-semibold text-emerald-700 uppercase tracking-wide">Live</span>
+          </div>
+        ) : (
+          <div className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 border border-amber-200/60 rounded-full">
+            <FileText className="w-3 h-3 text-amber-600" />
+            <span className="text-[10px] font-semibold text-amber-700 uppercase tracking-wide">Draft</span>
+          </div>
+        )}
+      </div>
+
+      <div className="flex flex-col gap-4">
+        {/* Header Section with Icon */}
+        <div className="flex-1 min-w-0 pr-20">
+          <div className="flex items-start gap-3 mb-2">
+            <div className={`p-2 rounded-xl ${type === 'published' ? 'bg-blue-50' : 'bg-amber-50'} group-hover:scale-110 transition-transform duration-300`}>
+              {type === 'published' ? (
+                <BookOpen className={`w-4 h-4 ${type === 'published' ? 'text-blue-600' : 'text-amber-600'}`} />
+              ) : (
+                <Edit3 className="w-4 h-4 text-amber-600" />
+              )}
+            </div>
+            <div className="flex-1 min-w-0">
+              <h3 className="font-semibold text-slate-900 text-sm leading-snug mb-2 line-clamp-2 group-hover:text-blue-600 transition-colors">
+                {blog.title}
+              </h3>
+            </div>
+          </div>
+
+          {/* Metadata with Icons - Smaller Text */}
+          <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-500 mb-3">
+            <div className="flex items-center gap-1.5">
+              <Clock className="w-3 h-3 text-slate-400" />
+              <span className="font-medium">
+                {new Date(blog.createdAt).toLocaleDateString('en-US', {
+                  month: 'short',
+                  day: 'numeric',
+                  year: 'numeric'
+                })}
+              </span>
+            </div>
+            {type === 'published' && (
+              <div className="flex items-center gap-1.5">
+                <Globe className="w-3 h-3 text-slate-400" />
+                <span className="font-medium">Published</span>
+              </div>
+            )}
+          </div>
+
+          {/* URL Preview - Compact with Icon */}
           {type === 'published' && (
             <a
               href={`${getBaseUrl()}/blogs/${blog.paramlink}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 text-xs text-gray-500 bg-gray-50 px-3 py-1 rounded-full hover:bg-gray-100 transition"
+              className="inline-flex items-center gap-1.5 text-[10px] text-slate-600 bg-slate-50 hover:bg-blue-50 px-2.5 py-1.5 rounded-lg border border-slate-200/60 hover:border-blue-300/60 transition-all duration-200 group/link"
             >
-              <ExternalLink className="w-3 h-3" />
-              <span className="truncate">{getBaseUrl()}/blogs/{blog.paramlink}</span>
+              <ExternalLink className="w-3 h-3 text-slate-400 group-hover/link:text-blue-500 transition-colors" />
+              <span className="truncate max-w-[200px] font-mono">{getBaseUrl()}/blogs/{blog.paramlink}</span>
             </a>
-
           )}
         </div>
 
-        <div className="flex flex-wrap gap-2">
+        {/* Action Buttons - Redesigned with Icons and Effects */}
+        <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-slate-100">
           {type === 'published' && permissions.canUpdate && (
             <button
               onClick={() => handleEdit(blog)}
-              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white rounded-lg"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold text-white rounded-lg hover:shadow-md transition-all duration-200 hover:scale-105 active:scale-95"
               style={{ backgroundColor: PRIMARY_COLOR }}
             >
-              <Edit2 className="w-4 h-4" />
-              URL
+              <Link className="w-3 h-3" />
+              <span>Edit URL</span>
             </button>
           )}
 
           {permissions.canUpdate && (
             <button
               onClick={() => {
-                const path = `/${tokenKey === "clinicToken" ? "clinic" : "doctor"}/BlogForm`;
-                const param = type === 'published' ? `blogId=${blog._id}` : `draftId=${blog._id}`;
-                window.location.href = `${path}?${param}`;
+                if (onEditBlog) {
+                  onEditBlog(blog._id, type);
+                } else {
+                  const path = `/${tokenKey === "clinicToken" ? "clinic" : "doctor"}/BlogForm`;
+                  const param = type === 'published' ? `blogId=${blog._id}` : `draftId=${blog._id}`;
+                  window.location.href = `${path}?${param}`;
+                }
               }}
-              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg border border-blue-200/60 hover:border-blue-300 transition-all duration-200 hover:shadow-sm hover:scale-105 active:scale-95"
             >
-              <FileText className="w-4 h-4" />
-              Edit Blog
+              <Edit2 className="w-3 h-3" />
+              <span>Edit</span>
             </button>
+          )}
+
+          {type === 'published' && (
+            <a
+              href={`${getBaseUrl()}/blogs/${blog.paramlink}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold text-slate-600 bg-slate-50 hover:bg-slate-100 rounded-lg border border-slate-200/60 hover:border-slate-300 transition-all duration-200 hover:shadow-sm hover:scale-105 active:scale-95"
+            >
+              <Eye className="w-3 h-3" />
+              <span>View</span>
+            </a>
           )}
 
           {permissions.canDelete && (
             <button
               onClick={() => handleDelete(blog._id, type)}
-              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-red-600 rounded-lg hover:bg-red-100 transition-colors"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold text-red-600 bg-red-50 hover:bg-red-100 rounded-lg border border-red-200/60 hover:border-red-300 transition-all duration-200 hover:shadow-sm hover:scale-105 active:scale-95"
             >
-              <Trash2 className="w-4 h-4" />
-              
+              <Trash2 className="w-3 h-3" />
+              <span>Delete</span>
             </button>
           )}
 
           {type === 'published' && (
-            <SocialMediaShare
-              blogTitle={blog.title}
-              blogUrl={`${getBaseUrl()}/blogs/${blog.paramlink}`}
-              blogDescription={blog.content?.replace(/<[^>]+>/g, "").slice(0, 200)}
-              triggerLabel="Share"
-            />
+            <div className="ml-auto">
+              <SocialMediaShare
+                blogTitle={blog.title}
+                blogUrl={`${getBaseUrl()}/blogs/${blog.paramlink}`}
+                blogDescription={blog.content?.replace(/<[^>]+>/g, "").slice(0, 200)}
+                triggerClassName="inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold text-purple-600 bg-purple-50 hover:bg-purple-100 rounded-lg border border-purple-200/60 hover:border-purple-300 transition-all duration-200 hover:shadow-sm hover:scale-105 active:scale-95"
+              />
+            </div>
           )}
         </div>
       </div>
@@ -387,98 +444,73 @@ const PublishedBlogs: React.FC<PublishedBlogsProps> = ({
       <div className="max-w-7xl mx-auto">
         {/* Removed duplicate header - already in parent BlogForm page */}
 
-        {/* Stats and Chart */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-          <div className="lg:col-span-1">
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Blog Statistics</h3>
-              <div className="h-48">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={chartData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={40}
-                      outerRadius={70}
-                      dataKey="value"
-                    >
-                      {chartData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                    <Legend />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-          </div>
-
-          <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-6">
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-              <div className="flex items-center gap-3">
-                <div className="p-3 rounded-lg" style={{ backgroundColor: `${PRIMARY_COLOR}20` }}>
-                  <BookOpen className="w-6 h-6" style={{ color: PRIMARY_COLOR }} />
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Published Blogs</p>
-                  <p className="text-3xl font-bold text-gray-900">{published.length}</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-              <div className="flex items-center gap-3">
-                <div className="p-3 bg-gray-100 rounded-lg">
-                  <FileText className="w-6 h-6 text-gray-600" />
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">Draft Blogs</p>
-                  <p className="text-3xl font-bold text-gray-900">{drafts.length}</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Search Bar */}
-        <div className="mb-6">
-          <div className="relative max-w-md">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+        {/* ========== REDESIGNED SEARCH BAR WITH ICON AND EFFECTS ========== */}
+        <div className="mb-5">
+          <div className="relative max-w-md group">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4 group-focus-within:text-blue-500 transition-colors" />
             <input
               type="text"
-              placeholder="Search blogs..."
+              placeholder="Search blogs by title or URL..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="text-black w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="text-slate-700 text-sm w-full pl-10 pr-4 py-2.5 bg-white/80 backdrop-blur-sm border border-slate-200/60 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400/60 transition-all duration-200 placeholder:text-slate-400 hover:border-slate-300/60"
             />
+            {searchTerm && (
+              <button
+                onClick={() => setSearchTerm('')}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
           </div>
         </div>
 
-        {/* Tabs */}
+        {/* ========== REDESIGNED TABS WITH ICONS AND MODERN STYLING ========== */}
         <div className="mb-6">
-          <div className="border-b border-gray-200">
-            <nav className="flex space-x-8">
-              <button
-                onClick={() => setActiveTab('published')}
-                className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${activeTab === 'published'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-              >
-                Published Blogs ({filteredBlogs.published.length})
-              </button>
-              <button
-                onClick={() => setActiveTab('drafts')}
-                className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${activeTab === 'drafts'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-              >
-                Drafts ({filteredBlogs.drafts.length})
-              </button>
-            </nav>
+          <div className="bg-slate-50/60 backdrop-blur-sm rounded-xl p-1.5 border border-slate-200/60 inline-flex">
+            <button
+              onClick={() => setActiveTab('published')}
+              className={`relative flex items-center gap-2 px-4 py-2 rounded-lg font-semibold text-xs transition-all duration-300 ${
+                activeTab === 'published'
+                  ? 'bg-white text-blue-600 shadow-sm'
+                  : 'text-slate-600 hover:text-slate-800'
+              }`}
+            >
+              <BookOpen className={`w-3.5 h-3.5 ${activeTab === 'published' ? 'text-blue-600' : 'text-slate-500'}`} />
+              <span>Published</span>
+              <span className={`ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
+                activeTab === 'published'
+                  ? 'bg-blue-100 text-blue-700'
+                  : 'bg-slate-200 text-slate-600'
+              }`}>
+                {filteredBlogs.published.length}
+              </span>
+              {activeTab === 'published' && (
+                <Sparkles className="w-3 h-3 text-blue-500 animate-pulse" />
+              )}
+            </button>
+            <button
+              onClick={() => setActiveTab('drafts')}
+              className={`relative flex items-center gap-2 px-4 py-2 rounded-lg font-semibold text-xs transition-all duration-300 ${
+                activeTab === 'drafts'
+                  ? 'bg-white text-amber-600 shadow-sm'
+                  : 'text-slate-600 hover:text-slate-800'
+              }`}
+            >
+              <FileText className={`w-3.5 h-3.5 ${activeTab === 'drafts' ? 'text-amber-600' : 'text-slate-500'}`} />
+              <span>Drafts</span>
+              <span className={`ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
+                activeTab === 'drafts'
+                  ? 'bg-amber-100 text-amber-700'
+                  : 'bg-slate-200 text-slate-600'
+              }`}>
+                {filteredBlogs.drafts.length}
+              </span>
+              {activeTab === 'drafts' && (
+                <Zap className="w-3 h-3 text-amber-500 animate-pulse" />
+              )}
+            </button>
           </div>
         </div>
 

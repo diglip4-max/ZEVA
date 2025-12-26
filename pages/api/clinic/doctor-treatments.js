@@ -3,8 +3,9 @@ import DoctorTreatment from "../../../models/DoctorTreatment";
 import Treatment from "../../../models/Treatment";
 import User from "../../../models/Users";
 import Clinic from "../../../models/Clinic";
+import mongoose from "mongoose";
 import { getUserFromReq } from "../lead-ms/auth";
-import { getClinicIdFromUser } from "../lead-ms/permissions-helper";
+import { getClinicIdFromUser, checkClinicPermission } from "../lead-ms/permissions-helper";
 import {
   formatDoctorTreatments,
   ensureUniqueTreatmentSlug,
@@ -36,24 +37,46 @@ export default async function handler(req, res) {
   const { doctorStaffId } = req.query;
 
   if (req.method === "GET") {
-    // ✅ Check permission for reading doctor treatments (only for agent, doctorStaff roles)
-    // Clinic, doctor, and staff roles have full access by default, admin bypasses
+    // Determine which module to check permissions for based on query parameter
+    // Default to "clinic_Appointment" for backward compatibility
+    // When accessed from create-agent page, it should check "clinic_create_agent"
+    const moduleToCheck = req.query.module || "clinic_Appointment";
+    
+    // ✅ Check permission for reading doctor treatments
+    // For agent/doctorStaff roles, check clinic permissions if module is provided, otherwise use agent permissions
     if (!isAdmin && clinicId && ["agent", "doctorStaff"].includes(clinicAdmin.role)) {
-      const { checkAgentPermission } = await import("../agent/permissions-helper");
-      const result = await checkAgentPermission(
-        clinicAdmin._id,
-        "clinic_Appointment",
-        "read"
-      );
+      // If module starts with "clinic_", use checkClinicPermission
+      if (moduleToCheck.startsWith("clinic_")) {
+        const { hasPermission, error: permError } = await checkClinicPermission(
+          clinicId,
+          moduleToCheck,
+          "read"
+        );
+        
+        if (!hasPermission) {
+          return res.status(403).json({
+            success: false,
+            message: permError || "You do not have permission to view doctor treatments"
+          });
+        }
+      } else {
+        // Use agent permissions for other modules
+        const { checkAgentPermission } = await import("../agent/permissions-helper");
+        const result = await checkAgentPermission(
+          clinicAdmin._id,
+          moduleToCheck,
+          "read"
+        );
 
-      // If module doesn't exist in permissions yet, allow access by default
-      if (!result.hasPermission && result.error && result.error.includes("not found in agent permissions")) {
-        console.log(`[doctor-treatments] Module clinic_Appointment not found in permissions for user ${clinicAdmin._id}, allowing access by default`);
-      } else if (!result.hasPermission) {
-        return res.status(403).json({
-          success: false,
-          message: result.error || "You do not have permission to view doctor treatments"
-        });
+        // If module doesn't exist in permissions yet, allow access by default
+        if (!result.hasPermission && result.error && result.error.includes("not found in agent permissions")) {
+          console.log(`[doctor-treatments] Module ${moduleToCheck} not found in permissions for user ${clinicAdmin._id}, allowing access by default`);
+        } else if (!result.hasPermission) {
+          return res.status(403).json({
+            success: false,
+            message: result.error || "You do not have permission to view doctor treatments"
+          });
+        }
       }
     }
     if (!doctorStaffId) {
@@ -97,24 +120,48 @@ export default async function handler(req, res) {
   }
 
   if (req.method === "POST") {
-    // ✅ Check permission for creating/updating doctor treatments (only for agent, doctorStaff roles)
-    // Clinic, doctor, and staff roles have full access by default, admin bypasses
-    if (!isAdmin && clinicId && ["agent", "doctorStaff"].includes(clinicAdmin.role)) {
-      const { checkAgentPermission } = await import("../agent/permissions-helper");
-      const result = await checkAgentPermission(
-        clinicAdmin._id,
-        "clinic_Appointment",
-        "update"
-      );
+    // Determine which module to check permissions for based on query parameter or body
+    // Default to "clinic_Appointment" for backward compatibility
+    // When accessed from create-agent page, it should check "clinic_create_agent"
+    const moduleToCheck = req.query.module || req.body.module || "clinic_Appointment";
+    
+    // ✅ Check permission for creating/updating doctor treatments
+    // For agent/doctorStaff roles, check clinic permissions if module is provided, otherwise use agent permissions
+    if (!isAdmin && clinicId) {
+      if (["agent", "doctorStaff"].includes(clinicAdmin.role)) {
+        // If module starts with "clinic_", use checkClinicPermission
+        if (moduleToCheck.startsWith("clinic_")) {
+          const { hasPermission, error: permError } = await checkClinicPermission(
+            clinicId,
+            moduleToCheck,
+            "update"
+          );
+          
+          if (!hasPermission) {
+            return res.status(403).json({
+              success: false,
+              message: permError || "You do not have permission to update doctor treatments"
+            });
+          }
+        } else {
+          // Use agent permissions for other modules
+          const { checkAgentPermission } = await import("../agent/permissions-helper");
+          const result = await checkAgentPermission(
+            clinicAdmin._id,
+            moduleToCheck,
+            "update"
+          );
 
-      // If module doesn't exist in permissions yet, allow access by default
-      if (!result.hasPermission && result.error && result.error.includes("not found in agent permissions")) {
-        console.log(`[doctor-treatments] Module clinic_Appointment not found in permissions for user ${clinicAdmin._id}, allowing access by default`);
-      } else if (!result.hasPermission) {
-        return res.status(403).json({
-          success: false,
-          message: result.error || "You do not have permission to update doctor treatments"
-        });
+          // If module doesn't exist in permissions yet, allow access by default
+          if (!result.hasPermission && result.error && result.error.includes("not found in agent permissions")) {
+            console.log(`[doctor-treatments] Module ${moduleToCheck} not found in permissions for user ${clinicAdmin._id}, allowing access by default`);
+          } else if (!result.hasPermission) {
+            return res.status(403).json({
+              success: false,
+              message: result.error || "You do not have permission to update doctor treatments"
+            });
+          }
+        }
       }
     }
 
@@ -186,8 +233,20 @@ export default async function handler(req, res) {
         return res.status(400).json({ success: false, message: "Treatment ID or name is required" });
       }
 
-      // Verify treatment exists
-      const treatmentExists = await Treatment.findById(finalTreatmentId).lean();
+      // Verify treatment exists - handle both ObjectId and slug formats
+      let treatmentExists;
+      if (mongoose.Types.ObjectId.isValid(finalTreatmentId)) {
+        // Valid ObjectId format - look up by ID
+        treatmentExists = await Treatment.findById(finalTreatmentId).lean();
+      } else {
+        // Not a valid ObjectId - likely a slug, look up by slug
+        treatmentExists = await Treatment.findOne({ slug: finalTreatmentId }).lean();
+        if (treatmentExists) {
+          // Update finalTreatmentId to the actual ObjectId
+          finalTreatmentId = treatmentExists._id;
+        }
+      }
+      
       if (!treatmentExists) {
         return res.status(404).json({ success: false, message: "Treatment not found" });
       }

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Heart, Users, MapPin, Calculator, Gamepad2, FileText, Briefcase, Shield, Award, Zap, ChevronRight, Star, Stethoscope, Activity, Brain, Pill, Microscope, Thermometer, Siren, UserCheck, Globe, Lock, Smartphone, TrendingUp } from 'lucide-react';
 import Link from "next/link";
+import Head from "next/head";
 
 const AboutUs = () => {
     const [isVisible, setIsVisible] = useState({});
@@ -74,22 +75,24 @@ const AboutUs = () => {
         {
             icon: <Shield className="w-8 h-8" />,
             title: "Healthcare Provider Registration & Management",
-            description: "Advanced registration system for healthcare centers and medical professionals featuring multi-step verification, admin approval workflows, comprehensive profile management, and personalized dashboards with real-time analytics, patient tracking, appointment scheduling, revenue monitoring, and complete service management tools for enhanced operational efficiency."
+            description: "ZEVA offers a robust registration system for clinics and medical professionals featuring multi-step verification, admin approval workflows, profile management, personalized dashboards, patient tracking, appointment scheduling, revenue monitoring, and complete service management tools to enhance operational efficiency."
+
         },
         {
             icon: <MapPin className="w-8 h-8" />,
             title: "Advanced Geolocation & Provider Discovery",
-            description: "Sophisticated location-based search engine utilizing GPS technology, radius-based filtering, specialty-specific searches, real-time availability updates, distance calculations, route optimization, and comprehensive provider profiles including ratings, reviews, services offered, operating hours, and insurance acceptance for informed decision-making."
+            description: "Our location-based search engine uses GPS technology, radius-based filtering, specialty-specific searches, real-time availability updates, and route optimization. Providers’ profiles include ratings, reviews, operating hours, services, and insurance acceptance, helping patients make informed healthcare decisions."
+
         },
         {
             icon: <Calculator className="w-8 h-8" />,
             title: "Interactive Health Tools & Wellness Games",
-            description: "Comprehensive suite of medical calculators including BMI, calorie counters, pregnancy trackers, medication dosage calculators, risk assessment tools, and engaging educational games covering nutrition awareness, fitness challenges, medical trivia, symptom checkers, and wellness goal tracking to promote healthy lifestyle choices and medical literacy."
+            description: "ZEVA provides medical calculators and educational games covering nutrition, fitness, symptom checking, and wellness goals. These tools help patients maintain a healthy lifestyle while improving medical literacy."
         },
         {
             icon: <Briefcase className="w-8 h-8" />,
             title: "Professional Networking & Content Management",
-            description: "Robust platform enabling healthcare professionals to post medical job opportunities, internships, residency programs, and collaborative projects while sharing informative blogs, research articles, case studies, medical insights, and industry updates with integrated comment systems, social sharing, and professional networking capabilities."
+            description: "Our platform allows healthcare professionals to post jobs, internships, research projects, and share blogs, case studies, and medical insights. Features include social sharing, comments, and collaborative networking opportunities."
         }
     ];
 
@@ -98,17 +101,67 @@ const AboutUs = () => {
         { number: "50,000+", label: "Active Patients & Healthcare Seekers", icon: <Heart className="w-6 h-6" /> },
         { number: "150+", label: "Cities & Metropolitan Areas Covered", icon: <MapPin className="w-6 h-6" /> },
         { number: "98.5%", label: "User Satisfaction & Platform Reliability", icon: <Star className="w-6 h-6" /> }
-    ];
+    ];      
 
     const values = [
-        { icon: <Heart className="w-6 h-6" />, title: "Patient-Centric Healthcare Excellence", desc: "Prioritizing comprehensive patient care, accessibility, and positive health outcomes through innovative digital solutions" },
-        { icon: <Shield className="w-6 h-6" />, title: "Trust, Security & Data Privacy", desc: "Implementing advanced encryption, HIPAA compliance, and robust security measures to protect sensitive medical information" },
-        { icon: <Zap className="w-6 h-6" />, title: "Technological Innovation & Advancement", desc: "Leveraging cutting-edge AI, machine learning, and digital health technologies for superior healthcare delivery" },
-        { icon: <Award className="w-6 h-6" />, title: "Medical Excellence & Quality Assurance", desc: "Maintaining highest standards of medical professionalism, service quality, and continuous platform improvement" }
+        { icon: <Heart className="w-6 h-6" />, title: "Patient-Centric Healthcare Excellence", desc:" Prioritizing accessibility, care quality, and positive health outcomes." },
+        { icon: <Shield className="w-6 h-6" />, title: "Trust, Security & Data Privacy", desc: "Ensuring HIPAA compliance, advanced encryption, and secure medical data." },
+        { icon: <Zap className="w-6 h-6" />, title: "Technological Innovation & Advancement", desc: " Leveraging AI, machine learning, and digital health technologies." },
+        { icon: <Award className="w-6 h-6" />, title: "Medical Excellence & Quality Assurance", desc: "Maintaining the highest standards in professional care and platform performance." }
     ];
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
+        <>
+            <Head>
+                <title>About ZEVA – Digital Healthcare Platform & Verified Providers</title>
+                <meta name="description" content="Discover ZEVA, a digital healthcare platform connecting patients with verified providers, wellness tools, interactive health calculators, and comprehensive services." />
+                <meta name="keywords" content="ZEVA healthcare platform, digital healthcare, verified healthcare providers, wellness tools, interactive health calculators, medical services management, healthcare technology, patient care platform, medical professional networking, online health tools" />
+                <meta property="og:title" content="About ZEVA – Digital Healthcare Platform & Verified Providers" />
+                <meta property="og:description" content="Discover ZEVA, a digital healthcare platform connecting patients with verified providers, wellness tools, interactive health calculators, and comprehensive services." />
+                <meta property="og:url" content="https://zeva360.com/about-us" />
+                <link rel="canonical" href="https://zeva360.com/about-us" />
+                {/* Schema Markup - Job Posting */}
+                <script
+                    type="application/ld+json"
+                    dangerouslySetInnerHTML={{
+                        __html: JSON.stringify({
+                            "@context": "https://schema.org",
+                            "@type": "JobPosting",
+                            "title": "Careers at ZEVA",
+                            "url": "https://zeva360.com/aboutus",
+                            "description": "Explore exciting career opportunities at ZEVA. Discover job openings for healthcare professionals, IT specialists, and wellness experts across multiple locations. Apply for full-time, part-time, or remote positions with transparent salary information.",
+                            "hiringOrganization": {
+                                "@type": "Organization",
+                                "name": "ZEVA",
+                                "sameAs": "https://zeva360.com",
+                                "logo": "https://zeva360.com/logo.png"
+                            },
+                            "jobLocation": {
+                                "@type": "Place",
+                                "address": {
+                                    "@type": "PostalAddress",
+                                    "streetAddress": "Abu Dhabi, UAE",
+                                    "addressLocality": "Abu Dhabi",
+                                    "addressCountry": "AE"
+                                }
+                            },
+                            "datePosted": "2025-12-18",
+                            "employmentType": "FULL_TIME",
+                            "validThrough": "2026-12-31T23:59",
+                            "baseSalary": {
+                                "@type": "MonetaryAmount",
+                                "currency": "AED",
+                                "value": {
+                                    "@type": "QuantitativeValue",
+                                    "value": "70000",
+                                    "unitText": "YEAR"
+                                }
+                            }
+                        })
+                    }}
+                />
+            </Head>
+            <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
             {/* Hero Section */}
             <section className="relative overflow-hidden bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white">
                 {/* Floating Medical Icons Background */}
@@ -160,7 +213,7 @@ const AboutUs = () => {
                             About <span className="text-transparent bg-clip-text bg-gradient-to-r from-pink-300 to-yellow-300 animate-gradient">ZEVA</span>
                         </h1>
                         <p className="text-xl md:text-2xl opacity-90 animate-slideUp max-w-3xl mx-auto leading-relaxed">
-                            Connecting Healthcare Professionals and Patients Through Innovative Digital Healthcare Solutions, Wellness Tools, and Comprehensive Medical Services Management Platform
+                        ZEVA is a digital healthcare platform connecting patients and professionals through smart tools and transparent services, making quality care accessible for all. With 1,200+ verified providers, 50,000+ users, and presence in 150+ cities, ZEVA maintains 98.5% user satisfaction built on trust and excellence.
                         </p>
 
                         {/* Animated Stats Preview */}
@@ -188,9 +241,9 @@ const AboutUs = () => {
                 </div>
 
                 <div className="container mx-auto px-4 relative z-10">
-                    <div className={`text-center max-w-4xl mx-auto transition-all duration-1000 ${isVisible['section-mission'] ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
+                    <div className={`max-w-4xl mx-auto transition-all duration-1000 ${isVisible['section-mission'] ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
                         {/* Animated Title with Medical Icons */}
-                        <div className="relative mb-8">
+                        <div className="relative mb-8 text-center">
                             <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-gray-800 mb-8">
                                 Our Mission
                             </h2>
@@ -216,9 +269,49 @@ const AboutUs = () => {
                                 </div>
                             </div>
 
-                            <p className="text-lg md:text-xl text-gray-700 leading-relaxed relative z-10">
-                                ZEVA is a comprehensive healthcare platform designed to bridge the digital divide in medical services. We provide healthcare centers and medical professionals with robust registration systems, administrative dashboards for complete patient and service tracking, while simultaneously offering patients intuitive tools to locate nearby healthcare providers. Our platform integrates interactive health calculators, educational wellness games, professional networking capabilities, and content management systems for medical blogs and job postings. Through advanced geolocation technology, secure data management, and user-centric design, ZEVA creates a unified ecosystem where healthcare accessibility meets technological innovation, ensuring quality medical care is available to everyone regardless of location or background.
-                            </p>
+                            <div className="text-lg md:text-xl text-gray-700 leading-relaxed relative z-10 space-y-6 text-left">
+                                <p className="text-justify">
+                                    At ZEVA, our mission is to bridge the digital divide in healthcare services. We empower healthcare centers and medical professionals with advanced administrative dashboards, complete patient and service management tools, and seamless registration systems. For patients, we provide intuitive features to locate nearby healthcare providers, access wellness tools, and stay informed about their health.
+                                </p>
+                                
+                                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 border-l-4 border-blue-600">
+                                    <p className="font-bold text-gray-800 text-xl mb-4">Our platform integrates:</p>
+                                    
+                                    <ul className="space-y-4 list-none pl-0">
+                                        <li className="flex items-start group hover:bg-white/50 rounded-lg p-3 transition-all duration-300">
+                                            <div className="flex-shrink-0 w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center mr-4 mt-0.5 group-hover:scale-110 transition-transform duration-300">
+                                                <Calculator className="w-4 h-4 text-white" />
+                                            </div>
+                                            <div className="flex-1">
+                                                <span className="font-semibold text-gray-800">Interactive Health Calculators</span>
+                                                <span className="text-gray-600"> – BMI, calorie counters, pregnancy trackers, medication dosage calculators, and risk assessment tools.</span>
+                                            </div>
+                                        </li>
+                                        <li className="flex items-start group hover:bg-white/50 rounded-lg p-3 transition-all duration-300">
+                                            <div className="flex-shrink-0 w-8 h-8 bg-indigo-600 rounded-full flex items-center justify-center mr-4 mt-0.5 group-hover:scale-110 transition-transform duration-300">
+                                                <Gamepad2 className="w-4 h-4 text-white" />
+                                            </div>
+                                            <div className="flex-1">
+                                                <span className="font-semibold text-gray-800">Wellness & Educational Games</span>
+                                                <span className="text-gray-600"> – Fun, engaging ways to boost medical literacy and promote healthy lifestyle choices.</span>
+                                            </div>
+                                        </li>
+                                        <li className="flex items-start group hover:bg-white/50 rounded-lg p-3 transition-all duration-300">
+                                            <div className="flex-shrink-0 w-8 h-8 bg-purple-600 rounded-full flex items-center justify-center mr-4 mt-0.5 group-hover:scale-110 transition-transform duration-300">
+                                                <Briefcase className="w-4 h-4 text-white" />
+                                            </div>
+                                            <div className="flex-1">
+                                                <span className="font-semibold text-gray-800">Professional Networking & Content Management</span>
+                                                <span className="text-gray-600"> – Medical job postings, blogs, research articles, case studies, and collaborative projects.</span>
+                                            </div>
+                                        </li>
+                                    </ul>
+                                </div>
+                                
+                                <p className="text-justify">
+                                    Using advanced geolocation technology, secure data management, and user-friendly design, ZEVA creates a unified digital healthcare ecosystem where technology meets patient-centered care.
+                                </p>
+                            </div>
 
                             {/* Floating mini icons */}
                             <div className="absolute top-4 right-4">
@@ -471,7 +564,9 @@ const AboutUs = () => {
                             </div>
 
                             <p className="text-lg md:text-xl leading-relaxed relative z-10">
-                                To establish ZEVA as the premier global healthcare technology platform, creating an interconnected digital ecosystem where medical professionals, healthcare institutions, and patients collaborate seamlessly. We envision a future where geographical barriers to quality healthcare are eliminated through innovative technology, where every individual has access to verified medical professionals, comprehensive health resources, and personalized care management tools, ultimately transforming how healthcare is delivered, accessed, and experienced worldwide while maintaining the highest standards of medical ethics, data security, and patient confidentiality.
+                            ZEVA envisions becoming the premier global healthcare technology platform, establishing a seamless digital ecosystem where patients, healthcare institutions, and medical professionals collaborate efficiently. Our goal is to eliminate geographical barriers to quality healthcare through innovative technology while maintaining the highest standards of medical ethics, data security, and patient confidentiality.
+By integrating verified medical professionals, comprehensive health resources, and personalized care tools, ZEVA is transforming how healthcare is delivered, accessed, and experienced worldwide. 
+
                             </p>
 
                             {/* Animated progress indicators */}
@@ -650,6 +745,7 @@ const AboutUs = () => {
         .medical-pulse { animation: medical-pulse 2s infinite; }
       `}</style>
         </div>
+        </>
     );
 };
 

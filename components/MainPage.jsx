@@ -60,15 +60,16 @@ const ZevaHealthPlatform = () => {
                     <div className="space-y-6">
                         <div className="inline-flex items-center gap-2 rounded-full border border-purple-200 bg-white/80 px-4 py-1 text-xs font-semibold text-purple-700">
                             <Sparkles className="w-4 h-4 text-purple-500" />
-                            Ayurveda-first wellness stack
+                            Zeva | All-in-One Healthcare Platform for Doctors & Clinics
                         </div>
 
                         <div className="space-y-3">
                             <h1 className="text-3xl sm:text-4xl font-extrabold text-gray-900 leading-tight">
-                                A lighter, smarter way to find doctors and clinics you can trust.
+                            Trusted Doctors and Clinics for Every Healthcare Need
+
                             </h1>
                             <p className="text-base text-gray-600 max-w-xl">
-                                Zeva keeps your healthcare, career, and lifestyle touchpoints inside one refined experience. Book visits, plan therapies, and stay aligned with your goals—without the clutter.
+                            Zeva connects users with trusted doctors and clinics across all medical treatments. Access healthcare, wellness tools, and career resources in a single, clutter-free platform. Easily book doctor visits, plan therapies, and manage wellness goals while making informed decisions through verified providers and smart health tools.
                             </p>
                         </div>
 

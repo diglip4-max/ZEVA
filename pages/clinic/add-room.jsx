@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import axios from "axios";
 import { useRouter } from "next/router";
 import withClinicAuth from "../../components/withClinicAuth";
@@ -108,6 +108,7 @@ function AddRoomPage({ contextOverride = null }) {
     onConfirm: () => {},
     type: "room",
   });
+  const hasLoadedInitialData = useRef(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -266,66 +267,84 @@ function AddRoomPage({ contextOverride = null }) {
     return headers;
   };
 
-  const loadRooms = async () => {
+  const loadRooms = async (showToast = true) => {
     const headers = getHeadersOrNotify();
     if (!headers) return;
     try {
       const res = await axios.get("/api/clinic/rooms", { headers });
       if (res.data.success) {
         setRooms(res.data.rooms || []);
-        toast.success(`Loaded ${res.data.rooms?.length || 0} room(s)`, { duration: 2000 });
+        if (showToast) {
+          toast.success(`Loaded ${res.data.rooms?.length || 0} room(s)`, { duration: 2000 });
+        }
       } else {
         const errorMsg = res.data.message || "Failed to load rooms";
         setMessage({ type: "error", text: errorMsg });
-        toast.error(errorMsg, { duration: 3000 });
+        if (showToast) {
+          toast.error(errorMsg, { duration: 3000 });
+        }
       }
     } catch (error) {
       console.error("Error loading rooms", error);
       const errorMessage = error.response?.data?.message || "Failed to load rooms";
       setMessage({ type: "error", text: errorMessage });
-      toast.error(errorMessage, { duration: 3000 });
+      if (showToast) {
+        toast.error(errorMessage, { duration: 3000 });
+      }
     }
   };
 
-  const loadDepartments = async () => {
+  const loadDepartments = async (showToast = true) => {
     const headers = getHeadersOrNotify();
     if (!headers) return;
     try {
       const res = await axios.get("/api/clinic/departments", { headers });
       if (res.data.success) {
         setDepartments(res.data.departments || []);
-        toast.success(`Loaded ${res.data.departments?.length || 0} department(s)`, { duration: 2000 });
+        if (showToast) {
+          toast.success(`Loaded ${res.data.departments?.length || 0} department(s)`, { duration: 2000 });
+        }
       } else {
         const errorMsg = res.data.message || "Failed to load departments";
         setMessage({ type: "error", text: errorMsg });
-        toast.error(errorMsg, { duration: 3000 });
+        if (showToast) {
+          toast.error(errorMsg, { duration: 3000 });
+        }
       }
     } catch (error) {
       console.error("Error loading departments", error);
       const errorMessage = error.response?.data?.message || "Failed to load departments";
       setMessage({ type: "error", text: errorMessage });
-      toast.error(errorMessage, { duration: 3000 });
+      if (showToast) {
+        toast.error(errorMessage, { duration: 3000 });
+      }
     }
   };
 
-  const loadPackages = async () => {
+  const loadPackages = async (showToast = true) => {
     const headers = getHeadersOrNotify();
     if (!headers) return;
     try {
       const res = await axios.get("/api/clinic/packages", { headers });
       if (res.data.success) {
         setPackages(res.data.packages || []);
-        toast.success(`Loaded ${res.data.packages?.length || 0} package(s)`, { duration: 2000 });
+        if (showToast) {
+          toast.success(`Loaded ${res.data.packages?.length || 0} package(s)`, { duration: 2000 });
+        }
       } else {
         const errorMsg = res.data.message || "Failed to load packages";
         setMessage({ type: "error", text: errorMsg });
-        toast.error(errorMsg, { duration: 3000 });
+        if (showToast) {
+          toast.error(errorMsg, { duration: 3000 });
+        }
       }
     } catch (error) {
       console.error("Error loading packages", error);
       const errorMessage = error.response?.data?.message || "Failed to load packages";
       setMessage({ type: "error", text: errorMessage });
-      toast.error(errorMessage, { duration: 3000 });
+      if (showToast) {
+        toast.error(errorMessage, { duration: 3000 });
+      }
     }
   };
 
@@ -378,11 +397,32 @@ function AddRoomPage({ contextOverride = null }) {
     let cancelled = false;
     const loadData = async () => {
       setLoading(true);
-      await Promise.all([loadRooms(), loadDepartments(), loadPackages(), loadTreatments()]);
-      if (!cancelled) {
-      setLoading(false);
-    }
-  };
+      // Dismiss any existing toasts before loading
+      toast.dismiss();
+      try {
+        await Promise.all([
+          loadRooms(false), 
+          loadDepartments(false), 
+          loadPackages(false), 
+          loadTreatments()
+        ]);
+        if (!cancelled) {
+          // Only show success toast on initial load
+          if (!hasLoadedInitialData.current) {
+            toast.success("Data loaded successfully", { duration: 2000 });
+            hasLoadedInitialData.current = true;
+          }
+          setLoading(false);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          if (!hasLoadedInitialData.current) {
+            toast.error("Failed to load some data", { duration: 3000 });
+          }
+          setLoading(false);
+        }
+      }
+    };
 
     loadData();
 
@@ -432,7 +472,7 @@ function AddRoomPage({ contextOverride = null }) {
         setMessage({ type: "success", text: successMsg });
         toast.success(successMsg, { duration: 3000 });
         setRoomName("");
-        await loadRooms();
+        await loadRooms(false);
       } else {
         const errorMsg = res.data.message || "Failed to create room";
         setMessage({ type: "error", text: errorMsg });
@@ -475,7 +515,7 @@ function AddRoomPage({ contextOverride = null }) {
         toast.success(successMsg, { duration: 3000 });
         setEditingRoomId(null);
         setEditingRoomName("");
-        await loadRooms();
+        await loadRooms(false);
       } else {
         const errorMsg = res.data.message || "Failed to update room";
         setMessage({ type: "error", text: errorMsg });
@@ -517,7 +557,7 @@ function AddRoomPage({ contextOverride = null }) {
               setEditingRoomId(null);
               setEditingRoomName("");
             }
-            await loadRooms();
+            await loadRooms(false);
           } else {
             const errorMsg = res.data.message || "Failed to delete room";
             setMessage({ type: "error", text: errorMsg });
@@ -873,6 +913,16 @@ function AddRoomPage({ contextOverride = null }) {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <style dangerouslySetInnerHTML={{__html: `
+        [data-hot-toast][data-type="error"] button[aria-label="Close"] {
+          color: #fff !important;
+          opacity: 0.9;
+        }
+        [data-hot-toast][data-type="error"] button[aria-label="Close"]:hover {
+          opacity: 1;
+          color: #fff !important;
+        }
+      `}} />
       <div className="p-3 sm:p-4 lg:p-5 space-y-3 lg:space-y-4">
       <Toaster
         position="top-right"
@@ -897,8 +947,8 @@ function AddRoomPage({ contextOverride = null }) {
           },
           error: {
             iconTheme: {
-              primary: "#ef4444",
-              secondary: "#fff",
+              primary: "#fff",
+              secondary: "#ef4444",
             },
             style: {
               background: "#ef4444",
@@ -959,7 +1009,7 @@ function AddRoomPage({ contextOverride = null }) {
                   Create and manage rooms, departments, and packages for your clinic
                 </p>
               </div>
-              <div className="flex items-center gap-2 bg-gray-100 rounded-lg p-1 border border-gray-200">
+              <div className="flex flex-wrap items-center gap-2 bg-gray-100 rounded-lg p-1 border border-gray-200">
                 <button
                   type="button"
                   onClick={() => {
@@ -967,14 +1017,14 @@ function AddRoomPage({ contextOverride = null }) {
                     setMessage({ type: "info", text: "" }); // Clear message when switching view
                     setTreatmentDropdownOpen(false); // Close dropdown
                   }}
-                  className={`px-4 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-2 ${
+                  className={`px-3 sm:px-4 py-2 rounded-md text-xs sm:text-sm font-medium transition-all flex items-center gap-1.5 sm:gap-2 flex-1 sm:flex-none justify-center ${
                     viewMode === "room"
                       ? "bg-white text-gray-900 shadow-sm"
                       : "text-gray-600 hover:text-gray-900"
                   }`}
                 >
-                  <DoorOpen className="w-4 h-4" />
-                  Rooms
+                  <DoorOpen className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                  <span className="whitespace-nowrap">Rooms</span>
                 </button>
                 <button
                   type="button"
@@ -983,14 +1033,14 @@ function AddRoomPage({ contextOverride = null }) {
                     setMessage({ type: "info", text: "" }); // Clear message when switching view
                     setTreatmentDropdownOpen(false); // Close dropdown
                   }}
-                  className={`px-4 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-2 ${
+                  className={`px-3 sm:px-4 py-2 rounded-md text-xs sm:text-sm font-medium transition-all flex items-center gap-1.5 sm:gap-2 flex-1 sm:flex-none justify-center ${
                     viewMode === "department"
                       ? "bg-white text-gray-900 shadow-sm"
                       : "text-gray-600 hover:text-gray-900"
                   }`}
                 >
-                  <Building2 className="w-4 h-4" />
-                  Departments
+                  <Building2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                  <span className="whitespace-nowrap">Departments</span>
                 </button>
                 <button
                   type="button"
@@ -999,14 +1049,14 @@ function AddRoomPage({ contextOverride = null }) {
                     setMessage({ type: "info", text: "" }); // Clear message when switching view
                     setTreatmentDropdownOpen(false); // Close dropdown
                   }}
-                  className={`px-4 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-2 ${
+                  className={`px-3 sm:px-4 py-2 rounded-md text-xs sm:text-sm font-medium transition-all flex items-center gap-1.5 sm:gap-2 flex-1 sm:flex-none justify-center ${
                     viewMode === "package"
                       ? "bg-white text-gray-900 shadow-sm"
                       : "text-gray-600 hover:text-gray-900"
                   }`}
                 >
-                  <Package className="w-4 h-4" />
-                  Packages
+                  <Package className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                  <span className="whitespace-nowrap">Packages</span>
                 </button>
               </div>
             </div>
@@ -1357,11 +1407,11 @@ function AddRoomPage({ contextOverride = null }) {
             {rooms.map((room) => (
               <div
                 key={room._id}
-                className="border border-gray-200 rounded-lg p-3 flex items-center justify-between hover:bg-gray-50 hover:border-gray-300 transition-all group"
+                className="border border-gray-200 rounded-lg p-3 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 hover:bg-gray-50 hover:border-gray-300 transition-all group"
               >
                 <div className="flex-1 min-w-0">
                   {editingRoomId === room._id ? (
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full">
                       <input
                         type="text"
                         value={editingRoomName}
@@ -1369,22 +1419,24 @@ function AddRoomPage({ contextOverride = null }) {
                         className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                         autoFocus
                       />
-                      <button
-                        onClick={handleRoomUpdate}
-                        disabled={roomUpdateLoading}
-                        className="px-3 py-2 bg-gray-900 text-white text-sm rounded-lg hover:bg-gray-800 disabled:opacity-60 transition-colors"
-                      >
-                        {roomUpdateLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save"}
-                      </button>
-                      <button
-                        onClick={() => {
-                          setEditingRoomId(null);
-                          setEditingRoomName("");
-                        }}
-                        className="px-3 py-2 bg-gray-100 text-gray-700 text-sm rounded-lg hover:bg-gray-200 transition-colors"
-                      >
-                        Cancel
-                      </button>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={handleRoomUpdate}
+                          disabled={roomUpdateLoading}
+                          className="flex-1 sm:flex-none px-3 py-2 bg-gray-900 text-white text-sm rounded-lg hover:bg-gray-800 disabled:opacity-60 transition-colors flex items-center justify-center"
+                        >
+                          {roomUpdateLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save"}
+                        </button>
+                        <button
+                          onClick={() => {
+                            setEditingRoomId(null);
+                            setEditingRoomName("");
+                          }}
+                          className="flex-1 sm:flex-none px-3 py-2 bg-gray-100 text-gray-700 text-sm rounded-lg hover:bg-gray-200 transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      </div>
                     </div>
                   ) : (
                     <div className="flex items-center gap-3">
@@ -1404,7 +1456,7 @@ function AddRoomPage({ contextOverride = null }) {
                   )}
                 </div>
                 {editingRoomId !== room._id && (
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 self-end sm:self-auto">
                     {permissions.canUpdate && (
                       <button
                         onClick={() => {
@@ -1464,11 +1516,11 @@ function AddRoomPage({ contextOverride = null }) {
                 {departments.map((dept) => (
                   <div
                     key={dept._id}
-                    className="border border-gray-200 rounded-lg p-3 flex items-center justify-between hover:bg-gray-50 hover:border-gray-300 transition-all group"
+                    className="border border-gray-200 rounded-lg p-3 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 hover:bg-gray-50 hover:border-gray-300 transition-all group"
                   >
                     <div className="flex-1 min-w-0">
                       {editingDeptId === dept._id ? (
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                           <input
                             type="text"
                             value={editingDeptName}
@@ -1476,22 +1528,24 @@ function AddRoomPage({ contextOverride = null }) {
                             className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                             autoFocus
                           />
-                          <button
-                            onClick={handleDepartmentUpdate}
-                            disabled={deptUpdateLoading}
-                            className="px-3 py-2 bg-gray-900 text-white text-sm rounded-lg hover:bg-gray-800 disabled:opacity-60 transition-colors"
-                          >
-                            {deptUpdateLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save"}
-                          </button>
-                          <button
-                            onClick={() => {
-                              setEditingDeptId(null);
-                              setEditingDeptName("");
-                            }}
-                            className="px-3 py-2 bg-gray-100 text-gray-700 text-sm rounded-lg hover:bg-gray-200 transition-colors"
-                          >
-                            Cancel
-                          </button>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={handleDepartmentUpdate}
+                              disabled={deptUpdateLoading}
+                              className="flex-1 sm:flex-none px-3 py-2 bg-gray-900 text-white text-sm rounded-lg hover:bg-gray-800 disabled:opacity-60 transition-colors"
+                            >
+                              {deptUpdateLoading ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : "Save"}
+                            </button>
+                            <button
+                              onClick={() => {
+                                setEditingDeptId(null);
+                                setEditingDeptName("");
+                              }}
+                              className="flex-1 sm:flex-none px-3 py-2 bg-gray-100 text-gray-700 text-sm rounded-lg hover:bg-gray-200 transition-colors"
+                            >
+                              Cancel
+                            </button>
+                          </div>
                         </div>
                       ) : (
                         <div className="flex items-center gap-3">
@@ -1511,7 +1565,7 @@ function AddRoomPage({ contextOverride = null }) {
                       )}
                     </div>
                     {editingDeptId !== dept._id && (
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 self-end sm:self-auto">
                         {permissions.canUpdate && (
                           <button
                             onClick={() => {
@@ -1571,12 +1625,12 @@ function AddRoomPage({ contextOverride = null }) {
                 {packages.map((pkg) => (
                   <div
                     key={pkg._id}
-                    className="border border-gray-200 rounded-lg p-3 flex items-center justify-between hover:bg-gray-50 hover:border-gray-300 transition-all group"
+                    className="border border-gray-200 rounded-lg p-3 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 hover:bg-gray-50 hover:border-gray-300 transition-all group"
                   >
                     <div className="flex-1 min-w-0">
                       {editingPackageId === pkg._id ? (
                         <div className="space-y-3">
-                          <div className="flex items-center gap-2">
+                          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                             <input
                               type="text"
                               value={editingPackageName}
@@ -1592,7 +1646,7 @@ function AddRoomPage({ contextOverride = null }) {
                               value={editingPackagePrice}
                               onChange={(e) => setEditingPackagePrice(e.target.value)}
                               placeholder="Price"
-                              className="w-32 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                              className="w-full sm:w-32 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                             />
                           </div>
                           {/* Treatment Selection for Edit */}
@@ -1763,13 +1817,13 @@ function AddRoomPage({ contextOverride = null }) {
                               </div>
                             )}
                           </div>
-                          <div className="flex items-center gap-2">
+                          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                             <button
                               onClick={handlePackageUpdate}
                               disabled={packageUpdateLoading}
-                              className="px-3 py-2 bg-gray-900 text-white text-sm rounded-lg hover:bg-gray-800 disabled:opacity-60 transition-colors"
+                              className="flex-1 sm:flex-none px-3 py-2 bg-gray-900 text-white text-sm rounded-lg hover:bg-gray-800 disabled:opacity-60 transition-colors"
                             >
-                              {packageUpdateLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save"}
+                              {packageUpdateLoading ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : "Save"}
                             </button>
                             <button
                               onClick={() => {
@@ -1778,7 +1832,7 @@ function AddRoomPage({ contextOverride = null }) {
                                 setEditingPackagePrice("");
                                 setSelectedTreatments([]);
                               }}
-                              className="px-3 py-2 bg-gray-100 text-gray-700 text-sm rounded-lg hover:bg-gray-200 transition-colors"
+                              className="flex-1 sm:flex-none px-3 py-2 bg-gray-100 text-gray-700 text-sm rounded-lg hover:bg-gray-200 transition-colors"
                             >
                               Cancel
                             </button>
@@ -1831,7 +1885,7 @@ function AddRoomPage({ contextOverride = null }) {
                       )}
                     </div>
                     {editingPackageId !== pkg._id && (
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 self-end sm:self-auto">
                         {permissions.canUpdate && (
                           <button
                             onClick={() => {
@@ -1892,7 +1946,7 @@ function AddRoomPage({ contextOverride = null }) {
           aria-labelledby="confirm-modal-title"
         >
           <div
-            className="bg-white rounded-lg shadow-2xl max-w-md w-full overflow-hidden flex flex-col transform transition-all duration-200 scale-100 opacity-100"
+            className="bg-white rounded-lg shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto flex flex-col transform transition-all duration-200 scale-100 opacity-100 mx-4"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}

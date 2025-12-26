@@ -11,9 +11,13 @@ const JobPostingSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Clinic',
   },
+  doctorId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+  },
   role: {
     type: String,
-    enum: ['clinic', 'doctor'],
+    enum: ['clinic', 'doctor', 'agent', 'doctorStaff'],
     required: true,
   },
   companyName: { type: String, required: true },

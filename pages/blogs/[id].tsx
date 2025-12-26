@@ -8,6 +8,7 @@ import { useAuth } from "@/context/AuthContext";
 import AuthModal from "../../components/AuthModal";
 import SocialMediaShare from "../../components/SocialMediaShare";
 import { Toaster, toast } from "react-hot-toast";
+import { Hash } from "lucide-react";
 import dbConnect from "../../lib/database";
 import BlogModel from "../../models/Blog";
 
@@ -96,6 +97,9 @@ export default function BlogDetail({ initialBlog, seo }: BlogDetailProps) {
   const shouldLikeAfterLogin = useRef(false);
   const shouldCommentAfterLogin = useRef(false);
   const pendingComment = useRef("");
+  const shouldReplyAfterLogin = useRef(false);
+  const pendingReplyCommentId = useRef<string | null>(null);
+  const pendingReplyText = useRef("");
   const [showAllComments, setShowAllComments] = useState(false);
   const [expandedComments, setExpandedComments] = useState<Record<string, boolean>>({});
   const [expandedReplies, setExpandedReplies] = useState<{
@@ -112,6 +116,17 @@ export default function BlogDetail({ initialBlog, seo }: BlogDetailProps) {
       return window.location.origin;
     }
     return "https://zeva360.com";
+  };
+
+  // Extract hashtags/topics from content
+  const extractTopics = (content: string | undefined): string[] => {
+    if (!content || typeof content !== 'string') return [];
+    // Remove HTML tags to get plain text, then extract hashtags
+    const textContent = content.replace(/<[^>]*>/g, ' ');
+    // Extract hashtags from content - matches #hashtag pattern (word characters only)
+    const hashtagRegex = /#(\w+)/g;
+    const matches = textContent.match(hashtagRegex);
+    return matches ? [...new Set(matches.map(m => m.substring(1)))] : []; // Remove duplicates
   };
   const toggleCommentExpansion = (commentId: string) => {
     setExpandedComments((prev) => ({
@@ -137,11 +152,23 @@ export default function BlogDetail({ initialBlog, seo }: BlogDetailProps) {
     ? `${getBaseUrl()}/blogs/${blog.paramlink || blog._id}`
     : "";
 
+  // Helper: extract full MongoDB ObjectId from slug
+  const extractBlogIdFromSlug = (slug: string): string | null => {
+    if (!slug) return null;
+    const objectIdPattern = /([a-f0-9]{24})$/i;
+    const match = slug.match(objectIdPattern);
+    return match ? match[1] : null;
+  };
+
   // Client-side fetch only if not provided by SSR (shouldn't typically happen)
   useEffect(() => {
     if (blog || !id) return;
+    
+    // Extract ID from slug if it's a slug format
+    const blogId = extractBlogIdFromSlug(id) || id;
+    
     const token = localStorage.getItem("token");
-    fetch(`/api/blog/getBlogById?id=${id}`, {
+    fetch(`/api/blog/getBlogById?id=${blogId}`, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     })
       .then((res) => res.json())
@@ -167,6 +194,19 @@ export default function BlogDetail({ initialBlog, seo }: BlogDetailProps) {
         setNewComment(pendingComment.current);
         performSubmitComment(pendingComment.current);
         pendingComment.current = "";
+      }
+      if (shouldReplyAfterLogin.current && pendingReplyCommentId.current) {
+        shouldReplyAfterLogin.current = false;
+        const commentId = pendingReplyCommentId.current;
+        const replyText = pendingReplyText.current;
+        pendingReplyCommentId.current = null;
+        pendingReplyText.current = "";
+        // Set the reply text and submit
+        setReplyTexts((prev) => ({ ...prev, [commentId]: replyText }));
+        // Small delay to ensure state is updated
+        setTimeout(() => {
+          handleReplySubmit(commentId);
+        }, 100);
       }
     }
   }, [isAuthenticated]);
@@ -319,10 +359,44 @@ export default function BlogDetail({ initialBlog, seo }: BlogDetailProps) {
   // Handle reply submission
   async function handleReplySubmit(commentId: string) {
     const replyText = replyTexts[commentId];
-    if (!replyText?.trim()) return;
+    if (!replyText?.trim()) {
+      toast.error("Please enter a reply");
+      return;
+    }
+
+    if (!blog?._id) {
+      toast.error("Blog not found");
+      return;
+    }
+
+    // Check authentication first
+    if (!isAuthenticated) {
+      setAuthModalMode("login");
+      setShowAuthModal(true);
+      shouldReplyAfterLogin.current = true;
+      pendingReplyCommentId.current = commentId;
+      pendingReplyText.current = replyText;
+      toast("Please login to reply", { icon: "🔐" });
+      return;
+    }
+
+    await performReplySubmit(commentId, replyText);
+  }
+
+  // Actual reply submission function
+  async function performReplySubmit(commentId: string, replyText: string) {
+    if (!blog?._id) {
+      toast.error("Blog not found");
+      return;
+    }
 
     try {
       const token = localStorage.getItem("token");
+      if (!token) {
+        toast.error("Please login to reply");
+        return;
+      }
+
       const res = await fetch("/api/blog/addReply", {
         method: "POST",
         headers: {
@@ -330,18 +404,25 @@ export default function BlogDetail({ initialBlog, seo }: BlogDetailProps) {
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          blogId: blog?._id,
+          blogId: blog._id,
           commentId: commentId,
-          text: replyText,
+          text: replyText.trim(),
         }),
       });
+      
       const json = await res.json();
-      if (json.success) {
-        // Fetch latest replies for this comment
-        const res2 = await fetch(
-          `/api/blog/getCommentReplies?blogId=${blog?._id}&commentId=${commentId}`
-        );
-        const json2 = await res2.json();
+      
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || json.message || "Failed to add reply");
+      }
+
+      // Fetch latest replies for this comment
+      const res2 = await fetch(
+        `/api/blog/getCommentReplies?blogId=${blog._id}&commentId=${commentId}`
+      );
+      const json2 = await res2.json();
+      
+      if (json2.success) {
         setBlog((prev) => {
           if (!prev) return prev;
           return {
@@ -356,11 +437,13 @@ export default function BlogDetail({ initialBlog, seo }: BlogDetailProps) {
         setReplyTexts((prev) => ({ ...prev, [commentId]: "" }));
         setShowReplyInput((prev) => ({ ...prev, [commentId]: false }));
         setExpandedReplies((prev) => ({ ...prev, [commentId]: true }));
-        toast.success("Reply added");
+        toast.success("Reply added successfully");
+      } else {
+        throw new Error("Failed to fetch updated replies");
       }
-    } catch (err) {
-      console.error(err);
-      toast.error("Failed to add reply");
+    } catch (err: any) {
+      console.error("Error submitting reply:", err);
+      toast.error(err.message || "Failed to add reply");
     }
   }
 
@@ -419,7 +502,7 @@ export default function BlogDetail({ initialBlog, seo }: BlogDetailProps) {
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-indigo-50 to-violet-50">
+    <div className="min-h-screen bg-gradient-to-br from-cyan-50 via-white to-teal-50">
       <Toaster position="top-right" gutter={8} />
       {seo && (
         <Head>
@@ -457,14 +540,14 @@ export default function BlogDetail({ initialBlog, seo }: BlogDetailProps) {
 .blog-content * embed,
 .blog-content * object {
   display: block !important;
-  margin: 2.5rem auto !important;
+  margin: 1.5rem auto !important;
   width: 100% !important;
   max-width: 700px !important;
   height: 400px !important;
   object-fit: contain !important; /* ✅ show full image, no cropping */
   border-radius: 16px !important;
-  box-shadow: 0 20px 60px rgba(139, 92, 246, 0.15), 0 8px 24px rgba(139, 92, 246, 0.08) !important;
-  border: 1px solid rgba(167, 139, 250, 0.2) !important;
+  box-shadow: 0 20px 60px rgba(6, 182, 212, 0.15), 0 8px 24px rgba(6, 182, 212, 0.08) !important;
+  border: 1px solid rgba(94, 234, 212, 0.2) !important;
   transition: all 0.4s ease !important;
   background-color: #f9f9ff !important; /* optional: adds background around image */
 }
@@ -485,13 +568,13 @@ export default function BlogDetail({ initialBlog, seo }: BlogDetailProps) {
       .blog-content *[src*="drive.google"],
       .blog-content *[src*="docs.google"] {
         display: block !important;
-        margin: 2.5rem auto !important;
+        margin: 1.5rem auto !important;
         width: 100% !important;
         max-width: 700px !important;
         height: 400px !important;
         border-radius: 16px !important;
         border: none !important;
-        box-shadow: 0 20px 60px rgba(139, 92, 246, 0.15), 0 8px 24px rgba(139, 92, 246, 0.08) !important;
+        box-shadow: 0 20px 60px rgba(6, 182, 212, 0.15), 0 8px 24px rgba(6, 182, 212, 0.08) !important;
         transition: all 0.4s ease !important;
       }
 
@@ -523,10 +606,10 @@ export default function BlogDetail({ initialBlog, seo }: BlogDetailProps) {
       .blog-content .ql-align-left { text-align: left !important; }
 
       .blog-content p {
-        margin-bottom: 1.8rem;
-        font-size: 1.125rem;
+        margin-bottom: 1.25rem;
+        font-size: 1.1rem;
         color: #374151;
-        line-height: 1.8;
+        line-height: 1.75;
       }
 
       .blog-content h1,
@@ -535,28 +618,28 @@ export default function BlogDetail({ initialBlog, seo }: BlogDetailProps) {
       .blog-content h4 {
         color: #1f2937;
         font-weight: 700;
-        margin-top: 3rem;
-        margin-bottom: 1.5rem;
+        margin-top: 2rem;
+        margin-bottom: 1rem;
         line-height: 1.3;
       }
 
       .blog-content h1 { font-size: 2.5rem; }
-      .blog-content h2 { font-size: 2rem; color: #7c3aed; }
+      .blog-content h2 { font-size: 2rem; color: #0891b2; }
       .blog-content h3 { font-size: 1.5rem; }
 
       .blog-content blockquote {
-        border-left: 4px solid #7c3aed;
-        background: linear-gradient(135deg, #faf5ff 0%, #f3e8ff 100%);
-        padding: 1.5rem 2rem;
-        margin: 2rem 0;
+        border-left: 4px solid #06b6d4;
+        background: linear-gradient(135deg, #ecfeff 0%, #cffafe 100%);
+        padding: 1.25rem 1.75rem;
+        margin: 1.5rem 0;
         font-style: italic;
         border-radius: 8px;
-        box-shadow: 0 4px 12px rgba(124, 58, 237, 0.1);
+        box-shadow: 0 4px 12px rgba(6, 182, 212, 0.1);
       }
 
       .blog-content ul,
       .blog-content ol {
-        margin: 1.5rem 0;
+        margin: 1.25rem 0;
         padding-left: 2rem;
         list-style-position: outside;
       }
@@ -628,8 +711,8 @@ export default function BlogDetail({ initialBlog, seo }: BlogDetailProps) {
 
       .blog-container::-webkit-scrollbar { width: 8px; }
       .blog-container::-webkit-scrollbar-track { background: #f8fafc; border-radius: 4px; }
-      .blog-container::-webkit-scrollbar-thumb { background: linear-gradient(180deg, #7c3aed 0%, #6d28d9 100%); border-radius: 4px; }
-      .blog-container::-webkit-scrollbar-thumb:hover { background: linear-gradient(180deg, #6d28d9 0%, #5b21b6 100%); }
+      .blog-container::-webkit-scrollbar-thumb { background: linear-gradient(180deg, #06b6d4 0%, #0891b2 100%); border-radius: 4px; }
+      .blog-container::-webkit-scrollbar-thumb:hover { background: linear-gradient(180deg, #0891b2 0%, #0e7490 100%); }
 
       @keyframes float {
         0%, 100% { transform: translateY(0px); }
@@ -661,20 +744,20 @@ export default function BlogDetail({ initialBlog, seo }: BlogDetailProps) {
 
       <div className="blog-container">
         {/* Hero Section */}
-        <div className="relative bg-white">
-          <div className="absolute inset-0 bg-gradient-to-br from-purple-50/50 via-indigo-50/30 to-violet-50/50"></div>
-          <div className="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 lg:py-16">
+          <div className="relative bg-white">
+          <div className="absolute inset-0 bg-gradient-to-br from-cyan-50/50 via-white to-teal-50/50"></div>
+          <div className="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 lg:py-10">
             {blog.image && (
-              <div className="relative mb-8 sm:mb-12 lg:mb-16 rounded-2xl sm:rounded-3xl shadow-2xl bg-gradient-to-br from-purple-50 to-indigo-50 p-4 sm:p-6">
+              <div className="relative mb-6 sm:mb-8 rounded-xl sm:rounded-2xl shadow-lg bg-gradient-to-br from-cyan-50 to-teal-50 p-3 sm:p-4">
                 <img
                   src={blog.image}
                   alt={blog.title}
-                  className="w-full h-auto max-h-[400px] sm:max-h-[500px] lg:max-h-[600px] object-contain mx-auto"
+                  className="w-full h-auto max-h-[400px] sm:max-h-[500px] lg:max-h-[550px] object-contain mx-auto rounded-lg"
                 />
-                <div className="absolute top-6 sm:top-8 right-6 sm:right-8 z-20">
-                  <div className="backdrop-blur-md bg-white/20 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-white text-xs sm:text-sm font-medium border border-white/30 floating">
+                <div className="absolute top-4 sm:top-6 right-4 sm:right-6 z-20">
+                  <div className="backdrop-blur-md bg-white/90 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-cyan-700 text-xs sm:text-sm font-medium border border-cyan-200 shadow-md">
                     <span className="flex items-center space-x-2">
-                      <span className="w-2 h-2 bg-purple-400 rounded-full animate-pulse"></span>
+                      <span className="w-2 h-2 bg-cyan-500 rounded-full animate-pulse"></span>
                       <span>Featured Article</span>
                     </span>
                   </div>
@@ -683,38 +766,38 @@ export default function BlogDetail({ initialBlog, seo }: BlogDetailProps) {
             )}
 
             {/* Article Header */}
-            <div className="max-w-4xl mx-auto text-center mb-8 sm:mb-12 lg:mb-16">
-              <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold mb-6 sm:mb-8 text-gray-900 leading-tight tracking-tight px-4">
+            <div className="max-w-4xl mx-auto text-center mb-6 sm:mb-8">
+              <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-4 sm:mb-5 text-gray-900 leading-tight tracking-tight px-4">
                 {blog.title}
               </h1>
 
-              <div className="flex flex-col sm:flex-row items-center justify-center sm:space-x-6 lg:space-x-8 space-y-4 sm:space-y-0 text-gray-600 mb-8 sm:mb-12 px-4">
-                <div className="flex items-center space-x-3">
-                  <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-purple-600 to-indigo-600 rounded-full flex items-center justify-center text-white font-bold text-base sm:text-lg shadow-lg">
+              <div className="flex flex-col sm:flex-row items-center justify-center sm:space-x-6 space-y-3 sm:space-y-0 text-gray-600 mb-6 sm:mb-8 px-4">
+                <div className="flex items-center space-x-2 sm:space-x-3">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-cyan-500 to-teal-600 rounded-full flex items-center justify-center text-white font-bold text-sm sm:text-base shadow-md">
                     {blog.postedBy?.name?.charAt(0).toUpperCase() || "A"}
                   </div>
                   <div className="text-left">
                     <span className="font-semibold text-gray-900 text-sm sm:text-base">
                       By {blog.postedBy?.name || "Author"}
                     </span>
-                    <p className="text-xs sm:text-sm text-gray-500">Author</p>
+                    <p className="text-xs text-gray-500">Author</p>
                   </div>
                 </div>
-                <div className="hidden sm:block w-px h-12 bg-gray-300"></div>
+                <div className="hidden sm:block w-px h-10 bg-gray-300"></div>
                 <div className="text-center">
-                  <time className="text-base sm:text-lg font-medium text-gray-700 block">
+                  <time className="text-sm sm:text-base font-medium text-gray-700 block">
                     {new Date(blog.createdAt).toLocaleDateString("en-US", {
                       year: "numeric",
                       month: "long",
                       day: "numeric",
                     })}
                   </time>
-                  <p className="text-xs sm:text-sm text-gray-500">Published</p>
+                  <p className="text-xs text-gray-500">Published</p>
                 </div>
               </div>
 
               {/* Interactive Elements */}
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-3 lg:gap-4 mb-6 sm:mb-8 px-4">
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-3 mb-4 sm:mb-6 px-4">
 
                 {/* Like Button */}
                 <button
@@ -723,7 +806,7 @@ export default function BlogDetail({ initialBlog, seo }: BlogDetailProps) {
       border shadow-sm hover:shadow-md transform hover:scale-[1.02]
       ${blog.liked
                       ? "bg-red-50 text-red-600 border-red-200 hover:bg-red-100"
-                      : "bg-white text-gray-600 border-gray-200 hover:border-purple-300 hover:text-purple-600"
+                      : "bg-white text-gray-600 border-gray-200 hover:border-cyan-300 hover:text-cyan-600"
                     }`}
                 >
                   <svg
@@ -750,9 +833,9 @@ export default function BlogDetail({ initialBlog, seo }: BlogDetailProps) {
                       commentsSection.scrollIntoView({ behavior: "smooth", block: "start" });
                     }
                   }}
-                  className="group flex items-center justify-center space-x-2 px-4 sm:px-5 py-2 sm:py-2.5 bg-white text-gray-600 border border-gray-200 rounded-full text-sm sm:text-base font-medium hover:border-indigo-300 hover:text-indigo-600 transition-all duration-200 shadow-sm hover:shadow-md transform hover:scale-[1.02]"
+                  className="group flex items-center justify-center space-x-2 px-4 sm:px-5 py-2 sm:py-2.5 bg-white text-gray-600 border border-gray-200 rounded-full text-sm sm:text-base font-medium hover:border-cyan-300 hover:text-cyan-600 transition-all duration-200 shadow-sm hover:shadow-md transform hover:scale-[1.02]"
                 >
-                  <svg viewBox="0 0 24 24" className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 group-hover:text-indigo-500 transition-colors duration-200">
+                  <svg viewBox="0 0 24 24" className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 group-hover:text-cyan-500 transition-colors duration-200">
                     <path
                       d="M21.99 4c0-1.1-.89-2-2-2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h14l4 4-.01-18zM18 14H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"
                       fill="currentColor"
@@ -768,24 +851,7 @@ export default function BlogDetail({ initialBlog, seo }: BlogDetailProps) {
                       blogTitle={blog.title}
                       blogUrl={shareUrl}
                       blogDescription={blog.content.replace(/<[^>]+>/g, "").slice(0, 200)}
-                      triggerLabel={
-                        <div className="flex items-center justify-center space-x-2 px-4 sm:px-5 py-2 sm:py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-full text-sm sm:text-base font-medium hover:from-purple-700 hover:to-indigo-700 transition-all duration-200 transform hover:scale-[1.02] shadow-sm hover:shadow-md">
-                          {/* <svg
-                            className="w-4 h-4 sm:w-5 sm:h-5"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth={2}
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z"
-                            />
-                          </svg> */}
-                          <span className="hidden sm:inline">Share</span>
-                        </div>
-                      }
+                      triggerClassName="flex items-center justify-center space-x-2 px-4 sm:px-5 py-2 sm:py-2.5 bg-gradient-to-r from-cyan-500 to-teal-600 text-white rounded-full text-sm sm:text-base font-medium hover:from-cyan-600 hover:to-teal-700 transition-all duration-200 transform hover:scale-[1.02] shadow-sm hover:shadow-md"
                     />
                   )}
                 </div>
@@ -796,16 +862,30 @@ export default function BlogDetail({ initialBlog, seo }: BlogDetailProps) {
         </div>
 
         {/* Article Content */}
-        <div className="bg-white shadow-2xl">
-          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16 lg:py-20">
+        <div className="bg-white shadow-lg">
+          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10 lg:py-12">
+            {/* Hashtags/Topics Section */}
+            {extractTopics(blog.content).length > 0 && (
+              <div className="mb-5 sm:mb-6 flex flex-wrap gap-1.5 sm:gap-2">
+                {extractTopics(blog.content).map((topic) => (
+                  <span
+                    key={topic}
+                    className="inline-flex items-center gap-1 px-2.5 sm:px-3 py-1 sm:py-1.5 bg-gradient-to-r from-cyan-50 to-teal-50 text-cyan-700 rounded-full text-xs sm:text-sm font-medium border border-cyan-100"
+                  >
+                    <Hash className="w-3 h-3 sm:w-4 sm:h-4" />
+                    {topic}
+                  </span>
+                ))}
+              </div>
+            )}
             <article className="blog-content">{parse(blog.content)}</article>
           </div>
         </div>
 
         {/* Comments Section */}
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16 lg:py-20">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10 lg:py-12">
           <section id="comments-section">
-            <div className="space-y-6 sm:space-y-8 mb-12 sm:mb-16">
+            <div className="space-y-3 sm:space-y-4 mb-8 sm:mb-10">
               {blog.comments
                 .slice(0, showAllComments ? blog.comments.length : 4)
                 .map((c) => {
@@ -821,18 +901,18 @@ export default function BlogDetail({ initialBlog, seo }: BlogDetailProps) {
                   return (
                     <div
                       key={c._id}
-                      className="bg-gradient-to-br from-purple-50/50 to-white rounded-xl sm:rounded-2xl p-4 sm:p-6 lg:p-8 hover:shadow-lg transition-all duration-300 border border-purple-100"
+                      className="bg-gradient-to-br from-cyan-50/50 to-white rounded-lg sm:rounded-xl p-3 sm:p-4 hover:shadow-md transition-all duration-300 border border-cyan-100"
                     >
-                      <div className="flex justify-between items-start mb-4">
-                        <div className="flex items-center space-x-3 sm:space-x-4">
-                          <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-purple-600 to-indigo-600 rounded-full flex items-center justify-center text-white font-bold text-base sm:text-lg shadow-lg flex-shrink-0">
+                      <div className="flex justify-between items-start mb-2">
+                        <div className="flex items-center space-x-2 sm:space-x-3">
+                          <div className="w-8 h-8 sm:w-9 sm:h-9 bg-gradient-to-br from-cyan-500 to-teal-600 rounded-full flex items-center justify-center text-white font-bold text-sm sm:text-base shadow-md flex-shrink-0">
                             {c.username.charAt(0).toUpperCase()}
                           </div>
                           <div className="min-w-0">
-                            <p className="font-bold text-gray-900 text-base sm:text-lg truncate">
+                            <p className="font-bold text-gray-900 text-sm sm:text-base truncate">
                               {c.username}
                             </p>
-                            <p className="text-xs sm:text-sm text-gray-500 flex items-center">
+                            <p className="text-xs text-gray-500 flex items-center">
                               <svg className="w-3 h-3 sm:w-4 sm:h-4 mr-1 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path
                                   strokeLinecap="round"
@@ -869,12 +949,12 @@ export default function BlogDetail({ initialBlog, seo }: BlogDetailProps) {
                         )}
                       </div>
 
-                      <div className="text-gray-700 leading-relaxed mb-4 sm:mb-6 text-sm sm:text-base lg:text-lg">
+                      <div className="text-gray-700 leading-relaxed mb-2 sm:mb-3 text-xs sm:text-sm">
                         <pre className="whitespace-pre-wrap font-sans">{displayText}</pre>
                         {isLong && (
                           <button
                             onClick={() => toggleCommentExpansion(c._id)}
-                            className="text-purple-600 hover:text-purple-700 font-medium text-xs sm:text-sm mt-2 flex items-center transition-colors duration-200"
+                            className="text-cyan-600 hover:text-cyan-700 font-medium text-xs mt-1 flex items-center transition-colors duration-200"
                           >
                             {isExpanded ? (
                               <>
@@ -895,10 +975,10 @@ export default function BlogDetail({ initialBlog, seo }: BlogDetailProps) {
                         )}
                       </div>
 
-                      <div className="flex items-center gap-2 ml-0 sm:ml-8 mb-2">
+                      <div className="flex items-center gap-2 ml-0 sm:ml-6 mb-1">
                         {c.replies && c.replies.length > 0 && (
                           <button
-                            className="flex items-center text-gray-500 hover:text-purple-600 text-xs sm:text-sm"
+                            className="flex items-center text-gray-500 hover:text-cyan-600 text-xs"
                             onClick={() =>
                               setExpandedReplies((prev) => ({
                                 ...prev,
@@ -906,7 +986,7 @@ export default function BlogDetail({ initialBlog, seo }: BlogDetailProps) {
                               }))
                             }
                           >
-                            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8h2a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V10a2 2 0 012-2h2" />
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 3h-6a2 2 0 00-2 2v0a2 2 0 002 2h6a2 2 0 002-2v0a2 2 0 00-2-2z" />
                             </svg>
@@ -916,47 +996,75 @@ export default function BlogDetail({ initialBlog, seo }: BlogDetailProps) {
                           </button>
                         )}
                         <button
-                          className="ml-2 text-purple-600 hover:underline text-xs sm:text-sm"
-                          onClick={() =>
+                          className="ml-2 text-cyan-600 hover:underline text-xs"
+                          onClick={() => {
+                            if (!isAuthenticated) {
+                              setAuthModalMode("login");
+                              setShowAuthModal(true);
+                              toast("Please login to reply", { icon: "🔐" });
+                              return;
+                            }
                             setShowReplyInput((prev) => ({
                               ...prev,
                               [c._id]: !prev[c._id],
-                            }))
-                          }
+                            }));
+                          }}
                         >
                           Reply
                         </button>
                       </div>
 
-                      {user && showReplyInput[c._id] && (
-                        <div className="mt-2 ml-0 sm:ml-8">
-                          <div className="flex space-x-3 sm:space-x-4">
-                            <div className="w-6 h-6 sm:w-8 sm:h-8 bg-purple-600 rounded-full flex items-center justify-center text-white font-bold text-xs sm:text-sm flex-shrink-0">
-                              {user.name.charAt(0).toUpperCase()}
+                      {showReplyInput[c._id] && (
+                        <div className="mt-1.5 ml-0 sm:ml-6">
+                          <div className="flex space-x-2">
+                            <div className="w-5 h-5 sm:w-6 sm:h-6 bg-cyan-500 rounded-full flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
+                              {user?.name?.charAt(0).toUpperCase() || "?"}
                             </div>
-                            <input
-                              type="text"
-                              placeholder="Reply to this comment..."
-                              value={replyTexts[c._id] || ""}
-                              onChange={(e) =>
-                                setReplyTexts((prev) => ({
-                                  ...prev,
-                                  [c._id]: e.target.value,
-                                }))
-                              }
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter") {
-                                  handleReplySubmit(c._id);
+                            <div className="flex-1 relative">
+                              <input
+                                type="text"
+                                placeholder={isAuthenticated ? "Reply to this comment..." : "Login to reply..."}
+                                value={replyTexts[c._id] || ""}
+                                onChange={(e) =>
+                                  setReplyTexts((prev) => ({
+                                    ...prev,
+                                    [c._id]: e.target.value,
+                                  }))
                                 }
-                              }}
-                              className="mb-4 sm:mb-8 flex-1 border-2 border-purple-200 rounded-lg sm:rounded-xl px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm focus:outline-none focus:ring-4 focus:ring-purple-200 focus:border-purple-500 transition-all duration-200"
-                            />
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") {
+                                    e.preventDefault();
+                                    handleReplySubmit(c._id);
+                                  }
+                                }}
+                                disabled={!isAuthenticated}
+                                className="w-full border-2 border-cyan-200 rounded-lg px-2.5 sm:px-3 py-1 pr-9 sm:pr-10 text-xs focus:outline-none focus:ring-2 focus:ring-cyan-200 focus:border-cyan-500 transition-all duration-200 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                              />
+                              <button
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  handleReplySubmit(c._id);
+                                }}
+                                disabled={!replyTexts[c._id]?.trim() || !isAuthenticated}
+                                className="absolute right-1 top-1/2 -translate-y-1/2 w-6 h-6 sm:w-7 sm:h-7 bg-gradient-to-r from-cyan-500 to-teal-600 text-white rounded-full flex items-center justify-center hover:from-cyan-600 hover:to-teal-700 transition-all duration-200 shadow-sm hover:shadow-md transform hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:hover:scale-100 active:scale-95"
+                                title={isAuthenticated ? "Send reply" : "Login to reply"}
+                              >
+                                <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
+                                  />
+                                </svg>
+                              </button>
+                            </div>
                           </div>
                         </div>
                       )}
 
                       {c.replies && c.replies.length > 0 && expandedReplies[c._id] && (
-                        <div className="space-y-3 sm:space-y-4 ml-0 sm:ml-8 border-l-2 sm:border-l-4 border-purple-500 pl-3 sm:pl-6">
+                        <div className="space-y-2 ml-0 sm:ml-6 border-l-2 border-cyan-500 pl-2 sm:pl-3">
                           {c.replies.map((r) => {
                             const isAuthorReply =
                               r.user && String(r.user) === String(blog.postedBy?._id);
@@ -967,16 +1075,16 @@ export default function BlogDetail({ initialBlog, seo }: BlogDetailProps) {
                             return (
                               <div
                                 key={r._id}
-                                className={`p-4 sm:p-6 rounded-lg sm:rounded-xl ${isAuthorReply
-                                  ? "bg-gradient-to-br from-purple-100/50 to-purple-50/30 border-2 border-purple-200"
+                                className={`p-2 sm:p-3 rounded-lg ${isAuthorReply
+                                  ? "bg-gradient-to-br from-cyan-100/50 to-cyan-50/30 border border-cyan-200"
                                   : "bg-white border border-gray-200"
                                   }`}
                               >
-                                <div className="flex justify-between items-start mb-3">
-                                  <div className="flex items-center space-x-2 sm:space-x-3 min-w-0 flex-1">
+                                <div className="flex justify-between items-start mb-1.5">
+                                  <div className="flex items-center space-x-1.5 sm:space-x-2 min-w-0 flex-1">
                                     <div
-                                      className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-white font-bold text-xs sm:text-sm flex-shrink-0 ${isAuthorReply
-                                        ? "bg-gradient-to-br from-purple-600 to-indigo-600"
+                                      className={`w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center text-white font-bold text-xs flex-shrink-0 ${isAuthorReply
+                                        ? "bg-gradient-to-br from-cyan-500 to-teal-600"
                                         : "bg-gradient-to-br from-gray-400 to-gray-500"
                                         }`}
                                     >
@@ -984,12 +1092,12 @@ export default function BlogDetail({ initialBlog, seo }: BlogDetailProps) {
                                     </div>
                                     <div className="min-w-0 flex-1">
                                       <p
-                                        className={`font-bold text-xs sm:text-sm flex items-center flex-wrap ${isAuthorReply ? "text-purple-700" : "text-gray-700"
+                                        className={`font-bold text-xs flex items-center flex-wrap ${isAuthorReply ? "text-cyan-700" : "text-gray-700"
                                           }`}
                                       >
                                         <span className="truncate">{r.username}</span>
                                         {isAuthorReply && (
-                                          <span className="ml-2 text-xs bg-purple-600 text-white px-2 sm:px-3 py-0.5 sm:py-1 rounded-full flex-shrink-0">
+                                          <span className="ml-1.5 text-xs bg-cyan-600 text-white px-1.5 py-0.5 rounded-full flex-shrink-0">
                                             Author
                                           </span>
                                         )}
@@ -1002,9 +1110,9 @@ export default function BlogDetail({ initialBlog, seo }: BlogDetailProps) {
                                   {canDeleteReply && (
                                     <button
                                       onClick={() => setConfirmDeleteId(r._id)}
-                                      className="text-gray-400 hover:text-red-500 transition-colors duration-200 p-1 rounded-full hover:bg-red-50 flex-shrink-0"
+                                      className="text-gray-400 hover:text-red-500 transition-colors duration-200 p-0.5 rounded-full hover:bg-red-50 flex-shrink-0"
                                     >
-                                      <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path
                                           strokeLinecap="round"
                                           strokeLinejoin="round"
@@ -1015,7 +1123,7 @@ export default function BlogDetail({ initialBlog, seo }: BlogDetailProps) {
                                     </button>
                                   )}
                                 </div>
-                                <pre className="text-gray-700 text-xs sm:text-sm leading-relaxed whitespace-pre-wrap font-sans">
+                                <pre className="text-gray-700 text-xs leading-relaxed whitespace-pre-wrap font-sans">
                                   {r.text}
                                 </pre>
                               </div>
@@ -1032,7 +1140,7 @@ export default function BlogDetail({ initialBlog, seo }: BlogDetailProps) {
                 <div className="text-center pt-6 sm:pt-8">
                   <button
                     onClick={() => setShowAllComments(!showAllComments)}
-                    className="px-6 sm:px-8 py-2.5 sm:py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg sm:rounded-xl font-medium hover:from-purple-700 hover:to-indigo-700 transition-all duration-300 shadow-lg hover:shadow-xl text-sm sm:text-base"
+                    className="px-6 sm:px-8 py-2.5 sm:py-3 bg-gradient-to-r from-cyan-500 to-teal-600 text-white rounded-lg sm:rounded-xl font-medium hover:from-cyan-600 hover:to-teal-700 transition-all duration-300 shadow-lg hover:shadow-xl text-sm sm:text-base"
                   >
                     {showAllComments
                       ? `Show Less (${blog.comments.length - 4} hidden)`
@@ -1043,8 +1151,8 @@ export default function BlogDetail({ initialBlog, seo }: BlogDetailProps) {
             </div>
 
             {/* Add Comment Form */}
-            <div className="border-t-2 border-purple-100 pt-8 sm:pt-12">
-              <div className="text-center mb-6 sm:mb-8">
+            <div className="border-t-2 border-cyan-100 pt-6 sm:pt-8">
+              <div className="text-center mb-5 sm:mb-6">
                 <h3 className="text-xl sm:text-2xl font-bold mb-2 text-gray-900">
                   Share Your Thoughts
                 </h3>
@@ -1059,7 +1167,7 @@ export default function BlogDetail({ initialBlog, seo }: BlogDetailProps) {
                     onChange={(e) => setNewComment(e.target.value)}
                     placeholder="What are your thoughts on this article? Share your insights, questions, or experiences..."
                     rows={5}
-                    className="w-full border-2 border-purple-200 rounded-xl sm:rounded-2xl px-4 sm:px-6 py-3 sm:py-4 focus:outline-none focus:ring-4 focus:ring-purple-200 focus:border-purple-500 transition-all duration-200 resize-none text-sm sm:text-base lg:text-lg placeholder-gray-400"
+                    className="w-full border-2 border-cyan-200 rounded-xl sm:rounded-2xl px-4 sm:px-6 py-3 sm:py-4 focus:outline-none focus:ring-4 focus:ring-cyan-200 focus:border-cyan-500 transition-all duration-200 resize-none text-sm sm:text-base lg:text-lg placeholder-gray-400"
                   />
                   <div className="absolute bottom-3 sm:bottom-4 right-3 sm:right-4 text-xs sm:text-sm text-gray-400">
                     {newComment.length}/1000
@@ -1068,7 +1176,7 @@ export default function BlogDetail({ initialBlog, seo }: BlogDetailProps) {
                 <div className="flex justify-center">
                   <button
                     onClick={submitComment}
-                    className="relative w-full sm:w-auto px-8 sm:px-12 py-3 sm:py-4 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl sm:rounded-2xl font-bold text-base sm:text-lg hover:from-purple-700 hover:to-indigo-700 transform hover:scale-105 transition-all duration-300 shadow-lg hover:shadow-2xl pulse-ring"
+                    className="relative w-full sm:w-auto px-8 sm:px-12 py-3 sm:py-4 bg-gradient-to-r from-cyan-500 to-teal-600 text-white rounded-xl sm:rounded-2xl font-bold text-base sm:text-lg hover:from-cyan-600 hover:to-teal-700 transform hover:scale-105 transition-all duration-300 shadow-lg hover:shadow-2xl pulse-ring"
                   >
                     <span className="flex items-center justify-center space-x-2">
                       <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1103,7 +1211,7 @@ export default function BlogDetail({ initialBlog, seo }: BlogDetailProps) {
         {/* Back to Top Button */}
         <button
           onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-          className="fixed bottom-6 right-6 sm:bottom-8 sm:right-8 w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-full shadow-2xl hover:shadow-3xl transform hover:scale-110 transition-all duration-300 flex items-center justify-center z-50"
+          className="fixed bottom-6 right-6 sm:bottom-8 sm:right-8 w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-r from-cyan-500 to-teal-600 text-white rounded-full shadow-2xl hover:shadow-3xl transform hover:scale-110 transition-all duration-300 flex items-center justify-center z-50"
           style={{
             opacity: typeof window !== "undefined" && window.scrollY > 300 ? 1 : 0,
             visibility: typeof window !== "undefined" && window.scrollY > 300 ? "visible" : "hidden",
@@ -1126,7 +1234,7 @@ export default function BlogDetail({ initialBlog, seo }: BlogDetailProps) {
               className="absolute inset-0 backdrop-blur-sm bg-white/20"
               onClick={() => setConfirmDeleteId(null)}
             />
-            <div className="relative z-[101] w-full max-w-sm sm:max-w-md mx-auto rounded-xl sm:rounded-2xl shadow-2xl border border-purple-200 bg-white">
+            <div className="relative z-[101] w-full max-w-sm sm:max-w-md mx-auto rounded-xl sm:rounded-2xl shadow-2xl border border-cyan-200 bg-white">
               <div className="p-4 sm:p-6">
                 <div className="flex items-start gap-3 sm:gap-4">
                   <div className="flex-shrink-0 w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-red-50 text-red-600 flex items-center justify-center">
@@ -1196,9 +1304,46 @@ export const getServerSideProps: GetServerSideProps<BlogDetailProps> = async ({
     const { id } = params as { id: string };
     await dbConnect();
 
-    const blogDoc = await BlogModel.findById(id)
-      .populate("postedBy", "name _id")
-      .lean<BlogDoc>(); // ✅ properly typed plain object;
+    // Helper: extract full MongoDB ObjectId from slug
+    // Format: blog-title-abc12345def67890 (title + full 24-char ID at the end)
+    const extractJobIdFromSlug = (slug: string): string | null => {
+      if (!slug) return null;
+      // MongoDB ObjectId is 24 hex characters
+      const objectIdPattern = /([a-f0-9]{24})$/i;
+      const match = slug.match(objectIdPattern);
+      return match ? match[1] : null;
+    };
+
+    let blogDoc: BlogDoc | null = null;
+    const extractedId = extractJobIdFromSlug(id);
+
+    // OPTIMIZED APPROACH: Extract ID from slug and query directly
+    if (extractedId) {
+      console.log("⚡ Using optimized lookup by ID from slug:", extractedId);
+      // Direct database lookup by ID - FASTEST and most efficient
+      blogDoc = await BlogModel.findOne({ _id: extractedId, status: "published" })
+        .populate("postedBy", "name _id")
+        .lean<BlogDoc>();
+    }
+
+    // If not found by extracted ID, try other methods (backward compatibility)
+    if (!blogDoc) {
+      // Check if it's a direct MongoDB ObjectId (24 hex characters)
+      const isObjectId = /^[a-f0-9]{24}$/i.test(id);
+      
+      if (isObjectId) {
+        // Direct ID lookup
+        blogDoc = await BlogModel.findById(id)
+          .populate("postedBy", "name _id")
+          .lean<BlogDoc>();
+      } else {
+        // Try to find by paramlink (legacy support)
+        blogDoc = await BlogModel.findOne({ paramlink: id, status: "published" })
+          .populate("postedBy", "name _id")
+          .lean<BlogDoc>();
+      }
+    }
+    
     if (!blogDoc) {
       return { notFound: true };
     }

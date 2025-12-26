@@ -1,9 +1,6 @@
 import dbConnect from '../../../lib/database';
 import Blog from '../../../models/Blog';
-import User from '../../../models/Users';
-import Clinic from '../../../models/Clinic';
-import { getUserFromReq, requireRole } from '../lead-ms/auth';
-import { getClinicIdFromUser, checkClinicPermission } from '../lead-ms/permissions-helper';
+import { verifyAuth } from './verifyAuth';
 import Notification from "../../../models/Notification";
 import { emitNotificationToUser } from "../push-notification/socketio";
 
@@ -14,71 +11,24 @@ export default async function handler(req, res) {
     return res.status(405).json({ success: false, error: 'Method not allowed' });
   }
 
+  // Verify authentication - allows any authenticated user
+  const user = await verifyAuth(req, res);
+  if (!user) return; // Already handled error inside verifyAuth
+
+  const { blogId, commentId, text } = req.body;
+  if (!blogId || !commentId || !text?.trim()) {
+    return res.status(400).json({ success: false, error: 'Blog ID, Comment ID & text are required' });
+  }
+
   try {
-    const me = await getUserFromReq(req);
-    if (!me || !requireRole(me, ["clinic", "doctor", "doctorStaff", "agent", "admin"])) {
-      return res.status(403).json({ success: false, message: "Access denied" });
+    // Try to find by paramlink first (for SEO-friendly URLs), then fallback to _id
+    let blog = await Blog.findOne({ paramlink: blogId, status: "published" });
+    if (!blog) {
+      // Fallback to MongoDB _id
+      blog = await Blog.findById(blogId);
     }
-
-    const { blogId, commentId, text } = req.body;
-    if (!blogId || !commentId || !text) {
-      return res.status(400).json({ success: false, error: 'Blog ID, Comment ID & text are required' });
-    }
-
-    const blog = await Blog.findById(blogId);
     if (!blog) {
       return res.status(404).json({ success: false, error: 'Blog not found' });
-    }
-
-    // ✅ Check if user owns the blog or is from the same clinic (for agent/doctorStaff)
-    const { clinicId, error, isAdmin } = await getClinicIdFromUser(me);
-    const isDoctor = me.role === "doctor";
-    const isDoctorStaff = me.role === "doctorStaff";
-    const isAgent = me.role === "agent";
-    
-    const isBlogAuthor = blog.postedBy.toString() === me._id.toString();
-    
-    // For agent/doctorStaff, check if blog is from their clinic
-    let isClinicBlog = false;
-    if ((isAgent || isDoctorStaff) && clinicId && !isBlogAuthor) {
-      const clinic = await Clinic.findById(clinicId).select("owner");
-      if (clinic) {
-        const clinicUsers = await User.find({
-          $or: [
-            { _id: clinic.owner },
-            { clinicId: clinicId, role: "doctor" },
-          ],
-        }).select("_id");
-        const clinicUserIds = clinicUsers.map(u => u._id.toString());
-        isClinicBlog = clinicUserIds.includes(blog.postedBy.toString());
-      }
-    }
-    
-    // Only blog author, clinic users (agent/doctorStaff) with permission, or admin can reply
-    if (isBlogAuthor || isClinicBlog || isAdmin) {
-      // Check permission for updating (replying to comments)
-      if (!isAdmin && !isDoctor && clinicId) {
-        const roleForPermission = isDoctorStaff ? "doctorStaff" : isAgent ? "agent" : me.role === "clinic" ? "clinic" : null;
-        const { hasPermission, error: permError } = await checkClinicPermission(
-          clinicId,
-          "write_blog", // Check "write_blog" module permission
-          "update",
-          null, // Module-level check
-          roleForPermission
-        );
-        if (!hasPermission) {
-          return res.status(403).json({
-            success: false,
-            message: permError || "You do not have permission to reply to comments"
-          });
-        }
-      }
-    } else {
-      // Not blog author or clinic user - deny access
-      return res.status(403).json({
-        success: false,
-        message: "Only blog authors or clinic members can reply to comments on their clinic's blogs"
-      });
     }
 
     const comment = blog.comments.id(commentId);
@@ -86,32 +36,58 @@ export default async function handler(req, res) {
       return res.status(404).json({ success: false, error: 'Comment not found' });
     }
 
+    // Add reply
     comment.replies.push({
-      user: me._id,
-      username: me.name,
-      text,
+      user: user._id,
+      username: user.name,
+      text: text.trim(),
       createdAt: new Date()
     });
 
     await blog.save();
 
-    await Notification.create({
-      user: comment.user,
-      message: `You received a reply on your comment in "${blog.title}"`,
-      relatedBlog: blog._id,
-      type: "blog-reply", 
-      relatedComment: comment._id,
-    });
+    // Send notification to comment author (if they're not replying to themselves)
+    if (comment.user.toString() !== user._id.toString()) {
+      try {
+        await Notification.create({
+          user: comment.user,
+          message: `You received a reply on your comment in "${blog.title}"`,
+          relatedBlog: blog._id,
+          type: "blog-reply", 
+          relatedComment: comment._id,
+        });
 
-    emitNotificationToUser(comment.user.toString(), {
-      message: `You received a reply on your comment in "${blog.title}"`,
-      relatedBlog: blog._id,
-      type: "blog-reply",
-      relatedComment: comment._id,
-      createdAt: new Date(),
-    });
+        emitNotificationToUser(comment.user.toString(), {
+          message: `You received a reply on your comment in "${blog.title}"`,
+          relatedBlog: blog._id,
+          type: "blog-reply",
+          relatedComment: comment._id,
+          createdAt: new Date(),
+        });
+      } catch (notifError) {
+        console.error("Error sending notification:", notifError);
+        // Don't fail the request if notification fails
+      }
+    }
 
-    res.status(200).json({ success: true, comment });
+    // Return the updated comment with replies
+    const updatedComment = blog.comments.id(commentId);
+    const responseComment = {
+      _id: updatedComment._id.toString(),
+      user: updatedComment.user.toString(),
+      username: updatedComment.username,
+      text: updatedComment.text,
+      createdAt: updatedComment.createdAt.toISOString(),
+      replies: (updatedComment.replies || []).map((r) => ({
+        _id: r._id.toString(),
+        user: r.user.toString(),
+        username: r.username,
+        text: r.text,
+        createdAt: r.createdAt.toISOString(),
+      })),
+    };
+
+    res.status(200).json({ success: true, comment: responseComment });
   } catch (error) {
     console.error("Error in addReply API:", error);
     res.status(500).json({ success: false, error: 'Internal server error' });

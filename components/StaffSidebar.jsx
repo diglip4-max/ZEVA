@@ -204,15 +204,16 @@ const Sidebar = () => {
       <button
         onClick={handleToggleMobile}
         className={clsx(
-          "fixed top-4 left-4 z-[60] bg-white text-[#2D9AA5] p-3 rounded-lg shadow-lg transition-all duration-300 border border-gray-200 lg:hidden",
+          "fixed top-4 left-4 z-[100] bg-white text-[#2D9AA5] p-3 rounded-lg shadow-lg transition-all duration-300 border-2 border-gray-300 hover:bg-gray-50 hover:border-gray-400 lg:hidden touch-manipulation",
           {
             'block': !isMobileOpen,
             'hidden': isMobileOpen
           }
         )}
         aria-label="Open mobile menu"
+        style={{ WebkitTapHighlightColor: 'transparent' }}
       >
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
         </svg>
       </button>

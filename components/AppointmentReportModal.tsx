@@ -1,7 +1,7 @@
 "use client";
 import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
-import { X, Heart, ClipboardList, Trash2 } from "lucide-react";
+import { X, Heart, ClipboardList, Trash2, Loader2, AlertCircle } from "lucide-react";
 
 interface AppointmentLite {
   _id: string;
@@ -348,160 +348,210 @@ const AppointmentReportModal: React.FC<AppointmentReportModalProps> = ({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-2">
-      <div className="bg-white w-full max-w-6xl rounded-lg shadow-2xl overflow-hidden flex flex-col max-h-[95vh]">
-        <div className="flex items-start justify-between border-b border-gray-200 px-4 py-2">
-          <div>
-            <p className="text-[10px] uppercase tracking-wide text-gray-500">Patient Report</p>
-            <h3 className="text-lg font-semibold text-gray-900">{appointment.patientName}</h3>
-            <div className="mt-1 flex flex-wrap gap-1.5 text-xs text-gray-600">
-              {appointment.emrNumber && (
-                <span className="px-1.5 py-0.5 bg-blue-50 text-blue-700 rounded text-[10px]">EMR: {appointment.emrNumber}</span>
-              )}
-              {appointment.gender && (
-                <span className="px-1.5 py-0.5 bg-purple-50 text-purple-700 rounded text-[10px] capitalize">
-                  {appointment.gender}
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-1 sm:p-2 bg-black/50 backdrop-blur-md transition-all duration-300 animate-in fade-in">
+      <div className="bg-white dark:bg-gray-50 w-full max-w-3xl rounded-lg shadow-2xl overflow-hidden flex flex-col max-h-[98vh] sm:max-h-[95vh] transform transition-all duration-300 scale-100 opacity-100 animate-in slide-in-from-bottom-4 zoom-in-95">
+        <div className="sticky top-0 bg-gray-800 dark:bg-gray-700 border-b border-gray-700 dark:border-gray-600 px-2 sm:px-3 py-1.5 sm:py-2 flex items-center justify-between z-10 shadow">
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <div className="p-0.5 sm:p-1 bg-gray-700 dark:bg-gray-600 rounded">
+              <Heart className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-white" />
+            </div>
+            <div>
+              <p className="text-[8px] sm:text-[9px] uppercase tracking-wide text-gray-300">Patient Report</p>
+              <h3 className="text-xs sm:text-sm font-bold text-white">{appointment.patientName}</h3>
+              <div className="mt-0.5 flex flex-wrap gap-1">
+                {appointment.emrNumber && (
+                  <span className="px-1 py-0.5 bg-gray-700 dark:bg-gray-600 text-gray-200 rounded text-[7px] sm:text-[8px] font-medium">EMR: {appointment.emrNumber}</span>
+                )}
+                {appointment.gender && (
+                  <span className="px-1 py-0.5 bg-gray-700 dark:bg-gray-600 text-gray-200 rounded text-[7px] sm:text-[8px] font-medium capitalize">
+                    {appointment.gender}
+                  </span>
+                )}
+                <span className="px-1 py-0.5 bg-gray-700 dark:bg-gray-600 text-gray-200 rounded text-[7px] sm:text-[8px] font-medium">
+                  Dr. {appointment.doctorName}
                 </span>
-              )}
-              <span className="px-1.5 py-0.5 bg-green-50 text-green-700 rounded text-[10px]">
-                Dr. {appointment.doctorName}
-              </span>
-              {patientDetails?.startDate && (
-                <span className="px-1.5 py-0.5 bg-gray-100 text-gray-700 rounded text-[10px]">
-                  {formatDate(patientDetails.startDate)} {formatTimeRange && `• ${formatTimeRange}`}
-                </span>
-              )}
+                {patientDetails?.startDate && (
+                  <span className="px-1 py-0.5 bg-gray-700 dark:bg-gray-600 text-gray-200 rounded text-[7px] sm:text-[8px] font-medium">
+                    {formatDate(patientDetails.startDate)} {formatTimeRange && `• ${formatTimeRange}`}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
           <button
-            className="text-gray-400 hover:text-gray-600 transition p-1"
+            className="p-0.5 sm:p-1 hover:bg-gray-700 dark:hover:bg-gray-600 rounded transition-all duration-200 focus:outline-none focus:ring-1 focus:ring-gray-500 text-white"
             onClick={() => {
               onClose();
             }}
+            aria-label="Close modal"
           >
-            <X className="w-4 h-4" />
+            <X className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
           </button>
         </div>
 
-        <div className="px-4 py-3 overflow-y-auto">
+        <div className="px-2 sm:px-3 py-2 overflow-y-auto flex-1">
           {error && (
-            <div className="mb-2 rounded border border-red-200 bg-red-50 px-2 py-1.5 text-xs text-red-700">
-              {error}
+            <div className="mb-2 rounded border-l-2 border-red-500 bg-red-50 dark:bg-red-100 px-1.5 sm:px-2 py-1 flex items-start gap-1 text-red-700 dark:text-red-900 shadow-sm animate-in slide-in-from-top-2 fade-in" role="alert">
+              <AlertCircle className="w-2.5 h-2.5 flex-shrink-0 mt-0.5 animate-pulse" />
+              <p className="text-[9px] sm:text-[10px] font-medium">{error}</p>
             </div>
           )}
 
           {lastUpdated && (
-            <div className="mb-2 rounded border border-emerald-200 bg-emerald-50 px-2 py-1.5 text-xs text-emerald-700 flex items-center gap-1.5">
-              <ClipboardList className="w-3 h-3" />
-              Last updated {new Date(lastUpdated).toLocaleString()}
+            <div className="mb-2 rounded border-l-2 border-emerald-500 bg-emerald-50 dark:bg-emerald-100 px-1.5 sm:px-2 py-1 flex items-center gap-1 text-emerald-700 dark:text-emerald-900 shadow-sm animate-in slide-in-from-top-2 fade-in">
+              <ClipboardList className="w-2.5 h-2.5 flex-shrink-0" />
+              <p className="text-[9px] sm:text-[10px] font-medium">Last updated {new Date(lastUpdated).toLocaleString()}</p>
             </div>
           )}
 
           {loading ? (
-            <div className="py-6 text-center text-xs text-gray-500">Loading report...</div>
+            <div className="py-6 text-center">
+              <Loader2 className="w-4 h-4 animate-spin text-gray-400 mx-auto mb-1.5" />
+              <p className="text-[9px] sm:text-[10px] text-gray-500">Loading report...</p>
+            </div>
           ) : (
-            <form onSubmit={handleSubmit} className="space-y-3">
-              {fieldGroups.map((group) => (
-                <div key={group.title} className="rounded border border-gray-100 bg-gray-50 p-2">
-                  <h4 className="text-xs font-semibold text-gray-700 mb-2">{group.title}</h4>
-                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
-                    {group.fields.map((field) => (
-                      <label key={field.name} className="text-xs font-medium text-gray-700 flex flex-col gap-0.5">
-                        {field.label}
-                        <input
-                          type={field.type}
-                          value={reportValues[field.name as keyof ReportData] ?? ""}
-                          onChange={(e) => handleChange(field.name as keyof ReportData, e.target.value)}
-                          required={field.required}
-                          min={field.type === "number" ? "0" : undefined}
-                          readOnly={Boolean(field.readonly)}
-                          className={`rounded border border-gray-200 px-2 py-1 text-xs focus:border-blue-500 focus:ring-1 focus:ring-blue-100 ${
-                            field.readonly ? "bg-gray-100 text-gray-500 cursor-not-allowed" : ""
-                          }`}
-                        />
-                      </label>
-                    ))}
-                  </div>
+            <form onSubmit={handleSubmit} className="space-y-2">
+              {fieldGroups.map((group, groupIdx) => {
+                // Special handling for Body Measurements - all in one line
+                const isBodyMeasurements = group.title === "Body Measurements";
+                return (
+                <div key={group.title} className="rounded border border-gray-200 dark:border-gray-300 bg-gray-50 dark:bg-gray-100 p-1.5 sm:p-2 shadow-sm transition-all duration-300" style={{ animationDelay: `${groupIdx * 100}ms` }}>
+                  <h4 className="text-[8px] sm:text-[9px] font-bold text-gray-800 dark:text-gray-900 mb-1 uppercase tracking-wider flex items-center gap-1">
+                    <div className="w-0.5 h-3 bg-gray-600 dark:bg-gray-700 rounded-full"></div>
+                    {group.title}
+                  </h4>
+                  {isBodyMeasurements ? (
+                    <div className="grid grid-cols-6 gap-1">
+                      {group.fields.map((field) => (
+                        <label key={field.name} className="text-[8px] sm:text-[9px] font-medium text-gray-700 dark:text-gray-800 flex flex-col gap-0.5">
+                          <span className="flex items-center gap-0.5">
+                            {field.label.replace(" (cm)", "").replace(" (kg)", "").replace("Head Circumference", "Head")}
+                            {field.required && <span className="text-red-500">*</span>}
+                          </span>
+                          <input
+                            type={field.type}
+                            value={reportValues[field.name as keyof ReportData] ?? ""}
+                            onChange={(e) => handleChange(field.name as keyof ReportData, e.target.value)}
+                            required={field.required}
+                            min={field.type === "number" ? "0" : undefined}
+                            readOnly={Boolean(field.readonly)}
+                            className={`rounded border border-gray-300 dark:border-gray-300 px-1 py-0.5 text-[8px] sm:text-[9px] bg-white dark:bg-gray-50 text-gray-900 dark:text-gray-900 focus:ring-1 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all outline-none ${
+                              field.readonly ? "bg-gray-100 dark:bg-gray-200 text-gray-500 dark:text-gray-600 cursor-not-allowed" : ""
+                            }`}
+                          />
+                        </label>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-1.5">
+                      {group.fields.map((field) => (
+                        <label key={field.name} className="text-[8px] sm:text-[9px] font-medium text-gray-700 dark:text-gray-800 flex flex-col gap-0.5">
+                          <span className="flex items-center gap-0.5">
+                            {field.label}
+                            {field.required && <span className="text-red-500">*</span>}
+                          </span>
+                          <input
+                            type={field.type}
+                            value={reportValues[field.name as keyof ReportData] ?? ""}
+                            onChange={(e) => handleChange(field.name as keyof ReportData, e.target.value)}
+                            required={field.required}
+                            min={field.type === "number" ? "0" : undefined}
+                            readOnly={Boolean(field.readonly)}
+                            className={`rounded border border-gray-300 dark:border-gray-300 px-1 py-0.5 text-[8px] sm:text-[9px] bg-white dark:bg-gray-50 text-gray-900 dark:text-gray-900 focus:ring-1 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all outline-none ${
+                              field.readonly ? "bg-gray-100 dark:bg-gray-200 text-gray-500 dark:text-gray-600 cursor-not-allowed" : ""
+                            }`}
+                          />
+                        </label>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              ))}
+              )})}
 
-              <div className="grid grid-cols-2 gap-2">
-                <label className="text-xs font-medium text-gray-700 flex flex-col gap-0.5">
-                  Sugar Details
+              <div className="grid grid-cols-2 gap-1.5">
+                <div className="rounded border border-gray-200 dark:border-gray-300 bg-gray-50 dark:bg-gray-100 p-1.5 shadow-sm transition-all duration-300">
+                  <label className="text-[8px] sm:text-[9px] font-medium text-gray-700 dark:text-gray-800 flex flex-col gap-0.5">
+                    Sugar Details
+                    <textarea
+                      value={reportValues.sugar}
+                      onChange={(e) => handleChange("sugar", e.target.value)}
+                      className="rounded border border-gray-300 dark:border-gray-300 px-1 py-0.5 text-[8px] sm:text-[9px] bg-white dark:bg-gray-50 text-gray-900 dark:text-gray-900 focus:ring-1 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all outline-none resize-none"
+                      rows={1.5}
+                      placeholder="Enter sugar level..."
+                    />
+                  </label>
+                </div>
+                <div className="rounded border border-gray-200 dark:border-gray-300 bg-gray-50 dark:bg-gray-100 p-1.5 shadow-sm transition-all duration-300">
+                  <label className="text-[8px] sm:text-[9px] font-medium text-gray-700 dark:text-gray-800 flex flex-col gap-0.5">
+                    Urinalysis
+                    <textarea
+                      value={reportValues.urinalysis}
+                      onChange={(e) => handleChange("urinalysis", e.target.value)}
+                      className="rounded border border-gray-300 dark:border-gray-300 px-1 py-0.5 text-[8px] sm:text-[9px] bg-white dark:bg-gray-50 text-gray-900 dark:text-gray-900 focus:ring-1 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all outline-none resize-none"
+                      rows={1.5}
+                      placeholder="Enter urinalysis..."
+                    />
+                  </label>
+                </div>
+              </div>
+
+              <div className="rounded border border-gray-200 dark:border-gray-300 bg-gray-50 dark:bg-gray-100 p-1.5 shadow-sm transition-all duration-300">
+                <label className="text-[8px] sm:text-[9px] font-medium text-gray-700 dark:text-gray-800 flex flex-col gap-0.5">
+                  Other Notes
                   <textarea
-                    value={reportValues.sugar}
-                    onChange={(e) => handleChange("sugar", e.target.value)}
-                    className="rounded border border-gray-200 px-2 py-1 text-xs focus:border-blue-500 focus:ring-1 focus:ring-blue-100"
-                    rows={2}
-                    placeholder="Enter sugar level details"
-                  />
-                </label>
-                <label className="text-xs font-medium text-gray-700 flex flex-col gap-0.5">
-                  Urinalysis
-                  <textarea
-                    value={reportValues.urinalysis}
-                    onChange={(e) => handleChange("urinalysis", e.target.value)}
-                    className="rounded border border-gray-200 px-2 py-1 text-xs focus:border-blue-500 focus:ring-1 focus:ring-blue-100"
-                    rows={2}
-                    placeholder="Enter urinalysis observations"
+                    value={reportValues.otherDetails}
+                    onChange={(e) => handleChange("otherDetails", e.target.value)}
+                    className="rounded border border-gray-300 dark:border-gray-300 px-1 py-0.5 text-[8px] sm:text-[9px] bg-white dark:bg-gray-50 text-gray-900 dark:text-gray-900 focus:ring-1 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all outline-none resize-none"
+                    rows={1.5}
+                    placeholder="Add additional observations..."
                   />
                 </label>
               </div>
 
-              <label className="text-xs font-medium text-gray-700 flex flex-col gap-0.5">
-                Other Notes
-                <textarea
-                  value={reportValues.otherDetails}
-                  onChange={(e) => handleChange("otherDetails", e.target.value)}
-                  className="rounded border border-gray-200 px-2 py-1 text-xs focus:border-blue-500 focus:ring-1 focus:ring-blue-100"
-                  rows={2}
-                  placeholder="Add any additional observations"
-                />
-              </label>
-
               {patientReports.length > 0 && (
-                <div className="rounded border border-gray-100 bg-white/60 p-2 space-y-2">
-                  <h4 className="text-xs font-semibold text-gray-700 flex items-center gap-1.5">
-                    <ClipboardList className="w-3 h-3" />
+                <div className="rounded border border-gray-200 dark:border-gray-300 bg-gray-50 dark:bg-gray-100 p-1.5 sm:p-2 shadow-sm transition-all duration-300">
+                  <h4 className="text-[8px] sm:text-[9px] font-bold text-gray-800 dark:text-gray-900 mb-1.5 flex items-center gap-1 uppercase tracking-wider">
+                    <ClipboardList className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-gray-600 dark:text-gray-700" />
                     Previous Reports ({patientReports.length})
                   </h4>
-                  <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                  <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
                     {patientReports.map((report, idx) => (
                       <div
                         key={`${report.appointmentId}-${idx}`}
-                        className="rounded border border-gray-200 bg-white p-2 text-[10px] text-gray-600"
+                        className="rounded border border-gray-200 dark:border-gray-300 bg-white dark:bg-gray-50 p-1.5 shadow-sm hover:shadow transition-all duration-200"
+                        style={{ animationDelay: `${idx * 50}ms` }}
                       >
-                        <div className="flex flex-wrap items-center justify-between gap-1.5 text-gray-500 text-[10px]">
-                          <span className="font-semibold text-gray-700">
+                        <div className="flex flex-wrap items-center justify-between gap-1 mb-1">
+                          <span className="font-semibold text-[8px] sm:text-[9px] text-gray-700 dark:text-gray-900">
                             {new Date(report.updatedAt).toLocaleString()}
                           </span>
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex items-center gap-1">
                             {report.doctorName && (
-                              <span className="text-gray-500">Dr. {report.doctorName}</span>
+                              <span className="text-[7px] sm:text-[8px] text-gray-600 dark:text-gray-700 px-1 py-0.5 bg-gray-100 dark:bg-gray-200 rounded">Dr. {report.doctorName}</span>
                             )}
                             <button
                               type="button"
                               onClick={() => deleteReport(report.reportId)}
-                              className="rounded-full border border-red-200 p-0.5 text-red-500 hover:bg-red-50 transition"
+                              className="rounded border border-red-300 dark:border-red-400 p-0.5 text-red-600 dark:text-red-700 hover:bg-red-50 dark:hover:bg-red-100 transition-all duration-200"
                               title="Delete report"
                             >
-                              <Trash2 className="w-3 h-3" />
+                              <Trash2 className="w-2.5 h-2.5" />
                             </button>
                           </div>
                         </div>
-                        <div className="mt-1 grid grid-cols-2 md:grid-cols-4 gap-1.5 text-[10px]">
-                          <span>Temp: {report.temperatureCelsius}°C</span>
-                          <span>Pulse: {report.pulseBpm} BPM</span>
-                          <span>BP: {report.systolicBp}/{report.diastolicBp} mmHg</span>
-                          {report.weightKg && <span>Weight: {report.weightKg} kg</span>}
-                          {report.heightCm && <span>Height: {report.heightCm} cm</span>}
-                          {report.waistCm && <span>Waist: {report.waistCm} cm</span>}
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-1 text-[8px] sm:text-[9px] text-gray-600 dark:text-gray-700">
+                          <span className="px-1 py-0.5 bg-gray-100 dark:bg-gray-200 rounded font-medium">Temp: {report.temperatureCelsius}°C</span>
+                          <span className="px-1 py-0.5 bg-gray-100 dark:bg-gray-200 rounded font-medium">Pulse: {report.pulseBpm} BPM</span>
+                          <span className="px-1 py-0.5 bg-gray-100 dark:bg-gray-200 rounded font-medium">BP: {report.systolicBp}/{report.diastolicBp}</span>
+                          {report.weightKg && <span className="px-1 py-0.5 bg-gray-100 dark:bg-gray-200 rounded font-medium">Wt: {report.weightKg}kg</span>}
+                          {report.heightCm && <span className="px-1 py-0.5 bg-gray-100 dark:bg-gray-200 rounded font-medium">Ht: {report.heightCm}cm</span>}
+                          {report.waistCm && <span className="px-1 py-0.5 bg-gray-100 dark:bg-gray-200 rounded font-medium">Waist: {report.waistCm}cm</span>}
                         </div>
                         {(report.sugar || report.urinalysis || report.otherDetails) && (
-                          <div className="mt-1 space-y-0.5 text-gray-600 text-[10px]">
-                            {report.sugar && <p>Sugar: {report.sugar}</p>}
-                            {report.urinalysis && <p>Urinalysis: {report.urinalysis}</p>}
-                            {report.otherDetails && <p>Notes: {report.otherDetails}</p>}
+                          <div className="mt-1 space-y-0.5 text-gray-600 dark:text-gray-700 text-[8px] sm:text-[9px] border-t border-gray-200 dark:border-gray-300 pt-1">
+                            {report.sugar && <p className="font-medium">Sugar: <span className="font-normal">{report.sugar}</span></p>}
+                            {report.urinalysis && <p className="font-medium">Urinalysis: <span className="font-normal">{report.urinalysis}</span></p>}
+                            {report.otherDetails && <p className="font-medium">Notes: <span className="font-normal">{report.otherDetails}</span></p>}
                           </div>
                         )}
                       </div>
@@ -510,31 +560,33 @@ const AppointmentReportModal: React.FC<AppointmentReportModalProps> = ({
                 </div>
               )}
 
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-gray-200">
-                <button
-                  type="button"
-                  className="rounded border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-100"
-                  onClick={onClose}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="inline-flex items-center gap-1.5 rounded bg-blue-600 px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60"
-                >
-                  {submitting ? (
-                    <>
-                      <span className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                      Saving...
-                    </>
-                  ) : (
-                    <>
-                      <Heart className="w-3 h-3" />
-                      Save Report
-                    </>
-                  )}
-                </button>
+              <div className="sticky bottom-0 left-0 right-0 z-30 pt-1.5 pb-1.5 px-2 border-t border-gray-200 dark:border-gray-300 bg-white dark:bg-gray-50 shadow-[0_-1px_2px_-1px_rgba(0,0,0,0.1)] dark:shadow-[0_-1px_2px_-1px_rgba(0,0,0,0.2)]">
+                <div className="flex items-center justify-end gap-1">
+                  <button
+                    type="button"
+                    className="px-2 py-1 border border-gray-300 dark:border-gray-400 rounded text-[9px] sm:text-[10px] font-medium text-gray-700 dark:text-gray-900 bg-white dark:bg-gray-100 hover:bg-gray-50 dark:hover:bg-gray-200 hover:border-gray-400 dark:hover:border-gray-500 focus:outline-none focus:ring-1 focus:ring-gray-400 dark:focus:ring-gray-500 transition-all duration-200"
+                    onClick={onClose}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={submitting}
+                    className="inline-flex items-center gap-1 px-2.5 sm:px-3 py-1 rounded bg-gray-800 dark:bg-gray-700 text-[9px] sm:text-[10px] font-semibold text-white transition-all duration-200 hover:bg-gray-900 dark:hover:bg-gray-800 disabled:opacity-60"
+                  >
+                    {submitting ? (
+                      <>
+                        <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <Heart className="w-2.5 h-2.5" />
+                        Save Report
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
             </form>
           )}

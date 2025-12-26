@@ -20,9 +20,21 @@ export default async function handler(req, res) {
       return res.status(403).json({ success: false, message: "Access denied" });
     }
 
-    const { clinicId, error, isAdmin } = await getClinicIdFromUser(me);
-    if (error && !isAdmin) {
-      return res.status(404).json({ success: false, message: error });
+    // ✅ For doctors, handle independently (don't require clinicId)
+    let clinicId = null;
+    let isAdmin = me.role === "admin";
+    
+    if (me.role === "doctor") {
+      // Doctors can operate independently without clinicId
+      // Skip clinicId check for doctors
+    } else {
+      const result = await getClinicIdFromUser(me);
+      clinicId = result.clinicId;
+      isAdmin = result.isAdmin || isAdmin;
+      
+      if (result.error && !isAdmin) {
+        return res.status(404).json({ success: false, message: result.error });
+      }
     }
 
     // ✅ Check permission for reading jobs (only for doctorStaff and agent, clinic/admin/doctor bypass)
@@ -69,39 +81,49 @@ export default async function handler(req, res) {
 
     let match = {};
     if (!isAdmin) {
-      const orConditions = [{ postedBy: me._id }];
-      
-      if (clinicId) {
-        // Add clinicId match
-        orConditions.push({ clinicId });
+      if (me.role === "doctor") {
+        // For doctors, match by doctorId or postedBy (for backward compatibility)
+        match = {
+          $or: [
+            { doctorId: me._id },
+            { postedBy: me._id, role: "doctor" }
+          ]
+        };
+      } else {
+        const orConditions = [{ postedBy: me._id }];
         
-        // Find all users from the same clinic (including clinic owner)
-        // This handles cases where clinicId might not be set on the job
-        const clinic = await Clinic.findById(clinicId).select('owner');
-        const clinicUserIds = [];
-        
-        // Add clinic owner (who posted the jobs)
-        if (clinic && clinic.owner) {
-          clinicUserIds.push(clinic.owner);
-        }
-        
-        // Add all users with this clinicId (agents, staff, doctors, etc.)
-        const clinicUsers = await User.find({ 
-          clinicId: clinicId 
-        }).select('_id');
-        
-        clinicUsers.forEach(u => {
-          if (!clinicUserIds.some(id => id.toString() === u._id.toString())) {
-            clinicUserIds.push(u._id);
+        if (clinicId) {
+          // Add clinicId match
+          orConditions.push({ clinicId });
+          
+          // Find all users from the same clinic (including clinic owner)
+          // This handles cases where clinicId might not be set on the job
+          const clinic = await Clinic.findById(clinicId).select('owner');
+          const clinicUserIds = [];
+          
+          // Add clinic owner (who posted the jobs)
+          if (clinic && clinic.owner) {
+            clinicUserIds.push(clinic.owner);
           }
-        });
-        
-        if (clinicUserIds.length > 0) {
-          orConditions.push({ postedBy: { $in: clinicUserIds } });
+          
+          // Add all users with this clinicId (agents, staff, doctors, etc.)
+          const clinicUsers = await User.find({ 
+            clinicId: clinicId 
+          }).select('_id');
+          
+          clinicUsers.forEach(u => {
+            if (!clinicUserIds.some(id => id.toString() === u._id.toString())) {
+              clinicUserIds.push(u._id);
+            }
+          });
+          
+          if (clinicUserIds.length > 0) {
+            orConditions.push({ postedBy: { $in: clinicUserIds } });
+          }
         }
+        
+        match = { $or: orConditions };
       }
-      
-      match = { $or: orConditions };
     }
 
     const jobs = await JobPosting.find(match).sort({ createdAt: -1 });

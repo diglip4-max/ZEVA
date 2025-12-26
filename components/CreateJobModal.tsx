@@ -10,6 +10,7 @@ interface CreateJobModalProps {
   onClose: () => void;
   onJobCreated?: () => void;
   canCreate: boolean;
+  role?: 'clinic' | 'doctor' | 'hospital' | 'admin';
 }
 
 const CreateJobModal: React.FC<CreateJobModalProps> = ({
@@ -17,6 +18,7 @@ const CreateJobModal: React.FC<CreateJobModalProps> = ({
   onClose,
   onJobCreated,
   canCreate,
+  role = 'clinic',
 }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -28,7 +30,22 @@ const CreateJobModal: React.FC<CreateJobModalProps> = ({
 
     setIsSubmitting(true);
     try {
-      await jobPostingService.createClinicJob(formData);
+      // Use the appropriate service method based on role
+      switch (role) {
+        case 'doctor':
+          await jobPostingService.createDoctorJob(formData);
+          break;
+        case 'hospital':
+          await jobPostingService.createHospitalJob(formData);
+          break;
+        case 'admin':
+          await jobPostingService.createAdminJob(formData);
+          break;
+        case 'clinic':
+        default:
+          await jobPostingService.createClinicJob(formData);
+          break;
+      }
       toast.success("Job posted successfully!");
       if (onJobCreated) {
         onJobCreated();

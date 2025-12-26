@@ -1,5 +1,5 @@
 'use client';
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import axios from 'axios';
 import AdminLayout from '../../components/AdminLayout';
@@ -7,7 +7,6 @@ import withAdminAuth from '../../components/withAdminAuth';
 import { useAgentPermissions } from '../../hooks/useAgentPermissions';
 import {
   BeakerIcon,
-  PlusIcon,
   CheckCircleIcon,
   XCircleIcon,
   InformationCircleIcon,
@@ -94,7 +93,7 @@ const AddTreatment: NextPageWithLayout = () => {
   const [showDeleteModal, setShowDeleteModal] = useState<boolean>(false);
   const [treatmentToDelete, setTreatmentToDelete] = useState<{id: string, name: string} | null>(null);
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
-  const [isFromDropdown, setIsFromDropdown] = useState<boolean>(false);
+  // const [isFromDropdown, setIsFromDropdown] = useState<boolean>(false); // Reserved for future use - tracks if value came from dropdown vs manual input
   const [customMainTreatments, setCustomMainTreatments] = useState<Array<{id: string, name: string}>>([]);
   const [customSubTreatments, setCustomSubTreatments] = useState<Array<{id: string, name: string}>>([]);
 
@@ -108,7 +107,7 @@ const AddTreatment: NextPageWithLayout = () => {
     setToasts((prev) => prev.filter((toast) => toast.id !== id));
   }, []);
 
-  // Check if user is an admin or agent
+  // Check if user is an admin or agent/doctorStaff
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
   const [isAgent, setIsAgent] = useState<boolean>(false);
   
@@ -116,15 +115,16 @@ const AddTreatment: NextPageWithLayout = () => {
     if (typeof window !== 'undefined') {
       const adminToken = !!localStorage.getItem('adminToken');
       const agentToken = !!localStorage.getItem('agentToken');
+      const userToken = !!localStorage.getItem('userToken');
       const isAgentRoute = router.pathname?.startsWith('/agent/') || window.location.pathname?.startsWith('/agent/');
       
-      if (isAgentRoute && agentToken) {
+      if (isAgentRoute && (agentToken || userToken)) {
         setIsAdmin(false);
         setIsAgent(true);
       } else if (adminToken) {
         setIsAdmin(true);
         setIsAgent(false);
-      } else if (agentToken) {
+      } else if (agentToken || userToken) {
         setIsAdmin(false);
         setIsAgent(true);
       } else {
@@ -137,6 +137,15 @@ const AddTreatment: NextPageWithLayout = () => {
   const agentPermissionsData: any = useAgentPermissions(isAgent ? "admin_add_treatment" : (null as any));
   const agentPermissions = isAgent ? agentPermissionsData?.permissions : null;
   const permissionsLoading = isAgent ? agentPermissionsData?.loading : false;
+  
+  // Check if agent/doctorStaff doesn't have create permission
+  const hasNoCreatePermission = 
+    !isAdmin &&
+    isAgent &&
+    !permissionsLoading &&
+    agentPermissions &&
+    !agentPermissions.canCreate &&
+    !agentPermissions.canAll;
 
   // Helper: detect "read-only" agent (has only read, no other actions)
   const isAgentReadOnly =
@@ -158,7 +167,8 @@ const AddTreatment: NextPageWithLayout = () => {
     try {
       const adminToken = typeof window !== 'undefined' ? localStorage.getItem('adminToken') : null;
       const agentToken = typeof window !== 'undefined' ? localStorage.getItem('agentToken') : null;
-      const token = adminToken || agentToken;
+      const userToken = typeof window !== 'undefined' ? localStorage.getItem('userToken') : null;
+      const token = adminToken || agentToken || userToken;
 
       if (!token) {
         showToast('No authentication token found', 'error');
@@ -219,7 +229,8 @@ const AddTreatment: NextPageWithLayout = () => {
     };
   }, [showDeleteModal]);
 
-
+  // Reserved for future use - currently using handleAddBoth instead
+  /*
   const handleAddMainTreatment = async () => {
     if (!newMainTreatment.trim()) {
       showToast('Treatment name required', 'error');
@@ -236,7 +247,8 @@ const AddTreatment: NextPageWithLayout = () => {
     try {
       const adminToken = typeof window !== 'undefined' ? localStorage.getItem('adminToken') : null;
       const agentToken = typeof window !== 'undefined' ? localStorage.getItem('agentToken') : null;
-      const token = adminToken || agentToken;
+      const userToken = typeof window !== 'undefined' ? localStorage.getItem('userToken') : null;
+      const token = adminToken || agentToken || userToken;
 
       if (!token) {
         showToast('Authentication required', 'error');
@@ -267,7 +279,10 @@ const AddTreatment: NextPageWithLayout = () => {
       setLoading(false);
     }
   };
+  */
 
+  // Reserved for future use - currently using handleAddBoth instead
+  /*
   const handleAddSubTreatment = async () => {
     if (!selectedMainTreatment) {
       showToast('Select main treatment first', 'warning');
@@ -289,7 +304,8 @@ const AddTreatment: NextPageWithLayout = () => {
     try {
       const adminToken = typeof window !== 'undefined' ? localStorage.getItem('adminToken') : null;
       const agentToken = typeof window !== 'undefined' ? localStorage.getItem('agentToken') : null;
-      const token = adminToken || agentToken;
+      const userToken = typeof window !== 'undefined' ? localStorage.getItem('userToken') : null;
+      const token = adminToken || agentToken || userToken;
 
       if (!token) {
         showToast('Authentication required', 'error');
@@ -322,6 +338,7 @@ const AddTreatment: NextPageWithLayout = () => {
       setLoading(false);
     }
   };
+  */
 
   const handleRemoveCustomMainTreatment = (id: string) => {
     setCustomMainTreatments(prev => prev.filter(item => item.id !== id));
@@ -351,7 +368,8 @@ const AddTreatment: NextPageWithLayout = () => {
     try {
       const adminToken = typeof window !== 'undefined' ? localStorage.getItem('adminToken') : null;
       const agentToken = typeof window !== 'undefined' ? localStorage.getItem('agentToken') : null;
-      const token = adminToken || agentToken;
+      const userToken = typeof window !== 'undefined' ? localStorage.getItem('userToken') : null;
+      const token = adminToken || agentToken || userToken;
 
       if (!token) {
         showToast('Authentication required', 'error');
@@ -379,7 +397,7 @@ const AddTreatment: NextPageWithLayout = () => {
   };
 
   const handleMainTreatmentSelect = (treatmentId: string) => {
-    setIsFromDropdown(true);
+    // setIsFromDropdown(true); // Reserved for future use
     setSelectedMainTreatment(treatmentId);
     const selectedTreatment = treatments.find(t => t._id === treatmentId);
     if (selectedTreatment) {
@@ -389,13 +407,13 @@ const AddTreatment: NextPageWithLayout = () => {
       setAvailableSubTreatments([]);
     }
     setNewSubTreatment('');
-    setTimeout(() => setIsFromDropdown(false), 100);
+    // setTimeout(() => setIsFromDropdown(false), 100); // Reserved for future use
   };
 
   const handleSubTreatmentSelect = (subTreatmentName: string) => {
-    setIsFromDropdown(true);
+    // setIsFromDropdown(true); // Reserved for future use
     setNewSubTreatment(subTreatmentName);
-    setTimeout(() => setIsFromDropdown(false), 100);
+    // setTimeout(() => setIsFromDropdown(false), 100); // Reserved for future use
   };
 
   const handleAddBoth = async () => {
@@ -414,7 +432,8 @@ const AddTreatment: NextPageWithLayout = () => {
     try {
       const adminToken = typeof window !== 'undefined' ? localStorage.getItem('adminToken') : null;
       const agentToken = typeof window !== 'undefined' ? localStorage.getItem('agentToken') : null;
-      const token = adminToken || agentToken;
+      const userToken = typeof window !== 'undefined' ? localStorage.getItem('userToken') : null;
+      const token = adminToken || agentToken || userToken;
 
       if (!token) {
         showToast('Authentication required', 'error');
@@ -500,7 +519,7 @@ const AddTreatment: NextPageWithLayout = () => {
     }))
     .sort((a, b) => b.subCount - a.subCount)
     .slice(0, 5);
-  const maxSubCount = Math.max(...topTreatments.map((t) => t.subCount), 1);
+  // const maxSubCount = Math.max(...topTreatments.map((t) => t.subCount), 1); // Reserved for future use
 
   // Show access denied only when agent has NO permissions at all for this module
   if (
@@ -560,13 +579,13 @@ const AddTreatment: NextPageWithLayout = () => {
                 <p className="text-xs text-gray-700">Add and manage treatments</p>
               </div>
             </div>
-            <button
+            {/* <button
               onClick={fetchTreatments}
               disabled={fetching}
               className="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-50"
             >
               {fetching ? 'Loading...' : 'Refresh'}
-            </button>
+            </button> */}
           </div>
         </div>
 
@@ -597,123 +616,136 @@ const AddTreatment: NextPageWithLayout = () => {
           <div className="bg-white rounded-lg border border-gray-200 p-4">
             <h2 className="text-sm font-semibold text-gray-900 mb-4">Add Treatment</h2>
 
-            <div className="space-y-4">
-              {/* Main Treatment */}
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1.5">
-                  Main Treatment
-                </label>
-            
-                {/* Main treatment selection dropdown */}
-                <select
-                  value={selectedMainTreatment}
-                  onChange={(e) => handleMainTreatmentSelect(e.target.value)}
-                  className="w-full mt-3 px-3 py-1.5 text-sm border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-800"
-                >
-                  <option value="">Select main treatment</option>
-                  {treatments.map((treatment) => (
-                    <option key={treatment._id} value={treatment._id}>
-                      {treatment.name}
-                    </option>
-                  ))}
-                </select>
-                <input
-                  type="text"
-                  value={newMainTreatment}
-                  onChange={(e) => {
-                    setIsFromDropdown(false);
-                    setNewMainTreatment(e.target.value);
-                  }}
-                  placeholder="Enter name"
-                  className="w-full px-3 mt-2 py-1.5 text-sm border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-800"
-                />
-                {/* Custom Main Treatments Boxes */}
-                {customMainTreatments.length > 0 && (
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {customMainTreatments.map((custom) => (
-                      <div
-                        key={custom.id}
-                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-gray-100 border border-gray-300 rounded-lg text-sm text-gray-900"
-                      >
-                        <span>{custom.name}</span>
-                        <button
-                          onClick={() => handleRemoveCustomMainTreatment(custom.id)}
-                          className="text-gray-500 hover:text-red-600 transition-colors"
-                          aria-label="Remove"
-                        >
-                          <XMarkIcon className="w-4 h-4" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
+            {/* Show Access Denied if agent/doctorStaff doesn't have create permission */}
+            {hasNoCreatePermission ? (
+              <div className="flex flex-col items-center justify-center py-8">
+                <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mb-3">
+                  <XCircleIcon className="w-6 h-6 text-red-600" />
+                </div>
+                <h3 className="text-base font-semibold text-gray-900 mb-2">Access Denied</h3>
+                <p className="text-sm text-gray-700 text-center">
+                  You do not have permission to create treatments.
+                </p>
               </div>
-
-              {/* Divider */}
-              <div className="border-t border-gray-200 pt-4">
-                <label className="block text-xs font-medium text-gray-700 mb-1.5">
-                  Sub-Treatment
-                </label>
-                
-                {/* Sub-treatment selection dropdown */}
-                {selectedMainTreatment && availableSubTreatments.length > 0 && (
+            ) : (
+              <div className="space-y-4">
+                {/* Main Treatment */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1.5">
+                    Main Treatment
+                  </label>
+              
+                  {/* Main treatment selection dropdown */}
                   <select
-                    onChange={(e) => handleSubTreatmentSelect(e.target.value)}
-                    className="w-full mb-2 px-3 py-1.5 text-sm border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-800"
+                    value={selectedMainTreatment}
+                    onChange={(e) => handleMainTreatmentSelect(e.target.value)}
+                    className="w-full mt-3 px-3 py-1.5 text-sm border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-800"
                   >
-                    <option value="">Select sub-treatment</option>
-                    {availableSubTreatments.map((sub, index) => (
-                      <option key={index} value={sub.name}>
-                        {sub.name}
+                    <option value="">Select main treatment</option>
+                    {treatments.map((treatment) => (
+                      <option key={treatment._id} value={treatment._id}>
+                        {treatment.name}
                       </option>
                     ))}
                   </select>
-                )}
-
-                <input
-                  type="text"
-                  value={newSubTreatment}
-                  onChange={(e) => {
-                    setIsFromDropdown(false);
-                    setNewSubTreatment(e.target.value);
-                  }}
-                  placeholder="Enter sub-treatment name"
-                  className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-800"
-                />
-                
-                {/* Custom Sub-Treatments Boxes */}
-                {customSubTreatments.length > 0 && (
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {customSubTreatments.map((custom) => (
-                      <div
-                        key={custom.id}
-                        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-gray-100 border border-gray-300 rounded-lg text-sm text-gray-900"
-                      >
-                        <span>{custom.name}</span>
-                        <button
-                          onClick={() => handleRemoveCustomSubTreatment(custom.id)}
-                          className="text-gray-500 hover:text-red-600 transition-colors"
-                          aria-label="Remove"
+                  <input
+                    type="text"
+                    value={newMainTreatment}
+                    onChange={(e) => {
+                      // setIsFromDropdown(false); // Reserved for future use
+                      setNewMainTreatment(e.target.value);
+                    }}
+                    placeholder="Enter name"
+                    className="w-full px-3 mt-2 py-1.5 text-sm border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-800"
+                  />
+                  {/* Custom Main Treatments Boxes */}
+                  {customMainTreatments.length > 0 && (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {customMainTreatments.map((custom) => (
+                        <div
+                          key={custom.id}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-gray-100 border border-gray-300 rounded-lg text-sm text-gray-900"
                         >
-                          <XMarkIcon className="w-4 h-4" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                
-                {/* Single Add Button for Both */}
-                {(isAdmin || (isAgent && !permissionsLoading && agentPermissions && (agentPermissions.canCreate || agentPermissions.canAll))) && (
-                  <button
-                    onClick={handleAddBoth}
-                    disabled={loading || (!newMainTreatment.trim() && !newSubTreatment.trim())}
-                    className="w-full mt-4 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {loading ? 'Adding...' : 'Add Treatment'}
-                  </button>
-                )}
+                          <span>{custom.name}</span>
+                          <button
+                            onClick={() => handleRemoveCustomMainTreatment(custom.id)}
+                            className="text-gray-500 hover:text-red-600 transition-colors"
+                            aria-label="Remove"
+                          >
+                            <XMarkIcon className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Divider */}
+                <div className="border-t border-gray-200 pt-4">
+                  <label className="block text-xs font-medium text-gray-700 mb-1.5">
+                    Sub-Treatment
+                  </label>
+                  
+                  {/* Sub-treatment selection dropdown */}
+                  {selectedMainTreatment && availableSubTreatments.length > 0 && (
+                    <select
+                      onChange={(e) => handleSubTreatmentSelect(e.target.value)}
+                      className="w-full mb-2 px-3 py-1.5 text-sm border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-800"
+                    >
+                      <option value="">Select sub-treatment</option>
+                      {availableSubTreatments.map((sub, index) => (
+                        <option key={index} value={sub.name}>
+                          {sub.name}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+
+                  <input
+                    type="text"
+                    value={newSubTreatment}
+                    onChange={(e) => {
+                      // setIsFromDropdown(false); // Reserved for future use
+                      setNewSubTreatment(e.target.value);
+                    }}
+                    placeholder="Enter sub-treatment name"
+                    className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-800"
+                  />
+                  
+                  {/* Custom Sub-Treatments Boxes */}
+                  {customSubTreatments.length > 0 && (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {customSubTreatments.map((custom) => (
+                        <div
+                          key={custom.id}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-gray-100 border border-gray-300 rounded-lg text-sm text-gray-900"
+                        >
+                          <span>{custom.name}</span>
+                          <button
+                            onClick={() => handleRemoveCustomSubTreatment(custom.id)}
+                            className="text-gray-500 hover:text-red-600 transition-colors"
+                            aria-label="Remove"
+                          >
+                            <XMarkIcon className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  
+                  {/* Single Add Button for Both */}
+                  {(isAdmin || (isAgent && !permissionsLoading && agentPermissions && (agentPermissions.canCreate || agentPermissions.canAll))) && (
+                    <button
+                      onClick={handleAddBoth}
+                      disabled={loading || (!newMainTreatment.trim() && !newSubTreatment.trim())}
+                      className="w-full mt-4 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {loading ? 'Adding...' : 'Add Treatment'}
+                    </button>
+                  )}
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
            {/* Treatment List - hidden for read-only agents */}

@@ -5,7 +5,6 @@ import {
   Eye,
   EyeOff,
   Mail,
-  Building,
   Phone,
   Heart,
   Users,
@@ -168,6 +167,9 @@ const RegisterClinic: React.FC & {
   });
   const [addressDebounceTimer, setAddressDebounceTimer] =
     useState<NodeJS.Timeout | null>(null);
+  const [locationDebounceTimer, setLocationDebounceTimer] =
+    useState<NodeJS.Timeout | null>(null);
+  const [locationInput, setLocationInput] = useState<string>("");
   const [geocoder, setGeocoder] = useState<google.maps.Geocoder | null>(null);
   const [showSuccessPopup, setShowSuccessPopup] = useState<boolean>(false);
   const [errors, setErrors] = useState<Errors>({});
@@ -274,17 +276,40 @@ const RegisterClinic: React.FC & {
             longitude: location.lng(),
           }));
           showToastMessage("Address located on map automatically!", "success");
-          if (errors.location)
-            setErrors((prev) => ({ ...prev, location: undefined }));
+          setErrors((prev) => ({ ...prev, location: undefined }));
         } else {
-          showToastMessage(
-            "Could not locate address automatically. Please click on the map to set location.",
-            "info"
-          );
+          // Don't show error message - user can click on map to set location
+          // Silent failure - let user manually set location on map
         }
       });
     },
-    [geocoder, errors.location]
+    [geocoder]
+  );
+
+  const geocodeLocation = useCallback(
+    (location: string) => {
+      if (!geocoder || !location.trim()) {
+        return;
+      }
+      geocoder.geocode({ address: location }, (results, status) => {
+        if (status === "OK" && results && results[0]) {
+          const loc = results[0].geometry.location;
+          setForm((f) => ({
+            ...f,
+            latitude: loc.lat(),
+            longitude: loc.lng(),
+          }));
+          showToastMessage("Location updated on map!", "success");
+          setErrors((prev) => ({ ...prev, location: undefined }));
+        } else {
+          // Don't show error - user can still click on map to set location
+          // Don't show any toast message - let user click on map instead
+          // Clear any existing location errors
+          setErrors((prev) => ({ ...prev, location: undefined }));
+        }
+      });
+    },
+    [geocoder]
   );
 
   const handleAddressChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -296,6 +321,23 @@ const RegisterClinic: React.FC & {
       if (newAddress.trim().length > 10) geocodeAddress(newAddress);
     }, 1000);
     setAddressDebounceTimer(timer);
+  };
+
+  const handleLocationChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newLocation = e.target.value;
+    setLocationInput(newLocation);
+    // Clear location error when user types
+    if (errors.location) setErrors((prev) => ({ ...prev, location: undefined }));
+    if (locationDebounceTimer) clearTimeout(locationDebounceTimer);
+    const timer = setTimeout(() => {
+      if (newLocation.trim().length > 5) {
+        geocodeLocation(newLocation);
+      } else if (newLocation.trim().length === 0) {
+        // Clear location if input is empty
+        setForm((f) => ({ ...f, latitude: 0, longitude: 0 }));
+      }
+    }, 800);
+    setLocationDebounceTimer(timer);
   };
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -340,6 +382,7 @@ const RegisterClinic: React.FC & {
     }
     return () => {
       if (addressDebounceTimer) clearTimeout(addressDebounceTimer);
+      if (locationDebounceTimer) clearTimeout(locationDebounceTimer);
     };
   }, []);
 
@@ -357,8 +400,19 @@ const RegisterClinic: React.FC & {
     showToastMessage("Verification link sent! Check your inbox.", "success");
   };
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
+  const handleSubmit = async (e?: React.FormEvent<HTMLFormElement>) => {
+    if (e) {
+      e.preventDefault();
+    }
+    
+    // Validate step 2 (clinic details) first
+    const step2Valid = validateStep(2);
+    if (!step2Valid) {
+      setCurrentStep(2);
+      return;
+    }
+    
+    // Validate step 3 (contact information)
     const isValid = validateForm();
     if (!isValid) return;
 
@@ -446,8 +500,14 @@ const RegisterClinic: React.FC & {
       await axios.post("/api/clinics/register", data);
       setShowSuccessPopup(true);
       showToastMessage("Clinic registered successfully!", "success");
-    } catch (err) {
-      showToastMessage("Clinic registration failed", "error");
+    } catch (err: any) {
+      const errorMessage = err?.response?.data?.message || "Clinic registration failed";
+      // Don't show "Invalid address" error if location is already set
+      if (errorMessage.toLowerCase().includes("invalid address") && form.latitude !== 0 && form.longitude !== 0) {
+        showToastMessage("Registration failed. Please check all fields.", "error");
+      } else {
+        showToastMessage(errorMessage, "error");
+      }
     }
   };
 
@@ -530,8 +590,8 @@ const RegisterClinic: React.FC & {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-white via-slate-50 to-white py-6 px-4">
-      <div className="max-w-7xl mx-auto w-full min-h-[calc(100vh-3rem)] flex flex-col gap-6">
+    <div className="min-h-screen bg-gradient-to-b from-white via-slate-50 to-white py-2 px-4">
+      <div className="max-w-7xl mx-auto w-full h-[calc(100vh-1rem)] flex flex-col gap-1">
         <Toast
           message={toast.message}
           type={toast.type}
@@ -539,46 +599,33 @@ const RegisterClinic: React.FC & {
           onClose={() => setShowToast(false)}
         />
 
-        {/* Header */}
-        <div className="text-center mb-5">
-          <p className="text-xs uppercase tracking-[0.3em] text-sky-700/80 font-semibold mb-2">
-            ZEVA for Providers
-          </p>
-          <h1 className="text-2xl lg:text-3xl font-bold text-slate-900 mb-2">
-            Healthcare Center Registration
-          </h1>
-          <p className="text-slate-600 text-sm lg:text-base max-w-2xl mx-auto">
-            Modern onboarding designed to help your clinic shine from day one. Complete the steps below to join our curated care network.
-          </p>
-        </div>
-
         {/* Progress Indicator */}
-        <div className="bg-white/95 backdrop-blur-sm rounded-2xl border border-slate-100 shadow-xl p-3 lg:p-4 mb-6">
+        <div className="p-1.5 lg:p-2 mb-0.5">
           <div className="flex items-center justify-between max-w-2xl mx-auto">
-            <div className="flex items-center gap-2">
-              <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs transition-all ${currentStep >= 1 ? 'bg-sky-500 text-white shadow-sky-500/30 shadow-lg' : 'bg-slate-100 text-slate-400'
+            <div className="flex items-center gap-1.5">
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-[10px] transition-all ${currentStep >= 1 ? 'bg-sky-500 text-white shadow-sky-500/30 shadow-lg' : 'bg-slate-100 text-slate-400'
                 }`}>
                 {currentStep > 1 ? '✓' : '1'}
               </div>
-              <span className="text-xs font-semibold text-slate-600 tracking-wide hidden sm:inline">Account</span>
+              <span className="text-[10px] font-semibold text-slate-600 tracking-wide hidden sm:inline">Account</span>
             </div>
-            <div className={`flex-1 h-1 mx-2 rounded-full transition-all duration-500 ${currentStep >= 2 ? 'bg-gradient-to-r from-sky-500 to-blue-600' : 'bg-slate-200'
+            <div className={`flex-1 h-0.5 mx-1.5 rounded-full transition-all duration-500 ${currentStep >= 2 ? 'bg-gradient-to-r from-sky-500 to-blue-600' : 'bg-slate-200'
               }`}></div>
-            <div className="flex items-center gap-2">
-              <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs transition-all ${currentStep >= 2 ? 'bg-sky-500 text-white shadow-sky-500/30 shadow-lg' : 'bg-slate-100 text-slate-400'
+            <div className="flex items-center gap-1.5">
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-[10px] transition-all ${currentStep >= 2 ? 'bg-sky-500 text-white shadow-sky-500/30 shadow-lg' : 'bg-slate-100 text-slate-400'
                 }`}>
                 {currentStep > 2 ? '✓' : '2'}
               </div>
-              <span className="text-xs font-semibold text-slate-600 tracking-wide hidden sm:inline">Details</span>
+              <span className="text-[10px] font-semibold text-slate-600 tracking-wide hidden sm:inline">Details</span>
             </div>
-            <div className={`flex-1 h-1 mx-2 rounded-full transition-all duration-500 ${currentStep >= 3 ? 'bg-gradient-to-r from-sky-500 to-blue-600' : 'bg-slate-200'
+            <div className={`flex-1 h-0.5 mx-1.5 rounded-full transition-all duration-500 ${currentStep >= 3 ? 'bg-gradient-to-r from-sky-500 to-blue-600' : 'bg-slate-200'
               }`}></div>
-            <div className="flex items-center gap-2">
-              <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs transition-all ${currentStep >= 3 ? 'bg-sky-500 text-white shadow-sky-500/30 shadow-lg' : 'bg-slate-100 text-slate-400'
+            <div className="flex items-center gap-1.5">
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-[10px] transition-all ${currentStep >= 3 ? 'bg-sky-500 text-white shadow-sky-500/30 shadow-lg' : 'bg-slate-100 text-slate-400'
                 }`}>
                 3
               </div>
-              <span className="text-xs font-semibold text-slate-600 tracking-wide hidden sm:inline">Contact</span>
+              <span className="text-[10px] font-semibold text-slate-600 tracking-wide hidden sm:inline">Contact</span>
             </div>
           </div>
         </div>
@@ -592,30 +639,30 @@ const RegisterClinic: React.FC & {
             {/* Step 1: Account Setup */}
             <div className="w-full flex-shrink-0 flex items-center justify-center px-2">
               <div className="w-full max-w-xl">
-                <div className="bg-white/95 backdrop-blur rounded-2xl shadow-2xl p-5 lg:p-7 border border-slate-100">
-                  <div className="flex items-center gap-3 mb-4 pb-3 border-b border-gray-100">
-                    <div className="w-12 h-12 bg-gradient-to-br from-sky-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-sky-500/40">
-                      <Mail className="w-5 h-5 text-white" />
+                <div className="p-3 lg:p-4">
+                  <div className="flex items-center gap-2 mb-3 pb-2 border-b border-gray-100">
+                    <div className="w-10 h-10 bg-gradient-to-br from-sky-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-sky-500/40">
+                      <Mail className="w-4 h-4 text-white" />
                     </div>
                     <div>
-                      <h2 className="text-lg lg:text-xl font-bold text-slate-900">Account Setup</h2>
-                      <p className="text-xs text-slate-500">Create your credentials</p>
+                      <h2 className="text-base lg:text-lg font-bold text-slate-900">Account Setup</h2>
+                      <p className="text-[10px] text-slate-500">Create your credentials</p>
                     </div>
                   </div>
 
-                  <div className="space-y-4">
+                  <div className="space-y-3">
                     <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      <label className="block text-[11px] font-semibold text-gray-700 mb-1">
                         Email Address <span className="text-red-500">*</span>
                       </label>
-                      <div className="flex gap-2">
+                      <div className="flex gap-1.5">
                         <div className="flex-1">
                           <div className="relative">
-                            <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                            <Mail className="absolute left-2 top-1/2 transform -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
                             <input
                               type="email"
                               placeholder="healthcare@example.com"
-                              className={`text-black w-full pl-10 pr-3 py-2.5 border-2 rounded-lg focus:outline-none transition-all bg-gray-50 focus:bg-white text-sm ${errors.email ? "border-red-400 focus:border-red-500" : "border-gray-200 focus:border-[#00b480]"
+                              className={`text-black w-full pl-8 pr-2 py-1.5 border-2 rounded-lg focus:outline-none transition-all bg-gray-50 focus:bg-white text-xs ${errors.email ? "border-red-400 focus:border-red-500" : "border-gray-200 focus:border-[#00b480]"
                                 }`}
                               value={form.email}
                               onChange={(e) => {
@@ -628,7 +675,7 @@ const RegisterClinic: React.FC & {
                         </div>
                         <button
                           type="button"
-                          className={`px-4 py-2.5 rounded-lg font-semibold whitespace-nowrap transition-all text-sm ${emailVerified
+                          className={`px-3 py-1.5 rounded-lg font-semibold whitespace-nowrap transition-all text-xs ${emailVerified
                               ? "bg-[#00b480] text-white"
                               : emailSent
                                 ? "bg-gray-100 text-gray-600 cursor-not-allowed"
@@ -649,14 +696,14 @@ const RegisterClinic: React.FC & {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      <label className="block text-[11px] font-semibold text-gray-700 mb-1">
                         Password <span className="text-red-500">*</span>
                       </label>
                       <div className="relative">
                         <input
                           type={showPassword ? "text" : "password"}
                           placeholder="Create password (min. 8 characters)"
-                          className={`text-black w-full px-3 py-2.5 border-2 rounded-lg focus:outline-none transition-all bg-gray-50 focus:bg-white text-sm ${errors.password ? "border-red-400 focus:border-red-500" : "border-gray-200 focus:border-[#00b480]"
+                          className={`text-black w-full px-2 py-1.5 border-2 rounded-lg focus:outline-none transition-all bg-gray-50 focus:bg-white text-xs ${errors.password ? "border-red-400 focus:border-red-500" : "border-gray-200 focus:border-[#00b480]"
                             }`}
                           value={ownerPassword}
                           onChange={(e) => {
@@ -666,26 +713,26 @@ const RegisterClinic: React.FC & {
                         />
                         <button
                           type="button"
-                          className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400"
+                          className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400"
                           onClick={() => setShowPassword(!showPassword)}
                         >
-                          {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                          {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
                         </button>
                       </div>
                     </div>
                   </div>
 
-                  <div className="mt-6 flex justify-end">
+                  <div className="mt-4 flex justify-end">
                     <button
                       type="button"
-                      className={`px-6 py-2.5 rounded-lg font-semibold transition-all flex items-center gap-2 text-sm ${emailVerified
+                      className={`px-4 py-1.5 rounded-lg font-semibold transition-all flex items-center gap-1.5 text-xs ${emailVerified
                           ? "bg-gradient-to-r from-[#00b480] to-[#008f66] text-white"
                           : "bg-gray-300 text-gray-500 cursor-not-allowed"
                         }`}
                       onClick={() => handleNext(2)}
                       disabled={!emailVerified}
                     >
-                      Next <ChevronRight size={18} />
+                      Next <ChevronRight size={14} />
                     </button>
                   </div>
                 </div>
@@ -693,30 +740,32 @@ const RegisterClinic: React.FC & {
             </div>
 
             {/* Step 2: Healthcare Center Details */}
-            <div className="w-full flex-shrink-0 flex items-center justify-center px-2">
-              <div className="w-full max-w-5xl h-[calc(100vh-180px)] flex flex-col">
-                <div className="bg-white rounded-xl shadow-md p-4 border border-gray-100 flex-1 flex flex-col overflow-hidden">
-                  <div className="flex items-center gap-3 pb-3 border-b border-gray-100">
-                    <div className="w-10 h-10 bg-gradient-to-br from-[#00b480] to-[#008f66] rounded-xl flex items-center justify-center">
-                      <Building className="w-5 h-5 text-white" />
-                    </div>
-                    <div>
-                      <h2 className="text-lg lg:text-xl font-bold text-gray-800">Center Information</h2>
-                      <p className="text-xs text-gray-500">About your facility</p>
-                    </div>
+            <div className="w-full flex-shrink-0 flex items-start justify-center px-2">
+              <div className="w-full max-w-5xl h-full flex flex-col">
+                <div className="flex-1 flex flex-col overflow-hidden">
+                  <div className="text-center mb-2 pb-1">
+                    <p className="text-[10px] uppercase tracking-[0.15em] text-sky-700/80 font-semibold mb-0.5">
+                      ZEVA for Providers
+                    </p>
+                    <h2 className="text-base lg:text-lg font-bold text-slate-900 mb-0.5">
+                      Healthcare Center Registration
+                    </h2>
+                    <p className="text-[11px] text-slate-600 max-w-2xl mx-auto leading-tight">
+                      Modern onboarding designed to help your clinic shine from day one. Complete the steps below to join our curated care network.
+                    </p>
                   </div>
 
-                  <div className="flex-1 overflow-y-auto py-3">
-                    <div className="grid lg:grid-cols-2 gap-4">
+                  <div className="flex-1 py-1">
+                    <div className="grid lg:grid-cols-2 gap-2">
                       {/* Left Column */}
-                      <div className="space-y-3">
+                      <div className="space-y-2">
                         <div>
-                          <label className="block text-xs font-semibold text-gray-700 mb-1">
+                          <label className="block text-[11px] font-semibold text-gray-700 mb-0.5">
                             Center Name <span className="text-red-500">*</span>
                           </label>
                           <input
                             placeholder="Green Valley Wellness"
-                            className={`text-black w-full px-3 py-2 border-2 rounded-lg focus:outline-none bg-gray-50 focus:bg-white text-sm ${errors.name ? "border-red-400" : "border-gray-200 focus:border-[#00b480]"
+                            className={`text-black w-full px-2 py-1.5 border-2 rounded-lg focus:outline-none bg-gray-50 focus:bg-white text-xs ${errors.name ? "border-red-400" : "border-gray-200 focus:border-[#00b480]"
                               }`}
                             value={form.name}
                             onChange={(e) => {
@@ -727,13 +776,13 @@ const RegisterClinic: React.FC & {
                         </div>
 
                         <div className="relative text-black" ref={dropdownRef}>
-                          <label className="block text-xs font-semibold text-gray-700 mb-1">
+                          <label className="block text-[11px] font-semibold text-gray-700 mb-0.5">
                             Services Offered <span className="text-red-500">*</span>
                           </label>
                           <button
                             type="button"
                             onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                            className={`text-black w-full px-3 py-2 border-2 rounded-lg text-left flex items-center justify-between bg-gray-50 hover:bg-white text-sm ${errors.treatments ? "border-red-400" : "border-gray-200"
+                            className={`text-black w-full px-2 py-1.5 border-2 rounded-lg text-left flex items-center justify-between bg-gray-50 hover:bg-white text-xs ${errors.treatments ? "border-red-400" : "border-gray-200"
                               }`}
                           >
                             <div className="flex-1">
@@ -796,15 +845,15 @@ const RegisterClinic: React.FC & {
 
                         {/* Custom Treatments Input - Show when "Other" is selected */}
                         {selectedTreatments.includes("other") && (
-                          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                            <label className="block text-xs font-semibold text-gray-900 mb-2">
+                          <div className="bg-blue-50 border border-blue-200 rounded-lg p-2">
+                            <label className="block text-[11px] font-semibold text-gray-900 mb-1">
                               Add Custom Services (Max 5)
                             </label>
-                            <div className="flex gap-2 mb-2">
+                            <div className="flex gap-1.5 mb-1.5">
                               <input
                                 type="text"
                                 placeholder="Enter service name"
-                                className="text-gray-900 flex-1 px-3 py-2 border-2 border-gray-200 rounded-lg focus:border-[#00b480] focus:outline-none bg-white text-sm"
+                                className="text-gray-900 flex-1 px-2 py-1.5 border-2 border-gray-200 rounded-lg focus:border-[#00b480] focus:outline-none bg-white text-xs"
                                 value={newOther}
                                 onChange={(e) => setNewOther(e.target.value)}
                                 onKeyPress={(e) => {
@@ -840,7 +889,7 @@ const RegisterClinic: React.FC & {
                                   }
                                 }}
                                 disabled={otherTreatments.length >= 5}
-                                className={`px-3 py-2 rounded-lg font-semibold text-xs whitespace-nowrap ${otherTreatments.length >= 5
+                                className={`px-2 py-1.5 rounded-lg font-semibold text-[10px] whitespace-nowrap ${otherTreatments.length >= 5
                                     ? "bg-gray-300 text-gray-500 cursor-not-allowed"
                                     : "bg-[#00b480] text-white hover:bg-[#009973]"
                                   }`}
@@ -851,8 +900,8 @@ const RegisterClinic: React.FC & {
 
                             {/* Display added custom treatments */}
                             {otherTreatments.length > 0 && (
-                              <div className="space-y-1">
-                                <p className="text-xs text-gray-600 mb-1">Added services ({otherTreatments.length}/5):</p>
+                              <div className="space-y-0.5">
+                                <p className="text-[10px] text-gray-600 mb-0.5">Added services ({otherTreatments.length}/5):</p>
                                 <div className="flex flex-wrap gap-1">
                                   {otherTreatments.map((treatment, index) => (
                                     <span
@@ -882,46 +931,46 @@ const RegisterClinic: React.FC & {
                           </div>
                         )}
 
-                        <div className="grid grid-cols-2 gap-2">
+                        <div className="grid grid-cols-2 gap-1.5">
                           <div>
-                            <label className="block text-xs font-semibold text-gray-700 mb-1">Price Range</label>
+                            <label className="block text-[11px] font-semibold text-gray-700 mb-0.5">Price Range</label>
                             <input
                               placeholder="500-2000"
-                              className="text-black w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:border-[#00b480] focus:outline-none bg-gray-50 text-sm"
+                              className="text-black w-full px-2 py-1.5 border-2 border-gray-200 rounded-lg focus:border-[#00b480] focus:outline-none bg-gray-50 text-xs"
                               value={form.pricing}
                               onChange={(e) => setForm((f) => ({ ...f, pricing: e.target.value }))}
                             />
                           </div>
                           <div>
-                            <label className="block text-xs font-semibold text-gray-700 mb-1">Hours</label>
+                            <label className="block text-[11px] font-semibold text-gray-700 mb-0.5">Hours</label>
                             <input
                               placeholder="9 AM - 6 PM"
-                              className="text-black w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:border-[#00b480] focus:outline-none bg-gray-50 text-sm"
+                              className="text-black w-full px-2 py-1.5 border-2 border-gray-200 rounded-lg focus:border-[#00b480] focus:outline-none bg-gray-50 text-xs"
                               value={form.timings}
                               onChange={(e) => setForm((f) => ({ ...f, timings: e.target.value }))}
                             />
                           </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-2">
+                        <div className="grid grid-cols-2 gap-1.5">
                           <div>
-                            <label className="block text-xs font-semibold text-gray-700 mb-1">
+                            <label className="block text-[11px] font-semibold text-gray-700 mb-0.5">
                               Photo <span className="text-red-500">*</span>
                             </label>
                             <input
                               type="file"
                               accept="image/*"
-                              className={`text-black w-full px-2 py-1.5 border-2 rounded-lg bg-gray-50 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:bg-[#00b480] file:text-white text-xs ${errors.clinicPhoto ? "border-red-400" : "border-gray-200"
+                              className={`text-black w-full px-1.5 py-1 border-2 rounded-lg bg-gray-50 file:mr-1.5 file:py-0.5 file:px-1.5 file:rounded file:border-0 file:text-[10px] file:bg-[#00b480] file:text-white text-[10px] ${errors.clinicPhoto ? "border-red-400" : "border-gray-200"
                                 }`}
                               onChange={handleFileChange}
                             />
                           </div>
                           <div>
-                            <label className="block text-xs font-semibold text-gray-700 mb-1">License</label>
+                            <label className="block text-[11px] font-semibold text-gray-700 mb-0.5">License</label>
                             <input
                               type="file"
                               accept=".pdf,image/*"
-                              className="text-black w-full px-2 py-1.5 border-2 border-gray-200 rounded-lg bg-gray-50 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:bg-gray-200 file:text-gray-700 text-xs"
+                              className="text-black w-full px-1.5 py-1 border-2 border-gray-200 rounded-lg bg-gray-50 file:mr-1.5 file:py-0.5 file:px-1.5 file:rounded file:border-0 file:text-[10px] file:bg-gray-200 file:text-gray-700 text-[10px]"
                               onChange={handleLicenseChange}
                             />
                           </div>
@@ -929,14 +978,14 @@ const RegisterClinic: React.FC & {
                       </div>
 
                       {/* Right Column */}
-                      <div className="space-y-3">
+                      <div className="space-y-2">
                         <div>
-                          <label className="block text-xs font-semibold text-gray-700 mb-1">
+                          <label className="block text-[11px] font-semibold text-gray-700 mb-0.5">
                             Address <span className="text-red-500">*</span>
                           </label>
                           <textarea
                             placeholder="Street, Building, City, State"
-                            className={`text-black w-full px-3 py-2 border-2 rounded-lg focus:outline-none bg-gray-50 resize-none text-sm ${errors.address ? "border-red-400" : "border-gray-200 focus:border-[#00b480]"
+                            className={`text-black w-full px-2 py-1.5 border-2 rounded-lg focus:outline-none bg-gray-50 resize-none text-xs ${errors.address ? "border-red-400" : "border-gray-200 focus:border-[#00b480]"
                               }`}
                             value={form.address}
                             onChange={handleAddressChange}
@@ -945,11 +994,19 @@ const RegisterClinic: React.FC & {
                         </div>
 
                         <div>
-                          <label className="block text-xs font-semibold text-gray-700 mb-1">
+                          <label className="block text-[11px] font-semibold text-gray-700 mb-0.5">
                             Location <span className="text-red-500">*</span>
                           </label>
-                          <p className="text-xs text-gray-500 mb-1">Click map to pin location</p>
-                          <div className={`h-44 border-2 rounded-lg overflow-hidden ${errors.location ? "border-red-400" : "border-gray-200"}`}>
+                          <input
+                            type="text"
+                            placeholder="Type address or location (e.g., Noida Sector 5)"
+                            className={`text-black w-full px-2 py-1.5 border-2 rounded-lg focus:outline-none bg-gray-50 focus:bg-white text-xs mb-1 ${errors.location ? "border-red-400" : "border-gray-200 focus:border-[#00b480]"
+                              }`}
+                            value={locationInput}
+                            onChange={handleLocationChange}
+                          />
+                          <p className="text-[10px] text-gray-500 mb-0.5">Or click map to pin location</p>
+                          <div className={`h-32 border-2 rounded-lg overflow-hidden ${errors.location ? "border-red-400" : "border-gray-200"}`}>
                             <GoogleMap
                               zoom={form.latitude !== 0 ? 15 : 12}
                               center={{
@@ -960,8 +1017,24 @@ const RegisterClinic: React.FC & {
                               onLoad={onMapLoad}
                               onClick={(e) => {
                                 if (e.latLng) {
-                                  setForm((f) => ({ ...f, latitude: e.latLng!.lat(), longitude: e.latLng!.lng() }));
-                                  if (errors.location) setErrors((prev) => ({ ...prev, location: undefined }));
+                                  setForm((f) => ({ 
+                                    ...f, 
+                                    latitude: e.latLng!.lat(), 
+                                    longitude: e.latLng!.lng() 
+                                  }));
+                                  // Clear any location errors
+                                  setErrors((prev) => ({ ...prev, location: undefined }));
+                                  // Reverse geocode to update location input
+                                  if (geocoder) {
+                                    geocoder.geocode({ location: e.latLng }, (results, status) => {
+                                      if (status === "OK" && results && results[0]) {
+                                        setLocationInput(results[0].formatted_address);
+                                        showToastMessage("Location set successfully!", "success");
+                                      }
+                                    });
+                                  } else {
+                                    showToastMessage("Location set successfully!", "success");
+                                  }
                                 }
                               }}
                             >
@@ -975,20 +1048,20 @@ const RegisterClinic: React.FC & {
                     </div>
                   </div>
 
-                  <div className="mt-3 pt-3 border-t border-gray-100 flex justify-between">
+                  <div className="mt-2 pt-2 border-t border-gray-100 flex justify-between">
                     <button
                       type="button"
-                      className="px-4 py-2 rounded-lg font-semibold flex items-center gap-2 bg-gray-100 text-gray-700 hover:bg-gray-200 text-sm"
+                      className="px-3 py-1.5 rounded-lg font-semibold flex items-center gap-1.5 bg-gray-100 text-gray-700 hover:bg-gray-200 text-xs"
                       onClick={() => setCurrentStep(1)}
                     >
-                      <ChevronLeft size={18} /> Back
+                      <ChevronLeft size={14} /> Back
                     </button>
                     <button
                       type="button"
-                      className="px-6 py-2 rounded-lg font-semibold flex items-center gap-2 bg-gradient-to-r from-[#00b480] to-[#008f66] text-white text-sm"
+                      className="px-4 py-1.5 rounded-lg font-semibold flex items-center gap-1.5 bg-gradient-to-r from-[#00b480] to-[#008f66] text-white text-xs"
                       onClick={() => handleNext(3)}
                     >
-                      Next <ChevronRight size={18} />
+                      Next <ChevronRight size={14} />
                     </button>
                   </div>
                 </div>
@@ -998,27 +1071,27 @@ const RegisterClinic: React.FC & {
             {/* Step 3: Contact Information */}
             <div className="w-full flex-shrink-0 flex items-center justify-center px-2">
               <div className="w-full max-w-xl">
-                <div className="bg-white rounded-xl shadow-md p-4 lg:p-6 border border-gray-100">
-                  <div className="flex items-center gap-3 mb-4 pb-3 border-b border-gray-100">
+                <div className="p-3 lg:p-4">
+                  <div className="flex items-center gap-2 mb-3 pb-2 border-b border-gray-100">
                     <div className="w-10 h-10 bg-gradient-to-br from-[#00b480] to-[#008f66] rounded-xl flex items-center justify-center">
-                      <Phone className="w-5 h-5 text-white" />
+                      <Phone className="w-4 h-4 text-white" />
                     </div>
                     <div>
-                      <h2 className="text-lg lg:text-xl font-bold text-gray-800">Contact Information</h2>
-                      <p className="text-xs text-gray-500">How can patients reach you?</p>
+                      <h2 className="text-base lg:text-lg font-bold text-gray-800">Contact Information</h2>
+                      <p className="text-[10px] text-gray-500">How can patients reach you?</p>
                     </div>
                   </div>
 
-                  <div className="space-y-4">
+                  <div className="space-y-3">
                     <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      <label className="block text-[11px] font-semibold text-gray-700 mb-1">
                         Your Full Name <span className="text-red-500">*</span>
                       </label>
                       <div className="relative">
-                        <Users className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                        <Users className="absolute left-2 top-1/2 transform -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
                         <input
                           placeholder="Dr. John Smith"
-                          className={`text-black w-full pl-10 pr-3 py-2.5 border-2 rounded-lg focus:outline-none bg-gray-50 focus:bg-white text-sm ${errors.contactName ? "border-red-400" : "border-gray-200 focus:border-[#00b480]"
+                          className={`text-black w-full pl-8 pr-2 py-1.5 border-2 rounded-lg focus:outline-none bg-gray-50 focus:bg-white text-xs ${errors.contactName ? "border-red-400" : "border-gray-200 focus:border-[#00b480]"
                             }`}
                           value={contactInfo.name}
                           onChange={(e) => {
@@ -1030,36 +1103,36 @@ const RegisterClinic: React.FC & {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      <label className="block text-[11px] font-semibold text-gray-700 mb-1">
                         Phone Number <span className="text-red-500">*</span>
                       </label>
                       <div className="relative">
-                        <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                        <Phone className="absolute left-2 top-1/2 transform -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
                         <input
                           type="tel"
                           placeholder="1234567890"
-                          className={`text-black w-full pl-10 pr-3 py-2.5 border-2 rounded-lg focus:outline-none bg-gray-50 focus:bg-white text-sm ${errors.phone ? "border-red-400" : "border-gray-200 focus:border-[#00b480]"
+                          className={`text-black w-full pl-8 pr-2 py-1.5 border-2 rounded-lg focus:outline-none bg-gray-50 focus:bg-white text-xs ${errors.phone ? "border-red-400" : "border-gray-200 focus:border-[#00b480]"
                             }`}
                           value={contactInfo.phone}
                           onChange={handlePhoneChange}
                           maxLength={10}
                         />
                       </div>
-                      <p className="text-xs text-gray-500 mt-1">10-digit mobile number</p>
+                      <p className="text-[10px] text-gray-500 mt-0.5">10-digit mobile number</p>
                     </div>
                   </div>
 
-                  <div className="mt-4 p-4 bg-gradient-to-br from-[#00b480]/5 to-[#00b480]/10 rounded-lg border border-[#00b480]/20">
-                    <div className="flex items-start gap-3">
-                      <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center flex-shrink-0">
-                        <Shield className="w-5 h-5 text-[#00b480]" />
+                  <div className="mt-3 p-2.5 bg-gradient-to-br from-[#00b480]/5 to-[#00b480]/10 rounded-lg border border-[#00b480]/20">
+                    <div className="flex items-start gap-2">
+                      <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center flex-shrink-0">
+                        <Shield className="w-4 h-4 text-[#00b480]" />
                       </div>
                       <div>
-                        <h4 className="font-bold text-gray-800 mb-1 text-sm">Ready to Join?</h4>
-                        <p className="text-xs text-gray-600 mb-2">
+                        <h4 className="font-bold text-gray-800 mb-0.5 text-xs">Ready to Join?</h4>
+                        <p className="text-[10px] text-gray-600 mb-1">
                           Connect with patients and manage your center efficiently.
                         </p>
-                        <ul className="text-xs text-gray-600 space-y-0.5">
+                        <ul className="text-[10px] text-gray-600 space-y-0">
                           <li>• Reach potential patients</li>
                           <li>• Manage appointments</li>
                           <li>• Post job openings</li>
@@ -1068,25 +1141,28 @@ const RegisterClinic: React.FC & {
                     </div>
                   </div>
 
-                  <div className="mt-6 flex justify-between">
+                  <div className="mt-4 flex justify-between">
                     <button
                       type="button"
-                      className="px-4 py-2.5 rounded-lg font-semibold flex items-center gap-2 bg-gray-100 text-gray-700 hover:bg-gray-200 text-sm"
+                      className="px-3 py-1.5 rounded-lg font-semibold flex items-center gap-1.5 bg-gray-100 text-gray-700 hover:bg-gray-200 text-xs"
                       onClick={() => setCurrentStep(2)}
                     >
-                      <ChevronLeft size={18} /> Back
+                      <ChevronLeft size={14} /> Back
                     </button>
                     <button
-                      type="submit"
-                      onClick={() => setCurrentStep(2)}
-                      className="px-6 py-2.5 rounded-lg font-bold transition-all bg-gradient-to-r from-[#00b480] to-[#008f66] text-white flex items-center gap-2 text-sm"
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        handleSubmit();
+                      }}
+                      className="px-4 py-1.5 rounded-lg font-bold transition-all bg-gradient-to-r from-[#00b480] to-[#008f66] text-white flex items-center gap-1.5 text-xs"
                     >
-                      <Heart className="w-4 h-4" />
+                      <Heart className="w-3 h-3" />
                       Complete Registration
                     </button>
                   </div>
 
-                  <p className="text-xs text-center text-gray-500 mt-3">
+                  <p className="text-[10px] text-center text-gray-500 mt-2">
                     By registering, you agree to our Terms of Service
                   </p>
                 </div>

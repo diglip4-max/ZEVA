@@ -41,7 +41,10 @@ interface ReviewData {
 
 export default function DoctorDetail() {
   const router = useRouter();
-  const { id } = router.query as { id?: string };
+  // 'id' from path will be the slug (doctor name)
+  const slug = router.query.id as string | undefined;
+  // Get the actual doctor ID from query parameter (passed as ?d=... in URL to avoid conflict)
+  const doctorId = router.query.d as string | undefined;
   const [profile, setProfile] = useState<DoctorProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -65,13 +68,21 @@ export default function DoctorDetail() {
   });
   const [prescriptionLoading, setPrescriptionLoading] = useState(false);
   useEffect(() => {
-    if (!id) return;
+    if (!router.isReady) return;
+    
+    // Get doctor ID from query parameter (passed as ?d=... in URL)
+    // If no query param, check if the path param is actually an ObjectId (24 hex chars) for backward compatibility
+    const isObjectId = slug && /^[0-9a-fA-F]{24}$/.test(slug);
+    // Use query param 'd' if available, otherwise use slug if it's an ObjectId (backward compatibility)
+    const idToUse = doctorId || (isObjectId ? slug : null);
+    
+    if (!idToUse) return;
     const fetchProfile = async () => {
       try {
         setLoading(true);
         setError(null);
         const res = await axios.get<{ profile: DoctorProfile }>(
-          `/api/doctor/profile/${id}`
+          `/api/doctor/profile/${idToUse}`
         );
         setProfile(res.data?.profile ?? null);
       } catch {
@@ -81,7 +92,7 @@ export default function DoctorDetail() {
       }
     };
     fetchProfile();
-  }, [id]);
+  }, [slug, doctorId, router.isReady]);
 
   useEffect(() => {
     if (!profile?._id) return;
@@ -199,7 +210,7 @@ export default function DoctorDetail() {
         Authorization: token ? `Bearer ${token}` : "",
       },
       body: JSON.stringify({
-        doctorId: id,
+        doctorId: profile?._id || (router.query.id as string),
         healthIssue: prescriptionForm.healthIssue,
         symptoms: prescriptionForm.symptoms,
       }),

@@ -58,7 +58,6 @@ function UserChat() {
   const router = useRouter();
   const { requestId } = router.query as { requestId?: string };
   const [chat, setChat] = useState<Chat | null>(null);
- const [prescriptionRequest, setPrescriptionRequest] = useState<PrescriptionRequestLite | null>(null);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
@@ -155,9 +154,8 @@ function UserChat() {
       );
 
       if (response.data.success) {
-        const { chat: chatData, prescriptionRequest: pr } = response.data.data;
+        const { chat: chatData } = response.data.data;
         setChat(chatData);
-        setPrescriptionRequest(pr);
       }
     } catch (err: any) {
       const status = err?.response?.status;

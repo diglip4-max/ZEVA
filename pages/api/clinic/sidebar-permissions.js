@@ -123,7 +123,8 @@ export default async function handler(req, res) {
     });
 
     // Filter navigation items based on permissions
-    // Show module only if clinic has "read" or "all" permission at module level
+    // Show module if ANY action is true (all, create, read, update, delete, print, export, approve)
+    // Only hide module if ALL actions are false
     // Show submodule only if clinic has "read" or "all" permission at submodule level
     const filteredNavigationItems = navigationItems
       .map(item => {
@@ -132,13 +133,21 @@ export default async function handler(req, res) {
                           permissionMap[item.moduleKey.replace('clinic_', '')] ||
                           permissionMap[item.moduleKey.replace(/^(admin|clinic|doctor)_/, '')];
         
-        // Check if module has read permission
-        const hasModuleRead = modulePerm && (
-          modulePerm.moduleActions.read === true || 
-          modulePerm.moduleActions.all === true
+        // Check if module has ANY permission at module level
+        // Show module if any of these actions is true: all, create, read, update, delete, print, export, approve
+        const hasModulePermission = modulePerm && (
+          modulePerm.moduleActions.all === true ||
+          modulePerm.moduleActions.create === true ||
+          modulePerm.moduleActions.read === true ||
+          modulePerm.moduleActions.update === true ||
+          modulePerm.moduleActions.delete === true ||
+          modulePerm.moduleActions.print === true ||
+          modulePerm.moduleActions.export === true ||
+          modulePerm.moduleActions.approve === true
         );
 
-        if (!hasModuleRead) {
+        // Only hide module if ALL actions are false (or no permission exists)
+        if (!hasModulePermission) {
           return null; // Don't show this module at all
         }
 

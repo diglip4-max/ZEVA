@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
+import Head from 'next/head'
 
 interface GameState {
   isRunning: boolean;
@@ -121,7 +122,74 @@ function BreathHold() {
   };
 
 return (
-  <div className="min-h-screen bg-white flex items-center justify-center p-4">
+  <>
+    <Head>
+      <title>Breath Hold Calculator | Measure Lung Capacity – ZEVA</title>
+      <meta
+        name="description"
+        content="Use ZEVA's Breath Hold Calculator to track breath-holding capacity, assess lung health, and improve breathing performance with instant results."
+      />
+      <meta
+        name="keywords"
+        content="Breath Hold Calculator, breath holding capacity, lung capacity test, breathing health calculator, respiratory health tool, breath hold time test, lung health assessment, breathing performance test, oxygen capacity check, fitness breathing tool, ZEVA health calculator"
+      />
+      <meta property="og:title" content="Breath Hold Calculator | Measure Lung Capacity – ZEVA" />
+      <meta
+        property="og:description"
+        content="Use ZEVA's Breath Hold Calculator to track breath-holding capacity, assess lung health, and improve breathing performance with instant results."
+      />
+      <meta property="og:type" content="website" />
+      <meta name="twitter:card" content="summary_large_image" />
+      <meta name="twitter:title" content="Breath Hold Calculator | Measure Lung Capacity – ZEVA" />
+      <meta
+        name="twitter:description"
+        content="Use ZEVA's Breath Hold Calculator to track breath-holding capacity, assess lung health, and improve breathing performance with instant results."
+      />
+      {/* Schema Markup - Breath Hold Calculator WebPage */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "MedicalWebPage",
+            "name": "Breath Hold Calculator",
+            "url": "https://zeva360.com/calculator/breathhold",
+            "description": "Track your breath-holding capacity and improve lung health using ZEVA's Breath Hold Calculator. A free, easy-to-use tool designed to help users understand respiratory fitness and breathing control.",
+            "isPartOf": {
+              "@type": "WebSite",
+              "name": "ZEVA",
+              "url": "https://zeva360.com"
+            },
+            "publisher": {
+              "@type": "Organization",
+              "name": "ZEVA",
+              "url": "https://zeva360.com",
+              "logo": {
+                "@type": "ImageObject",
+                "url": "https://zeva360.com/logo.png"
+              }
+            },
+            "about": {
+              "@type": "MedicalCondition",
+              "name": "Respiratory Health",
+              "description": "Measurement of breath-holding capacity to assess lung strength and breathing efficiency."
+            },
+            "mainEntity": {
+              "@type": "SoftwareApplication",
+              "name": "Breath Hold Calculator",
+              "applicationCategory": "HealthApplication",
+              "operatingSystem": "Web",
+              "offers": {
+                "@type": "Offer",
+                "price": "0",
+                "priceCurrency": "USD"
+              }
+            }
+          })
+        }}
+      />
+    </Head>
+    <div className="min-h-screen bg-white flex items-center justify-center p-4">
     <div className="bg-white border border-gray-200 rounded-2xl p-8 w-full max-w-6xl shadow-lg">
       {/* Header */}
       <div className="flex justify-between items-center flex-wrap gap-4 mb-8">
@@ -278,8 +346,9 @@ return (
         }
       }
     `}</style>
-  </div>
-);
+    </div>
+  </>
+  );
 }
 
 export default BreathHold;

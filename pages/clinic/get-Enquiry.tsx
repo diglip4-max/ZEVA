@@ -533,7 +533,7 @@ function ClinicEnquiries({ contextOverride = null }: { contextOverride?: "clinic
               )}
             </div>
           ) : (
-            filteredEnquiries.map((enquiry, index) => {
+            filteredEnquiries.map((enquiry) => {
               const isTodayEnquiry = isToday(enquiry.createdAt);
               const isRecent = isWithinLastDays(enquiry.createdAt, 7);
               

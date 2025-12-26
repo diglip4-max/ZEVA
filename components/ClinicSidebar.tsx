@@ -20,8 +20,6 @@ import {
   Stethoscope,
   Building2,
   UserCircle,
-  ChevronRight,
-  X,
   Menu,
   Inbox,
   UserPlus,
@@ -74,7 +72,6 @@ import {
   Edit,
   Trash2,
   Save,
-  Check,
   XCircle,
   AlertCircle,
   Info,
@@ -89,11 +86,9 @@ import {
   ShoppingCart,
   Tag,
   Percent,
-  FolderOpen,
   Archive,
   HardDrive,
   Globe2,
-  MapPin,
 } from "lucide-react";
 
 interface NavItemChild {
@@ -128,6 +123,10 @@ interface NavigationItemFromAPI {
 
 interface ClinicSidebarProps {
   className?: string;
+  externalIsDesktopHidden?: boolean;
+  externalIsMobileOpen?: boolean;
+  onExternalToggleDesktop?: () => void;
+  onExternalToggleMobile?: () => void;
 }
 
 // Professional icon mapping for clinic sidebar - using Lucide React icons
@@ -201,7 +200,6 @@ const iconMap: { [key: string]: React.ReactNode } = {
   '✍️': <PenTool className="w-4 h-4" />,
   'documents': <FileText className="w-4 h-4" />,
   'files': <File className="w-4 h-4" />,
-  'reports': <FileText className="w-4 h-4" />,
   'records': <ClipboardCheck className="w-4 h-4" />,
   'prescriptions': <FileText className="w-4 h-4" />,
   'notes': <FileEdit className="w-4 h-4" />,
@@ -351,7 +349,6 @@ const iconMap: { [key: string]: React.ReactNode } = {
   'opportunities': <Zap className="w-4 h-4" />,
   
   // Analytics & Reports
-  'analytics': <BarChart3 className="w-4 h-4" />,
   'statistics': <BarChart3 className="w-4 h-4" />,
   'charts': <BarChart3 className="w-4 h-4" />,
   'insights': <TrendingUp className="w-4 h-4" />,
@@ -360,11 +357,20 @@ const iconMap: { [key: string]: React.ReactNode } = {
   // Default fallback for any unmapped icons
 };
 
-const ClinicSidebar: FC<ClinicSidebarProps> = ({ className }) => {
+const ClinicSidebar: FC<ClinicSidebarProps> = ({ 
+  className,
+  externalIsDesktopHidden,
+  externalIsMobileOpen,
+  onExternalToggleDesktop,
+  onExternalToggleMobile,
+}) => {
   const router = useRouter();
-  const [isDesktopHidden, setIsDesktopHidden] = useState(false);
-  const [isMobileOpen, setIsMobileOpen] = useState(false);
-  const [hoveredItem, setHoveredItem] = useState<string | null>(null);
+  const [internalIsDesktopHidden, setInternalIsDesktopHidden] = useState(false);
+  const [internalIsMobileOpen, setInternalIsMobileOpen] = useState(false);
+  
+  // Use external state if provided, otherwise use internal state
+  const isDesktopHidden = externalIsDesktopHidden !== undefined ? externalIsDesktopHidden : internalIsDesktopHidden;
+  const isMobileOpen = externalIsMobileOpen !== undefined ? externalIsMobileOpen : internalIsMobileOpen;
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const [selectedItem, setSelectedItem] = useState<string | null>(null);
   const [items, setItems] = useState<NavItem[]>([]);
@@ -380,13 +386,17 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({ className }) => {
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === "Escape" && isMobileOpen) {
-        setIsMobileOpen(false);
+        if (onExternalToggleMobile && externalIsMobileOpen) {
+          onExternalToggleMobile(); // Toggle to close
+        } else {
+          setInternalIsMobileOpen(false);
+        }
       }
     };
 
     document.addEventListener("keydown", handleEscape);
     return () => document.removeEventListener("keydown", handleEscape);
-  }, [isMobileOpen]);
+  }, [isMobileOpen, onExternalToggleMobile, externalIsMobileOpen]);
 
   // Prevent body scroll when mobile menu is open
   useEffect(() => {
@@ -532,25 +542,35 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({ className }) => {
   }, [items]);
 
   const handleToggleDesktop = () => {
-    setIsDesktopHidden(!isDesktopHidden);
+    if (onExternalToggleDesktop && externalIsDesktopHidden !== undefined) {
+      onExternalToggleDesktop();
+    } else {
+      setInternalIsDesktopHidden(!isDesktopHidden);
+    }
   };
 
   const handleToggleMobile = () => {
-    setIsMobileOpen(!isMobileOpen);
+    if (onExternalToggleMobile && externalIsMobileOpen !== undefined) {
+      onExternalToggleMobile();
+    } else {
+      setInternalIsMobileOpen(!isMobileOpen);
+    }
   };
 
   const handleCloseMobile = () => {
-    setIsMobileOpen(false);
+    if (onExternalToggleMobile && externalIsMobileOpen) {
+      onExternalToggleMobile(); // Toggle to close
+    } else {
+      setInternalIsMobileOpen(false);
+    }
   };
 
   const handleItemClick = () => {
-    setIsMobileOpen(false);
-  };
-
-  const handleRegularItemClick = (label: string) => {
-    setIsMobileOpen(false);
-    setOpenDropdown(null); // Close dropdown when regular items are clicked
-    setSelectedItem(label); // Mark this item as selected
+    if (onExternalToggleMobile && externalIsMobileOpen) {
+      onExternalToggleMobile(); // Toggle to close
+    } else {
+      setInternalIsMobileOpen(false);
+    }
   };
 
   // Avoid click firing after drag
@@ -614,35 +634,51 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({ className }) => {
 
   return (
     <>
-      {/* Mobile Toggle Button - Only shows when sidebar is closed */}
-      <button
-        onClick={handleToggleMobile}
-        className={clsx(
-          "fixed top-4 left-4 z-[60] bg-white text-gray-700 p-2.5 rounded-lg shadow-md transition-all duration-200 border border-gray-200 hover:bg-gray-50 hover:border-gray-300 lg:hidden",
-          {
-            block: !isMobileOpen,
-            hidden: isMobileOpen,
-          }
-        )}
-        aria-label="Open mobile menu"
-      >
-        <Menu className="w-5 h-5" />
-      </button>
+      {/* Mobile Toggle Button - Only shows when sidebar is closed and no external state */}
+      {(!onExternalToggleMobile || externalIsMobileOpen === undefined) && (
+        <button
+          onClick={handleToggleMobile}
+          className={clsx(
+            "fixed top-4 left-4 z-[100] bg-white text-gray-700 p-3 rounded-lg shadow-lg transition-all duration-200 border-2 border-gray-300 hover:bg-gray-50 hover:border-gray-400 lg:hidden touch-manipulation",
+            {
+              block: !isMobileOpen,
+              hidden: isMobileOpen,
+            }
+          )}
+          aria-label="Open mobile menu"
+          style={{ WebkitTapHighlightColor: 'transparent' }}
+        >
+          <Menu className="w-6 h-6" />
+        </button>
+      )}
 
-      {/* Desktop Toggle Button */}
-      <button
-        onClick={handleToggleDesktop}
-        className={clsx(
-          "fixed top-4 left-4 z-[60] bg-white text-gray-700 p-2.5 rounded-lg shadow-md transition-all duration-200 border border-gray-200 hover:bg-gray-50 hover:border-gray-300 hidden lg:block",
-          {
-            "lg:block": isDesktopHidden,
-            "lg:hidden": !isDesktopHidden,
-          }
-        )}
-        aria-label="Toggle desktop sidebar"
-      >
-        <Menu className="w-5 h-5" />
-      </button>
+      {/* Desktop Toggle Button - Only shows when no external state */}
+      {(!onExternalToggleDesktop || externalIsDesktopHidden === undefined) && (
+        <button
+          onClick={handleToggleDesktop}
+          className={clsx(
+            "fixed top-4 left-4 z-[60] bg-white text-gray-700 p-2.5 rounded-lg shadow-md transition-all duration-200 border border-gray-200 hover:bg-gray-50 hover:border-gray-300 hidden lg:block",
+            {
+              "lg:block": isDesktopHidden,
+              "lg:hidden": !isDesktopHidden,
+            }
+          )}
+          aria-label="Toggle desktop sidebar"
+        >
+          <Menu className="w-5 h-5" />
+        </button>
+      )}
+
+      {/* Desktop Toggle Button - Shows when sidebar is hidden */}
+      {isDesktopHidden && (
+        <button
+          onClick={handleToggleDesktop}
+          className="fixed top-3 left-3 z-[100] bg-white text-gray-700 p-1.5 rounded-lg shadow-md transition-all duration-200 border border-gray-200 hover:bg-gray-50 hover:border-gray-300 hover:shadow-lg hidden lg:flex items-center justify-center"
+          aria-label="Toggle desktop sidebar"
+        >
+          <Menu className="w-4 h-4" />
+        </button>
+      )}
 
       {/* Mobile Overlay - Covers entire screen when sidebar is open */}
       {isMobileOpen && (
@@ -703,14 +739,13 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({ className }) => {
               {isLoading ? (
                 <div className="text-xs text-gray-500 px-2">Loading menu…</div>
               ) : (
-                items.map((item, parentIdx) => {
+                items.map((item, _parentIdx) => {
                 const isDropdownOpen = openDropdown === item.label;
                 // If an item is manually selected, only that item should be active
                 // Otherwise, use router pathname to determine active state
                 const isActive = selectedItem 
                   ? selectedItem === item.label 
                   : router.pathname === item.path;
-                const isHovered = hoveredItem === item.path;
 
                 // If item has children => Dropdown
                 if (item.children) {
@@ -799,8 +834,6 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({ className }) => {
                                       "hover:bg-gray-50 text-gray-700": !childActive,
                                     }
                                   )}
-                                  onMouseEnter={() => setHoveredItem(child.path!)}
-                                  onMouseLeave={() => setHoveredItem(null)}
                                   onClick={safeClick(() => {
                                     setSelectedItem(child.label);
                                   })}
@@ -941,7 +974,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({ className }) => {
                 </div>
               </div>
             </div>
-
+            
             {/* Mobile Navigation */}
             <nav className="flex-1 overflow-y-auto px-3 py-4 min-h-0">
               <div className="text-gray-700 text-xs font-semibold uppercase tracking-wider mb-3 px-2">
@@ -952,12 +985,100 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({ className }) => {
                 <div className="text-xs text-gray-500 px-2">Loading menu…</div>
               ) : (
                 <div className="space-y-1">
-                  {items.map((item) => {
+                  {items.map((item, _parentIdx) => {
+                  const isDropdownOpen = openDropdown === item.label;
                   // If an item is manually selected, only that item should be active
                   // Otherwise, use router pathname to determine active state
                   const isActive = selectedItem 
                     ? selectedItem === item.label 
                     : router.pathname === item.path;
+
+                  // If item has children => Dropdown
+                  if (item.children) {
+                    return (
+                      <div key={item.label}>
+                        <div
+                          className={clsx(
+                            "group relative block rounded-lg transition-all duration-200 cursor-pointer p-2.5 touch-manipulation",
+                            {
+                              "bg-gray-800 text-white": isDropdownOpen,
+                              "hover:bg-gray-50 text-gray-700": !isDropdownOpen,
+                            }
+                          )}
+                          onClick={safeClick(() => {
+                            setOpenDropdown(isDropdownOpen ? null : item.label);
+                            setSelectedItem(item.label);
+                          })}
+                        >
+                          <div className="flex items-center space-x-3">
+                            <div className={clsx(
+                              "p-1.5 rounded-md transition-all duration-200 flex-shrink-0",
+                              {
+                                "bg-white/20 text-white": isDropdownOpen,
+                                "text-gray-700 group-hover:text-gray-800 group-hover:bg-gray-100": !isDropdownOpen,
+                              }
+                            )}>
+                              {iconMap[item.icon] || <span className="text-base">{item.icon}</span>}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className={clsx(
+                                "font-medium text-sm transition-colors duration-200 truncate",
+                                {
+                                  "text-white": isDropdownOpen,
+                                  "text-gray-900": !isDropdownOpen,
+                                }
+                              )}>
+                                {item.label}
+                              </div>
+                            </div>
+                            <svg
+                              className={clsx(
+                                "w-4 h-4 transition-transform duration-200 flex-shrink-0",
+                                {
+                                  "text-white rotate-90": isDropdownOpen,
+                                  "text-gray-500": !isDropdownOpen,
+                                }
+                              )}
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                            </svg>
+                          </div>
+                        </div>
+                        {isDropdownOpen && item.children && (
+                          <div className="ml-4 mt-1 space-y-1 border-l-2 border-gray-200 pl-3">
+                            {item.children.map((child) => {
+                              const isChildActive = router.pathname === child.path;
+                              return child.path ? (
+                                <Link key={child.name} href={child.path} onClick={handleItemClick}>
+                                  <div
+                                    className={clsx(
+                                      "group relative block rounded-lg transition-all duration-200 cursor-pointer p-2 touch-manipulation",
+                                      {
+                                        "bg-gray-100 text-gray-900": isChildActive,
+                                        "hover:bg-gray-50 text-gray-700": !isChildActive,
+                                      }
+                                    )}
+                                  >
+                                    <div className="flex items-center space-x-2">
+                                      <span className="text-xs">{child.icon}</span>
+                                      <span className="text-xs font-medium truncate">{child.name}</span>
+                                    </div>
+                                  </div>
+                                </Link>
+                              ) : (
+                                <div key={child.name} className="p-2 text-xs text-gray-500">
+                                  {child.name}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  }
 
                   const MenuItemContent = (
                     <div

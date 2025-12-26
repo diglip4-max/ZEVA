@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
-    "build": "next build",
+    "build": "node scripts/clean-build.js && next build",
+    "build:clean": "node scripts/clean-build.js && next build",
     "start": "next start",
     "lint": "next lint",
     "export": "next export",
@@ -28,6 +29,7 @@
     "firebase": "^11.9.1",
     "firebase-admin": "^13.4.0",
     "formidable": "^3.5.4",
+    "framer-motion": "^12.23.26",
     "html-react-parser": "^5.2.6",
     "i18next": "^25.3.2",
     "ioredis": "^5.8.2",

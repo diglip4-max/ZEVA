@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
-import { Plus, Trash2, Calculator, Search, Target, TrendingUp } from 'lucide-react';
+import Head from 'next/head'
+import { Trash2 } from 'lucide-react';
 
 interface Food {
   name: string;
@@ -157,7 +158,74 @@ function CalorieCounter() {
   const calorieStatus = getCalorieStatus(totalCalories);
 
 return (
-  <div className="min-h-screen bg-white">
+  <>
+    <Head>
+      <title>Calorie Count Calculator | Track Daily Calories – ZEVA</title>
+      <meta
+        name="description"
+        content="Use ZEVA's free Calorie Count Calculator to track daily calorie intake, manage diet goals, and maintain a healthy, balanced lifestyle."
+      />
+      <meta
+        name="keywords"
+        content="Calorie Count Calculator, calorie intake tracker, daily calorie calculator, diet calorie calculator, food calorie tracker, nutrition calculator, healthy diet tool, weight management calculator, ZEVA calorie tool"
+      />
+      <meta property="og:title" content="Calorie Count Calculator | Track Daily Calories – ZEVA" />
+      <meta
+        property="og:description"
+        content="Use ZEVA's free Calorie Count Calculator to track daily calorie intake, manage diet goals, and maintain a healthy, balanced lifestyle."
+      />
+      <meta property="og:type" content="website" />
+      <meta name="twitter:card" content="summary_large_image" />
+      <meta name="twitter:title" content="Calorie Count Calculator | Track Daily Calories – ZEVA" />
+      <meta
+        name="twitter:description"
+        content="Use ZEVA's free Calorie Count Calculator to track daily calorie intake, manage diet goals, and maintain a healthy, balanced lifestyle."
+      />
+      {/* Schema Markup - Calorie Count Calculator WebPage */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "MedicalWebPage",
+            "name": "Calorie Count Calculator",
+            "url": "https://zeva360.com/calculator/calorie-counter",
+            "description": "Track your daily calorie intake and maintain a healthy diet with ZEVA's Calorie Count Calculator. A free and easy tool to monitor nutrition, manage weight goals, and support a balanced lifestyle.",
+            "isPartOf": {
+              "@type": "WebSite",
+              "name": "ZEVA",
+              "url": "https://zeva360.com"
+            },
+            "publisher": {
+              "@type": "Organization",
+              "name": "ZEVA",
+              "url": "https://zeva360.com",
+              "logo": {
+                "@type": "ImageObject",
+                "url": "https://zeva360.com/logo.png"
+              }
+            },
+            "about": {
+              "@type": "MedicalCondition",
+              "name": "Nutrition & Weight Management",
+              "description": "Calorie intake monitoring to support healthy eating habits and weight control."
+            },
+            "mainEntity": {
+              "@type": "SoftwareApplication",
+              "name": "Calorie Count Calculator",
+              "applicationCategory": "HealthApplication",
+              "operatingSystem": "Web",
+              "offers": {
+                "@type": "Offer",
+                "price": "0",
+                "priceCurrency": "USD"
+              }
+            }
+          })
+        }}
+      />
+    </Head>
+    <div className="min-h-screen bg-white">
     <div className="max-w-6xl mx-auto p-6">
       {/* Header */}
       <div className="mb-8">
@@ -300,6 +368,7 @@ return (
       </div>
     </div>
   </div>
+  </>
 );
 }
 

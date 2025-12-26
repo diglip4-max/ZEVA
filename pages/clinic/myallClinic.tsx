@@ -24,7 +24,7 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import { Toaster, toast } from "react-hot-toast";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip, Legend, LineChart, Line, PieChart, Pie, Cell } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip, Cell } from "recharts";
 
 const TOKEN_PRIORITY = [
   "clinicToken",
@@ -709,21 +709,47 @@ const ClinicCard = ({ clinic, onEdit, getImagePath, canUpdate, stats, statsLoadi
         {/* Clinic Image - Top Left Corner */}
         <div className="relative flex-shrink-0">
           <div className="relative w-20 h-20 sm:w-24 sm:h-24 lg:w-28 lg:h-28 rounded-lg overflow-hidden border-2 border-gray-200 shadow-sm bg-gray-50">
-            {clinic.photos?.[0] ? (
-              <Image
-                src={getImagePath(clinic.photos[0])}
-                className="w-full h-full object-contain"
-                alt={clinic.name}
-                width={160}
-                height={160}
-                unoptimized={true}
-                onError={(e) => {
-                  const img = e.currentTarget as HTMLImageElement;
-                  (img as any).onerror = null;
-                  img.src = PLACEHOLDER_DATA_URI;
-                }}
-              />
-            ) : (
+            {clinic.photos?.[0] ? (() => {
+              const imageSrc = getImagePath(clinic.photos[0]);
+              // Validate the URL before passing to Image component
+              if (!imageSrc || imageSrc === '') {
+                return (
+                  <div className="w-full h-full bg-gray-100 flex items-center justify-center">
+                    <Camera className="w-8 h-8 sm:w-10 sm:h-10 text-gray-400" />
+                  </div>
+                );
+              }
+              // Use regular img tag for data URIs to avoid Next.js Image validation issues
+              if (imageSrc.startsWith('data:')) {
+                return (
+                  <img
+                    src={imageSrc}
+                    alt={clinic.name || 'Clinic photo'}
+                    className="w-full h-full object-contain"
+                    onError={(e) => {
+                      const img = e.currentTarget as HTMLImageElement;
+                      img.onerror = null;
+                      img.src = PLACEHOLDER_DATA_URI;
+                    }}
+                  />
+                );
+              }
+              return (
+                <Image
+                  src={imageSrc}
+                  className="w-full h-full object-contain"
+                  alt={clinic.name || 'Clinic photo'}
+                  width={160}
+                  height={160}
+                  unoptimized={true}
+                  onError={(e) => {
+                    const img = e.currentTarget as HTMLImageElement;
+                    (img as any).onerror = null;
+                    img.src = PLACEHOLDER_DATA_URI;
+                  }}
+                />
+              );
+            })() : (
               <div className="w-full h-full bg-gray-100 flex items-center justify-center">
                 <Camera className="w-8 h-8 sm:w-10 sm:h-10 text-gray-400" />
               </div>
@@ -996,15 +1022,48 @@ function ClinicManagementDashboard() {
   });
   const [statsLoading, setStatsLoading] = useState(true);
 
-  const getImagePath = (photoPath: string): string => {
-    if (!photoPath) return PLACEHOLDER_DATA_URI;
-    if (photoPath.startsWith("http")) return photoPath;
-    if (photoPath.startsWith("/")) return photoPath;
-    if (photoPath.includes("uploads/clinic/")) {
-      const filename = photoPath.split("uploads/clinic/").pop();
-      return `/uploads/clinic/${filename}`;
+  const getImagePath = (photoPath: string | undefined | null): string => {
+    // Handle null, undefined, or empty string
+    if (!photoPath || typeof photoPath !== 'string' || photoPath.trim() === '') {
+      return PLACEHOLDER_DATA_URI;
     }
-    return `/uploads/clinic/${photoPath}`;
+    
+    const trimmedPath = photoPath.trim();
+    
+    // If it's already a valid HTTP/HTTPS URL, return it
+    if (trimmedPath.startsWith("http://") || trimmedPath.startsWith("https://")) {
+      try {
+        new URL(trimmedPath);
+        return trimmedPath;
+      } catch {
+        return PLACEHOLDER_DATA_URI;
+      }
+    }
+    
+    // If it starts with /, validate it's a proper path
+    if (trimmedPath.startsWith("/")) {
+      // Remove any query strings or fragments that might cause issues
+      const cleanPath = trimmedPath.split('?')[0].split('#')[0];
+      return cleanPath;
+    }
+    
+    // Handle paths with uploads/clinic/
+    if (trimmedPath.includes("uploads/clinic/")) {
+      const filename = trimmedPath.split("uploads/clinic/").pop();
+      if (filename && filename.trim() !== '') {
+        // Clean the filename
+        const cleanFilename = filename.split('?')[0].split('#')[0].trim();
+        return `/uploads/clinic/${cleanFilename}`;
+      }
+    }
+    
+    // Default: prepend /uploads/clinic/ but validate the path
+    const cleanPath = trimmedPath.split('?')[0].split('#')[0].trim();
+    if (cleanPath === '' || cleanPath.includes('..')) {
+      return PLACEHOLDER_DATA_URI;
+    }
+    
+    return `/uploads/clinic/${cleanPath}`;
   };
 
   // Helper to get user role from token
@@ -2227,7 +2286,7 @@ const SummaryCard = ({ title, value, icon, color }: SummaryCardProps) => {
     green: "bg-gray-50 border-gray-200 text-gray-800",
   };
 
-  const [bgColor, borderColor, textColor] = colorClasses[color].split(' ');
+  const [_bgColor, borderColor, textColor] = colorClasses[color].split(' ');
 
   return (
     <div className={`bg-white rounded-lg p-2.5 sm:p-3 border ${borderColor} shadow-sm`}>

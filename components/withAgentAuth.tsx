@@ -84,7 +84,40 @@ export default function withAgentAuth<P extends object>(
 
     return (
       <>
-        <Toaster />
+        {/* MODIFIED: Set position to top-right with proper toast options to match other pages */}
+        <Toaster 
+          position="top-right"
+          toastOptions={{
+            duration: 3000,
+            style: {
+              background: "#1f2937",
+              color: "#f9fafb",
+              fontSize: "12px",
+              padding: "8px 12px",
+              borderRadius: "6px",
+            },
+            success: {
+              iconTheme: {
+                primary: "#10b981",
+                secondary: "#fff",
+              },
+              style: {
+                background: "#10b981",
+                color: "#fff",
+              },
+            },
+            error: {
+              iconTheme: {
+                primary: "#ef4444",
+                secondary: "#fff",
+              },
+              style: {
+                background: "#ef4444",
+                color: "#fff",
+              },
+            },
+          }}
+        />
         {isAuthenticated ? <WrappedComponent {...props} /> : null}
       </>
     );

@@ -363,4 +363,3 @@ export async function getModulePermissions(clinicId, moduleKey) {
     return { permissions: null, error: "Error getting permissions" };
   }
 }
-

@@ -22,7 +22,7 @@ import {
   ClockIcon,
   ArrowPathIcon,
 } from "@heroicons/react/24/outline";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
 // Add Lead interface
 interface Lead {
@@ -454,10 +454,6 @@ function LeadsPage() {
                             </button>
 
                             {(() => {
-                                const adminTokenExists = typeof window !== 'undefined' ? !!localStorage.getItem('adminToken') : false;
-                                const agentTokenExists = typeof window !== 'undefined' ? !!localStorage.getItem('agentToken') : false;
-                                const isAgentRoute = router.pathname?.startsWith('/agent/') || (typeof window !== 'undefined' && window.location.pathname?.startsWith('/agent/'));
-                                
                                 const canExport = isAdmin || (isAgent && !permissionsLoading && agentPermissions && (agentPermissions.canExport || agentPermissions.canAll));
                                 
                                 if (canExport) {

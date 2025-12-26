@@ -14,6 +14,7 @@ import {
   X,
   BadgeIndianRupee,
   Clock,
+  HeartPulse,
 } from "lucide-react";
 import AuthModal from "../../components/AuthModal";
 import dayjs from "dayjs";
@@ -100,14 +101,14 @@ export default function FindDoctor() {
   const resultsRef = useRef<HTMLDivElement>(null);
 
   // Add missing state variables
-  const [priceRange, setPriceRange] = useState([0, 5000]);
+  const [priceRange, setPriceRange] = useState([0, 50000]);
   // const [selectedTreatments, setSelectedTreatments] = useState<string[]>([]);
   const [selectedTimes, setSelectedTimes] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState('relevance');
 
   // Add the clearAllFilters function
   const clearFilters = () => {
-    setPriceRange([0, 5000]);
+    setPriceRange([0, 50000]);
     setSelectedTimes([]);
     setStarFilter(0);
     setSortBy('relevance');
@@ -137,51 +138,55 @@ export default function FindDoctor() {
   const router = useRouter();
   // const { isAuthenticated, user } = useAuth();
 
-  // Add state for dynamic available times
-  const [dynamicAvailableTimes, setDynamicAvailableTimes] = useState<string[]>([]);
-  // Function to extract available times from doctor time slots
-  const extractAvailableTimes = (doctors: Doctor[]) => {
-    const timeSet = new Set<string>();
-
-    doctors.forEach(doctor => {
-      if (doctor.timeSlots) {
-        doctor.timeSlots.forEach(slot => {
-          // Add morning slots
-          if (slot.sessions.morning && slot.sessions.morning.length > 0) {
-            slot.sessions.morning.forEach(time => {
-              timeSet.add(time);
-            });
-          }
-          // Add evening slots
-          if (slot.sessions.evening && slot.sessions.evening.length > 0) {
-            slot.sessions.evening.forEach(time => {
-              timeSet.add(time);
-            });
-          }
-        });
-      }
-    });
-
-    // Convert to array and sort
-    const times = Array.from(timeSet).sort();
-
-    // Add special availability options
-    const specialOptions = [
-      'Available Today',
-      'Available Tomorrow',
-      'Weekend Available'
-    ];
-
-    return [...times, ...specialOptions];
+  // Helper function to convert text to slug
+  const textToSlug = (text: string) => {
+    if (!text) return '';
+    return text
+      .toLowerCase()
+      .trim()
+      .replace(/[^\w\s-]/g, '') // Remove special characters
+      .replace(/\s+/g, '-') // Replace spaces with hyphens
+      .replace(/-+/g, '-'); // Replace multiple hyphens with single hyphen
   };
 
-  // Update dynamic times when doctors change
-  useEffect(() => {
-    if (doctors.length > 0) {
-      const times = extractAvailableTimes(doctors);
-      setDynamicAvailableTimes(times);
+  // Helper function to convert slug back to readable text
+  const slugToText = (slug: string) => {
+    if (!slug) return '';
+    return slug
+      .split('-')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  };
+
+  // Update URL with search parameters - ALWAYS use values from input fields
+  const updateURL = (treatment: string, location: string) => {
+    // Set flag to prevent useEffect from interfering
+    isUpdatingURL.current = true;
+    
+    const params = new URLSearchParams();
+    if (treatment) {
+      params.set('treatment', textToSlug(treatment));
     }
-  }, [doctors]);
+    if (location) {
+      // Always use the actual location value from input - no special handling
+      params.set('location', textToSlug(location));
+    }
+    const newUrl = params.toString() 
+      ? `${router.pathname}?${params.toString()}`
+      : router.pathname;
+    
+    router.replace(newUrl, undefined, { shallow: true });
+    
+    // Reset flag after a short delay to allow URL to update
+    setTimeout(() => {
+      isUpdatingURL.current = false;
+    }, 100);
+  };
+
+  // Flag to prevent useEffect from interfering during URL updates
+  const isUpdatingURL = useRef(false);
+  const hasSearchedFromURL = useRef(false);
+
 
   // Add scroll to results functionality
   useEffect(() => {
@@ -195,21 +200,6 @@ export default function FindDoctor() {
       }, 100);
     }
   }, [doctors, loading]);
-
-  // Fallback to static times if no dynamic times available
-  const availableTimes = dynamicAvailableTimes.length > 0 ? dynamicAvailableTimes : [
-    'Early Morning (4 AM - 6 AM)',
-    'Morning (6 AM - 12 PM)',
-    'Late Morning (10 AM - 12 PM)',
-    'Afternoon (12 PM - 6 PM)',
-    'Late Afternoon (3 PM - 6 PM)',
-    'Evening (6 PM - 10 PM)',
-    'Late Night (10 PM - 12 AM)',
-    'Night (12 AM - 4 AM)',
-    'Available Today',
-    'Available Tomorrow',
-    'Weekend Available'
-  ];
 
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const suggestionsDropdownRef = useRef<HTMLDivElement | null>(null);
@@ -262,10 +252,49 @@ export default function FindDoctor() {
         }
       } catch {
         // console.error("Error loading persisted state:", error);
-        clearPersistedState();
       }
     }
   }, []);
+
+  // Separate useEffect for URL query parameters to avoid conflicts with localStorage
+  useEffect(() => {
+    if (!router.isReady || hasSearchedFromURL.current || isUpdatingURL.current) return;
+    
+    const { treatment, location } = router.query;
+    if (treatment || location) {
+      const treatmentText = treatment ? slugToText(String(treatment)) : '';
+      const locationText = location ? slugToText(String(location)) : '';
+      
+      // Check if current form values don't match URL params (to avoid overwriting manual input)
+      const currentLocationMatches = !locationText || manualPlace.trim().toLowerCase() === locationText.toLowerCase();
+      
+      if (locationText && locationText !== 'near-me' && !currentLocationMatches) {
+        hasSearchedFromURL.current = true;
+        
+        // Set the form values
+        if (treatmentText) {
+          setQuery(treatmentText);
+          setSelectedService(treatmentText);
+        }
+        setManualPlace(locationText);
+
+        // Auto-search with a small delay to ensure state is set
+        setTimeout(() => {
+          searchByPlaceFromURL(locationText, treatmentText || null);
+        }, 300);
+      } else if (locationText === 'near-me' && treatmentText) {
+        hasSearchedFromURL.current = true;
+        
+        // Handle near-me case
+        setQuery(treatmentText);
+        setSelectedService(treatmentText);
+        // Trigger locateMe after a delay
+        setTimeout(() => {
+          locateMe();
+        }, 300);
+      }
+    }
+  }, [router.isReady, router.query.treatment, router.query.location]);
 
   // Save search state to localStorage whenever it changes
   useEffect(() => {
@@ -310,10 +339,6 @@ export default function FindDoctor() {
     setStarFilter(0);
     setSuggestions([]);
     clearPersistedState();
-  };
-
-  const clearLocation = () => {
-    setManualPlace("");
   };
 
   // Function to fetch reviews for a single doctor
@@ -485,12 +510,25 @@ export default function FindDoctor() {
 
   // Update locateMe to pass selectedService
   const locateMe = () => {
+    // Reset URL search flag so manual searches work
+    hasSearchedFromURL.current = false;
+    
     setLoading(true);
     clearPersistedState(); // Clear old state when starting new search
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const { latitude, longitude } = pos.coords;
         setCoords({ lat: latitude, lng: longitude });
+        
+        // Get values from input fields
+        const treatmentValue = query.trim();
+        const locationValue = manualPlace.trim();
+        const serviceToUse = selectedService || treatmentValue;
+        
+        // Update URL with values from input fields (if location is empty, use "near-me")
+        const locationForURL = locationValue || 'near-me';
+        updateURL(serviceToUse || treatmentValue, locationForURL);
+        
         fetchDoctors(latitude, longitude, selectedService);
       },
       () => {
@@ -502,15 +540,25 @@ export default function FindDoctor() {
 
   // Update searchByPlace to pass selectedService
   const searchByPlace = async () => {
-    if (!manualPlace.trim()) return;
+    // ALWAYS get location value directly from input field
+    const placeQuery = manualPlace.trim();
+    if (!placeQuery) return;
 
     setLoading(true);
     clearPersistedState(); // Clear old state when starting new search
     try {
       const res = await axios.get("/api/doctor/geocode", {
-        params: { place: manualPlace },
+        params: { place: placeQuery },
       });
       setCoords({ lat: res.data.lat, lng: res.data.lng });
+      
+      // Get values from input fields for URL update
+      const treatmentValue = query.trim();
+      const serviceToUse = selectedService || treatmentValue;
+      
+      // Update URL with values from input fields - always use actual input values
+      updateURL(serviceToUse || treatmentValue, placeQuery);
+      
       fetchDoctors(res.data.lat, res.data.lng, selectedService);
     } catch {
       // console.error("Error in manual place search:", err);
@@ -518,14 +566,52 @@ export default function FindDoctor() {
     }
   };
 
+  // Separate function for URL-based searches (to avoid infinite loops)
+  const searchByPlaceFromURL = async (locationText: string, serviceText: string | null = null) => {
+    if (!locationText) return;
+
+    setLoading(true);
+    clearPersistedState();
+    try {
+      const res = await axios.get("/api/doctor/geocode", {
+        params: { place: locationText },
+      });
+
+      setCoords({ lat: res.data.lat, lng: res.data.lng });
+      setManualPlace(locationText);
+      
+      if (serviceText) {
+        setQuery(serviceText);
+        setSelectedService(serviceText);
+      }
+      
+      fetchDoctors(res.data.lat, res.data.lng, serviceText || undefined);
+    } catch {
+      // console.error("Error in URL-based place search:", err);
+      setLoading(false);
+    }
+  };
 
   // Update handleSearch to pass query as service
   const handleSearch = async () => {
-    if (query.trim() && coords) {
+    // Reset URL search flag so manual searches work
+    hasSearchedFromURL.current = false;
+    
+    // ALWAYS get values directly from input fields
+    const treatmentValue = query.trim();
+    const locationValue = manualPlace.trim();
+    
+    if (treatmentValue && coords) {
       clearPersistedState(); // Clear old state when starting new search
-      setSelectedService(query);
-      fetchDoctors(coords.lat, coords.lng, query);
-    } else if (manualPlace.trim()) {
+      setSelectedService(treatmentValue);
+      
+      // Update URL with values from input fields
+      updateURL(treatmentValue, locationValue || 'near-me');
+      
+      fetchDoctors(coords.lat, coords.lng, treatmentValue);
+    } else if (locationValue) {
+      // Update URL before searching
+      updateURL(treatmentValue, locationValue);
       searchByPlace();
     }
   };
@@ -533,8 +619,95 @@ export default function FindDoctor() {
   const filteredDoctors = getSortedDoctors(
     doctors.filter(doctor => {
       // Existing filters...
-      const matchesService = !selectedService ||
-        (doctor.degree && doctor.degree.toLowerCase().includes(selectedService.toLowerCase()));
+      // Check if service matches in degree OR in treatments array
+      const matchesService = !selectedService || (() => {
+        const serviceLower = selectedService.toLowerCase();
+        // Split service by hyphens and spaces to check for partial matches
+        const serviceParts = serviceLower.split(/[- ]+/).filter(p => p.length > 0);
+        
+        // Check degree field
+        if (doctor.degree && doctor.degree.toLowerCase().includes(serviceLower)) {
+          return true;
+        }
+        
+        // Check treatments array
+        if (doctor.treatments && Array.isArray(doctor.treatments)) {
+          return doctor.treatments.some((treatment: any) => {
+            const mainTreatmentLower = treatment.mainTreatment?.toLowerCase() || '';
+            const mainTreatmentSlugLower = treatment.mainTreatmentSlug?.toLowerCase() || '';
+            
+            // Check if service contains treatment or treatment contains service
+            if (mainTreatmentLower && (
+              mainTreatmentLower.includes(serviceLower) || 
+              serviceLower.includes(mainTreatmentLower)
+            )) {
+              return true;
+            }
+            
+            // Check if service contains treatment slug or treatment slug contains service
+            if (mainTreatmentSlugLower && (
+              mainTreatmentSlugLower.includes(serviceLower) || 
+              serviceLower.includes(mainTreatmentSlugLower) ||
+              mainTreatmentSlugLower === serviceLower
+            )) {
+              return true;
+            }
+            
+            // Check if any part of the service matches the treatment (for "vaccination-pediatrics" matching "pediatrics")
+            if (serviceParts.length > 0 && mainTreatmentSlugLower) {
+              if (serviceParts.some(part => mainTreatmentSlugLower.includes(part) || part.includes(mainTreatmentSlugLower))) {
+                return true;
+              }
+            }
+            
+            // Check subTreatments
+            if (treatment.subTreatments && Array.isArray(treatment.subTreatments)) {
+              return treatment.subTreatments.some((sub: any) => {
+                const subNameLower = sub.name?.toLowerCase() || '';
+                const subSlugLower = sub.slug?.toLowerCase() || '';
+                
+                if (subNameLower && (
+                  subNameLower.includes(serviceLower) || 
+                  serviceLower.includes(subNameLower)
+                )) {
+                  return true;
+                }
+                
+                if (subSlugLower && (
+                  subSlugLower.includes(serviceLower) || 
+                  serviceLower.includes(subSlugLower) ||
+                  subSlugLower === serviceLower
+                )) {
+                  return true;
+                }
+                
+                // Check if any part of the service matches the sub treatment
+                if (serviceParts.length > 0 && subSlugLower) {
+                  if (serviceParts.some(part => subSlugLower.includes(part) || part.includes(subSlugLower))) {
+                    return true;
+                  }
+                }
+                
+                return false;
+              });
+            }
+            return false;
+          });
+        }
+        
+        // Check legacy treatment field (backward compatibility)
+        if (doctor.treatment) {
+          const treatmentArray = Array.isArray(doctor.treatment) 
+            ? doctor.treatment 
+            : [doctor.treatment];
+          return treatmentArray.some((t: string) => {
+            const tLower = t.toLowerCase();
+            return tLower.includes(serviceLower) || serviceLower.includes(tLower);
+          });
+        }
+        
+        return false;
+      })();
 
       const matchesStars = starFilter === 0 ||
         (doctorReviews[doctor._id]?.averageRating >= starFilter);
@@ -814,16 +987,65 @@ export default function FindDoctor() {
   return (
     <div>
       <Head>
-        <title>ZEVA Doctor Search - Find Trusted Ayurveda Doctors &amp; Medical Specialists</title>
-        <meta name="description" content="Discover verified Ayurveda doctors and medical specialists with transparent consultation fees, patient reviews, and appointment availability. Search by location, specialty, or doctor name to find the best healthcare providers near you." />
-        <meta name="keywords" content="Ayurveda doctors, medical specialists, doctor search, healthcare professionals, Ayurveda physicians, doctor directory, medical practitioners, ZEVA healthcare, find doctors" />
-        <meta property="og:title" content="ZEVA Doctor Search - Find Trusted Ayurveda Doctors" />
-        <meta property="og:description" content="Your trusted platform for finding authentic Ayurveda doctors. Search verified medical professionals with transparent fees and patient reviews." />
+        <title>ZEVA Doctor Directory – Find Verified Ayurveda Doctors Near You</title>
+        <meta
+          name="description"
+          content="Discover verified Ayurveda doctors and medical specialists with transparent fees, patient reviews, and easy booking. Find trusted healthcare providers near you."
+        />
+        <meta
+          name="keywords"
+          content="ZEVA doctor directory, Ayurveda doctors near me, verified Ayurveda doctors, Ayurveda specialists, book Ayurveda doctor, trusted medical specialists, transparent consultation fees, Ayurveda healthcare, online doctor booking, find Ayurveda doctor"
+        />
+        <meta property="og:title" content="ZEVA Doctor Directory – Find Verified Ayurveda Doctors Near You" />
+        <meta
+          property="og:description"
+          content="Discover verified Ayurveda doctors and medical specialists with transparent fees, patient reviews, and easy booking. Find trusted healthcare providers near you."
+        />
         <meta property="og:type" content="website" />
         <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content="ZEVA Doctor Search" />
-        <meta name="twitter:description" content="Find trusted Ayurveda doctors and medical specialists with transparent consultation fees and verified reviews." />
-        <link rel="canonical" href="https://zevahealthcare.com/doctor/search" />
+        <meta name="twitter:title" content="ZEVA Doctor Directory – Find Verified Ayurveda Doctors Near You" />
+        <meta
+          name="twitter:description"
+          content="Discover verified Ayurveda doctors and medical specialists with transparent fees, patient reviews, and easy booking. Find trusted healthcare providers near you."
+        />
+        <link rel="canonical" href="https://zeva360.com/doctor/search" />
+        {/* Schema Markup - Search Doctor Directory */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "MedicalWebPage",
+              "name": "Search Doctor Directory",
+              "url": "https://zeva360.com/doctor/search",
+              "description": "Find verified Ayurveda doctors and medical specialists near you with ZEVA. Search by specialty, doctor name, or location to access authentic treatments, transparent consultation fees, and real patient reviews.",
+              "publisher": {
+                "@type": "Organization",
+                "name": "ZEVA",
+                "url": "https://zeva360.com",
+                "logo": {
+                  "@type": "ImageObject",
+                  "url": "https://zeva360.com/logo.png"
+                }
+              },
+              "about": {
+                "@type": "MedicalOrganization",
+                "name": "Verified Doctors & Medical Specialists",
+                "description": "Trusted medical professionals providing authentic treatments across various specialties with transparent consultation fees and verified credentials."
+              },
+              "mainEntity": {
+                "@type": "Website",
+                "name": "Search Doctor Directory",
+                "url": "https://zeva360.com/search-doctor",
+                "potentialAction": {
+                  "@type": "SearchAction",
+                  "target": "https://zeva360.com/search-doctor?query={search_term_string}",
+                  "query-input": "required name=search_term_string"
+                }
+              }
+            })
+          }}
+        />
       </Head>
       <div className="min-h-screen bg-[#f8fafc]">
       <AuthModal
@@ -854,23 +1076,40 @@ export default function FindDoctor() {
                   ZEVA Doctor Directory
                 </h1>
                 <p className="text-xs sm:text-sm text-[#64748b] mt-0.5">
-                  Trusted Ayurveda Doctors & Medical Specialists
+                Trusted Ayurveda Doctors & Medical Specialists
+
                 </p>
               </div>
             </div>
             <p className="text-sm sm:text-base text-[#475569] max-w-2xl mx-auto mt-3">
-              Discover verified Ayurveda doctors with transparent consultation fees, authentic treatments, and patient reviews
-              </p>
+            ZEVA Doctor Directory connects you with verified Ayurveda doctors and medical specialists, offering authentic care, transparent fees, and trusted patient reviews—making it easy to find the right doctor quickly and reliably.
+</p>
             </div>
 
 
           {/* Professional Search Interface */}
-          <div className="w-full max-w-6xl mx-auto">
-            <div className="rounded-2xl p-4 sm:p-5 shadow-lg border border-[#e2e8f0] bg-white backdrop-blur-sm mb-6">
+          <div className="w-full max-w-6xl mx-auto" style={{ position: 'relative', zIndex: 100 }}>
+            {/* Quick Filter Chips */}
+            <div className="mb-3 flex flex-wrap gap-2">
+              {['General Physician', 'Cardiologist', 'Dermatologist', 'Orthopedic', 'Pediatrician', 'Gynecologist'].map((specialty) => (
+                <button
+                  key={specialty}
+                  onClick={() => {
+                    setQuery(specialty);
+                    fetchSuggestions(specialty);
+                  }}
+                  className="px-3 py-1.5 text-[10px] font-medium rounded-full bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 text-blue-700 hover:from-blue-100 hover:to-purple-100 hover:border-blue-300 transition-all shadow-sm hover:shadow"
+                >
+                  {specialty}
+                </button>
+              ))}
+            </div>
+            
+            <div className="rounded-2xl p-4 sm:p-5 shadow-lg border border-[#e2e8f0] bg-white backdrop-blur-sm mb-6" style={{ position: 'relative', zIndex: 100 }}>
                 {/* Desktop Layout */}
               <div className="hidden md:flex gap-3 items-center">
                 {/* Search Input */}
-                <div className="relative flex-1 max-w-lg">
+                <div className="relative flex-1 max-w-lg" style={{ zIndex: 10001 }}>
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none z-10">
                     <Search className="h-5 w-5 text-[#0284c7]" />
                     </div>
@@ -889,14 +1128,15 @@ export default function FindDoctor() {
                     {/* Desktop Suggestions Dropdown */}
                     {suggestions.length > 0 && (
                       <div
-                      className="absolute top-full left-0 right-0 z-50 mt-2 bg-white border border-[#e2e8f0] rounded-xl shadow-lg max-h-80 overflow-auto"
+                      className="absolute top-full left-0 right-0 mt-1 bg-white border border-[#e2e8f0] rounded-lg shadow-lg max-h-64 overflow-y-auto"
                         ref={suggestionsDropdownRef}
+                        style={{ position: 'absolute', zIndex: 10002 }}
                       >
-                        <div className="p-2">
+                        <div className="p-1">
                           {suggestions.map((s, i) => (
                             <div
                               key={i}
-                              className="flex items-center px-4 py-4 hover:bg-[#2D9AA5]/10 cursor-pointer transition-all duration-200 border-b border-gray-100/50 last:border-b-0 rounded-xl mx-1 group"
+                              className="flex items-center px-3 py-2.5 hover:bg-[#f0f7ff] cursor-pointer transition-colors border-b border-[#f1f5f9] last:border-b-0 rounded group"
                               onClick={(e) => {
                                 e.preventDefault();
                                 e.stopPropagation();
@@ -912,20 +1152,14 @@ export default function FindDoctor() {
                                 }
                               }}
                             >
-                              <div className="flex-shrink-0 w-10 h-10 rounded-2xl bg-gradient-to-br from-[#2D9AA5]/20 to-[#2D9AA5]/30 flex items-center justify-center mr-4">
-                                <span className="text-lg">
-                                  {s.type === "clinic"
-                                    ? "🏥"
-                                    : s.type === "treatment"
-                                      ? "💊"
-                                      : "👨‍⚕️"}
-                                </span>
+                              <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-gradient-to-br from-purple-100 to-purple-200 flex items-center justify-center mr-3">
+                                <HeartPulse className="w-4 h-4 text-purple-600" />
                               </div>
                               <div className="flex-1 min-w-0">
-                                <p className="font-semibold text-gray-900 group-hover:text-[#2D9AA5] transition-colors text-sm xl:text-base truncate">
+                                <p className="font-semibold text-[#1e293b] group-hover:text-[#0284c7] transition-colors text-sm truncate">
                                   {s.value}
                                 </p>
-                                <p className="text-xs xl:text-sm text-gray-500 capitalize font-medium">
+                                <p className="text-xs text-gray-500 capitalize mt-0.5">
                                   {s.type}
                                 </p>
                               </div>
@@ -977,7 +1211,7 @@ export default function FindDoctor() {
               <div className="md:hidden space-y-3">
                 {/* Search Input with Near Me */}
                   <div className="flex items-center gap-2">
-                    <div className="relative flex-1">
+                    <div className="relative flex-1" style={{ zIndex: 10001 }}>
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none z-10">
                       <Search className="h-5 w-5 text-[#0284c7]" />
                       </div>
@@ -996,14 +1230,15 @@ export default function FindDoctor() {
                       {/* Mobile Suggestions Dropdown */}
                       {suggestions.length > 0 && (
                         <div
-                        className="absolute top-full left-0 right-0 z-[9999] mt-2 bg-white border border-[#e2e8f0] rounded-xl shadow-lg max-h-60 overflow-auto"
+                        className="absolute top-full left-0 right-0 mt-1 bg-white border border-[#e2e8f0] rounded-lg shadow-lg max-h-64 overflow-y-auto"
                           ref={suggestionsDropdownRef}
+                          style={{ position: 'absolute', zIndex: 10002 }}
                         >
-                          <div className="p-1 sm:p-2">
+                          <div className="p-1">
                             {suggestions.map((s, i) => (
                               <div
                                 key={i}
-                              className="flex items-center px-3 py-3 hover:bg-[#f0f7ff] cursor-pointer transition-all border-b border-[#f1f5f9] last:border-b-0 rounded-lg mx-1"
+                              className="flex items-center px-3 py-2.5 hover:bg-[#f0f7ff] cursor-pointer transition-colors border-b border-[#f1f5f9] last:border-b-0 rounded group"
                               onClick={(e) => {
                                 e.preventDefault();
                                 e.stopPropagation();
@@ -1019,11 +1254,14 @@ export default function FindDoctor() {
                                 }
                               }}
                             >
+                                <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-gradient-to-br from-purple-100 to-purple-200 flex items-center justify-center mr-3">
+                                  <HeartPulse className="w-4 h-4 text-purple-600" />
+                                </div>
                                 <div className="flex-1 min-w-0">
-                                <p className="font-semibold text-[#1e293b] text-sm truncate">
+                                <p className="font-semibold text-[#1e293b] group-hover:text-[#0284c7] transition-colors text-sm truncate">
                                     {s.value}
                                   </p>
-                                <p className="text-xs text-[#64748b] capitalize">
+                                <p className="text-xs text-gray-500 capitalize mt-0.5">
                                     {s.type}
                                   </p>
                                 </div>
@@ -1079,7 +1317,7 @@ export default function FindDoctor() {
             <div className="flex flex-col lg:flex-row gap-4">
             {/* Filters Sidebar */}
             <div className="lg:w-1/4">
-                <div className="bg-white rounded-xl shadow-md border-2 border-[#e2e8f0] p-4 sticky top-4">
+                <div className="bg-white rounded-xl shadow-md border-2 border-[#e2e8f0] p-4 sticky top-4" style={{ zIndex: 10 }}>
                 {/* Price Range Filter */}
                   <div className="mb-4">
                     <h3 className="text-sm font-bold text-[#1e293b] mb-3 flex items-center">
@@ -1157,13 +1395,13 @@ export default function FindDoctor() {
                   </div>
                 </div>
 
-                {/* Sort By Filter */}
+                {/* Sort By Filter - Compact */}
                 <div className="mb-4">
-                    <h3 className="text-sm font-bold text-[#1e293b] mb-3 flex items-center">
-                      <Clock className="w-4 h-4 mr-1.5 text-[#0284c7]" />
+                    <h3 className="text-xs font-bold text-[#1e293b] mb-2.5 flex items-center">
+                      <Clock className="w-3.5 h-3.5 mr-1.5 text-[#0284c7]" />
                       Sort By
                     </h3>
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     {[
                       { value: 'relevance', label: 'Relevance' },
                       { value: 'price-low-high', label: 'Price: Low to High' },
@@ -1171,7 +1409,7 @@ export default function FindDoctor() {
                         { value: 'rating-high-low', label: 'Highest Rated' },
                         { value: 'experience-high-low', label: 'Most Experienced' }
                     ].map((option) => (
-                        <label key={option.value} className="flex items-center cursor-pointer hover:bg-[#f8fafc] p-1.5 rounded transition-colors">
+                        <label key={option.value} className="flex items-center cursor-pointer hover:bg-[#f8fafc] p-1 rounded transition-colors">
                         <input
                           type="radio"
                           name="sortBy"
@@ -1186,55 +1424,55 @@ export default function FindDoctor() {
                   </div>
                 </div>
 
-                {/* Star Rating Filter */}
+                {/* Star Rating Filter - Compact */}
                   <div className="mb-4">
-                    <h3 className="text-sm font-bold text-[#1e293b] mb-3 flex items-center">
-                      <Star className="w-4 h-4 mr-1.5 text-[#0284c7]" />
+                    <h3 className="text-xs font-bold text-[#1e293b] mb-2.5 flex items-center">
+                      <Star className="w-3.5 h-3.5 mr-1.5 text-[#0284c7]" />
                       Minimum Rating
                     </h3>
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                       {[5, 4, 3].map((rating) => (
-                        <label key={rating} className="flex items-center cursor-pointer hover:bg-[#f8fafc] p-1.5 rounded transition-colors">
+                        <label key={rating} className="flex items-center cursor-pointer hover:bg-[#f8fafc] p-1 rounded transition-colors">
                         <input
                           type="radio"
                           name="rating"
                           value={rating}
                           checked={starFilter === rating}
                           onChange={(e) => setStarFilter(parseInt(e.target.value))}
-                            className="w-4 h-4 text-[#0284c7] bg-white border-[#cbd5e1] focus:ring-[#0284c7] focus:ring-2"
+                            className="w-3.5 h-3.5 text-[#0284c7] bg-white border-[#cbd5e1] focus:ring-[#0284c7] focus:ring-1"
                         />
-                        <div className="ml-2 flex items-center">
+                        <div className="ml-1.5 flex items-center">
                           <div className="flex">
                             {[...Array(5)].map((_, i) => (
                               <Star
                                 key={i}
-                                  className={`w-3.5 h-3.5 ${i < rating ? 'text-yellow-400 fill-current' : 'text-[#cbd5e1]'}`}
+                                  className={`w-3 h-3 ${i < rating ? 'text-yellow-400 fill-current' : 'text-[#cbd5e1]'}`}
                               />
                             ))}
                           </div>
-                            <span className="ml-2 text-xs text-[#475569] font-medium">& above</span>
+                            <span className="ml-1.5 text-[10px] text-[#475569] font-medium">& above</span>
                         </div>
                       </label>
                     ))}
-                      <label className="flex items-center cursor-pointer hover:bg-[#f8fafc] p-1.5 rounded transition-colors">
+                      <label className="flex items-center cursor-pointer hover:bg-[#f8fafc] p-1 rounded transition-colors">
                       <input
                         type="radio"
                         name="rating"
                         value={0}
                         checked={starFilter === 0}
                         onChange={(e) => setStarFilter(parseInt(e.target.value))}
-                          className="w-4 h-4 text-[#0284c7] bg-white border-[#cbd5e1] focus:ring-[#0284c7] focus:ring-2"
+                          className="w-3.5 h-3.5 text-[#0284c7] bg-white border-[#cbd5e1] focus:ring-[#0284c7] focus:ring-1"
                       />
-                        <span className="ml-2 text-xs text-[#475569] font-medium">All Ratings</span>
+                        <span className="ml-1.5 text-[10px] text-[#475569] font-medium">All Ratings</span>
                     </label>
                   </div>
                 </div>
 
-                {/* Clear Filters Button */}
-                  <div className="pt-3 border-t border-[#e2e8f0]">
+                {/* Clear Filters Button - Compact */}
+                  <div className="pt-2 border-t border-[#e2e8f0]">
                   <button
                     onClick={clearFilters}
-                      className="w-full px-4 py-2 bg-[#dc2626] text-white rounded-lg hover:bg-[#b91c1c] transition-all text-xs font-semibold shadow-sm hover:shadow"
+                      className="w-full px-3 py-1.5 bg-[#dc2626] text-white rounded-lg hover:bg-[#b91c1c] transition-all text-[10px] font-semibold shadow-sm hover:shadow"
                   >
                       Clear All Filters
                   </button>
@@ -1358,19 +1596,29 @@ export default function FindDoctor() {
                         <div className="grid sm:grid-cols-2 gap-3 text-xs text-[#475569]">
                           <div className="flex items-start">
                             <span className="text-[#0284c7] font-bold mr-2 text-base">•</span>
-                            <span>Authentic Ayurveda treatments from certified and experienced medical practitioners</span>
+                            <span>
+Verified Doctors – Every doctor is thoroughly verified with proper certifications, credentials, and experience.
+
+
+</span>
                           </div>
                           <div className="flex items-start">
                             <span className="text-[#0284c7] font-bold mr-2 text-base">•</span>
-                            <span>Comprehensive doctor profiles with qualifications, experience, and specializations</span>
+                            <span>Patient Reviews – Read real feedback and ratings from verified patients to make informed choices.
+
+
+
+</span>
                           </div>
                           <div className="flex items-start">
                             <span className="text-[#0284c7] font-bold mr-2 text-base">•</span>
-                            <span>Advanced search filters for consultation fees, ratings, experience, and availability</span>
+                            <span>Transparent Fees – Clear consultation charges with no hidden costs.
+                            </span>
                           </div>
                           <div className="flex items-start">
                             <span className="text-[#0284c7] font-bold mr-2 text-base">•</span>
-                            <span>Secure enquiry and appointment booking system ensuring patient privacy</span>
+                      <span>Easy Booking – View availability and schedule appointments in just a few clicks.
+                      </span>
                           </div>
                         </div>
                       </div>
@@ -1545,7 +1793,7 @@ export default function FindDoctor() {
 
                             {/* View Full Details */}
                             <a
-                              href={`/doctor/${doctor._id}`}
+                              href={`/doctor/${textToSlug(doctor.user.name)}?d=${doctor._id}`}
                               className="flex-1 flex items-center justify-center px-3 py-1.5 bg-gradient-to-r from-[#0284c7] to-[#0ea5e9] hover:from-[#0369a1] hover:to-[#0284c7] text-white rounded-lg transition-all text-xs font-medium shadow-sm hover:shadow"
                             >
                               View Details
@@ -1641,26 +1889,44 @@ export default function FindDoctor() {
                 <div className="grid sm:grid-cols-2 gap-3 text-sm text-[#475569]">
                   <div className="flex items-start">
                     <span className="text-[#0284c7] font-bold mr-2 text-lg">✓</span>
-                    <span>Authentic Ayurveda treatments from certified and experienced medical practitioners</span>
+                    <span>
+Verified Doctors – Every doctor is thoroughly verified with proper certifications, credentials, and experience.
+
+
+</span>
                   </div>
                   <div className="flex items-start">
                     <span className="text-[#0284c7] font-bold mr-2 text-lg">✓</span>
-                    <span>Comprehensive doctor profiles with qualifications, experience, and specializations</span>
+                    <span>Patient Reviews – Read real feedback and ratings from verified patients to make informed choices.
+
+
+
+</span>
                   </div>
                   <div className="flex items-start">
                     <span className="text-[#0284c7] font-bold mr-2 text-lg">✓</span>
-                    <span>Advanced search filters for consultation fees, ratings, and availability</span>
+                    <span>Transparent Fees – Clear consultation charges with no hidden costs.
+                    </span>
                   </div>
                   <div className="flex items-start">
                     <span className="text-[#0284c7] font-bold mr-2 text-lg">✓</span>
-                    <span>Secure enquiry and appointment booking system ensuring patient privacy and safety</span>
+                    <span>Easy Booking – View availability and schedule appointments in just a few clicks.
+                    </span>
                   </div>
                 </div>
               </div>
               
               <div className="mt-6 pt-6 border-t border-[#cbd5e1]">
                 <p className="text-sm text-[#475569] text-center leading-relaxed max-w-3xl mx-auto">
-                  <strong className="text-[#1e293b]">Get Started:</strong> Enter your location or use the "Near Me" feature to find verified Ayurveda doctors. You can search by specialty (Panchakarma, Abhyanga), doctor name, or browse by location to discover the best healthcare professionals near you.
+                  <strong className="text-[#1e293b]">Get Started:</strong> 
+
+Take control of your healthcare today. Enter your location, use the “Near Me” feature, or search by specialty or doctor name to discover the best Ayurveda doctors and medical specialists near you. Experience convenient, transparent, and verified healthcare with ZEVA. 
+
+
+
+
+
+
                 </p>
               </div>
               </div>
@@ -1752,26 +2018,43 @@ export default function FindDoctor() {
                   <div className="grid sm:grid-cols-2 gap-3 text-sm text-[#475569]">
                     <div className="flex items-start">
                       <span className="text-[#0284c7] font-bold mr-2 text-lg">✓</span>
-                      <span>Authentic Ayurveda treatments from certified and experienced medical practitioners</span>
+                      <span>
+Verified Doctors – Every doctor is thoroughly verified with proper certifications, credentials, and experience.
+
+
+</span>
                     </div>
                     <div className="flex items-start">
                       <span className="text-[#0284c7] font-bold mr-2 text-lg">✓</span>
-                      <span>Comprehensive doctor profiles with qualifications, experience, and specializations</span>
+                      <span>Patient Reviews – Read real feedback and ratings from verified patients to make informed choices.
+
+
+
+</span>
                     </div>
                     <div className="flex items-start">
                       <span className="text-[#0284c7] font-bold mr-2 text-lg">✓</span>
-                      <span>Advanced search filters for consultation fees, ratings, and availability</span>
+            <span>Transparent Fees – Clear consultation charges with no hidden costs.</span>
                     </div>
                     <div className="flex items-start">
                       <span className="text-[#0284c7] font-bold mr-2 text-lg">✓</span>
-                      <span>Secure enquiry and appointment booking system ensuring patient privacy and safety</span>
+                      <span>Easy Booking – View availability and schedule appointments in just a few clicks.
+                      </span>
                     </div>
                   </div>
                 </div>
                 
                 <div className="mt-6 pt-6 border-t border-[#cbd5e1]">
                   <p className="text-sm text-[#475569] text-center leading-relaxed max-w-3xl mx-auto">
-                    <strong className="text-[#1e293b]">Get Started:</strong> Enter your location or use the "Near Me" feature to find verified Ayurveda doctors. You can search by specialty (Panchakarma, Abhyanga), doctor name, or browse by location to discover the best healthcare professionals near you.
+                    <strong className="text-[#1e293b]">Get Started:</strong> 
+
+Take control of your healthcare today. Enter your location, use the “Near Me” feature, or search by specialty or doctor name to discover the best Ayurveda doctors and medical specialists near you. Experience convenient, transparent, and verified healthcare with ZEVA. 
+
+
+
+
+
+
                   </p>
                 </div>
               </div>
