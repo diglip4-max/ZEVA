@@ -1886,8 +1886,8 @@ const ModernBlogEditor: React.FC<ModernBlogEditorProps> = ({
         // Only update if there's a meaningful difference to avoid unnecessary re-renders
         const stateTopicsSet = new Set(topics || []);
         const topicsToSaveSet = new Set(topicsToSave);
-        const hasDifference = topicsToSave.length !== stateTopicsSet.size || 
-                             !topicsToSave.every(t => stateTopicsSet.has(t));
+        const hasDifference = topicsToSaveSet.size !== stateTopicsSet.size || 
+                             !Array.from(topicsToSaveSet).every(t => stateTopicsSet.has(t));
         if (hasDifference) {
           setTopics(topicsToSave);
         }
