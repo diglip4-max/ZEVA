@@ -353,17 +353,19 @@ const ModernBlogEditor: React.FC<ModernBlogEditorProps> = ({
     }, 120000); // 2 minutes
   };
 
-  // Auto-save functionality - saves every 1 minute (60 seconds) ONLY when typing activity is detected
+  // Auto-save functionality - saves every 30 seconds (for testing) when user starts writing
+  // TODO: Change back to 120000ms (2 minutes) after testing
   useEffect(() => {
     // Clear any existing timer
     if (autoSaveTimerRef.current) {
       clearInterval(autoSaveTimerRef.current);
     }
 
-    // Set up auto-save interval (1 minute = 60000ms)
+    // Set up auto-save interval (30 seconds = 30000ms for testing)
     autoSaveTimerRef.current = setInterval(() => {
-      // Only save if typing activity is detected
+      // Only save if typing activity is detected (user has started writing)
       if (!typingActivityRef.current) {
+        console.log('Auto-save: Skipped - no typing activity detected');
         return; // Skip auto-save if no typing activity
       }
 
@@ -377,20 +379,28 @@ const ModernBlogEditor: React.FC<ModernBlogEditorProps> = ({
                             latestContent.trim() || 
                             (editorContent && editorContent !== '<p><br></p>' && editorContent !== '<br>' && editorContent !== '<p></p>');
       
+      if (!hasRealContent) {
+        console.log('Auto-save: Skipped - no content to save');
+        return;
+      }
+      
       if (currentDraftId || editDraftId) {
         // We have an existing draft, update it if there's content
-        if (hasRealContent) {
-          console.log('Auto-save: Updating existing draft (typing activity detected)');
-          saveDraft(true); // true indicates auto-save
-        }
+        console.log('Auto-save: Attempting to update existing draft (typing activity detected)', {
+          draftId: currentDraftId || editDraftId,
+          title: latestTitle.substring(0, 50),
+          contentLength: latestContent.length
+        });
+        saveDraft(true); // true indicates auto-save
       } else {
         // No draft yet, but only create one if user has typed something
-        if (hasRealContent) {
-          console.log('Auto-save: Creating new draft (typing activity detected)');
-          saveDraft(true); // This will create the first draft
-        }
+        console.log('Auto-save: Attempting to create new draft (typing activity detected)', {
+          title: latestTitle.substring(0, 50) || 'Untitled',
+          contentLength: latestContent.length
+        });
+        saveDraft(true); // This will create the first draft
       }
-    }, 60000); // 1 minute (60 seconds)
+    }, 30000); // 30 seconds (for testing - change back to 120000 for 2 minutes)
 
     // Cleanup on unmount
     return () => {
@@ -1788,17 +1798,62 @@ const ModernBlogEditor: React.FC<ModernBlogEditorProps> = ({
       finalContent = content || '';
     }
     
-    // Get current title from state - use actual value, don't default yet
+    // Determine draft ID to use (declare early to avoid temporal dead zone error)
+    const draftIdToUse = currentDraftId || editDraftId;
+    
+    // Get current title - use ref first (most up-to-date), then fallback to state
+    // The ref is updated immediately when user types, while state might lag
+    const currentTitleFromRef = currentTitleRef.current?.trim() || '';
     const currentTitleFromState = title?.trim() || '';
+    // Use ref value if available (more up-to-date), otherwise use state
+    const currentTitle = currentTitleFromRef || currentTitleFromState;
     const currentContent = finalContent || '<p><br></p>';
     
     // Skip auto-save if no changes detected (prevents saving same content multiple times)
     if (isAutoSave) {
-      // Compare with last saved content and title to avoid duplicate saves
-      // Use the actual title from state, not the defaulted one
-      if (currentContent === lastContentRef.current && currentTitleFromState === lastTitleRef.current) {
+      // Normalize content for comparison (remove topic markers and normalize whitespace)
+      const normalizeContent = (html: string) => {
+        if (!html) return '';
+        // Remove topic markers (hidden paragraphs with topics)
+        let normalized = html.replace(/<p[^>]*style="display:\s*none[^"]*"[^>]*>.*?<\/p>/gi, '');
+        // Normalize whitespace
+        normalized = normalized.replace(/\s+/g, ' ').trim();
+        return normalized;
+      };
+      
+      const normalizedCurrentContent = normalizeContent(currentContent);
+      const normalizedLastContent = normalizeContent(lastContentRef.current || '');
+      
+      // Compare normalized content and title
+      const contentChanged = normalizedCurrentContent !== normalizedLastContent;
+      const titleChanged = currentTitle.trim() !== (lastTitleRef.current || '').trim();
+      
+      if (!contentChanged && !titleChanged) {
+        console.log('Auto-save: Skipped - no changes detected since last save', {
+          currentTitle: currentTitle.trim() || 'Untitled',
+          currentTitleFromRef: currentTitleFromRef.trim() || 'Empty',
+          currentTitleFromState: currentTitleFromState.trim() || 'Empty',
+          currentContentLength: normalizedCurrentContent.length,
+          currentContentPreview: normalizedCurrentContent.substring(0, 100),
+          lastSavedTitle: (lastTitleRef.current || '').trim() || 'Untitled',
+          lastSavedContentLength: normalizedLastContent.length,
+          lastSavedContentPreview: normalizedLastContent.substring(0, 100),
+          contentChanged,
+          titleChanged
+        });
         return; // No changes, skip save to avoid creating duplicate drafts
       }
+      console.log('Auto-save: Changes detected, proceeding with save', {
+        currentTitle: currentTitle.trim() || 'Untitled',
+        currentTitleFromRef: currentTitleFromRef.trim() || 'Empty',
+        currentTitleFromState: currentTitleFromState.trim() || 'Empty',
+        currentContentLength: normalizedCurrentContent.length,
+        lastSavedTitle: (lastTitleRef.current || '').trim() || 'None',
+        lastSavedContentLength: normalizedLastContent.length,
+        contentChanged,
+        titleChanged,
+        draftId: draftIdToUse || 'new'
+      });
     }
     
     // Ensure content is not empty - API requires non-empty content
@@ -1806,29 +1861,27 @@ const ModernBlogEditor: React.FC<ModernBlogEditorProps> = ({
     if (!finalContent || !finalContent.trim() || finalContent.trim() === '<br>' || finalContent.trim() === '<p></p>') {
       finalContent = '<p><br></p>';
     }
-
-    // Determine draft ID to use (before try block for error handling)
-    const draftIdToUse = currentDraftId || editDraftId;
     
     // Determine effective title - always preserve user's title, never overwrite with "Untitled Draft"
+    // Use ref value first (most up-to-date), then fallback to state
     let effectiveTitle: string;
     
     if (draftIdToUse) {
-      // Existing draft - prioritize title from state (what user typed)
-      // If state is empty, use last saved title to preserve existing title
-      if (currentTitleFromState && currentTitleFromState.trim() !== '') {
+      // Existing draft - prioritize title from ref/state (what user typed)
+      // If both are empty, use last saved title to preserve existing title
+      if (currentTitle && currentTitle.trim() !== '') {
         // User has typed a title - use it
-        effectiveTitle = currentTitleFromState;
+        effectiveTitle = currentTitle;
       } else if (lastTitleRef.current && lastTitleRef.current.trim() !== '' && lastTitleRef.current !== 'Untitled Draft') {
-        // No title in state, but we have a saved title - preserve it
+        // No title in ref/state, but we have a saved title - preserve it
         effectiveTitle = lastTitleRef.current;
       } else {
         // Truly no title exists - only then use default
         effectiveTitle = 'Untitled Draft';
       }
     } else {
-      // New draft - use title from state or default to "Untitled Draft"
-      effectiveTitle = currentTitleFromState || 'Untitled Draft';
+      // New draft - use title from ref/state or default to "Untitled Draft"
+      effectiveTitle = currentTitle || 'Untitled Draft';
     }
     
     // Final check - ensure title is not empty (API requirement)
@@ -1925,21 +1978,39 @@ const ModernBlogEditor: React.FC<ModernBlogEditorProps> = ({
       
       if (draftIdToUse) {
         // Update existing draft
+        console.log('Auto-save: Calling API to UPDATE draft', {
+          draftId: draftIdToUse,
+          title: effectiveTitle.substring(0, 50),
+          contentLength: contentWithTopics.length
+        });
         response = await axios.put(
           `/api/blog/draft?id=${draftIdToUse}`,
           draftData,
           axiosConfig
         );
+        console.log('Auto-save: API response received (UPDATE)', {
+          success: response.data?.success,
+          draftId: response.data?.draft?._id
+        });
       } else {
         // Create new draft
+        console.log('Auto-save: Calling API to CREATE new draft', {
+          title: effectiveTitle.substring(0, 50),
+          contentLength: contentWithTopics.length
+        });
         response = await axios.post(
           '/api/blog/draft',
           draftData,
           axiosConfig
         );
+        console.log('Auto-save: API response received (CREATE)', {
+          success: response.data?.success,
+          draftId: response.data?.draft?._id
+        });
         // Save the draft ID for future updates
         if (response.data?.success && response.data?.draft?._id) {
           setCurrentDraftId(response.data.draft._id);
+          console.log('Auto-save: Draft ID saved for future updates', response.data.draft._id);
         }
       }
       

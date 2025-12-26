@@ -191,6 +191,7 @@ const AgentPermissionModal: React.FC<AgentPermissionModalProps> = ({
           });
 
           // Filter navigation items based on clinic permissions
+          // Show ALL modules that exist in clinic permissions, regardless of action values
           items = items
             .map((item: NavigationItem) => {
               // Try multiple lookup strategies for moduleKey matching
@@ -198,17 +199,14 @@ const AgentPermissionModal: React.FC<AgentPermissionModalProps> = ({
                 permissionMap[item.moduleKey.replace('clinic_', '')] ||
                 permissionMap[item.moduleKey.replace(/^(admin|clinic|doctor)_/, '')];
 
-              // Check if module has read permission
-              const hasModuleRead = modulePerm && (
-                modulePerm.moduleActions.read === true ||
-                modulePerm.moduleActions.all === true
-              );
-
-              if (!hasModuleRead) {
-                return null; // Don't show this module at all
+              // Show module if it exists in clinic permissions (regardless of action values)
+              // Only hide if the module doesn't exist in clinic permissions at all
+              if (!modulePerm) {
+                return null; // Don't show this module if it's not in clinic permissions
               }
 
               // Filter submodules based on permissions
+              // Show ALL submodules that exist in clinic permissions, regardless of action values
               let filteredSubModules = [];
               if (item.subModules && item.subModules.length > 0) {
                 filteredSubModules = item.subModules
@@ -217,13 +215,10 @@ const AgentPermissionModal: React.FC<AgentPermissionModalProps> = ({
                       return null;
                     }
                     const subModulePerm = modulePerm?.subModules[subModule.name];
-                    const hasSubModuleRead = subModulePerm && (
-                      subModulePerm.read === true ||
-                      subModulePerm.all === true
-                    );
 
-                    // Only include submodule if it has read permission
-                    if (hasSubModuleRead) {
+                    // Show submodule if it exists in clinic permissions (regardless of action values)
+                    // Only hide if the submodule doesn't exist in clinic permissions at all
+                    if (subModulePerm) {
                       return subModule;
                     }
                     return null;
