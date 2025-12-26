@@ -167,10 +167,7 @@ function ClinicJobPostingPage({ contextOverride = null }: { contextOverride?: Ro
                    normalizedModule === "jobs" || moduleKey === "jobs" || moduleKey === "clinic_jobs";
           });
           
-          console.log('[Job Posting] Found module permission:', modulePermission ? {
-            module: modulePermission.module,
-            actions: modulePermission.actions,
-          } : 'Not found');
+         
 
           if (modulePermission) {
             const actions = modulePermission.actions || {};
@@ -190,14 +187,7 @@ function ClinicJobPostingPage({ contextOverride = null }: { contextOverride?: Ro
             const moduleRead = isTrue(actions.read);
             const moduleUpdate = isTrue(actions.update);
             const moduleDelete = isTrue(actions.delete);
-            
-            console.log('[Job Posting] Permission checks:', {
-              moduleAll,
-              moduleRead,
-              moduleCreate,
-              moduleUpdate,
-              moduleDelete
-            });
+           
             
             // CRUD permissions based on module-level actions
             // If "all" is true, grant everything
@@ -250,7 +240,6 @@ function ClinicJobPostingPage({ contextOverride = null }: { contextOverride?: Ro
         }
         setPermissionsLoaded(true);
       } catch (err: any) {
-        console.error("Error fetching permissions:", err);
         setPermissions({
           canCreate: false,
           canRead: false,

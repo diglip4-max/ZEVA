@@ -331,9 +331,9 @@ function PatientInformationWithButton({ onRegisterClick, refreshKey, onEditPatie
             {permissions.canCreate && (
               <button
                 onClick={onRegisterClick}
-                className="inline-flex items-center justify-center gap-1.5 bg-gray-800 hover:bg-gray-900 text-white px-3 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs sm:text-sm font-medium"
+                className="inline-flex items-center justify-center gap-1 bg-gray-800 hover:bg-gray-900 text-white px-2.5 py-1.5 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-[10px] sm:text-xs font-medium"
               >
-                <UserPlus className="h-4 w-4" />
+                <UserPlus className="h-3 w-3"/>
                 <span>Register Patient</span>
               </button>
             )}
