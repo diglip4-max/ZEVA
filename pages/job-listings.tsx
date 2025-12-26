@@ -1,4 +1,4 @@
-import React, { useEffect, useState, ChangeEvent, useRef } from "react";
+import React, { useEffect, useState, ChangeEvent, useRef, useCallback } from "react";
 import Head from "next/head";
 import axios from "axios";
 import Link from "next/link";
@@ -71,65 +71,99 @@ const AllJobs: React.FC = () => {
       .replace(/-+/g, "-"); // collapse multiple hyphens
   };
 
-  // Helper: convert slug back to readable text
-  // Special handling to preserve original format for certain values
-  const slugToText = (slug: string, key?: string) => {
-    if (!slug) return "";
+  // Helper: create SEO-friendly slug from job title with full ID
+  // Format: job-title-abc12345def67890 (title slug + full 24-char ID)
+  // The ID is included for direct database lookup (optimized) but title is prominent for SEO
+  const createJobSlug = (jobTitle: string, jobId: string): string => {
+    if (!jobTitle) return jobId; // Fallback to ID if no title
     
-    // For time filter, keep "week" as-is
-    if (key === "time" && slug.toLowerCase() === "week") {
-      return "week";
-    }
+    const titleSlug = jobTitle
+      .toLowerCase()
+      .trim()
+      .replace(/[^\w\s-]/g, "") // remove special chars
+      .replace(/\s+/g, "-") // spaces -> hyphen
+      .replace(/-+/g, "-") // collapse multiple hyphens
+      .substring(0, 60); // limit length for SEO (leaving room for ID)
     
-    // For experience filter, preserve original format
-    if (key === "experience") {
-      const expValues: { [key: string]: string } = {
-        "fresher": "fresher",
-        "1-2": "1-2",
-        "2-4": "2-4",
-        "4-6": "4-6",
-        "7+": "7+",
-        "1 2": "1-2", // handle if it was converted
-        "2 4": "2-4",
-        "4 6": "4-6",
-      };
-      const normalized = slug.toLowerCase();
-      if (expValues[normalized]) {
-        return expValues[normalized];
-      }
-    }
-    
-    // For other values, convert slug back to readable text
-    return slug
-      .split("-")
-      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(" ");
+    // Append full ID for direct database lookup (optimized approach)
+    // This ensures: 1) No conflicts, 2) Fast lookup, 3) SEO-friendly title
+    return `${titleSlug}-${jobId}`;
   };
 
-  // Flag to avoid infinite loops between URL <-> state sync
-  const isSyncingURL = useRef(false);
 
-  const fetchJobs = async () => {
+  // Flag to track initial load
+  const isInitialLoad = useRef(true);
+
+  const fetchJobs = useCallback(async (searchValue?: string, locationValue?: string) => {
+    // Use provided values or fall back to current state values
+    const searchToUse = searchValue !== undefined ? searchValue : searchQuery;
+    const locationToUse = locationValue !== undefined ? locationValue : filters.location;
+    
+    console.log("🔵 API CALL TRIGGERED - fetchJobs called");
+    console.log("📊 Current state:", {
+      searchQuery: searchToUse,
+      location: locationToUse,
+      filters: {
+        jobType: filters.jobType,
+        department: filters.department,
+        skills: filters.skills,
+        salary: filters.salary,
+        time: filters.time,
+        experience: filters.experience,
+      }
+    });
+    
+    // Log search logic
+    if (searchToUse.trim() && locationToUse.trim()) {
+      console.log("🔍 Search Mode: BOTH - Will show jobs matching BOTH job title/company AND location");
+    } else if (searchToUse.trim()) {
+      console.log("🔍 Search Mode: TITLE ONLY - Will show all jobs matching job title/company");
+    } else if (locationToUse.trim()) {
+      console.log("🔍 Search Mode: LOCATION ONLY - Will show all jobs matching location");
+    } else {
+      console.log("🔍 Search Mode: NONE - Will show all jobs");
+    }
+    
     try {
       const params = new URLSearchParams();
-      Object.entries(filters).forEach(([k, v]) => {
+      
+      // Use immediate values for API call (from button click or initial load)
+      const filtersForAPI: Filters = {
+        location: locationToUse,
+        jobType: filters.jobType,
+        department: filters.department,
+        skills: filters.skills,
+        salary: filters.salary,
+        time: filters.time,
+        experience: filters.experience,
+      };
+      
+      Object.entries(filtersForAPI).forEach(([k, v]) => {
         if (v) params.append(k, v);
       });
 
-      // Add search query if it exists
-      if (searchQuery.trim()) {
-        params.append("search", searchQuery.trim());
+      // Use immediate search query for API call
+      if (searchToUse.trim()) {
+        params.append("search", searchToUse.trim());
       }
 
-      const res = await axios.get<{ jobs: Job[] }>(
-        `/api/job-postings/all?${params.toString()}`
-      );
+      const apiUrl = `/api/job-postings/all?${params.toString()}`;
+      console.log("🌐 Making API request to:", apiUrl);
+      console.log("⏰ Timestamp:", new Date().toISOString());
+      
+      const res = await axios.get<{ jobs: Job[] }>(apiUrl);
+      
+      console.log("✅ API Response received:", {
+        jobsCount: res.data.jobs?.length || 0,
+        timestamp: new Date().toISOString()
+      });
+      
       setJobs(res.data.jobs);
       setCurrentPage(1); // Reset to first page when filters change
     } catch (err) {
-      console.error("Error fetching jobs:", err);
+      console.error("❌ Error fetching jobs:", err);
     }
-  };
+  }, [searchQuery, filters]);
 
   const formatPostedDate = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -199,74 +233,94 @@ const AllJobs: React.FC = () => {
     return pages;
   };
 
-  // On first load, read filters/search from URL (slugs) and hydrate state
+  // On first load, clear URL and start fresh
+  const hasInitialized = useRef(false);
   useEffect(() => {
     if (!router.isReady) return;
+    if (hasInitialized.current) return; // Only run once on initial load
 
-    const query = router.query;
+    console.log("🚀 Initial load - starting fresh (clearing URL parameters)");
+    
+    // Clear URL parameters on refresh
+    if (Object.keys(router.query).length > 0) {
+      console.log("🧹 Clearing URL parameters");
+      router.replace(router.pathname, undefined, { shallow: true });
+    }
+    
+    // Reset all filters and search to empty
+    setFilters({
+      location: "",
+      jobType: "",
+      department: "",
+      skills: "",
+      salary: "",
+      time: "",
+      experience: "",
+    });
+    setSearchQuery("");
+    
+    isInitialLoad.current = false;
+    hasInitialized.current = true;
+    
+    // Fetch all jobs (no filters) on initial load
+    console.log("🚀 Initial load - fetching all jobs");
+    setTimeout(() => {
+      fetchJobs("", "");
+    }, 0);
+  }, [router.isReady]);
 
-    const initialFilters: Filters = {
-      location: query.location ? slugToText(String(query.location), "location") : "",
-      jobType: query.jobType ? slugToText(String(query.jobType), "jobType") : "",
-      department: query.department ? slugToText(String(query.department), "department") : "",
-      skills: query.skills ? slugToText(String(query.skills), "skills") : "",
-      salary: query.salary ? slugToText(String(query.salary), "salary") : "",
-      time: query.time ? slugToText(String(query.time), "time") : "",
-      experience: query.experience ? slugToText(String(query.experience), "experience") : "",
-    };
+  // URL is only updated when Search Jobs button is clicked (in handleSearchSubmit)
+  // No automatic URL sync on keystroke to prevent unnecessary re-renders
 
-    const initialSearch = query.search
-      ? slugToText(String(query.search))
-      : "";
+  // No automatic API calls on keystroke - only on button click or initial load
 
-    setFilters((prev) => ({ ...prev, ...initialFilters }));
-    setSearchQuery(initialSearch);
-  }, [router.isReady, router.query]);
+  const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    
+    console.log(`🔧 Filter changed - ${name}:`, value);
+    
+    // For location input, update immediately for UI but debounce will handle API call
+    // For other filters (dropdowns), update immediately and trigger API call
+    setFilters({ ...filters, [name]: value });
+    
+    // For non-location filters (dropdowns), immediately update debounced value to trigger API call
+    if (name !== 'location') {
+      // For dropdowns, we want immediate API calls, so update debounced location if it's not location
+      // Actually, for non-location filters, the useEffect will handle it via filters dependency
+    }
+  };
 
-  // Whenever filters/search change, sync them to URL as slugs
-  useEffect(() => {
-    if (!router.isReady) return;
-    if (isSyncingURL.current) return;
+  const handleSearchChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    console.log("🔤 Search input changed:", value);
+    setSearchQuery(value);
+  };
 
-    isSyncingURL.current = true;
-
+  const handleSearchSubmit = () => {
+    console.log("🔘 Search Jobs button clicked!");
+    console.log("📝 Current search values:", {
+      searchQuery,
+      location: filters.location
+    });
+    
+    // Call API with current search and location values
+    fetchJobs(searchQuery, filters.location);
+    
+    // Update URL with current values
     const params = new URLSearchParams();
     Object.entries(filters).forEach(([key, value]) => {
       if (value) {
         params.set(key, textToSlug(String(value), key as keyof Filters));
       }
     });
-
     if (searchQuery.trim()) {
       params.set("search", textToSlug(searchQuery.trim(), "search"));
     }
-
     const newUrl = params.toString()
       ? `${router.pathname}?${params.toString()}`
       : router.pathname;
-
     router.replace(newUrl, undefined, { shallow: true });
 
-    // allow future syncs
-    setTimeout(() => {
-      isSyncingURL.current = false;
-    }, 50);
-  }, [filters, searchQuery, router.isReady, router.pathname]);
-
-  useEffect(() => {
-    fetchJobs();
-  }, [filters, searchQuery]);
-
-  const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    setFilters({ ...filters, [e.target.name]: e.target.value });
-  };
-
-  const handleSearchChange = (e: ChangeEvent<HTMLInputElement>) => {
-    setSearchQuery(e.target.value);
-  };
-
-  const handleSearchSubmit = () => {
-    fetchJobs();
     window.scrollTo({ top: window.innerHeight, behavior: "smooth" });
   };
 
@@ -602,8 +656,10 @@ const AllJobs: React.FC = () => {
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {currentJobs.map((job) => (
-                  <Link key={job._id} href={`/job-details/${job._id}`} className="block">
+                {currentJobs.map((job) => {
+                  const jobSlug = createJobSlug(job.jobTitle || "", job._id);
+                  return (
+                    <Link key={job._id} href={`/job-details/${jobSlug}`} className="block">
                     <div className="bg-white border border-gray-200 rounded-xl p-6 hover:border-teal-500 hover:shadow-lg transition-all duration-200 group h-full flex flex-col">
                       <div className="flex items-start gap-4 mb-4">
                         {/* Company Logo */}
@@ -676,7 +732,8 @@ const AllJobs: React.FC = () => {
                       </div>
                     </div>
                   </Link>
-                ))}
+                  );
+                })}
               </div>
             )}
 

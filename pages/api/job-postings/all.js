@@ -9,7 +9,7 @@ export default async function handler(req, res) {
 
   await dbConnect();
 
-  const { location, jobType, department, skills, salary, time, experience, jobId } = req.query;
+  const { location, jobType, department, skills, salary, time, experience, jobId, search } = req.query;
 
   // ✅ Always only approved + active
   const filters = { 
@@ -57,13 +57,34 @@ export default async function handler(req, res) {
       .sort({ createdAt: -1 })
       .lean();
 
+    const initialCount = jobs.length;
+    console.log(`📊 Initial jobs count: ${initialCount}`);
+
+    // ✅ Search filter (jobTitle, companyName) - applied first
+    if (search?.trim()) {
+      const searchQuery = search.trim().toLowerCase();
+      console.log(`🔍 Filtering by search query: "${searchQuery}"`);
+      const beforeCount = jobs.length;
+      jobs = jobs.filter(job => {
+        const jobTitleMatch = job.jobTitle?.toLowerCase().includes(searchQuery);
+        const companyNameMatch = job.companyName?.toLowerCase().includes(searchQuery);
+        return jobTitleMatch || companyNameMatch;
+      });
+      console.log(`✅ After search filter: ${beforeCount} → ${jobs.length} jobs`);
+    }
+
     // ✅ Location normalization check (real fuzzy match)
     if (location?.trim()) {
       const normalizedQuery = normalize(location);
+      console.log(`📍 Filtering by location: "${location}" (normalized: "${normalizedQuery}")`);
+      const beforeCount = jobs.length;
       jobs = jobs.filter(
         job => job.location && normalize(job.location).includes(normalizedQuery)
       );
+      console.log(`✅ After location filter: ${beforeCount} → ${jobs.length} jobs`);
     }
+
+    console.log(`📈 Final jobs count: ${jobs.length} (from ${initialCount} initial)`);
 
     // ✅ Experience filter (range based, now AFTER jobs are fetched)
    // ✅ Experience filter (range + "Fresher")

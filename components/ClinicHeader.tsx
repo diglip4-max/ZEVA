@@ -30,10 +30,10 @@ interface ClinicHeaderProps {
 }
 
 const ClinicHeader: React.FC<ClinicHeaderProps> = ({
-  handleToggleDesktop,
-  handleToggleMobile,
-  isDesktopHidden = false,
-  isMobileOpen = false,
+  handleToggleDesktop: _handleToggleDesktop,
+  handleToggleMobile: _handleToggleMobile,
+  isDesktopHidden: _isDesktopHidden = false,
+  isMobileOpen: _isMobileOpen = false,
 }) => {
   const router = useRouter();
   const [navigationItems, setNavigationItems] = useState<NavigationItem[]>([]);
