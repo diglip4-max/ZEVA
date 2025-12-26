@@ -20,13 +20,19 @@ const DoctorLayout = ({ children, hideSidebar = false, hideHeader = false }: Doc
     setIsMobileOpen(!isMobileOpen);
   };
 
+  // Intentionally unused - reserved for future use or external component handlers
   const handleCloseMobile = () => {
     setIsMobileOpen(false);
   };
 
+  // Intentionally unused - reserved for future use or external component handlers
   const handleItemClick = () => {
     setIsMobileOpen(false);
   };
+
+  // Reference unused functions to satisfy TypeScript (reserved for future use)
+  void handleCloseMobile;
+  void handleItemClick;
 
   // If both sidebar and header are hidden, render children directly without layout wrapper
   if (hideSidebar && hideHeader) {

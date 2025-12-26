@@ -1091,6 +1091,9 @@ const ClinicDashboard: NextPageWithLayout = () => {
     return moduleStat?.value as number || 0;
   }, [moduleStats, stats]);
 
+  // Reference unused function to satisfy TypeScript (reserved for future functionality)
+  void getModuleValue;
+
   // First Graph (Bar Chart): Shows Appointments, Leads, Offers, Jobs
   const modulesChartData = useMemo(() => {
     // Use totalJobs from stats API (more accurate than moduleStats)

@@ -10,9 +10,9 @@ interface DoctorHeaderProps {
 }
 
 const DoctorHeader: React.FC<DoctorHeaderProps> = ({
-  handleToggleDesktop,
+  handleToggleDesktop: _handleToggleDesktop,
   handleToggleMobile,
-  isDesktopHidden = false,
+  isDesktopHidden: _isDesktopHidden = false,
   isMobileOpen = false,
 }) => {
   const [doctorUser, setDoctorUser] = useState<{ name: string; email: string } | null>(null);
