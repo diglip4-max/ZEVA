@@ -152,11 +152,23 @@ export default function BlogDetail({ initialBlog, seo }: BlogDetailProps) {
     ? `${getBaseUrl()}/blogs/${blog.paramlink || blog._id}`
     : "";
 
+  // Helper: extract full MongoDB ObjectId from slug
+  const extractBlogIdFromSlug = (slug: string): string | null => {
+    if (!slug) return null;
+    const objectIdPattern = /([a-f0-9]{24})$/i;
+    const match = slug.match(objectIdPattern);
+    return match ? match[1] : null;
+  };
+
   // Client-side fetch only if not provided by SSR (shouldn't typically happen)
   useEffect(() => {
     if (blog || !id) return;
+    
+    // Extract ID from slug if it's a slug format
+    const blogId = extractBlogIdFromSlug(id) || id;
+    
     const token = localStorage.getItem("token");
-    fetch(`/api/blog/getBlogById?id=${id}`, {
+    fetch(`/api/blog/getBlogById?id=${blogId}`, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     })
       .then((res) => res.json())
@@ -1292,16 +1304,44 @@ export const getServerSideProps: GetServerSideProps<BlogDetailProps> = async ({
     const { id } = params as { id: string };
     await dbConnect();
 
-    // Try to find by paramlink first (for SEO-friendly URLs), then fallback to _id
-    let blogDoc = await BlogModel.findOne({ paramlink: id, status: "published" })
-      .populate("postedBy", "name _id")
-      .lean<BlogDoc>();
-    
-    if (!blogDoc) {
-      // Fallback to MongoDB _id
-      blogDoc = await BlogModel.findById(id)
+    // Helper: extract full MongoDB ObjectId from slug
+    // Format: blog-title-abc12345def67890 (title + full 24-char ID at the end)
+    const extractJobIdFromSlug = (slug: string): string | null => {
+      if (!slug) return null;
+      // MongoDB ObjectId is 24 hex characters
+      const objectIdPattern = /([a-f0-9]{24})$/i;
+      const match = slug.match(objectIdPattern);
+      return match ? match[1] : null;
+    };
+
+    let blogDoc: BlogDoc | null = null;
+    const extractedId = extractJobIdFromSlug(id);
+
+    // OPTIMIZED APPROACH: Extract ID from slug and query directly
+    if (extractedId) {
+      console.log("⚡ Using optimized lookup by ID from slug:", extractedId);
+      // Direct database lookup by ID - FASTEST and most efficient
+      blogDoc = await BlogModel.findOne({ _id: extractedId, status: "published" })
         .populate("postedBy", "name _id")
         .lean<BlogDoc>();
+    }
+
+    // If not found by extracted ID, try other methods (backward compatibility)
+    if (!blogDoc) {
+      // Check if it's a direct MongoDB ObjectId (24 hex characters)
+      const isObjectId = /^[a-f0-9]{24}$/i.test(id);
+      
+      if (isObjectId) {
+        // Direct ID lookup
+        blogDoc = await BlogModel.findById(id)
+          .populate("postedBy", "name _id")
+          .lean<BlogDoc>();
+      } else {
+        // Try to find by paramlink (legacy support)
+        blogDoc = await BlogModel.findOne({ paramlink: id, status: "published" })
+          .populate("postedBy", "name _id")
+          .lean<BlogDoc>();
+      }
     }
     
     if (!blogDoc) {
