@@ -19,6 +19,8 @@ interface Stats {
   totalDepartments?: number;
   totalPackages?: number;
   totalOffers?: number;
+  totalPatients?: number;
+  totalJobs?: number;
   appointmentStatusBreakdown?: { [key: string]: number };
   leadStatusBreakdown?: { [key: string]: number };
   offerStatusBreakdown?: { [key: string]: number };
@@ -198,8 +200,8 @@ const ClinicDashboard: NextPageWithLayout = () => {
           // Don't set it for clinic/doctor roles as they have full access
           const role = getUserRole();
           if (['agent', 'doctorStaff'].includes(role || '')) {
-            setAccessDenied(true);
-            setAccessMessage('Your clinic account does not have permission to view this dashboard.');
+          setAccessDenied(true);
+          setAccessMessage('Your clinic account does not have permission to view this dashboard.');
           }
         } else {
           console.error('Error fetching clinic info:', error);
@@ -336,7 +338,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
           if (finalCanRead) {
             console.log("✅ Access granted - setting accessDenied to false");
             setAccessDenied(false);
-          } else {
+        } else {
             console.log("❌ Access denied - setting accessDenied to true");
             setAccessDenied(true);
             setAccessMessage('You do not have read permission for the clinic dashboard.');
@@ -390,11 +392,11 @@ const ClinicDashboard: NextPageWithLayout = () => {
       
       if (!moduleAccess.canRead) {
         console.log("❌ Access denied - moduleAccess.canRead is false");
-        setAccessDenied(true);
+      setAccessDenied(true);
         setAccessMessage('You do not have read permission for the clinic dashboard.');
-        setLoading(false);
-        setNavigationItemsLoaded(true);
-        return;
+      setLoading(false);
+      setNavigationItemsLoaded(true);
+      return;
       } else {
         console.log("✅ Access granted - moduleAccess.canRead is true");
         setAccessDenied(false);
@@ -450,8 +452,8 @@ const ClinicDashboard: NextPageWithLayout = () => {
           // and doesn't have read permission
           if (['agent', 'doctorStaff'].includes(userRole || '')) {
             if (!moduleAccess.canRead) {
-              setAccessDenied(true);
-              setAccessMessage('You do not have permission to view the dashboard modules.');
+          setAccessDenied(true);
+          setAccessMessage('You do not have permission to view the dashboard modules.');
             }
           }
         } else {
@@ -471,10 +473,10 @@ const ClinicDashboard: NextPageWithLayout = () => {
     // Only check access for agent and doctorStaff roles
     if (['agent', 'doctorStaff'].includes(userRole || '')) {
       if (!moduleAccess.canRead) {
-        setAccessDenied(true);
+      setAccessDenied(true);
         setAccessMessage('You do not have read permission for the clinic dashboard.');
-        setLoading(false);
-        return;
+      setLoading(false);
+      return;
       } else {
         setAccessDenied(false);
       }
@@ -513,8 +515,8 @@ const ClinicDashboard: NextPageWithLayout = () => {
           // Don't block access just because we can't fetch all modules
           if (['agent', 'doctorStaff'].includes(userRole || '')) {
             if (!moduleAccess.canRead) {
-              setAccessDenied(true);
-              setAccessMessage('Access to module information is restricted for your account.');
+          setAccessDenied(true);
+          setAccessMessage('Access to module information is restricted for your account.');
             }
           }
         } else {
@@ -822,8 +824,8 @@ const ClinicDashboard: NextPageWithLayout = () => {
                 statLabel = 'Total Enquiries';
                 hasData = (dashboardStatsData?.totalEnquiries || 0) > 0;
               } else {
-                statValue = 0;
-                hasData = false;
+              statValue = 0;
+              hasData = false;
               }
           }
 
@@ -1089,80 +1091,28 @@ const ClinicDashboard: NextPageWithLayout = () => {
     return moduleStat?.value as number || 0;
   }, [moduleStats, stats]);
 
-  // First Graph (Bar Chart): Shows specific modules: Manage Health Center, Enquiry, Create Agent, Create Lead, Assigned Leads, and the rest
+  // First Graph (Bar Chart): Shows Appointments, Leads, Offers, Jobs
   const modulesChartData = useMemo(() => {
-    if (navigationItems.length === 0 || statsLoading) {
-      return [];
-    }
+    // Use totalJobs from stats API (more accurate than moduleStats)
+    const jobsCount = stats.totalJobs || 0;
     
-    // Define the priority modules that should appear first
-    const priorityModuleKeys = [
-      'health_center',      // Manage Health Center
-      'enquiry',            // Enquiry
-      'create_agent',       // Create Agent
-      'create_lead',        // Create Lead
-      'assignedLead',       // Assigned Leads
-    ];
-    
-    // Separate priority and other modules
-    const priorityModules: NavigationItem[] = [];
-    const otherModules: NavigationItem[] = [];
-    const seenKeys = new Set<string>();
-    
-    navigationItems.forEach((item) => {
-      // Avoid duplicates
-      if (seenKeys.has(item.moduleKey)) {
-        return;
-      }
-      seenKeys.add(item.moduleKey);
-      
-      if (priorityModuleKeys.includes(item.moduleKey)) {
-        priorityModules.push(item);
-      } else {
-        // Skip dashboard itself
-        if (item.moduleKey !== 'dashboard') {
-          otherModules.push(item);
-        }
-      }
-    });
-    
-    // Sort priority modules by the order in priorityModuleKeys
-    priorityModules.sort((a, b) => {
-      const indexA = priorityModuleKeys.indexOf(a.moduleKey);
-      const indexB = priorityModuleKeys.indexOf(b.moduleKey);
-      return indexA - indexB;
-    });
-    
-    // Combine: priority modules first, then others
-    const allModules = [...priorityModules, ...otherModules];
-    
-    return allModules.map((item) => {
-      const value = getModuleValue(item);
-      
-      return {
-        name: item.label.length > 15 ? item.label.substring(0, 15) + '...' : item.label,
-        value: value,
-        fullName: item.label,
-        moduleKey: item.moduleKey,
-      };
-    }).filter((item) => item.value > 0 || allModules.length <= 10); // Show all if few modules, otherwise filter zeros
-  }, [navigationItems, moduleStats, stats, statsLoading, getModuleValue]);
+    return [
+      { name: 'Appointments', value: stats.totalAppointments || 0 },
+      { name: 'Leads', value: stats.totalLeads || 0 },
+      { name: 'Offers', value: stats.totalOffers || 0 },
+      { name: 'Jobs', value: jobsCount },
+    ].filter(item => item.value > 0 || !statsLoading); // Show items with data or while loading
+  }, [stats.totalAppointments, stats.totalLeads, stats.totalOffers, stats.totalJobs, statsLoading]);
 
-  // Second Graph (Line Chart): Shows core statistics from API - distinct from first graph
+  // Second Graph (Line Chart): Shows Reviews, Enquiries, Patients, Rooms
   const statsChartData = useMemo(() => {
-    // Only show core statistics that are NOT already shown in the first graph
-    // Exclude: Enquiry (shown in first graph), Leads (shown in first graph)
-    // Include: Reviews, Appointments, Offers, Treatments, Rooms, Packages, Departments
     return [
       { name: 'Reviews', value: stats.totalReviews || 0 },
-      { name: 'Appointments', value: stats.totalAppointments || 0 },
-      { name: 'Offers', value: stats.totalOffers || 0 },
-      { name: 'Treatments', value: stats.totalTreatments || 0 },
+      { name: 'Enquiries', value: stats.totalEnquiries || 0 },
+      { name: 'Patients', value: stats.totalPatients || 0 },
       { name: 'Rooms', value: stats.totalRooms || 0 },
-      { name: 'Packages', value: stats.totalPackages || 0 },
-      { name: 'Departments', value: stats.totalDepartments || 0 },
     ].filter(item => item.value > 0 || !statsLoading); // Only show items with data or while loading
-  }, [stats.totalReviews, stats.totalAppointments, stats.totalOffers, stats.totalTreatments, stats.totalRooms, stats.totalPackages, stats.totalDepartments, statsLoading]);
+  }, [stats.totalReviews, stats.totalEnquiries, stats.totalPatients, stats.totalRooms, statsLoading]);
 
   // Prepare breakdown chart data
   const appointmentStatusData = useMemo(() => {
@@ -1592,40 +1542,40 @@ const ClinicDashboard: NextPageWithLayout = () => {
         </div>
 
         {/* Analytics Overview - Full Width */}
-        {((stats.totalEnquiries > 0 || stats.totalReviews > 0 || (stats.totalAppointments || 0) > 0 || (stats.totalLeads || 0) > 0) || modulesChartData.length > 0) && (
+        {((stats.totalEnquiries > 0 || stats.totalReviews > 0 || (stats.totalAppointments || 0) > 0 || (stats.totalLeads || 0) > 0 || (stats.totalOffers || 0) > 0 || (stats.totalPatients || 0) > 0 || (stats.totalRooms || 0) > 0) || modulesChartData.length > 0 || statsChartData.length > 0) && (
           <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 mb-6">
             <h3 className="text-base font-semibold text-gray-900 mb-6">Analytics Overview</h3>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-              {/* Bar Chart - Modules from Sidebar */}
+              {/* Bar Chart - Appointments, Leads, Offers, Jobs */}
               <div className="h-80">
-                <h4 className="text-sm font-medium text-gray-700 mb-2">Modules Overview (Sidebar Modules)</h4>
+                <h4 className="text-sm font-medium text-gray-700 mb-2">Appointments, Leads, Offers & Jobs</h4>
                 {modulesChartData.length > 0 ? (
-                  <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={modulesChartData} margin={{ top: 10, right: 20, left: 10, bottom: 40 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                      <XAxis
-                        dataKey="name"
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                    <XAxis
+                      dataKey="name"
                         tick={{ fill: '#6b7280', fontSize: 10 }}
-                        axisLine={{ stroke: '#d1d5db' }}
-                        tickLine={{ stroke: '#d1d5db' }}
-                        angle={-45}
-                        textAnchor="end"
+                      axisLine={{ stroke: '#d1d5db' }}
+                      tickLine={{ stroke: '#d1d5db' }}
+                      angle={-45}
+                      textAnchor="end"
                         height={60}
-                      />
-                      <YAxis
-                        tick={{ fill: '#6b7280', fontSize: 11 }}
-                        axisLine={{ stroke: '#d1d5db' }}
-                        tickLine={{ stroke: '#d1d5db' }}
+                    />
+                    <YAxis
+                      tick={{ fill: '#6b7280', fontSize: 11 }}
+                      axisLine={{ stroke: '#d1d5db' }}
+                      tickLine={{ stroke: '#d1d5db' }}
                         domain={[0, 'auto']}
                         type="number"
-                      />
-                      <Tooltip 
-                        contentStyle={{ 
-                          backgroundColor: '#fff', 
-                          border: '1px solid #e5e7eb',
-                          borderRadius: '6px',
-                          fontSize: '11px'
-                        }}
+                    />
+                    <Tooltip 
+                      contentStyle={{ 
+                        backgroundColor: '#fff', 
+                        border: '1px solid #e5e7eb',
+                        borderRadius: '6px',
+                        fontSize: '11px'
+                      }}
                         formatter={(value: number, name: string, props: any) => {
                           if (props.payload?.fullName) {
                             return [`${value}`, props.payload.fullName];
@@ -1634,25 +1584,25 @@ const ClinicDashboard: NextPageWithLayout = () => {
                         }}
                       />
                       <Bar dataKey="value" radius={[4, 4, 0, 0]} fill="#3b82f6">
-                        <LabelList
-                          dataKey="value"
-                          position="top"
+                      <LabelList
+                        dataKey="value"
+                        position="top"
                           fill="#3b82f6"
-                          fontSize={11}
-                          fontWeight={500}
-                        />
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
+                        fontSize={11}
+                        fontWeight={500}
+                      />
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
                 ) : (
                   <div className="flex items-center justify-center h-full text-gray-500">
                     Loading modules data...
-                  </div>
+              </div>
                 )}
               </div>
-              {/* Line Chart - Dashboard Stats from API */}
+              {/* Line Chart - Reviews, Enquiries, Patients, Rooms */}
               <div className="h-80">
-                <h4 className="text-sm font-medium text-gray-700 mb-2">Dashboard Statistics (API Data)</h4>
+                <h4 className="text-sm font-medium text-gray-700 mb-2">Reviews, Enquiries, Patients & Rooms</h4>
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={statsChartData} margin={{ top: 10, right: 20, left: 10, bottom: 10 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />

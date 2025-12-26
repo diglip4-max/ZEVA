@@ -739,7 +739,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
               {isLoading ? (
                 <div className="text-xs text-gray-500 px-2">Loading menu…</div>
               ) : (
-                items.map((item, parentIdx) => {
+                items.map((item, _parentIdx) => {
                 const isDropdownOpen = openDropdown === item.label;
                 // If an item is manually selected, only that item should be active
                 // Otherwise, use router pathname to determine active state
@@ -985,7 +985,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                 <div className="text-xs text-gray-500 px-2">Loading menu…</div>
               ) : (
                 <div className="space-y-1">
-                  {items.map((item, parentIdx) => {
+                  {items.map((item, _parentIdx) => {
                   const isDropdownOpen = openDropdown === item.label;
                   // If an item is manually selected, only that item should be active
                   // Otherwise, use router pathname to determine active state

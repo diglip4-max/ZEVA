@@ -30,9 +30,9 @@ interface ClinicHeaderProps {
 }
 
 const ClinicHeader: React.FC<ClinicHeaderProps> = ({
-  handleToggleDesktop,
+  handleToggleDesktop: _handleToggleDesktop,
   handleToggleMobile,
-  isDesktopHidden = false,
+  isDesktopHidden: _isDesktopHidden = false,
   isMobileOpen = false,
 }) => {
   const router = useRouter();

@@ -9,6 +9,9 @@ import Room from '../../../models/Room';
 import Department from '../../../models/Department';
 import Package from '../../../models/Package';
 import CreateOffer from '../../../models/CreateOffer';
+import PatientRegistration from '../../../models/PatientRegistration';
+import JobPosting from '../../../models/JobPosting';
+import User from '../../../models/Users';
 import jwt from 'jsonwebtoken';
 import { getUserFromReq } from '../lead-ms/auth';
 import { getClinicIdFromUser, checkClinicPermission } from '../lead-ms/permissions-helper';
@@ -91,6 +94,19 @@ export default async function handler(req, res) {
     }
    
 
+    // Get all user IDs associated with this clinic (owner + all users with clinicId)
+    // This is needed for PatientRegistration and JobPosting which are linked to users, not directly to clinic
+    const clinicUserIds = [];
+    if (clinic.owner) {
+      clinicUserIds.push(clinic.owner);
+    }
+    const clinicUsers = await User.find({ clinicId: clinic._id }).select('_id');
+    clinicUsers.forEach(u => {
+      if (!clinicUserIds.some(id => id.toString() === u._id.toString())) {
+        clinicUserIds.push(u._id);
+      }
+    });
+
     // Count all statistics for this clinic in parallel
     const [
       reviewCount,
@@ -102,6 +118,8 @@ export default async function handler(req, res) {
       departmentCount,
       packageCount,
       offerCount,
+      patientCount,
+      jobCount,
     ] = await Promise.all([
       Review.countDocuments({ clinicId }),
       Enquiry.countDocuments({ clinicId }),
@@ -112,6 +130,17 @@ export default async function handler(req, res) {
       Department.countDocuments({ clinicId }),
       Package.countDocuments({ clinicId }),
       CreateOffer.countDocuments({ clinicId }),
+      // Count patients by userId (patients are linked to users, not directly to clinic)
+      PatientRegistration.countDocuments({ 
+        userId: { $in: clinicUserIds } 
+      }),
+      // Count jobs by clinicId or postedBy users from this clinic
+      JobPosting.countDocuments({
+        $or: [
+          { clinicId: clinic._id },
+          { postedBy: { $in: clinicUserIds } }
+        ]
+      }),
     ]);
 
     // Get appointment status breakdown
@@ -167,6 +196,8 @@ export default async function handler(req, res) {
         totalDepartments: departmentCount,
         totalPackages: packageCount,
         totalOffers: offerCount,
+        totalPatients: patientCount,
+        totalJobs: jobCount,
         appointmentStatusBreakdown: formatBreakdown(appointmentStatusBreakdown),
         leadStatusBreakdown: formatBreakdown(leadStatusBreakdown),
         offerStatusBreakdown: formatBreakdown(offerStatusBreakdown),
