@@ -29,7 +29,7 @@ const ClinicLayout = ({ children, hideSidebar = false, hideHeader = false }: Cli
     <div className="flex min-h-screen bg-gray-100" role="application">
       {/* Sidebar - ClinicSidebar with external state */}
       {!hideSidebar && (
-        <div className="fixed lg:sticky top-0 left-0 z-50 h-screen">
+        <div className="h-screen sticky top-0 z-50">
           <ClinicSidebar 
             externalIsDesktopHidden={isDesktopHidden}
             externalIsMobileOpen={isMobileOpen}
@@ -40,10 +40,10 @@ const ClinicLayout = ({ children, hideSidebar = false, hideHeader = false }: Cli
       )}
 
       {/* Main Content Area */}
-      <div className="flex flex-col flex-1 min-h-screen lg:ml-0" style={{ overflowX: 'visible', minWidth: 0 }}>
+      <div className="flex flex-col flex-1 min-h-screen max-h-screen" style={{ overflowX: 'visible', minWidth: 0 }}>
         {/* Header - Visible on both mobile and desktop */}
         {!hideHeader && (
-          <div className="sticky top-0 z-40">
+          <div className="sticky top-0 z-10">
             <ClinicHeader 
               handleToggleDesktop={handleToggleDesktop}
               handleToggleMobile={handleToggleMobile}
@@ -55,9 +55,10 @@ const ClinicLayout = ({ children, hideSidebar = false, hideHeader = false }: Cli
 
         {/* Page Content */}
         <main 
-          className="flex-1 overflow-y-auto relative z-0" 
+          className={`flex-1 ${hideSidebar && hideHeader ? '' : ''}`} 
           role="main" 
           style={{ 
+            overflowY: 'auto', 
             overflowX: 'visible',
             minWidth: 0,
             width: '100%'
