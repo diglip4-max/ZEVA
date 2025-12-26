@@ -43,14 +43,14 @@ export default async function handler(req, res) {
       const { checkAgentPermission } = await import("../agent/permissions-helper");
       const result = await checkAgentPermission(
         authUser._id,
-        "clinic_health_center",
+        "clinic_dashboard",
         "read"
       );
 
       if (!result.hasPermission) {
         return res.status(403).json({
           success: false,
-          message: result.error || "You do not have permission to view clinic statistics"
+          message: result.error || "Permission denied: read action not allowed for module clinic_dashboard"
         });
       }
     }

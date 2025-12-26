@@ -194,8 +194,13 @@ const ClinicDashboard: NextPageWithLayout = () => {
         }
       } catch (error: any) {
         if (axios.isAxiosError(error) && error.response?.status === 403) {
-          setAccessDenied(true);
-          setAccessMessage('Your clinic account does not have permission to view this dashboard.');
+          // Only set access denied if user is agent/doctorStaff and doesn't have permission
+          // Don't set it for clinic/doctor roles as they have full access
+          const role = getUserRole();
+          if (['agent', 'doctorStaff'].includes(role || '')) {
+            setAccessDenied(true);
+            setAccessMessage('Your clinic account does not have permission to view this dashboard.');
+          }
         } else {
           console.error('Error fetching clinic info:', error);
           setClinicInfo({
@@ -262,7 +267,11 @@ const ClinicDashboard: NextPageWithLayout = () => {
       try {
         const headers = getAuthHeaders();
         if (!headers.Authorization) {
+          console.warn("⚠️ No authorization token found");
           setModuleAccess({ canRead: false, canUpdate: false, canCreate: false });
+          setAccessDenied(true);
+          setAccessMessage('Authentication required. Please log in again.');
+          setPermissionsLoaded(true);
           return;
         }
 
@@ -271,23 +280,78 @@ const ClinicDashboard: NextPageWithLayout = () => {
           { headers }
         );
 
+        console.log("🔍 Full API response:", JSON.stringify(res.data, null, 2));
+
         if (res.data?.success && res.data.permissions) {
           const actions = res.data.permissions.actions || {};
-          const canAll =
-            actions.all === true ||
-            actions.all === 'true' ||
-            String(actions.all).toLowerCase() === 'true';
-          setModuleAccess({
-            canRead: canAll || actions.read === true,
-            canUpdate: canAll || actions.update === true,
-            canCreate: canAll || actions.create === true,
+          
+          // Helper to convert value to boolean
+          const toBool = (value: any): boolean => {
+            if (value === true || value === false) return value;
+            if (typeof value === "string") {
+              const lowered = value.toLowerCase();
+              return lowered === "true" || lowered === "1" || lowered === "yes";
+            }
+            return Boolean(value);
+          };
+          
+          const canAll = toBool(actions.all);
+          const canRead = toBool(actions.read);
+          const canUpdate = toBool(actions.update);
+          const canCreate = toBool(actions.create);
+          
+          console.log("📊 Dashboard permissions check:", {
+            module: res.data.permissions.module,
+            rawActions: actions,
+            convertedActions: {
+              all: canAll,
+              read: canRead,
+              update: canUpdate,
+              create: canCreate,
+            },
+            finalAccess: {
+              canRead: canAll || canRead,
+              canUpdate: canAll || canUpdate,
+              canCreate: canAll || canCreate,
+            }
           });
+          
+          const finalCanRead = canAll || canRead;
+          const finalCanUpdate = canAll || canUpdate;
+          const finalCanCreate = canAll || canCreate;
+          
+          console.log("🔐 Setting moduleAccess:", {
+            canRead: finalCanRead,
+            canUpdate: finalCanUpdate,
+            canCreate: finalCanCreate,
+          });
+          
+          setModuleAccess({
+            canRead: finalCanRead,
+            canUpdate: finalCanUpdate,
+            canCreate: finalCanCreate,
+          });
+          
+          // Reset accessDenied if permission is granted
+          if (finalCanRead) {
+            console.log("✅ Access granted - setting accessDenied to false");
+            setAccessDenied(false);
+          } else {
+            console.log("❌ Access denied - setting accessDenied to true");
+            setAccessDenied(true);
+            setAccessMessage('You do not have read permission for the clinic dashboard.');
+          }
         } else {
+          console.warn("⚠️ No permissions data received or success is false:", res.data);
           setModuleAccess({ canRead: false, canUpdate: false, canCreate: false });
+          setAccessDenied(true);
+          setAccessMessage('Unable to verify permissions. Access denied.');
         }
       } catch (error) {
         console.error('Error fetching dashboard permissions:', error);
         setModuleAccess({ canRead: false, canUpdate: false, canCreate: false });
+        setAccessDenied(true);
+        setAccessMessage('Error loading permissions. Please try again.');
       } finally {
         setPermissionsLoaded(true);
       }
@@ -296,14 +360,48 @@ const ClinicDashboard: NextPageWithLayout = () => {
     fetchPermissions();
   }, [getAuthHeaders, getUserRole]);
 
+  // Reset accessDenied when permissions are granted
+  useEffect(() => {
+    if (!permissionsLoaded) return;
+    
+    // For agent and doctorStaff, check if they have read permission
+    if (['agent', 'doctorStaff'].includes(userRole || '')) {
+      if (moduleAccess.canRead) {
+        console.log("✅ Resetting accessDenied to false - read permission granted");
+        setAccessDenied(false);
+      } else {
+        console.log("❌ Setting accessDenied to true - read permission denied");
+        setAccessDenied(true);
+        setAccessMessage('You do not have read permission for the clinic dashboard.');
+      }
+    } else {
+      // For other roles (clinic, doctor, admin), always grant access
+      setAccessDenied(false);
+    }
+  }, [permissionsLoaded, moduleAccess.canRead, userRole]);
+
   // Fetch sidebar navigation items (which already have permissions applied)
   useEffect(() => {
     if (!permissionsLoaded) return;
-    if (['agent', 'doctorStaff'].includes(userRole || '') && !moduleAccess.canRead) {
-      setAccessDenied(true);
-      setLoading(false);
-      setNavigationItemsLoaded(true);
-      return;
+    
+    // Only check access for agent and doctorStaff roles
+    if (['agent', 'doctorStaff'].includes(userRole || '')) {
+      console.log("🔍 Checking access for role:", userRole, "canRead:", moduleAccess.canRead);
+      
+      if (!moduleAccess.canRead) {
+        console.log("❌ Access denied - moduleAccess.canRead is false");
+        setAccessDenied(true);
+        setAccessMessage('You do not have read permission for the clinic dashboard.');
+        setLoading(false);
+        setNavigationItemsLoaded(true);
+        return;
+      } else {
+        console.log("✅ Access granted - moduleAccess.canRead is true");
+        setAccessDenied(false);
+      }
+    } else {
+      // For other roles (clinic, doctor, etc.), always grant access
+      setAccessDenied(false);
     }
 
     const fetchNavigationItems = async (): Promise<void> => {
@@ -335,12 +433,27 @@ const ClinicDashboard: NextPageWithLayout = () => {
           if (res.data.permissions) {
             setPermissions(res.data.permissions);
           }
+          // If we successfully got navigation items, ensure access is not denied
+          // (unless permissions explicitly deny it)
+          if (['agent', 'doctorStaff'].includes(userRole || '')) {
+            if (moduleAccess.canRead) {
+              setAccessDenied(false);
+            }
+          } else {
+            setAccessDenied(false);
+          }
         }
         setNavigationItemsLoaded(true);
       } catch (error: any) {
         if (axios.isAxiosError(error) && error.response?.status === 403) {
-          setAccessDenied(true);
-          setAccessMessage('You do not have permission to view the dashboard modules.');
+          // Only set access denied if user is agent/doctorStaff
+          // and doesn't have read permission
+          if (['agent', 'doctorStaff'].includes(userRole || '')) {
+            if (!moduleAccess.canRead) {
+              setAccessDenied(true);
+              setAccessMessage('You do not have permission to view the dashboard modules.');
+            }
+          }
         } else {
           console.error('Error fetching navigation items:', error);
         }
@@ -354,10 +467,20 @@ const ClinicDashboard: NextPageWithLayout = () => {
   // Fetch all available modules (to show restricted ones)
   useEffect(() => {
     if (!permissionsLoaded) return;
-    if (['agent', 'doctorStaff'].includes(userRole || '') && !moduleAccess.canRead) {
-      setAccessDenied(true);
-      setLoading(false);
-      return;
+    
+    // Only check access for agent and doctorStaff roles
+    if (['agent', 'doctorStaff'].includes(userRole || '')) {
+      if (!moduleAccess.canRead) {
+        setAccessDenied(true);
+        setAccessMessage('You do not have read permission for the clinic dashboard.');
+        setLoading(false);
+        return;
+      } else {
+        setAccessDenied(false);
+      }
+    } else {
+      // For other roles, always grant access
+      setAccessDenied(false);
     }
 
     const fetchAllModules = async (): Promise<void> => {
@@ -386,8 +509,14 @@ const ClinicDashboard: NextPageWithLayout = () => {
         }
       } catch (error: any) {
         if (axios.isAxiosError(error) && error.response?.status === 403) {
-          setAccessDenied(true);
-          setAccessMessage('Access to module information is restricted for your account.');
+          // Only set access denied if user is agent/doctorStaff and doesn't have read permission
+          // Don't block access just because we can't fetch all modules
+          if (['agent', 'doctorStaff'].includes(userRole || '')) {
+            if (!moduleAccess.canRead) {
+              setAccessDenied(true);
+              setAccessMessage('Access to module information is restricted for your account.');
+            }
+          }
         } else {
           console.error('Error fetching all modules:', error);
         }
