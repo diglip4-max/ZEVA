@@ -207,14 +207,25 @@ export default async function handler(req, res) {
             }
           }
 
-          const { title, content, paramlink } = req.body;
+          const { title, content, paramlink, isAutoSave } = req.body;
 
-          // Validate that all required fields are present and non-empty
-          if (!title || title.trim() === '' || !content || content.trim() === '' || !paramlink || paramlink.trim() === '') {
-            return res.status(400).json({
-              success: false,
-              message: "Title, content, and paramlink are required and cannot be empty for drafts",
-            });
+          // For auto-save (every 2 minutes), allow partial updates - only validate if not auto-save
+          if (!isAutoSave) {
+            // Validate that all required fields are present and non-empty for manual saves
+            if (!title || title.trim() === '' || !content || content.trim() === '' || !paramlink || paramlink.trim() === '') {
+              return res.status(400).json({
+                success: false,
+                message: "Title, content, and paramlink are required and cannot be empty for drafts",
+              });
+            }
+          } else {
+            // For auto-save, only require that at least one field has content
+            if ((!title || title.trim() === '') && (!content || content.trim() === '') && (!paramlink || paramlink.trim() === '')) {
+              return res.status(400).json({
+                success: false,
+                message: "At least one field (title, content, or paramlink) must have content for auto-save",
+              });
+            }
           }
 
           // Allow same paramlink for drafts; only block if a published blog already uses it
@@ -262,7 +273,7 @@ export default async function handler(req, res) {
           }
 
           const { id } = req.query;
-          const { title, content, paramlink } = req.body;
+          const { title, content, paramlink, isAutoSave } = req.body;
 
           if (!id) {
             return res
@@ -270,12 +281,23 @@ export default async function handler(req, res) {
               .json({ success: false, message: "Draft ID required" });
           }
 
-          // Validate that all required fields are present and non-empty
-          if (!title || title.trim() === '' || !content || content.trim() === '' || !paramlink || paramlink.trim() === '') {
-            return res.status(400).json({
-              success: false,
-              message: "Title, content, and paramlink are required and cannot be empty for drafts",
-            });
+          // For auto-save (every 2 minutes), allow partial updates - only validate if not auto-save
+          if (!isAutoSave) {
+            // Validate that all required fields are present and non-empty for manual saves
+            if (!title || title.trim() === '' || !content || content.trim() === '' || !paramlink || paramlink.trim() === '') {
+              return res.status(400).json({
+                success: false,
+                message: "Title, content, and paramlink are required and cannot be empty for drafts",
+              });
+            }
+          } else {
+            // For auto-save, only require that at least one field has content
+            if ((!title || title.trim() === '') && (!content || content.trim() === '') && (!paramlink || paramlink.trim() === '')) {
+              return res.status(400).json({
+                success: false,
+                message: "At least one field (title, content, or paramlink) must have content for auto-save",
+              });
+            }
           }
 
           // Find the existing draft
@@ -337,15 +359,26 @@ export default async function handler(req, res) {
             }
           }
 
+          // For auto-save, only update fields that are provided (partial update)
+          const updateData = {
+            status: "draft",
+            updatedAt: new Date(),
+          };
+          
+          // Only update fields that are provided and non-empty
+          if (title !== undefined && title !== null && title.trim() !== '') {
+            updateData.title = title;
+          }
+          if (content !== undefined && content !== null && content.trim() !== '') {
+            updateData.content = content;
+          }
+          if (paramlink !== undefined && paramlink !== null && paramlink.trim() !== '') {
+            updateData.paramlink = paramlink;
+          }
+
           const updatedDraft = await Blog.findByIdAndUpdate(
             id,
-            {
-              title,
-              content,
-              paramlink,
-              status: "draft",
-              updatedAt: new Date(),
-            },
+            updateData,
             { new: true, runValidators: true }
           ).populate("postedBy", "name email");
 

@@ -126,29 +126,28 @@ const SocialMediaShare: React.FC<SocialMediaShareProps> = ({
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md transform transition-all duration-300 scale-100 border border-gray-100">
             
             {/* Header with gradient accent */}
-            <div className="relative p-6 border-b border-gray-100">
-              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 rounded-t-2xl"></div>
+            <div className="relative p-4 border-b border-gray-100">
               <div className="flex items-start justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
-                    <Share2 className="w-6 h-6 text-white" />
+                <div className="flex items-center gap-2">
+                  <div className="w-10 h-10 bg-gradient-to-br from-cyan-500 to-teal-600 rounded-xl flex items-center justify-center shadow-lg">
+                    <Share2 className="w-5 h-5 text-white" />
                   </div>
                   <div>
-                    <h3 className="text-xl font-bold text-gray-900">Share this blog</h3>
-                    <p className="text-sm text-gray-500 mt-1">Spread the word!</p>
+                    <h3 className="text-lg font-bold text-gray-900">Share this blog</h3>
+                    <p className="text-xs text-gray-500 mt-0.5">Spread the word!</p>
                   </div>
                 </div>
                 <button
                   onClick={() => setIsOpen(false)}
-                  className="w-10 h-10 bg-gray-100 hover:bg-red-100 rounded-xl flex items-center justify-center transition-all duration-200 group"
+                  className="w-8 h-8 bg-gray-100 hover:bg-red-100 rounded-lg flex items-center justify-center transition-all duration-200 group"
                 >
-                  <X className="w-5 h-5 text-gray-600 group-hover:text-red-600" />
+                  <X className="w-4 h-4 text-gray-600 group-hover:text-red-600" />
                 </button>
               </div>
               
               {/* Blog title preview */}
-              <div className="mt-4 p-3 bg-gray-50 rounded-lg border-l-4 border-blue-500">
-                <p className="text-sm text-gray-700 line-clamp-2 font-medium">
+              <div className="mt-3 p-2 bg-gray-50 rounded-lg border-l-4 border-blue-500">
+                <p className="text-xs text-gray-700 line-clamp-2 font-medium">
                   {blogTitle}
                 </p>
                 {description && (
@@ -160,69 +159,69 @@ const SocialMediaShare: React.FC<SocialMediaShareProps> = ({
             </div>
 
             {/* Social Media Buttons */}
-            <div className="p-6 space-y-3">
+            <div className="p-4 space-y-2">
               
               {/* LinkedIn */}
               <button
                 onClick={shareLinkedIn}
-                className="w-full flex items-center gap-4 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl py-3 px-4 hover:from-blue-700 hover:to-blue-800 transition-all duration-200 transform hover:scale-[1.02] shadow-lg hover:shadow-xl group"
+                className="w-full flex items-center gap-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg py-2 px-3 hover:from-blue-700 hover:to-blue-800 transition-all duration-200 transform hover:scale-[1.02] shadow-md hover:shadow-lg group"
               >
-                <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
-                  <Linkedin className="w-5 h-5" />
+                <div className="w-7 h-7 bg-white/20 rounded-lg flex items-center justify-center">
+                  <Linkedin className="w-4 h-4" />
                 </div>
-                <span className="font-semibold flex-1 text-left">Share on LinkedIn</span>
-                <ExternalLink className="w-4 h-4 opacity-70 group-hover:opacity-100" />
+                <span className="font-semibold flex-1 text-left text-sm">Share on LinkedIn</span>
+                <ExternalLink className="w-3.5 h-3.5 opacity-70 group-hover:opacity-100" />
               </button>
 
               {/* Facebook */}
               <button
                 onClick={shareFacebook}
-                className="w-full flex items-center gap-4 bg-gradient-to-r from-blue-800 to-blue-900 text-white rounded-xl py-3 px-4 hover:from-blue-900 hover:to-blue-950 transition-all duration-200 transform hover:scale-[1.02] shadow-lg hover:shadow-xl group"
+                className="w-full flex items-center gap-3 bg-gradient-to-r from-blue-800 to-blue-900 text-white rounded-lg py-2 px-3 hover:from-blue-900 hover:to-blue-950 transition-all duration-200 transform hover:scale-[1.02] shadow-md hover:shadow-lg group"
               >
-                <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
-                  <Facebook className="w-5 h-5" />
+                <div className="w-7 h-7 bg-white/20 rounded-lg flex items-center justify-center">
+                  <Facebook className="w-4 h-4" />
                 </div>
-                <span className="font-semibold flex-1 text-left">Share on Facebook</span>
-                <ExternalLink className="w-4 h-4 opacity-70 group-hover:opacity-100" />
+                <span className="font-semibold flex-1 text-left text-sm">Share on Facebook</span>
+                <ExternalLink className="w-3.5 h-3.5 opacity-70 group-hover:opacity-100" />
               </button>
 
               {/* Twitter */}
               <button
                 onClick={shareTwitter}
-                className="w-full flex items-center gap-4 bg-gradient-to-r from-sky-500 to-sky-600 text-white rounded-xl py-3 px-4 hover:from-sky-600 hover:to-sky-700 transition-all duration-200 transform hover:scale-[1.02] shadow-lg hover:shadow-xl group"
+                className="w-full flex items-center gap-3 bg-gradient-to-r from-sky-500 to-sky-600 text-white rounded-lg py-2 px-3 hover:from-sky-600 hover:to-sky-700 transition-all duration-200 transform hover:scale-[1.02] shadow-md hover:shadow-lg group"
               >
-                <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
-                  <Twitter className="w-5 h-5" />
+                <div className="w-7 h-7 bg-white/20 rounded-lg flex items-center justify-center">
+                  <Twitter className="w-4 h-4" />
                 </div>
-                <span className="font-semibold flex-1 text-left">Share on Twitter</span>
-                <ExternalLink className="w-4 h-4 opacity-70 group-hover:opacity-100" />
+                <span className="font-semibold flex-1 text-left text-sm">Share on Twitter</span>
+                <ExternalLink className="w-3.5 h-3.5 opacity-70 group-hover:opacity-100" />
               </button>
 
               {/* WhatsApp */}
               <button
                 onClick={shareWhatsApp}
-                className="w-full flex items-center gap-4 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-xl py-3 px-4 hover:from-green-700 hover:to-green-800 transition-all duration-200 transform hover:scale-[1.02] shadow-lg hover:shadow-xl group"
+                className="w-full flex items-center gap-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg py-2 px-3 hover:from-green-700 hover:to-green-800 transition-all duration-200 transform hover:scale-[1.02] shadow-md hover:shadow-lg group"
               >
-                <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
-                  <MessageCircle className="w-5 h-5" />
+                <div className="w-7 h-7 bg-white/20 rounded-lg flex items-center justify-center">
+                  <MessageCircle className="w-4 h-4" />
                 </div>
-                <span className="font-semibold flex-1 text-left">Share on WhatsApp</span>
-                <ExternalLink className="w-4 h-4 opacity-70 group-hover:opacity-100" />
+                <span className="font-semibold flex-1 text-left text-sm">Share on WhatsApp</span>
+                <ExternalLink className="w-3.5 h-3.5 opacity-70 group-hover:opacity-100" />
               </button>
 
               {/* Copy Link */}
               <button
                 onClick={copyLink}
-                className={`w-full flex items-center gap-4 rounded-xl py-3 px-4 transition-all duration-200 transform hover:scale-[1.02] shadow-lg hover:shadow-xl group ${
+                className={`w-full flex items-center gap-3 rounded-lg py-2 px-3 transition-all duration-200 transform hover:scale-[1.02] shadow-md hover:shadow-lg group ${
                   copied 
                     ? 'bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800' 
                     : 'bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800'
                 } text-white`}
               >
-                <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
-                  {copied ? <Check className="w-5 h-5" /> : <Copy className="w-5 h-5" />}
+                <div className="w-7 h-7 bg-white/20 rounded-lg flex items-center justify-center">
+                  {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                 </div>
-                <span className="font-semibold flex-1 text-left">
+                <span className="font-semibold flex-1 text-left text-sm">
                   {copied ? 'Link Copied!' : 'Copy Link'}
                 </span>
                 {copied && (
@@ -232,10 +231,10 @@ const SocialMediaShare: React.FC<SocialMediaShareProps> = ({
             </div>
 
             {/* Footer */}
-            <div className="p-4 border-t border-gray-100 flex justify-center">
+            <div className="p-3 border-t border-gray-100 flex justify-center">
               <button
                 onClick={() => setIsOpen(false)}
-                className="px-6 py-2 text-sm rounded-xl bg-gray-100 text-gray-700 hover:bg-gray-200 transition-all duration-200 font-medium"
+                className="px-5 py-1.5 text-xs rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition-all duration-200 font-medium"
               >
                 Close
               </button>

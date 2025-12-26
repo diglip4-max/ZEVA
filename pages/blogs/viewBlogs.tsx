@@ -398,8 +398,8 @@ return (
           )}
 
           {/* Compact Search Section */}
-          <div className="bg-white border border-gray-200 rounded-lg sm:rounded-xl p-3 sm:p-4 shadow-sm mb-4 sm:mb-6">
-            <div className="relative max-w-2xl mx-auto mb-3">
+          <div className="mb-4 sm:mb-6">
+            <div className="relative max-w-4xl mx-auto mb-3">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <svg className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
