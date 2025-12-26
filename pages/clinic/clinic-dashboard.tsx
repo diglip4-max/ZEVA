@@ -128,6 +128,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
     canCreate: true,
   });
   const [permissionsLoaded, setPermissionsLoaded] = useState(false);
+  const [navigationItemsLoaded, setNavigationItemsLoaded] = useState(false);
   const [userRole, setUserRole] = useState<string | null>(null);
   const [quickActions] = useState([
     { label: 'New Review', icon: Star, path: '/clinic/getAllReview', color: 'bg-yellow-500' },
@@ -301,6 +302,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
     if (['agent', 'doctorStaff'].includes(userRole || '') && !moduleAccess.canRead) {
       setAccessDenied(true);
       setLoading(false);
+      setNavigationItemsLoaded(true);
       return;
     }
 
@@ -319,7 +321,10 @@ const ClinicDashboard: NextPageWithLayout = () => {
           localStorage.getItem('adminToken') || 
           sessionStorage.getItem('adminToken');
           
-        if (!token) return;
+        if (!token) {
+          setNavigationItemsLoaded(true);
+          return;
+        }
 
         const res = await axios.get<SidebarResponse>('/api/clinic/sidebar-permissions', {
           headers: { Authorization: `Bearer ${token}` },
@@ -331,6 +336,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
             setPermissions(res.data.permissions);
           }
         }
+        setNavigationItemsLoaded(true);
       } catch (error: any) {
         if (axios.isAxiosError(error) && error.response?.status === 403) {
           setAccessDenied(true);
@@ -338,6 +344,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
         } else {
           console.error('Error fetching navigation items:', error);
         }
+        setNavigationItemsLoaded(true);
       }
     };
 
@@ -646,20 +653,42 @@ const ClinicDashboard: NextPageWithLayout = () => {
 
   // Memoize permissions config to prevent unnecessary re-renders
   // Calculate permissions values first
-  const hasJobsPermission = useMemo(() => 
-    modulesWithPermission.some(key => key === 'clinic_jobs' || key === 'jobs') || modulesWithPermission.length === 0,
-    [modulesWithPermission]
-  );
+  // For clinic/doctor roles, always allow access. For agent/doctorStaff, check modules
+  const hasJobsPermission = useMemo(() => {
+    // For clinic/doctor roles, always allow (don't wait for navigationItems)
+    if (userRole === 'clinic' || userRole === 'doctor' || !userRole) {
+      return true;
+    }
+    // For agent/doctorStaff, check modules (but default to true while loading)
+    if (!navigationItemsLoaded) {
+      return true; // Default to true while loading for agent/doctorStaff
+    }
+    return modulesWithPermission.some(key => key === 'clinic_jobs' || key === 'jobs');
+  }, [modulesWithPermission, navigationItemsLoaded, userRole]);
   
-  const hasBlogsPermission = useMemo(() => 
-    modulesWithPermission.some(key => key === 'clinic_blogs' || key === 'blogs') || modulesWithPermission.length === 0,
-    [modulesWithPermission]
-  );
+  const hasBlogsPermission = useMemo(() => {
+    // For clinic/doctor roles, always allow (don't wait for navigationItems)
+    if (userRole === 'clinic' || userRole === 'doctor' || !userRole) {
+      return true;
+    }
+    // For agent/doctorStaff, check modules (but default to true while loading)
+    if (!navigationItemsLoaded) {
+      return true; // Default to true while loading for agent/doctorStaff
+    }
+    return modulesWithPermission.some(key => key === 'clinic_blogs' || key === 'blogs');
+  }, [modulesWithPermission, navigationItemsLoaded, userRole]);
   
-  const hasApplicationsPermission = useMemo(() => 
-    modulesWithPermission.some(key => key === 'clinic_jobs' || key === 'jobs') || modulesWithPermission.length === 0,
-    [modulesWithPermission]
-  );
+  const hasApplicationsPermission = useMemo(() => {
+    // For clinic/doctor roles, always allow (don't wait for navigationItems)
+    if (userRole === 'clinic' || userRole === 'doctor' || !userRole) {
+      return true;
+    }
+    // For agent/doctorStaff, check modules (but default to true while loading)
+    if (!navigationItemsLoaded) {
+      return true; // Default to true while loading for agent/doctorStaff
+    }
+    return modulesWithPermission.some(key => key === 'clinic_jobs' || key === 'jobs');
+  }, [modulesWithPermission, navigationItemsLoaded, userRole]);
 
   // Create stable permissions object - only recreate when values actually change
   const statsPermissions = useMemo(() => ({
@@ -1395,11 +1424,14 @@ const ClinicDashboard: NextPageWithLayout = () => {
         </div>
 
         {/* Additional Stats Component - Job and Blog Analytics */}
-        {/* Always render - Stats component handles its own loading/error states */}
-        <Stats
-          role="clinic"
-          config={statsConfig}
-        />
+        {/* Render after permissions are loaded - for clinic/doctor, this happens immediately */}
+        {permissionsLoaded && (
+          <Stats
+            key={`stats-${permissionsLoaded}-${navigationItemsLoaded}-${userRole || 'default'}`}
+            role="clinic"
+            config={statsConfig}
+          />
+        )}
       </div>
     </div>
   );
