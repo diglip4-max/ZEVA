@@ -47,18 +47,6 @@ export default function BlogList() {
       .replace(/-+/g, "-"); // collapse multiple hyphens
   };
 
-  // Helper: convert slug back to readable text
-  const slugToText = (slug: string) => {
-    if (!slug) return "";
-    return slug
-      .split("-")
-      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(" ");
-  };
-
-  // Flag to avoid infinite loops between URL <-> state sync
-  const isSyncingURL = useRef(false);
-
   // Modal state
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authModalMode, setAuthModalMode] = useState<"login" | "register">(
@@ -69,48 +57,26 @@ export default function BlogList() {
   const pendingLikeBlogId = useRef<string | null>(null);
   const pendingComment = useRef<{ blogId: string; text: string } | null>(null);
 
-  // On first load, read search term from URL (slug) and hydrate state
+  // Track if page has been initialized
+  const hasInitialized = useRef(false);
+
+  // On first load, clear URL and start fresh
   useEffect(() => {
     if (!router.isReady) return;
+    if (hasInitialized.current) return;
 
-    const query = router.query;
-    if (query.search) {
-      const initialSearch = slugToText(String(query.search));
-      setSearchTerm(initialSearch);
+    console.log("🚀 Initial load - starting fresh (clearing URL parameters)");
+    
+    // Clear URL parameters on refresh
+    if (Object.keys(router.query).length > 0) {
+      console.log("🧹 Clearing URL parameters");
+      router.replace(router.pathname, undefined, { shallow: true });
     }
-  }, [router.isReady, router.query.search]);
-
-  // Debounced URL update - only update URL when user stops typing (after 800ms)
-  useEffect(() => {
-    if (!router.isReady) return;
-    if (isSyncingURL.current) return;
-
-    // Set a timer to update URL after user stops typing
-    const debounceTimer = setTimeout(() => {
-      isSyncingURL.current = true;
-
-      const params = new URLSearchParams();
-      if (searchTerm.trim()) {
-        params.set("search", textToSlug(searchTerm.trim()));
-      }
-
-      const newUrl = params.toString()
-        ? `${router.pathname}?${params.toString()}`
-        : router.pathname;
-
-      router.replace(newUrl, undefined, { shallow: true });
-
-      // Allow future syncs
-      setTimeout(() => {
-        isSyncingURL.current = false;
-      }, 50);
-    }, 800); // Wait 800ms after user stops typing
-
-    // Cleanup: clear timer if searchTerm changes before timeout
-    return () => {
-      clearTimeout(debounceTimer);
-    };
-  }, [searchTerm, router.isReady, router.pathname]);
+    
+    // Reset search to empty
+    setSearchTerm("");
+    hasInitialized.current = true;
+  }, [router.isReady]);
 
   useEffect(() => {
     async function fetchBlogs() {
@@ -148,8 +114,11 @@ export default function BlogList() {
     fetchBlogs();
   }, [isAuthenticated, user?._id]); // 👈 depend on user._id too
 
-  // Search and sorting functionality
-  useEffect(() => {
+  // State for search input (separate from actual search term used for filtering)
+  const [searchInput, setSearchInput] = useState<string>("");
+
+  // Apply search and sorting - only when search button is clicked or sort changes
+  const applySearchAndSort = () => {
     let filtered = blogs;
 
     // Apply search filter
@@ -178,7 +147,31 @@ export default function BlogList() {
     setFilteredBlogs(filtered);
     // Reset to first page when search or sort changes
     setCurrentPage(1);
+  };
+
+  // Apply search when searchTerm or sortBy changes (triggered by button click or sort change)
+  useEffect(() => {
+    applySearchAndSort();
   }, [searchTerm, blogs, sortBy]);
+
+  // Handle search button click
+  const handleSearchSubmit = () => {
+    console.log("🔘 Search button clicked!");
+    console.log("📝 Current search input:", searchInput);
+    
+    // Update search term which triggers filtering
+    setSearchTerm(searchInput);
+    
+    // Update URL with search term
+    const params = new URLSearchParams();
+    if (searchInput.trim()) {
+      params.set("search", textToSlug(searchInput.trim()));
+    }
+    const newUrl = params.toString()
+      ? `${router.pathname}?${params.toString()}`
+      : router.pathname;
+    router.replace(newUrl, undefined, { shallow: true });
+  };
 
   // Retry pending actions after login
   useEffect(() => {
@@ -270,11 +263,29 @@ export default function BlogList() {
 
   const handleClearSearch = () => {
     setSearchTerm("");
+    setSearchInput("");
     setCurrentPage(1);
     // Clear URL search parameter
     if (router.isReady) {
       router.replace(router.pathname, undefined, { shallow: true });
     }
+  };
+
+  // Helper: create SEO-friendly slug from blog title with full ID
+  // Format: blog-title-abc12345def67890 (title slug + full 24-char ID)
+  const createBlogSlug = (blogTitle: string, blogId: string): string => {
+    if (!blogTitle) return blogId; // Fallback to ID if no title
+    
+    const titleSlug = blogTitle
+      .toLowerCase()
+      .trim()
+      .replace(/[^\w\s-]/g, "") // remove special chars
+      .replace(/\s+/g, "-") // spaces -> hyphen
+      .replace(/-+/g, "-") // collapse multiple hyphens
+      .substring(0, 60); // limit length for SEO (leaving room for ID)
+    
+    // Append full ID for direct database lookup (optimized approach)
+    return `${titleSlug}-${blogId}`;
   };
 
   // Pagination calculations
@@ -408,20 +419,36 @@ return (
               <input
                 type="text"
                 placeholder="Search articles..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 sm:pl-11 pr-10 py-2 sm:py-2.5 bg-white border border-gray-300 rounded-lg text-sm text-gray-700 placeholder-gray-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none transition-all"
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleSearchSubmit()}
+                className="w-full pl-10 sm:pl-11 pr-24 sm:pr-28 py-2 sm:py-2.5 bg-white border border-gray-300 rounded-lg text-sm text-gray-700 placeholder-gray-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none transition-all"
               />
-              {searchTerm && (
+              <div className="absolute inset-y-0 right-0 flex items-center gap-1 pr-2">
+                {searchInput && (
+                  <button
+                    onClick={() => {
+                      setSearchInput("");
+                      setSearchTerm("");
+                      handleClearSearch();
+                    }}
+                    className="flex items-center text-gray-400 hover:text-red-500 transition-colors p-1"
+                  >
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                )}
                 <button
-                  onClick={handleClearSearch}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-red-500 transition-colors"
+                  onClick={handleSearchSubmit}
+                  className="px-3 py-1.5 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-all text-xs font-medium flex items-center gap-1"
                 >
-                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
+                  Search
                 </button>
-              )}
+              </div>
             </div>
 
             {/* Compact Filter Buttons */}
@@ -610,7 +637,7 @@ return (
                                 onClick={(e) => {
                                   e.preventDefault();
                                   e.stopPropagation();
-                                  router.push(`/blogs/${blog._id}`);
+                                  router.push(`/blogs/${createBlogSlug(blog.title, blog._id)}`);
                                 }}
                                 className="flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-gray-100 text-gray-600 hover:bg-blue-50 hover:text-blue-600 transition-all"
                               >
@@ -622,7 +649,7 @@ return (
                               </button>
                             </div>
 
-                            <Link href={`/blogs/${blog._id}`}>
+                            <Link href={`/blogs/${createBlogSlug(blog.title, blog._id)}`}>
                               <button className="inline-flex items-center gap-1 px-3 py-1 bg-indigo-600 text-white font-medium rounded-md hover:bg-indigo-700 transition-all text-xs cursor-pointer">
                                 Read
                                 <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -751,7 +778,7 @@ return (
                     !trendingBlog.image.includes('video') ? trendingBlog.image : null);
 
                 return (
-                  <Link key={trendingBlog._id} href={`/blogs/${trendingBlog._id}`}>
+                  <Link key={trendingBlog._id} href={`/blogs/${createBlogSlug(trendingBlog.title, trendingBlog._id)}`}>
                     <div className="flex gap-3 group cursor-pointer">
                       <div className="w-16 h-16 flex-shrink-0 bg-gray-100 rounded-md overflow-hidden">
                         {trendingImage ? (
