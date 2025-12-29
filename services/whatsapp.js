@@ -164,15 +164,21 @@ export const updateWhatsAppTemplate = async (
         ...(templateData.headerType === "text"
           ? {
               text: templateData.headerText,
-              ...(templateData.headerVariableSampleValues
+              // Only add example if we have valid sample values
+              ...(templateData.headerVariableSampleValues &&
+              templateData.headerVariableSampleValues[0] &&
+              templateData.headerVariableSampleValues[0].trim() !== ""
                 ? {
                     example: {
-                      header_text: [templateData.headerVariableSampleValues[0]],
+                      header_text: [
+                        templateData.headerVariableSampleValues[0].trim(),
+                      ],
                     },
                   }
                 : {}),
             }
           : {}),
+
         ...(["image", "video", "document"].includes(templateData.headerType)
           ? { example: { header_handle: templateData.whatsappHandlerId } }
           : {}),
@@ -180,10 +186,17 @@ export const updateWhatsAppTemplate = async (
       {
         type: "BODY",
         text: templateData.content,
-        ...(templateData?.bodyVariableSampleValues
+        ...(templateData?.bodyVariableSampleValues &&
+        Array.isArray(templateData.bodyVariableSampleValues) &&
+        templateData.bodyVariableSampleValues.length > 0 &&
+        templateData.bodyVariableSampleValues.every(
+          (val) => val && val.trim() !== ""
+        )
           ? {
               example: {
-                body_text: [templateData.bodyVariableSampleValues],
+                body_text: templateData.bodyVariableSampleValues.map((val) =>
+                  val.trim()
+                ),
               },
             }
           : {}),
@@ -199,7 +212,7 @@ export const updateWhatsAppTemplate = async (
       },
     ].filter(Boolean);
 
-    console.log({ components });
+    console.log({ n: JSON.stringify({ components }) });
 
     const response = await axios.post(
       `https://graph.facebook.com/v22.0/${templateId}`, // ✅ Correct POST request to the template ID

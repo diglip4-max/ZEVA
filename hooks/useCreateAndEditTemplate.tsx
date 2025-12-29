@@ -9,6 +9,7 @@ import { useRouter } from "next/router";
 import { useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import useProvider from "./useProvider";
+import { handleError } from "@/lib/helper";
 
 export type TemplateHeaderType = "text" | "image" | "video" | "document" | "";
 
@@ -371,6 +372,133 @@ const useCreateAndEditTemplate = () => {
     redirectPath: string
   ) => {
     console.log("Update template:", { templateId, redirectPath });
+    setLoading(true);
+
+    if (!values.name) {
+      toast.error("Template name is required");
+      setLoading(false);
+      return;
+    }
+    if (!values.provider) {
+      toast.error("Provider is required");
+      setLoading(false);
+      return;
+    }
+    if (!content && values?.templateType !== "email") {
+      toast.error("Template body is required");
+      setLoading(false);
+      return;
+    }
+
+    if (
+      headerVariableSampleValues?.length > 0 &&
+      values.templateType === "whatsapp"
+    ) {
+      for (let i = 0; i < headerVariableSampleValues.length; i++) {
+        if (!headerVariableSampleValues[i]) {
+          toast.error(`Enter ${headerVariables[i]} sample value for header`);
+          setLoading(false); // Ensure loading state resets
+          return;
+        }
+      }
+    }
+    if (
+      variableSampleValues?.length > 0 &&
+      values.templateType === "whatsapp"
+    ) {
+      for (let i = 0; i < variableSampleValues.length; i++) {
+        if (!variableSampleValues[i]) {
+          toast.error(`Enter ${variables[i]} sample value`);
+          setLoading(false); // Ensure loading state resets
+          return;
+        }
+      }
+    }
+
+    const formData = new FormData();
+    formData.append("templateType", values.templateType);
+    formData.append("emailTemplateType", values.emailTemplateType);
+    formData.append("name", values.name);
+    formData.append("provider", values.provider);
+    formData.append("uniqueName", values.uniqueName || "");
+    formData.append("language", values.language);
+    formData.append("category", values.category);
+    formData.append("isHeader", String(values.isHeader));
+    formData.append("headerType", values.headerType);
+    formData.append("headerText", values.headerText || "");
+    formData.append("isFooter", String(values.isFooter));
+    formData.append("isButton", String(values.isButton));
+    formData.append("footer", values.footer || "");
+    formData.append("content", content);
+    formData.append("editorType", editorType);
+
+    // Append variables array as JSON
+    formData.append("variables", JSON.stringify(variables || []));
+    formData.append(
+      "bodyVariableSampleValues",
+      JSON.stringify(variableSampleValues)
+    );
+    formData.append("headerVariables", JSON.stringify(headerVariables || []));
+    formData.append(
+      "headerVariableSampleValues",
+      JSON.stringify(headerVariableSampleValues)
+    );
+    if (templateButtons.length > 0) {
+      formData.append("templateButtons", JSON.stringify(templateButtons));
+    }
+
+    // Handle file upload if headerFile exists
+    if (headerFile) {
+      // formData.append("file", headerFile);
+      // const resData = await handleUpload(headerFile);
+      // if (resData && resData.success) {
+      //   formData.append("headerFileUrl", resData.url);
+      // }
+    }
+
+    try {
+      const { data } = await axios.put(
+        `/api/all-templates/edit-template/${templateId}`,
+        formData,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (data && data.success) {
+        toast.success(data.message);
+        setValues({
+          templateType: "sms",
+          emailTemplateType: "sales",
+          name: "",
+          subject: "",
+          preheader: "",
+          provider: "",
+          uniqueName: "",
+          language: "en_US",
+          category: "marketing",
+          isHeader: false,
+          headerType: "text",
+          headerText: "",
+          isFooter: false,
+          footer: "",
+          isButton: false,
+        });
+        setContent("");
+        setHeaderFile(null);
+        setVariables([]);
+        setVariableSampleValues([]);
+        setHeaderVariables([]);
+        setHeaderVariableSampleValues([]);
+        router.back();
+      }
+    } catch (error) {
+      handleError(error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   //   TODO: Create template function

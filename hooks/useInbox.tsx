@@ -9,6 +9,7 @@ import {
   getMediaTypeFromMime,
   handleError,
 } from "@/lib/helper";
+import debounce from "lodash.debounce";
 
 export type VariableType = {
   type: "text";
@@ -56,70 +57,84 @@ const useInbox = () => {
   const [isScrolledToBottom, setIsScrolledToBottom] = useState<boolean>(false);
 
   const [searchConvInput, setSearchConvInput] = useState<string>("");
+  const [showScrollButton, setShowScrollButton] = useState<boolean>(false);
 
   const textAreaRef = React.useRef<HTMLTextAreaElement | null>(null);
 
   const conversationRef = React.useRef<HTMLDivElement | null>(null);
+  const messageRef = React.useRef<HTMLDivElement | null>(null);
+  const messagesEndRef = React.useRef<HTMLDivElement>(null);
 
   const token =
     typeof window !== "undefined" ? localStorage.getItem("clinicToken") : null;
 
-  const fetchConversations = useCallback(async () => {
-    if (!token) return;
-    try {
-      setFetchConvLoading(true);
-      const res = await axios.get("/api/conversations", {
-        params: { page: currentConvPage, limit: 20 },
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.data?.success) {
-        // If requesting first page, replace conversations; otherwise append
-        const newConvs = res.data.conversations || [];
-        if (currentConvPage === 1) {
-          setConversations(newConvs);
-        } else {
-          setConversations((prev) => [...prev, ...newConvs]);
-        }
-        setTotalConversations(res?.data?.pagination?.totalConversations || 0);
-        setHasMoreConversations(Boolean(res?.data?.pagination?.hasMore));
-      } else {
-        setConversations([]);
-      }
-    } catch (error) {
-      setConversations([]);
-    } finally {
-      setFetchConvLoading(false);
-    }
-  }, [currentConvPage, token]);
+  // Scroll to bottom
+  const handleScrollMsgsToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
 
-  const fetchMessages = useCallback(async () => {
-    if (!token) return;
-    if (!selectedConversation) return;
-    try {
-      const res = await axios.get(
-        `/api/messages/get-messages/${selectedConversation?._id}`,
-        {
-          params: { page: currentConvPage, limit: 20 },
+  const fetchConversations = useCallback(
+    debounce(async () => {
+      if (!token) return;
+      try {
+        setFetchConvLoading(true);
+        const res = await axios.get("/api/conversations", {
+          params: { page: currentConvPage, limit: 10, search: searchConvInput },
           headers: { Authorization: `Bearer ${token}` },
-        }
-      );
-      if (res.data?.success) {
-        // If requesting first page, replace conversations; otherwise append
-        const newMsgs = res.data.messages || [];
-        if (currentMsgPage === 1) {
-          setMessages(newMsgs);
+        });
+        if (res.data?.success) {
+          // If requesting first page, replace conversations; otherwise append
+          const newConvs = res.data.conversations || [];
+          if (currentConvPage === 1) {
+            setConversations(newConvs);
+          } else {
+            setConversations((prev) => [...prev, ...newConvs]);
+          }
+          setTotalConversations(res?.data?.pagination?.totalConversations || 0);
+          setHasMoreConversations(Boolean(res?.data?.pagination?.hasMore));
         } else {
-          setMessages((prev) => [...prev, ...newMsgs]);
+          setConversations([]);
         }
-        setTotalMessages(res?.data?.pagination?.totalMessages || 0);
-        setHasMoreMessages(Boolean(res?.data?.pagination?.hasMore));
-      } else {
+      } catch (error) {
+        setConversations([]);
+      } finally {
+        setFetchConvLoading(false);
+      }
+    }, 300),
+    [currentConvPage, token, searchConvInput]
+  );
+
+  const fetchMessages = useCallback(
+    debounce(async () => {
+      if (!token) return;
+      if (!selectedConversation) return;
+      try {
+        const res = await axios.get(
+          `/api/messages/get-messages/${selectedConversation?._id}`,
+          {
+            params: { page: currentMsgPage, limit: 50 },
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
+        if (res.data?.success) {
+          // If requesting first page, replace conversations; otherwise append
+          const newMsgs = res.data.messages || [];
+          if (currentMsgPage === 1) {
+            setMessages(newMsgs);
+          } else {
+            setMessages((prev) => [...prev, ...newMsgs]);
+          }
+          setTotalMessages(res?.data?.pagination?.totalMessages || 0);
+          setHasMoreMessages(Boolean(res?.data?.pagination?.hasMore));
+        } else {
+          setMessages([]);
+        }
+      } catch (error) {
         setMessages([]);
       }
-    } catch (error) {
-      setMessages([]);
-    }
-  }, [selectedConversation, currentConvPage, token]);
+    }, 300),
+    [selectedConversation, currentMsgPage, token]
+  );
 
   const handleSendMessage = async () => {
     if (!selectedConversation) return;
@@ -341,14 +356,38 @@ const useInbox = () => {
     }
   };
 
+  // Infinite scroll handler
+  const handleConvScroll = () => {
+    const el = conversationRef.current;
+    if (!el || !hasMoreConversations) return;
+    const nearBottom = el.scrollHeight - el.scrollTop <= el.clientHeight + 60; // 60px threshold
+    if (nearBottom) {
+      setCurrentConvPage((p) => p + 1);
+    }
+  };
+
+  // Infinite scroll handler
+  const handleMsgScroll = () => {
+    const el = messageRef.current;
+    if (!el || !hasMoreMessages) return;
+    const nearBottom = el.scrollHeight - el.scrollTop <= el.clientHeight + 60; // 60px threshold
+    if (nearBottom) {
+      setCurrentMsgPage((p) => p + 1);
+    }
+  };
+
   useEffect(() => {
     fetchConversations();
-  }, [currentConvPage, token, fetchConversations]);
+  }, [currentConvPage, token, searchConvInput, fetchConversations]);
 
   useEffect(() => {
     if (!selectedConversation) return;
     setMessages([]);
     setCurrentMsgPage(1);
+  }, [selectedConversation]);
+
+  useEffect(() => {
+    if (!selectedConversation) return;
     fetchMessages();
   }, [selectedConversation, currentMsgPage, token, fetchMessages]);
 
@@ -366,6 +405,20 @@ const useInbox = () => {
       handleReadConversation(selectedConversation._id);
     }
   }, [selectedConversation]);
+
+  // Auto-scroll to bottom on new messages
+  useEffect(() => {
+    handleScrollMsgsToBottom();
+  }, [messages]);
+
+  // Add scroll event listener
+  useEffect(() => {
+    const container = messageRef.current;
+    if (container) {
+      container.addEventListener("scroll", handleMsgScroll);
+      return () => container.removeEventListener("scroll", handleMsgScroll);
+    }
+  }, []);
 
   const state = {
     conversations,
@@ -387,6 +440,8 @@ const useInbox = () => {
     mediaUrl,
     sendMsgLoading,
     messages,
+    messageRef,
+    messagesEndRef,
     totalMessages,
     hasMoreMessages,
     isScrolledToBottom,
@@ -396,6 +451,7 @@ const useInbox = () => {
     headerParameters,
     isLiveChatSelected,
     searchConvInput,
+    showScrollButton,
   };
 
   return {
@@ -412,8 +468,12 @@ const useInbox = () => {
     setHeaderParameters,
     setIsLiveChatSelected,
     setSearchConvInput,
+    setShowScrollButton,
     handleSendMessage,
     handleReadConversation,
+    handleConvScroll,
+    handleMsgScroll,
+    handleScrollMsgsToBottom,
   };
 };
 

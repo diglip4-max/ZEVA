@@ -4,7 +4,7 @@ import data from "@emoji-mart/data";
 import Picker from "@emoji-mart/react";
 
 interface EmojiPickerModalProps {
-  setValue: (val: string) => void;
+  setValue?: (val: string) => void;
   inputRef?: React.RefObject<HTMLTextAreaElement | HTMLInputElement>;
   triggerButton?: React.ReactNode;
   position?: Placement;
@@ -149,7 +149,7 @@ const EmojiPickerModal: React.FC<EmojiPickerModalProps> = ({
 
       const newValue =
         value.substring(0, start) + emojiChar + value.substring(end);
-      setValue(newValue);
+      if (setValue) setValue(newValue);
 
       setTimeout(() => {
         input.setSelectionRange(
@@ -199,7 +199,7 @@ const EmojiPickerModal: React.FC<EmojiPickerModalProps> = ({
           focus:outline-none focus:ring-2 focus:ring-primary/20 
           transition-all duration-200
           ${triggerClassName}
-          ${isOpen ? "ring-2 ring-primary/20" : ""}
+          ${isOpen ? "ring-1 rounded-md ring-primary/20" : ""}
         `}
         aria-label="Open emoji picker"
         aria-expanded={isOpen}

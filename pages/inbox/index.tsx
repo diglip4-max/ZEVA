@@ -1,6 +1,6 @@
 import ClinicLayout from "@/components/ClinicLayout";
 import withClinicAuth from "@/components/withClinicAuth";
-import React, { ReactElement, useState, useRef, useEffect } from "react";
+import React, { ReactElement } from "react";
 import { NextPageWithLayout } from "../_app";
 import AvatarComponent from "@/components/shared/AvatarComponent";
 import {
@@ -10,18 +10,12 @@ import {
   Send,
   ChevronDown,
   Phone,
-  // Video,
   Info,
-  // ShoppingCart,
-  // Play,
-  // Check,
-  // CheckCheck,
   Plus,
   Tag,
   User,
-  MessageSquare,
-  AlertCircle,
   Mail,
+  // Smile,
 } from "lucide-react";
 import CreateNewConversation from "./_components/CreateNewConversation";
 import Conversation from "./_components/Conversation";
@@ -31,6 +25,8 @@ import CustomDropdown from "@/components/shared/CustomDropdown";
 import { FaWhatsapp } from "react-icons/fa";
 import TemplatesModal from "./_components/TemplatesModal";
 import Message from "./_components/Message";
+import { getFormatedTime } from "@/lib/helper";
+// import EmojiPickerModal from "@/components/shared/EmojiPickerModal";
 
 const InboxPage: NextPageWithLayout = () => {
   const {
@@ -46,9 +42,12 @@ const InboxPage: NextPageWithLayout = () => {
     setBodyParameters,
     setHeaderParameters,
     handleSendMessage,
+    handleConvScroll,
+    handleMsgScroll,
+    handleScrollMsgsToBottom,
   } = useInbox();
   const {
-    // conversationRef,
+    conversationRef,
     searchConvInput,
     conversations,
     selectedConversation,
@@ -67,90 +66,10 @@ const InboxPage: NextPageWithLayout = () => {
     textAreaRef,
     // sendMsgLoading,
     messages,
+    messageRef,
+    showScrollButton,
+    messagesEndRef,
   } = state;
-  const [showScrollButton, setShowScrollButton] = useState(false);
-  const [showDateHeader, setShowDateHeader] = useState(false);
-  const [currentDateLabel, setCurrentDateLabel] = useState<string>("");
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const messagesContainerRef = useRef<HTMLDivElement>(null);
-
-  // Scroll to bottom
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
-
-  // Check if scroll button should be shown
-  const handleScroll = () => {
-    if (messagesContainerRef.current) {
-      const { scrollTop, scrollHeight, clientHeight } =
-        messagesContainerRef.current;
-      const scrolledUp = scrollHeight - scrollTop - clientHeight > 20;
-      setShowScrollButton(scrollHeight - scrollTop - clientHeight > 100);
-      setShowDateHeader(scrolledUp);
-      updateCurrentDateLabel();
-    }
-  };
-
-  const formatDate = (dateInput?: string | number | Date) => {
-    if (!dateInput) return "";
-    const d = new Date(dateInput);
-    if (isNaN(d.getTime())) return "";
-    const day = d.getDate();
-    const month = d.toLocaleString("default", { month: "long" });
-    const year = d.getFullYear();
-    const suffix = (n: number) => {
-      if (n > 3 && n < 21) return "th";
-      switch (n % 10) {
-        case 1:
-          return "st";
-        case 2:
-          return "nd";
-        case 3:
-          return "rd";
-        default:
-          return "th";
-      }
-    };
-    return `${day}${suffix(day)} ${month} ${year}`;
-  };
-
-  const updateCurrentDateLabel = () => {
-    const container = messagesContainerRef.current;
-    if (!container) return;
-    const items = container.querySelectorAll("[data-createdat]");
-    if (!items || items.length === 0) {
-      setCurrentDateLabel("");
-      return;
-    }
-
-    const scrollTop = container.scrollTop;
-    let chosen: HTMLElement | null = null;
-
-    items.forEach((el) => {
-      const elTop = (el as HTMLElement).offsetTop;
-      if (elTop <= scrollTop + 20) {
-        if (!chosen || elTop > chosen.offsetTop) chosen = el as HTMLElement;
-      }
-    });
-
-    if (!chosen) chosen = items[0] as HTMLElement;
-    const dateStr = chosen.getAttribute("data-createdat") || "";
-    setCurrentDateLabel(formatDate(dateStr));
-  };
-
-  // Auto-scroll to bottom on new messages
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
-
-  // Add scroll event listener
-  useEffect(() => {
-    const container = messagesContainerRef.current;
-    if (container) {
-      container.addEventListener("scroll", handleScroll);
-      return () => container.removeEventListener("scroll", handleScroll);
-    }
-  }, []);
 
   return (
     <div className="flex h-[91vh] bg-gray-50 text-gray-800">
@@ -191,46 +110,17 @@ const InboxPage: NextPageWithLayout = () => {
               <Filter className="h-5 w-5" />
             </button>
           </div>
-
-          {/* Stats */}
-          <div className="flex flex-wrap gap-2 text-sm">
-            <div className="flex items-center space-x-2 bg-yellow-50 px-3 py-2 rounded-lg border border-yellow-100">
-              <AlertCircle className="h-4 w-4 text-yellow-600" />
-              <span className="text-yellow-700 font-medium">
-                Needs attention
-              </span>
-              <span className="bg-yellow-100 text-yellow-800 px-2.5 py-0.5 rounded-full text-xs font-semibold">
-                20
-              </span>
-            </div>
-            <div className="flex items-center space-x-2 bg-blue-50 px-3 py-2 rounded-lg border border-blue-100">
-              <Tag className="h-4 w-4 text-blue-600" />
-              <span className="text-blue-700 font-medium">Sales</span>
-              <span className="bg-blue-100 text-blue-800 px-2.5 py-0.5 rounded-full text-xs font-semibold">
-                1
-              </span>
-            </div>
-            <div className="flex items-center space-x-2 bg-green-50 px-3 py-2 rounded-lg border border-green-100">
-              <MessageSquare className="h-4 w-4 text-green-600" />
-              <span className="text-green-700 font-medium">Support</span>
-              <span className="bg-green-100 text-green-800 px-2.5 py-0.5 rounded-full text-xs font-semibold">
-                {conversations.length}
-              </span>
-            </div>
-          </div>
         </div>
 
         {/* Conversations List */}
-        <div className="flex-1 overflow-y-auto">
-          {fetchConvLoading ? (
-            <div className="text-center">
-              <span className="text-sm text-gray-500 text-center mt-3 block">
-                Loading...
-              </span>
-            </div>
-          ) : conversations?.length == 0 ? (
-            <div className="text-center">
-              <span className="text-sm text-gray-500 text-center mt-3 block">
+        <div
+          ref={conversationRef}
+          onScroll={handleConvScroll}
+          className="flex-1 overflow-y-auto"
+        >
+          {conversations?.length === 0 && !fetchConvLoading ? (
+            <div className="text-center py-3">
+              <span className="text-sm text-gray-500 text-center block">
                 No Conversations
               </span>
             </div>
@@ -243,6 +133,13 @@ const InboxPage: NextPageWithLayout = () => {
                 setSelectedConversation={setSelectedConversation}
               />
             ))
+          )}
+          {fetchConvLoading && (
+            <div className="text-center">
+              <span className="text-sm text-gray-500 text-center mt-3 block">
+                Loading...
+              </span>
+            </div>
           )}
         </div>
       </div>
@@ -265,9 +162,12 @@ const InboxPage: NextPageWithLayout = () => {
                     {selectedConversation?.leadId?.name}
                   </h3>
                   <div className="flex items-center space-x-2 text-sm text-gray-500">
-                    <span>Mumbai</span>
-                    <span>•</span>
-                    <span>Last seen 2 min ago</span>
+                    <span>
+                      Last seen{" "}
+                      {getFormatedTime(
+                        selectedConversation?.recentMessage?.createdAt
+                      ) || "recently"}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -284,16 +184,16 @@ const InboxPage: NextPageWithLayout = () => {
 
             {/* Messages Area */}
             <div
-              ref={messagesContainerRef}
+              ref={messageRef}
+              onScroll={handleMsgScroll}
               className="flex-1 overflow-y-auto overflow-x-hidden p-4 space-y-6 bg-gradient-to-b from-gray-50 to-gray-100"
-              onScroll={handleScroll}
             >
               {/* Sticky Date Header (updates based on visible messages) */}
-              {messages.length > 0 && showDateHeader && (
+              {messages.length > 0 && (
                 <div className="sticky top-2 z-10 pointer-events-none">
                   <div className="text-center">
                     <span className="text-sm text-gray-500 bg-white px-4 py-2 rounded-full border border-gray-200 shadow-sm font-medium">
-                      {currentDateLabel || formatDate(messages[0]?.createdAt)}
+                      {"11/02/2025"}
                     </span>
                   </div>
                 </div>
@@ -313,7 +213,7 @@ const InboxPage: NextPageWithLayout = () => {
             {/* Scroll to bottom button (positioned relative to chat column, not the scrollable list) */}
             {showScrollButton && (
               <button
-                onClick={scrollToBottom}
+                onClick={handleScrollMsgsToBottom}
                 className="absolute right-6 bottom-52 cursor-pointer bg-gray-800 text-white p-3 rounded-full shadow-lg hover:bg-gray-700 transition-all hover:scale-105 hover:shadow-xl z-10"
               >
                 <ChevronDown className="h-5 w-5" />
@@ -328,7 +228,7 @@ const InboxPage: NextPageWithLayout = () => {
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
                   placeholder="Type your message here..."
-                  className="flex-1 bg-gray-50 border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-gray-800 focus:border-transparent transition-all"
+                  className="flex-1 bg-gray-50 border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-1 focus:ring-gray-800 focus:border-transparent transition-all"
                   rows={3}
                 />
               </div>
@@ -588,6 +488,20 @@ const InboxPage: NextPageWithLayout = () => {
                     setBodyParameters={setBodyParameters}
                     setHeaderParameters={setHeaderParameters}
                   />
+
+                  {/* <EmojiPickerModal
+                    triggerButton={
+                      <button className="border border-gray-300 rounded-md p-2.5">
+                        <Smile
+                          size={20}
+                          className="text-muted-foreground transition-transform duration-200"
+                        />
+                      </button>
+                    }
+                    position="top-left"
+                    align="start"
+                    setValue={(val) => setMessage((prev) => `${prev} ${val}`)}
+                  /> */}
                 </div>
 
                 <div>
@@ -666,23 +580,6 @@ const InboxPage: NextPageWithLayout = () => {
                         {[].join(", ") || "None"}
                       </div>
                     </div>
-                  </div>
-                </div>
-
-                <div className="pt-2">
-                  <h4 className="text-sm font-semibold text-gray-700">
-                    Quick Actions
-                  </h4>
-                  <div className="flex flex-col gap-2 mt-2">
-                    <button className="w-full text-left px-3 py-2 rounded-lg bg-blue-50 text-blue-700">
-                      Start Call
-                    </button>
-                    <button className="w-full text-left px-3 py-2 rounded-lg bg-green-50 text-green-700">
-                      Send WhatsApp
-                    </button>
-                    <button className="w-full text-left px-3 py-2 rounded-lg bg-gray-50">
-                      View Profile
-                    </button>
                   </div>
                 </div>
 

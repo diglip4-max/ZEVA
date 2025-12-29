@@ -7,6 +7,23 @@ import {
   getWhatsappUploadId,
   updateWhatsAppTemplate,
 } from "../../../../services/whatsapp";
+import dbConnect from "../../../../lib/database";
+import multer from "multer";
+
+// Multer setup
+const upload = multer({ storage: multer.memoryStorage() });
+
+function runMiddleware(req, res, fn) {
+  return new Promise((resolve, reject) => {
+    fn(req, res, (result) => {
+      if (result instanceof Error) return reject(result);
+      return resolve(result);
+    });
+  });
+}
+
+// Disable Next.js bodyParser → important for file upload
+export const config = { api: { bodyParser: false } };
 
 export default async function handler(req, res) {
   await dbConnect();
@@ -14,6 +31,19 @@ export default async function handler(req, res) {
   if (req.method !== "PUT") {
     res.setHeader("Allow", ["PUT"]);
     return res.status(405).end(`Method ${req.method} Not Allowed`);
+  }
+
+  const contentType = req.headers["content-type"] || "";
+  const isMultipart = contentType.startsWith("multipart/form-data");
+
+  let body = {};
+  if (isMultipart) {
+    await runMiddleware(req, res, upload.single("file"));
+    body = req.body;
+  } else {
+    const chunks = [];
+    for await (const chunk of req) chunks.push(chunk);
+    body = JSON.parse(Buffer.concat(chunks).toString() || "{}");
   }
 
   const me = await getUserFromReq(req);
@@ -69,7 +99,8 @@ export default async function handler(req, res) {
 
   try {
     const { templateId } = req.query;
-    const {
+    console.log("Updating template with ID:", templateId);
+    let {
       templateType,
       name,
       uniqueName,
@@ -88,21 +119,29 @@ export default async function handler(req, res) {
       templateButtons,
       emailTemplateType, // for email editor type
       ...rest
-    } = req.body;
+    } = body;
 
-    variables = Array.isArray(req.body?.variables)
-      ? req.body.variables
-      : JSON.parse(req.body?.variables || "[]");
-    headerVariables = Array.isArray(headerVariables)
-      ? headerVariables
-      : JSON.parse(headerVariables || "[]");
-    bodyVariableSampleValues = Array.isArray(bodyVariableSampleValues)
-      ? bodyVariableSampleValues
-      : JSON.parse(bodyVariableSampleValues || "[]");
-    headerVariableSampleValues = Array.isArray(headerVariableSampleValues)
-      ? headerVariableSampleValues
-      : JSON.parse(headerVariableSampleValues || "[]");
-    templateButtons = templateButtons ? JSON.parse(templateButtons) : [];
+    // Safe JSON parse helper: handles arrays, JSON strings, empty strings, and invalid JSON
+    const safeParseArray = (val) => {
+      if (Array.isArray(val)) return val;
+      if (typeof val === "string") {
+        const t = val.trim();
+        if (t === "" || t === "undefined") return [];
+        try {
+          const parsed = JSON.parse(t);
+          return Array.isArray(parsed) ? parsed : [];
+        } catch (e) {
+          return [];
+        }
+      }
+      return [];
+    };
+
+    variables = safeParseArray(req.body?.variables ?? variables);
+    headerVariables = safeParseArray(headerVariables);
+    bodyVariableSampleValues = safeParseArray(bodyVariableSampleValues);
+    headerVariableSampleValues = safeParseArray(headerVariableSampleValues);
+    templateButtons = safeParseArray(templateButtons);
 
     let template = await Template.findById(templateId);
     if (!template) {
@@ -126,6 +165,12 @@ export default async function handler(req, res) {
       bodyVariableSampleValues || template.bodyVariableSampleValues;
     template.headerVariableSampleValues =
       headerVariableSampleValues || template.headerVariableSampleValues;
+
+    template.headerText = rest.headerText || template.headerText;
+    template.footerText = rest.footerText || template.footerText;
+    template.isHeader = rest.isHeader ?? template.isHeader;
+    template.isFooter = rest.isFooter ?? template.isFooter;
+    template.headerType = rest.headerType || template.headerType;
 
     // for email template type
     template.emailTemplateType =
@@ -212,6 +257,7 @@ export default async function handler(req, res) {
           );
         }
       }
+      console.log({ resData });
 
       if (!resData) {
         return res.status(500).json({
@@ -235,7 +281,7 @@ export default async function handler(req, res) {
 
     return res.status(500).json({
       success: false,
-      message: err.message || "Internal Server Error",
+      message: err?.error_user_msg || err.message || "Internal Server Error",
     });
   }
 }

@@ -26,6 +26,7 @@ const CreateNewConversation: React.FC<IProps> = ({
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [_totalLeads, setTotalLeads] = useState<number>(0);
   const [hasMore, setHasMore] = useState<boolean>(true);
+  const [loading, setLoading] = useState<boolean>(false);
   const newChatRef = React.useRef<HTMLDivElement>(null);
   const listRef = React.useRef<HTMLDivElement | null>(null);
 
@@ -37,6 +38,7 @@ const CreateNewConversation: React.FC<IProps> = ({
       if (!token) return;
 
       try {
+        setLoading(true);
         const res = await axios.get("/api/lead-ms/leadFilter", {
           params: { page: currentPage, limit: 20, name: query },
           headers: { Authorization: `Bearer ${token}` },
@@ -58,6 +60,8 @@ const CreateNewConversation: React.FC<IProps> = ({
       } catch (err) {
         // on error, clear leads
         setLeads([]);
+      } finally {
+        setLoading(false);
       }
     },
     [currentPage, token]
@@ -191,6 +195,14 @@ const CreateNewConversation: React.FC<IProps> = ({
                     New Lead
                   </button>
                 </div>
+              </div>
+            )}
+
+            {loading && (
+              <div className="text-center py-3">
+                <span className="text-sm text-gray-500 text-center block">
+                  Loading...
+                </span>
               </div>
             )}
           </div>
