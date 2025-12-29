@@ -4,6 +4,7 @@ import User from "../../../models/Users";
 import Clinic from "../../../models/Clinic";
 import { getUserFromReq, requireRole } from "../lead-ms/auth";
 import { getClinicIdFromUser, checkClinicPermission } from "../lead-ms/permissions-helper";
+import { checkAgentPermission } from "../agent/permissions-helper";
 
 export const config = {
   api: {
@@ -36,14 +37,33 @@ export default async function handler(req, res) {
 
           // ✅ Check permission for reading drafts (only for clinic roles, admin bypasses)
           if (!isAdmin && !isDoctor && clinicId) {
-            const roleForPermission = isDoctorStaff ? "doctorStaff" : isAgent ? "agent" : me.role === "clinic" ? "clinic" : null;
-            const { hasPermission, error: permError } = await checkClinicPermission(
-              clinicId,
-              "write_blog", // Check "write_blog" module permission
-              "read",
-              null, // No submodule - this is a module-level check
-              roleForPermission
-            );
+            let hasPermission = false;
+            let permError = null;
+            
+            // For agent/doctorStaff, use checkAgentPermission (checks AgentPermission collection)
+            if (isAgent || isDoctorStaff) {
+              const result = await checkAgentPermission(
+                me._id,
+                "clinic_write_blog", // Use clinic_write_blog to match the module key format
+                "read",
+                null // No submodule - this is a module-level check
+              );
+              hasPermission = result.hasPermission;
+              permError = result.error;
+            } 
+            // For clinic role, use checkClinicPermission (checks ClinicPermission collection)
+            else if (me.role === "clinic") {
+              const result = await checkClinicPermission(
+                clinicId,
+                "write_blog", // Check "write_blog" module permission
+                "read",
+                null, // No submodule - this is a module-level check
+                "clinic"
+              );
+              hasPermission = result.hasPermission;
+              permError = result.error;
+            }
+            
             if (!hasPermission) {
               return res.status(403).json({
                 success: false,
@@ -191,14 +211,33 @@ export default async function handler(req, res) {
 
           // ✅ Check permission for creating drafts (only for clinic roles, admin bypasses)
           if (!isAdmin && !isDoctor && clinicId) {
-            const roleForPermission = isDoctorStaff ? "doctorStaff" : isAgent ? "agent" : me.role === "clinic" ? "clinic" : null;
-            const { hasPermission, error: permError } = await checkClinicPermission(
-              clinicId,
-              "write_blog", // Check "write_blog" module permission
-              "create",
-              null, // No submodule - this is a module-level check
-              roleForPermission
-            );
+            let hasPermission = false;
+            let permError = null;
+            
+            // For agent/doctorStaff, use checkAgentPermission (checks AgentPermission collection)
+            if (isAgent || isDoctorStaff) {
+              const result = await checkAgentPermission(
+                me._id,
+                "clinic_write_blog", // Use clinic_write_blog to match the module key format
+                "create",
+                null // No submodule - this is a module-level check
+              );
+              hasPermission = result.hasPermission;
+              permError = result.error;
+            } 
+            // For clinic role, use checkClinicPermission (checks ClinicPermission collection)
+            else if (me.role === "clinic") {
+              const result = await checkClinicPermission(
+                clinicId,
+                "write_blog", // Check "write_blog" module permission
+                "create",
+                null, // No submodule - this is a module-level check
+                "clinic"
+              );
+              hasPermission = result.hasPermission;
+              permError = result.error;
+            }
+            
             if (!hasPermission) {
               return res.status(403).json({
                 success: false,
@@ -330,14 +369,33 @@ export default async function handler(req, res) {
 
           // ✅ Check permission for updating drafts (only for clinic roles, admin bypasses)
           if (!isAdmin && !isDoctor && clinicId) {
-            const roleForPermission = isDoctorStaff ? "doctorStaff" : isAgent ? "agent" : me.role === "clinic" ? "clinic" : null;
-            const { hasPermission, error: permError } = await checkClinicPermission(
-              clinicId,
-              "write_blog", // Check "write_blog" module permission
-              "update",
-              null, // No submodule - this is a module-level check
-              roleForPermission
-            );
+            let hasPermission = false;
+            let permError = null;
+            
+            // For agent/doctorStaff, use checkAgentPermission (checks AgentPermission collection)
+            if (isAgent || isDoctorStaff) {
+              const result = await checkAgentPermission(
+                me._id,
+                "clinic_write_blog", // Use clinic_write_blog to match the module key format
+                "update",
+                null // No submodule - this is a module-level check
+              );
+              hasPermission = result.hasPermission;
+              permError = result.error;
+            } 
+            // For clinic role, use checkClinicPermission (checks ClinicPermission collection)
+            else if (me.role === "clinic") {
+              const result = await checkClinicPermission(
+                clinicId,
+                "write_blog", // Check "write_blog" module permission
+                "update",
+                null, // No submodule - this is a module-level check
+                "clinic"
+              );
+              hasPermission = result.hasPermission;
+              permError = result.error;
+            }
+            
             if (!hasPermission) {
               return res.status(403).json({
                 success: false,
@@ -440,14 +498,33 @@ export default async function handler(req, res) {
 
           // ✅ Check permission for deleting drafts (only for clinic roles, admin bypasses)
           if (!isAdmin && !isDoctor && clinicId) {
-            const roleForPermission = isDoctorStaff ? "doctorStaff" : isAgent ? "agent" : me.role === "clinic" ? "clinic" : null;
-            const { hasPermission, error: permError } = await checkClinicPermission(
-              clinicId,
-              "write_blog", // Check "write_blog" module permission
-              "delete",
-              null, // No submodule - this is a module-level check
-              roleForPermission
-            );
+            let hasPermission = false;
+            let permError = null;
+            
+            // For agent/doctorStaff, use checkAgentPermission (checks AgentPermission collection)
+            if (isAgent || isDoctorStaff) {
+              const result = await checkAgentPermission(
+                me._id,
+                "clinic_write_blog", // Use clinic_write_blog to match the module key format
+                "delete",
+                null // No submodule - this is a module-level check
+              );
+              hasPermission = result.hasPermission;
+              permError = result.error;
+            } 
+            // For clinic role, use checkClinicPermission (checks ClinicPermission collection)
+            else if (me.role === "clinic") {
+              const result = await checkClinicPermission(
+                clinicId,
+                "write_blog", // Check "write_blog" module permission
+                "delete",
+                null, // No submodule - this is a module-level check
+                "clinic"
+              );
+              hasPermission = result.hasPermission;
+              permError = result.error;
+            }
+            
             if (!hasPermission) {
               return res.status(403).json({
                 success: false,
