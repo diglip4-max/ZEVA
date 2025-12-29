@@ -61,6 +61,65 @@ export default function Home() {
             .join(' ');
     };
 
+    // Helper function to normalize image paths
+    // Converts absolute Windows file paths to relative URLs
+    const normalizeImagePath = (imagePath) => {
+        if (!imagePath) return '';
+        
+        // Handle malformed URLs that have localhost concatenated with file path
+        // e.g., "http://localhost:3000C:/Users/..." -> extract the file path part
+        if (imagePath.includes('localhost') && /[A-Za-z]:/.test(imagePath)) {
+            // Find the drive letter (C:, D:, etc.) and extract from there
+            const driveMatch = imagePath.match(/([A-Za-z]:.*)/);
+            if (driveMatch) {
+                imagePath = driveMatch[1];
+            }
+        }
+        
+        // If it's already a relative path starting with /, clean up and return
+        if (imagePath.startsWith('/')) {
+            // Remove double slashes
+            return imagePath.replace(/\/+/g, '/');
+        }
+        
+        // If it's already a full URL (http:// or https://), return as is
+        if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+            return imagePath;
+        }
+        
+        // If it's a Windows absolute path (C:/, D:/, etc.), extract the relative part
+        if (/^[A-Za-z]:/.test(imagePath)) {
+            // Find the uploads directory and extract everything from there
+            const uploadsIndex = imagePath.indexOf('/uploads/');
+            if (uploadsIndex !== -1) {
+                const relativePath = imagePath.substring(uploadsIndex);
+                // Remove double slashes
+                return relativePath.replace(/\/+/g, '/');
+            }
+            // If uploads not found, try to extract from common paths
+            const zevaIndex = imagePath.indexOf('ZEVA/');
+            if (zevaIndex !== -1) {
+                const afterZeva = imagePath.substring(zevaIndex + 5);
+                const uploadsInAfter = afterZeva.indexOf('/uploads/');
+                if (uploadsInAfter !== -1) {
+                    const relativePath = afterZeva.substring(uploadsInAfter);
+                    // Remove double slashes
+                    return relativePath.replace(/\/+/g, '/');
+                }
+            }
+        }
+        
+        // If it doesn't start with /, add it
+        if (!imagePath.startsWith('/')) {
+            // Remove double slashes before adding leading slash
+            const cleaned = imagePath.replace(/\/+/g, '/');
+            return '/' + cleaned.replace(/^\//, '');
+        }
+        
+        // Remove double slashes
+        return imagePath.replace(/\/+/g, '/');
+    };
+
     // Update URL with search parameters - ALWAYS use values from input fields
     const updateURL = (treatment, location) => {
         // Set flag to prevent useEffect from interfering
@@ -556,6 +615,9 @@ export default function Home() {
                 params: { lat, lng, service: serviceToSearch },
             });
             const clinicsWithDistance = res.data.clinics.map((clinic) => {
+                // Normalize photos array if it exists
+                const normalizedPhotos = clinic.photos?.map(photo => normalizeImagePath(photo)) || clinic.photos;
+                
                 if (
                     clinic.location &&
                     clinic.location.coordinates &&
@@ -566,10 +628,15 @@ export default function Home() {
                     const distance = calculateDistance(lat, lng, clinicLat, clinicLng);
                     return {
                         ...clinic,
+                        photos: normalizedPhotos,
                         distance: distance,
                     };
                 } else {
-                    return { ...clinic, distance: null };
+                    return { 
+                        ...clinic, 
+                        photos: normalizedPhotos,
+                        distance: null 
+                    };
                 }
             });
             // Sort by distance, but keep Dubai prioritized clinics at top
@@ -880,7 +947,7 @@ export default function Home() {
             />
             
             {/* Professional Header Section */}
-            <div className="w-full bg-gradient-to-br from-white via-[#f8fafc] to-[#f0f7ff] border-b border-[#e2e8f0] shadow-sm">
+            <div className="w-full bg-gradient-to-br from-white via-[#f8fafc] to-[#f0f7ff] border-b border-[#e2e8f0] shadow-sm sticky top-0 z-50">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
                     {/* Professional Header */}
                     <div className="text-center mb-6">
@@ -1197,7 +1264,7 @@ export default function Home() {
                     <div className="flex flex-col lg:flex-row gap-3">
                         {/* Filters Sidebar */}
                         <div className="lg:w-1/4">
-                            <div className="bg-white rounded-xl shadow-md border-2 border-[#e2e8f0] p-4 sticky top-4">
+                            <div className="bg-white rounded-xl shadow-md border-2 border-[#e2e8f0] p-4 sticky top-32 z-40">
                                 {/* Price Range Filter */}
                                 <div className="mb-4">
                                     <h3 className="text-sm font-bold text-[#1e293b] mb-3 flex items-center">
@@ -1564,7 +1631,7 @@ export default function Home() {
                                                 <div className="relative h-24 w-full bg-gradient-to-br from-[#e0f2fe] to-[#bae6fd] overflow-hidden">
                                                     {clinic.photos?.[0] ? (
                                                         <Image
-                                                            src={clinic.photos[0]}
+                                                            src={normalizeImagePath(clinic.photos[0])}
                                                             alt={clinic.name || "Clinic Image"}
                                                             fill
                                                             className="object-cover object-center group-hover:scale-105 transition-transform duration-300"
