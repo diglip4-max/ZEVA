@@ -386,30 +386,93 @@ function ModernBlogForm() {
     let isMounted = true;
 
     const token = getStoredToken();
+    const agentToken = localStorage.getItem("agentToken");
 
-    if (!token) {
+    // For agent/doctorStaff on clinic routes, use agent permissions API
+    if (agentToken) {
+      const fetchAgentPermissions = async () => {
+        try {
+          setPermissionsLoaded(false);
+          // Use agent permissions API for agent/doctorStaff
+          const res = await axios.get("/api/agent/get-module-permissions", {
+            params: { moduleKey: "clinic_write_blog" },
+            headers: { Authorization: `Bearer ${agentToken}` }
+          });
+          const data = res.data;
+          
+          if (!isMounted) return;
+          
+          // Use correct response structure - data.permissions.actions
+          // API already normalizes actions to booleans
+          if (data.success && data.permissions) {
+            const moduleActions = data.permissions.actions || {};
+            const hasAllPermission = moduleActions.all === true;
+            
+            const newPermissions = {
+              canCreate: hasAllPermission || moduleActions.create === true,
+              canReadPublished: hasAllPermission || moduleActions.read === true,
+              canUpdatePublished: hasAllPermission || moduleActions.update === true,
+              canDeletePublished: hasAllPermission || moduleActions.delete === true,
+              canReadAnalytics: hasAllPermission || moduleActions.read === true,
+            };
+            
+            console.log('[BlogForm] Agent permissions fetched:', {
+              moduleActions,
+              hasAllPermission,
+              newPermissions,
+              canReadPublished: newPermissions.canReadPublished,
+              rawResponse: data
+            });
+            
+            if (isMounted) {
+              setPermissions(newPermissions);
+            }
+          } else {
+            console.warn('No permissions found in response:', data);
+            if (isMounted) {
+              setPermissions({
+                canCreate: false,
+                canReadPublished: false,
+                canUpdatePublished: false,
+                canDeletePublished: false,
+                canReadAnalytics: false,
+              });
+            }
+          }
+        } catch (err) {
+          console.error("Error fetching agent permissions:", err);
+          if (isMounted) {
+            setPermissions({
+              canCreate: false,
+              canReadPublished: false,
+              canUpdatePublished: false,
+              canDeletePublished: false,
+              canReadAnalytics: false,
+            });
+          }
+        } finally {
+          if (isMounted) {
+            setPermissionsLoaded(true);
+          }
+        }
+      };
 
-      setPermissions({
-
-        canCreate: false,
-
-        canReadPublished: false,
-
-        canUpdatePublished: false,
-
-        canDeletePublished: false,
-
-        canReadAnalytics: false,
-
-      });
-
-      setPermissionsLoaded(true);
-
-      return;
-
+      fetchAgentPermissions();
+      return () => { isMounted = false; };
     }
 
-
+    // For clinic/doctor roles, use clinic permissions API
+    if (!token) {
+      setPermissions({
+        canCreate: false,
+        canReadPublished: false,
+        canUpdatePublished: false,
+        canDeletePublished: false,
+        canReadAnalytics: false,
+      });
+      setPermissionsLoaded(true);
+      return;
+    }
 
     const fetchClinicPermissions = async () => {
 
@@ -545,7 +608,7 @@ function ModernBlogForm() {
 
     return () => { isMounted = false; };
 
-  }, [isAgentRoute]);
+  }, [isAgentRoute, hasAgentToken]);
 
 
 
@@ -679,8 +742,11 @@ function ModernBlogForm() {
 
   const loadPosts = async (showRefreshIndicator = false) => {
 
+    console.log('[BlogForm] loadPosts called. canReadPublished:', permissions.canReadPublished);
+
     if (!permissions.canReadPublished) {
 
+      console.log('[BlogForm] loadPosts returning early - no read permission');
       setLoading(false);
 
       setIsRefreshing(false);
@@ -688,6 +754,8 @@ function ModernBlogForm() {
       return;
 
     }
+
+    console.log('[BlogForm] loadPosts proceeding to fetch blogs');
 
 
 
@@ -810,7 +878,7 @@ function ModernBlogForm() {
   useEffect(() => {
 
     if (permissionsLoaded) {
-
+      console.log('[BlogForm] Permissions loaded, calling loadPosts. canReadPublished:', permissions.canReadPublished, 'permissions:', permissions);
       loadPosts();
 
     }
