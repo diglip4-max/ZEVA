@@ -175,23 +175,7 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
 
   return (
     <>
-      <button
-        onClick={handleToggleMobile}
-        className={clsx(
-          "fixed top-4 left-4 z-[100] bg-white text-sky-600 p-3 rounded-lg shadow-lg transition-all duration-300 border-2 border-slate-300 hover:bg-gray-50 hover:border-slate-400 lg:hidden touch-manipulation",
-          {
-            block: !isMobileOpen,
-            hidden: isMobileOpen,
-          }
-        )}
-        aria-label="Open mobile menu"
-        style={{ WebkitTapHighlightColor: 'transparent' }}
-      >
-        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-        </svg>
-      </button>
-
+      {/* Desktop Toggle Button - Positioned on left when sidebar is hidden */}
       <button
         onClick={handleToggleDesktop}
         className={clsx(

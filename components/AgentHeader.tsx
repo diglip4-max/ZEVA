@@ -70,9 +70,9 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
   <header className="w-full bg-white border-b border-gray-200 shadow-sm flex-shrink-0">
     <div className="px-2 sm:px-4 py-1.5 sm:py-2">
       <div className="flex items-center justify-between gap-2">
-        {/* Left: Toggle + Brand */}
+        {/* Left: Mobile Hamburger + Brand */}
         <div className="flex items-center gap-2 sm:gap-4 min-w-0">
-          {/* Mobile Hamburger - Only visible on mobile */}
+          {/* Mobile Hamburger - Only visible on mobile, positioned on left */}
           <button
             onClick={handleToggleMobile}
             className="p-1.5 sm:p-2 rounded-lg hover:bg-gray-100 transition-colors duration-200 flex-shrink-0 lg:hidden"

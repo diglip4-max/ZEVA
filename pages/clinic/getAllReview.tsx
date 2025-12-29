@@ -439,7 +439,7 @@ function ClinicReviews() {
   const stats = getRatingStats();
 
   // Show loading state
-  if (loading || !permissionsLoaded) {
+  if (loading || !permissionsLoaded || (isAgentRoute && agentPermissionsLoading)) {
     return (
       <div className="w-full p-4 flex items-center justify-center min-h-screen">
         <div className="text-center">
@@ -453,17 +453,12 @@ function ClinicReviews() {
   // Show full-page access denied message when read permission is false
   if (permissionsLoaded && !permissions.canRead) {
     return (
-      <div className="w-full min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-white rounded-xl border border-red-200 shadow-lg p-8 text-center">
-          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <MessageSquare className="w-8 h-8 text-red-600" />
-          </div>
-          <h2 className="text-xl font-bold text-gray-900 mb-2">Access Denied</h2>
-          <p className="text-sm text-gray-700 mb-4">
-            You do not have permission to view clinic reviews.
-          </p>
-          <p className="text-xs text-gray-600">
-            Please contact your administrator to request access to the Reviews module.
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">
+        <div className="max-w-md mx-auto text-center bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-6 shadow-sm">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">Access denied</h2>
+          <p className="text-sm text-gray-700 dark:text-gray-400">
+            You do not have permission to view the Reviews module. Please contact your
+            administrator.
           </p>
         </div>
       </div>

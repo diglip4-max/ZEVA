@@ -58,8 +58,8 @@ const AgentLayout = ({ children }: { children: React.ReactNode }) => {
         className="flex flex-col flex-1 h-screen overflow-hidden min-w-0 transition-all duration-300"
         style={getMainContentStyle()}
       >
-        {/* Header - Hidden on mobile when sidebar might be open */}
-        <div className="flex-shrink-0 z-10 bg-white sticky top-0 hidden lg:block">
+        {/* Header - Visible on all screen sizes */}
+        <div className="flex-shrink-0 z-10 bg-white sticky top-0">
           <AgentHeader
             handleToggleMobile={handleToggleMobile}
             isMobileOpen={isMobileOpen}

@@ -67,7 +67,6 @@ function ClinicEnquiries({ contextOverride = null }: { contextOverride?: "clinic
     canRead: false,
   });
   const [permissionsLoaded, setPermissionsLoaded] = useState(false);
-  const [accessError, setAccessError] = useState<string | null>(null);
   const [hasAgentToken, setHasAgentToken] = useState(false);
   const [isAgentRoute, setIsAgentRoute] = useState(false);
 
@@ -236,13 +235,11 @@ function ClinicEnquiries({ contextOverride = null }: { contextOverride?: "clinic
           }
         );
 
-        setAccessError(null);
         setEnquiries(res.data.enquiries || []);
         setFilteredEnquiries(res.data.enquiries || []);
       } catch (err: any) {
         // Gracefully handle permission denials without surfacing axios errors
         if (err.response?.status === 403) {
-          setAccessError("You do not have permission to read the data.");
           setPermissions({ canRead: false });
           setEnquiries([]);
           setFilteredEnquiries([]);
@@ -332,7 +329,7 @@ function ClinicEnquiries({ contextOverride = null }: { contextOverride?: "clinic
         })
       : "No enquiries yet";
 
-  if (loading || !permissionsLoaded) {
+  if (loading || !permissionsLoaded || (isAgentRoute && agentPermissionsLoading)) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">
         <div className="text-center">
@@ -344,16 +341,14 @@ function ClinicEnquiries({ contextOverride = null }: { contextOverride?: "clinic
   }
 
   // Show access denied message if no permission
-  if (accessError || !permissions.canRead) {
+  if (permissionsLoaded && !permissions.canRead) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-8 text-center max-w-md">
-          <div className="w-16 h-16 bg-yellow-100 dark:bg-yellow-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
-            <MessageSquare className="w-8 h-8 text-yellow-600 dark:text-yellow-400" />
-          </div>
-          <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-2">Access Denied</h3>
+        <div className="max-w-md mx-auto text-center bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-6 shadow-sm">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">Access denied</h2>
           <p className="text-sm text-gray-700 dark:text-gray-400">
-            {accessError || "You do not have permission to view clinic enquiries. Please contact your administrator."}
+            You do not have permission to view the Enquiries module. Please contact your
+            administrator.
           </p>
         </div>
       </div>

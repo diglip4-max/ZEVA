@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import axios from "axios";
-import { Package, TrendingUp, Eye, Search, ChevronLeft, ChevronRight, X, AlertCircle, CheckCircle2, Info, Edit3, User, DollarSign, Mail, Phone, Calendar, FileText, MapPin, Building2, CreditCard } from "lucide-react";
+import { Package, TrendingUp, Eye, Search, ChevronLeft, ChevronRight, X, AlertCircle, CheckCircle2, Info, Edit3, User, DollarSign, Mail, Phone, Calendar, FileText, MapPin, Building2, CreditCard, Trash2 } from "lucide-react";
 import { useRouter } from "next/router";
 import ClinicLayout from '../../components/staffLayout';
 import withClinicAuth from '../../components/withStaffAuth';
@@ -176,6 +176,7 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
   const [page, setPage] = useState(1);
   const [toasts, setToasts] = useState([]);
   const [detailsModal, setDetailsModal] = useState({ isOpen: false, patient: null });
+  const [deleteSuccessModal, setDeleteSuccessModal] = useState({ isOpen: false, patientName: "" });
   const pageSize = 12;
 
   const addToast = (message, type = "info") => setToasts(prev => [...prev, { id: Date.now(), message, type }]);
@@ -238,6 +239,37 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
     }
   };
 
+  const handleDelete = async (patientId, patientName) => {
+    if (!window.confirm(`Are you sure you want to delete ${patientName || 'this patient'}? This action cannot be undone.`)) {
+      return;
+    }
+
+    const headers = getAuthHeaders();
+    if (!headers) {
+      addToast("Authentication required. Please login again.", "error");
+      return;
+    }
+
+    try {
+      const response = await axios.delete("/api/staff/get-patient-registrations", {
+        headers,
+        data: { id: patientId }
+      });
+
+      if (response.data.success) {
+        // Show success popup
+        setDeleteSuccessModal({ isOpen: true, patientName: patientName });
+        // Refresh the patient list
+        fetchPatients();
+      } else {
+        addToast(response.data.message || "Failed to delete patient", "error");
+      }
+    } catch (err) {
+      console.error("Delete error:", err);
+      addToast(err.response?.data?.message || "Failed to delete patient", "error");
+    }
+  };
+
   const getStatusBadge = (status) => {
     const statusLower = (status || '').toLowerCase();
     if (statusLower === 'active' || statusLower === 'completed') {
@@ -254,6 +286,38 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
       <style>{`@keyframes slideIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}@keyframes scaleIn{from{transform:scale(0.9);opacity:0}to{transform:scale(1);opacity:1}}.animate-slideIn{animation:slideIn 0.3s ease-out}.animate-scaleIn{animation:scaleIn 0.2s ease-out}`}</style>
       <ToastContainer toasts={toasts} removeToast={removeToast} />
       <PatientDetailsModal isOpen={detailsModal.isOpen} onClose={() => setDetailsModal({ isOpen: false, patient: null })} patient={detailsModal.patient} />
+      
+      {/* Delete Success Modal */}
+      {deleteSuccessModal.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setDeleteSuccessModal({ isOpen: false, patientName: "" })} />
+          <div className="relative bg-white rounded-lg sm:rounded-xl shadow-2xl max-w-md w-full my-2 sm:my-4 animate-scaleIn">
+            <div className="p-4 sm:p-6">
+              <div className="flex flex-col items-center text-center">
+                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
+                  <CheckCircle2 className="w-8 h-8 text-green-600" />
+                </div>
+                <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-2">
+                  Patient Deleted Successfully
+                </h3>
+                <p className="text-sm text-gray-700 mb-6">
+                  {deleteSuccessModal.patientName ? (
+                    <>Patient <span className="font-semibold">{deleteSuccessModal.patientName}</span> has been deleted successfully.</>
+                  ) : (
+                    "The patient has been deleted successfully."
+                  )}
+                </p>
+                <button
+                  onClick={() => setDeleteSuccessModal({ isOpen: false, patientName: "" })}
+                  className="w-full px-4 py-2 bg-gray-900 hover:bg-gray-800 text-white rounded-lg text-sm font-medium transition-colors"
+                >
+                  OK
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       
       <div className={hideHeader ? "p-3 sm:p-4 md:p-6" : "min-h-screen bg-gray-50 p-3 sm:p-4 md:p-6"}>
         <div className="max-w-7xl mx-auto space-y-3">
@@ -385,6 +449,15 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
                                 >
                                   <Eye className="h-4 w-4" />
                                 </button>
+                                {permissions.canDelete && (
+                                  <button
+                                    onClick={() => handleDelete(patient._id, `${patient.firstName} ${patient.lastName}`)}
+                                    className="p-1.5 text-red-600 hover:bg-red-50 rounded transition-colors"
+                                    title="Delete"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </button>
+                                )}
                               </div>
                             </td>
                           </tr>

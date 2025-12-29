@@ -1595,10 +1595,10 @@ function ModernBlogForm() {
                       blogTitle={safeTitle}
                       blogUrl={`${getBaseUrl()}/blogs/${post.paramlink}`}
                       blogDescription={safeExcerpt}
-                      triggerClassName="p-1.5 rounded-md text-gray-600 hover:text-cyan-600 hover:bg-cyan-50 transition-all hover:scale-110 flex items-center flex-shrink-0"
+                      triggerClassName="p-1.5 rounded-md text-green-500 hover:text-green-600 hover:bg-cyan-50 transition-all hover:scale-110 flex items-center flex-shrink-0"
                     />
                   </div>
-                  <button
+                  {/* <button
                     onClick={() => {
                       setSelectedPostDetail(post);
                       setShowPostDetailModal(true);
@@ -1607,12 +1607,12 @@ function ModernBlogForm() {
                     title="Preview"
                   >
                     <Eye className="w-4 h-4" />
-                  </button>
-
+                  </button> */}
+{/* 
                   <div className="flex items-center gap-1 text-gray-500 text-xs flex-shrink-0">
                     <Eye className="w-3.5 h-3.5" />
                     <span>{Number(post.views) || 0}</span>
-                  </div>
+                  </div> */}
                 </>
 
               )}
@@ -1622,8 +1622,25 @@ function ModernBlogForm() {
             
 
             {/* Right: Edit, Link, External, Delete */}
+
             <div className="flex items-center gap-0.5 flex-shrink-0">
+
+
+            <button
+                    onClick={() => {
+                      setSelectedPostDetail(post);
+                      setShowPostDetailModal(true);
+                    }}
+                    className="p-1.5 rounded-md text-cyan-600 hover:text-cyan-600 hover:bg-cyan-50 transition-all hover:scale-110 flex-shrink-0"
+                    title="Preview"
+                  >
+                    <Eye className="w-4 h-4" />
+                  </button>
+
+
               {permissions.canUpdatePublished && (
+                
+
                 <button
                   onClick={() => handleEditPost(post._id, type)}
                   className="p-1 hover:bg-cyan-50 rounded-md transition-all hover:scale-105 text-cyan-600 flex-shrink-0"
