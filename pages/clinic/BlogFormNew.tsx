@@ -1701,7 +1701,7 @@ function ModernBlogForm() {
       <article className="bg-white rounded-xl shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden group border border-gray-100">
         {imageUrl && (
 
-          <div className="relative h-48 overflow-hidden bg-gray-100">
+          <div className="relative h-32 sm:h-36 overflow-hidden bg-gray-100">
             <img
 
               src={imageUrl}
@@ -2044,6 +2044,27 @@ function ModernBlogForm() {
   return (
 
     <div className="min-h-screen bg-gradient-to-br from-cyan-50 via-white to-teal-50">
+      <style jsx global>{`
+        /* Post Preview modal content: keep embedded media compact */
+        .post-preview-content img,
+        .post-preview-content video,
+        .post-preview-content iframe {
+          display: block !important;
+          max-width: 70% !important;
+          width: auto !important;
+          height: auto !important;
+          margin: 1rem auto !important;
+          border-radius: 12px !important;
+          object-fit: cover !important;
+        }
+        @media (max-width: 768px) {
+          .post-preview-content img,
+          .post-preview-content video,
+          .post-preview-content iframe {
+            max-width: 95% !important;
+          }
+        }
+      `}</style>
       {/* Fixed Header - No movement */}
       <div className="sticky top-0 z-30 bg-white/95 backdrop-blur-xl border-b border-cyan-100 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2 sm:py-4">
@@ -2935,7 +2956,7 @@ function ModernBlogForm() {
 
                 {/* Blog HTML Content */}
                 <div
-                  className="blog-content leading-relaxed text-gray-800"
+                  className="blog-content post-preview-content leading-relaxed text-gray-800"
                   dangerouslySetInnerHTML={{
                     __html: selectedPostDetail.content,
                   }}

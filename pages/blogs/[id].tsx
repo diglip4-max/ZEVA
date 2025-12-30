@@ -117,6 +117,72 @@ export default function BlogDetail({ initialBlog, seo }: BlogDetailProps) {
     setIsLoaded(true);
   }, []);
 
+  // Remove close buttons from images after content is rendered
+  useEffect(() => {
+    if (!blog?.content) return;
+    
+    const removeCloseButtons = () => {
+      const blogContent = document.querySelector('.blog-content');
+      if (!blogContent) return;
+
+      // Find and remove close buttons near images
+      const images = blogContent.querySelectorAll('img');
+      images.forEach((img) => {
+        // Find parent container
+        const container = img.closest('figure, div, p, .image-wrapper, .ql-image');
+        if (container) {
+          // Find buttons in the container
+          const buttons = container.querySelectorAll('button');
+          buttons.forEach((button) => {
+            // Check if button looks like a close button (has X icon or close-related classes)
+            const buttonText = button.textContent || '';
+            const buttonClasses = button.className || '';
+            const hasCloseIcon = button.querySelector('svg path[d*="M6 18"], svg path[d*="M18 6"], svg path[d*="close"]');
+            
+            if (
+              buttonText.includes('×') ||
+              buttonText.includes('✕') ||
+              buttonClasses.includes('close') ||
+              buttonClasses.includes('cross') ||
+              hasCloseIcon ||
+              button.getAttribute('aria-label')?.toLowerCase().includes('close')
+            ) {
+              button.remove();
+            }
+          });
+        }
+      });
+
+      // Also remove any absolutely positioned buttons in image containers
+      const imageContainers = blogContent.querySelectorAll('figure, .image-wrapper, .ql-image, div:has(img)');
+      imageContainers.forEach((container) => {
+        const absoluteButtons = container.querySelectorAll('button[style*="position: absolute"], button[class*="absolute"]');
+        absoluteButtons.forEach((btn) => {
+          const isTopRight = btn.classList.contains('top-0') || btn.classList.contains('top-2') || 
+                            btn.classList.contains('right-0') || btn.classList.contains('right-2');
+          if (isTopRight) {
+            btn.remove();
+          }
+        });
+      });
+    };
+
+    // Run after a short delay to ensure content is rendered
+    const timeoutId = setTimeout(removeCloseButtons, 100);
+    
+    // Also run on mutation to catch dynamically added elements
+    const observer = new MutationObserver(removeCloseButtons);
+    const blogContent = document.querySelector('.blog-content');
+    if (blogContent) {
+      observer.observe(blogContent, { childList: true, subtree: true });
+    }
+
+    return () => {
+      clearTimeout(timeoutId);
+      observer.disconnect();
+    };
+  }, [blog?.content]);
+
   // Utility to get base URL
   const getBaseUrl = () => {
     if (typeof window !== "undefined") {
@@ -552,7 +618,7 @@ export default function BlogDetail({ initialBlog, seo }: BlogDetailProps) {
       /* Images - Preserve structure, alignment, and add lazy loading */
       .blog-content img {
         display: block !important;
-        max-width: 80% !important;
+        max-width: 50% !important;
         width: auto !important;
         height: auto !important;
         margin: 1.5rem auto !important;
@@ -561,6 +627,44 @@ export default function BlogDetail({ initialBlog, seo }: BlogDetailProps) {
         transition: transform 0.3s ease, box-shadow 0.3s ease, opacity 0.3s ease !important;
         opacity: 1 !important;
         loading: lazy !important;
+      }
+
+      /* Hide any close/cross buttons on images */
+      .blog-content img + button,
+      .blog-content .image-wrapper button,
+      .blog-content figure button,
+      .blog-content .ql-image button,
+      .blog-content img ~ button[class*="close"],
+      .blog-content img ~ button[class*="cross"],
+      .blog-content img ~ button[aria-label*="close"],
+      .blog-content img ~ button[aria-label*="Close"],
+      .blog-content * button[class*="close"],
+      .blog-content * button[class*="cross"],
+      .blog-content .relative button[class*="absolute"][class*="top"][class*="right"],
+      .blog-content button[class*="absolute"][class*="top"][class*="right"] {
+        display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+      }
+
+      /* Hide close buttons in image containers */
+      .blog-content figure button,
+      .blog-content .image-wrapper button,
+      .blog-content .ql-image button,
+      .blog-content div[class*="relative"] button[class*="absolute"],
+      .blog-content div[class*="relative"]:has(img) button {
+        display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+      }
+
+      /* Hide circular close buttons (common pattern: gray circle with X) */
+      .blog-content button[class*="rounded-full"][class*="bg-gray"],
+      .blog-content button[class*="rounded-full"]:has(svg path[d*="M6 18"]),
+      .blog-content button[class*="rounded-full"]:has(svg path[d*="M18 6"]) {
+        display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
       }
 
       /* Lazy loading placeholder */
@@ -768,7 +872,7 @@ export default function BlogDetail({ initialBlog, seo }: BlogDetailProps) {
 
       @media (max-width: 1024px) {
         .blog-content img {
-          max-width: 85% !important;
+          max-width: 60% !important;
           height: auto !important;
           border-radius: 8px !important;
         }
@@ -784,7 +888,7 @@ export default function BlogDetail({ initialBlog, seo }: BlogDetailProps) {
 
       @media (max-width: 768px) {
         .blog-content img {
-          max-width: 90% !important;
+          max-width: 70% !important;
           height: auto !important;
           margin: 1rem auto !important;
           border-radius: 8px !important;
@@ -814,7 +918,7 @@ export default function BlogDetail({ initialBlog, seo }: BlogDetailProps) {
 
       @media (max-width: 640px) {
         .blog-content img {
-          max-width: 95% !important;
+          max-width: 80% !important;
           height: auto !important;
           margin: 0.75rem auto !important;
           border-radius: 6px !important;
@@ -917,17 +1021,17 @@ export default function BlogDetail({ initialBlog, seo }: BlogDetailProps) {
               </div>
 
               {/* Social Engagement Bar */}
-              <div className="flex flex-wrap gap-3 pt-4 border-t border-gray-200">
+              <div className="flex flex-wrap gap-3 pt-4">
                 <button
                   onClick={toggleLike}
-                  className={`group flex items-center justify-center space-x-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 border shadow-sm hover:shadow-md transform hover:scale-[1.02]
+                  className={`group inline-flex items-center gap-1.5 text-sm font-medium transition-colors
                     ${blog.liked
-                      ? "bg-red-50 text-red-600 border-red-200 hover:bg-red-100"
-                      : "bg-white text-gray-600 border-gray-200 hover:border-blue-300 hover:text-blue-600"
+                      ? "text-red-600"
+                      : "text-red-500 hover:text-red-500"
                     }`}
                 >
                   <svg
-                    className={`w-5 h-5 transition-all duration-200 ${blog.liked ? "text-red-500" : "text-gray-400"}`}
+                    className={`w-5 h-5 transition-colors ${blog.liked ? "text-red-500" : "text-red-400 group-hover:text-red-500"}`}
                     fill={blog.liked ? "currentColor" : "none"}
                     stroke="currentColor"
                     strokeWidth="2"
@@ -935,7 +1039,7 @@ export default function BlogDetail({ initialBlog, seo }: BlogDetailProps) {
                   >
                     <path strokeLinecap="round" strokeLinejoin="round" d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
                   </svg>
-                  <span>{blog.likesCount}</span>
+                  <span className="tabular-nums">{blog.likesCount}</span>
                 </button>
 
                 {blog && (
