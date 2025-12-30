@@ -124,6 +124,35 @@ const ManageAgentsPage = () => {
     }
   }, [isAgentRoute, permissionsLoading]);
 
+  // Helper function to get user role from token
+  const getUserRole = () => {
+    if (typeof window === 'undefined') return null;
+    try {
+      for (const key of TOKEN_PRIORITY) {
+        const token = localStorage.getItem(key) || sessionStorage.getItem(key);
+        if (token) {
+          try {
+            const base64Url = token.split('.')[1];
+            const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+            const jsonPayload = decodeURIComponent(
+              atob(base64)
+                .split('')
+                .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+                .join('')
+            );
+            const decoded = JSON.parse(jsonPayload);
+            return decoded.role || decoded.userRole || null;
+          } catch (e) {
+            continue;
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error getting user role:', error);
+    }
+    return null;
+  };
+
   const [clinicPerms, setClinicPerms] = useState({
     canCreate: true,
     canRead: true,
@@ -133,55 +162,134 @@ const ManageAgentsPage = () => {
   const [clinicPermsLoading, setClinicPermsLoading] = useState(false);
 
   useEffect(() => {
-    if (!clinicToken) return;
-    setClinicPermsLoading(true);
-    const headers = getAuthHeaders();
-    if (!headers) {
+    const userRole = getUserRole();
+    const authToken = clinicToken || doctorToken;
+    
+    // ✅ For admin role, grant full access (bypass permission checks)
+    if (userRole === 'admin') {
       setClinicPerms({
-        canCreate: false,
-        canRead: false,
-        canUpdate: false,
-        canDelete: false,
+        canCreate: true,
+        canRead: true,
+        canUpdate: true,
+        canDelete: true,
       });
       setClinicPermsLoading(false);
       return;
     }
 
-    axios
-      .get('/api/clinic/sidebar-permissions', { headers })
-      .then(({ data }) => {
-        const modulePerm =
-          data?.permissions?.find(
-            (perm) =>
-              perm.module === 'clinic_create_agent' ||
-              perm.module === 'create_agent' ||
-              perm.module?.endsWith('create_agent')
-          ) || {};
-        const actions = modulePerm.actions || {};
-        setClinicPerms({
-          canCreate: actions.all === true || actions.create === true,
-          canRead: actions.all === true || actions.read === true,
-          canUpdate: actions.all === true || actions.update === true,
-          canDelete: actions.all === true || actions.delete === true,
-        });
-      })
-      .catch(() => {
+    // ✅ For clinic and doctor roles, fetch admin-level permissions from /api/clinic/sidebar-permissions
+    if (userRole === 'clinic' || userRole === 'doctor') {
+      if (!authToken) {
         setClinicPerms({
           canCreate: false,
           canRead: false,
           canUpdate: false,
           canDelete: false,
         });
-      })
-      .finally(() => setClinicPermsLoading(false));
-  }, [clinicToken]);
+        setClinicPermsLoading(false);
+        return;
+      }
+
+      setClinicPermsLoading(true);
+      const headers = getAuthHeaders();
+      if (!headers) {
+        setClinicPerms({
+          canCreate: false,
+          canRead: false,
+          canUpdate: false,
+          canDelete: false,
+        });
+        setClinicPermsLoading(false);
+        return;
+      }
+
+      axios
+        .get('/api/clinic/sidebar-permissions', { headers })
+        .then(({ data }) => {
+          if (data.success) {
+            // Check if permissions array exists and is not null
+            // If permissions is null, admin hasn't set any restrictions yet - allow full access (backward compatibility)
+            if (data.permissions === null || !Array.isArray(data.permissions) || data.permissions.length === 0) {
+              // No admin restrictions set yet - default to full access for backward compatibility
+              setClinicPerms({
+                canCreate: true,
+                canRead: true,
+                canUpdate: true,
+                canDelete: true,
+              });
+            } else {
+              // Admin has set permissions - check the clinic_create_agent module
+              const modulePerm = data.permissions.find(
+                (perm) =>
+                  perm.module === 'clinic_create_agent' ||
+                  perm.module === 'create_agent' ||
+                  perm.module?.endsWith('create_agent')
+              );
+
+              if (modulePerm) {
+                const actions = modulePerm.actions || {};
+                
+                // Check if "all" is true, which grants all permissions
+                const moduleAll = actions.all === true || actions.all === 'true' || String(actions.all).toLowerCase() === 'true';
+                const moduleCreate = actions.create === true || actions.create === 'true' || String(actions.create).toLowerCase() === 'true';
+                const moduleRead = actions.read === true || actions.read === 'true' || String(actions.read).toLowerCase() === 'true';
+                const moduleUpdate = actions.update === true || actions.update === 'true' || String(actions.update).toLowerCase() === 'true';
+                const moduleDelete = actions.delete === true || actions.delete === 'true' || String(actions.delete).toLowerCase() === 'true';
+
+                setClinicPerms({
+                  canCreate: moduleAll || moduleCreate,
+                  canRead: moduleAll || moduleRead,
+                  canUpdate: moduleAll || moduleUpdate,
+                  canDelete: moduleAll || moduleDelete,
+                });
+              } else {
+                // Module permission not found in the permissions array - default to read-only
+                setClinicPerms({
+                  canRead: true, // Clinic/doctor can always read their own data
+                  canCreate: false,
+                  canUpdate: false,
+                  canDelete: false,
+                });
+              }
+            }
+          } else {
+            // API response doesn't have permissions, default to full access (backward compatibility)
+            setClinicPerms({
+              canCreate: true,
+              canRead: true,
+              canUpdate: true,
+              canDelete: true,
+            });
+          }
+        })
+        .catch((err) => {
+          console.error('Error fetching clinic sidebar permissions:', err);
+          // On error, default to full access (backward compatibility)
+          setClinicPerms({
+            canCreate: true,
+            canRead: true,
+            canUpdate: true,
+            canDelete: true,
+          });
+        })
+        .finally(() => setClinicPermsLoading(false));
+      return;
+    }
+
+    // For other roles or if no token, set default permissions
+    setClinicPerms({
+      canCreate: false,
+      canRead: false,
+      canUpdate: false,
+      canDelete: false,
+    });
+    setClinicPermsLoading(false);
+  }, [clinicToken, doctorToken]);
 
   const isClinicUser = Boolean(clinicToken);
   const isDoctorUser = Boolean(doctorToken);
   const isAdminUser = Boolean(adminToken);
-  
-  // Clinic/doctor/admin users have full permissions when accessing through agent portal
-  const isOwnerUser = isClinicUser || isDoctorUser || isAdminUser;
+  const userRole = getUserRole();
   
   const canClinicRead = clinicPerms.canRead;
   const canClinicCreate = clinicPerms.canCreate;
@@ -189,25 +297,24 @@ const ManageAgentsPage = () => {
   const canClinicDelete = clinicPerms.canDelete;
 
   // Use permissions from API - respect actual permissions from the API response
-  // For agent route: use agent permissions from API (don't override with owner permissions)
-  // For clinic route: use clinic permissions from API
-  // Only grant full permissions if user is admin/clinic/doctor accessing their OWN portal (not agent route)
-  // When accessing through agent route, always use API permissions regardless of token type
+  // For agent route: use agent permissions from API
+  // For clinic route: use clinic permissions from API (which now respects admin-level permissions)
+  // Admin users get full access regardless of route
   const canRead = isAgentRoute 
     ? agentCanRead  // Agent route: always use API permissions
-    : (isOwnerUser ? true : canClinicRead); // Clinic route: owner gets full access, else use API permissions
+    : (userRole === 'admin' ? true : canClinicRead); // Clinic route: admin gets full access, else use API permissions
     
   const canCreate = isAgentRoute 
     ? agentCanCreate  // Agent route: always use API permissions
-    : (isOwnerUser ? true : canClinicCreate);
+    : (userRole === 'admin' ? true : canClinicCreate);
     
   const canUpdate = isAgentRoute 
     ? agentCanUpdate  // Agent route: always use API permissions
-    : (isOwnerUser ? true : canClinicUpdate);
+    : (userRole === 'admin' ? true : canClinicUpdate);
     
   const canDelete = isAgentRoute 
     ? agentCanDelete  // Agent route: always use API permissions
-    : (isOwnerUser ? true : canClinicDelete);
+    : (userRole === 'admin' ? true : canClinicDelete);
 
   async function loadAgents() {
     try {
@@ -270,7 +377,7 @@ const ManageAgentsPage = () => {
 
   useEffect(() => {
     if (!token) return;
-    if ((isAgentRoute && permissionsLoading) || (isClinicUser && clinicPermsLoading)) return;
+    if ((isAgentRoute && permissionsLoading) || ((isClinicUser || isDoctorUser) && clinicPermsLoading)) return;
     if (!canRead) {
       setAgents([]);
       setDoctorStaff([]);
@@ -284,6 +391,7 @@ const ManageAgentsPage = () => {
     permissionsLoading,
     canRead,
     isClinicUser,
+    isDoctorUser,
     clinicPermsLoading,
   ]);
 

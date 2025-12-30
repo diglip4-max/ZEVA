@@ -416,8 +416,8 @@ function ModernBlogForm() {
     const agentToken = localStorage.getItem("agentToken");
     const userRole = getUserRole();
 
-    // ✅ For clinic/doctor/admin roles, bypass permission checks and grant full access
-    if (["clinic", "doctor", "admin"].includes(userRole || "")) {
+    // ✅ For admin role, grant full access (bypass permission checks)
+    if (userRole === "admin") {
       setPermissions({
         canCreate: true,
         canReadPublished: true,
@@ -426,7 +426,114 @@ function ModernBlogForm() {
         canReadAnalytics: true,
       });
       setPermissionsLoaded(true);
-      return; // Skip API calls for these roles
+      return; // Skip API calls for admin role
+    }
+
+    // ✅ For clinic and doctor roles, fetch admin-level permissions from /api/clinic/sidebar-permissions
+    if (userRole === "clinic" || userRole === "doctor") {
+      const fetchClinicPermissions = async () => {
+        try {
+          if (!token) {
+            if (!isMounted) return;
+            setPermissions({
+              canCreate: false,
+              canReadPublished: false,
+              canUpdatePublished: false,
+              canDeletePublished: false,
+              canReadAnalytics: false,
+            });
+            setPermissionsLoaded(true);
+            return;
+          }
+
+          const res = await axios.get("/api/clinic/sidebar-permissions", {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+
+          if (!isMounted) return;
+
+          if (res.data.success) {
+            // Check if permissions array exists and is not null
+            // If permissions is null, admin hasn't set any restrictions yet - allow full access (backward compatibility)
+            if (res.data.permissions === null || !Array.isArray(res.data.permissions) || res.data.permissions.length === 0) {
+              // No admin restrictions set yet - default to full access for backward compatibility
+              setPermissions({
+                canCreate: true,
+                canReadPublished: true,
+                canUpdatePublished: true,
+                canDeletePublished: true,
+                canReadAnalytics: true,
+              });
+            } else {
+              // Admin has set permissions - check the clinic_write_blog module
+              const modulePermission = res.data.permissions.find((p: any) => {
+                if (!p?.module) return false;
+                // Check for clinic_write_blog module
+                if (p.module === "clinic_write_blog") return true;
+                if (p.module === "write_blog") return true;
+                if (p.module === "blog") return true;
+                return false;
+              });
+
+              if (modulePermission) {
+                const actions = modulePermission.actions || {};
+                
+                // Check if "all" is true, which grants all permissions
+                const moduleAll = actions.all === true || actions.all === "true" || String(actions.all).toLowerCase() === "true";
+                const moduleCreate = actions.create === true || actions.create === "true" || String(actions.create).toLowerCase() === "true";
+                const moduleRead = actions.read === true || actions.read === "true" || String(actions.read).toLowerCase() === "true";
+                const moduleUpdate = actions.update === true || actions.update === "true" || String(actions.update).toLowerCase() === "true";
+                const moduleDelete = actions.delete === true || actions.delete === "true" || String(actions.delete).toLowerCase() === "true";
+
+                setPermissions({
+                  canCreate: moduleAll || moduleCreate,
+                  canReadPublished: moduleAll || moduleRead,
+                  canUpdatePublished: moduleAll || moduleUpdate,
+                  canDeletePublished: moduleAll || moduleDelete,
+                  canReadAnalytics: moduleAll || moduleRead,
+                });
+              } else {
+                // Module permission not found in the permissions array - default to read-only
+                setPermissions({
+                  canCreate: false,
+                  canReadPublished: true, // Clinic/doctor can always read their own data
+                  canUpdatePublished: false,
+                  canDeletePublished: false,
+                  canReadAnalytics: true,
+                });
+              }
+            }
+          } else {
+            // API response doesn't have permissions, default to full access (backward compatibility)
+            setPermissions({
+              canCreate: true,
+              canReadPublished: true,
+              canUpdatePublished: true,
+              canDeletePublished: true,
+              canReadAnalytics: true,
+            });
+          }
+        } catch (err: any) {
+          console.error("Error fetching clinic sidebar permissions:", err);
+          // On error, default to full access (backward compatibility)
+          if (isMounted) {
+            setPermissions({
+              canCreate: true,
+              canReadPublished: true,
+              canUpdatePublished: true,
+              canDeletePublished: true,
+              canReadAnalytics: true,
+            });
+          }
+        } finally {
+          if (isMounted) {
+            setPermissionsLoaded(true);
+          }
+        }
+      };
+
+      fetchClinicPermissions();
+      return;
     }
 
     // For agent/doctorStaff on clinic routes, use agent permissions API
@@ -1060,11 +1167,7 @@ function ModernBlogForm() {
 
   const handleCreatePost = () => {
 
-    // ✅ For clinic/doctor/admin roles, always allow creating (bypass permission check)
-    const userRole = getUserRole();
-    const canCreate = ["clinic", "doctor", "admin"].includes(userRole || "") || permissions.canCreate;
-
-    if (!canCreate) {
+    if (!permissions.canCreate) {
 
       alert("You do not have permission to create blogs");
 
@@ -1778,38 +1881,28 @@ function ModernBlogForm() {
                   </button>
 
 
-              {(() => {
-                // ✅ For clinic/doctor/admin roles, always allow editing (bypass permission check)
-                const userRole = getUserRole();
-                const canUpdate = ["clinic", "doctor", "admin"].includes(userRole || "") || permissions.canUpdatePublished;
-                return canUpdate ? (
-                  <button
-                    onClick={() => handleEditPost(post._id, type)}
-                    className="p-1 hover:bg-cyan-50 rounded-md transition-all hover:scale-105 text-cyan-600 flex-shrink-0"
-                    title="Edit"
-                  >
-                    <Edit3 className="w-3.5 h-3.5" />
-                  </button>
-                ) : null;
-              })()}
+              {permissions.canUpdatePublished && (
+                <button
+                  onClick={() => handleEditPost(post._id, type)}
+                  className="p-1 hover:bg-cyan-50 rounded-md transition-all hover:scale-105 text-cyan-600 flex-shrink-0"
+                  title="Edit"
+                >
+                  <Edit3 className="w-3.5 h-3.5" />
+                </button>
+              )}
               {type === 'published' && (
 
                 <>
 
-                  {(() => {
-                    // ✅ For clinic/doctor/admin roles, always allow editing URL (bypass permission check)
-                    const userRole = getUserRole();
-                    const canUpdate = ["clinic", "doctor", "admin"].includes(userRole || "") || permissions.canUpdatePublished;
-                    return canUpdate ? (
-                      <button
-                        onClick={() => handleEditUrl(post)}
-                        className="p-1 hover:bg-cyan-50 rounded-md transition-all hover:scale-105 text-cyan-600 flex-shrink-0"
-                        title="Edit URL"
-                      >
-                        <LinkIcon className="w-3.5 h-3.5" />
-                      </button>
-                    ) : null;
-                  })()}
+                  {permissions.canUpdatePublished && (
+                    <button
+                      onClick={() => handleEditUrl(post)}
+                      className="p-1 hover:bg-cyan-50 rounded-md transition-all hover:scale-105 text-cyan-600 flex-shrink-0"
+                      title="Edit URL"
+                    >
+                      <LinkIcon className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                   <a
 
                     href={`${getBaseUrl()}/blogs/${post.paramlink}`}
@@ -1829,20 +1922,15 @@ function ModernBlogForm() {
 
               )}
 
-              {(() => {
-                // ✅ For clinic/doctor/admin roles, always allow deleting (bypass permission check)
-                const userRole = getUserRole();
-                const canDelete = ["clinic", "doctor", "admin"].includes(userRole || "") || permissions.canDeletePublished;
-                return canDelete ? (
-                  <button
-                    onClick={() => handleDeletePost(post._id, type)}
-                    className="p-1 hover:bg-rose-50 rounded-md transition-all hover:scale-105 text-rose-600 flex-shrink-0"
-                    title="Delete"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                ) : null;
-              })()}
+              {permissions.canDeletePublished && (
+                <button
+                  onClick={() => handleDeletePost(post._id, type)}
+                  className="p-1 hover:bg-rose-50 rounded-md transition-all hover:scale-105 text-rose-600 flex-shrink-0"
+                  title="Delete"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              )}
 
             </div>
 
@@ -1873,6 +1961,26 @@ function ModernBlogForm() {
 
     );
 
+  }
+
+  // Show access denied message if no read permission
+  if (!permissions.canReadPublished) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-lg shadow-lg border border-red-200 p-8 text-center max-w-md">
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Sparkles className="w-8 h-8 text-red-600" />
+          </div>
+          <h2 className="text-xl font-bold text-gray-900 mb-2">Access Denied</h2>
+          <p className="text-sm text-gray-700 mb-4">
+            You do not have permission to view blog posts.
+          </p>
+          <p className="text-xs text-gray-600">
+            Please contact your administrator to request access to the Blog module.
+          </p>
+        </div>
+      </div>
+    );
   }
 
 
@@ -1974,11 +2082,7 @@ function ModernBlogForm() {
                 <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
               </button>
 
-              {(() => {
-                // ✅ For clinic/doctor/admin roles, always show create button (bypass permission check)
-                const userRole = getUserRole();
-                const canCreate = ["clinic", "doctor", "admin"].includes(userRole || "") || permissions.canCreate;
-                return canCreate ? (
+              {permissions.canCreate && (
                 <button
                   onClick={handleCreatePost}
                   className="flex items-center gap-1.5 px-3 sm:px-4 py-1.5 sm:py-2 bg-gradient-to-r from-cyan-500 to-teal-600 hover:from-cyan-600 hover:to-teal-700 text-white rounded-lg text-xs sm:text-sm font-semibold shadow-md hover:shadow-lg transition-all hover:scale-105"
@@ -1987,8 +2091,7 @@ function ModernBlogForm() {
                   <span className="hidden sm:inline">New Post</span>
                   <span className="sm:hidden">New</span>
                 </button>
-                ) : null;
-              })()}
+              )}
             </div>
           </div>
 

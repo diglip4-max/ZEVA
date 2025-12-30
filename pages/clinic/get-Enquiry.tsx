@@ -65,6 +65,8 @@ function ClinicEnquiries({ contextOverride = null }: { contextOverride?: "clinic
   const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
   const [permissions, setPermissions] = useState({
     canRead: false,
+    canUpdate: false,
+    canDelete: false,
   });
   const [permissionsLoaded, setPermissionsLoaded] = useState(false);
   const [hasAgentToken, setHasAgentToken] = useState(false);
@@ -120,8 +122,11 @@ function ClinicEnquiries({ contextOverride = null }: { contextOverride?: "clinic
     if (!isAgentRoute) return;
     if (agentPermissionsLoading) return;
     
+    // For agent routes, we check read, update, and delete permissions
     const newPermissions = {
       canRead: Boolean(agentPermissions.canAll || agentPermissions.canRead),
+      canUpdate: Boolean(agentPermissions.canAll || agentPermissions.canUpdate),
+      canDelete: Boolean(agentPermissions.canAll || agentPermissions.canDelete),
     };
     
     setPermissions(newPermissions);
@@ -143,10 +148,100 @@ function ClinicEnquiries({ contextOverride = null }: { contextOverride?: "clinic
     const staffToken = typeof window !== "undefined" ? 
       (localStorage.getItem("staffToken") || sessionStorage.getItem("staffToken")) : null;
 
-    // ✅ Clinic, doctor, and staff roles have full access by default - skip permission check
-    if (clinicToken || doctorToken || staffToken) {
+    // ✅ For clinic and doctor roles, fetch admin-level permissions from /api/clinic/sidebar-permissions
+    if (clinicToken || doctorToken) {
+      const fetchClinicPermissions = async () => {
+        try {
+          const token = getStoredToken();
+          if (!token) {
+            if (!isMounted) return;
+            setPermissions({ canRead: false, canUpdate: false, canDelete: false });
+            setPermissionsLoaded(true);
+            return;
+          }
+
+          const res = await axios.get("/api/clinic/sidebar-permissions", {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+
+          if (!isMounted) return;
+
+          if (res.data.success) {
+            // Check if permissions array exists and is not null
+            // If permissions is null, admin hasn't set any restrictions yet - allow full access (backward compatibility)
+            if (res.data.permissions === null || !Array.isArray(res.data.permissions) || res.data.permissions.length === 0) {
+              // No admin restrictions set yet - default to full access for backward compatibility
+              setPermissions({
+                canRead: true,
+                canUpdate: true,
+                canDelete: true,
+              });
+            } else {
+              // Admin has set permissions - check the clinic_enquiry module
+              const modulePermission = res.data.permissions.find((p: any) => {
+                if (!p?.module) return false;
+                // Check for clinic_enquiry module
+                if (p.module === "clinic_enquiry") return true;
+                if (p.module === "enquiry") return true;
+                return false;
+              });
+
+              if (modulePermission) {
+                const actions = modulePermission.actions || {};
+                
+                // Check if "all" is true, which grants all permissions
+                const moduleAll = actions.all === true || actions.all === "true" || String(actions.all).toLowerCase() === "true";
+                const moduleRead = actions.read === true || actions.read === "true" || String(actions.read).toLowerCase() === "true";
+                const moduleUpdate = actions.update === true || actions.update === "true" || String(actions.update).toLowerCase() === "true";
+                const moduleDelete = actions.delete === true || actions.delete === "true" || String(actions.delete).toLowerCase() === "true";
+
+                setPermissions({
+                  canRead: moduleAll || moduleRead,
+                  canUpdate: moduleAll || moduleUpdate,
+                  canDelete: moduleAll || moduleDelete,
+                });
+              } else {
+                // Module permission not found in the permissions array - default to read-only
+                setPermissions({
+                  canRead: true, // Clinic/doctor can always read their own data
+                  canUpdate: false,
+                  canDelete: false,
+                });
+              }
+            }
+          } else {
+            // API response indicates failure, default to full access (backward compatibility)
+            setPermissions({
+              canRead: true,
+              canUpdate: true,
+              canDelete: true,
+            });
+          }
+        } catch (err: any) {
+          console.error("Error fetching clinic sidebar permissions:", err);
+          // On error, default to full access (backward compatibility)
+          if (isMounted) {
+            setPermissions({
+              canRead: true,
+              canUpdate: true,
+              canDelete: true,
+            });
+          }
+        } finally {
+          if (isMounted) {
+            setPermissionsLoaded(true);
+          }
+        }
+      };
+
+      fetchClinicPermissions();
+      return;
+    }
+
+    // ✅ Staff role has full access by default - skip permission check
+    if (staffToken) {
       if (!isMounted) return;
-      setPermissions({ canRead: true });
+      setPermissions({ canRead: true, canUpdate: true, canDelete: true });
       setPermissionsLoaded(true);
       return;
     }
@@ -154,7 +249,7 @@ function ClinicEnquiries({ contextOverride = null }: { contextOverride?: "clinic
     // For agent/doctorStaff tokens (when not on agent route), check permissions
     const token = getStoredToken();
     if (!token) {
-      setPermissions({ canRead: false });
+      setPermissions({ canRead: false, canUpdate: false, canDelete: false });
       setPermissionsLoaded(true);
       return;
     }
@@ -176,13 +271,15 @@ function ClinicEnquiries({ contextOverride = null }: { contextOverride?: "clinic
             const moduleActions = data.data.moduleActions || {};
             setPermissions({
               canRead: Boolean(moduleActions.all || moduleActions.read),
+              canUpdate: Boolean(moduleActions.all || moduleActions.update),
+              canDelete: Boolean(moduleActions.all || moduleActions.delete),
             });
           } else {
-            setPermissions({ canRead: false });
+            setPermissions({ canRead: false, canUpdate: false, canDelete: false });
           }
         } catch (err) {
           console.error("Error fetching agent permissions:", err);
-          setPermissions({ canRead: false });
+          setPermissions({ canRead: false, canUpdate: false, canDelete: false });
         } finally {
           if (isMounted) {
             setPermissionsLoaded(true);
@@ -192,9 +289,9 @@ function ClinicEnquiries({ contextOverride = null }: { contextOverride?: "clinic
 
       fetchPermissions();
     } else {
-      // Unknown token type - default to full access (likely clinic/doctor)
+      // Unknown token type - default to read-only for safety
       if (!isMounted) return;
-      setPermissions({ canRead: true });
+      setPermissions({ canRead: true, canUpdate: false, canDelete: false });
       setPermissionsLoaded(true);
     }
 
@@ -240,7 +337,7 @@ function ClinicEnquiries({ contextOverride = null }: { contextOverride?: "clinic
       } catch (err: any) {
         // Gracefully handle permission denials without surfacing axios errors
         if (err.response?.status === 403) {
-          setPermissions({ canRead: false });
+          setPermissions({ canRead: false, canUpdate: false, canDelete: false });
           setEnquiries([]);
           setFilteredEnquiries([]);
         } else {
@@ -343,12 +440,17 @@ function ClinicEnquiries({ contextOverride = null }: { contextOverride?: "clinic
   // Show access denied message if no permission
   if (permissionsLoaded && !permissions.canRead) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">
-        <div className="max-w-md mx-auto text-center bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-6 shadow-sm">
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">Access denied</h2>
-          <p className="text-sm text-gray-700 dark:text-gray-400">
-            You do not have permission to view the Enquiries module. Please contact your
-            administrator.
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-lg shadow-lg border border-red-200 p-8 text-center max-w-md">
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <MessageSquare className="w-8 h-8 text-red-600" />
+          </div>
+          <h2 className="text-xl font-bold text-gray-900 mb-2">Access Denied</h2>
+          <p className="text-sm text-gray-700 mb-4">
+            You do not have permission to view clinic enquiries.
+          </p>
+          <p className="text-xs text-gray-600">
+            Please contact your administrator to request access to the Enquiries module.
           </p>
         </div>
       </div>
