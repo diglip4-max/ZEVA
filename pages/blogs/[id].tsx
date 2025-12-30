@@ -8,7 +8,7 @@ import { useAuth } from "@/context/AuthContext";
 import AuthModal from "../../components/AuthModal";
 import SocialMediaShare from "../../components/SocialMediaShare";
 import { Toaster, toast } from "react-hot-toast";
-import { Hash } from "lucide-react";
+import { motion } from "framer-motion";
 import dbConnect from "../../lib/database";
 import BlogModel from "../../models/Blog";
 
@@ -61,7 +61,8 @@ type Blog = {
   postedBy: { name: string; _id?: string | null };
   createdAt: string;
   image?: string;
-  likesCount: number;
+  likesCount?: number;
+  likes?: string[];
   liked?: boolean;
   comments: BlogComment[];
   paramlink?: string | null;
@@ -100,7 +101,6 @@ export default function BlogDetail({ initialBlog, seo }: BlogDetailProps) {
   const shouldReplyAfterLogin = useRef(false);
   const pendingReplyCommentId = useRef<string | null>(null);
   const pendingReplyText = useRef("");
-  const [showAllComments, setShowAllComments] = useState(false);
   const [expandedComments, setExpandedComments] = useState<Record<string, boolean>>({});
   const [expandedReplies, setExpandedReplies] = useState<{
     [commentId: string]: boolean;
@@ -109,6 +109,13 @@ export default function BlogDetail({ initialBlog, seo }: BlogDetailProps) {
     [commentId: string]: boolean;
   }>({});
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [showCommentPanel, setShowCommentPanel] = useState(false);
+  const [isLoaded, setIsLoaded] = useState(false);
+
+  // Hero section animation
+  useEffect(() => {
+    setIsLoaded(true);
+  }, []);
 
   // Utility to get base URL
   const getBaseUrl = () => {
@@ -118,16 +125,6 @@ export default function BlogDetail({ initialBlog, seo }: BlogDetailProps) {
     return "https://zeva360.com";
   };
 
-  // Extract hashtags/topics from content
-  const extractTopics = (content: string | undefined): string[] => {
-    if (!content || typeof content !== 'string') return [];
-    // Remove HTML tags to get plain text, then extract hashtags
-    const textContent = content.replace(/<[^>]*>/g, ' ');
-    // Extract hashtags from content - matches #hashtag pattern (word characters only)
-    const hashtagRegex = /#(\w+)/g;
-    const matches = textContent.match(hashtagRegex);
-    return matches ? [...new Set(matches.map(m => m.substring(1)))] : []; // Remove duplicates
-  };
   const toggleCommentExpansion = (commentId: string) => {
     setExpandedComments((prev) => ({
       ...prev,
@@ -159,6 +156,7 @@ export default function BlogDetail({ initialBlog, seo }: BlogDetailProps) {
     const match = slug.match(objectIdPattern);
     return match ? match[1] : null;
   };
+
 
   // Client-side fetch only if not provided by SSR (shouldn't typically happen)
   useEffect(() => {
@@ -210,6 +208,28 @@ export default function BlogDetail({ initialBlog, seo }: BlogDetailProps) {
       }
     }
   }, [isAuthenticated]);
+
+  // Lock body scroll when comment panel is open
+  useEffect(() => {
+    if (showCommentPanel) {
+      // Save current scroll position
+      const scrollY = window.scrollY;
+      // Lock body scroll
+      document.body.style.position = 'fixed';
+      document.body.style.top = `-${scrollY}px`;
+      document.body.style.width = '100%';
+      document.body.style.overflow = 'hidden';
+      
+      return () => {
+        // Restore scroll position when panel closes
+        document.body.style.position = '';
+        document.body.style.top = '';
+        document.body.style.width = '';
+        document.body.style.overflow = '';
+        window.scrollTo(0, scrollY);
+      };
+    }
+  }, [showCommentPanel]);
 
   // Like handler with auth check
   async function toggleLike() {
@@ -502,7 +522,7 @@ export default function BlogDetail({ initialBlog, seo }: BlogDetailProps) {
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-cyan-50 via-white to-teal-50">
+    <div className="min-h-screen w-full bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
       <Toaster position="top-right" gutter={8} />
       {seo && (
         <Head>
@@ -529,28 +549,96 @@ export default function BlogDetail({ initialBlog, seo }: BlogDetailProps) {
         color: #2c3e50;
       }
 
-      .blog-content img,
-.blog-content video,
-.blog-content iframe,
-.blog-content embed,
-.blog-content object,
-.blog-content * img,
-.blog-content * video,
-.blog-content * iframe,
-.blog-content * embed,
-.blog-content * object {
-  display: block !important;
-  margin: 1.5rem auto !important;
-  width: 100% !important;
-  max-width: 700px !important;
-  height: 400px !important;
-  object-fit: contain !important; /* ✅ show full image, no cropping */
-  border-radius: 16px !important;
-  box-shadow: 0 20px 60px rgba(6, 182, 212, 0.15), 0 8px 24px rgba(6, 182, 212, 0.08) !important;
-  border: 1px solid rgba(94, 234, 212, 0.2) !important;
-  transition: all 0.4s ease !important;
-  background-color: #f9f9ff !important; /* optional: adds background around image */
-}
+      /* Images - Preserve structure, alignment, and add lazy loading */
+      .blog-content img {
+        display: block !important;
+        max-width: 80% !important;
+        width: auto !important;
+        height: auto !important;
+        margin: 1.5rem auto !important;
+        border-radius: 12px !important;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
+        transition: transform 0.3s ease, box-shadow 0.3s ease, opacity 0.3s ease !important;
+        opacity: 1 !important;
+        loading: lazy !important;
+      }
+
+      /* Lazy loading placeholder */
+      .blog-content img[loading="lazy"] {
+        background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%) !important;
+        background-size: 200% 100% !important;
+        animation: shimmer 1.5s infinite !important;
+      }
+
+      @keyframes shimmer {
+        0% { background-position: -200% 0; }
+        100% { background-position: 200% 0; }
+      }
+
+      .blog-content img:hover {
+        transform: scale(1.01) !important;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15) !important;
+      }
+
+      /* Preserve Quill alignment classes */
+      .blog-content .ql-align-center,
+      .blog-content p.ql-align-center,
+      .blog-content div.ql-align-center {
+        text-align: center !important;
+      }
+
+      .blog-content .ql-align-center img {
+        margin-left: auto !important;
+        margin-right: auto !important;
+        display: block !important;
+      }
+
+      .blog-content .ql-align-right,
+      .blog-content p.ql-align-right,
+      .blog-content div.ql-align-right {
+        text-align: right !important;
+      }
+
+      .blog-content .ql-align-right img {
+        margin-left: auto !important;
+        margin-right: 0 !important;
+        display: block !important;
+      }
+
+      .blog-content .ql-align-left,
+      .blog-content p.ql-align-left,
+      .blog-content div.ql-align-left {
+        text-align: left !important;
+      }
+
+      .blog-content .ql-align-left img {
+        margin-left: 0 !important;
+        margin-right: auto !important;
+        display: block !important;
+      }
+
+      /* Block-based layout for content fragments */
+      .blog-content > * {
+        margin-bottom: 1.5rem !important;
+      }
+
+      .blog-content > *:last-child {
+        margin-bottom: 0 !important;
+      }
+
+      /* Responsive image containers */
+      .blog-content figure,
+      .blog-content .image-wrapper,
+      .blog-content .ql-image {
+        margin: 1.5rem 0 !important;
+        text-align: center !important;
+      }
+
+      .blog-content figure img,
+      .blog-content .image-wrapper img,
+      .blog-content .ql-image img {
+        margin: 0 auto !important;
+      }
 
 
       
@@ -570,11 +658,11 @@ export default function BlogDetail({ initialBlog, seo }: BlogDetailProps) {
         display: block !important;
         margin: 1.5rem auto !important;
         width: 100% !important;
-        max-width: 700px !important;
-        height: 400px !important;
+        max-width: 100% !important;
+        height: 500px !important;
         border-radius: 16px !important;
         border: none !important;
-        box-shadow: 0 20px 60px rgba(6, 182, 212, 0.15), 0 8px 24px rgba(6, 182, 212, 0.08) !important;
+        box-shadow: 0 20px 60px rgba(59, 130, 246, 0.15), 0 8px 24px rgba(59, 130, 246, 0.08) !important;
         transition: all 0.4s ease !important;
       }
 
@@ -621,20 +709,36 @@ export default function BlogDetail({ initialBlog, seo }: BlogDetailProps) {
         margin-top: 2rem;
         margin-bottom: 1rem;
         line-height: 1.3;
+        text-decoration: none !important;
+      }
+      
+      .blog-content h1 u,
+      .blog-content h2 u,
+      .blog-content h3 u,
+      .blog-content h4 u,
+      .blog-content u {
+        text-decoration: none !important;
+      }
+      
+      /* Remove all underlines from blog content */
+      .blog-content u,
+      .blog-content * u {
+        text-decoration: none !important;
+        border-bottom: none !important;
       }
 
       .blog-content h1 { font-size: 2.5rem; }
-      .blog-content h2 { font-size: 2rem; color: #0891b2; }
+      .blog-content h2 { font-size: 2rem; color: #2563eb; }
       .blog-content h3 { font-size: 1.5rem; }
 
       .blog-content blockquote {
-        border-left: 4px solid #06b6d4;
-        background: linear-gradient(135deg, #ecfeff 0%, #cffafe 100%);
+        border-left: 4px solid #3b82f6;
+        background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
         padding: 1.25rem 1.75rem;
         margin: 1.5rem 0;
         font-style: italic;
         border-radius: 8px;
-        box-shadow: 0 4px 12px rgba(6, 182, 212, 0.1);
+        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.1);
       }
 
       .blog-content ul,
@@ -662,17 +766,29 @@ export default function BlogDetail({ initialBlog, seo }: BlogDetailProps) {
       .blog-content .ql-font-monospace { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
       .blog-content .ql-font-sans { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif; }
 
+      @media (max-width: 1024px) {
+        .blog-content img {
+          max-width: 85% !important;
+          height: auto !important;
+          border-radius: 8px !important;
+        }
+        .blog-content iframe[src*="youtube"],
+        .blog-content iframe[src*="youtu.be"],
+        .blog-content iframe[src*="drive.google"],
+        .blog-content *[src*="youtube"],
+        .blog-content *[src*="youtu.be"],
+        .blog-content *[src*="drive.google"] {
+          height: 400px !important;
+        }
+      }
+
       @media (max-width: 768px) {
-        .blog-content img,
-        .blog-content video,
-        .blog-content iframe,
-        .blog-content embed,
-        .blog-content object,
-        .blog-content * img,
-        .blog-content * video,
-        .blog-content * iframe,
-        .blog-content * embed,
-        .blog-content * object,
+        .blog-content img {
+          max-width: 90% !important;
+          height: auto !important;
+          margin: 1rem auto !important;
+          border-radius: 8px !important;
+        }
         .blog-content iframe[src*="youtube"],
         .blog-content iframe[src*="youtu.be"],
         .blog-content iframe[src*="drive.google"],
@@ -681,24 +797,28 @@ export default function BlogDetail({ initialBlog, seo }: BlogDetailProps) {
         .blog-content *[src*="drive.google"] {
           max-width: 100% !important;
           height: 300px !important;
-          margin: 1.5rem auto !important;
+          margin: 1rem auto !important;
         }
-        .blog-content p { font-size: 1rem; }
-        .blog-content h1 { font-size: 2rem; }
-        .blog-content h2 { font-size: 1.75rem; }
+        .blog-content p { 
+          font-size: 1rem; 
+          margin-bottom: 1rem;
+        }
+        .blog-content h1 { font-size: 1.75rem; }
+        .blog-content h2 { font-size: 1.5rem; }
+        .blog-content h3 { font-size: 1.25rem; }
+        .blog-content blockquote {
+          padding: 1rem 1.25rem;
+          margin: 1rem 0;
+        }
       }
 
       @media (max-width: 640px) {
-        .blog-content img,
-        .blog-content video,
-        .blog-content iframe,
-        .blog-content embed,
-        .blog-content object,
-        .blog-content * img,
-        .blog-content * video,
-        .blog-content * iframe,
-        .blog-content * embed,
-        .blog-content * object,
+        .blog-content img {
+          max-width: 95% !important;
+          height: auto !important;
+          margin: 0.75rem auto !important;
+          border-radius: 6px !important;
+        }
         .blog-content iframe[src*="youtube"],
         .blog-content iframe[src*="youtu.be"],
         .blog-content iframe[src*="drive.google"],
@@ -706,13 +826,31 @@ export default function BlogDetail({ initialBlog, seo }: BlogDetailProps) {
         .blog-content *[src*="youtu.be"],
         .blog-content *[src*="drive.google"] {
           height: 250px !important;
+          margin: 0.75rem auto !important;
+        }
+        .blog-content p { 
+          font-size: 0.9375rem; 
+          line-height: 1.6;
+        }
+        .blog-content h1 { font-size: 1.5rem; }
+        .blog-content h2 { font-size: 1.25rem; }
+        .blog-content h3 { font-size: 1.125rem; }
+        .blog-content ul,
+        .blog-content ol {
+          padding-left: 1.5rem;
         }
       }
 
       .blog-container::-webkit-scrollbar { width: 8px; }
       .blog-container::-webkit-scrollbar-track { background: #f8fafc; border-radius: 4px; }
-      .blog-container::-webkit-scrollbar-thumb { background: linear-gradient(180deg, #06b6d4 0%, #0891b2 100%); border-radius: 4px; }
-      .blog-container::-webkit-scrollbar-thumb:hover { background: linear-gradient(180deg, #0891b2 0%, #0e7490 100%); }
+      .blog-container::-webkit-scrollbar-thumb { background: linear-gradient(180deg, #3b82f6 0%, #2563eb 100%); border-radius: 4px; }
+      .blog-container::-webkit-scrollbar-thumb:hover { background: linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%); }
+
+      /* Comments scrollbar */
+      .comments-scrollable::-webkit-scrollbar { width: 6px; }
+      .comments-scrollable::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 3px; }
+      .comments-scrollable::-webkit-scrollbar-thumb { background: linear-gradient(180deg, #3b82f6 0%, #6366f1 100%); border-radius: 3px; }
+      .comments-scrollable::-webkit-scrollbar-thumb:hover { background: linear-gradient(180deg, #2563eb 0%, #4f46e5 100%); }
 
       @keyframes float {
         0%, 100% { transform: translateY(0px); }
@@ -742,462 +880,514 @@ export default function BlogDetail({ initialBlog, seo }: BlogDetailProps) {
       }
     `}</style>
 
-      <div className="blog-container">
-        {/* Hero Section */}
-          <div className="relative bg-white">
-          <div className="absolute inset-0 bg-gradient-to-br from-cyan-50/50 via-white to-teal-50/50"></div>
-          <div className="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 lg:py-10">
-            {blog.image && (
-              <div className="relative mb-6 sm:mb-8 rounded-xl sm:rounded-2xl shadow-lg bg-gradient-to-br from-cyan-50 to-teal-50 p-3 sm:p-4">
-                <img
-                  src={blog.image}
-                  alt={blog.title}
-                  className="w-full h-auto max-h-[400px] sm:max-h-[500px] lg:max-h-[550px] object-contain mx-auto rounded-lg"
-                />
-                <div className="absolute top-4 sm:top-6 right-4 sm:right-6 z-20">
-                  <div className="backdrop-blur-md bg-white/90 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-cyan-700 text-xs sm:text-sm font-medium border border-cyan-200 shadow-md">
-                    <span className="flex items-center space-x-2">
-                      <span className="w-2 h-2 bg-cyan-500 rounded-full animate-pulse"></span>
-                      <span>Featured Article</span>
-                    </span>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Article Header */}
-            <div className="max-w-4xl mx-auto text-center mb-6 sm:mb-8">
-              <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-4 sm:mb-5 text-gray-900 leading-tight tracking-tight px-4">
+      <div className="blog-container w-full">
+        {/* Clean Header Section */}
+        <header className="w-full bg-gradient-to-b from-slate-50 to-white border-b border-gray-200">
+          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={isLoaded ? { opacity: 1, y: 0 } : {}}
+              transition={{ duration: 0.6 }}
+              className="space-y-6"
+            >
+              {/* Title */}
+              <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-gray-900 leading-tight">
                 {blog.title}
               </h1>
 
-              <div className="flex flex-col sm:flex-row items-center justify-center sm:space-x-6 space-y-3 sm:space-y-0 text-gray-600 mb-6 sm:mb-8 px-4">
-                <div className="flex items-center space-x-2 sm:space-x-3">
-                  <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-cyan-500 to-teal-600 rounded-full flex items-center justify-center text-white font-bold text-sm sm:text-base shadow-md">
+              {/* Author & Date */}
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 text-gray-600">
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center text-white font-bold text-base shadow-md">
                     {blog.postedBy?.name?.charAt(0).toUpperCase() || "A"}
                   </div>
-                  <div className="text-left">
-                    <span className="font-semibold text-gray-900 text-sm sm:text-base">
-                      By {blog.postedBy?.name || "Author"}
+                  <div>
+                    <span className="font-semibold text-gray-900 text-base block">
+                      {blog.postedBy?.name || "Author"}
                     </span>
-                    <p className="text-xs text-gray-500">Author</p>
+                    <time className="text-sm text-gray-500">
+                      {new Date(blog.createdAt).toLocaleDateString("en-US", {
+                        year: "numeric",
+                        month: "long",
+                        day: "numeric",
+                      })}
+                    </time>
                   </div>
-                </div>
-                <div className="hidden sm:block w-px h-10 bg-gray-300"></div>
-                <div className="text-center">
-                  <time className="text-sm sm:text-base font-medium text-gray-700 block">
-                    {new Date(blog.createdAt).toLocaleDateString("en-US", {
-                      year: "numeric",
-                      month: "long",
-                      day: "numeric",
-                    })}
-                  </time>
-                  <p className="text-xs text-gray-500">Published</p>
                 </div>
               </div>
 
-              {/* Interactive Elements */}
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-3 mb-4 sm:mb-6 px-4">
-
-                {/* Like Button */}
+              {/* Social Engagement Bar */}
+              <div className="flex flex-wrap gap-3 pt-4 border-t border-gray-200">
                 <button
                   onClick={toggleLike}
-                  className={`group flex items-center justify-center space-x-2 px-4 sm:px-5 py-2 sm:py-2.5 rounded-full text-sm sm:text-base font-medium transition-all duration-200 
-      border shadow-sm hover:shadow-md transform hover:scale-[1.02]
-      ${blog.liked
+                  className={`group flex items-center justify-center space-x-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 border shadow-sm hover:shadow-md transform hover:scale-[1.02]
+                    ${blog.liked
                       ? "bg-red-50 text-red-600 border-red-200 hover:bg-red-100"
-                      : "bg-white text-gray-600 border-gray-200 hover:border-cyan-300 hover:text-cyan-600"
+                      : "bg-white text-gray-600 border-gray-200 hover:border-blue-300 hover:text-blue-600"
                     }`}
                 >
                   <svg
-                    className={`w-4 h-4 sm:w-5 sm:h-5 transition-all duration-200 ${blog.liked ? "text-red-500" : "text-gray-400"}`}
+                    className={`w-5 h-5 transition-all duration-200 ${blog.liked ? "text-red-500" : "text-gray-400"}`}
                     fill={blog.liked ? "currentColor" : "none"}
                     stroke="currentColor"
                     strokeWidth="2"
                     viewBox="0 0 24 24"
                   >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"
-                    />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
                   </svg>
                   <span>{blog.likesCount}</span>
                 </button>
 
-                {/* Comment Button */}
-                <button
-                  onClick={() => {
-                    const commentsSection = document.getElementById("comments-section");
-                    if (commentsSection) {
-                      commentsSection.scrollIntoView({ behavior: "smooth", block: "start" });
-                    }
-                  }}
-                  className="group flex items-center justify-center space-x-2 px-4 sm:px-5 py-2 sm:py-2.5 bg-white text-gray-600 border border-gray-200 rounded-full text-sm sm:text-base font-medium hover:border-cyan-300 hover:text-cyan-600 transition-all duration-200 shadow-sm hover:shadow-md transform hover:scale-[1.02]"
-                >
-                  <svg viewBox="0 0 24 24" className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 group-hover:text-cyan-500 transition-colors duration-200">
-                    <path
-                      d="M21.99 4c0-1.1-.89-2-2-2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h14l4 4-.01-18zM18 14H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"
-                      fill="currentColor"
-                    />
-                  </svg>
-                  <span>{blog.comments.length}</span>
-                </button>
+                {blog && (
+                  <SocialMediaShare
+                    blogTitle={blog.title}
+                    blogUrl={shareUrl}
+                    blogDescription={blog.content.replace(/<[^>]+>/g, "").slice(0, 200)}
+                    triggerClassName="flex items-center justify-center space-x-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-full text-sm font-medium hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 transform hover:scale-[1.02] shadow-sm hover:shadow-md"
+                  />
+                )}
 
-                {/* Share Button */}
-                <div className="w-full sm:w-auto">
-                  {blog && (
-                    <SocialMediaShare
-                      blogTitle={blog.title}
-                      blogUrl={shareUrl}
-                      blogDescription={blog.content.replace(/<[^>]+>/g, "").slice(0, 200)}
-                      triggerClassName="flex items-center justify-center space-x-2 px-4 sm:px-5 py-2 sm:py-2.5 bg-gradient-to-r from-cyan-500 to-teal-600 text-white rounded-full text-sm sm:text-base font-medium hover:from-cyan-600 hover:to-teal-700 transition-all duration-200 transform hover:scale-[1.02] shadow-sm hover:shadow-md"
-                    />
-                  )}
+                <button
+                  onClick={() => setShowCommentPanel(true)}
+                  className="flex items-center justify-center space-x-2 px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-full text-sm font-medium hover:from-green-600 hover:to-emerald-700 transition-all duration-200 transform hover:scale-[1.02] shadow-sm hover:shadow-md"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                  </svg>
+                  <span>Comments ({blog.comments.length})</span>
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        </header>
+
+        {/* Blog Content Section - Block-based CMS Style */}
+        <main className="w-full bg-white">
+          <article className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
+            <div className="blog-content prose prose-lg max-w-none">
+              {parse(blog.content)}
+            </div>
+          </article>
+        </main>
+
+        {/* Footer Section at Bottom */}
+        <footer className="w-full mt-6 sm:mt-8 md:mt-12 bg-gradient-to-br from-slate-800 via-slate-900 to-indigo-900 text-white">
+          <div className="w-full px-2 sm:px-3 md:px-4 lg:px-6 py-8 sm:py-12 md:py-16">
+            <div className="max-w-7xl mx-auto">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 sm:gap-8 mb-6 sm:mb-8">
+                {/* About Section */}
+                <div className="sm:col-span-2 md:col-span-1">
+                  <h3 className="text-lg sm:text-xl font-bold mb-3 sm:mb-4 text-blue-300">About Zeva360</h3>
+                  <p className="text-gray-300 text-xs sm:text-sm leading-relaxed">
+                    Your trusted platform for health and wellness information. 
+                    Discover expert insights, connect with healthcare professionals, 
+                    and explore a world of holistic well-being.
+                  </p>
+                </div>
+
+                {/* Quick Links */}
+                <div>
+                  <h3 className="text-lg sm:text-xl font-bold mb-3 sm:mb-4 text-blue-300">Quick Links</h3>
+                  <ul className="space-y-2 text-xs sm:text-sm">
+                    <li>
+                      <a href="/blogs/viewBlogs" className="text-gray-300 hover:text-blue-300 transition-colors">
+                        All Blogs
+                      </a>
+                    </li>
+                    <li>
+                      <a href="/" className="text-gray-300 hover:text-blue-300 transition-colors">
+                        Home
+                      </a>
+                    </li>
+                    <li>
+                      <a href="/#services" className="text-gray-300 hover:text-blue-300 transition-colors">
+                        Services
+                      </a>
+                    </li>
+                    <li>
+                      <a href="/#contact" className="text-gray-300 hover:text-blue-300 transition-colors">
+                        Contact Us
+                      </a>
+                    </li>
+                  </ul>
+                </div>
+
+                {/* Contact Info */}
+                <div>
+                  <h3 className="text-lg sm:text-xl font-bold mb-3 sm:mb-4 text-blue-300">Stay Connected</h3>
+                  <p className="text-gray-300 text-xs sm:text-sm mb-3 sm:mb-4">
+                    Follow us for the latest updates and health tips.
+                  </p>
+                  <div className="flex space-x-3 sm:space-x-4">
+                    <a href="#" className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-600 rounded-full flex items-center justify-center hover:bg-blue-500 transition-colors">
+                      <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                      </svg>
+                    </a>
+                    <a href="#" className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-400 rounded-full flex items-center justify-center hover:bg-blue-300 transition-colors">
+                      <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.935 9.935 0 0024 4.59z"/>
+                      </svg>
+                    </a>
+                    <a href="#" className="w-8 h-8 sm:w-10 sm:h-10 bg-pink-600 rounded-full flex items-center justify-center hover:bg-pink-500 transition-colors">
+                      <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+                      </svg>
+                    </a>
+                  </div>
                 </div>
               </div>
 
+              {/* Bottom Bar */}
+              <div className="border-t border-gray-700 pt-6 sm:pt-8 mt-6 sm:mt-8">
+                <div className="flex flex-col sm:flex-row justify-between items-center text-xs sm:text-sm text-gray-400 gap-3 sm:gap-0">
+                  <p className="text-center sm:text-left">&copy; {new Date().getFullYear()} Zeva360. All rights reserved.</p>
+                  <div className="flex flex-wrap justify-center sm:justify-end gap-3 sm:gap-6">
+                    <a href="/privacy" className="hover:text-blue-300 transition-colors">Privacy Policy</a>
+                    <a href="/terms" className="hover:text-blue-300 transition-colors">Terms of Service</a>
+                    <a href="/contact" className="hover:text-blue-300 transition-colors">Contact</a>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
+        </footer>
+      </div>
 
-        {/* Article Content */}
-        <div className="bg-white shadow-lg">
-          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10 lg:py-12">
-            {/* Hashtags/Topics Section */}
-            {extractTopics(blog.content).length > 0 && (
-              <div className="mb-5 sm:mb-6 flex flex-wrap gap-1.5 sm:gap-2">
-                {extractTopics(blog.content).map((topic) => (
-                  <span
-                    key={topic}
-                    className="inline-flex items-center gap-1 px-2.5 sm:px-3 py-1 sm:py-1.5 bg-gradient-to-r from-cyan-50 to-teal-50 text-cyan-700 rounded-full text-xs sm:text-sm font-medium border border-cyan-100"
+      {/* Side Comment Panel */}
+      {showCommentPanel && (
+        <div>
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 bg-black/50 z-50 transition-opacity"
+            onClick={() => setShowCommentPanel(false)}
+          ></div>
+
+          {/* Side Panel */}
+          <div className={`fixed top-0 right-0 bottom-0 w-full sm:w-96 lg:w-[450px] bg-white shadow-2xl z-50 transform transition-transform duration-300 ease-in-out ${
+            showCommentPanel ? 'translate-x-0' : 'translate-x-full'
+          }`}>
+            <div className="flex flex-col h-full">
+              {/* Header */}
+              <div className="flex items-center justify-between p-3 sm:p-4 md:p-6 border-b-2 border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50 relative">
+                <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900 flex items-center gap-1 sm:gap-2 flex-1 min-w-0 pr-2 sm:pr-3">
+                  <svg className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                  </svg>
+                  <span className="truncate">Comments</span>
+                  <span className="text-base sm:text-lg font-normal text-gray-500 flex-shrink-0">({blog.comments.length})</span>
+                </h2>
+                <button
+                  onClick={() => setShowCommentPanel(false)}
+                  className="p-1.5 sm:p-2 rounded-full hover:bg-gray-200 transition-colors duration-200 flex items-center justify-center group flex-shrink-0 ml-2"
+                  aria-label="Close comments"
+                >
+                  <svg 
+                    className="w-5 h-5 sm:w-6 sm:h-6 text-gray-600 group-hover:text-gray-900 transition-colors" 
+                    fill="none" 
+                    stroke="currentColor" 
+                    viewBox="0 0 24 24"
                   >
-                    <Hash className="w-3 h-3 sm:w-4 sm:h-4" />
-                    {topic}
-                  </span>
-                ))}
+                    <path 
+                      strokeLinecap="round" 
+                      strokeLinejoin="round" 
+                      strokeWidth={2} 
+                      d="M6 18L18 6M6 6l12 12" 
+                    />
+                  </svg>
+                </button>
               </div>
-            )}
-            <article className="blog-content">{parse(blog.content)}</article>
-          </div>
-        </div>
 
-        {/* Comments Section */}
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10 lg:py-12">
-          <section id="comments-section">
-            <div className="space-y-3 sm:space-y-4 mb-8 sm:mb-10">
-              {blog.comments
-                .slice(0, showAllComments ? blog.comments.length : 4)
-                .map((c) => {
-                  const canDeleteComment =
-                    user &&
-                    (String(user._id) === String(c.user) ||
-                      String(user._id) === String(blog.postedBy?._id));
+              {/* Comment Input Box */}
+              <div className="p-1  sm:p-4 border-b-2 border-gray-200">
+                <textarea
+                  value={newComment}
+                  onChange={(e) => setNewComment(e.target.value)}
+                  placeholder="Write your comment here..."
+                  rows={3}
+                  className="w-full border-2 border-gray-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 resize-none text-sm placeholder-gray-400"
+                />
+                <div className="flex justify-between items-center mt-1.5">
+                  <div className="text-xs text-gray-400">
+                    {newComment.length}/1000
+                  </div>
+                  <button
+                    onClick={submitComment}
+                    disabled={!newComment.trim()}
+                    className="px-4 py-1.5 text-sm bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg font-semibold hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 shadow-md hover:shadow-lg transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                  >
+                    Post Comment
+                  </button>
+                </div>
+              </div>
 
-                  const isExpanded = expandedComments[c._id];
-                  const isLong = isLongComment(c.text);
-                  const displayText = truncateComment(c.text, isExpanded);
+              {/* Comments List - Scrollable */}
+              <div className="flex-1 overflow-y-auto comments-scrollable p-4 sm:p-6">
+                <div className="space-y-4">
+                {blog.comments.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">
+                    <svg className="w-12 h-12 mx-auto mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                    </svg>
+                    <p>No comments yet. Be the first to comment!</p>
+                  </div>
+                ) : (
+                  blog.comments.map((c) => {
+                    const canDeleteComment =
+                      user &&
+                      (String(user._id) === String(c.user) ||
+                        String(user._id) === String(blog.postedBy?._id));
 
-                  return (
-                    <div
-                      key={c._id}
-                      className="bg-gradient-to-br from-cyan-50/50 to-white rounded-lg sm:rounded-xl p-3 sm:p-4 hover:shadow-md transition-all duration-300 border border-cyan-100"
-                    >
-                      <div className="flex justify-between items-start mb-2">
-                        <div className="flex items-center space-x-2 sm:space-x-3">
-                          <div className="w-8 h-8 sm:w-9 sm:h-9 bg-gradient-to-br from-cyan-500 to-teal-600 rounded-full flex items-center justify-center text-white font-bold text-sm sm:text-base shadow-md flex-shrink-0">
-                            {c.username.charAt(0).toUpperCase()}
-                          </div>
-                          <div className="min-w-0">
-                            <p className="font-bold text-gray-900 text-sm sm:text-base truncate">
-                              {c.username}
-                            </p>
-                            <p className="text-xs text-gray-500 flex items-center">
-                              <svg className="w-3 h-3 sm:w-4 sm:h-4 mr-1 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                                />
-                              </svg>
-                              <span className="truncate">
-                                {new Date(c.createdAt).toLocaleDateString("en-US", {
-                                  year: "numeric",
-                                  month: "short",
-                                  day: "numeric",
-                                })}
-                              </span>
-                            </p>
-                          </div>
-                        </div>
+                    const isExpanded = expandedComments[c._id];
+                    const isLong = isLongComment(c.text);
+                    const displayText = truncateComment(c.text, isExpanded);
 
-                        {canDeleteComment && (
-                          <button
-                            onClick={() => setConfirmDeleteId(c._id)}
-                            className="text-gray-400 hover:text-red-500 transition-all duration-200 p-2 rounded-full hover:bg-red-50 flex-shrink-0"
-                          >
-                            <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                              />
-                            </svg>
-                          </button>
-                        )}
-                      </div>
-
-                      <div className="text-gray-700 leading-relaxed mb-2 sm:mb-3 text-xs sm:text-sm">
-                        <pre className="whitespace-pre-wrap font-sans">{displayText}</pre>
-                        {isLong && (
-                          <button
-                            onClick={() => toggleCommentExpansion(c._id)}
-                            className="text-cyan-600 hover:text-cyan-700 font-medium text-xs mt-1 flex items-center transition-colors duration-200"
-                          >
-                            {isExpanded ? (
-                              <>
-                                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-                                </svg>
-                                Show less
-                              </>
-                            ) : (
-                              <>
-                                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                </svg>
-                                Show more
-                              </>
-                            )}
-                          </button>
-                        )}
-                      </div>
-
-                      <div className="flex items-center gap-2 ml-0 sm:ml-6 mb-1">
-                        {c.replies && c.replies.length > 0 && (
-                          <button
-                            className="flex items-center text-gray-500 hover:text-cyan-600 text-xs"
-                            onClick={() =>
-                              setExpandedReplies((prev) => ({
-                                ...prev,
-                                [c._id]: !prev[c._id],
-                              }))
-                            }
-                          >
-                            <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8h2a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V10a2 2 0 012-2h2" />
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 3h-6a2 2 0 00-2 2v0a2 2 0 002 2h6a2 2 0 002-2v0a2 2 0 00-2-2z" />
-                            </svg>
-                            {expandedReplies[c._id]
-                              ? `Hide replies (${c.replies.length})`
-                              : `Show replies (${c.replies.length})`}
-                          </button>
-                        )}
-                        <button
-                          className="ml-2 text-cyan-600 hover:underline text-xs"
-                          onClick={() => {
-                            if (!isAuthenticated) {
-                              setAuthModalMode("login");
-                              setShowAuthModal(true);
-                              toast("Please login to reply", { icon: "🔐" });
-                              return;
-                            }
-                            setShowReplyInput((prev) => ({
-                              ...prev,
-                              [c._id]: !prev[c._id],
-                            }));
-                          }}
-                        >
-                          Reply
-                        </button>
-                      </div>
-
-                      {showReplyInput[c._id] && (
-                        <div className="mt-1.5 ml-0 sm:ml-6">
-                          <div className="flex space-x-2">
-                            <div className="w-5 h-5 sm:w-6 sm:h-6 bg-cyan-500 rounded-full flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
-                              {user?.name?.charAt(0).toUpperCase() || "?"}
+                    return (
+                      <div
+                        key={c._id}
+                        className="bg-gradient-to-br from-blue-50/50 to-white rounded-xl p-4 hover:shadow-lg transition-all duration-300 border border-blue-100"
+                      >
+                        <div className="flex justify-between items-start mb-2">
+                          <div className="flex items-center space-x-3 flex-1 min-w-0">
+                            <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-md flex-shrink-0">
+                              {c.username.charAt(0).toUpperCase()}
                             </div>
-                            <div className="flex-1 relative">
-                              <input
-                                type="text"
-                                placeholder={isAuthenticated ? "Reply to this comment..." : "Login to reply..."}
-                                value={replyTexts[c._id] || ""}
-                                onChange={(e) =>
-                                  setReplyTexts((prev) => ({
-                                    ...prev,
-                                    [c._id]: e.target.value,
-                                  }))
-                                }
-                                onKeyDown={(e) => {
-                                  if (e.key === "Enter") {
-                                    e.preventDefault();
-                                    handleReplySubmit(c._id);
-                                  }
-                                }}
-                                disabled={!isAuthenticated}
-                                className="w-full border-2 border-cyan-200 rounded-lg px-2.5 sm:px-3 py-1 pr-9 sm:pr-10 text-xs focus:outline-none focus:ring-2 focus:ring-cyan-200 focus:border-cyan-500 transition-all duration-200 disabled:bg-gray-100 disabled:cursor-not-allowed"
-                              />
-                              <button
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  handleReplySubmit(c._id);
-                                }}
-                                disabled={!replyTexts[c._id]?.trim() || !isAuthenticated}
-                                className="absolute right-1 top-1/2 -translate-y-1/2 w-6 h-6 sm:w-7 sm:h-7 bg-gradient-to-r from-cyan-500 to-teal-600 text-white rounded-full flex items-center justify-center hover:from-cyan-600 hover:to-teal-700 transition-all duration-200 shadow-sm hover:shadow-md transform hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:hover:scale-100 active:scale-95"
-                                title={isAuthenticated ? "Send reply" : "Login to reply"}
-                              >
-                                <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <div className="min-w-0 flex-1">
+                              <p className="font-bold text-gray-900 text-sm truncate">
+                                {c.username}
+                              </p>
+                              <p className="text-xs text-gray-500 flex items-center">
+                                <svg className="w-3 h-3 mr-1 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path
                                     strokeLinecap="round"
                                     strokeLinejoin="round"
                                     strokeWidth={2}
-                                    d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
+                                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
                                   />
                                 </svg>
-                              </button>
+                                <span className="truncate">
+                                  {new Date(c.createdAt).toLocaleDateString("en-US", {
+                                    year: "numeric",
+                                    month: "short",
+                                    day: "numeric",
+                                  })}
+                                </span>
+                              </p>
                             </div>
                           </div>
-                        </div>
-                      )}
 
-                      {c.replies && c.replies.length > 0 && expandedReplies[c._id] && (
-                        <div className="space-y-2 ml-0 sm:ml-6 border-l-2 border-cyan-500 pl-2 sm:pl-3">
-                          {c.replies.map((r) => {
-                            const isAuthorReply =
-                              r.user && String(r.user) === String(blog.postedBy?._id);
-                            const canDeleteReply =
-                              user &&
-                              (String(user._id) === String(r.user) ||
-                                String(user._id) === String(blog.postedBy?._id));
-                            return (
-                              <div
-                                key={r._id}
-                                className={`p-2 sm:p-3 rounded-lg ${isAuthorReply
-                                  ? "bg-gradient-to-br from-cyan-100/50 to-cyan-50/30 border border-cyan-200"
-                                  : "bg-white border border-gray-200"
-                                  }`}
-                              >
-                                <div className="flex justify-between items-start mb-1.5">
-                                  <div className="flex items-center space-x-1.5 sm:space-x-2 min-w-0 flex-1">
-                                    <div
-                                      className={`w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center text-white font-bold text-xs flex-shrink-0 ${isAuthorReply
-                                        ? "bg-gradient-to-br from-cyan-500 to-teal-600"
-                                        : "bg-gradient-to-br from-gray-400 to-gray-500"
-                                        }`}
-                                    >
-                                      {r.username.charAt(0).toUpperCase()}
-                                    </div>
-                                    <div className="min-w-0 flex-1">
-                                      <p
-                                        className={`font-bold text-xs flex items-center flex-wrap ${isAuthorReply ? "text-cyan-700" : "text-gray-700"
+                          {canDeleteComment && (
+                            <button
+                              onClick={() => setConfirmDeleteId(c._id)}
+                              className="text-gray-400 hover:text-red-500 transition-all duration-200 p-1.5 rounded-full hover:bg-red-50 flex-shrink-0"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                />
+                              </svg>
+                            </button>
+                          )}
+                        </div>
+
+                        <div className="text-gray-700 leading-relaxed mb-3 text-sm">
+                          <pre className="whitespace-pre-wrap font-sans">{displayText}</pre>
+                          {isLong && (
+                            <button
+                              onClick={() => toggleCommentExpansion(c._id)}
+                              className="text-blue-600 hover:text-blue-700 font-medium text-xs mt-1 flex items-center transition-colors duration-200"
+                            >
+                              {isExpanded ? (
+                                <>
+                                  <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                                  </svg>
+                                  Show less
+                                </>
+                              ) : (
+                                <>
+                                  <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                  </svg>
+                                  Show more
+                                </>
+                              )}
+                            </button>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-2 mb-2">
+                          {c.replies && c.replies.length > 0 && (
+                            <button
+                              className="flex items-center text-gray-500 hover:text-blue-600 text-xs"
+                              onClick={() =>
+                                setExpandedReplies((prev) => ({
+                                  ...prev,
+                                  [c._id]: !prev[c._id],
+                                }))
+                              }
+                            >
+                              <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8h2a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V10a2 2 0 012-2h2" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 3h-6a2 2 0 00-2 2v0a2 2 0 002 2h6a2 2 0 002-2v0a2 2 0 00-2-2z" />
+                              </svg>
+                              {expandedReplies[c._id]
+                                ? `Hide replies (${c.replies.length})`
+                                : `Show replies (${c.replies.length})`}
+                            </button>
+                          )}
+                          <button
+                            className="text-blue-600 hover:underline text-xs font-medium"
+                            onClick={() => {
+                              if (!isAuthenticated) {
+                                setAuthModalMode("login");
+                                setShowAuthModal(true);
+                                toast("Please login to reply", { icon: "🔐" });
+                                return;
+                              }
+                              setShowReplyInput((prev) => ({
+                                ...prev,
+                                [c._id]: !prev[c._id],
+                              }));
+                            }}
+                          >
+                            Reply
+                          </button>
+                        </div>
+
+                        {showReplyInput[c._id] && (
+                          <div className="mt-2">
+                            <div className="flex space-x-2">
+                              <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
+                                {user?.name?.charAt(0).toUpperCase() || "?"}
+                              </div>
+                              <div className="flex-1 relative">
+                                <input
+                                  type="text"
+                                  placeholder={isAuthenticated ? "Reply to this comment..." : "Login to reply..."}
+                                  value={replyTexts[c._id] || ""}
+                                  onChange={(e) =>
+                                    setReplyTexts((prev) => ({
+                                      ...prev,
+                                      [c._id]: e.target.value,
+                                    }))
+                                  }
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter") {
+                                      e.preventDefault();
+                                      handleReplySubmit(c._id);
+                                    }
+                                  }}
+                                  disabled={!isAuthenticated}
+                                  className="w-full border-2 border-blue-200 rounded-lg px-3 py-1.5 pr-9 text-xs focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-500 transition-all duration-200 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                                />
+                                <button
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    handleReplySubmit(c._id);
+                                  }}
+                                  disabled={!replyTexts[c._id]?.trim() || !isAuthenticated}
+                                  className="absolute right-1 top-1/2 -translate-y-1/2 w-7 h-7 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-full flex items-center justify-center hover:from-blue-600 hover:to-indigo-700 transition-all duration-200 shadow-sm hover:shadow-md transform hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                                  title={isAuthenticated ? "Send reply" : "Login to reply"}
+                                >
+                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
+                                    />
+                                  </svg>
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {c.replies && c.replies.length > 0 && expandedReplies[c._id] && (
+                          <div className="space-y-2 mt-3 ml-6 border-l-2 border-blue-300 pl-3">
+                            {c.replies.map((r) => {
+                              const isAuthorReply =
+                                r.user && String(r.user) === String(blog.postedBy?._id);
+                              const canDeleteReply =
+                                user &&
+                                (String(user._id) === String(r.user) ||
+                                  String(user._id) === String(blog.postedBy?._id));
+                              return (
+                                <div
+                                  key={r._id}
+                                  className={`p-3 rounded-lg ${isAuthorReply
+                                    ? "bg-gradient-to-br from-blue-100/50 to-blue-50/30 border border-blue-200"
+                                    : "bg-white border border-gray-200"
+                                    }`}
+                                >
+                                  <div className="flex justify-between items-start mb-1.5">
+                                    <div className="flex items-center space-x-2 min-w-0 flex-1">
+                                      <div
+                                        className={`w-6 h-6 rounded-full flex items-center justify-center text-white font-bold text-xs flex-shrink-0 ${isAuthorReply
+                                          ? "bg-gradient-to-br from-blue-500 to-indigo-600"
+                                          : "bg-gradient-to-br from-gray-400 to-gray-500"
                                           }`}
                                       >
-                                        <span className="truncate">{r.username}</span>
-                                        {isAuthorReply && (
-                                          <span className="ml-1.5 text-xs bg-cyan-600 text-white px-1.5 py-0.5 rounded-full flex-shrink-0">
-                                            Author
-                                          </span>
-                                        )}
-                                      </p>
-                                      <p className="text-xs text-gray-500">
-                                        {new Date(r.createdAt).toLocaleDateString()}
-                                      </p>
+                                        {r.username.charAt(0).toUpperCase()}
+                                      </div>
+                                      <div className="min-w-0 flex-1">
+                                        <p
+                                          className={`font-bold text-xs flex items-center flex-wrap ${isAuthorReply ? "text-blue-700" : "text-gray-700"
+                                            }`}
+                                        >
+                                          <span className="truncate">{r.username}</span>
+                                          {isAuthorReply && (
+                                            <span className="ml-1.5 text-xs bg-blue-600 text-white px-1.5 py-0.5 rounded-full flex-shrink-0">
+                                              Author
+                                            </span>
+                                          )}
+                                        </p>
+                                        <p className="text-xs text-gray-500">
+                                          {new Date(r.createdAt).toLocaleDateString()}
+                                        </p>
+                                      </div>
                                     </div>
+                                    {canDeleteReply && (
+                                      <button
+                                        onClick={() => setConfirmDeleteId(r._id)}
+                                        className="text-gray-400 hover:text-red-500 transition-colors duration-200 p-0.5 rounded-full hover:bg-red-50 flex-shrink-0"
+                                      >
+                                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                          <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            strokeWidth={2}
+                                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                          />
+                                        </svg>
+                                      </button>
+                                    )}
                                   </div>
-                                  {canDeleteReply && (
-                                    <button
-                                      onClick={() => setConfirmDeleteId(r._id)}
-                                      className="text-gray-400 hover:text-red-500 transition-colors duration-200 p-0.5 rounded-full hover:bg-red-50 flex-shrink-0"
-                                    >
-                                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path
-                                          strokeLinecap="round"
-                                          strokeLinejoin="round"
-                                          strokeWidth={2}
-                                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                                        />
-                                      </svg>
-                                    </button>
-                                  )}
+                                  <pre className="text-gray-700 text-xs leading-relaxed whitespace-pre-wrap font-sans">
+                                    {r.text}
+                                  </pre>
                                 </div>
-                                <pre className="text-gray-700 text-xs leading-relaxed whitespace-pre-wrap font-sans">
-                                  {r.text}
-                                </pre>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-
-              {/* Show More/Less Comments */}
-              {blog.comments.length > 4 && (
-                <div className="text-center pt-6 sm:pt-8">
-                  <button
-                    onClick={() => setShowAllComments(!showAllComments)}
-                    className="px-6 sm:px-8 py-2.5 sm:py-3 bg-gradient-to-r from-cyan-500 to-teal-600 text-white rounded-lg sm:rounded-xl font-medium hover:from-cyan-600 hover:to-teal-700 transition-all duration-300 shadow-lg hover:shadow-xl text-sm sm:text-base"
-                  >
-                    {showAllComments
-                      ? `Show Less (${blog.comments.length - 4} hidden)`
-                      : `Show More Comments (${blog.comments.length - 4} more)`}
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {/* Add Comment Form */}
-            <div className="border-t-2 border-cyan-100 pt-6 sm:pt-8">
-              <div className="text-center mb-5 sm:mb-6">
-                <h3 className="text-xl sm:text-2xl font-bold mb-2 text-gray-900">
-                  Share Your Thoughts
-                </h3>
-                <p className="text-sm sm:text-base text-gray-600">
-                  Share your thoughts on this article with us
-                </p>
-              </div>
-              <div className="space-y-4 sm:space-y-6">
-                <div className="relative">
-                  <textarea
-                    value={newComment}
-                    onChange={(e) => setNewComment(e.target.value)}
-                    placeholder="What are your thoughts on this article? Share your insights, questions, or experiences..."
-                    rows={5}
-                    className="w-full border-2 border-cyan-200 rounded-xl sm:rounded-2xl px-4 sm:px-6 py-3 sm:py-4 focus:outline-none focus:ring-4 focus:ring-cyan-200 focus:border-cyan-500 transition-all duration-200 resize-none text-sm sm:text-base lg:text-lg placeholder-gray-400"
-                  />
-                  <div className="absolute bottom-3 sm:bottom-4 right-3 sm:right-4 text-xs sm:text-sm text-gray-400">
-                    {newComment.length}/1000
-                  </div>
-                </div>
-                <div className="flex justify-center">
-                  <button
-                    onClick={submitComment}
-                    className="relative w-full sm:w-auto px-8 sm:px-12 py-3 sm:py-4 bg-gradient-to-r from-cyan-500 to-teal-600 text-white rounded-xl sm:rounded-2xl font-bold text-base sm:text-lg hover:from-cyan-600 hover:to-teal-700 transform hover:scale-105 transition-all duration-300 shadow-lg hover:shadow-2xl pulse-ring"
-                  >
-                    <span className="flex items-center justify-center space-x-2">
-                      <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
-                        />
-                      </svg>
-                      <span>Post Comment</span>
-                    </span>
-                  </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
                 </div>
               </div>
             </div>
-          </section>
+          </div>
         </div>
+      )}
 
-        {/* Auth Modal */}
-        {showAuthModal && (
+      {/* Auth Modal */}
+      {showAuthModal && (
           <AuthModal
             isOpen={showAuthModal}
             onClose={() => setShowAuthModal(false)}
@@ -1211,13 +1401,13 @@ export default function BlogDetail({ initialBlog, seo }: BlogDetailProps) {
         {/* Back to Top Button */}
         <button
           onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-          className="fixed bottom-6 right-6 sm:bottom-8 sm:right-8 w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-r from-cyan-500 to-teal-600 text-white rounded-full shadow-2xl hover:shadow-3xl transform hover:scale-110 transition-all duration-300 flex items-center justify-center z-50"
+          className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 md:bottom-8 md:right-8 w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-full shadow-2xl hover:shadow-3xl transform hover:scale-110 transition-all duration-300 flex items-center justify-center z-40"
           style={{
             opacity: typeof window !== "undefined" && window.scrollY > 300 ? 1 : 0,
             visibility: typeof window !== "undefined" && window.scrollY > 300 ? "visible" : "hidden",
           }}
         >
-          <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -1227,14 +1417,14 @@ export default function BlogDetail({ initialBlog, seo }: BlogDetailProps) {
           </svg>
         </button>
 
-        {/* Delete Confirmation Modal */}
-        {confirmDeleteId && (
+      {/* Delete Confirmation Modal */}
+      {confirmDeleteId && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
             <div
               className="absolute inset-0 backdrop-blur-sm bg-white/20"
               onClick={() => setConfirmDeleteId(null)}
             />
-            <div className="relative z-[101] w-full max-w-sm sm:max-w-md mx-auto rounded-xl sm:rounded-2xl shadow-2xl border border-cyan-200 bg-white">
+            <div className="relative z-[101] w-full max-w-sm sm:max-w-md mx-auto rounded-xl sm:rounded-2xl shadow-2xl border border-blue-200 bg-white">
               <div className="p-4 sm:p-6">
                 <div className="flex items-start gap-3 sm:gap-4">
                   <div className="flex-shrink-0 w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-red-50 text-red-600 flex items-center justify-center">
@@ -1270,7 +1460,6 @@ export default function BlogDetail({ initialBlog, seo }: BlogDetailProps) {
             </div>
           </div>
         )}
-      </div>
     </div>
   );
 }
