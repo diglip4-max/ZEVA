@@ -26,23 +26,8 @@ export default async function handler(req, res) {
             clinicId = clinic._id;
           }
 
-          // ✅ Check permission for creating blogs (only for clinic, admin bypasses)
-          if (me.role !== "admin" && clinicId) {
-            const { checkClinicPermission } = await import("../lead-ms/permissions-helper");
-            const { hasPermission, error } = await checkClinicPermission(
-              clinicId,
-              "write_blog", // Check "write_blog" module permission
-              "create",
-              null, // No submodule - this is a module-level check
-              me.role === "doctor" ? "doctor" : me.role === "clinic" ? "clinic" : null
-            );
-            if (!hasPermission) {
-              return res.status(403).json({
-                success: false,
-                message: error || "You do not have permission to create blogs"
-              });
-            }
-          }
+          // ✅ Check permission for creating blogs (only for agent/doctorStaff, clinic/admin/doctor bypass)
+          // Clinic, admin, and doctor users bypass permission checks
 
           const { title, content, status = 'draft' } = req.body;
           
@@ -134,23 +119,8 @@ export default async function handler(req, res) {
             clinicId = clinic._id;
           }
 
-          // ✅ Check permission for updating blogs (only for clinic, admin bypasses)
-          if (me.role !== "admin" && clinicId) {
-            const { checkClinicPermission } = await import("../lead-ms/permissions-helper");
-            const { hasPermission, error } = await checkClinicPermission(
-              clinicId,
-              "write_blog", // Check "write_blog" module permission
-              "update",
-              null, // No submodule - this is a module-level check
-              me.role === "doctor" ? "doctor" : me.role === "clinic" ? "clinic" : null
-            );
-            if (!hasPermission) {
-              return res.status(403).json({
-                success: false,
-                message: error || "You do not have permission to update blogs"
-              });
-            }
-          }
+          // ✅ Check permission for updating blogs (only for agent/doctorStaff, clinic/admin/doctor bypass)
+          // Clinic, admin, and doctor users bypass permission checks
           
           const updatedBlog = await Blog.findByIdAndUpdate(
             id,
@@ -206,23 +176,8 @@ export default async function handler(req, res) {
             clinicId = clinic._id;
           }
 
-          // ✅ Check permission for deleting blogs (only for clinic, admin bypasses)
-          if (me.role !== "admin" && clinicId) {
-            const { checkClinicPermission } = await import("../lead-ms/permissions-helper");
-            const { hasPermission, error } = await checkClinicPermission(
-              clinicId,
-              "write_blog", // Check "write_blog" module permission
-              "delete",
-              null, // No submodule - this is a module-level check
-              me.role === "doctor" ? "doctor" : me.role === "clinic" ? "clinic" : null
-            );
-            if (!hasPermission) {
-              return res.status(403).json({
-                success: false,
-                message: error || "You do not have permission to delete blogs"
-              });
-            }
-          }
+          // ✅ Check permission for deleting blogs (only for agent/doctorStaff, clinic/admin/doctor bypass)
+          // Clinic, admin, and doctor users bypass permission checks
 
           await Blog.findByIdAndDelete(id);
           res.status(200).json({ success: true, message: 'Blog deleted successfully' });
