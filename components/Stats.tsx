@@ -60,6 +60,13 @@ interface StatsConfig {
 interface JobStatsProps {
   role?: 'clinic' | 'doctor';
   config?: StatsConfig;
+  showSections?: {
+    jobTypes?: boolean;
+    blogStats?: boolean;
+    blogEngagement?: boolean;
+  };
+  isEditMode?: boolean;
+  sectionWrapper?: (sectionId: string, content: React.ReactNode) => React.ReactNode;
 }
 
 interface JobTypeStats {
@@ -136,7 +143,14 @@ const JobStats: React.FC<JobStatsProps> = ({
     tokenKey: 'clinicToken',
     primaryColor: '#2D9AA5',
     title: 'Job Statistics'
-  }
+  },
+  showSections = {
+    jobTypes: true,
+    blogStats: true,
+    blogEngagement: true,
+  },
+  isEditMode = false,
+  sectionWrapper,
 }) => {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -551,8 +565,9 @@ const JobStats: React.FC<JobStatsProps> = ({
     </div>
 
     {/* Job Types Distribution - Show when there are jobs */}
-    {stats.totalJobs > 0 && (
-      <div className="bg-white p-3 sm:p-4 rounded-lg border border-gray-200">
+    {showSections.jobTypes && stats.totalJobs > 0 && (
+      sectionWrapper ? sectionWrapper('stats-job-types',
+        <div className="bg-white p-3 sm:p-4 rounded-lg border border-gray-200 relative">
         {sortedJobTypes.length > 0 ? (
           <>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 gap-2">
@@ -799,13 +814,21 @@ const JobStats: React.FC<JobStatsProps> = ({
                   </PieChart>
                 </ResponsiveContainer>
               </div>
-            </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
-    )}
+      </div>
+      ) : (
+        <div className="bg-white p-3 sm:p-4 rounded-lg border border-gray-200 relative">
+          <div className="text-center py-8">
+            <p className="text-gray-500">Job Types Distribution section</p>
+          </div>
+        </div>
+      ))}
 
       {/* Blog Statistics - Enhanced Design */}
+      {showSections.blogStats && (
+      sectionWrapper ? sectionWrapper('stats-blog-stats',
       <div className="bg-gradient-to-br from-white to-gray-50 rounded-xl border-2 border-gray-200 shadow-lg p-6 mb-6 relative overflow-hidden">
       {/* Decorative Background Elements */}
       <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-br from-blue-200/20 to-purple-200/20 rounded-full blur-3xl -mr-20 -mt-20"></div>
@@ -925,8 +948,9 @@ const JobStats: React.FC<JobStatsProps> = ({
         </div>
 
         {/* Bar Chart for Blog Performance - Enhanced */}
-        {!blogLoading && (topLikedBlogs.length > 0 || topCommentedBlogs.length > 0) && (
-          <div className="bg-white rounded-xl border-2 border-gray-200 p-6 mt-6 shadow-sm">
+        {showSections.blogEngagement && !blogLoading && (topLikedBlogs.length > 0 || topCommentedBlogs.length > 0) ? (
+          sectionWrapper ? sectionWrapper('stats-blog-engagement',
+          <div className="bg-white rounded-xl border-2 border-gray-200 p-6 mt-6 shadow-sm relative">
             <div className="flex items-center gap-3 mb-6">
               <div className="p-2.5 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg shadow-md">
                 <BarChart3 className="w-5 h-5 text-white" />
@@ -1022,9 +1046,22 @@ const JobStats: React.FC<JobStatsProps> = ({
               </ResponsiveContainer>
             </div>
           </div>
-        )}
+          ) : (
+            <div className="bg-white rounded-xl border-2 border-gray-200 p-6 mt-6 shadow-sm relative">
+              <div className="text-center py-8">
+                <p className="text-gray-500">Blog Engagement Overview section</p>
+              </div>
+            </div>
+          )) : null}
       </div>
       </div>
+      ) : (
+        <div className="bg-gradient-to-br from-white to-gray-50 rounded-xl border-2 border-gray-200 shadow-lg p-6 mb-6 relative overflow-hidden">
+          <div className="text-center py-8">
+            <p className="text-gray-500">Blog Statistics section</p>
+          </div>
+        </div>
+      ))}
 
       {/* Empty State */}
     {stats.totalJobs === 0 && (

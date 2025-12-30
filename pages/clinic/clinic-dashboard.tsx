@@ -1,11 +1,31 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Star, Mail, Settings, Lock, TrendingUp, Users, FileText, Briefcase, MessageSquare, Calendar, CreditCard, BarChart3, Activity, XCircle, CheckCircle2, ArrowUpRight, ArrowDownRight, User, Crown, Stethoscope, Building2, Package, Gift, DoorOpen, UserPlus } from 'lucide-react';
+import { Star, Mail, Settings, Lock, TrendingUp, Users, FileText, Briefcase, MessageSquare, Calendar, CreditCard, BarChart3, Activity, XCircle, CheckCircle2, ArrowUpRight, ArrowDownRight, User, Crown, Stethoscope, Building2, Package, Gift, DoorOpen, UserPlus, GripVertical, Eye, EyeOff, Save, RotateCcw, Edit2, X, Undo2, Redo2 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, LabelList, LineChart, Line, Tooltip, PieChart, Pie, Cell, Legend } from 'recharts';
 import Stats from '../../components/Stats';
 import ClinicLayout from '../../components/ClinicLayout';
 import withClinicAuth from '../../components/withClinicAuth';
 import type { NextPageWithLayout } from '../_app';
 import axios from 'axios';
+import {
+  DndContext,
+  closestCenter,
+  rectIntersection,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+  DragStartEvent,
+  DragOverlay,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 // Type definitions
 interface Stats {
@@ -97,6 +117,79 @@ interface ClinicInfo {
   ownerName?: string;
 }
 
+// Widget types for drag and drop
+type WidgetType = 
+  | 'packages-offers'
+  | 'primary-stats'
+  | 'secondary-stats'
+  | 'quick-actions'
+  | 'status-charts'
+  | 'analytics-overview'
+  | 'subscription-status'
+  | 'additional-stats';
+
+interface DashboardWidget {
+  id: string;
+  type: WidgetType;
+  title: string;
+  visible: boolean;
+  order: number;
+}
+
+// Stat card types for individual card dragging
+interface StatCard {
+  id: string;
+  label: string;
+  value: number | string;
+  icon: string;
+  moduleKey?: string;
+  gridType: 'primary' | 'secondary';
+  order: number;
+  visible: boolean;
+}
+
+type StatCardGridType = 'primary' | 'secondary';
+
+// Chart component types for individual chart dragging
+interface ChartComponent {
+  id: string;
+  type: 'pie' | 'bar' | 'line' | 'combo';
+  title: string;
+  section: 'status-charts' | 'analytics-overview';
+  order: number;
+  visible: boolean;
+}
+
+// Stats section types for drag and drop
+interface StatsSection {
+  id: string;
+  title: string;
+  order: number;
+  visible: boolean;
+}
+
+// Package/Offer card types for individual card dragging
+interface PackageOfferCard {
+  id: string;
+  type: 'package' | 'offer';
+  title: string;
+  order: number;
+  visible: boolean;
+}
+
+const DEFAULT_WIDGETS: DashboardWidget[] = [
+  { id: '1', type: 'packages-offers', title: 'Packages & Offers', visible: true, order: 0 },
+  { id: '2', type: 'primary-stats', title: 'Key Statistics', visible: true, order: 1 },
+  { id: '3', type: 'secondary-stats', title: 'Additional Statistics', visible: true, order: 2 },
+  { id: '4', type: 'quick-actions', title: 'Quick Actions', visible: true, order: 3 },
+  { id: '5', type: 'status-charts', title: 'Status Breakdown Charts', visible: true, order: 4 },
+  { id: '6', type: 'analytics-overview', title: 'Analytics Overview', visible: true, order: 5 },
+  { id: '7', type: 'subscription-status', title: 'Subscription Status', visible: true, order: 6 },
+  { id: '8', type: 'additional-stats', title: 'Job & Blog Analytics', visible: true, order: 7 },
+];
+
+const STORAGE_KEY = 'clinic-dashboard-layout';
+
 const ClinicDashboard: NextPageWithLayout = () => {
   const [stats, setStats] = useState<Stats>({
     totalReviews: 0,
@@ -132,6 +225,186 @@ const ClinicDashboard: NextPageWithLayout = () => {
   const [permissionsLoaded, setPermissionsLoaded] = useState(false);
   const [navigationItemsLoaded, setNavigationItemsLoaded] = useState(false);
   const [userRole, setUserRole] = useState<string | null>(null);
+  
+  // Drag and drop state
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [widgets, setWidgets] = useState<DashboardWidget[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        try {
+          return JSON.parse(saved);
+        } catch {
+          return DEFAULT_WIDGETS;
+        }
+      }
+    }
+    return DEFAULT_WIDGETS;
+  });
+  const [activeId, setActiveId] = useState<string | null>(null);
+  
+  // Individual stat card state
+  const STAT_CARDS_STORAGE_KEY = 'clinic-dashboard-stat-cards';
+  const [statCards, setStatCards] = useState<{ primary: StatCard[]; secondary: StatCard[] }>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem(STAT_CARDS_STORAGE_KEY);
+      if (saved) {
+        try {
+          return JSON.parse(saved);
+        } catch {
+          // Return default cards
+          return {
+            primary: [
+              { id: 'p1', label: 'Total Reviews', value: 0, icon: 'star', moduleKey: 'reviews', gridType: 'primary' as const, order: 0, visible: true },
+              { id: 'p2', label: 'Total Enquiries', value: 0, icon: 'mail', moduleKey: 'enquiries', gridType: 'primary' as const, order: 1, visible: true },
+              { id: 'p3', label: 'Active Modules', value: 0, icon: 'check', moduleKey: 'modules', gridType: 'primary' as const, order: 2, visible: true },
+              { id: 'p4', label: 'Subscription', value: '0%', icon: 'crown', moduleKey: 'subscription', gridType: 'primary' as const, order: 3, visible: true },
+            ],
+            secondary: [
+              { id: 's1', label: 'Appointments', value: 0, icon: 'calendar', moduleKey: 'appointments', gridType: 'secondary' as const, order: 0, visible: true },
+              { id: 's2', label: 'Leads', value: 0, icon: 'users', moduleKey: 'leads', gridType: 'secondary' as const, order: 1, visible: true },
+              { id: 's3', label: 'Treatments', value: 0, icon: 'stethoscope', moduleKey: 'treatments', gridType: 'secondary' as const, order: 2, visible: true },
+              { id: 's4', label: 'Rooms', value: 0, icon: 'door', moduleKey: 'rooms', gridType: 'secondary' as const, order: 3, visible: true },
+              { id: 's5', label: 'Departments', value: 0, icon: 'building', moduleKey: 'departments', gridType: 'secondary' as const, order: 4, visible: true },
+            ],
+          };
+        }
+      }
+    }
+    return {
+      primary: [
+        { id: 'p1', label: 'Total Reviews', value: 0, icon: 'star', moduleKey: 'reviews', gridType: 'primary' as const, order: 0, visible: true },
+        { id: 'p2', label: 'Total Enquiries', value: 0, icon: 'mail', moduleKey: 'enquiries', gridType: 'primary' as const, order: 1, visible: true },
+        { id: 'p3', label: 'Active Modules', value: 0, icon: 'check', moduleKey: 'modules', gridType: 'primary' as const, order: 2, visible: true },
+        { id: 'p4', label: 'Subscription', value: '0%', icon: 'crown', moduleKey: 'subscription', gridType: 'primary' as const, order: 3, visible: true },
+      ],
+      secondary: [
+        { id: 's1', label: 'Appointments', value: 0, icon: 'calendar', moduleKey: 'appointments', gridType: 'secondary' as const, order: 0, visible: true },
+        { id: 's2', label: 'Leads', value: 0, icon: 'users', moduleKey: 'leads', gridType: 'secondary' as const, order: 1, visible: true },
+        { id: 's3', label: 'Treatments', value: 0, icon: 'stethoscope', moduleKey: 'treatments', gridType: 'secondary' as const, order: 2, visible: true },
+        { id: 's4', label: 'Rooms', value: 0, icon: 'door', moduleKey: 'rooms', gridType: 'secondary' as const, order: 3, visible: true },
+        { id: 's5', label: 'Departments', value: 0, icon: 'building', moduleKey: 'departments', gridType: 'secondary' as const, order: 4, visible: true },
+      ],
+    };
+  });
+  const [activeCardId, setActiveCardId] = useState<string | null>(null);
+  const [cardHistory, setCardHistory] = useState<Array<{ primary: StatCard[]; secondary: StatCard[] }>>([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
+  const [gridSize, setGridSize] = useState<'compact' | 'normal' | 'spacious'>('normal');
+  
+  // Chart components state
+  const CHARTS_STORAGE_KEY = 'clinic-dashboard-charts';
+  const [chartComponents, setChartComponents] = useState<{
+    'status-charts': ChartComponent[];
+    'analytics-overview': ChartComponent[];
+  }>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem(CHARTS_STORAGE_KEY);
+      if (saved) {
+        try {
+          return JSON.parse(saved);
+        } catch {
+          return {
+            'status-charts': [
+              { id: 'chart-appointment', type: 'pie' as const, title: 'Appointment Status', section: 'status-charts' as const, order: 0, visible: true },
+              { id: 'chart-lead', type: 'pie' as const, title: 'Lead Status', section: 'status-charts' as const, order: 1, visible: true },
+              { id: 'chart-offer', type: 'pie' as const, title: 'Offer Status', section: 'status-charts' as const, order: 2, visible: true },
+            ],
+            'analytics-overview': [
+              { id: 'chart-bar', type: 'bar' as const, title: 'Appointments, Leads, Offers & Jobs', section: 'analytics-overview' as const, order: 0, visible: true },
+              { id: 'chart-line', type: 'line' as const, title: 'Reviews, Enquiries, Patients & Rooms', section: 'analytics-overview' as const, order: 1, visible: true },
+              { id: 'chart-active', type: 'bar' as const, title: 'Active vs Inactive', section: 'analytics-overview' as const, order: 2, visible: true },
+            ],
+          };
+        }
+      }
+    }
+    return {
+      'status-charts': [
+        { id: 'chart-appointment', type: 'pie' as const, title: 'Appointment Status', section: 'status-charts' as const, order: 0, visible: true },
+        { id: 'chart-lead', type: 'pie' as const, title: 'Lead Status', section: 'status-charts' as const, order: 1, visible: true },
+        { id: 'chart-offer', type: 'pie' as const, title: 'Offer Status', section: 'status-charts' as const, order: 2, visible: true },
+      ],
+      'analytics-overview': [
+        { id: 'chart-bar', type: 'bar' as const, title: 'Appointments, Leads, Offers & Jobs', section: 'analytics-overview' as const, order: 0, visible: true },
+        { id: 'chart-line', type: 'line' as const, title: 'Reviews, Enquiries, Patients & Rooms', section: 'analytics-overview' as const, order: 1, visible: true },
+        { id: 'chart-active', type: 'bar' as const, title: 'Active vs Inactive', section: 'analytics-overview' as const, order: 2, visible: true },
+      ],
+    };
+  });
+  const [activeChartId, setActiveChartId] = useState<string | null>(null);
+  
+  // Stats sections state
+  const STATS_SECTIONS_STORAGE_KEY = 'clinic-dashboard-stats-sections';
+  const [statsSections, setStatsSections] = useState<StatsSection[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem(STATS_SECTIONS_STORAGE_KEY);
+      if (saved) {
+        try {
+          return JSON.parse(saved);
+        } catch {
+          return [
+            { id: 'stats-job-types', title: 'Job Types Distribution', order: 0, visible: true },
+            { id: 'stats-blog-stats', title: 'Blog Statistics', order: 1, visible: true },
+            { id: 'stats-blog-engagement', title: 'Blog Engagement Overview', order: 2, visible: true },
+          ];
+        }
+      }
+    }
+    return [
+      { id: 'stats-job-types', title: 'Job Types Distribution', order: 0, visible: true },
+      { id: 'stats-blog-stats', title: 'Blog Statistics', order: 1, visible: true },
+      { id: 'stats-blog-engagement', title: 'Blog Engagement Overview', order: 2, visible: true },
+    ];
+  });
+  const [activeStatsSectionId, setActiveStatsSectionId] = useState<string | null>(null);
+  
+  // Package/Offer cards state
+  const PACKAGE_OFFER_STORAGE_KEY = 'clinic-dashboard-package-offer';
+  const [packageOfferCards, setPackageOfferCards] = useState<PackageOfferCard[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem(PACKAGE_OFFER_STORAGE_KEY);
+      if (saved) {
+        try {
+          return JSON.parse(saved);
+        } catch {
+          return [
+            { id: 'package-card', type: 'package' as const, title: 'Packages', order: 0, visible: true },
+            { id: 'offer-card', type: 'offer' as const, title: 'Offers', order: 1, visible: true },
+          ];
+        }
+      }
+    }
+    return [
+      { id: 'package-card', type: 'package' as const, title: 'Packages', order: 0, visible: true },
+      { id: 'offer-card', type: 'offer' as const, title: 'Offers', order: 1, visible: true },
+    ];
+  });
+  const [activePackageOfferId, setActivePackageOfferId] = useState<string | null>(null);
+  
+  // Sensors for drag and drop
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+  
+  // Card sensors (more sensitive for individual cards) - with constraint to ignore widget-level drags
+  const cardSensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 5,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
   const [quickActions] = useState([
     { label: 'New Review', icon: Star, path: '/clinic/getAllReview', color: 'bg-yellow-500' },
     { label: 'New Enquiry', icon: Mail, path: '/clinic/get-Enquiry', color: 'bg-blue-500' },
@@ -1145,6 +1418,1085 @@ const ClinicDashboard: NextPageWithLayout = () => {
   // Colors for pie charts
   const pieColors = ['#2D9AA5', '#22c55e', '#a855f7', '#f97316', '#ec4899', '#6366f1', '#ef4444', '#10b981', '#3b82f6', '#f59e0b'];
 
+  // Unified drag and drop handler - handles both widget-level and item-level drags
+  const handleUnifiedDragStart = (event: DragStartEvent) => {
+    const id = event.active.id as string;
+    
+    // Check if it's a widget-level drag
+    if (widgets.find(w => w.id === id)) {
+      setActiveId(id);
+      return;
+    }
+    
+    // Otherwise it's an item-level drag - handle in item handlers
+    if ([...statCards.primary, ...statCards.secondary].find(c => c.id === id)) {
+      handleCardDragStart(event);
+    } else if ([...chartComponents['status-charts'], ...chartComponents['analytics-overview']].find(c => c.id === id)) {
+      handleChartDragStart(event);
+    } else if (packageOfferCards.find(c => c.id === id)) {
+      handlePackageOfferDragStart(event);
+    }
+  };
+
+  const handleUnifiedDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    const activeId = active.id as string;
+
+    // Check if it's a widget-level drag
+    if (widgets.find(w => w.id === activeId)) {
+      setActiveId(null);
+      
+      if (over && active.id !== over.id) {
+        setWidgets((items) => {
+          const oldIndex = items.findIndex((item) => item.id === active.id);
+          const newIndex = items.findIndex((item) => item.id === over.id);
+          
+          if (oldIndex === -1 || newIndex === -1) return items;
+          
+          // Use arrayMove for proper swapping
+          const newItems = arrayMove(items, oldIndex, newIndex);
+          // Update order numbers
+          const reordered = newItems.map((item, index) => ({ ...item, order: index }));
+          
+          // Save to localStorage
+          if (typeof window !== 'undefined') {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(reordered));
+          }
+          
+          return reordered;
+        });
+      }
+      return;
+    }
+    
+    // Otherwise it's an item-level drag - handle in unified item handler
+    if (!over) return;
+    
+    const overId = over.id as string;
+    if (activeId === overId) return;
+    
+    handleUnifiedItemDragEnd(activeId, overId);
+  };
+
+  const handleSaveLayout = () => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(widgets));
+    localStorage.setItem(STAT_CARDS_STORAGE_KEY, JSON.stringify(statCards));
+    localStorage.setItem(CHARTS_STORAGE_KEY, JSON.stringify(chartComponents));
+    localStorage.setItem(STATS_SECTIONS_STORAGE_KEY, JSON.stringify(statsSections));
+    setIsEditMode(false);
+    // Show success message (you can use toast here)
+    alert('Dashboard layout saved successfully!');
+  };
+
+  const handleResetLayout = () => {
+    if (confirm('Are you sure you want to reset to default layout? This cannot be undone.')) {
+      setWidgets(DEFAULT_WIDGETS);
+      localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(STAT_CARDS_STORAGE_KEY);
+      localStorage.removeItem(CHARTS_STORAGE_KEY);
+      localStorage.removeItem(STATS_SECTIONS_STORAGE_KEY);
+      setIsEditMode(false);
+      // Reset stat cards to default
+      setStatCards({
+        primary: [
+          { id: 'p1', label: 'Total Reviews', value: 0, icon: 'star', moduleKey: 'reviews', gridType: 'primary' as const, order: 0, visible: true },
+          { id: 'p2', label: 'Total Enquiries', value: 0, icon: 'mail', moduleKey: 'enquiries', gridType: 'primary' as const, order: 1, visible: true },
+          { id: 'p3', label: 'Active Modules', value: 0, icon: 'check', moduleKey: 'modules', gridType: 'primary' as const, order: 2, visible: true },
+          { id: 'p4', label: 'Subscription', value: '0%', icon: 'crown', moduleKey: 'subscription', gridType: 'primary' as const, order: 3, visible: true },
+        ],
+        secondary: [
+          { id: 's1', label: 'Appointments', value: 0, icon: 'calendar', moduleKey: 'appointments', gridType: 'secondary' as const, order: 0, visible: true },
+          { id: 's2', label: 'Leads', value: 0, icon: 'users', moduleKey: 'leads', gridType: 'secondary' as const, order: 1, visible: true },
+          { id: 's3', label: 'Treatments', value: 0, icon: 'stethoscope', moduleKey: 'treatments', gridType: 'secondary' as const, order: 2, visible: true },
+          { id: 's4', label: 'Rooms', value: 0, icon: 'door', moduleKey: 'rooms', gridType: 'secondary' as const, order: 3, visible: true },
+          { id: 's5', label: 'Departments', value: 0, icon: 'building', moduleKey: 'departments', gridType: 'secondary' as const, order: 4, visible: true },
+        ],
+      });
+      // Reset charts to default
+      setChartComponents({
+        'status-charts': [
+          { id: 'chart-appointment', type: 'pie' as const, title: 'Appointment Status', section: 'status-charts' as const, order: 0, visible: true },
+          { id: 'chart-lead', type: 'pie' as const, title: 'Lead Status', section: 'status-charts' as const, order: 1, visible: true },
+          { id: 'chart-offer', type: 'pie' as const, title: 'Offer Status', section: 'status-charts' as const, order: 2, visible: true },
+        ],
+        'analytics-overview': [
+          { id: 'chart-bar', type: 'bar' as const, title: 'Appointments, Leads, Offers & Jobs', section: 'analytics-overview' as const, order: 0, visible: true },
+          { id: 'chart-line', type: 'line' as const, title: 'Reviews, Enquiries, Patients & Rooms', section: 'analytics-overview' as const, order: 1, visible: true },
+          { id: 'chart-active', type: 'bar' as const, title: 'Active vs Inactive', section: 'analytics-overview' as const, order: 2, visible: true },
+        ],
+      });
+      // Reset stats sections to default
+      setStatsSections([
+        { id: 'stats-job-types', title: 'Job Types Distribution', order: 0, visible: true },
+        { id: 'stats-blog-stats', title: 'Blog Statistics', order: 1, visible: true },
+        { id: 'stats-blog-engagement', title: 'Blog Engagement Overview', order: 2, visible: true },
+      ]);
+    }
+  };
+
+  const toggleWidgetVisibility = (widgetId: string) => {
+    setWidgets((items) =>
+      items.map((item) =>
+        item.id === widgetId ? { ...item, visible: !item.visible } : item
+      )
+    );
+  };
+
+  // Card drag handlers
+  const saveCardHistory = () => {
+    const newHistory = cardHistory.slice(0, historyIndex + 1);
+    newHistory.push(JSON.parse(JSON.stringify(statCards)));
+    setCardHistory(newHistory);
+    setHistoryIndex(newHistory.length - 1);
+    // Limit history to 50 items
+    if (newHistory.length > 50) {
+      setCardHistory(newHistory.slice(-50));
+      setHistoryIndex(49);
+    }
+  };
+
+  const handleCardDragStart = (event: DragStartEvent) => {
+    setActiveCardId(event.active.id as string);
+  };
+
+  const handleCardDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    setActiveCardId(null);
+
+    if (!over) return;
+
+    const activeId = active.id as string;
+    const overId = over.id as string;
+
+    if (activeId === overId) return;
+
+    // Find which grid the active card belongs to
+    const activeCard = [...statCards.primary, ...statCards.secondary].find(c => c.id === activeId);
+    const overCard = [...statCards.primary, ...statCards.secondary].find(c => c.id === overId);
+
+    if (!activeCard || !overCard) return;
+
+    // Save history before making changes
+    saveCardHistory();
+
+    // If cards are in the same grid, just reorder (swap positions) using arrayMove
+    if (activeCard.gridType === overCard.gridType) {
+      const grid = activeCard.gridType;
+      setStatCards((prev) => {
+        const gridCards = [...prev[grid]];
+        const oldIndex = gridCards.findIndex(c => c.id === activeId);
+        const newIndex = gridCards.findIndex(c => c.id === overId);
+        
+        if (oldIndex === -1 || newIndex === -1) return prev;
+        
+        const newCards = arrayMove(gridCards, oldIndex, newIndex);
+        return {
+          ...prev,
+          [grid]: newCards.map((card, index) => ({ ...card, order: index })),
+        };
+      });
+    } else {
+      // Swap cards between grids - true bidirectional swap
+      setStatCards((prev) => {
+        const sourceGrid = activeCard.gridType;
+        const targetGrid = overCard.gridType;
+        const sourceCards = [...prev[sourceGrid]];
+        const targetCards = [...prev[targetGrid]];
+        
+        const sourceIndex = sourceCards.findIndex(c => c.id === activeId);
+        const targetIndex = targetCards.findIndex(c => c.id === overId);
+        
+        if (sourceIndex === -1 || targetIndex === -1) return prev;
+        
+        // Remove both cards from their grids
+        const [movedCard] = sourceCards.splice(sourceIndex, 1);
+        const [targetCard] = targetCards.splice(targetIndex, 1);
+        
+        // Swap: moved card goes to target position, target card goes to source position
+        movedCard.gridType = targetGrid;
+        targetCard.gridType = sourceGrid;
+        
+        // Insert at the correct positions (true swap)
+        targetCards.splice(targetIndex, 0, movedCard);
+        sourceCards.splice(sourceIndex, 0, targetCard);
+        
+        return {
+          ...prev,
+          [sourceGrid]: sourceCards.map((card, index) => ({ ...card, order: index })),
+          [targetGrid]: targetCards.map((card, index) => ({ ...card, order: index })),
+        };
+      });
+    }
+  };
+
+  const toggleCardVisibility = (cardId: string) => {
+    saveCardHistory();
+    setStatCards((prev) => ({
+      primary: prev.primary.map(card => 
+        card.id === cardId ? { ...card, visible: !card.visible } : card
+      ),
+      secondary: prev.secondary.map(card => 
+        card.id === cardId ? { ...card, visible: !card.visible } : card
+      ),
+    }));
+  };
+
+  // Chart drag handlers
+  const handleChartDragStart = (event: DragStartEvent) => {
+    setActiveChartId(event.active.id as string);
+  };
+
+  const handleChartDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    setActiveChartId(null);
+
+    if (!over) return;
+
+    const activeId = active.id as string;
+    const overId = over.id as string;
+
+    // Find which section the charts belong to
+    const activeChart = [...chartComponents['status-charts'], ...chartComponents['analytics-overview']].find(c => c.id === activeId);
+    const overChart = [...chartComponents['status-charts'], ...chartComponents['analytics-overview']].find(c => c.id === overId);
+
+    if (!activeChart || !overChart || activeId === overId) return;
+
+    // If charts are in the same section, just reorder (swap positions)
+    if (activeChart.section === overChart.section) {
+      const section = activeChart.section;
+      setChartComponents((prev) => {
+        const sectionCharts = [...prev[section]];
+        const oldIndex = sectionCharts.findIndex(c => c.id === activeId);
+        const newIndex = sectionCharts.findIndex(c => c.id === overId);
+        const newCharts = arrayMove(sectionCharts, oldIndex, newIndex);
+        const updated = {
+          ...prev,
+          [section]: newCharts.map((chart, index) => ({ ...chart, order: index })),
+        };
+        // Save to localStorage
+        if (typeof window !== 'undefined') {
+          localStorage.setItem(CHARTS_STORAGE_KEY, JSON.stringify(updated));
+        }
+        return updated;
+      });
+    } else {
+      // Swap charts between sections - both items swap positions
+      setChartComponents((prev) => {
+        const sourceSection = activeChart.section;
+        const targetSection = overChart.section;
+        const sourceCharts = [...prev[sourceSection]];
+        const targetCharts = [...prev[targetSection]];
+        
+        const sourceIndex = sourceCharts.findIndex(c => c.id === activeId);
+        const targetIndex = targetCharts.findIndex(c => c.id === overId);
+        
+        // Remove both charts from their sections
+        const [movedChart] = sourceCharts.splice(sourceIndex, 1);
+        const [targetChart] = targetCharts.splice(targetIndex, 1);
+        
+        // Swap: moved chart goes to target position, target chart goes to source position
+        movedChart.section = targetSection;
+        targetChart.section = sourceSection;
+        
+        // Insert at the correct positions
+        targetCharts.splice(targetIndex, 0, movedChart);
+        sourceCharts.splice(sourceIndex, 0, targetChart);
+        
+        const updated = {
+          ...prev,
+          [sourceSection]: sourceCharts.map((chart, index) => ({ ...chart, order: index })),
+          [targetSection]: targetCharts.map((chart, index) => ({ ...chart, order: index })),
+        };
+        
+        // Save to localStorage
+        if (typeof window !== 'undefined') {
+          localStorage.setItem(CHARTS_STORAGE_KEY, JSON.stringify(updated));
+        }
+        
+        return updated;
+      });
+    }
+  };
+
+  const toggleChartVisibility = (chartId: string) => {
+    setChartComponents((prev) => ({
+      'status-charts': prev['status-charts'].map(chart =>
+        chart.id === chartId ? { ...chart, visible: !chart.visible } : chart
+      ),
+      'analytics-overview': prev['analytics-overview'].map(chart =>
+        chart.id === chartId ? { ...chart, visible: !chart.visible } : chart
+      ),
+    }));
+  };
+
+  // Package/Offer drag handlers
+  const handlePackageOfferDragStart = (event: DragStartEvent) => {
+    setActivePackageOfferId(event.active.id as string);
+  };
+
+  const handlePackageOfferDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    setActivePackageOfferId(null);
+
+    if (!over) return;
+
+    const activeId = active.id as string;
+    const overId = over.id as string;
+
+    if (activeId === overId) return;
+
+    setPackageOfferCards((items) => {
+      const oldIndex = items.findIndex(item => item.id === activeId);
+      const newIndex = items.findIndex(item => item.id === overId);
+      
+      if (oldIndex === -1 || newIndex === -1) return items;
+      
+      // Use arrayMove for proper swapping
+      const newItems = arrayMove(items, oldIndex, newIndex);
+      const updated = newItems.map((item, index) => ({ ...item, order: index }));
+      
+      // Save to localStorage
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(PACKAGE_OFFER_STORAGE_KEY, JSON.stringify(updated));
+      }
+      
+      return updated;
+    });
+  };
+
+  const togglePackageOfferVisibility = (cardId: string) => {
+    setPackageOfferCards((prev) => {
+      const updated = prev.map(card =>
+        card.id === cardId ? { ...card, visible: !card.visible } : card
+      );
+      // Save to localStorage
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(PACKAGE_OFFER_STORAGE_KEY, JSON.stringify(updated));
+      }
+      return updated;
+    });
+  };
+
+  // Helper: Convert package card to stat card format (preserves ID for drag tracking)
+  const packageToStatCard = (pkg: PackageOfferCard, gridType: 'primary' | 'secondary', order: number): StatCard => {
+    const icon = pkg.type === 'package' ? 'package' : 'gift';
+    const moduleKey = pkg.type === 'package' ? 'packages' : 'offers';
+    return {
+      id: pkg.id, // Keep original ID to maintain drag tracking
+      label: pkg.title,
+      value: pkg.type === 'package' ? (stats.totalPackages || 0) : (stats.totalOffers || 0),
+      icon,
+      moduleKey,
+      gridType,
+      order,
+      visible: pkg.visible,
+    };
+  };
+
+  // Helper: Convert stat card to package card format (preserves ID for drag tracking)
+  const statToPackageCard = (stat: StatCard, order: number): PackageOfferCard => {
+    // Determine type based on moduleKey or label
+    let type: 'package' | 'offer' = 'package';
+    if (stat.moduleKey === 'offers' || stat.label.toLowerCase().includes('offer')) {
+      type = 'offer';
+    }
+    return {
+      id: stat.id, // Keep original ID to maintain drag tracking
+      type,
+      title: stat.label,
+      order,
+      visible: stat.visible,
+    };
+  };
+
+  // Unified handler for cross-type item swapping - ensures true bidirectional swapping
+  const handleUnifiedItemDragEnd = (activeId: string, overId: string) => {
+    if (activeId === overId) return;
+
+    // Identify active item type and location
+    const activeStatCard = [...statCards.primary, ...statCards.secondary].find(c => c.id === activeId);
+    const activePackageCard = packageOfferCards.find(c => c.id === activeId);
+    const activeChart = [...chartComponents['status-charts'], ...chartComponents['analytics-overview']].find(c => c.id === activeId);
+
+    // Identify over item type and location
+    const overStatCard = [...statCards.primary, ...statCards.secondary].find(c => c.id === overId);
+    const overPackageCard = packageOfferCards.find(c => c.id === overId);
+    const overChart = [...chartComponents['status-charts'], ...chartComponents['analytics-overview']].find(c => c.id === overId);
+
+    // Reset all active states
+    setActiveCardId(null);
+    setActiveChartId(null);
+    setActivePackageOfferId(null);
+
+    // Handle stat card swaps (including with other stat cards) - true swap
+    if (activeStatCard) {
+      if (overStatCard) {
+        // Both are stat cards - ensure proper swap
+        saveCardHistory();
+        const activeGrid = activeStatCard.gridType;
+        const overGrid = overStatCard.gridType;
+        
+        if (activeGrid === overGrid) {
+          // Same grid - reorder within grid
+          setStatCards((prev) => {
+            const gridCards = [...prev[activeGrid]];
+            const oldIndex = gridCards.findIndex(c => c.id === activeId);
+            const newIndex = gridCards.findIndex(c => c.id === overId);
+            const newCards = arrayMove(gridCards, oldIndex, newIndex);
+            return {
+              ...prev,
+              [activeGrid]: newCards.map((card, index) => ({ ...card, order: index })),
+            };
+          });
+        } else {
+          // Different grids - swap between grids
+          setStatCards((prev) => {
+            const sourceCards = [...prev[activeGrid]];
+            const targetCards = [...prev[overGrid]];
+            
+            const sourceIndex = sourceCards.findIndex(c => c.id === activeId);
+            const targetIndex = targetCards.findIndex(c => c.id === overId);
+            
+            // Remove both cards
+            const [movedCard] = sourceCards.splice(sourceIndex, 1);
+            const [targetCard] = targetCards.splice(targetIndex, 1);
+            
+            // Swap: moved card goes to target position, target card goes to source position
+            movedCard.gridType = overGrid;
+            targetCard.gridType = activeGrid;
+            
+            // Insert at correct positions
+            targetCards.splice(targetIndex, 0, movedCard);
+            sourceCards.splice(sourceIndex, 0, targetCard);
+            
+            return {
+              ...prev,
+              [activeGrid]: sourceCards.map((card, index) => ({ ...card, order: index })),
+              [overGrid]: targetCards.map((card, index) => ({ ...card, order: index })),
+            };
+          });
+        }
+        return;
+      }
+      // Active is stat card, dropped on package/offer - convert and swap positions
+      if (overPackageCard) {
+        saveCardHistory();
+        const statGrid = activeStatCard.gridType;
+        const statIndex = statGrid === 'primary'
+          ? statCards.primary.findIndex(c => c.id === activeId)
+          : statCards.secondary.findIndex(c => c.id === activeId);
+        const packageIndex = packageOfferCards.findIndex(c => c.id === overId);
+
+        if (statIndex === -1 || packageIndex === -1) return;
+
+        // Convert both items - true bidirectional swap
+        const convertedPackage = statToPackageCard(activeStatCard, packageOfferCards[packageIndex].order);
+        const convertedStat = packageToStatCard(overPackageCard, statGrid, activeStatCard.order);
+        
+        // Swap: stat card position gets package (converted), package position gets stat (converted)
+        setStatCards((prev) => {
+          const gridCards = [...prev[statGrid]];
+          gridCards[statIndex] = convertedStat; // Package card converted to stat card replaces stat card
+          return {
+            ...prev,
+            [statGrid]: gridCards.map((card, index) => ({ ...card, order: index })),
+          };
+        });
+
+        setPackageOfferCards((prev) => {
+          const newCards = [...prev];
+          newCards[packageIndex] = convertedPackage; // Stat card converted to package replaces package card
+          const updated = newCards.map((card, index) => ({ ...card, order: index }));
+          // Save to localStorage
+          if (typeof window !== 'undefined') {
+            localStorage.setItem(PACKAGE_OFFER_STORAGE_KEY, JSON.stringify(updated));
+          }
+          return updated;
+        });
+        return;
+      }
+    }
+
+    // Handle package/offer card swaps
+    if (activePackageCard) {
+      if (overPackageCard) {
+        // Both are package cards - ensure proper swap using arrayMove
+        handlePackageOfferDragEnd({ active: { id: activeId } as any, over: { id: overId } as any } as DragEndEvent);
+        return;
+      }
+      // Active is package, dropped on stat card - convert and swap positions
+      if (overStatCard) {
+        saveCardHistory();
+        const packageIndex = packageOfferCards.findIndex(c => c.id === activeId);
+        const statGrid = overStatCard.gridType;
+        const statIndex = statGrid === 'primary'
+          ? statCards.primary.findIndex(c => c.id === overId)
+          : statCards.secondary.findIndex(c => c.id === overId);
+
+        if (packageIndex === -1 || statIndex === -1) return;
+
+        // Convert both items - true bidirectional swap
+        const convertedStat = packageToStatCard(activePackageCard, statGrid, overStatCard.order);
+        const convertedPackage = statToPackageCard(overStatCard, packageOfferCards[packageIndex].order);
+
+        // Swap: package position gets stat (converted), stat position gets package (converted)
+        setStatCards((prev) => {
+          const gridCards = [...prev[statGrid]];
+          gridCards[statIndex] = convertedStat; // Package card converted to stat replaces stat card
+          return {
+            ...prev,
+            [statGrid]: gridCards.map((card, index) => ({ ...card, order: index })),
+          };
+        });
+
+        setPackageOfferCards((prev) => {
+          const newCards = [...prev];
+          newCards[packageIndex] = convertedPackage; // Stat card converted to package replaces package card
+          const updated = newCards.map((card, index) => ({ ...card, order: index }));
+          // Save to localStorage
+          if (typeof window !== 'undefined') {
+            localStorage.setItem(PACKAGE_OFFER_STORAGE_KEY, JSON.stringify(updated));
+          }
+          return updated;
+        });
+        return;
+      }
+    }
+
+    // Handle chart swaps - already has proper swap logic
+    if (activeChart && overChart) {
+      handleChartDragEnd({ active: { id: activeId } as any, over: { id: overId } as any } as DragEndEvent);
+      return;
+    }
+
+    // Fallback: try existing handlers based on active item type
+    if (activeStatCard && overStatCard) {
+      handleCardDragEnd({ active: { id: activeId } as any, over: { id: overId } as any } as DragEndEvent);
+    } else if (activeChart && overChart) {
+      handleChartDragEnd({ active: { id: activeId } as any, over: { id: overId } as any } as DragEndEvent);
+    } else if (activePackageCard && overPackageCard) {
+      handlePackageOfferDragEnd({ active: { id: activeId } as any, over: { id: overId } as any } as DragEndEvent);
+    }
+  };
+
+  // Stats sections drag handlers
+  const handleStatsSectionDragStart = (event: DragStartEvent) => {
+    setActiveStatsSectionId(event.active.id as string);
+  };
+
+  const handleStatsSectionDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    setActiveStatsSectionId(null);
+
+    if (!over) return;
+
+    const activeId = active.id as string;
+    const overId = over.id as string;
+
+    if (activeId === overId) return;
+
+    setStatsSections((items) => {
+      const oldIndex = items.findIndex((item) => item.id === activeId);
+      const newIndex = items.findIndex((item) => item.id === overId);
+      
+      if (oldIndex === -1 || newIndex === -1) return items;
+      
+      // Use arrayMove for proper swapping
+      const newItems = arrayMove(items, oldIndex, newIndex);
+      const reordered = newItems.map((item, index) => ({ ...item, order: index }));
+      
+      // Save to localStorage
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(STATS_SECTIONS_STORAGE_KEY, JSON.stringify(reordered));
+      }
+      
+      return reordered;
+    });
+  };
+
+  const toggleStatsSectionVisibility = (sectionId: string) => {
+    setStatsSections((items) =>
+      items.map((item) =>
+        item.id === sectionId ? { ...item, visible: !item.visible } : item
+      )
+    );
+  };
+
+  const handleUndo = () => {
+    if (historyIndex > 0) {
+      const newIndex = historyIndex - 1;
+      setHistoryIndex(newIndex);
+      setStatCards(JSON.parse(JSON.stringify(cardHistory[newIndex])));
+    }
+  };
+
+  const handleRedo = () => {
+    if (historyIndex < cardHistory.length - 1) {
+      const newIndex = historyIndex + 1;
+      setHistoryIndex(newIndex);
+      setStatCards(JSON.parse(JSON.stringify(cardHistory[newIndex])));
+    }
+  };
+
+  const handleExportLayout = () => {
+    const layout = {
+      widgets,
+      statCards,
+      gridSize,
+      exportedAt: new Date().toISOString(),
+    };
+    const blob = new Blob([JSON.stringify(layout, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `dashboard-layout-${new Date().toISOString().split('T')[0]}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    alert('Layout exported successfully!');
+  };
+
+  const handleImportLayout = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'application/json';
+    input.onchange = (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        try {
+          const layout = JSON.parse(event.target?.result as string);
+          if (layout.widgets && layout.statCards) {
+            setWidgets(layout.widgets);
+            setStatCards(layout.statCards);
+            if (layout.gridSize) setGridSize(layout.gridSize);
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(layout.widgets));
+            localStorage.setItem(STAT_CARDS_STORAGE_KEY, JSON.stringify(layout.statCards));
+            alert('Layout imported successfully!');
+          } else {
+            alert('Invalid layout file format.');
+          }
+        } catch (error) {
+          alert('Error importing layout. Please check the file format.');
+        }
+      };
+      reader.readAsText(file);
+    };
+    input.click();
+  };
+
+  // Update stat card values when stats change
+  useEffect(() => {
+    setStatCards((prev) => ({
+      primary: prev.primary.map(card => {
+        let value: number | string = 0;
+        switch (card.moduleKey) {
+          case 'reviews':
+            value = stats.totalReviews;
+            break;
+          case 'enquiries':
+            value = stats.totalEnquiries;
+            break;
+          case 'modules':
+            value = navigationItems.length;
+            break;
+          case 'subscription':
+            value = `${subscriptionSummary.subscriptionPercentage}%`;
+            break;
+        }
+        return { ...card, value };
+      }),
+      secondary: prev.secondary.map(card => {
+        let value: number | string = 0;
+        switch (card.moduleKey) {
+          case 'appointments':
+            value = stats.totalAppointments || 0;
+            break;
+          case 'leads':
+            value = stats.totalLeads || 0;
+            break;
+          case 'treatments':
+            value = stats.totalTreatments || 0;
+            break;
+          case 'rooms':
+            value = stats.totalRooms || 0;
+            break;
+          case 'departments':
+            value = stats.totalDepartments || 0;
+            break;
+        }
+        return { ...card, value };
+      }),
+    }));
+  }, [stats, navigationItems.length, subscriptionSummary.subscriptionPercentage]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    if (!isEditMode) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        handleUndo();
+      } else if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
+        e.preventDefault();
+        handleRedo();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isEditMode, historyIndex, cardHistory.length]);
+
+  // Sortable Widget Component
+  const SortableWidget: React.FC<{
+    widget: DashboardWidget;
+    children: React.ReactNode;
+  }> = ({ widget, children }) => {
+    const {
+      attributes,
+      listeners,
+      setNodeRef,
+      transform,
+      transition,
+      isDragging,
+    } = useSortable({ id: widget.id });
+
+    const style = {
+      transform: CSS.Transform.toString(transform),
+      transition,
+      opacity: isDragging ? 0.4 : 1,
+    };
+
+    if (!widget.visible && !isEditMode) {
+      return null;
+    }
+
+    return (
+      <div
+        ref={setNodeRef}
+        style={style}
+        className={`relative ${isDragging ? 'z-50 ring-2 ring-blue-500 ring-opacity-50' : ''} ${!widget.visible ? 'opacity-50' : ''}`}
+      >
+        {isEditMode && (
+          <>
+            {/* Blue grip icon and eye icon outside the div for section-level control */}
+            <div className="absolute top-1/2 -left-10 transform -translate-y-1/2 z-50 flex flex-col gap-2">
+              {/* Eye icon for show/hide section */}
+              <button
+                onClick={() => toggleWidgetVisibility(widget.id)}
+                className="p-2 bg-white rounded-full shadow-xl border-2 border-gray-300 hover:bg-gray-50 transition-all hover:scale-110 z-50"
+                title={widget.visible ? 'Hide section' : 'Show section'}
+                style={{ borderWidth: '2px' }}
+              >
+                {widget.visible ? (
+                  <Eye className="w-4 h-4 text-gray-700" />
+                ) : (
+                  <EyeOff className="w-4 h-4 text-gray-400" />
+                )}
+              </button>
+              {/* Blue grip icon for section-level swapping */}
+              <div
+                {...attributes}
+                {...listeners}
+                className="p-2.5 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full shadow-2xl cursor-grab active:cursor-grabbing hover:from-blue-600 hover:to-blue-700 transition-all border-2 border-white hover:scale-110 z-50"
+                title="Drag to reorder entire section"
+              >
+                <GripVertical className="w-5 h-5 text-white" />
+              </div>
+            </div>
+          </>
+        )}
+        {children}
+      </div>
+    );
+  };
+
+  // Sortable Stats Section Component
+  const SortableStatsSection: React.FC<{
+    section: StatsSection;
+    isEditMode: boolean;
+    onToggleVisibility: (id: string) => void;
+    children: React.ReactNode;
+  }> = ({ section, isEditMode, onToggleVisibility, children }) => {
+    const {
+      attributes,
+      listeners,
+      setNodeRef,
+      transform,
+      transition,
+      isDragging,
+    } = useSortable({ id: section.id });
+
+    const style = {
+      transform: CSS.Transform.toString(transform),
+      transition,
+      opacity: isDragging ? 0.5 : 1,
+    };
+
+    if (!section.visible && !isEditMode) {
+      return null;
+    }
+
+    return (
+      <div
+        ref={setNodeRef}
+        style={style}
+        className={`relative ${isDragging ? 'z-50' : ''} ${!section.visible ? 'opacity-50' : ''}`}
+      >
+        {isEditMode && (
+          <div className="absolute top-2 left-2 z-30 flex flex-col gap-1.5">
+            <button
+              onClick={() => onToggleVisibility(section.id)}
+              className="p-1.5 bg-white rounded-full shadow-lg border border-gray-200 hover:bg-gray-50 transition-colors"
+              title={section.visible ? 'Hide section' : 'Show section'}
+            >
+              {section.visible ? (
+                <Eye className="w-3.5 h-3.5 text-gray-600" />
+              ) : (
+                <EyeOff className="w-3.5 h-3.5 text-gray-400" />
+              )}
+            </button>
+            <div
+              {...attributes}
+              {...listeners}
+              className="p-1.5 bg-teal-500 rounded-full shadow-lg cursor-grab active:cursor-grabbing hover:bg-teal-600 transition-colors"
+              title="Drag to move section"
+            >
+              <GripVertical className="w-3.5 h-3.5 text-white" />
+            </div>
+          </div>
+        )}
+        <div className={isEditMode ? 'pl-14' : ''}>
+          {children}
+        </div>
+      </div>
+    );
+  };
+
+  // Sortable Package/Offer Card Component
+  const SortablePackageOffer: React.FC<{
+    card: PackageOfferCard;
+    children: React.ReactNode;
+  }> = ({ card, children }) => {
+    const {
+      attributes,
+      listeners,
+      setNodeRef,
+      transform,
+      transition,
+      isDragging,
+    } = useSortable({ id: card.id });
+
+    const style = {
+      transform: CSS.Transform.toString(transform),
+      transition,
+      opacity: isDragging ? 0.5 : 1,
+    };
+
+    if (!card.visible && !isEditMode) {
+      return null;
+    }
+
+    return (
+      <div
+        ref={setNodeRef}
+        style={style}
+        className={`relative ${isDragging ? 'z-50' : ''} ${!card.visible ? 'opacity-50' : ''}`}
+      >
+        {isEditMode && (
+          <div className="absolute top-2 left-2 z-30 flex flex-col gap-1.5">
+            <button
+              onClick={() => togglePackageOfferVisibility(card.id)}
+              className="p-1.5 bg-white rounded-full shadow-lg border border-gray-200 hover:bg-gray-50 transition-colors"
+              title={card.visible ? 'Hide card' : 'Show card'}
+            >
+              {card.visible ? (
+                <Eye className="w-3.5 h-3.5 text-gray-600" />
+              ) : (
+                <EyeOff className="w-3.5 h-3.5 text-gray-400" />
+              )}
+            </button>
+            <div
+              {...attributes}
+              {...listeners}
+              className="p-1.5 bg-indigo-500 rounded-full shadow-lg cursor-grab active:cursor-grabbing hover:bg-indigo-600 transition-colors"
+              title="Drag to move card"
+            >
+              <GripVertical className="w-3.5 h-3.5 text-white" />
+            </div>
+          </div>
+        )}
+        <div className={isEditMode ? 'pl-14' : ''}>
+          {children}
+        </div>
+      </div>
+    );
+  };
+
+  // Sortable Chart Component
+  const SortableChart: React.FC<{
+    chart: ChartComponent;
+    children: React.ReactNode;
+  }> = ({ chart, children }) => {
+    const {
+      attributes,
+      listeners,
+      setNodeRef,
+      transform,
+      transition,
+      isDragging,
+    } = useSortable({ id: chart.id });
+
+    const style = {
+      transform: CSS.Transform.toString(transform),
+      transition,
+      opacity: isDragging ? 0.5 : 1,
+    };
+
+    if (!chart.visible && !isEditMode) {
+      return null;
+    }
+
+    return (
+      <div
+        ref={setNodeRef}
+        style={style}
+        className={`relative ${isDragging ? 'z-50' : ''} ${!chart.visible ? 'opacity-50' : ''}`}
+      >
+        {isEditMode && (
+          <div className="absolute top-2 left-2 z-30 flex flex-col gap-1.5">
+            <button
+              onClick={() => toggleChartVisibility(chart.id)}
+              className="p-1.5 bg-white rounded-full shadow-lg border border-gray-200 hover:bg-gray-50 transition-colors"
+              title={chart.visible ? 'Hide chart' : 'Show chart'}
+            >
+              {chart.visible ? (
+                <Eye className="w-3.5 h-3.5 text-gray-600" />
+              ) : (
+                <EyeOff className="w-3.5 h-3.5 text-gray-400" />
+              )}
+            </button>
+            <div
+              {...attributes}
+              {...listeners}
+              className="p-1.5 bg-orange-500 rounded-full shadow-lg cursor-grab active:cursor-grabbing hover:bg-orange-600 transition-colors"
+              title="Drag to move chart"
+            >
+              <GripVertical className="w-3.5 h-3.5 text-white" />
+            </div>
+          </div>
+        )}
+        <div className={isEditMode ? 'pl-14' : ''}>
+          {children}
+        </div>
+      </div>
+    );
+  };
+
+  // Sortable Stat Card Component
+  const SortableStatCard: React.FC<{
+    card: StatCard;
+  }> = ({ card }) => {
+    const {
+      attributes,
+      listeners,
+      setNodeRef,
+      transform,
+      transition,
+      isDragging,
+    } = useSortable({ id: card.id });
+
+    const style = {
+      transform: CSS.Transform.toString(transform),
+      transition,
+      opacity: isDragging ? 0.5 : 1,
+    };
+
+    if (!card.visible && !isEditMode) {
+      return null;
+    }
+
+    const iconMap: { [key: string]: React.ReactNode } = {
+      star: <Star className="w-5 h-5" />,
+      mail: <Mail className="w-5 h-5" />,
+      check: <CheckCircle2 className="w-5 h-5" />,
+      crown: <Crown className="w-5 h-5" />,
+      calendar: <Calendar className="w-5 h-5" />,
+      users: <Users className="w-5 h-5" />,
+      stethoscope: <Stethoscope className="w-5 h-5" />,
+      door: <DoorOpen className="w-5 h-5" />,
+      building: <Building2 className="w-5 h-5" />,
+      package: <Package className="w-5 h-5" />,
+      gift: <Gift className="w-5 h-5" />,
+    };
+
+    const paddingClass = gridSize === 'compact' ? 'p-3' : gridSize === 'spacious' ? 'p-6' : 'p-4';
+
+    return (
+      <div
+        ref={setNodeRef}
+        style={style}
+        className={`relative ${isDragging ? 'z-50 ring-2 ring-purple-500 ring-opacity-50' : ''} ${!card.visible ? 'opacity-50' : ''}`}
+      >
+        <div className={`bg-gradient-to-br from-white to-gray-50 rounded-xl ${paddingClass} border-2 ${isDragging ? 'border-purple-500' : 'border-gray-200'} shadow-sm hover:shadow-xl transition-all duration-300 group relative overflow-hidden`}>
+          {isEditMode && (
+            <div className="absolute top-2 left-2 z-30 flex flex-col gap-1.5">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleCardVisibility(card.id);
+                }}
+                className="p-1.5 bg-white rounded-full shadow-lg border border-gray-200 hover:bg-gray-50 transition-colors z-40"
+                title={card.visible ? 'Hide card' : 'Show card'}
+              >
+                {card.visible ? (
+                  <Eye className="w-3.5 h-3.5 text-gray-600" />
+                ) : (
+                  <EyeOff className="w-3.5 h-3.5 text-gray-400" />
+                )}
+              </button>
+              <div
+                {...attributes}
+                {...listeners}
+                className="p-2 bg-gradient-to-br from-purple-500 to-purple-600 rounded-full shadow-lg cursor-grab active:cursor-grabbing hover:from-purple-600 hover:to-purple-700 transition-all transform hover:scale-110 z-40"
+                title="Drag to move or swap cards"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <GripVertical className="w-4 h-4 text-white" />
+              </div>
+            </div>
+          )}
+          <div className="absolute top-2 right-2 bg-gradient-to-r from-green-600 to-green-700 text-white px-2 py-0.5 text-[10px] font-semibold rounded-full flex items-center gap-1 z-10">
+            <CheckCircle2 className="w-2.5 h-2.5" />
+            ACTIVE
+          </div>
+          <div className={`pt-4 ${isEditMode ? 'pl-14' : ''}`}>
+            <div className="flex items-center justify-between mb-2">
+              <div className="p-2 bg-gradient-to-br from-gray-100 to-gray-200 rounded-lg group-hover:from-gray-200 group-hover:to-gray-300 transition-all">
+                <div className="text-gray-700">{iconMap[card.icon] || <Activity className="w-5 h-5" />}</div>
+              </div>
+            </div>
+            <h3 className="text-[10px] font-medium text-gray-600 mb-1.5 uppercase tracking-wide">{card.label}</h3>
+            {statsLoading ? (
+              <div className="flex items-center gap-1.5">
+                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-gray-800"></div>
+                <span className="text-[11px] text-gray-600">Loading...</span>
+              </div>
+            ) : (
+              <>
+                <p className="text-2xl sm:text-3xl font-bold text-gray-900 mb-1">{card.value}</p>
+                {card.value === 0 && (
+                  <p className="text-[10px] text-gray-500 mt-0.5">No data</p>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   // Render stat card component - Enhanced modern design
   const renderStatCard = (
     label: string,
@@ -1269,15 +2621,106 @@ const ClinicDashboard: NextPageWithLayout = () => {
                   <span className="font-semibold">{formatTime(currentTime)}</span>
                 </div>
                 </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              {isEditMode ? (
+                <>
+                  <div className="flex items-center gap-1 bg-white border border-gray-200 rounded-lg p-1">
+                    <button
+                      onClick={handleUndo}
+                      disabled={historyIndex <= 0}
+                      className="p-2 rounded hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      title="Undo (Ctrl+Z)"
+                    >
+                      <Undo2 className="w-4 h-4 text-gray-600" />
+                    </button>
+                    <button
+                      onClick={handleRedo}
+                      disabled={historyIndex >= cardHistory.length - 1}
+                      className="p-2 rounded hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      title="Redo (Ctrl+Y)"
+                    >
+                      <Redo2 className="w-4 h-4 text-gray-600" />
+                    </button>
+                  </div>
+                  <button
+                    onClick={handleSaveLayout}
+                    className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors shadow-sm"
+                  >
+                    <Save className="w-4 h-4" />
+                    <span>Save</span>
+                  </button>
+                  <button
+                    onClick={handleResetLayout}
+                    className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors shadow-sm"
+                  >
+                    <RotateCcw className="w-4 h-4" />
+                    <span>Reset</span>
+                  </button>
+                  <button
+                    onClick={() => setIsEditMode(false)}
+                    className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors shadow-sm"
+                  >
+                    <X className="w-4 h-4" />
+                    <span>Cancel</span>
+                  </button>
+                </>
+              ) : (
+                <>
             <div className="bg-gray-900 text-white px-4 py-2 rounded-lg">
               <p className="text-sm font-medium">{getGreeting()}</p>
             </div>
+                  <button
+                    onClick={() => setIsEditMode(true)}
+                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+                  >
+                    <Edit2 className="w-4 h-4" />
+                    <span>Customize</span>
+                  </button>
+                </>
+              )}
           </div>
+          </div>
+          {isEditMode && (
+            <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-sm text-blue-800">
+                <strong>Edit Mode:</strong> Drag widgets (blue grip) to reorder sections. Drag stat cards (purple grip) to move between grids. Drag charts (orange grip) to reorder. Drag stats sections (teal grip) to reorder. Use eye icons to show/hide. Keyboard: Ctrl+Z (undo), Ctrl+Y (redo).
+              </p>
+            </div>
+          )}
         </div>
 
-        {/* Packages and Offers - Enhanced Design */}
+        {/* Unified Drag and Drop Context - handles both widget-level and item-level drags */}
+        <DndContext
+          sensors={sensors}
+          collisionDetection={rectIntersection}
+          onDragStart={handleUnifiedDragStart}
+          onDragEnd={handleUnifiedDragEnd}
+        >
+          <SortableContext
+            items={[
+              ...widgets.map((w) => w.id),
+              ...statCards.primary.map(c => c.id),
+              ...statCards.secondary.map(c => c.id),
+              ...packageOfferCards.map(c => c.id),
+              ...chartComponents['status-charts'].map(c => c.id),
+              ...chartComponents['analytics-overview'].map(c => c.id),
+            ]}
+            strategy={verticalListSortingStrategy}
+          >
+            <div className={`space-y-6 ${isEditMode ? 'pl-12' : ''}`}>
+              {widgets
+                .sort((a, b) => a.order - b.order)
+                .map((widget) => {
+                  const widgetContent = (() => {
+                    switch (widget.type) {
+                      case 'packages-offers':
+                        const sortedPackageOfferCards = packageOfferCards.sort((a, b) => a.order - b.order);
+                        return (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-          {/* Packages Card */}
+                                {sortedPackageOfferCards.map((card) => {
+                                  if (card.type === 'package') {
+                                    return (
+                                      <SortablePackageOffer key={card.id} card={card}>
           <div className="bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 rounded-xl border-2 border-indigo-200 shadow-lg p-6 hover:shadow-xl transition-all duration-300 relative overflow-hidden group">
             {/* Decorative Background Elements */}
             <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-indigo-200/30 to-purple-200/30 rounded-full blur-2xl -mr-16 -mt-16"></div>
@@ -1316,8 +2759,11 @@ const ClinicDashboard: NextPageWithLayout = () => {
               </div>
             </div>
           </div>
-
-          {/* Offers Card */}
+                                      </SortablePackageOffer>
+                                    );
+                                  } else {
+                                    return (
+                                      <SortablePackageOffer key={card.id} card={card}>
           <div className="bg-gradient-to-br from-amber-50 via-orange-50 to-red-50 rounded-xl border-2 border-amber-200 shadow-lg p-6 hover:shadow-xl transition-all duration-300 relative overflow-hidden group">
             {/* Decorative Background Elements */}
             <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-amber-200/30 to-orange-200/30 rounded-full blur-2xl -mr-16 -mt-16"></div>
@@ -1356,82 +2802,37 @@ const ClinicDashboard: NextPageWithLayout = () => {
               </div>
             </div>
           </div>
+                                      </SortablePackageOffer>
+                                    );
+                                  }
+                                })}
         </div>
-
-        {/* Main Dashboard Content - Full Width */}
-        <div className="space-y-6 mb-6">
-            {/* Key Statistics Row - Primary */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              {renderStatCard(
-                'Total Reviews',
-                stats.totalReviews,
-                <Star className="w-5 h-5" />,
-                true,
-                'reviews'
-              )}
-              {renderStatCard(
-                'Total Enquiries',
-                stats.totalEnquiries,
-                <Mail className="w-5 h-5" />,
-                true,
-                'enquiries'
-              )}
-              {renderStatCard(
-                'Active Modules',
-                navigationItems.length,
-                <CheckCircle2 className="w-5 h-5" />,
-                true,
-                'modules'
-              )}
-              {renderStatCard(
-                'Subscription',
-                `${subscriptionSummary.subscriptionPercentage}%`,
-                <Crown className="w-5 h-5" />,
-                true,
-                'subscription'
-              )}
+                        );
+                      
+                      case 'primary-stats':
+                        const primaryCards = statCards.primary.sort((a, b) => a.order - b.order);
+                        const gapClass = gridSize === 'compact' ? 'gap-2' : gridSize === 'spacious' ? 'gap-6' : 'gap-4';
+                        return (
+                              <div className={`grid grid-cols-2 sm:grid-cols-4 ${gapClass}`}>
+                                {primaryCards.map((card) => (
+                                  <SortableStatCard key={card.id} card={card} />
+                                ))}
             </div>
-
-            {/* Additional Statistics Row */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-              {renderStatCard(
-                'Appointments',
-                stats.totalAppointments || 0,
-                <Calendar className="w-5 h-5" />,
-                true,
-                'appointments'
-              )}
-              {renderStatCard(
-                'Leads',
-                stats.totalLeads || 0,
-                <Users className="w-5 h-5" />,
-                true,
-                'leads'
-              )}
-              {renderStatCard(
-                'Treatments',
-                stats.totalTreatments || 0,
-                <Stethoscope className="w-5 h-5" />,
-                true,
-                'treatments'
-              )}
-              {renderStatCard(
-                'Rooms',
-                stats.totalRooms || 0,
-                <DoorOpen className="w-5 h-5" />,
-                true,
-                'rooms'
-              )}
-              {renderStatCard(
-                'Departments',
-                stats.totalDepartments || 0,
-                <Building2 className="w-5 h-5" />,
-                true,
-                'departments'
-              )}
+                        );
+                      
+                      case 'secondary-stats':
+                        const secondaryCards = statCards.secondary.sort((a, b) => a.order - b.order);
+                        const gapClass2 = gridSize === 'compact' ? 'gap-2' : gridSize === 'spacious' ? 'gap-6' : 'gap-4';
+                        return (
+                              <div className={`grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 ${gapClass2}`}>
+                                {secondaryCards.map((card) => (
+                                  <SortableStatCard key={card.id} card={card} />
+                                ))}
                 </div>
-
-            {/* Quick Actions */}
+                        );
+                      
+                      case 'quick-actions':
+                        return (
             <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
               <h3 className="text-sm font-semibold text-gray-900 mb-3">Quick Actions</h3>
               <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
@@ -1452,11 +2853,16 @@ const ClinicDashboard: NextPageWithLayout = () => {
                 })}
               </div>
             </div>
+                        );
 
-            {/* Status Breakdown Charts - Expanded */}
+                      case 'status-charts':
+                        const statusCharts = chartComponents['status-charts'].sort((a, b) => a.order - b.order);
+                        return (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Appointment Status Breakdown */}
-              {appointmentStatusData.length > 0 && (
+                                {statusCharts.map((chart) => {
+                                  if (chart.id === 'chart-appointment' && appointmentStatusData.length > 0) {
+                                    return (
+                                      <SortableChart key={chart.id} chart={chart}>
                 <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
                   <h3 className="text-base font-semibold text-gray-900 mb-6">Appointment Status</h3>
                   <div className="h-80">
@@ -1482,10 +2888,12 @@ const ClinicDashboard: NextPageWithLayout = () => {
                     </ResponsiveContainer>
                   </div>
                 </div>
-              )}
-
-              {/* Lead Status Breakdown */}
-              {leadStatusData.length > 0 && (
+                                      </SortableChart>
+                                    );
+                                  }
+                                  if (chart.id === 'chart-lead' && leadStatusData.length > 0) {
+                                    return (
+                                      <SortableChart key={chart.id} chart={chart}>
                 <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
                   <h3 className="text-base font-semibold text-gray-900 mb-6">Lead Status</h3>
                   <div className="h-80">
@@ -1511,10 +2919,12 @@ const ClinicDashboard: NextPageWithLayout = () => {
                     </ResponsiveContainer>
                   </div>
                 </div>
-              )}
-
-              {/* Offer Status Breakdown */}
-              {offerStatusData.length > 0 && (
+                                      </SortableChart>
+                                    );
+                                  }
+                                  if (chart.id === 'chart-offer' && offerStatusData.length > 0) {
+                                    return (
+                                      <SortableChart key={chart.id} chart={chart}>
                 <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
                   <h3 className="text-base font-semibold text-gray-900 mb-6">Offer Status</h3>
                   <div className="h-80">
@@ -1540,16 +2950,22 @@ const ClinicDashboard: NextPageWithLayout = () => {
                     </ResponsiveContainer>
                   </div>
                 </div>
-              )}
+                                      </SortableChart>
+                                    );
+                                  }
+                                  return null;
+                                })}
             </div>
-        </div>
-
-        {/* Analytics Overview - Full Width */}
-        {((stats.totalEnquiries > 0 || stats.totalReviews > 0 || (stats.totalAppointments || 0) > 0 || (stats.totalLeads || 0) > 0 || (stats.totalOffers || 0) > 0 || (stats.totalPatients || 0) > 0 || (stats.totalRooms || 0) > 0) || modulesChartData.length > 0 || statsChartData.length > 0) && (
+                        );
+                      
+                      case 'analytics-overview':
+                        if (!((stats.totalEnquiries > 0 || stats.totalReviews > 0 || (stats.totalAppointments || 0) > 0 || (stats.totalLeads || 0) > 0 || (stats.totalOffers || 0) > 0 || (stats.totalPatients || 0) > 0 || (stats.totalRooms || 0) > 0) || modulesChartData.length > 0 || statsChartData.length > 0)) {
+                          return null;
+                        }
+                        return (
           <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 mb-6">
             <h3 className="text-base font-semibold text-gray-900 mb-6">Analytics Overview</h3>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-              {/* Bar Chart - Appointments, Leads, Offers, Jobs */}
               <div className="h-80">
                 <h4 className="text-sm font-medium text-gray-700 mb-2">Appointments, Leads, Offers & Jobs</h4>
                 {modulesChartData.length > 0 ? (
@@ -1603,7 +3019,6 @@ const ClinicDashboard: NextPageWithLayout = () => {
               </div>
                 )}
               </div>
-              {/* Line Chart - Reviews, Enquiries, Patients, Rooms */}
               <div className="h-80">
                 <h4 className="text-sm font-medium text-gray-700 mb-2">Reviews, Enquiries, Patients & Rooms</h4>
                 <ResponsiveContainer width="100%" height="100%">
@@ -1641,7 +3056,6 @@ const ClinicDashboard: NextPageWithLayout = () => {
                 </ResponsiveContainer>
               </div>
             </div>
-            {/* Active vs Inactive Graph */}
             <div className="h-80">
               <h3 className="text-base font-semibold text-gray-900 mb-4">Active vs Inactive</h3>
               <ResponsiveContainer width="100%" height="100%">
@@ -1695,9 +3109,10 @@ const ClinicDashboard: NextPageWithLayout = () => {
               </ResponsiveContainer>
             </div>
           </div>
-        )}
+                        );
 
-        {/* Subscription Status - Enhanced Design */}
+                      case 'subscription-status':
+                        return (
         <div className="bg-gradient-to-br from-white to-gray-50 rounded-xl border border-gray-200 shadow-lg p-6 mb-6">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-3">
@@ -1714,9 +3129,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
               <div className="text-xs text-gray-500">Active</div>
             </div>
           </div>
-
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            {/* Active Modules Card */}
             <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg border border-green-200 p-4 hover:shadow-md transition-all">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
@@ -1741,8 +3154,6 @@ const ClinicDashboard: NextPageWithLayout = () => {
                 )}
               </div>
             </div>
-
-            {/* Subscription Card */}
             <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg border border-blue-200 p-4 hover:shadow-md transition-all">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
@@ -1765,8 +3176,6 @@ const ClinicDashboard: NextPageWithLayout = () => {
                 </span>
               </div>
             </div>
-
-            {/* Locked Modules Card */}
             <div className="bg-gradient-to-br from-gray-50 to-slate-50 rounded-lg border border-gray-200 p-4 hover:shadow-md transition-all">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
@@ -1792,8 +3201,6 @@ const ClinicDashboard: NextPageWithLayout = () => {
               </div>
             </div>
           </div>
-          
-          {/* Summary Section */}
           <div className="bg-white rounded-lg border border-gray-200 p-4">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
@@ -1822,16 +3229,148 @@ const ClinicDashboard: NextPageWithLayout = () => {
             </div>
           </div>
         </div>
-
-        {/* Additional Stats Component - Job and Blog Analytics */}
-        {/* Render after permissions are loaded - for clinic/doctor, this happens immediately */}
-        {permissionsLoaded && (
+                        );
+                      
+                      case 'additional-stats':
+                        if (!permissionsLoaded) return null;
+                        const sortedStatsSections = statsSections.sort((a, b) => a.order - b.order);
+                        const statsSectionIds = sortedStatsSections.map(s => s.id);
+                        return (
+                          <DndContext
+                            sensors={cardSensors}
+                            collisionDetection={rectIntersection}
+                            onDragStart={handleStatsSectionDragStart}
+                            onDragEnd={handleStatsSectionDragEnd}
+                          >
+                            <SortableContext
+                              items={statsSectionIds}
+                              strategy={verticalListSortingStrategy}
+                            >
+                              <div className="space-y-6">
           <Stats
             key={`stats-${permissionsLoaded}-${navigationItemsLoaded}-${userRole || 'default'}`}
             role="clinic"
             config={statsConfig}
-          />
-        )}
+                                  showSections={{
+                                    jobTypes: true,
+                                    blogStats: true,
+                                    blogEngagement: true,
+                                  }}
+                                  isEditMode={isEditMode}
+                                  sectionWrapper={(sectionId, content) => {
+                                    const section = sortedStatsSections.find(s => s.id === sectionId);
+                                    if (!section) return content;
+                                    return (
+                                      <SortableStatsSection
+                                        key={section.id}
+                                        section={section}
+                                        isEditMode={isEditMode}
+                                        onToggleVisibility={toggleStatsSectionVisibility}
+                                      >
+                                        {content}
+                                      </SortableStatsSection>
+                                    );
+                                  }}
+                                />
+      </div>
+                            </SortableContext>
+                            <DragOverlay>
+                              {activeStatsSectionId && sortedStatsSections.find(s => s.id === activeStatsSectionId) ? (
+                                <div className="bg-white rounded-lg border-2 border-teal-500 shadow-xl p-4 opacity-90">
+                                  <div className="flex items-center gap-2">
+                                    <GripVertical className="w-4 h-4 text-teal-500" />
+                                    <span className="text-sm font-semibold text-gray-700">
+                                      {sortedStatsSections.find(s => s.id === activeStatsSectionId)?.title || 'Section'}
+                                    </span>
+                                  </div>
+                                </div>
+                              ) : null}
+                            </DragOverlay>
+                          </DndContext>
+                        );
+                      
+                      default:
+                        return null;
+                    }
+                  })();
+
+                  return (
+                    <SortableWidget key={widget.id} widget={widget}>
+                      {widgetContent}
+                    </SortableWidget>
+                  );
+                })}
+            </div>
+          </SortableContext>
+          <DragOverlay>
+                {(() => {
+                  // Widget-level drag overlay
+                  if (activeId && widgets.find(w => w.id === activeId)) {
+                    const widget = widgets.find(w => w.id === activeId);
+                    if (widget) {
+                      return (
+                        <div className="bg-white rounded-lg border-2 border-blue-500 shadow-2xl p-4 opacity-95 min-w-[200px]">
+                          <div className="flex items-center gap-2">
+                            <GripVertical className="w-5 h-5 text-blue-500" />
+                            <div className="flex flex-col">
+                              <span className="text-sm font-semibold text-gray-700">{widget.title}</span>
+                              <span className="text-xs text-gray-500">Section</span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    }
+                  }
+                  
+                  // Item-level drag overlays
+                  if (activeCardId) {
+                    const allCards = [...statCards.primary, ...statCards.secondary];
+                    const draggedCard = allCards.find(c => c.id === activeCardId);
+                    if (draggedCard) {
+                      return (
+                        <div className="bg-white rounded-lg border-2 border-purple-500 shadow-xl p-4 opacity-90 min-w-[200px]">
+                <div className="flex items-center gap-2">
+                            <GripVertical className="w-5 h-5 text-purple-500" />
+                            <div className="flex flex-col">
+                              <span className="text-sm font-semibold text-gray-700">{draggedCard.label}</span>
+                              <span className="text-xs text-gray-500">{draggedCard.value}</span>
+                </div>
+              </div>
+                        </div>
+                      );
+                    }
+                  }
+                  if (activeChartId) {
+                    const allCharts = [...chartComponents['status-charts'], ...chartComponents['analytics-overview']];
+                    const draggedChart = allCharts.find(c => c.id === activeChartId);
+                    if (draggedChart) {
+                      return (
+                        <div className="bg-white rounded-lg border-2 border-orange-500 shadow-xl p-4 opacity-90 min-w-[200px]">
+                          <div className="flex items-center gap-2">
+                            <GripVertical className="w-5 h-5 text-orange-500" />
+                            <span className="text-sm font-semibold text-gray-700">{draggedChart.title}</span>
+                          </div>
+                        </div>
+                      );
+                    }
+                  }
+                  if (activePackageOfferId) {
+                    const draggedPackage = packageOfferCards.find(c => c.id === activePackageOfferId);
+                    if (draggedPackage) {
+                      return (
+                        <div className="bg-white rounded-lg border-2 border-indigo-500 shadow-xl p-4 opacity-90 min-w-[200px]">
+                          <div className="flex items-center gap-2">
+                            <GripVertical className="w-5 h-5 text-indigo-500" />
+                            <span className="text-sm font-semibold text-gray-700">{draggedPackage.title}</span>
+                          </div>
+                        </div>
+                      );
+                    }
+                  }
+                  return null;
+                })()}
+          </DragOverlay>
+        </DndContext>
       </div>
     </div>
   );

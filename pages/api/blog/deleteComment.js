@@ -60,22 +60,24 @@ export default async function handler(req, res) {
     
     // Only blog author, clinic users (agent/doctorStaff) with permission, or admin can delete comments
     if (isBlogAuthor || isClinicBlog || isAdmin) {
-      // Check permission for deleting comments
-      if (!isAdmin && !isDoctor && clinicId) {
-        const roleForPermission = isDoctorStaff ? "doctorStaff" : isAgent ? "agent" : me.role === "clinic" ? "clinic" : null;
-        const { hasPermission, error: permError } = await checkClinicPermission(
-          clinicId,
-          "write_blog", // Check "write_blog" module permission
-          "delete",
-          null, // Module-level check
-          roleForPermission
-        );
-        if (!hasPermission) {
-          return res.status(403).json({
-            success: false,
-            message: permError || "You do not have permission to delete comments"
-          });
+      // ✅ Check permission for deleting comments (only for agent/doctorStaff, clinic/admin/doctor bypass)
+      if (!["admin", "clinic", "doctor"].includes(me.role) && clinicId) {
+        if (isAgent || isDoctorStaff) {
+          const { checkAgentPermission } = await import("../agent/permissions-helper");
+          const result = await checkAgentPermission(
+            me._id,
+            "clinic_write_blog",
+            "delete",
+            null
+          );
+          if (!result.hasPermission) {
+            return res.status(403).json({
+              success: false,
+              message: result.error || "You do not have permission to delete comments"
+            });
+          }
         }
+        // Clinic, admin, and doctor users bypass permission checks
       }
     }
 

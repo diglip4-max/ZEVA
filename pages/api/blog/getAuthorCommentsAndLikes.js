@@ -27,12 +27,8 @@ export default async function handler(req, res) {
       return res.status(404).json({ success: false, message: error });
     }
 
-    // ✅ Check permission for reading analytics (only for clinic roles, admin bypasses)
-    if (!isAdmin && !isDoctor && clinicId) {
-      let hasPermission = false;
-      let permError = null;
-      
-      // For agent/doctorStaff, use checkAgentPermission (checks AgentPermission collection)
+    // ✅ Check permission for reading analytics (only for agent/doctorStaff, clinic/admin/doctor bypass)
+    if (!["admin", "clinic", "doctor"].includes(me.role) && clinicId) {
       if (isAgent || isDoctorStaff) {
         const result = await checkAgentPermission(
           me._id,
@@ -40,28 +36,14 @@ export default async function handler(req, res) {
           "read",
           null // Module-level check for analytics
         );
-        hasPermission = result.hasPermission;
-        permError = result.error;
-      } 
-      // For clinic role, use checkClinicPermission (checks ClinicPermission collection)
-      else if (me.role === "clinic") {
-        const result = await checkClinicPermission(
-          clinicId,
-          "write_blog", // Check "write_blog" module permission
-          "read",
-          null, // Module-level check for analytics
-          "clinic"
-        );
-        hasPermission = result.hasPermission;
-        permError = result.error;
+        if (!result.hasPermission) {
+          return res.status(403).json({
+            success: false,
+            message: result.error || "You do not have permission to view blog analytics"
+          });
+        }
       }
-      
-      if (!hasPermission) {
-        return res.status(403).json({
-          success: false,
-          message: permError || "You do not have permission to view blog analytics"
-        });
-      }
+      // Clinic, admin, and doctor users bypass permission checks
     }
 
     // Find all blogs - for agent/doctorStaff, find blogs from their clinic
@@ -90,9 +72,40 @@ export default async function handler(req, res) {
     } else if (isAdmin) {
       // Admin can see all blogs - no filter needed
       blogQuery = { status: 'published' };
-    } else {
-      // For clinic/doctor, find blogs posted by this user
+    } else if (me.role === "doctor") {
+      // For doctor, find blogs posted by this user
       blogQuery.postedBy = me._id;
+    } else {
+      // For clinic role, find blogs posted by the clinic owner and all clinic users (similar to job-postings pattern)
+      const orConditions = [{ postedBy: me._id }];
+      
+      if (clinicId) {
+        // Find clinic owner and all users from this clinic
+        const clinic = await Clinic.findById(clinicId).select("owner");
+        const clinicUserIds = [];
+        
+        // Add clinic owner (who posted the blogs)
+        if (clinic && clinic.owner) {
+          clinicUserIds.push(clinic.owner);
+        }
+        
+        // Add all users with this clinicId (agents, staff, doctors, etc.)
+        const clinicUsers = await User.find({ 
+          clinicId: clinicId 
+        }).select("_id");
+        
+        clinicUsers.forEach(u => {
+          if (!clinicUserIds.some(id => id.toString() === u._id.toString())) {
+            clinicUserIds.push(u._id);
+          }
+        });
+        
+        if (clinicUserIds.length > 0) {
+          orConditions.push({ postedBy: { $in: clinicUserIds } });
+        }
+      }
+      
+      blogQuery.$or = orConditions;
     }
 
     const blogs = await Blog.find(blogQuery)
