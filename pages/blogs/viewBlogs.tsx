@@ -612,13 +612,12 @@ return (
                                   e.stopPropagation();
                                   handleLike(blog._id);
                                 }}
-                                className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium transition-all ${blog.liked
-                                  ? "bg-red-50 text-red-600"
-                                  : "bg-gray-100 text-gray-600 hover:bg-red-50 hover:text-red-500"
-                                  }`}
+                                className={`inline-flex items-center gap-1 text-xs font-medium transition-colors ${
+                                  blog.liked ? "text-red-600" : "text-gray-500 hover:text-red-500"
+                                }`}
                               >
                                 <svg
-                                  className={`w-3.5 h-3.5 ${blog.liked ? "text-red-500" : ""}`}
+                                  className={`w-4 h-4 ${blog.liked ? "text-red-500" : "text-gray-400 group-hover:text-red-500"}`}
                                   fill={blog.liked ? "currentColor" : "none"}
                                   stroke="currentColor"
                                   strokeWidth="2"
@@ -630,7 +629,7 @@ return (
                                     d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"
                                   />
                                 </svg>
-                                <span>{blog.likesCount ?? 0}</span>
+                                <span className="tabular-nums">{blog.likesCount ?? 0}</span>
                               </button>
 
                               <button

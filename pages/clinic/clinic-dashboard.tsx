@@ -2538,34 +2538,34 @@ const ClinicDashboard: NextPageWithLayout = () => {
     }
 
     return (
-      <div className="bg-gradient-to-br from-white to-gray-50 rounded-xl p-4 border border-gray-200 shadow-sm hover:shadow-xl transition-all duration-300 group relative overflow-hidden">
-        <div className="absolute top-2 right-2 bg-gradient-to-r from-green-600 to-green-700 text-white px-2 py-0.5 text-[10px] font-semibold rounded-full flex items-center gap-1">
-          <CheckCircle2 className="w-2.5 h-2.5" />
+      <div className="bg-gradient-to-br from-white to-gray-50 rounded-md p-2.5 border border-gray-200 shadow-sm hover:shadow-md transition-all duration-300 group relative overflow-hidden">
+        <div className="absolute top-1 right-1 bg-gradient-to-r from-green-600 to-green-700 text-white px-1 py-0.5 text-[8px] font-semibold rounded-full flex items-center gap-0.5">
+          <CheckCircle2 className="w-1.5 h-1.5" />
           ACTIVE
         </div>
-        <div className="pt-4">
-          <div className="flex items-center justify-between mb-2">
-            <div className="p-2 bg-gradient-to-br from-gray-100 to-gray-200 rounded-lg group-hover:from-gray-200 group-hover:to-gray-300 transition-all">
-              <div className="text-gray-700">{icon}</div>
+        <div className="pt-2.5">
+          <div className="flex items-center justify-between mb-1">
+            <div className="p-1 bg-gradient-to-br from-gray-100 to-gray-200 rounded-md group-hover:from-gray-200 group-hover:to-gray-300 transition-all">
+              <div className="text-gray-700 text-xs">{icon}</div>
             </div>
             {trend && (
               <div className={`flex items-center gap-0.5 ${trend.isPositive ? 'text-green-600' : 'text-red-600'}`}>
-                {trend.isPositive ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
-                <span className="text-[10px] font-semibold">{Math.abs(trend.value)}%</span>
+                {trend.isPositive ? <ArrowUpRight className="w-2 h-2" /> : <ArrowDownRight className="w-2 h-2" />}
+                <span className="text-[8px] font-semibold">{Math.abs(trend.value)}%</span>
               </div>
             )}
           </div>
-          <h3 className="text-[10px] font-medium text-gray-600 mb-1.5 uppercase tracking-wide">{label}</h3>
+          <h3 className="text-[8px] font-medium text-gray-600 mb-1 uppercase tracking-wide">{label}</h3>
           {statsLoading ? (
-            <div className="flex items-center gap-1.5">
-              <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-gray-800"></div>
-              <span className="text-[11px] text-gray-600">Loading...</span>
+            <div className="flex items-center gap-1">
+              <div className="animate-spin rounded-full h-2 w-2 border-b-2 border-gray-800"></div>
+              <span className="text-[9px] text-gray-600">Loading...</span>
             </div>
           ) : (
             <>
-              <p className="text-2xl sm:text-3xl font-bold text-gray-900 mb-1">{value}</p>
+              <p className="text-lg sm:text-xl font-bold text-gray-900 mb-0.5">{value}</p>
               {value === 0 && (
-                <p className="text-[10px] text-gray-500 mt-0.5">No data</p>
+                <p className="text-[8px] text-gray-500 mt-0.5">No data</p>
               )}
             </>
           )}
@@ -2600,9 +2600,9 @@ const ClinicDashboard: NextPageWithLayout = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 overflow-x-hidden">
       {/* Modern Dashboard Layout */}
-      <div className="w-full px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
+      <div className="w-full px-2 sm:px-4 lg:px-6 py-4 sm:py-6">
         {/* Dashboard Header */}
         <div className="mb-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -2721,39 +2721,39 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                   if (card.type === 'package') {
                                     return (
                                       <SortablePackageOffer key={card.id} card={card}>
-          <div className="bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 rounded-xl border-2 border-indigo-200 shadow-lg p-6 hover:shadow-xl transition-all duration-300 relative overflow-hidden group">
+          <div className="bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 rounded-lg border-2 border-indigo-200 shadow-md p-4 hover:shadow-lg transition-all duration-300 relative overflow-hidden group">
             {/* Decorative Background Elements */}
-            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-indigo-200/30 to-purple-200/30 rounded-full blur-2xl -mr-16 -mt-16"></div>
-            <div className="absolute bottom-0 left-0 w-24 h-24 bg-gradient-to-tr from-pink-200/30 to-purple-200/30 rounded-full blur-xl -ml-12 -mb-12"></div>
+            <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-indigo-200/30 to-purple-200/30 rounded-full blur-xl -mr-10 -mt-10"></div>
+            <div className="absolute bottom-0 left-0 w-16 h-16 bg-gradient-to-tr from-pink-200/30 to-purple-200/30 rounded-full blur-lg -ml-8 -mb-8"></div>
             
             <div className="relative z-10">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <div className="p-3 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl shadow-lg group-hover:scale-110 transition-transform">
-                    <Package className="w-7 h-7 text-white" />
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg shadow-md group-hover:scale-105 transition-transform">
+                    <Package className="w-5 h-5 text-white" />
                   </div>
                   <div>
-                    <h3 className="text-lg font-bold text-gray-900">Packages</h3>
-                    <p className="text-xs text-gray-600">Total available packages</p>
+                    <h3 className="text-sm font-bold text-gray-900">Packages</h3>
+                    <p className="text-[10px] text-gray-600">Total available packages</p>
                   </div>
                 </div>
-                <div className="px-3 py-1 bg-indigo-100 rounded-full">
-                  <span className="text-xs font-semibold text-indigo-700">ACTIVE</span>
+                <div className="px-2 py-0.5 bg-indigo-100 rounded-full">
+                  <span className="text-[10px] font-semibold text-indigo-700">ACTIVE</span>
                 </div>
               </div>
               
-              <div className="mb-4">
-                <div className="text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600 mb-2">
+              <div className="mb-3">
+                <div className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600 mb-1">
                   {stats.totalPackages || 0}
                 </div>
-                <div className="flex items-center gap-2 text-sm text-gray-600">
-                  <div className="w-2 h-2 bg-indigo-500 rounded-full animate-pulse"></div>
+                <div className="flex items-center gap-1.5 text-xs text-gray-600">
+                  <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-pulse"></div>
                   <span>Available packages</span>
                 </div>
               </div>
               
-              <div className="pt-4 border-t border-indigo-200/50">
-                <div className="text-xs text-gray-600">
+              <div className="pt-3 border-t border-indigo-200/50">
+                <div className="text-[10px] text-gray-600">
                   <span className="font-semibold text-gray-900">Status:</span> Active
                 </div>
               </div>
@@ -2764,39 +2764,39 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                   } else {
                                     return (
                                       <SortablePackageOffer key={card.id} card={card}>
-          <div className="bg-gradient-to-br from-amber-50 via-orange-50 to-red-50 rounded-xl border-2 border-amber-200 shadow-lg p-6 hover:shadow-xl transition-all duration-300 relative overflow-hidden group">
+          <div className="bg-gradient-to-br from-amber-50 via-orange-50 to-red-50 rounded-lg border-2 border-amber-200 shadow-md p-4 hover:shadow-lg transition-all duration-300 relative overflow-hidden group">
             {/* Decorative Background Elements */}
-            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-amber-200/30 to-orange-200/30 rounded-full blur-2xl -mr-16 -mt-16"></div>
-            <div className="absolute bottom-0 left-0 w-24 h-24 bg-gradient-to-tr from-red-200/30 to-orange-200/30 rounded-full blur-xl -ml-12 -mb-12"></div>
+            <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-amber-200/30 to-orange-200/30 rounded-full blur-xl -mr-10 -mt-10"></div>
+            <div className="absolute bottom-0 left-0 w-16 h-16 bg-gradient-to-tr from-red-200/30 to-orange-200/30 rounded-full blur-lg -ml-8 -mb-8"></div>
             
             <div className="relative z-10">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <div className="p-3 bg-gradient-to-br from-amber-500 to-orange-600 rounded-xl shadow-lg group-hover:scale-110 transition-transform">
-                    <Gift className="w-7 h-7 text-white" />
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 bg-gradient-to-br from-amber-500 to-orange-600 rounded-lg shadow-md group-hover:scale-105 transition-transform">
+                    <Gift className="w-5 h-5 text-white" />
                   </div>
                   <div>
-                    <h3 className="text-lg font-bold text-gray-900">Offers</h3>
-                    <p className="text-xs text-gray-600">Current active offers</p>
+                    <h3 className="text-sm font-bold text-gray-900">Offers</h3>
+                    <p className="text-[10px] text-gray-600">Current active offers</p>
                   </div>
                 </div>
-                <div className="px-3 py-1 bg-amber-100 rounded-full">
-                  <span className="text-xs font-semibold text-amber-700">ACTIVE</span>
+                <div className="px-2 py-0.5 bg-amber-100 rounded-full">
+                  <span className="text-[10px] font-semibold text-amber-700">ACTIVE</span>
                 </div>
               </div>
               
-              <div className="mb-4">
-                <div className="text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-amber-600 to-orange-600 mb-2">
+              <div className="mb-3">
+                <div className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-amber-600 to-orange-600 mb-1">
                   {stats.totalOffers || 0}
                 </div>
-                <div className="flex items-center gap-2 text-sm text-gray-600">
-                  <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse"></div>
+                <div className="flex items-center gap-1.5 text-xs text-gray-600">
+                  <div className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-pulse"></div>
                   <span>Active offers</span>
                 </div>
               </div>
               
-              <div className="pt-4 border-t border-amber-200/50">
-                <div className="text-xs text-gray-600">
+              <div className="pt-3 border-t border-amber-200/50">
+                <div className="text-[10px] text-gray-600">
                   <span className="font-semibold text-gray-900">Status:</span> Active
                 </div>
               </div>
@@ -2811,7 +2811,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                       
                       case 'primary-stats':
                         const primaryCards = statCards.primary.sort((a, b) => a.order - b.order);
-                        const gapClass = gridSize === 'compact' ? 'gap-2' : gridSize === 'spacious' ? 'gap-6' : 'gap-4';
+                        const gapClass = gridSize === 'compact' ? 'gap-1.5' : gridSize === 'spacious' ? 'gap-4' : 'gap-3';
                         return (
                               <div className={`grid grid-cols-2 sm:grid-cols-4 ${gapClass}`}>
                                 {primaryCards.map((card) => (
@@ -2822,7 +2822,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                       
                       case 'secondary-stats':
                         const secondaryCards = statCards.secondary.sort((a, b) => a.order - b.order);
-                        const gapClass2 = gridSize === 'compact' ? 'gap-2' : gridSize === 'spacious' ? 'gap-6' : 'gap-4';
+                        const gapClass2 = gridSize === 'compact' ? 'gap-1.5' : gridSize === 'spacious' ? 'gap-4' : 'gap-3';
                         return (
                               <div className={`grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 ${gapClass2}`}>
                                 {secondaryCards.map((card) => (
@@ -2858,23 +2858,23 @@ const ClinicDashboard: NextPageWithLayout = () => {
                       case 'status-charts':
                         const statusCharts = chartComponents['status-charts'].sort((a, b) => a.order - b.order);
                         return (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                                 {statusCharts.map((chart) => {
                                   if (chart.id === 'chart-appointment' && appointmentStatusData.length > 0) {
                                     return (
                                       <SortableChart key={chart.id} chart={chart}>
-                <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
-                  <h3 className="text-base font-semibold text-gray-900 mb-6">Appointment Status</h3>
-                  <div className="h-80">
+                <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4 overflow-hidden">
+                  <h3 className="text-sm font-semibold text-gray-900 mb-4">Appointment Status</h3>
+                  <div className="h-56">
                     <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
+                      <PieChart margin={{ top: 10, right: 20, bottom: 40, left: 20 }}>
                         <Pie
                           data={appointmentStatusData}
                           cx="50%"
-                          cy="50%"
+                          cy="45%"
                           labelLine={false}
-                          label={({ name, percent }: { name: string; percent?: number }) => `${name}: ${((percent || 0) * 100).toFixed(0)}%`}
-                          outerRadius={100}
+                          label={false}
+                          outerRadius={55}
                           fill="#8884d8"
                           dataKey="value"
                         >
@@ -2883,7 +2883,11 @@ const ClinicDashboard: NextPageWithLayout = () => {
                           ))}
                         </Pie>
                         <Tooltip />
-                        <Legend />
+                        <Legend 
+                          wrapperStyle={{ fontSize: '10px', paddingTop: '15px' }}
+                          iconType="circle"
+                          formatter={(value, entry) => `${value}: ${((entry.payload.percent || 0) * 100).toFixed(0)}%`}
+                        />
                       </PieChart>
                     </ResponsiveContainer>
                   </div>
@@ -2894,18 +2898,18 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                   if (chart.id === 'chart-lead' && leadStatusData.length > 0) {
                                     return (
                                       <SortableChart key={chart.id} chart={chart}>
-                <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
-                  <h3 className="text-base font-semibold text-gray-900 mb-6">Lead Status</h3>
-                  <div className="h-80">
+                <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4 overflow-hidden">
+                  <h3 className="text-sm font-semibold text-gray-900 mb-4">Lead Status</h3>
+                  <div className="h-56">
                     <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
+                      <PieChart margin={{ top: 10, right: 20, bottom: 40, left: 20 }}>
                         <Pie
                           data={leadStatusData}
                           cx="50%"
-                          cy="50%"
+                          cy="45%"
                           labelLine={false}
-                          label={({ name, percent }: { name: string; percent?: number }) => `${name}: ${((percent || 0) * 100).toFixed(0)}%`}
-                          outerRadius={100}
+                          label={false}
+                          outerRadius={55}
                           fill="#8884d8"
                           dataKey="value" 
                         >
@@ -2914,7 +2918,11 @@ const ClinicDashboard: NextPageWithLayout = () => {
                           ))}
                         </Pie>
                         <Tooltip />
-                        <Legend />
+                        <Legend 
+                          wrapperStyle={{ fontSize: '10px', paddingTop: '15px' }}
+                          iconType="circle"
+                          formatter={(value, entry) => `${value}: ${((entry.payload.percent || 0) * 100).toFixed(0)}%`}
+                        />
                       </PieChart>
                     </ResponsiveContainer>
                   </div>
@@ -2925,18 +2933,18 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                   if (chart.id === 'chart-offer' && offerStatusData.length > 0) {
                                     return (
                                       <SortableChart key={chart.id} chart={chart}>
-                <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
-                  <h3 className="text-base font-semibold text-gray-900 mb-6">Offer Status</h3>
-                  <div className="h-80">
+                <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4 overflow-hidden">
+                  <h3 className="text-sm font-semibold text-gray-900 mb-4">Offer Status</h3>
+                  <div className="h-56">
                     <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
+                      <PieChart margin={{ top: 10, right: 20, bottom: 40, left: 20 }}>
                         <Pie
                           data={offerStatusData}
                           cx="50%"
-                          cy="50%"
+                          cy="45%"
                           labelLine={false}
-                          label={({ name, percent }: { name: string; percent?: number }) => `${name}: ${((percent || 0) * 100).toFixed(0)}%`}
-                          outerRadius={100}
+                          label={false}
+                          outerRadius={55}
                           fill="#8884d8"
                           dataKey="value"
                         >
@@ -2945,7 +2953,11 @@ const ClinicDashboard: NextPageWithLayout = () => {
                           ))}
                         </Pie>
                         <Tooltip />
-                        <Legend />
+                        <Legend 
+                          wrapperStyle={{ fontSize: '10px', paddingTop: '15px' }}
+                          iconType="circle"
+                          formatter={(value, entry) => `${value}: ${((entry.payload.percent || 0) * 100).toFixed(0)}%`}
+                        />
                       </PieChart>
                     </ResponsiveContainer>
                   </div>

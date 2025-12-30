@@ -90,6 +90,7 @@ import {
   HardDrive,
   Globe2,
   ChevronDown,
+  GripVertical,
 } from "lucide-react";
 
 interface NavItemChild {
@@ -717,12 +718,21 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                 };
 
                 if (item.children && item.children.length > 0) {
+                  const itemIndex = items.findIndex(i => i.label === item.label);
                   return (
-                    <div key={item.label} className="space-y-1">
+                    <div 
+                      key={item.label} 
+                      className="space-y-1"
+                      draggable
+                      onDragStart={onDragStartParent(itemIndex)}
+                      onDragOver={onDragOver}
+                      onDrop={onDropParent(itemIndex)}
+                      onDragEnd={onDragEnd}
+                    >
                       <button
                         onClick={() => setOpenDropdown(openDropdown === item.label ? null : item.label)}
                         className={clsx(
-                          "w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-all duration-200 text-left group",
+                          "w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-all duration-200 text-left group cursor-move",
                           {
                             "bg-[#2D9AA5] text-white": isActive,
                             "text-gray-700 hover:bg-gray-100": !isActive,
@@ -730,6 +740,13 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                         )}
                       >
                         <div className="flex items-center space-x-3">
+                          <GripVertical className={clsx(
+                            "w-4 h-4 flex-shrink-0 opacity-40 group-hover:opacity-70 transition-opacity",
+                            {
+                              "text-white": isActive,
+                              "text-gray-400": !isActive,
+                            }
+                          )} />
                           <div className={clsx(
                             "p-1.5 rounded-md transition-all duration-200 flex-shrink-0",
                             {
@@ -759,14 +776,26 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                             return child.path ? (
                               <Link key={childIdx} href={child.path} onClick={handleItemClick}>
                                 <div
+                                  draggable
+                                  onDragStart={onDragStartChild(itemIndex, childIdx)}
+                                  onDragOver={onDragOver}
+                                  onDrop={onDropChild(itemIndex, childIdx)}
+                                  onDragEnd={onDragEnd}
                                   className={clsx(
-                                    "px-3 py-2 rounded-lg transition-all duration-200 text-sm",
+                                    "px-3 py-2 rounded-lg transition-all duration-200 text-sm cursor-move flex items-center gap-2",
                                     {
                                       "bg-[#2D9AA5] text-white": isChildActive,
                                       "text-gray-700 hover:bg-gray-100": !isChildActive,
                                     }
                                   )}
                                 >
+                                  <GripVertical className={clsx(
+                                    "w-3.5 h-3.5 flex-shrink-0 opacity-40",
+                                    {
+                                      "text-white": isChildActive,
+                                      "text-gray-400": !isChildActive,
+                                    }
+                                  )} />
                                   {child.label}
                                 </div>
                               </Link>
@@ -787,15 +816,27 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
 
                 const MenuItemContent = (
                   <div
-                    onClick={handleItemClick}
+                    draggable
+                    onDragStart={onDragStartParent(items.findIndex(i => i.label === item.label))}
+                    onDragOver={onDragOver}
+                    onDrop={onDropParent(items.findIndex(i => i.label === item.label))}
+                    onDragEnd={onDragEnd}
+                    onClick={safeClick(handleItemClick)}
                     className={clsx(
-                      "w-full flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 group cursor-pointer",
+                      "w-full flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 group cursor-move",
                       {
                         "bg-[#2D9AA5] text-white": isActive,
                         "text-gray-700 hover:bg-gray-100": !isActive,
                       }
                     )}
                   >
+                    <GripVertical className={clsx(
+                      "w-4 h-4 mr-2 flex-shrink-0 opacity-40 group-hover:opacity-70 transition-opacity",
+                      {
+                        "text-white": isActive,
+                        "text-gray-400": !isActive,
+                      }
+                    )} />
                     <div className={clsx(
                       "p-1.5 rounded-md transition-all duration-200 flex-shrink-0",
                       {
@@ -902,6 +943,11 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                       onDragOver={onDragOver}
                       onDrop={onDropParent(parentIdx)}
                       onDragEnd={onDragEnd}
+                      draggable
+                      onDragStart={onDragStartParent(parentIdx)}
+                      onDragOver={onDragOver}
+                      onDrop={onDropParent(parentIdx)}
+                      onDragEnd={onDragEnd}
                     >
                       <div
                         className={clsx(
@@ -917,6 +963,13 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                         })}
                       >
                         <div className="flex items-center space-x-3">
+                          <GripVertical className={clsx(
+                            "w-4 h-4 flex-shrink-0 opacity-40 group-hover:opacity-70 transition-opacity",
+                            {
+                              "text-white": isDropdownOpen,
+                              "text-gray-400": !isDropdownOpen,
+                            }
+                          )} />
                           <div className={clsx(
                             "p-1.5 rounded-md transition-all duration-200 flex-shrink-0",
                             {
@@ -984,6 +1037,13 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                                   })}
                                 >
                                   <div className="flex items-center space-x-2.5">
+                                    <GripVertical className={clsx(
+                                      "w-3.5 h-3.5 flex-shrink-0 opacity-40 group-hover:opacity-70 transition-opacity",
+                                      {
+                                        "text-white": childActive,
+                                        "text-gray-400": !childActive,
+                                      }
+                                    )} />
                                     <div className={clsx(
                                       "p-1 rounded-md transition-all duration-200 flex-shrink-0",
                                       {
@@ -1018,8 +1078,13 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                 // Regular (non-dropdown) item
                 const MenuItemContent = (
                   <div
+                    draggable
+                    onDragStart={onDragStartParent(parentIdx)}
+                    onDragOver={onDragOver}
+                    onDrop={onDropParent(parentIdx)}
+                    onDragEnd={onDragEnd}
                     className={clsx(
-                      "group relative block rounded-lg transition-all duration-200 cursor-pointer p-2.5 touch-manipulation",
+                      "group relative block rounded-lg transition-all duration-200 cursor-move p-2.5 touch-manipulation",
                       {
                         "bg-gray-800 text-white": isActive,
                         "hover:bg-gray-50 text-gray-700": !isActive,
@@ -1035,6 +1100,13 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                     )}
 
                     <div className="flex items-center space-x-3">
+                      <GripVertical className={clsx(
+                        "w-4 h-4 flex-shrink-0 opacity-40 group-hover:opacity-70 transition-opacity",
+                        {
+                          "text-white": isActive,
+                          "text-gray-400": !isActive,
+                        }
+                      )} />
                       <div className={clsx(
                         "p-1.5 rounded-md transition-all duration-200 flex-shrink-0",
                         {
