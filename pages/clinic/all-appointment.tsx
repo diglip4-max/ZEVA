@@ -275,24 +275,133 @@
       }
     }, [getAuthHeaders]);
 
-    // Fetch permissions for agent/doctorStaff; clinic/doctor have full access
+    // Fetch permissions - clinic/doctor fetch from admin-level permissions; agent/doctorStaff use agent permissions
     useEffect(() => {
       const fetchPermissions = async () => {
+        let isMounted = true;
         const role = getUserRole();
-        if (role === "clinic" || role === "doctor" || role === null) {
+        const headers = getAuthHeaders();
+        const token = headers.Authorization?.replace("Bearer ", "");
+
+        // ✅ For admin role, grant full access (bypass permission checks)
+        if (role === "admin") {
+          if (!isMounted) return;
           setPermissions({ canRead: true, canUpdate: true, canCreate: true, canDelete: true });
           setPermissionsLoaded(true);
           return;
         }
 
-        if (!["agent", "doctorStaff"].includes(role)) {
+        // ✅ For clinic and doctor roles, fetch admin-level permissions from /api/clinic/sidebar-permissions
+        if (role === "clinic" || role === "doctor") {
+          const fetchClinicPermissions = async () => {
+            try {
+              if (!token) {
+                if (!isMounted) return;
+                setPermissions({
+                  canRead: false,
+                  canCreate: false,
+                  canUpdate: false,
+                  canDelete: false,
+                });
+                setPermissionsLoaded(true);
+                return;
+              }
+
+              const res = await axios.get("/api/clinic/sidebar-permissions", {
+                headers: { Authorization: `Bearer ${token}` },
+              });
+
+              if (!isMounted) return;
+
+              if (res.data.success) {
+                // Check if permissions array exists and is not null
+                // If permissions is null, admin hasn't set any restrictions yet - allow full access (backward compatibility)
+                if (res.data.permissions === null || !Array.isArray(res.data.permissions) || res.data.permissions.length === 0) {
+                  // No admin restrictions set yet - default to full access for backward compatibility
+                  setPermissions({
+                    canRead: true,
+                    canCreate: true,
+                    canUpdate: true,
+                    canDelete: true,
+                  });
+                } else {
+                  // Admin has set permissions - check the clinic_ScheduledAppointment module
+                  const modulePermission = res.data.permissions.find((p: any) => {
+                    if (!p?.module) return false;
+                    // Check for clinic_ScheduledAppointment module variations
+                    if (p.module === "clinic_ScheduledAppointment") return true;
+                    if (p.module === "clinic_scheduled_appointment") return true;
+                    if (p.module === "scheduled_appointment") return true;
+                    if (p.module === "ScheduledAppointment") return true;
+                    return false;
+                  });
+
+                  if (modulePermission) {
+                    const actions = modulePermission.actions || {};
+                    
+                    // Check if "all" is true, which grants all permissions
+                    const moduleAll = actions.all === true || actions.all === "true" || String(actions.all).toLowerCase() === "true";
+                    const moduleCreate = actions.create === true || actions.create === "true" || String(actions.create).toLowerCase() === "true";
+                    const moduleRead = actions.read === true || actions.read === "true" || String(actions.read).toLowerCase() === "true";
+                    const moduleUpdate = actions.update === true || actions.update === "true" || String(actions.update).toLowerCase() === "true";
+                    const moduleDelete = actions.delete === true || actions.delete === "true" || String(actions.delete).toLowerCase() === "true";
+
+                    setPermissions({
+                      canRead: moduleAll || moduleRead,
+                      canCreate: moduleAll || moduleCreate,
+                      canUpdate: moduleAll || moduleUpdate,
+                      canDelete: moduleAll || moduleDelete,
+                    });
+                  } else {
+                    // Module permission not found in the permissions array - default to read-only
+                    setPermissions({
+                      canRead: true, // Clinic/doctor can always read their own data
+                      canCreate: false,
+                      canUpdate: false,
+                      canDelete: false,
+                    });
+                  }
+                }
+              } else {
+                // API response doesn't have permissions, default to full access (backward compatibility)
+                setPermissions({
+                  canRead: true,
+                  canCreate: true,
+                  canUpdate: true,
+                  canDelete: true,
+                });
+              }
+            } catch (err: any) {
+              console.error("Error fetching clinic sidebar permissions:", err);
+              // On error, default to full access (backward compatibility)
+              if (isMounted) {
+                setPermissions({
+                  canRead: true,
+                  canCreate: true,
+                  canUpdate: true,
+                  canDelete: true,
+                });
+              }
+            } finally {
+              if (isMounted) {
+                setPermissionsLoaded(true);
+              }
+            }
+          };
+
+          fetchClinicPermissions();
+          return;
+        }
+
+        // For agent/doctorStaff roles, use agent permissions API
+        if (!["agent", "doctorStaff"].includes(role || "")) {
+          if (!isMounted) return;
           setPermissions({ canRead: false, canUpdate: false, canCreate: false, canDelete: false });
           setPermissionsLoaded(true);
           return;
         }
 
         try {
-          const headers = getAuthHeaders();
           const res = await axios.get(
             "/api/agent/get-module-permissions?moduleKey=clinic_ScheduledAppointment",
             { headers }
@@ -303,6 +412,7 @@
               actions.all === true ||
               actions.all === "true" ||
               String(actions.all).toLowerCase() === "true";
+            if (!isMounted) return;
             setPermissions({
               canRead: canAll || actions.read === true,
               canUpdate: canAll || actions.update === true,
@@ -310,14 +420,20 @@
               canDelete: canAll || actions.delete === true,
             });
           } else {
+            if (!isMounted) return;
             setPermissions({ canRead: false, canUpdate: false, canCreate: false, canDelete: false });
           }
         } catch (err) {
           console.error("Error fetching permissions:", err);
+          if (!isMounted) return;
           setPermissions({ canRead: false, canUpdate: false, canCreate: false, canDelete: false });
         } finally {
+          if (isMounted) {
           setPermissionsLoaded(true);
         }
+        }
+
+        return () => { isMounted = false; };
       };
 
       fetchPermissions();
@@ -325,13 +441,8 @@
 
     // Fetch doctors and rooms for filter dropdowns
     const fetchFilterData = useCallback(async () => {
-      const role = getUserRole();
-      if (
-        permissionsLoaded &&
-        role &&
-        ["agent", "doctorStaff"].includes(role) &&
-        !permissions.canRead
-      ) {
+      if (!permissionsLoaded) return;
+      if (!permissions.canRead) {
         return;
       }
       try {
@@ -345,17 +456,12 @@
       } catch (err) {
         console.error("Failed to fetch filter data:", err);
       }
-    }, [getAuthHeaders, getUserRole, permissionsLoaded, permissions.canRead]);
+    }, [getAuthHeaders, permissionsLoaded, permissions.canRead]);
 
     // Fetch appointments with filters
     const fetchAppointments = useCallback(async () => {
       if (!permissionsLoaded) return;
-      const role = getUserRole();
-      if (
-        role &&
-        ["agent", "doctorStaff"].includes(role) &&
-        !permissions.canRead
-      ) {
+      if (!permissions.canRead) {
         setAppointments([]);
         setTotal(0);
         setTotalPages(1);
@@ -402,7 +508,7 @@
       } finally {
         setLoading(false);
       }
-    }, [filters, page, getAuthHeaders, getUserRole, permissionsLoaded, permissions.canRead]);
+    }, [filters, page, getAuthHeaders, permissionsLoaded, permissions.canRead]);
 
     useEffect(() => {
       fetchFilterData();
@@ -741,7 +847,27 @@
             </div>
 
             {/* Table */}
-            {loading ? (
+            {!permissionsLoaded ? (
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-800 mx-auto"></div>
+                  <p className="mt-4 text-sm text-gray-700">Loading permissions...</p>
+              </div>
+            ) : !permissions.canRead ? (
+                <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+                  <div className="bg-white rounded-lg shadow-lg border border-red-200 p-8 text-center max-w-md">
+                    <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <AlertTriangle className="w-8 h-8 text-red-600" />
+                    </div>
+                    <h2 className="text-xl font-bold text-gray-900 mb-2">Access Denied</h2>
+                    <p className="text-sm text-gray-700 mb-4">
+                      You do not have permission to view scheduled appointments.
+                    </p>
+                    <p className="text-xs text-gray-600">
+                      Please contact your administrator to request access to the Scheduled Appointment module.
+                    </p>
+                  </div>
+                </div>
+            ) : loading ? (
                 <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
                   <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-800 mx-auto"></div>
                   <p className="mt-4 text-sm text-gray-700">Loading appointments...</p>
@@ -970,17 +1096,18 @@
                             </td>
                             <td className="px-1 py-1.5 whitespace-nowrap relative">
                             <div className="relative">
-                              <button
-                                onClick={(e) => {
-                                  const buttonRect = e.currentTarget.getBoundingClientRect();
-                                  const viewportHeight = window.innerHeight;
-                                  const viewportWidth = window.innerWidth;
-                                  const spaceBelow = viewportHeight - buttonRect.bottom;
-                                  const spaceAbove = buttonRect.top;
-                                  const menuHeight = 280; // Approximate menu height
-                                  const menuWidth = 192; // w-48 = 192px
-                                  
-                                  // Calculate horizontal position (align to right of button)
+                              {(permissions.canUpdate || permissions.canDelete || permissions.canCreate) && (
+                                <button
+                                  onClick={(e) => {
+                                    const buttonRect = e.currentTarget.getBoundingClientRect();
+                                    const viewportHeight = window.innerHeight;
+                                    const viewportWidth = window.innerWidth;
+                                    const spaceBelow = viewportHeight - buttonRect.bottom;
+                                    const spaceAbove = buttonRect.top;
+                                    const menuHeight = 280; // Approximate menu height
+                                    const menuWidth = 192; // w-48 = 192px
+                                    
+                                    // Calculate horizontal position (align to right of button)
                                   let left = buttonRect.right - menuWidth;
                                   // If menu would go off screen to the left, align to button's left
                                   if (left < 8) {
@@ -1006,14 +1133,15 @@
                                     };
                                   }
                                   setOpenActionMenu(openActionMenu === apt._id ? null : apt._id);
-                                }}
-                                className="p-0.5 hover:bg-gray-200 rounded transition"
-                              >
-                                <MoreVertical className="w-3.5 h-3.5 text-gray-700" />
-                              </button>
+                                  }}
+                                  className="p-0.5 hover:bg-gray-200 rounded transition"
+                                >
+                                  <MoreVertical className="w-3.5 h-3.5 text-gray-700" />
+                                </button>
+                              )}
                               
                               {/* Dropdown Menu */}
-                              {openActionMenu === apt._id && (
+                              {(permissions.canUpdate || permissions.canDelete || permissions.canCreate) && openActionMenu === apt._id && (
                                 <>
                                   {/* Backdrop to close menu when clicking outside */}
                                   <div

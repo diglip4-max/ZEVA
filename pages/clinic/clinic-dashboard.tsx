@@ -518,20 +518,122 @@ const ClinicDashboard: NextPageWithLayout = () => {
     }
   }, [getAuthToken]);
 
-  // Fetch module permissions for dashboard (applies to agent and doctorStaff)
+  // Fetch module permissions for dashboard
   useEffect(() => {
     const fetchPermissions = async () => {
+      let isMounted = true;
       const role = getUserRole();
       setUserRole(role);
 
-      if (role === 'clinic' || role === 'doctor' || role === null) {
+      // ✅ For admin role, grant full access (bypass permission checks)
+      if (role === 'admin') {
+        if (!isMounted) return;
         setModuleAccess({ canRead: true, canUpdate: true, canCreate: true });
+        setAccessDenied(false);
         setPermissionsLoaded(true);
         return;
       }
 
-      if (!['agent', 'doctorStaff'].includes(role)) {
+      // ✅ For clinic and doctor roles, fetch admin-level permissions from /api/clinic/sidebar-permissions
+      if (role === 'clinic' || role === 'doctor') {
+        const fetchClinicPermissions = async () => {
+          try {
+            const token = getAuthToken();
+            if (!token) {
+              if (!isMounted) return;
+              setModuleAccess({ canRead: false, canUpdate: false, canCreate: false });
+              setAccessDenied(true);
+              setAccessMessage('Authentication required. Please log in again.');
+              setPermissionsLoaded(true);
+              return;
+            }
+
+            const res = await axios.get('/api/clinic/sidebar-permissions', {
+              headers: { Authorization: `Bearer ${token}` },
+            });
+
+            if (!isMounted) return;
+
+            if (res.data.success) {
+              // Check if permissions array exists and is not null
+              // If permissions is null, admin hasn't set any restrictions yet - allow full access (backward compatibility)
+              if (res.data.permissions === null || !Array.isArray(res.data.permissions) || res.data.permissions.length === 0) {
+                // No admin restrictions set yet - default to full access for backward compatibility
+                setModuleAccess({ canRead: true, canUpdate: true, canCreate: true });
+                setAccessDenied(false);
+              } else {
+                // Admin has set permissions - check the clinic_dashboard module
+                const modulePermission = res.data.permissions.find((p: any) => {
+                  if (!p?.module) return false;
+                  // Check for clinic_dashboard module variations
+                  if (p.module === 'clinic_dashboard') return true;
+                  if (p.module === 'dashboard') return true;
+                  return false;
+                });
+
+                if (modulePermission) {
+                  const actions = modulePermission.actions || {};
+                  
+                  // Check if "all" is true, which grants all permissions
+                  const moduleAll = actions.all === true || actions.all === 'true' || String(actions.all).toLowerCase() === 'true';
+                  const moduleCreate = actions.create === true || actions.create === 'true' || String(actions.create).toLowerCase() === 'true';
+                  const moduleRead = actions.read === true || actions.read === 'true' || String(actions.read).toLowerCase() === 'true';
+                  const moduleUpdate = actions.update === true || actions.update === 'true' || String(actions.update).toLowerCase() === 'true';
+
+                  const finalCanRead = moduleAll || moduleRead;
+                  const finalCanUpdate = moduleAll || moduleUpdate;
+                  const finalCanCreate = moduleAll || moduleCreate;
+
+                  setModuleAccess({
+                    canRead: finalCanRead,
+                    canUpdate: finalCanUpdate,
+                    canCreate: finalCanCreate,
+                  });
+
+                  if (finalCanRead) {
+                    setAccessDenied(false);
+                  } else {
+                    setAccessDenied(true);
+                    setAccessMessage('You do not have read permission for the clinic dashboard.');
+                  }
+                } else {
+                  // Module permission not found in the permissions array - default to read-only
+                  setModuleAccess({
+                    canRead: true, // Clinic/doctor can always read their own dashboard
+                    canUpdate: false,
+                    canCreate: false,
+                  });
+                  setAccessDenied(false);
+                }
+              }
+            } else {
+              // API response doesn't have permissions, default to full access (backward compatibility)
+              setModuleAccess({ canRead: true, canUpdate: true, canCreate: true });
+              setAccessDenied(false);
+            }
+          } catch (err: any) {
+            console.error('Error fetching clinic sidebar permissions:', err);
+            // On error, default to full access (backward compatibility)
+            if (isMounted) {
+              setModuleAccess({ canRead: true, canUpdate: true, canCreate: true });
+              setAccessDenied(false);
+            }
+          } finally {
+            if (isMounted) {
+              setPermissionsLoaded(true);
+            }
+          }
+        };
+
+        fetchClinicPermissions();
+        return;
+      }
+
+      // For agent/doctorStaff roles, use agent permissions API
+      if (!['agent', 'doctorStaff'].includes(role || '')) {
+        if (!isMounted) return;
         setModuleAccess({ canRead: true, canUpdate: true, canCreate: true });
+        setAccessDenied(false);
         setPermissionsLoaded(true);
         return;
       }
@@ -630,27 +732,24 @@ const ClinicDashboard: NextPageWithLayout = () => {
     };
 
     fetchPermissions();
-  }, [getAuthHeaders, getUserRole]);
+  }, [getAuthHeaders, getUserRole, getAuthToken]);
 
   // Reset accessDenied when permissions are granted
   useEffect(() => {
     if (!permissionsLoaded) return;
     
-    // For agent and doctorStaff, check if they have read permission
-    if (['agent', 'doctorStaff'].includes(userRole || '')) {
-      if (moduleAccess.canRead) {
-        console.log("✅ Resetting accessDenied to false - read permission granted");
-        setAccessDenied(false);
-      } else {
-        console.log("❌ Setting accessDenied to true - read permission denied");
-        setAccessDenied(true);
-        setAccessMessage('You do not have read permission for the clinic dashboard.');
-      }
-    } else {
-      // For other roles (clinic, doctor, admin), always grant access
-      setAccessDenied(false);
+    // Check read permission for all roles
+    if (!moduleAccess.canRead) {
+      console.log("❌ Setting accessDenied to true - read permission denied");
+      setAccessDenied(true);
+      setAccessMessage('You do not have read permission for the clinic dashboard.');
+      return;
     }
-  }, [permissionsLoaded, moduleAccess.canRead, userRole]);
+    
+    // If read permission is granted, allow access
+    console.log("✅ Resetting accessDenied to false - read permission granted");
+    setAccessDenied(false);
+  }, [permissionsLoaded, moduleAccess.canRead]);
 
   // Fetch sidebar navigation items (which already have permissions applied)
   useEffect(() => {
@@ -801,7 +900,8 @@ const ClinicDashboard: NextPageWithLayout = () => {
   // Fetch stats for each module
   useEffect(() => {
     if (!permissionsLoaded) return;
-    if (['agent', 'doctorStaff'].includes(userRole || '') && !moduleAccess.canRead) {
+    // Prevent data fetching if read permission is false for any role
+    if (!moduleAccess.canRead) {
       setModuleStats({});
       setStatsLoading(false);
       return;
@@ -2458,15 +2558,36 @@ const ClinicDashboard: NextPageWithLayout = () => {
     );
   }
 
-  if (accessDenied) {
+  // Show loading state while permissions are being fetched
+  if (!permissionsLoaded) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
         <div className="bg-white border border-gray-200 rounded-2xl shadow-sm max-w-md w-full p-8 text-center space-y-4">
           <div className="mx-auto w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center">
-            <Lock className="w-5 h-5 text-gray-600" />
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-600"></div>
           </div>
-          <h2 className="text-lg font-semibold text-gray-900">Access Restricted</h2>
-          <p className="text-sm text-gray-700">{accessMessage}</p>
+          <h2 className="text-lg font-semibold text-gray-900">Loading...</h2>
+          <p className="text-sm text-gray-700">Checking permissions...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show access denied if read permission is false
+  if (!moduleAccess.canRead || accessDenied) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+        <div className="bg-white border border-gray-200 rounded-2xl shadow-sm max-w-md w-full p-8 text-center space-y-4">
+          <div className="mx-auto w-16 h-16 rounded-full bg-red-100 flex items-center justify-center mb-4">
+            <Lock className="w-8 h-8 text-red-600" />
+          </div>
+          <h2 className="text-xl font-bold text-gray-900 mb-2">Access Denied</h2>
+          <p className="text-sm text-gray-700 mb-4">
+            {accessMessage || 'You do not have permission to view the clinic dashboard.'}
+          </p>
+          <p className="text-xs text-gray-600">
+            Please contact your administrator to request access to the Dashboard module.
+          </p>
         </div>
       </div>
     );

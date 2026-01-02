@@ -1104,13 +1104,73 @@ function ClinicManagementDashboard() {
 
         const userRole = getUserRole();
         
-        // Clinic and doctor roles have full access by default - no need to check permissions
+        // For clinic and doctor roles, fetch admin-level permissions from /api/clinic/sidebar-permissions
         if (userRole === "clinic" || userRole === "doctor") {
+          try {
+            const res = await axios.get("/api/clinic/sidebar-permissions", {
+              headers: authHeaders,
+            });
+            
+            if (res.data.success) {
+              // Check if permissions array exists and is not null
+              // If permissions is null, admin hasn't set any restrictions yet - allow full access (backward compatibility)
+              if (res.data.permissions === null || !Array.isArray(res.data.permissions) || res.data.permissions.length === 0) {
+                // No admin restrictions set yet - default to full access for backward compatibility
           setPermissions({
             canRead: true,
             canUpdate: true,
             canDelete: true,
           });
+              } else {
+                // Admin has set permissions - check the clinic_health_center module
+                const modulePermission = res.data.permissions.find((p: any) => {
+                  if (!p?.module) return false;
+                  // Check for clinic_health_center module
+                  if (p.module === "clinic_health_center") return true;
+                  if (p.module === "health_center") return true;
+                  return false;
+                });
+
+                if (modulePermission) {
+                  const actions = modulePermission.actions || {};
+                  
+                  // Check if "all" is true, which grants all permissions
+                  const moduleAll = actions.all === true || actions.all === "true" || String(actions.all).toLowerCase() === "true";
+                  const moduleRead = actions.read === true || actions.read === "true" || String(actions.read).toLowerCase() === "true";
+                  const moduleUpdate = actions.update === true || actions.update === "true" || String(actions.update).toLowerCase() === "true";
+                  const moduleDelete = actions.delete === true || actions.delete === "true" || String(actions.delete).toLowerCase() === "true";
+
+                  setPermissions({
+                    canRead: moduleAll || moduleRead,
+                    canUpdate: moduleAll || moduleUpdate,
+                    canDelete: moduleAll || moduleDelete,
+                  });
+                } else {
+                  // Module permission not found in the permissions array - default to read-only
+                  setPermissions({
+                    canRead: true, // Clinic/doctor can always read their own data
+                    canUpdate: false,
+                    canDelete: false,
+                  });
+                }
+              }
+            } else {
+              // API response doesn't have permissions, default to full access (backward compatibility)
+              setPermissions({
+                canRead: true,
+                canUpdate: true,
+                canDelete: true,
+              });
+            }
+          } catch (err: any) {
+            console.error("Error fetching clinic sidebar permissions:", err);
+            // On error, default to full access (backward compatibility)
+            setPermissions({
+              canRead: true,
+              canUpdate: true,
+              canDelete: true,
+            });
+          }
           setPermissionsLoaded(true);
           return;
         }
@@ -1211,9 +1271,8 @@ function ClinicManagementDashboard() {
 
       const userRole = getUserRole();
       
-      // ✅ Clinic and doctor roles have full access - always make API call
-      // For agent and doctorStaff, check permissions first
-      if (userRole !== "clinic" && userRole !== "doctor" && !permissions.canRead) {
+      // ✅ Check read permission for all roles (including clinic and doctor with admin-level permissions)
+      if (!permissions.canRead) {
         setClinics([]);
         setLoading(false);
         return;
@@ -1288,11 +1347,8 @@ function ClinicManagementDashboard() {
         return;
       }
 
-      const userRole = getUserRole();
-      
-      // ✅ Clinic and doctor roles have full access - always make API call
-      // For agent and doctorStaff, check permissions first
-      if (userRole !== "clinic" && userRole !== "doctor" && !permissions.canRead) {
+      // ✅ Check read permission for all roles (including clinic and doctor with admin-level permissions)
+      if (!permissions.canRead) {
         setStatsLoading(false);
         return;
       }
@@ -1665,6 +1721,26 @@ function ClinicManagementDashboard() {
   };
 
   if (loading) return <LoadingSpinner />;
+
+  // Show access denied if read permission is false
+  if (permissionsLoaded && !permissions.canRead) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-lg shadow-lg border border-red-200 p-8 text-center max-w-md">
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Building2 className="w-8 h-8 text-red-600" />
+          </div>
+          <h2 className="text-xl font-bold text-gray-900 mb-2">Access Denied</h2>
+          <p className="text-sm text-gray-700 mb-4">
+            You do not have permission to view clinic information.
+          </p>
+          <p className="text-xs text-gray-600">
+            Please contact your administrator to request access to the Manage Health Center module.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">

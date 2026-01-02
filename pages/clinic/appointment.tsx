@@ -486,7 +486,36 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
     setPermissionsLoaded(true);
   }, [isAgentRoute, agentPermissions, agentPermissionsLoading]);
 
-  // Handle clinic permissions - clinic, doctor have full access; agent/doctorStaff need checks
+  // Helper function to get user role from token
+  const getUserRole = (): string | null => {
+    if (typeof window === "undefined") return null;
+    try {
+      for (const key of TOKEN_PRIORITY) {
+        const token = window.localStorage.getItem(key) || window.sessionStorage.getItem(key);
+        if (token) {
+          try {
+            const base64Url = token.split('.')[1];
+            const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+            const jsonPayload = decodeURIComponent(
+              atob(base64)
+                .split('')
+                .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+                .join('')
+            );
+            const decoded = JSON.parse(jsonPayload);
+            return decoded.role || decoded.userRole || null;
+          } catch (e) {
+            continue;
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Error getting user role:", error);
+    }
+    return null;
+  };
+
+  // Handle clinic permissions - clinic, doctor have admin-level permissions; agent/doctorStaff need checks
   useEffect(() => {
     if (isAgentRoute) return;
     let isMounted = true;
@@ -508,17 +537,121 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
       ? (localStorage.getItem("userToken") || sessionStorage.getItem("userToken"))
       : null;
 
-    // ✅ Clinic and doctor roles have full access by default - skip permission check
-    if (clinicToken || doctorToken) {
+    const userRole = getUserRole();
+    const authToken = clinicToken || doctorToken || agentToken || staffToken || userToken;
+
+    // ✅ For admin role, grant full access (bypass permission checks)
+    if (userRole === "admin") {
       if (!isMounted) return;
       setPermissions({ canRead: true, canCreate: true, canUpdate: true, canDelete: true });
       setPermissionsLoaded(true);
       return;
     }
 
+    // ✅ For clinic and doctor roles, fetch admin-level permissions from /api/clinic/sidebar-permissions
+    if (userRole === "clinic" || userRole === "doctor") {
+      const fetchClinicPermissions = async () => {
+        try {
+          if (!authToken) {
+            if (!isMounted) return;
+            setPermissions({
+              canRead: false,
+              canCreate: false,
+              canUpdate: false,
+              canDelete: false,
+            });
+            setPermissionsLoaded(true);
+            return;
+          }
+
+          const res = await axios.get("/api/clinic/sidebar-permissions", {
+            headers: { Authorization: `Bearer ${authToken}` },
+          });
+
+          if (!isMounted) return;
+
+          if (res.data.success) {
+            // Check if permissions array exists and is not null
+            // If permissions is null, admin hasn't set any restrictions yet - allow full access (backward compatibility)
+            if (res.data.permissions === null || !Array.isArray(res.data.permissions) || res.data.permissions.length === 0) {
+              // No admin restrictions set yet - default to full access for backward compatibility
+              setPermissions({
+                canRead: true,
+                canCreate: true,
+                canUpdate: true,
+                canDelete: true,
+              });
+            } else {
+              // Admin has set permissions - check the clinic_Appointment module
+              const modulePermission = res.data.permissions.find((p: any) => {
+                if (!p?.module) return false;
+                // Check for clinic_Appointment module variations
+                if (p.module === "clinic_Appointment") return true;
+                if (p.module === "clinic_appointment") return true;
+                if (p.module === "appointment") return true;
+                return false;
+              });
+
+              if (modulePermission) {
+                const actions = modulePermission.actions || {};
+                
+                // Check if "all" is true, which grants all permissions
+                const moduleAll = actions.all === true || actions.all === "true" || String(actions.all).toLowerCase() === "true";
+                const moduleCreate = actions.create === true || actions.create === "true" || String(actions.create).toLowerCase() === "true";
+                const moduleRead = actions.read === true || actions.read === "true" || String(actions.read).toLowerCase() === "true";
+                const moduleUpdate = actions.update === true || actions.update === "true" || String(actions.update).toLowerCase() === "true";
+                const moduleDelete = actions.delete === true || actions.delete === "true" || String(actions.delete).toLowerCase() === "true";
+
+                setPermissions({
+                  canRead: moduleAll || moduleRead,
+                  canCreate: moduleAll || moduleCreate,
+                  canUpdate: moduleAll || moduleUpdate,
+                  canDelete: moduleAll || moduleDelete,
+                });
+              } else {
+                // Module permission not found in the permissions array - default to read-only
+                setPermissions({
+                  canRead: true, // Clinic/doctor can always read their own data
+                  canCreate: false,
+                  canUpdate: false,
+                  canDelete: false,
+                });
+              }
+            }
+          } else {
+            // API response doesn't have permissions, default to full access (backward compatibility)
+            setPermissions({
+              canRead: true,
+              canCreate: true,
+              canUpdate: true,
+              canDelete: true,
+            });
+          }
+        } catch (err: any) {
+          console.error("Error fetching clinic sidebar permissions:", err);
+          // On error, default to full access (backward compatibility)
+          if (isMounted) {
+            setPermissions({
+              canRead: true,
+              canCreate: true,
+              canUpdate: true,
+              canDelete: true,
+            });
+          }
+        } finally {
+          if (isMounted) {
+            setPermissionsLoaded(true);
+          }
+        }
+      };
+
+      fetchClinicPermissions();
+      return;
+    }
+
     // For agent/doctorStaff tokens (when not on agent route), check permissions
-    const token = getStoredToken();
-    if (!token) {
+    const agentStaffToken = getStoredToken();
+    if (!agentStaffToken) {
       setPermissions({ canRead: false, canCreate: false, canUpdate: false, canDelete: false });
       setPermissionsLoaded(true);
       return;
@@ -532,7 +665,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
           // Use agent permissions API for agent/doctorStaff
           const res = await axios.get("/api/agent/get-module-permissions", {
             params: { moduleKey: "clinic_Appointment" },
-            headers: { Authorization: `Bearer ${token}` }
+            headers: { Authorization: `Bearer ${agentStaffToken}` }
           });
           const data = res.data;
           
@@ -1262,6 +1395,18 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
 
   // Helper function to open modal with selected time range
   const openModalWithSelection = useCallback((startMinutes: number, endMinutes: number, doctorId: string) => {
+    // ✅ Check permission before opening booking modal
+    if (!permissions.canCreate) {
+      showErrorToast("You do not have permission to book appointments");
+      setTimeDragSelection({
+        isDragging: false,
+        startMinutes: null,
+        endMinutes: null,
+        doctorId: null,
+      });
+      return;
+    }
+    
     const minStart = Math.min(startMinutes, endMinutes);
     const maxEnd = Math.max(startMinutes, endMinutes);
     
@@ -1294,7 +1439,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
       endMinutes: null,
       doctorId: null,
     });
-  }, [doctorStaff, selectedDate, minutesToDisplay]);
+  }, [doctorStaff, selectedDate, minutesToDisplay, permissions.canCreate]);
 
   // Global mouse event handlers for time slot drag selection
   useEffect(() => {
@@ -1433,6 +1578,13 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
 
   // Unified drag and drop handlers for both doctor and room columns
   const handleColumnDragStart = (e: React.DragEvent, columnKey: string) => {
+    // ✅ Check permission before allowing column drag
+    if (!permissions.canUpdate) {
+      showErrorToast("You do not have permission to reorder columns");
+      e.preventDefault();
+      return;
+    }
+    
     setDraggedColumnId(columnKey);
     e.dataTransfer.effectAllowed = "move";
     e.dataTransfer.setData("text/plain", columnKey);
@@ -1471,6 +1623,14 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
 
   const handleColumnDrop = (e: React.DragEvent, targetColumnKey: string) => {
     e.preventDefault();
+    
+    // ✅ Check permission before allowing column swap
+    if (!permissions.canUpdate) {
+      showErrorToast("You do not have permission to reorder columns");
+      setDraggedColumnId(null);
+      return;
+    }
+    
     if (!draggedColumnId || draggedColumnId === targetColumnKey) return;
 
     setColumnOrder((prevOrder) => {
@@ -1497,6 +1657,12 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
 
   // Time slot drag selection handlers
   const handleTimeSlotMouseDown = (e: React.MouseEvent, doctorId: string, startMinutes: number) => {
+    // ✅ Check permission before allowing time slot selection
+    if (!permissions.canCreate) {
+      showErrorToast("You do not have permission to book appointments");
+      return;
+    }
+    
     // Only start drag on left mouse button and if slot is bookable
     if (e.button !== 0) return;
     

@@ -41,6 +41,26 @@ const getAuthHeaders = () => {
   return token ? { Authorization: `Bearer ${token}` } : null;
 };
 
+const getUserRole = () => {
+  if (typeof window === 'undefined') return null;
+  try {
+    for (const key of TOKEN_PRIORITY) {
+      const token = window.localStorage.getItem(key) || window.sessionStorage.getItem(key);
+      if (token) {
+        try {
+          const payload = JSON.parse(atob(token.split('.')[1]));
+          return payload.role || null;
+        } catch (e) {
+          continue;
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Error getting user role:', error);
+  }
+  return null;
+};
+
 function OffersPage() {
   const router = useRouter();
   const [offers, setOffers] = useState([]);
@@ -113,78 +133,147 @@ function OffersPage() {
   useEffect(() => {
     if (isAgentRoute) return;
     let isMounted = true;
-    const headers = getAuthHeaders();
-    if (!headers) {
-      setPermissions({
-        canCreate: false,
-        canUpdate: false,
-        canDelete: false,
-        canRead: false,
-      });
-      setPermissionsLoaded(true);
-      return;
-    }
-
-    const fetchClinicPermissions = async () => {
+    
+    const fetchPermissions = async () => {
       try {
-        setPermissionsLoaded(false);
-        const { data } = await axios.get("/api/clinic/permissions", {
-          headers,
-        });
-        if (!isMounted) return;
-        if (data.success && data.data) {
-          const modulePermission = data.data.permissions?.find((p) => {
-            if (!p?.module) return false;
-            const normalized = p.module.startsWith("clinic_")
-              ? p.module.slice(7)
-              : p.module.startsWith("admin_")
-              ? p.module.slice(6)
-              : p.module;
-            return normalized === "create_offers";
-          });
-          if (modulePermission) {
-            const actions = modulePermission.actions || {};
-            const moduleAll = actions.all === true;
-            setPermissions({
-              canCreate: moduleAll || actions.create === true,
-              canUpdate: moduleAll || actions.update === true,
-              canDelete: moduleAll || actions.delete === true,
-              canRead: moduleAll || actions.read === true,
-            });
-          } else {
-            setPermissions({
-              canCreate: false,
-              canUpdate: false,
-              canDelete: false,
-              canRead: false,
-            });
-          }
-        } else {
+        const authHeaders = getAuthHeaders();
+        if (!authHeaders) {
           setPermissions({
             canCreate: false,
             canUpdate: false,
             canDelete: false,
             canRead: false,
           });
-        }
-      } catch (error) {
-        console.error("Error fetching permissions:", error);
-        if (isMounted) {
-          setPermissions({
-            canCreate: false,
-            canUpdate: false,
-            canDelete: false,
-            canRead: false,
-          });
-        }
-      } finally {
-        if (isMounted) {
           setPermissionsLoaded(true);
+          return;
         }
+
+        const userRole = getUserRole();
+        
+        // For clinic and doctor roles, fetch admin-level permissions from /api/clinic/sidebar-permissions
+        if (userRole === 'clinic' || userRole === 'doctor') {
+          try {
+            const res = await axios.get('/api/clinic/sidebar-permissions', {
+              headers: authHeaders,
+            });
+            
+            if (!isMounted) return;
+            
+            if (res.data.success) {
+              // Check if permissions array exists and is not null
+              // If permissions is null, admin hasn't set any restrictions yet - allow full access (backward compatibility)
+              if (res.data.permissions === null || !Array.isArray(res.data.permissions) || res.data.permissions.length === 0) {
+                // No admin restrictions set yet - default to full access for backward compatibility
+                setPermissions({
+                  canCreate: true,
+                  canRead: true,
+                  canUpdate: true,
+                  canDelete: true,
+                });
+              } else {
+                // Admin has set permissions - check the clinic_create_offers module
+                const modulePermission = res.data.permissions.find((p) => {
+                  if (!p?.module) return false;
+                  // Check for clinic_create_offers module
+                  if (p.module === 'clinic_create_offers') return true;
+                  if (p.module === 'create_offers') return true;
+                  if (p.module === 'clinic_create_offer') return true;
+                  if (p.module === 'create_offer') return true;
+                  if (p.module?.endsWith('create_offers')) return true;
+                  if (p.module?.endsWith('create_offer')) return true;
+                  return false;
+                });
+
+                if (modulePermission) {
+                  const actions = modulePermission.actions || {};
+                  
+                  // Check if "all" is true, which grants all permissions
+                  const moduleAll = actions.all === true || actions.all === 'true' || String(actions.all).toLowerCase() === 'true';
+                  const moduleCreate = actions.create === true || actions.create === 'true' || String(actions.create).toLowerCase() === 'true';
+                  const moduleRead = actions.read === true || actions.read === 'true' || String(actions.read).toLowerCase() === 'true';
+                  const moduleUpdate = actions.update === true || actions.update === 'true' || String(actions.update).toLowerCase() === 'true';
+                  const moduleDelete = actions.delete === true || actions.delete === 'true' || String(actions.delete).toLowerCase() === 'true';
+
+                  setPermissions({
+                    canCreate: moduleAll || moduleCreate,
+                    canRead: moduleAll || moduleRead,
+                    canUpdate: moduleAll || moduleUpdate,
+                    canDelete: moduleAll || moduleDelete,
+                  });
+                } else {
+                  // Module permission not found in the permissions array - default to read-only
+                  setPermissions({
+                    canCreate: false,
+                    canRead: true, // Clinic/doctor can always read their own data
+                    canUpdate: false,
+                    canDelete: false,
+                  });
+                }
+              }
+            } else {
+              // API response doesn't have permissions, default to full access (backward compatibility)
+              setPermissions({
+                canCreate: true,
+                canRead: true,
+                canUpdate: true,
+                canDelete: true,
+              });
+            }
+          } catch (err) {
+            console.error('Error fetching clinic sidebar permissions:', err);
+            // On error, default to full access (backward compatibility)
+            if (isMounted) {
+              setPermissions({
+                canCreate: true,
+                canRead: true,
+                canUpdate: true,
+                canDelete: true,
+              });
+            }
+          }
+          if (isMounted) {
+            setPermissionsLoaded(true);
+          }
+          return;
+        }
+
+        // For agents, staff, and doctorStaff, use existing agent permissions logic
+        // (handled by useAgentPermissions hook)
+        if (['agent', 'staff', 'doctorStaff'].includes(userRole || '')) {
+          // Agent permissions are handled by useAgentPermissions hook
+          // Set default permissions here (will be overridden by agent permissions)
+          setPermissions({
+            canCreate: false,
+            canRead: false,
+            canUpdate: false,
+            canDelete: false,
+          });
+          setPermissionsLoaded(true);
+          return;
+        }
+
+        // For admin or unknown roles, default to full access
+        setPermissions({
+          canCreate: true,
+          canRead: true,
+          canUpdate: true,
+          canDelete: true,
+        });
+        setPermissionsLoaded(true);
+      } catch (err) {
+        console.error('Error fetching permissions:', err);
+        // On error, default to full access (backward compatibility)
+        setPermissions({
+          canCreate: true,
+          canRead: true,
+          canUpdate: true,
+          canDelete: true,
+        });
+        setPermissionsLoaded(true);
       }
     };
 
-    fetchClinicPermissions();
+    fetchPermissions();
 
     return () => {
       isMounted = false;
@@ -419,16 +508,20 @@ function OffersPage() {
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 text-center">
             <p className="text-xs sm:text-sm text-gray-700 font-medium">Loading permissions...</p>
           </div>
-        ) : !permissions.canCreate && !permissions.canRead && !permissions.canUpdate && !permissions.canDelete ? (
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 sm:p-8 text-center space-y-2">
-            <div className="inline-flex items-center justify-center w-12 h-12 bg-red-50 rounded-lg">
-              <Package className="w-6 h-6 text-red-600" />
+        ) : !permissions.canRead ? (
+          <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-lg shadow-lg border border-red-200 p-8 text-center max-w-md">
+              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Package className="w-8 h-8 text-red-600" />
+              </div>
+              <h2 className="text-xl font-bold text-gray-900 mb-2">Access Denied</h2>
+              <p className="text-sm text-gray-700 mb-4">
+                You do not have permission to view clinic offers.
+              </p>
+              <p className="text-xs text-gray-600">
+                Please contact your administrator to request access to the Offers module.
+              </p>
             </div>
-            <h2 className="text-base sm:text-lg font-bold text-gray-900">Access denied</h2>
-            <p className="text-xs sm:text-sm text-gray-700">
-              You do not have permission to view or manage offers. Please contact your administrator if you
-              believe this is an error.
-            </p>
           </div>
         ) : (
           <>
