@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Star, Mail, Settings, Lock, TrendingUp, Users, FileText, Briefcase, MessageSquare, Calendar, CreditCard, BarChart3, Activity, XCircle, CheckCircle2, ArrowUpRight, ArrowDownRight, User, Crown, Stethoscope, Building2, Package, Gift, DoorOpen, UserPlus, GripVertical, Eye, EyeOff, Save, RotateCcw, Edit2, X, Undo2, Redo2 } from 'lucide-react';
+import { Star, Mail, Settings, Lock, TrendingUp, Users, FileText, Briefcase, MessageSquare, Calendar, CreditCard, BarChart3, Activity, CheckCircle2, User, Crown, Stethoscope, Building2, Package, Gift, DoorOpen, UserPlus, GripVertical, Eye, EyeOff, Save, RotateCcw, Edit2, X, Undo2, Redo2 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, LabelList, LineChart, Line, Tooltip, PieChart, Pie, Cell, Legend } from 'recharts';
 import Stats from '../../components/Stats';
 import ClinicLayout from '../../components/ClinicLayout';
@@ -8,7 +8,6 @@ import type { NextPageWithLayout } from '../_app';
 import axios from 'axios';
 import {
   DndContext,
-  closestCenter,
   rectIntersection,
   KeyboardSensor,
   PointerSensor,
@@ -147,8 +146,6 @@ interface StatCard {
   order: number;
   visible: boolean;
 }
-
-type StatCardGridType = 'primary' | 'secondary';
 
 // Chart component types for individual chart dragging
 interface ChartComponent {
@@ -290,7 +287,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
   const [activeCardId, setActiveCardId] = useState<string | null>(null);
   const [cardHistory, setCardHistory] = useState<Array<{ primary: StatCard[]; secondary: StatCard[] }>>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
-  const [gridSize, setGridSize] = useState<'compact' | 'normal' | 'spacious'>('normal');
+  const [gridSize] = useState<'compact' | 'normal' | 'spacious'>('normal');
   
   // Chart components state
   const CHARTS_STORAGE_KEY = 'clinic-dashboard-charts';
@@ -2038,53 +2035,6 @@ const ClinicDashboard: NextPageWithLayout = () => {
     }
   };
 
-  const handleExportLayout = () => {
-    const layout = {
-      widgets,
-      statCards,
-      gridSize,
-      exportedAt: new Date().toISOString(),
-    };
-    const blob = new Blob([JSON.stringify(layout, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `dashboard-layout-${new Date().toISOString().split('T')[0]}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-    alert('Layout exported successfully!');
-  };
-
-  const handleImportLayout = () => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'application/json';
-    input.onchange = (e) => {
-      const file = (e.target as HTMLInputElement).files?.[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        try {
-          const layout = JSON.parse(event.target?.result as string);
-          if (layout.widgets && layout.statCards) {
-            setWidgets(layout.widgets);
-            setStatCards(layout.statCards);
-            if (layout.gridSize) setGridSize(layout.gridSize);
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(layout.widgets));
-            localStorage.setItem(STAT_CARDS_STORAGE_KEY, JSON.stringify(layout.statCards));
-            alert('Layout imported successfully!');
-          } else {
-            alert('Invalid layout file format.');
-          }
-        } catch (error) {
-          alert('Error importing layout. Please check the file format.');
-        }
-      };
-      reader.readAsText(file);
-    };
-    input.click();
-  };
-
   // Update stat card values when stats change
   useEffect(() => {
     setStatCards((prev) => ({
@@ -2497,83 +2447,6 @@ const ClinicDashboard: NextPageWithLayout = () => {
     );
   };
 
-  // Render stat card component - Enhanced modern design
-  const renderStatCard = (
-    label: string,
-    value: number | string,
-    icon: React.ReactNode,
-    hasPermission: boolean = true,
-    _moduleKey?: string,
-    trend?: { value: number; isPositive: boolean }
-  ) => {
-    if (!hasPermission) {
-      return (
-        <div className="bg-gradient-to-br from-gray-50 to-white rounded-xl p-4 border border-gray-200 shadow-sm hover:shadow-lg transition-all duration-300 relative overflow-hidden group">
-          <div className="absolute top-2 right-2 bg-gray-500 text-white px-2 py-0.5 text-[10px] font-semibold rounded-full">
-            LOCKED
-          </div>
-          <div className="pt-4">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="p-2 bg-gray-100 rounded-lg group-hover:bg-gray-200 transition-colors">
-                <Lock className="w-4 h-4 text-gray-500" />
-              </div>
-            </div>
-            <h3 className="text-[11px] font-semibold text-gray-700 mb-2 uppercase tracking-wide">{label}</h3>
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-2.5">
-              <div className="flex items-start gap-1.5">
-                <XCircle className="w-3.5 h-3.5 text-gray-500 flex-shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-[10px] font-medium text-gray-700 mb-0.5">
-                    Subscription Required
-                  </p>
-                  <p className="text-[10px] text-gray-600 leading-relaxed">
-                    Contact administrator
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      );
-    }
-
-    return (
-      <div className="bg-gradient-to-br from-white to-gray-50 rounded-md p-2.5 border border-gray-200 shadow-sm hover:shadow-md transition-all duration-300 group relative overflow-hidden">
-        <div className="absolute top-1 right-1 bg-gradient-to-r from-green-600 to-green-700 text-white px-1 py-0.5 text-[8px] font-semibold rounded-full flex items-center gap-0.5">
-          <CheckCircle2 className="w-1.5 h-1.5" />
-          ACTIVE
-        </div>
-        <div className="pt-2.5">
-          <div className="flex items-center justify-between mb-1">
-            <div className="p-1 bg-gradient-to-br from-gray-100 to-gray-200 rounded-md group-hover:from-gray-200 group-hover:to-gray-300 transition-all">
-              <div className="text-gray-700 text-xs">{icon}</div>
-            </div>
-            {trend && (
-              <div className={`flex items-center gap-0.5 ${trend.isPositive ? 'text-green-600' : 'text-red-600'}`}>
-                {trend.isPositive ? <ArrowUpRight className="w-2 h-2" /> : <ArrowDownRight className="w-2 h-2" />}
-                <span className="text-[8px] font-semibold">{Math.abs(trend.value)}%</span>
-              </div>
-            )}
-          </div>
-          <h3 className="text-[8px] font-medium text-gray-600 mb-1 uppercase tracking-wide">{label}</h3>
-          {statsLoading ? (
-            <div className="flex items-center gap-1">
-              <div className="animate-spin rounded-full h-2 w-2 border-b-2 border-gray-800"></div>
-              <span className="text-[9px] text-gray-600">Loading...</span>
-            </div>
-          ) : (
-            <>
-              <p className="text-lg sm:text-xl font-bold text-gray-900 mb-0.5">{value}</p>
-              {value === 0 && (
-                <p className="text-[8px] text-gray-500 mt-0.5">No data</p>
-              )}
-            </>
-          )}
-        </div>
-      </div>
-    );
-  };
-
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen px-4 bg-gray-50">
@@ -2886,7 +2759,12 @@ const ClinicDashboard: NextPageWithLayout = () => {
                         <Legend 
                           wrapperStyle={{ fontSize: '10px', paddingTop: '15px' }}
                           iconType="circle"
-                          formatter={(value, entry) => `${value}: ${((entry.payload.percent || 0) * 100).toFixed(0)}%`}
+                          formatter={(value: any, entry: any) => {
+                            const v = Number(entry?.payload?.value ?? 0);
+                            const total = appointmentStatusData.reduce((sum, d) => sum + Number(d.value || 0), 0);
+                            const pct = total ? (v / total) * 100 : 0;
+                            return `${value}: ${pct.toFixed(0)}%`;
+                          }}
                         />
                       </PieChart>
                     </ResponsiveContainer>
@@ -2921,7 +2799,12 @@ const ClinicDashboard: NextPageWithLayout = () => {
                         <Legend 
                           wrapperStyle={{ fontSize: '10px', paddingTop: '15px' }}
                           iconType="circle"
-                          formatter={(value, entry) => `${value}: ${((entry.payload.percent || 0) * 100).toFixed(0)}%`}
+                          formatter={(value: any, entry: any) => {
+                            const v = Number(entry?.payload?.value ?? 0);
+                            const total = leadStatusData.reduce((sum, d) => sum + Number(d.value || 0), 0);
+                            const pct = total ? (v / total) * 100 : 0;
+                            return `${value}: ${pct.toFixed(0)}%`;
+                          }}
                         />
                       </PieChart>
                     </ResponsiveContainer>
@@ -2956,7 +2839,12 @@ const ClinicDashboard: NextPageWithLayout = () => {
                         <Legend 
                           wrapperStyle={{ fontSize: '10px', paddingTop: '15px' }}
                           iconType="circle"
-                          formatter={(value, entry) => `${value}: ${((entry.payload.percent || 0) * 100).toFixed(0)}%`}
+                          formatter={(value: any, entry: any) => {
+                            const v = Number(entry?.payload?.value ?? 0);
+                            const total = offerStatusData.reduce((sum, d) => sum + Number(d.value || 0), 0);
+                            const pct = total ? (v / total) * 100 : 0;
+                            return `${value}: ${pct.toFixed(0)}%`;
+                          }}
                         />
                       </PieChart>
                     </ResponsiveContainer>
