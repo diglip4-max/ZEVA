@@ -18,7 +18,6 @@ import {
   SortableContext,
   sortableKeyboardCoordinates,
   useSortable,
-  horizontalListSortingStrategy,
   rectSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -36,7 +35,6 @@ import {
   XCircleIcon,
   ArrowPathIcon,
   BoltIcon,
-  Bars3Icon,
   ArrowsUpDownIcon,
   ArrowPathRoundedSquareIcon,
   EyeIcon,
@@ -132,7 +130,8 @@ const AdminDashboard = () => {
   const [error, setError] = useState<string | null>(null);
   const [currentDateTime, setCurrentDateTime] = useState(new Date());
   const [activeTab, setActiveTab] = useState<'overview' | 'approvals' | 'analytics'>('overview');
-  const [activeId, setActiveId] = useState<string | null>(null);
+  // Used only to track drag lifecycle; value isn't read directly in this component.
+  const [, setActiveId] = useState<string | null>(null);
   
   // Hidden Sections State with localStorage persistence
   const [hiddenSections, setHiddenSections] = useState<Set<string>>(() => {

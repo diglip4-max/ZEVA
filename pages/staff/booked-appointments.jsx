@@ -5,11 +5,12 @@ import axios from "axios";
 import StaffLayout from "../../components/staffLayout";
 import withStaffAuth from "../../components/withStaffAuth";
 import { Calendar, RefreshCw, Clock, AlertTriangle } from "lucide-react";
+import { APPOINTMENT_STATUS_OPTIONS } from "../../data/appointmentStatusOptions";
 
 const statusStyles = {
   booked: "bg-violet-100 text-violet-700 border-violet-200",
   enquiry: "bg-amber-100 text-amber-700 border-amber-200",
-  discharge: "bg-emerald-100 text-emerald-700 border-emerald-200",
+  Discharge: "bg-emerald-100 text-emerald-700 border-emerald-200",
 };
 
 const followStyles = {
@@ -125,9 +126,11 @@ const BookedAppointmentsPage = () => {
                   className="border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-[#2D9AA5] focus:border-[#2D9AA5]"
                 >
                   <option value="">All</option>
-                  <option value="booked">Booked</option>
-                  <option value="enquiry">Enquiry</option>
-                  <option value="discharge">Discharge</option>
+                  {APPOINTMENT_STATUS_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
                 </select>
               </div>
               <button

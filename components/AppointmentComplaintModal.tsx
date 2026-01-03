@@ -277,7 +277,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 py-8">
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 px-4 py-8">
       <div className="bg-white w-full max-w-5xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
         <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
           <h2 className="text-lg sm:text-xl font-semibold text-gray-900">

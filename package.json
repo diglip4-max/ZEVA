@@ -3,7 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack",
+    "dev": "next dev",
+    "dev:turbopack": "next dev --turbopack",
     "build": "node scripts/clean-build.js && next build",
     "build:clean": "node scripts/clean-build.js && next build",
     "start": "next start",

@@ -348,7 +348,7 @@ const AppointmentReportModal: React.FC<AppointmentReportModalProps> = ({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-1 sm:p-2 bg-black/50 backdrop-blur-md transition-all duration-300 animate-in fade-in">
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-1 sm:p-2 bg-black/50 backdrop-blur-md transition-all duration-300 animate-in fade-in">
       <div className="bg-white dark:bg-gray-50 w-full max-w-3xl rounded-lg shadow-2xl overflow-hidden flex flex-col max-h-[98vh] sm:max-h-[95vh] transform transition-all duration-300 scale-100 opacity-100 animate-in slide-in-from-bottom-4 zoom-in-95">
         <div className="sticky top-0 bg-gray-800 dark:bg-gray-700 border-b border-gray-700 dark:border-gray-600 px-2 sm:px-3 py-1.5 sm:py-2 flex items-center justify-between z-10 shadow">
           <div className="flex items-center gap-1.5 sm:gap-2">
