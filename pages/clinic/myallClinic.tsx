@@ -316,9 +316,22 @@ const TreatmentManager = ({
       const handleAddSubTreatment = async (mainTreatmentIndex: number) => {
     if (customSubTreatment.trim()) {
       const currentTreatment = items[mainTreatmentIndex];
+      const trimmedSubTreatment = customSubTreatment.trim();
+      const normalizedSubTreatment = trimmedSubTreatment.toLowerCase();
+      
+      // Check for duplicate sub-treatments (case-insensitive)
+      const isDuplicate = currentTreatment.subTreatments?.some((st) => 
+        st.name?.toLowerCase().trim() === normalizedSubTreatment
+      );
+      
+      if (isDuplicate) {
+        toast.error(`Sub-treatment "${trimmedSubTreatment}" already exists`);
+        return;
+      }
+      
       const newSubTreatment = {
-        name: customSubTreatment.trim(),
-        slug: customSubTreatment.trim().toLowerCase().replace(/\s+/g, "-"),
+        name: trimmedSubTreatment,
+        slug: trimmedSubTreatment.toLowerCase().replace(/\s+/g, "-"),
         price: Number(customSubTreatmentPrice) || 0,
       };
 
@@ -396,9 +409,16 @@ const TreatmentManager = ({
   ) => {
     const currentTreatment = items[mainTreatmentIndex];
     
-    // Check if sub-treatment already exists
-    if (currentTreatment.subTreatments?.some(st => st.name === subTreatmentName)) {
-      toast.error("Sub-treatment already exists");
+    // Normalize for comparison: lowercase and trim
+    const normalizedSubTreatmentName = subTreatmentName.toLowerCase().trim();
+    
+    // Check if sub-treatment already exists (case-insensitive)
+    const isDuplicate = currentTreatment.subTreatments?.some(st => 
+      st.name?.toLowerCase().trim() === normalizedSubTreatmentName
+    );
+    
+    if (isDuplicate) {
+      toast.error(`Sub-treatment "${subTreatmentName}" already exists`);
       return;
     }
     
@@ -992,7 +1012,7 @@ function ClinicManagementDashboard() {
   const [editForm, setEditForm] = useState<Partial<Clinic>>({});
   const [newService, setNewService] = useState("");
   const [newTreatment, setNewTreatment] = useState("");
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [updating, setUpdating] = useState(false);
   const [availableTreatments, setAvailableTreatments] = useState<Treatment[]>(
     []
@@ -1445,7 +1465,7 @@ function ClinicManagementDashboard() {
     setIsEditing(false);
     setEditingClinicId(null);
     setEditForm({});
-    setSelectedFile(null);
+    setSelectedFiles([]);
     setNewService("");
     setNewTreatment("");
     setShowCustomTreatmentInput(false);
@@ -1485,10 +1505,16 @@ function ClinicManagementDashboard() {
     const trimmed = newTreatment.trim();
     console.log("Adding custom treatment:", trimmed);
     console.log("Current treatments:", editForm.treatments);
-    if (
-      trimmed &&
-      !editForm.treatments?.some((t) => t.mainTreatment === trimmed)
-    ) {
+    
+    // Normalize for comparison: lowercase and trim
+    const normalizedTrimmed = trimmed.toLowerCase();
+    
+    // Check for duplicates (case-insensitive)
+    const isDuplicate = editForm.treatments?.some((t) => 
+      t.mainTreatment?.toLowerCase().trim() === normalizedTrimmed
+    );
+    
+    if (trimmed && !isDuplicate) {
       try {
         const authHeaders = getAuthHeaders();
         if (!authHeaders) {
@@ -1548,10 +1574,16 @@ function ClinicManagementDashboard() {
   const addTreatmentFromDropdown = (treatmentName: string) => {
     console.log("Adding treatment from dropdown:", treatmentName);
     console.log("Current treatments:", editForm.treatments);
-    if (
-      treatmentName &&
-      !editForm.treatments?.some((t) => t.mainTreatment === treatmentName)
-    ) {
+    
+    // Normalize for comparison: lowercase and trim
+    const normalizedTreatmentName = treatmentName.toLowerCase().trim();
+    
+    // Check for duplicates (case-insensitive)
+    const isDuplicate = editForm.treatments?.some((t) => 
+      t.mainTreatment?.toLowerCase().trim() === normalizedTreatmentName
+    );
+    
+    if (treatmentName && !isDuplicate) {
       setEditForm((prev) => {
         const newTreatments = [
           ...(prev.treatments || []),
@@ -1637,7 +1669,10 @@ function ClinicManagementDashboard() {
         }
       });
 
-      if (selectedFile) formData.append("photo", selectedFile);
+      // Append all selected files
+      selectedFiles.forEach((file) => {
+        formData.append("photos", file);
+      });
 
       // Debug: Log the FormData contents
       for (const [key, value] of Object.entries(formData.entries())) {
@@ -1904,37 +1939,49 @@ function ClinicManagementDashboard() {
                     setAvailableTreatments={setAvailableTreatments}
                   />
 
-                  {/* Photo Upload */}
+                  {/* Photo Upload - Multiple Images */}
                   <div className="space-y-3">
                     <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
                       <Camera className="w-4 h-4" />
-                      Health Center Photo
+                      Health Center Photos (Multiple)
                     </label>
                     <div className="relative border-2 border-dashed border-gray-200 rounded-xl p-6 sm:p-8 text-center hover:border-[#2D9AA5]/50 hover:bg-[#2D9AA5]/5 transition-all">
                       <input
                         type="file"
                         accept="image/*"
+                        multiple
                         onChange={(e) => {
-                          if (e.target.files && e.target.files[0]) {
-                            const file = e.target.files[0];
+                          if (e.target.files && e.target.files.length > 0) {
+                            const files = Array.from(e.target.files);
+                            const validFiles: File[] = [];
+                            let hasError = false;
+                            
+                            files.forEach((file) => {
                             if (
                               file.type !== "image/png" &&
                               file.type !== "image/jpeg" &&
                               file.type !== "image/jpg"
                             ) {
-                              setPhotoError("Please upload a PNG or JPG file");
-                              setSelectedFile(null);
-                              toast.error("Please upload a PNG or JPG file");
+                                setPhotoError("Please upload only PNG or JPG files");
+                                toast.error(`${file.name}: Please upload a PNG or JPG file`);
+                                hasError = true;
                             } else if (file.size > 1024 * 1024) {
-                              setPhotoError(
-                                "File is too large and you have to upload file less than 1MB"
-                              );
-                              setSelectedFile(null);
-                              toast.error("File size must be less than 1MB");
+                                setPhotoError("File size must be less than 1MB");
+                                toast.error(`${file.name}: File size must be less than 1MB`);
+                                hasError = true;
                             } else {
-                              setSelectedFile(file);
+                                validFiles.push(file);
+                              }
+                            });
+                            
+                            if (validFiles.length > 0) {
+                              setSelectedFiles((prev) => [...prev, ...validFiles]);
                               setPhotoError("");
-                              toast.success("Photo selected successfully");
+                              toast.success(`${validFiles.length} photo(s) added successfully`);
+                            }
+                            
+                            if (hasError && validFiles.length === 0) {
+                              // Don't clear existing files if some were invalid
                             }
                           }
                         }}
@@ -1944,18 +1991,97 @@ function ClinicManagementDashboard() {
                         <Camera className="w-6 h-6 text-[#2D9AA5]" />
                       </div>
                       <p className="text-gray-700 font-medium mb-1">
-                        Click to upload photo
+                        Click to upload photos
                       </p>
                       <p className="text-gray-500 text-sm">
-                        PNG, JPG up to 1MB
+                        PNG, JPG up to 1MB each (Multiple files allowed)
                       </p>
-                      {selectedFile && (
-                        <div className="mt-3 p-2 bg-[#2D9AA5]/10 rounded-lg">
-                          <p className="text-[#2D9AA5] text-sm font-medium">
-                            {selectedFile.name}
+                      
+                      {/* Display selected files */}
+                      {selectedFiles.length > 0 && (
+                        <div className="mt-4 space-y-2">
+                          <p className="text-sm font-medium text-gray-700">
+                            Selected Photos ({selectedFiles.length}):
                           </p>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                            {selectedFiles.map((file, index) => (
+                              <div
+                                key={index}
+                                className="relative p-2 bg-[#2D9AA5]/10 rounded-lg border border-[#2D9AA5]/20"
+                              >
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
+                                    toast.success("Photo removed");
+                                  }}
+                                  className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
+                                  title="Remove photo"
+                                >
+                                  <X className="w-3 h-3" />
+                                </button>
+                                <p className="text-[#2D9AA5] text-xs font-medium truncate pr-6">
+                                  {file.name}
+                                </p>
+                                <p className="text-gray-500 text-xs">
+                                  {(file.size / 1024).toFixed(1)} KB
+                                </p>
+                              </div>
+                            ))}
+                          </div>
                         </div>
                       )}
+                      
+                      {/* Display existing photos from clinic */}
+                      {editForm.photos && editForm.photos.length > 0 && (
+                        <div className="mt-4 space-y-2">
+                          <p className="text-sm font-medium text-gray-700">
+                            Current Photos ({editForm.photos.length}):
+                          </p>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                            {editForm.photos.map((photo, index) => (
+                              <div
+                                key={index}
+                                className="relative group"
+                              >
+                                <div className="relative w-full h-24 rounded-lg overflow-hidden border border-gray-200 bg-gray-50">
+                                  {photo ? (
+                                    <img
+                                      src={getImagePath(photo)}
+                                      alt={`Clinic photo ${index + 1}`}
+                                      className="w-full h-full object-cover"
+                                      onError={(e) => {
+                                        const img = e.currentTarget as HTMLImageElement;
+                                        img.onerror = null;
+                                        img.src = PLACEHOLDER_DATA_URI;
+                                      }}
+                                    />
+                                  ) : (
+                                    <div className="w-full h-full flex items-center justify-center">
+                                      <Camera className="w-6 h-6 text-gray-400" />
+                                    </div>
+                                  )}
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setEditForm((prev) => ({
+                                      ...prev,
+                                      photos: prev.photos?.filter((_, i) => i !== index) || [],
+                                    }));
+                                    toast.success("Photo removed");
+                                  }}
+                                  className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors opacity-0 group-hover:opacity-100"
+                                  title="Remove photo"
+                                >
+                                  <X className="w-3 h-3" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      
                       {photoError && (
                         <div className="mt-3 p-2 bg-red-50 rounded-lg">
                           <p className="text-red-600 text-sm font-medium">

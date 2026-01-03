@@ -56,15 +56,18 @@ const SuccessPopup: React.FC<SuccessPopupProps> = ({ isOpen, onClose }) => {
           <h3 className="text-2xl font-bold text-gray-900 mb-2">
             Registration Complete!
           </h3>
-          <p className="text-gray-600 mb-6">
-            Your Health Center has been registered. Pending approval from ZEVA
+          <p className="text-gray-600 mb-4">
+            Your Health Center profile is under review. After approval, you will be able to login to your dashboard.
+          </p>
+          <p className="text-sm text-gray-500 mb-6">
+            We'll notify you once your profile has been approved.
           </p>
           <button
             onClick={handleRedirect}
-            className="text-white font-semibold py-3 px-8 rounded-xl transition-all duration-300"
+            className="text-white font-semibold py-3 px-8 rounded-xl transition-all duration-300 hover:opacity-90"
             style={{ background: `linear-gradient(to right, #2D9AA5, #258A94)` }}
           >
-            Continue to ZEVA
+            Go to Home Page
           </button>
         </div>
       </div>
@@ -160,6 +163,7 @@ const RegisterClinic: React.FC & {
   const [currentStep, setCurrentStep] = useState(1);
   const [emailVerified, setEmailVerified] = useState<boolean>(false);
   const [emailSent, setEmailSent] = useState<boolean>(false);
+  const [isCheckingEmail, setIsCheckingEmail] = useState<boolean>(false);
   const [ownerPassword, setOwnerPassword] = useState<string>("");
   const [contactInfo, setContactInfo] = useState<ContactInfo>({
     name: "",
@@ -386,18 +390,59 @@ const RegisterClinic: React.FC & {
     };
   }, []);
 
-  const sendVerificationLink = () => {
+  const sendVerificationLink = async () => {
     if (!form.email) {
       showToastMessage("Please enter an email address", "error");
       return;
     }
-    sendSignInLinkToEmail(auth, form.email, {
-      url: window.location.href,
-      handleCodeInApp: true,
-    });
-    localStorage.setItem("clinicEmail", form.email);
-    setEmailSent(true);
-    showToastMessage("Verification link sent! Check your inbox.", "success");
+
+    // Validate email format
+    if (!form.email.includes("@")) {
+      setErrors((prev) => ({ ...prev, email: "Enter a valid email" }));
+      showToastMessage("Please enter a valid email address", "error");
+      return;
+    }
+
+    setIsCheckingEmail(true);
+    setErrors((prev) => ({ ...prev, email: undefined }));
+
+    try {
+      // First check if email already exists in database
+      const checkResponse = await axios.post('/api/clinics/check-email', { email: form.email });
+      
+      // If email exists (status 200), show error message
+      if (checkResponse.status === 200) {
+        showToastMessage("This email already exist", "error");
+        setErrors((prev) => ({ ...prev, email: "This email already exist" }));
+        setIsCheckingEmail(false);
+        return;
+      }
+    } catch (error: any) {
+      // If email doesn't exist (404), proceed to send verification link
+      if (axios.isAxiosError(error) && error.response?.status === 404) {
+        // Email doesn't exist, proceed with sending verification link
+        try {
+          sendSignInLinkToEmail(auth, form.email, {
+            url: window.location.href,
+            handleCodeInApp: true,
+          });
+          localStorage.setItem("clinicEmail", form.email);
+          setEmailSent(true);
+          showToastMessage("Verification link sent! Check your inbox.", "success");
+        } catch (firebaseError) {
+          console.error('Firebase error:', firebaseError);
+          showToastMessage("Failed to send verification link. Please try again.", "error");
+        }
+      } else {
+        // Other errors
+        console.error('Error checking email:', error);
+        showToastMessage("Error checking email. Please try again.", "error");
+      }
+      setIsCheckingEmail(false);
+      return;
+    }
+    
+    setIsCheckingEmail(false);
   };
 
   const handleSubmit = async (e?: React.FormEvent<HTMLFormElement>) => {
@@ -675,22 +720,33 @@ const RegisterClinic: React.FC & {
                         </div>
                         <button
                           type="button"
-                          className={`px-3 py-1.5 rounded-lg font-semibold whitespace-nowrap transition-all text-xs ${emailVerified
+                          className={`px-3 py-1.5 rounded-lg font-semibold whitespace-nowrap transition-all text-xs flex items-center justify-center gap-1 ${emailVerified
                               ? "bg-[#00b480] text-white"
                               : emailSent
                                 ? "bg-gray-100 text-gray-600 cursor-not-allowed"
-                                : "bg-gradient-to-r from-[#00b480] to-[#008f66] text-white"
+                                : isCheckingEmail
+                                  ? "bg-gray-400 text-white cursor-not-allowed"
+                                  : "bg-gradient-to-r from-[#00b480] to-[#008f66] text-white"
                             }`}
-                          onClick={() => {
-                            if (!form.email.includes("@")) {
-                              setErrors((prev) => ({ ...prev, email: "Enter a valid email" }));
-                              return;
-                            }
-                            sendVerificationLink();
+                          onClick={async () => {
+                            await sendVerificationLink();
                           }}
-                          disabled={emailSent && !emailVerified}
+                          disabled={(emailSent && !emailVerified) || isCheckingEmail}
                         >
-                          {emailVerified ? "✓ Verified" : emailSent ? "Sent" : "Verify"}
+                          {emailVerified ? (
+                            <>
+                              <span>✓</span> Verified
+                            </>
+                          ) : emailSent ? (
+                            "Sent"
+                          ) : isCheckingEmail ? (
+                            <>
+                              <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                              Checking...
+                            </>
+                          ) : (
+                            "Verify"
+                          )}
                         </button>
                       </div>
                     </div>

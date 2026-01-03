@@ -445,9 +445,23 @@ const AddTreatment: NextPageWithLayout = () => {
 
       // Add main treatment if value exists
       if (newMainTreatment.trim()) {
+        // Normalize for comparison: lowercase and trim
+        const normalizedMainTreatment = newMainTreatment.trim().toLowerCase();
+        
+        // Check for duplicate main treatment (case-insensitive)
+        const isDuplicateMainTreatment = treatments.some(t => 
+          t.name?.toLowerCase().trim() === normalizedMainTreatment
+        );
+        
+        if (isDuplicateMainTreatment) {
+          showToast(`Treatment "${newMainTreatment.trim()}" already exists`, 'error');
+          setLoading(false);
+          return;
+        }
+        
         const res = await axios.post('/api/admin/addTreatment', {
-          name: newMainTreatment,
-          slug: newMainTreatment.toLowerCase().replace(/\s+/g, '-'),
+          name: newMainTreatment.trim(),
+          slug: newMainTreatment.trim().toLowerCase().replace(/\s+/g, '-'),
         }, {
           headers: { Authorization: `Bearer ${token}` }
         });
@@ -478,10 +492,28 @@ const AddTreatment: NextPageWithLayout = () => {
           return;
         }
 
+        // Find the main treatment to check for duplicate sub-treatments
+        const mainTreatment = treatments.find(t => t._id === mainTreatmentId);
+        if (mainTreatment) {
+          // Normalize for comparison: lowercase and trim
+          const normalizedSubTreatment = newSubTreatment.trim().toLowerCase();
+          
+          // Check for duplicate sub-treatment (case-insensitive)
+          const isDuplicateSubTreatment = mainTreatment.subcategories?.some(st => 
+            st.name?.toLowerCase().trim() === normalizedSubTreatment
+          );
+          
+          if (isDuplicateSubTreatment) {
+            showToast(`Sub-treatment "${newSubTreatment.trim()}" already exists for this treatment`, 'error');
+            setLoading(false);
+            return;
+          }
+        }
+
         const res = await axios.post('/api/admin/addSubTreatment', {
           mainTreatmentId: mainTreatmentId,
-          subTreatmentName: newSubTreatment,
-          subTreatmentSlug: newSubTreatment.toLowerCase().replace(/\s+/g, '-'),
+          subTreatmentName: newSubTreatment.trim(),
+          subTreatmentSlug: newSubTreatment.trim().toLowerCase().replace(/\s+/g, '-'),
         }, {
           headers: { Authorization: `Bearer ${token}` }
         });

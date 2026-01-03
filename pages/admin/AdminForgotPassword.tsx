@@ -38,16 +38,23 @@ export default function AdminForgotPassword() {
         throw new Error("Error checking email");
       }
 
+      // Get base URL dynamically - use current origin (localhost in dev, production URL in prod)
+      const getBaseUrl = () => {
+        if (typeof window !== 'undefined') {
+          return window.location.origin;
+        }
+        // Fallback for SSR
+        return process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+      };
+      
+      const actionCodeSettings = {
+        url: `${getBaseUrl()}/admin/reset-password?email=${encodeURIComponent(email)}`,
+        handleCodeInApp: true,
+      };
+
       // Firebase logic
       const app = initializeApp(firebaseConfig);
       const auth = getAuth(app);
-
-      const actionCodeSettings = {
-        url: `https://zeva360.com/admin/reset-password?email=${encodeURIComponent(
-          email
-        )}`,
-        handleCodeInApp: true,
-      };
 
       await sendSignInLinkToEmail(auth, email, actionCodeSettings);
       window.localStorage.setItem("adminEmailForReset", email);
