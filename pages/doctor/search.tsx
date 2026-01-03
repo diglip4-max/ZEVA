@@ -1845,15 +1845,15 @@ Verified Doctors – Every doctor is thoroughly verified with proper certificati
                               return mapsHref ? (
                                 <a
                                   href={mapsHref}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  onClick={(e) => e.stopPropagation()}
-                                  className="flex items-center justify-center px-2.5 py-1.5 bg-[#0284c7] text-white rounded-lg hover:bg-[#0369a1] transition-all text-xs shadow-sm hover:shadow"
-                                  title="Get Directions"
-                                >
-                                  <Navigation className="w-3.5 h-3.5 mr-1" />
-                                  <span className="hidden sm:inline">Directions</span>
-                                </a>
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                className="flex items-center justify-center px-2.5 py-1.5 bg-[#0284c7] text-white rounded-lg hover:bg-[#0369a1] transition-all text-xs shadow-sm hover:shadow"
+                                title="Get Directions"
+                              >
+                                <Navigation className="w-3.5 h-3.5 mr-1" />
+                                <span className="hidden sm:inline">Directions</span>
+                              </a>
                               ) : null;
                             })()}
 

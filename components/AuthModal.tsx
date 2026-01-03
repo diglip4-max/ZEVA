@@ -261,10 +261,10 @@ const AuthModal: React.FC<AuthModalProps> = ({
             </div>
           </div>
           <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-1 animate-slide-down">
-            {mode === 'login' ? 'Join Us' : mode === 'register' ? 'Create Account' : 'Reset Password'}
+            {mode === 'login' ? 'Sign in to Zeva360' : mode === 'register' ? 'Create Account' : 'Reset Password'}
           </h2>
           <p className="text-gray-500 text-xs sm:text-sm animate-slide-down" style={{ animationDelay: '0.1s' }}>
-            {mode === 'login' ? 'Sign in to access your account' : mode === 'register' ? 'Join us today' : 'Enter your email to receive a reset link'}
+            {mode === 'login' ? 'Secure access to your healthcare management platform.' : mode === 'register' ? 'Join us today' : 'Enter your email to receive a reset link'}
           </p>
         </div>
 

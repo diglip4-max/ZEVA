@@ -149,7 +149,7 @@ const JobStats: React.FC<JobStatsProps> = ({
     blogStats: true,
     blogEngagement: true,
   },
-  isEditMode: _isEditMode = false,
+  isEditMode = false,
   sectionWrapper,
 }) => {
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -432,7 +432,7 @@ const JobStats: React.FC<JobStatsProps> = ({
   // This ensures job stats are always visible
 
   return (
-    <div
+    <div 
       className="w-full space-y-4 sm:space-y-6 px-2 sm:px-4 lg:px-0"
       data-edit-mode={isEditMode ? "true" : "false"}
     >

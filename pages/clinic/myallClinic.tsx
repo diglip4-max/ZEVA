@@ -316,9 +316,22 @@ const TreatmentManager = ({
       const handleAddSubTreatment = async (mainTreatmentIndex: number) => {
     if (customSubTreatment.trim()) {
       const currentTreatment = items[mainTreatmentIndex];
+      const trimmedSubTreatment = customSubTreatment.trim();
+      const normalizedSubTreatment = trimmedSubTreatment.toLowerCase();
+      
+      // Check for duplicate sub-treatments (case-insensitive)
+      const isDuplicate = currentTreatment.subTreatments?.some((st) => 
+        st.name?.toLowerCase().trim() === normalizedSubTreatment
+      );
+      
+      if (isDuplicate) {
+        toast.error(`Sub-treatment "${trimmedSubTreatment}" already exists`);
+        return;
+      }
+      
       const newSubTreatment = {
-        name: customSubTreatment.trim(),
-        slug: customSubTreatment.trim().toLowerCase().replace(/\s+/g, "-"),
+        name: trimmedSubTreatment,
+        slug: trimmedSubTreatment.toLowerCase().replace(/\s+/g, "-"),
         price: Number(customSubTreatmentPrice) || 0,
       };
 
@@ -396,9 +409,16 @@ const TreatmentManager = ({
   ) => {
     const currentTreatment = items[mainTreatmentIndex];
     
-    // Check if sub-treatment already exists
-    if (currentTreatment.subTreatments?.some(st => st.name === subTreatmentName)) {
-      toast.error("Sub-treatment already exists");
+    // Normalize for comparison: lowercase and trim
+    const normalizedSubTreatmentName = subTreatmentName.toLowerCase().trim();
+    
+    // Check if sub-treatment already exists (case-insensitive)
+    const isDuplicate = currentTreatment.subTreatments?.some(st => 
+      st.name?.toLowerCase().trim() === normalizedSubTreatmentName
+    );
+    
+    if (isDuplicate) {
+      toast.error(`Sub-treatment "${subTreatmentName}" already exists`);
       return;
     }
     
@@ -1485,10 +1505,16 @@ function ClinicManagementDashboard() {
     const trimmed = newTreatment.trim();
     console.log("Adding custom treatment:", trimmed);
     console.log("Current treatments:", editForm.treatments);
-    if (
-      trimmed &&
-      !editForm.treatments?.some((t) => t.mainTreatment === trimmed)
-    ) {
+    
+    // Normalize for comparison: lowercase and trim
+    const normalizedTrimmed = trimmed.toLowerCase();
+    
+    // Check for duplicates (case-insensitive)
+    const isDuplicate = editForm.treatments?.some((t) => 
+      t.mainTreatment?.toLowerCase().trim() === normalizedTrimmed
+    );
+    
+    if (trimmed && !isDuplicate) {
       try {
         const authHeaders = getAuthHeaders();
         if (!authHeaders) {
@@ -1548,10 +1574,16 @@ function ClinicManagementDashboard() {
   const addTreatmentFromDropdown = (treatmentName: string) => {
     console.log("Adding treatment from dropdown:", treatmentName);
     console.log("Current treatments:", editForm.treatments);
-    if (
-      treatmentName &&
-      !editForm.treatments?.some((t) => t.mainTreatment === treatmentName)
-    ) {
+    
+    // Normalize for comparison: lowercase and trim
+    const normalizedTreatmentName = treatmentName.toLowerCase().trim();
+    
+    // Check for duplicates (case-insensitive)
+    const isDuplicate = editForm.treatments?.some((t) => 
+      t.mainTreatment?.toLowerCase().trim() === normalizedTreatmentName
+    );
+    
+    if (treatmentName && !isDuplicate) {
       setEditForm((prev) => {
         const newTreatments = [
           ...(prev.treatments || []),
@@ -1925,19 +1957,19 @@ function ClinicManagementDashboard() {
                             let hasError = false;
                             
                             files.forEach((file) => {
-                              if (
-                                file.type !== "image/png" &&
-                                file.type !== "image/jpeg" &&
-                                file.type !== "image/jpg"
-                              ) {
+                            if (
+                              file.type !== "image/png" &&
+                              file.type !== "image/jpeg" &&
+                              file.type !== "image/jpg"
+                            ) {
                                 setPhotoError("Please upload only PNG or JPG files");
                                 toast.error(`${file.name}: Please upload a PNG or JPG file`);
                                 hasError = true;
-                              } else if (file.size > 1024 * 1024) {
+                            } else if (file.size > 1024 * 1024) {
                                 setPhotoError("File size must be less than 1MB");
                                 toast.error(`${file.name}: File size must be less than 1MB`);
                                 hasError = true;
-                              } else {
+                            } else {
                                 validFiles.push(file);
                               }
                             });

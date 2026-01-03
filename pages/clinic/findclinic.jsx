@@ -1702,12 +1702,12 @@ export default function Home() {
                                                                     
                                                                     return (
                                                                         <>
-                                                                            <Image
+                                                        <Image
                                                                                 key={`${clinic._id}-${currentIndex}`}
                                                                                 src={normalizeImagePath(currentPhoto)}
                                                                                 alt={`${clinic.name || "Clinic Image"} - Photo ${currentIndex + 1}`}
-                                                                                fill
-                                                                                className="object-cover object-center group-hover:scale-105 transition-transform duration-300"
+                                                            fill
+                                                            className="object-cover object-center group-hover:scale-105 transition-transform duration-300"
                                                                                 unoptimized
                                                                             />
                                                                             
@@ -1863,14 +1863,14 @@ export default function Home() {
                                                                 return mapsHref ? (
                                                                     <a
                                                                         href={mapsHref}
-                                                                        target="_blank"
-                                                                        rel="noopener noreferrer"
-                                                                        onClick={(e) => e.stopPropagation()}
-                                                                        className="flex items-center justify-center px-2.5 py-1.5 bg-[#0284c7] text-white rounded-lg hover:bg-[#0369a1] transition-all text-xs shadow-sm hover:shadow"
-                                                                        title="Get Directions"
-                                                                    >
-                                                                        <Navigation className="w-3.5 h-3.5" />
-                                                                    </a>
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    onClick={(e) => e.stopPropagation()}
+                                                                    className="flex items-center justify-center px-2.5 py-1.5 bg-[#0284c7] text-white rounded-lg hover:bg-[#0369a1] transition-all text-xs shadow-sm hover:shadow"
+                                                                    title="Get Directions"
+                                                                >
+                                                                    <Navigation className="w-3.5 h-3.5" />
+                                                                </a>
                                                                 ) : null;
                                                             })()}
                                                             <a
