@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { X, Search, Plus, Loader2, Calendar, Building2, Stethoscope, AlertCircle } from "lucide-react";
+import { APPOINTMENT_STATUS_OPTIONS } from "../data/appointmentStatusOptions";
 
 interface AppointmentBookingModalProps {
   isOpen: boolean;
@@ -482,7 +483,7 @@ export default function AppointmentBookingModal({
 
   return (
     <div 
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-md transition-all duration-300 animate-in fade-in"
+      className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/50 backdrop-blur-md transition-all duration-300 animate-in fade-in"
       onClick={(e) => {
         if (e.target === e.currentTarget) {
           onClose();
@@ -672,9 +673,11 @@ export default function AppointmentBookingModal({
                 aria-invalid={!!fieldErrors.status}
                 aria-describedby={fieldErrors.status ? "status-error" : undefined}
               >
-                <option value="booked">Booked</option>
-                <option value="enquiry">Enquiry</option>
-                <option value="discharge">Discharge</option>
+                {APPOINTMENT_STATUS_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
               </select>
               {fieldErrors.status && (
                 <p id="status-error" className="mt-1 text-[10px] text-red-600 dark:text-red-700" role="alert">{fieldErrors.status}</p>

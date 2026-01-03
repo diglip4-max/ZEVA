@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { X, Loader2, Calendar, Clock, AlertCircle } from "lucide-react";
+import { APPOINTMENT_STATUS_OPTIONS } from "../data/appointmentStatusOptions";
 
 interface EditAppointmentModalProps {
   isOpen: boolean;
@@ -263,17 +264,11 @@ export default function EditAppointmentModal({
                 }`}
                 required
               >
-                <option value="booked">Booked</option>
-                <option value="enquiry">Enquiry</option>
-                <option value="Discharge">Discharge</option>
-                <option value="Arrived">Arrived</option>
-                <option value="Consultation">Consultation</option>
-                <option value="Cancelled">Cancelled</option>
-                <option value="Approved">Approved</option>
-                <option value="Rescheduled">Rescheduled</option>
-                <option value="Waiting">Waiting</option>
-                <option value="Rejected">Rejected</option>
-                <option value="Completed">Completed</option>
+                {APPOINTMENT_STATUS_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
               </select>
               {fieldErrors.status && (
                 <p className="mt-0.5 text-xs text-red-600">{fieldErrors.status}</p>

@@ -25,6 +25,7 @@
   import AppointmentReportModal from "../../components/AppointmentReportModal";
   import AppointmentComplaintModal from "../../components/AppointmentComplaintModal";
   import AppointmentBillingModal from "../../components/AppointmentBillingModal";
+  import { APPOINTMENT_STATUS_OPTIONS } from "../../data/appointmentStatusOptions";
 
   interface Appointment {
     _id: string;
@@ -783,13 +784,11 @@
                             className="w-full px-3 py-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 outline-none text-gray-900"
                       >
                         <option value="">All Status</option>
-                        <option value="booked">Booked</option>
-                        <option value="enquiry">Enquiry</option>
-                        <option value="Discharge">Discharged</option>
-                        <option value="Arrived">Arrived</option>
-                        <option value="Consultation">Consultation</option>
-                        <option value="Invoiced">Invoiced</option>
-                        <option value="Cancelled">Cancelled</option>
+                        {APPOINTMENT_STATUS_OPTIONS.map((opt) => (
+                          <option key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </option>
+                        ))}
                       </select>
                     </div>
 

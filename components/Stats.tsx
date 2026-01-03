@@ -432,7 +432,10 @@ const JobStats: React.FC<JobStatsProps> = ({
   // This ensures job stats are always visible
 
   return (
-    <div className="w-full space-y-4 sm:space-y-6 px-2 sm:px-4 lg:px-0">
+    <div
+      className="w-full space-y-4 sm:space-y-6 px-2 sm:px-4 lg:px-0"
+      data-edit-mode={isEditMode ? "true" : "false"}
+    >
       {/* Error Banner - Show error but don't block stats */}
       {error && (
         <div className="bg-red-50 border border-red-200 rounded-xl p-4">
