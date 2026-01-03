@@ -8,11 +8,6 @@ import toast, { Toaster } from 'react-hot-toast';
 import React from 'react';
 import Link from 'next/link';
 
-const actionCodeSettings = {
-  url: 'https://ayurvedanearme.ae/doctor/reset-password', // ✅ Update to prod URL
-  handleCodeInApp: true,
-};
-
 export default function DoctorForgotPassword() {
   const [email, setEmail] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -32,6 +27,20 @@ export default function DoctorForgotPassword() {
       });
 
       if (response.ok) {
+        // Get base URL dynamically - use current origin (localhost in dev, production URL in prod)
+        const getBaseUrl = () => {
+          if (typeof window !== 'undefined') {
+            return window.location.origin;
+          }
+          // Fallback for SSR
+          return process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+        };
+        
+        const actionCodeSettings = {
+          url: `${getBaseUrl()}/doctor/reset-password?email=${encodeURIComponent(email)}`,
+          handleCodeInApp: true,
+        };
+        
         // Email exists with doctor role, proceed with Firebase verification
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);

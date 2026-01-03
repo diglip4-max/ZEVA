@@ -406,15 +406,12 @@ export default function DoctorDetail() {
 
                 {/* Directions Button */}
                 {(() => {
-                  const coords = profile.location?.coordinates;
-                  const mapsHref =
-                    coords && coords.length === 2
-                      ? `https://www.google.com/maps/dir/?api=1&destination=${coords[1]},${coords[0]}`
-                      : profile.address
-                      ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(
-                          profile.address
-                        )}`
-                      : null;
+                  // Use address if available (more accurate), otherwise fall back to coordinates
+                  const mapsHref = profile.address
+                    ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(profile.address)}`
+                    : profile.location?.coordinates?.length === 2
+                    ? `https://www.google.com/maps/dir/?api=1&destination=${profile.location.coordinates[1]},${profile.location.coordinates[0]}`
+                    : null;
                   return mapsHref ? (
                     <a
                       href={mapsHref}

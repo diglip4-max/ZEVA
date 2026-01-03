@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/router";
 import Head from "next/head";
 import axios from "axios";
+import { toast } from "react-hot-toast";
 import {
   MapPin,
   Search,
@@ -75,7 +76,8 @@ export default function FindDoctor() {
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(
     null
-  );
+  ); // Searched location coordinates
+  const [userCurrentLocation, setUserCurrentLocation] = useState<{ lat: number; lng: number } | null>(null); // User's actual current location
   const [manualPlace, setManualPlace] = useState("");
   const [loading, setLoading] = useState(false);
   const [viewMode, setViewMode] = useState("list");
@@ -256,6 +258,28 @@ export default function FindDoctor() {
     }
   }, []);
 
+  // Get user's current location on component mount (for distance calculation)
+  useEffect(() => {
+    if (typeof window !== "undefined" && navigator.geolocation && !userCurrentLocation) {
+      // Silently try to get user's current location in the background
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const { latitude, longitude } = pos.coords;
+          setUserCurrentLocation({ lat: latitude, lng: longitude });
+        },
+        () => {
+          // Silently fail - user's location not available or permission denied
+          // This is okay, we'll use searched location for distance calculation
+        },
+        {
+          enableHighAccuracy: false,
+          timeout: 5000,
+          maximumAge: 300000 // Cache for 5 minutes
+        }
+      );
+    }
+  }, []); // Only run once on mount
+
   // Separate useEffect for URL query parameters to avoid conflicts with localStorage
   useEffect(() => {
     if (!router.isReady || hasSearchedFromURL.current || isUpdatingURL.current) return;
@@ -333,12 +357,20 @@ export default function FindDoctor() {
   const clearSearch = () => {
     setDoctors([]);
     setCoords(null);
+    setUserCurrentLocation(null); // Also clear user's current location
     setSelectedService("");
     setManualPlace("");
     setQuery("");
     setStarFilter(0);
     setSuggestions([]);
     clearPersistedState();
+    // Clear session token so that on refresh, previous results won't be loaded
+    if (typeof window !== "undefined") {
+      sessionStorage.removeItem("ayurvedaDoctorSearchSession");
+    }
+    // Clear URL parameters
+    updateURL("", "");
+    toast("Search cleared", { icon: "🧹" });
   };
 
   // Function to fetch reviews for a single doctor
@@ -449,11 +481,16 @@ export default function FindDoctor() {
         params: { lat, lng, service: service ?? selectedService },
       });
 
+      // Use user's current location for distance calculation if available, otherwise use searched location
+      const distanceLat = userCurrentLocation?.lat || lat;
+      const distanceLng = userCurrentLocation?.lng || lng;
+
       const doctorsWithDistance = res.data.doctors.map((doctor: Doctor) => {
         if (doctor.location?.coordinates?.length === 2) {
           const doctorLng = doctor.location.coordinates[0];
           const doctorLat = doctor.location.coordinates[1];
-          const distance = calculateDistance(lat, lng, doctorLat, doctorLng);
+          // Calculate distance from user's current location (or searched location if current location not available)
+          const distance = calculateDistance(distanceLat, distanceLng, doctorLat, doctorLng);
           return { ...doctor, distance };
         }
         return { ...doctor, distance: null };
@@ -519,6 +556,7 @@ export default function FindDoctor() {
       (pos) => {
         const { latitude, longitude } = pos.coords;
         setCoords({ lat: latitude, lng: longitude });
+        setUserCurrentLocation({ lat: latitude, lng: longitude }); // Store user's current location
         
         // Get values from input fields
         const treatmentValue = query.trim();
@@ -546,6 +584,25 @@ export default function FindDoctor() {
 
     setLoading(true);
     clearPersistedState(); // Clear old state when starting new search
+    
+    // Try to get user's current location in the background (for distance calculation)
+    if (typeof window !== "undefined" && navigator.geolocation && !userCurrentLocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const { latitude, longitude } = pos.coords;
+          setUserCurrentLocation({ lat: latitude, lng: longitude });
+        },
+        () => {
+          // Silently fail - will use searched location for distance
+        },
+        {
+          enableHighAccuracy: false,
+          timeout: 3000,
+          maximumAge: 300000
+        }
+      );
+    }
+    
     try {
       const res = await axios.get("/api/doctor/geocode", {
         params: { place: placeQuery },
@@ -1777,19 +1834,28 @@ Verified Doctors – Every doctor is thoroughly verified with proper certificati
 
                           {/* Action buttons */}
                           <div className="flex gap-2">
-                            {doctor.location?.coordinates?.length === 2 && (
-                              <a
-                                href={`https://www.google.com/maps/dir/?api=1&destination=${doctor.location.coordinates[1]},${doctor.location.coordinates[0]}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                onClick={(e) => e.stopPropagation()}
-                                className="flex items-center justify-center px-2.5 py-1.5 bg-[#0284c7] text-white rounded-lg hover:bg-[#0369a1] transition-all text-xs shadow-sm hover:shadow"
-                                title="Get Directions"
-                              >
-                                <Navigation className="w-3.5 h-3.5 mr-1" />
-                                <span className="hidden sm:inline">Directions</span>
-                              </a>
-                            )}
+                            {(() => {
+                              // Use address if available (more accurate), otherwise fall back to coordinates
+                              const mapsHref = doctor.address
+                                ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(doctor.address)}`
+                                : doctor.location?.coordinates?.length === 2
+                                ? `https://www.google.com/maps/dir/?api=1&destination=${doctor.location.coordinates[1]},${doctor.location.coordinates[0]}`
+                                : null;
+                              
+                              return mapsHref ? (
+                                <a
+                                  href={mapsHref}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="flex items-center justify-center px-2.5 py-1.5 bg-[#0284c7] text-white rounded-lg hover:bg-[#0369a1] transition-all text-xs shadow-sm hover:shadow"
+                                  title="Get Directions"
+                                >
+                                  <Navigation className="w-3.5 h-3.5 mr-1" />
+                                  <span className="hidden sm:inline">Directions</span>
+                                </a>
+                              ) : null;
+                            })()}
 
                             {/* View Full Details */}
                             <a

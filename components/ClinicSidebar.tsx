@@ -943,11 +943,6 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                       onDragOver={onDragOver}
                       onDrop={onDropParent(parentIdx)}
                       onDragEnd={onDragEnd}
-                      draggable
-                      onDragStart={onDragStartParent(parentIdx)}
-                      onDragOver={onDragOver}
-                      onDrop={onDropParent(parentIdx)}
-                      onDragEnd={onDragEnd}
                     >
                       <div
                         className={clsx(

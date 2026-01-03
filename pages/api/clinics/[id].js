@@ -280,14 +280,14 @@ export default async function handler(req, res) {
 
       console.log("✅ Found existing clinic:", existingClinic._id);
 
-      // Handle file upload if present
-      let photoPath = null;
+      // Handle multiple file uploads if present
+      let uploadedPhotoPaths = [];
       if (req.headers["content-type"]?.includes("multipart/form-data")) {
         try {
-          await runMiddleware(req, res, upload.single("photo"));
-          if (req.file) {
-            photoPath = `/uploads/clinic/${req.file.filename}`;
-            console.log("📸 File uploaded:", photoPath);
+          await runMiddleware(req, res, upload.array("photos", 10)); // Allow up to 10 photos
+          if (req.files && Array.isArray(req.files) && req.files.length > 0) {
+            uploadedPhotoPaths = req.files.map((file) => `/uploads/clinic/${file.filename}`);
+            console.log("📸 Files uploaded:", uploadedPhotoPaths);
           }
         } catch (uploadError) {
           console.error("File upload error:", uploadError);
@@ -371,9 +371,19 @@ export default async function handler(req, res) {
         }
       }
 
-      // Add photo to update data if uploaded
-      if (photoPath) {
-        updateData.photos = [photoPath];
+      // Merge new photos with existing photos if uploaded
+      if (uploadedPhotoPaths.length > 0) {
+        // Get existing photos from clinic
+        const existingPhotos = existingClinic.photos || [];
+        // Merge new photos with existing ones (avoid duplicates)
+        const allPhotos = [...existingPhotos];
+        uploadedPhotoPaths.forEach((newPhoto) => {
+          if (!allPhotos.includes(newPhoto)) {
+            allPhotos.push(newPhoto);
+          }
+        });
+        updateData.photos = allPhotos;
+        console.log("📸 Total photos after merge:", allPhotos.length);
       }
 
       // Remove undefined/empty fields

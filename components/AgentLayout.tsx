@@ -49,7 +49,6 @@ const AgentLayout = ({ children }: { children: React.ReactNode }) => {
         isDesktopHidden={isDesktopHidden}
         isMobileOpen={isMobileOpen}
         handleToggleDesktop={handleToggleDesktop}
-        handleToggleMobile={handleToggleMobile}
         handleCloseMobile={handleCloseMobile}
         handleItemClick={handleItemClick}
       />

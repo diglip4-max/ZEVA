@@ -149,7 +149,7 @@ const JobStats: React.FC<JobStatsProps> = ({
     blogStats: true,
     blogEngagement: true,
   },
-  isEditMode = false,
+  isEditMode: _isEditMode = false,
   sectionWrapper,
 }) => {
   const [jobs, setJobs] = useState<Job[]>([]);

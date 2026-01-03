@@ -42,7 +42,6 @@ interface AgentSidebarProps {
   isDesktopHidden: boolean;
   isMobileOpen: boolean;
   handleToggleDesktop: () => void;
-  handleToggleMobile: () => void;
   handleCloseMobile: () => void;
   handleItemClick: () => void;
 }
@@ -52,7 +51,6 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
   isDesktopHidden,
   isMobileOpen,
   handleToggleDesktop,
-  handleToggleMobile,
   handleCloseMobile,
   handleItemClick,
 }) => {
