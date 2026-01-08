@@ -5,6 +5,67 @@ import React from "react";
 import type { KeyboardEvent } from "react";
 import Layout from "@/components/Layout";
 import { GoogleMap, Marker } from "@react-google-maps/api";
+import { auth } from "../../lib/firebase";
+import {
+  isSignInWithEmailLink,
+  signInWithEmailLink,
+  sendSignInLinkToEmail,
+} from "firebase/auth";
+import { Mail } from "lucide-react";
+import { useRouter } from "next/router";
+
+interface SuccessPopupProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+const SuccessPopup: React.FC<SuccessPopupProps> = ({ isOpen, onClose }) => {
+  const router = useRouter();
+
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isOpen]);
+
+  if (!isOpen) return null;
+
+  const handleRedirect = () => {
+    onClose();
+    router.push("/");
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl">
+        <div className="text-center">
+          <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style={{ backgroundColor: '#2D9AA5' }}>
+            <span className="text-3xl text-white">🎉</span>
+          </div>
+          <h3 className="text-2xl font-bold text-gray-900 mb-2">
+            Registration Complete!
+          </h3>
+          <p className="text-gray-600 mb-4">
+            Your Doctor profile is under review. After approval, you will be able to login to your dashboard.
+          </p>
+          <p className="text-sm text-gray-500 mb-6">
+            We'll notify you once your profile has been approved.
+          </p>
+          <button
+            onClick={handleRedirect}
+            className="text-white font-semibold py-3 px-8 rounded-xl transition-all duration-300 hover:opacity-90"
+            style={{ background: `linear-gradient(to right, #2D9AA5, #258A94)` }}
+          >
+            Go to Home Page
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 export default function DoctorRegister() {
   const searchRef = useRef<HTMLDivElement>(null);
@@ -53,6 +114,11 @@ export default function DoctorRegister() {
   const [locationDebounceTimer, setLocationDebounceTimer] = useState<NodeJS.Timeout | null>(null);
   const [geocoder, setGeocoder] = useState<google.maps.Geocoder | null>(null);
   const [locationError, setLocationError] = useState<string>("");
+  const [emailVerified, setEmailVerified] = useState<boolean>(false);
+  const [emailSent, setEmailSent] = useState<boolean>(false);
+  const [isCheckingEmail, setIsCheckingEmail] = useState<boolean>(false);
+  const [emailError, setEmailError] = useState<string>("");
+  const [showSuccessPopup, setShowSuccessPopup] = useState<boolean>(false);
 
   // Fetch treatments from backend API
   useEffect(() => {
@@ -67,6 +133,20 @@ export default function DoctorRegister() {
       }
     };
     fetchTreatments();
+
+    // Handle Firebase email verification link
+    if (isSignInWithEmailLink(auth, window.location.href)) {
+      const stored = localStorage.getItem("doctorEmail") || "";
+      signInWithEmailLink(auth, stored, window.location.href)
+        .then(() => {
+          setForm((f) => ({ ...f, email: stored || "" }));
+          setEmailVerified(true);
+          setEmailSent(true);
+          setEmailError("");
+          showToast("Email verified successfully!", "success");
+        })
+        .catch(() => showToast("Invalid verification link", "error"));
+    }
   }, []);
 
   useEffect(() => {
@@ -93,6 +173,62 @@ export default function DoctorRegister() {
     setTimeout(() => {
       setToast({ show: false, message: "", type: 'info' });
     }, 5000);
+  };
+
+  // Send email verification link
+  const sendVerificationLink = async () => {
+    if (!form.email) {
+      showToast("Please enter an email address", "error");
+      return;
+    }
+
+    // Validate email format
+    if (!form.email.includes("@")) {
+      setEmailError("Enter a valid email");
+      showToast("Please enter a valid email address", "error");
+      return;
+    }
+
+    setIsCheckingEmail(true);
+    setEmailError("");
+
+    try {
+      // First check if email already exists in database for doctor role
+      const checkResponse = await axios.post('/api/doctor/check-email', { email: form.email });
+      
+      // If email exists (status 200), show error message
+      if (checkResponse.status === 200) {
+        showToast("This email already exist", "error");
+        setEmailError("This email already exist");
+        setIsCheckingEmail(false);
+        return;
+      }
+    } catch (error: any) {
+      // If email doesn't exist (404), proceed to send verification link
+      if (axios.isAxiosError(error) && error.response?.status === 404) {
+        // Email doesn't exist for doctor role, proceed with sending verification link
+        try {
+          sendSignInLinkToEmail(auth, form.email, {
+            url: window.location.href,
+            handleCodeInApp: true,
+          });
+          localStorage.setItem("doctorEmail", form.email);
+          setEmailSent(true);
+          showToast("Verification link sent! Check your inbox.", "success");
+        } catch (firebaseError) {
+          console.error('Firebase error:', firebaseError);
+          showToast("Failed to send verification link. Please try again.", "error");
+        }
+      } else {
+        // Other errors
+        console.error('Error checking email:', error);
+        showToast("Error checking email. Please try again.", "error");
+      }
+      setIsCheckingEmail(false);
+      return;
+    }
+    
+    setIsCheckingEmail(false);
   };
 
   // Map load callback
@@ -218,6 +354,14 @@ export default function DoctorRegister() {
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    
+    // Email verification validation
+    if (!emailVerified) {
+      showToast("Please verify your email address before submitting.", 'error');
+      setEmailError("Email must be verified");
+      return;
+    }
+    
     // Phone validation: must be exactly 10 digits
     if (!form.phone || form.phone.length !== 10) {
       showToast("Please enter a valid 10-digit phone number.", 'error');
@@ -252,7 +396,8 @@ export default function DoctorRegister() {
           "Content-Type": "multipart/form-data",
         },
       });
-      showToast("Registration successful! Welcome to our network.", 'success');
+      // Show success popup
+      setShowSuccessPopup(true);
       // Reset the form fields
       setForm({
         name: "",
@@ -268,9 +413,9 @@ export default function DoctorRegister() {
       });
       setResumeFileName("");
       setLocationInput("");
-      setTimeout(() => {
-        window.location.href = '/';
-      }, 6000);
+      setEmailVerified(false);
+      setEmailSent(false);
+      setEmailError("");
     } catch (err: unknown) {
       let message = "Registration failed";
 
@@ -404,16 +549,69 @@ return (
                 {/* Email and Phone */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-black mb-2">Email *</label>
-                    <input
-                      name="email"
-                      type="email"
-                      placeholder="doctor@example.com"
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:border-[#2D9AA5] focus:ring-2 focus:ring-[#2D9AA5]/20 transition-all text-black placeholder-black/50 outline-none"
-                      onChange={handleChange}
-                      value={form.email || ""}
-                      required
-                    />
+                    <label className="block text-sm font-medium text-black mb-2">
+                      Email * {emailVerified && <span className="text-green-600 text-xs">✓ Verified</span>}
+                    </label>
+                    <div className="flex gap-1.5">
+                      <div className="flex-1 relative">
+                        <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                        <input
+                          name="email"
+                          type="email"
+                          placeholder="doctor@example.com"
+                          className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:ring-2 transition-all text-black placeholder-black/50 outline-none ${
+                            emailError
+                              ? "border-red-400 focus:border-red-500 focus:ring-red-500/20"
+                              : emailVerified
+                                ? "border-green-400 focus:border-green-500 focus:ring-green-500/20"
+                                : "border-gray-300 focus:border-[#2D9AA5] focus:ring-[#2D9AA5]/20"
+                          }`}
+                          onChange={(e) => {
+                            handleChange(e);
+                            if (emailError) setEmailError("");
+                            if (emailVerified) {
+                              setEmailVerified(false);
+                              setEmailSent(false);
+                            }
+                          }}
+                          value={form.email || ""}
+                          disabled={emailVerified}
+                          required
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        className={`px-4 py-3 rounded-lg font-semibold whitespace-nowrap transition-all text-sm flex items-center justify-center gap-1 ${
+                          emailVerified
+                            ? "bg-green-600 text-white"
+                            : emailSent
+                              ? "bg-gray-100 text-gray-600 cursor-not-allowed"
+                              : isCheckingEmail
+                                ? "bg-gray-400 text-white cursor-not-allowed"
+                                : "bg-gradient-to-r from-[#2D9AA5] to-[#258A94] text-white hover:from-[#258A94] hover:to-[#1d7a84]"
+                        }`}
+                        onClick={sendVerificationLink}
+                        disabled={(emailSent && !emailVerified) || isCheckingEmail}
+                      >
+                        {emailVerified ? (
+                          <>
+                            <span>✓</span> Verified
+                          </>
+                        ) : emailSent ? (
+                          "Sent"
+                        ) : isCheckingEmail ? (
+                          <>
+                            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                            Checking...
+                          </>
+                        ) : (
+                          "Verify"
+                        )}
+                      </button>
+                    </div>
+                    {emailError && (
+                      <p className="text-red-500 text-xs mt-1">{emailError}</p>
+                    )}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-black mb-2">Phone *</label>
@@ -783,8 +981,11 @@ return (
         }
       }
     `}</style>
+    
+    {/* Success Popup */}
+    <SuccessPopup isOpen={showSuccessPopup} onClose={() => setShowSuccessPopup(false)} />
   </>
-);
+  );
 }
 
 DoctorRegister.getLayout = function PageLayout(page: React.ReactNode) {

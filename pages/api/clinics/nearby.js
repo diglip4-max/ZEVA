@@ -3,6 +3,14 @@ import Clinic from "../../../models/Clinic";
 import Treatment from "../../../models/Treatment";
 import axios from "axios";
 
+// Helper to get base URL
+function getBaseUrl() {
+  if (process.env.NODE_ENV === "production") {
+    return process.env.NEXT_PUBLIC_BASE_URL || "https://zeva360.com";
+  }
+  return process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
+}
+
 export default async function handler(req, res) {
   await dbConnect();
   const { lat, lng, service } = req.query;
@@ -299,17 +307,37 @@ export default async function handler(req, res) {
     }
 
     // ✅ Add photo path handling (local + live)
+    const baseUrl = getBaseUrl();
     clinics = clinics.map((clinic) => ({
       ...clinic,
       photos:
         clinic.photos?.map((photo) => {
           if (!photo) return null;
 
-          if (photo.startsWith("http")) return photo; // Already full URL
-          if (photo.startsWith("/uploads/clinic/")) return photo; // Local dev
-
-          const filename = photo.split("uploads/clinic/").pop();
-          return `https://zeva360.com/uploads/clinic/${filename}`;
+          // If already a full URL, return as is
+          if (photo.startsWith("http://") || photo.startsWith("https://")) {
+            return photo;
+          }
+          
+          // If it's a relative path starting with /uploads/clinic/, convert to absolute URL
+          if (photo.startsWith("/uploads/clinic/")) {
+            return `${baseUrl}${photo}`;
+          }
+          
+          // If it contains uploads/clinic/ but doesn't start with /, extract and convert
+          if (photo.includes("uploads/clinic/")) {
+            const uploadsIndex = photo.indexOf("uploads/clinic/");
+            const relativePath = "/" + photo.substring(uploadsIndex);
+            return `${baseUrl}${relativePath}`;
+          }
+          
+          // If it starts with /, prepend base URL
+          if (photo.startsWith("/")) {
+            return `${baseUrl}${photo}`;
+          }
+          
+          // Fallback: assume it's a filename and construct the path
+          return `${baseUrl}/uploads/clinic/${photo}`;
         }) || [],
     }));
 
@@ -334,15 +362,35 @@ export default async function handler(req, res) {
       }
 
       if (ramacareClinic) {
+        const baseUrl = getBaseUrl();
         ramacareClinic.photos =
           ramacareClinic.photos?.map((photo) => {
             if (!photo) return null;
 
-            if (photo.startsWith("http")) return photo;
-            if (photo.startsWith("/uploads/clinic/")) return photo;
-
-            const filename = photo.split("uploads/clinic/").pop();
-            return `https://zeva360.com/uploads/clinic/${filename}`;
+            // If already a full URL, return as is
+            if (photo.startsWith("http://") || photo.startsWith("https://")) {
+              return photo;
+            }
+            
+            // If it's a relative path starting with /uploads/clinic/, convert to absolute URL
+            if (photo.startsWith("/uploads/clinic/")) {
+              return `${baseUrl}${photo}`;
+            }
+            
+            // If it contains uploads/clinic/ but doesn't start with /, extract and convert
+            if (photo.includes("uploads/clinic/")) {
+              const uploadsIndex = photo.indexOf("uploads/clinic/");
+              const relativePath = "/" + photo.substring(uploadsIndex);
+              return `${baseUrl}${relativePath}`;
+            }
+            
+            // If it starts with /, prepend base URL
+            if (photo.startsWith("/")) {
+              return `${baseUrl}${photo}`;
+            }
+            
+            // Fallback: assume it's a filename and construct the path
+            return `${baseUrl}/uploads/clinic/${photo}`;
           }) || [];
 
         clinics = clinics.filter(

@@ -37,6 +37,27 @@ function ClinicJobPostingPage({ contextOverride = null }: { contextOverride?: Ro
       null
     );
   };
+
+  const getUserRole = (): string | null => {
+    if (typeof window === "undefined") return null;
+    try {
+      const TOKEN_PRIORITY = ["clinicToken", "doctorToken", "agentToken", "staffToken", "userToken", "adminToken"];
+      for (const key of TOKEN_PRIORITY) {
+        const token = window.localStorage.getItem(key) || window.sessionStorage.getItem(key);
+        if (token) {
+          try {
+            const payload = JSON.parse(atob(token.split('.')[1]));
+            return payload.role || null;
+          } catch (e) {
+            continue;
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Error getting user role:", error);
+    }
+    return null;
+  };
   const [activeTab, setActiveTab] = useState<TabType>('jobs');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -114,27 +135,10 @@ function ClinicJobPostingPage({ contextOverride = null }: { contextOverride?: Ro
           return;
         }
 
-        // ✅ For clinic/admin/doctor roles, grant full access (bypass permission checks)
-        // Try to get role from token or localStorage
-        let userRole: string | null = null;
-        try {
-          // Try to get from localStorage/sessionStorage
-          userRole = localStorage.getItem('role') || sessionStorage.getItem('role') || 
-                     localStorage.getItem('userRole') || sessionStorage.getItem('userRole');
-          
-          // If not found, try to decode from token
-          if (!userRole && token) {
-            const tokenParts = token.split('.');
-            if (tokenParts.length === 3) {
-              const payload = JSON.parse(atob(tokenParts[1]));
-              userRole = payload?.role || payload?.userRole;
-            }
-          }
-        } catch (e) {
-          console.error('Error getting user role:', e);
-        }
+        const userRole = getUserRole();
         
-        if (["clinic", "admin", "doctor"].includes(userRole || "")) {
+        // ✅ For admin role, grant full access (bypass permission checks)
+        if (userRole === "admin") {
           setPermissions({
             canCreate: true,
             canRead: true,
@@ -145,89 +149,104 @@ function ClinicJobPostingPage({ contextOverride = null }: { contextOverride?: Ro
             canDeleteApplicants: true,
           });
           setPermissionsLoaded(true);
-          return; // Skip API calls for these roles
+          return; // Skip API calls for admin role
         }
 
-        const res = await axios.get("/api/clinic/permissions", {
+        // ✅ For clinic and doctor roles, fetch admin-level permissions from /api/clinic/sidebar-permissions
+        if (userRole === "clinic" || userRole === "doctor") {
+          try {
+            const res = await axios.get("/api/clinic/sidebar-permissions", {
           headers: { Authorization: `Bearer ${token}` },
         });
 
-        const data = res.data;
-        console.log('[Job Posting] Permissions API response:', JSON.stringify(data, null, 2));
-        
-        if (data.success && data.data) {
-          // Find "job_posting" module permission (not submodule)
-          const modulePermission = data.data.permissions?.find((p: any) => {
+            if (res.data.success) {
+              // Check if permissions array exists and is not null
+              // If permissions is null, admin hasn't set any restrictions yet - allow full access (backward compatibility)
+              if (res.data.permissions === null || !Array.isArray(res.data.permissions) || res.data.permissions.length === 0) {
+                // No admin restrictions set yet - default to full access for backward compatibility
+                setPermissions({
+                  canCreate: true,
+                  canRead: true,
+                  canUpdate: true,
+                  canDelete: true,
+                  canReadApplicants: true,
+                  canUpdateApplicants: true,
+                  canDeleteApplicants: true,
+                });
+              } else {
+                // Admin has set permissions - check the clinic_job_posting module
+                const modulePermission = res.data.permissions.find((p: any) => {
             if (!p?.module) return false;
-            const moduleKey = p.module || "";
-            // Check for "job_posting" module (with or without prefix)
-            const normalizedModule = moduleKey.replace(/^(admin|clinic|doctor|agent)_/, "");
-            return normalizedModule === "job_posting" || moduleKey === "job_posting" || 
-                   moduleKey === "clinic_job_posting" || moduleKey === "doctor_job_posting" ||
-                   normalizedModule === "jobs" || moduleKey === "jobs" || moduleKey === "clinic_jobs";
-          });
-          
-         
+                  // Check for clinic_job_posting module
+                  if (p.module === "clinic_job_posting") return true;
+                  if (p.module === "job_posting") return true;
+                  if (p.module === "jobs") return true;
+                  return false;
+                });
 
           if (modulePermission) {
             const actions = modulePermission.actions || {};
             
-            // Helper function to check if a permission value is true (handles boolean and string)
-            const isTrue = (value: any) => {
-              if (value === true) return true;
-              if (value === "true") return true;
-              if (String(value).toLowerCase() === "true") return true;
-              return false;
-            };
+                  // Check if "all" is true, which grants all permissions
+                  const moduleAll = actions.all === true || actions.all === "true" || String(actions.all).toLowerCase() === "true";
+                  const moduleCreate = actions.create === true || actions.create === "true" || String(actions.create).toLowerCase() === "true";
+                  const moduleRead = actions.read === true || actions.read === "true" || String(actions.read).toLowerCase() === "true";
+                  const moduleUpdate = actions.update === true || actions.update === "true" || String(actions.update).toLowerCase() === "true";
+                  const moduleDelete = actions.delete === true || actions.delete === "true" || String(actions.delete).toLowerCase() === "true";
 
-            // Module-level permissions - check each action independently
-            // If user only has "create", they can ONLY create, not read/update/delete
-            const moduleAll = isTrue(actions.all);
-            const moduleCreate = isTrue(actions.create);
-            const moduleRead = isTrue(actions.read);
-            const moduleUpdate = isTrue(actions.update);
-            const moduleDelete = isTrue(actions.delete);
-           
-            
-            // CRUD permissions based on module-level actions
-            // If "all" is true, grant everything
-            // Otherwise, check each action independently
             setPermissions({
-              // Create: Module "all" OR module "create"
               canCreate: moduleAll || moduleCreate,
-              // Read Jobs: Module "all" OR module "read" (independent of create)
               canRead: moduleAll || moduleRead,
-              // Update: Module "all" OR module "update" (independent of create)
               canUpdate: moduleAll || moduleUpdate,
-              // Delete: Module "all" OR module "delete" (independent of create)
               canDelete: moduleAll || moduleDelete,
-              // Read Applicants: Module "all" OR module "read" (same as read jobs)
               canReadApplicants: moduleAll || moduleRead,
-              // Update Applicants: Module "all" OR module "update" (same as update jobs)
               canUpdateApplicants: moduleAll || moduleUpdate,
-              // Delete Applicants: Module "all" OR module "delete" (same as delete jobs)
               canDeleteApplicants: moduleAll || moduleDelete,
             });
           } else {
-            // No permissions found for job_posting module
-            console.log('[Job Posting] No job_posting module permission found. Available modules:', 
-              data.data.permissions?.map((p: any) => p.module) || []
-            );
-            // If no permissions are set up at all, allow access (backward compatibility)
-            // Otherwise, deny access
-            const hasAnyPermissions = data.data.permissions && data.data.permissions.length > 0;
+                  // Module permission not found in the permissions array - default to read-only
+                  setPermissions({
+                    canCreate: false,
+                    canRead: true, // Clinic/doctor can always read their own data
+                    canUpdate: false,
+                    canDelete: false,
+                    canReadApplicants: true,
+                    canUpdateApplicants: false,
+                    canDeleteApplicants: false,
+                  });
+                }
+              }
+            } else {
+              // API response doesn't have permissions, default to full access (backward compatibility)
+              setPermissions({
+                canCreate: true,
+                canRead: true,
+                canUpdate: true,
+                canDelete: true,
+                canReadApplicants: true,
+                canUpdateApplicants: true,
+                canDeleteApplicants: true,
+              });
+            }
+          } catch (err: any) {
+            console.error("Error fetching clinic sidebar permissions:", err);
+            // On error, default to full access (backward compatibility)
             setPermissions({
-              canCreate: !hasAnyPermissions,
-              canRead: !hasAnyPermissions,
-              canUpdate: !hasAnyPermissions,
-              canDelete: !hasAnyPermissions,
-              canReadApplicants: !hasAnyPermissions,
-              canUpdateApplicants: !hasAnyPermissions,
-              canDeleteApplicants: !hasAnyPermissions,
+              canCreate: true,
+              canRead: true,
+              canUpdate: true,
+              canDelete: true,
+              canReadApplicants: true,
+              canUpdateApplicants: true,
+              canDeleteApplicants: true,
             });
           }
-        } else {
-          // API failed or no permissions data
+          setPermissionsLoaded(true);
+          return;
+        }
+
+        // For other roles (agent, staff, doctorStaff), use existing agent permissions logic
+        // This should not happen in clinic route, but handle it gracefully
           setPermissions({
             canCreate: false,
             canRead: false,
@@ -237,7 +256,6 @@ function ClinicJobPostingPage({ contextOverride = null }: { contextOverride?: Ro
             canUpdateApplicants: false,
             canDeleteApplicants: false,
           });
-        }
         setPermissionsLoaded(true);
       } catch (err: any) {
         setPermissions({
@@ -274,6 +292,26 @@ function ClinicJobPostingPage({ contextOverride = null }: { contextOverride?: Ro
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-gray-800"></div>
+      </div>
+    );
+  }
+
+  // Show access denied message if no read or create permission
+  if (!permissions.canRead && !permissions.canCreate) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-lg shadow-lg border border-red-200 p-8 text-center max-w-md">
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <PlusCircle className="w-8 h-8 text-red-600" />
+          </div>
+          <h2 className="text-xl font-bold text-gray-900 mb-2">Access Denied</h2>
+          <p className="text-sm text-gray-700 mb-4">
+            You do not have permission to view or manage job postings.
+          </p>
+          <p className="text-xs text-gray-600">
+            Please contact your administrator to request access to the Job Posting module.
+          </p>
+        </div>
       </div>
     );
   }

@@ -42,6 +42,15 @@ const AllJobs: React.FC = () => {
   });
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
+  const [sortBy, setSortBy] = useState("most-recent");
+  const [loading, setLoading] = useState(false);
+  const [pagination, setPagination] = useState({
+    totalJobs: 0,
+    totalPages: 0,
+    currentPage: 1,
+    hasNextPage: false,
+    hasPreviousPage: false,
+  });
   const jobsPerPage = 6;
 
   // Helper: convert text to URL-friendly slug
@@ -91,38 +100,13 @@ const AllJobs: React.FC = () => {
   };
 
 
-  // Flag to track initial load
-  const isInitialLoad = useRef(true);
-
-  const fetchJobs = useCallback(async (searchValue?: string, locationValue?: string) => {
+  const fetchJobs = useCallback(async (searchValue?: string, locationValue?: string, pageNumber?: number) => {
     // Use provided values or fall back to current state values
     const searchToUse = searchValue !== undefined ? searchValue : searchQuery;
     const locationToUse = locationValue !== undefined ? locationValue : filters.location;
+    const pageToUse = pageNumber !== undefined ? pageNumber : currentPage;
     
-    console.log("🔵 API CALL TRIGGERED - fetchJobs called");
-    console.log("📊 Current state:", {
-      searchQuery: searchToUse,
-      location: locationToUse,
-      filters: {
-        jobType: filters.jobType,
-        department: filters.department,
-        skills: filters.skills,
-        salary: filters.salary,
-        time: filters.time,
-        experience: filters.experience,
-      }
-    });
-    
-    // Log search logic
-    if (searchToUse.trim() && locationToUse.trim()) {
-      console.log("🔍 Search Mode: BOTH - Will show jobs matching BOTH job title/company AND location");
-    } else if (searchToUse.trim()) {
-      console.log("🔍 Search Mode: TITLE ONLY - Will show all jobs matching job title/company");
-    } else if (locationToUse.trim()) {
-      console.log("🔍 Search Mode: LOCATION ONLY - Will show all jobs matching location");
-    } else {
-      console.log("🔍 Search Mode: NONE - Will show all jobs");
-    }
+    setLoading(true);
     
     try {
       const params = new URLSearchParams();
@@ -147,23 +131,50 @@ const AllJobs: React.FC = () => {
         params.append("search", searchToUse.trim());
       }
 
+      // Add sort parameter
+      if (sortBy) {
+        params.append("sortBy", sortBy);
+      }
+
+      // Add pagination parameters
+      params.append("page", pageToUse.toString());
+      params.append("limit", jobsPerPage.toString());
+
       const apiUrl = `/api/job-postings/all?${params.toString()}`;
-      console.log("🌐 Making API request to:", apiUrl);
-      console.log("⏰ Timestamp:", new Date().toISOString());
       
-      const res = await axios.get<{ jobs: Job[] }>(apiUrl);
+      const res = await axios.get<{ 
+        jobs: Job[]; 
+        pagination: {
+          currentPage: number;
+          pageSize: number;
+          totalJobs: number;
+          totalPages: number;
+          hasNextPage: boolean;
+          hasPreviousPage: boolean;
+        }
+      }>(apiUrl);
       
-      console.log("✅ API Response received:", {
-        jobsCount: res.data.jobs?.length || 0,
-        timestamp: new Date().toISOString()
-      });
+      setJobs(res.data.jobs || []);
       
-      setJobs(res.data.jobs);
-      setCurrentPage(1); // Reset to first page when filters change
+      // Update pagination metadata from API
+      if (res.data.pagination) {
+        setPagination({
+          totalJobs: res.data.pagination.totalJobs,
+          totalPages: res.data.pagination.totalPages,
+          currentPage: res.data.pagination.currentPage,
+          hasNextPage: res.data.pagination.hasNextPage,
+          hasPreviousPage: res.data.pagination.hasPreviousPage,
+        });
+        // Sync currentPage state with API response
+        setCurrentPage(res.data.pagination.currentPage);
+      }
     } catch (err) {
       console.error("❌ Error fetching jobs:", err);
+      setJobs([]);
+    } finally {
+      setLoading(false);
     }
-  }, [searchQuery, filters]);
+  }, [searchQuery, filters, sortBy, currentPage]);
 
   const formatPostedDate = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -187,14 +198,13 @@ const AllJobs: React.FC = () => {
     return "Not specified";
   };
 
-  // Calculate pagination
-  const totalPages = Math.ceil(jobs.length / jobsPerPage);
-  const indexOfLastJob = currentPage * jobsPerPage;
-  const indexOfFirstJob = indexOfLastJob - jobsPerPage;
-  const currentJobs = jobs.slice(indexOfFirstJob, indexOfLastJob);
+  // Use pagination from API (no client-side slicing needed)
+  const currentJobs = jobs;
+  const totalPages = pagination.totalPages;
 
   const handlePageChange = (pageNumber: number) => {
     setCurrentPage(pageNumber);
+    fetchJobs(searchQuery, filters.location, pageNumber);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -233,61 +243,45 @@ const AllJobs: React.FC = () => {
     return pages;
   };
 
-  // On first load, clear URL and start fresh
+  // On first load, fetch all jobs
   const hasInitialized = useRef(false);
   useEffect(() => {
     if (!router.isReady) return;
-    if (hasInitialized.current) return; // Only run once on initial load
+    if (hasInitialized.current) return;
 
-    console.log("🚀 Initial load - starting fresh (clearing URL parameters)");
-    
-    // Clear URL parameters on refresh
-    if (Object.keys(router.query).length > 0) {
-      console.log("🧹 Clearing URL parameters");
-      router.replace(router.pathname, undefined, { shallow: true });
-    }
-    
-    // Reset all filters and search to empty
-    setFilters({
-      location: "",
-      jobType: "",
-      department: "",
-      skills: "",
-      salary: "",
-      time: "",
-      experience: "",
-    });
-    setSearchQuery("");
-    
-    isInitialLoad.current = false;
     hasInitialized.current = true;
-    
-    // Fetch all jobs (no filters) on initial load
-    console.log("🚀 Initial load - fetching all jobs");
-    setTimeout(() => {
-      fetchJobs("", "");
-    }, 0);
+    fetchJobs("", "");
   }, [router.isReady]);
 
-  // URL is only updated when Search Jobs button is clicked (in handleSearchSubmit)
-  // No automatic URL sync on keystroke to prevent unnecessary re-renders
+  // Real-time API calls when filter dropdowns change (debounced)
+  useEffect(() => {
+    if (!hasInitialized.current) return;
+    
+    // Debounce filter changes to avoid too many API calls
+    const timer = setTimeout(() => {
+      // Always fetch page 1 when filters change
+      fetchJobs(searchQuery, filters.location, 1);
+    }, 300);
 
-  // No automatic API calls on keystroke - only on button click or initial load
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters.jobType, filters.department, filters.skills, filters.salary, filters.time, filters.experience]);
+
+  // Real-time API call when sort changes (no debounce for immediate feedback)
+  useEffect(() => {
+    if (!hasInitialized.current) return;
+    // Always fetch page 1 when sort changes
+    fetchJobs(searchQuery, filters.location, 1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sortBy]);
 
   const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    
-    console.log(`🔧 Filter changed - ${name}:`, value);
-    
-    // For location input, update immediately for UI but debounce will handle API call
-    // For other filters (dropdowns), update immediately and trigger API call
     setFilters({ ...filters, [name]: value });
-    
-    // For non-location filters (dropdowns), immediately update debounced value to trigger API call
-    if (name !== 'location') {
-      // For dropdowns, we want immediate API calls, so update debounced location if it's not location
-      // Actually, for non-location filters, the useEffect will handle it via filters dependency
-    }
+  };
+
+  const handleSortChange = (e: ChangeEvent<HTMLSelectElement>) => {
+    setSortBy(e.target.value);
   };
 
   const handleSearchChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -297,14 +291,8 @@ const AllJobs: React.FC = () => {
   };
 
   const handleSearchSubmit = () => {
-    console.log("🔘 Search Jobs button clicked!");
-    console.log("📝 Current search values:", {
-      searchQuery,
-      location: filters.location
-    });
-    
-    // Call API with current search and location values
-    fetchJobs(searchQuery, filters.location);
+    // Call API with current search and location values (always page 1 for new search)
+    fetchJobs(searchQuery, filters.location, 1);
     
     // Update URL with current values
     const params = new URLSearchParams();
@@ -370,23 +358,23 @@ const AllJobs: React.FC = () => {
       </Head>
       <div className="min-h-screen bg-gray-50">
       {/* Hero Section with Search */}
-      <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 text-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-          <div className="text-center mb-10">
-            <h1 className="text-5xl md:text-6xl font-bold mb-4 tracking-tight">
+      <div className="bg-gradient-to-r from-teal-800 via-teal-700 to-teal-800 text-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-10">
+          <div className="text-center mb-6">
+            <h1 className="text-3xl md:text-4xl font-bold mb-2 tracking-tight">
               Find Your Dream Job
             </h1>
-            <p className="text-xl text-teal-50 max-w-2xl mx-auto">
-              Discover thousands of job opportunities with all the information you need
+            <p className="text-base md:text-lg text-teal-100 max-w-2xl mx-auto">
+              Explore opportunities tailored to your skills and preferences
             </p>
           </div>
 
           {/* Main Search Bar */}
-          <div className="max-w-4xl mx-auto">
-            <div className="bg-white rounded-2xl shadow-2xl p-3">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="max-w-3xl mx-auto">
+            <div className="bg-white rounded-lg shadow-md p-1.5">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-1.5">
                 <div className="relative">
-                  <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
                   <input
@@ -394,11 +382,11 @@ const AllJobs: React.FC = () => {
                     onChange={handleSearchChange}
                     onKeyPress={(e) => e.key === 'Enter' && handleSearchSubmit()}
                     placeholder="Job title, keywords, or company"
-                    className="w-full pl-12 pr-4 py-4 text-gray-900 placeholder-gray-500 rounded-xl border-2 border-transparent focus:border-teal-500 focus:outline-none transition-colors"
+                    className="w-full pl-9 pr-2.5 py-2 text-xs text-gray-900 placeholder-gray-500 rounded-md border border-gray-200 focus:border-amber-400 focus:ring-1 focus:ring-amber-400 focus:outline-none transition-colors"
                   />
                 </div>
                 <div className="relative">
-                  <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                   </svg>
@@ -406,39 +394,40 @@ const AllJobs: React.FC = () => {
                     name="location"
                     value={filters.location}
                     onChange={handleChange}
+                    onKeyPress={(e) => e.key === 'Enter' && handleSearchSubmit()}
                     placeholder="City or state"
-                    className="w-full pl-12 pr-4 py-4 text-gray-900 placeholder-gray-500 rounded-xl border-2 border-transparent focus:border-teal-500 focus:outline-none transition-colors"
+                    className="w-full pl-9 pr-2.5 py-2 text-xs text-gray-900 placeholder-gray-500 rounded-md border border-gray-200 focus:border-amber-400 focus:ring-1 focus:ring-amber-400 focus:outline-none transition-colors"
                   />
                 </div>
                 <button
                   onClick={handleSearchSubmit}
-                  className="bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-semibold py-4 px-8 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center gap-2">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  className="bg-amber-400 hover:bg-amber-500 text-gray-900 font-medium py-2 px-4 rounded-md shadow-sm hover:shadow-md transition-all duration-200 flex items-center justify-center gap-1.5 text-xs">
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
-                  Search Jobs
+                  Search
                 </button>
               </div>
             </div>
           </div>
 
           {/* Quick Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 max-w-4xl mx-auto mt-10">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-4xl mx-auto mt-6">
             <div className="text-center">
-              <div className="text-3xl font-bold mb-1">{jobs.length}+</div>
-              <div className="text-teal-100 text-sm">Live Jobs</div>
+              <div className="text-2xl font-bold mb-0.5">{jobs.length}</div>
+              <div className="text-teal-200 text-xs">Active Jobs</div>
             </div>
             <div className="text-center">
-              <div className="text-3xl font-bold mb-1">500+</div>
-              <div className="text-teal-100 text-sm">Companies</div>
+              <div className="text-2xl font-bold mb-0.5">500+</div>
+              <div className="text-teal-200 text-xs">Companies</div>
             </div>
             <div className="text-center">
-              <div className="text-3xl font-bold mb-1">300+</div>
-              <div className="text-teal-100 text-sm">New Jobs</div>
+              <div className="text-2xl font-bold mb-0.5">300+</div>
+              <div className="text-teal-200 text-xs">New This Month</div>
             </div>
             <div className="text-center">
-              <div className="text-3xl font-bold mb-1">1M+</div>
-              <div className="text-teal-100 text-sm">Candidates</div>
+              <div className="text-2xl font-bold mb-0.5">1M+</div>
+              <div className="text-teal-200 text-xs">Active Users</div>
             </div>
           </div>
         </div>
@@ -456,8 +445,9 @@ const AllJobs: React.FC = () => {
                   onClick={() => {
                     setFilters({ location: "", jobType: "", department: "", skills: "", salary: "", time: "", experience: "" });
                     setSearchQuery("");
+                    fetchJobs("", "");
                   }}
-                  className="text-sm text-teal-600 hover:text-teal-700 font-medium"
+                  className="text-sm text-teal-800 hover:text-teal-900 font-medium"
                 >
                   Clear all
                 </button>
@@ -465,7 +455,7 @@ const AllJobs: React.FC = () => {
 
               <div className="space-y-6">
                 {/* Date Posted */}
-                <div>
+                <div className="relative z-10">
                   <label className="block text-sm font-semibold text-gray-700 mb-3">
                     Date Posted
                   </label>
@@ -477,7 +467,7 @@ const AllJobs: React.FC = () => {
                         value=""
                         checked={filters.time === ""}
                         onChange={handleChange}
-                        className="w-4 h-4 text-teal-600 border-gray-300 focus:ring-teal-500"
+                        className="w-4 h-4 text-teal-800 border-gray-300 focus:ring-teal-800"
                       />
                       <span className="ml-3 text-sm text-gray-700">All time</span>
                     </label>
@@ -488,7 +478,7 @@ const AllJobs: React.FC = () => {
                         value="week"
                         checked={filters.time === "week"}
                         onChange={handleChange}
-                        className="w-4 h-4 text-teal-600 border-gray-300 focus:ring-teal-500"
+                        className="w-4 h-4 text-teal-800 border-gray-300 focus:ring-teal-800"
                       />
                       <span className="ml-3 text-sm text-gray-700">Last 7 days</span>
                     </label>
@@ -498,7 +488,7 @@ const AllJobs: React.FC = () => {
                 <div className="border-t border-gray-200"></div>
 
                 {/* Job Type */}
-                <div>
+                <div className="relative z-20">
                   <label className="block text-sm font-semibold text-gray-700 mb-3">
                     Job Type
                   </label>
@@ -506,7 +496,7 @@ const AllJobs: React.FC = () => {
                     name="jobType"
                     value={filters.jobType}
                     onChange={handleChange}
-                    className="w-full px-4 py-2.5 text-gray-900 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-colors"
+                    className="w-full px-4 py-2.5 text-sm text-gray-900 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-800 focus:border-teal-800 transition-colors relative z-20"
                   >
                     <option value="">All Types</option>
                     <option>Full Time</option>
@@ -518,7 +508,7 @@ const AllJobs: React.FC = () => {
                 <div className="border-t border-gray-200"></div>
 
                 {/* Experience Level */}
-                <div>
+                <div className="relative z-30">
                   <label className="block text-sm font-semibold text-gray-700 mb-3">
                     Experience Level
                   </label>
@@ -526,7 +516,7 @@ const AllJobs: React.FC = () => {
                     name="experience"
                     value={filters.experience}
                     onChange={handleChange}
-                    className="w-full px-4 py-2.5 text-gray-900 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-colors"
+                    className="w-full px-4 py-2.5 text-sm text-gray-900 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-800 focus:border-teal-800 transition-colors relative z-30"
                   >
                     <option value="">All Levels</option>
                     <option value="fresher">Fresher</option>
@@ -540,7 +530,7 @@ const AllJobs: React.FC = () => {
                 <div className="border-t border-gray-200"></div>
 
                 {/* Department */}
-                <div>
+                <div className="relative z-40">
                   <label className="block text-sm font-semibold text-gray-700 mb-3">
                     Department
                   </label>
@@ -548,7 +538,7 @@ const AllJobs: React.FC = () => {
                     name="department"
                     value={filters.department}
                     onChange={handleChange}
-                    className="w-full px-4 py-2.5 text-gray-900 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-colors"
+                    className="w-full px-4 py-2.5 text-sm text-gray-900 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-800 focus:border-teal-800 transition-colors relative z-40"
                   >
                     <option value="">All Departments</option>
                     <option>Software Development</option>
@@ -591,7 +581,7 @@ const AllJobs: React.FC = () => {
                 <div className="border-t border-gray-200"></div>
 
                 {/* Salary Range */}
-                <div>
+                <div className="relative z-10">
                   <label className="block text-sm font-semibold text-gray-700 mb-3">
                     Minimum Salary (AED)
                   </label>
@@ -601,7 +591,7 @@ const AllJobs: React.FC = () => {
                     onChange={handleChange}
                     type="number"
                     placeholder="e.g. 20000"
-                    className="w-full px-4 py-2.5 text-gray-900 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-colors"
+                    className="w-full px-4 py-2.5 text-sm text-gray-900 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-800 focus:border-teal-800 transition-colors"
                   />
                 </div>
               </div>
@@ -613,43 +603,55 @@ const AllJobs: React.FC = () => {
             {/* Results Header */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
               <div>
-                <h2 className="text-2xl font-bold text-gray-900">
-                  {jobs.length > 0 ? `${jobs.length} jobs found` : "No jobs found"}
+                <h2 className="text-xl font-bold text-gray-900">
+                  {loading ? "Searching..." : pagination.totalJobs > 0 ? `${pagination.totalJobs} ${pagination.totalJobs === 1 ? 'job' : 'jobs'} found` : "No jobs found"}
                 </h2>
-                <p className="text-gray-600 mt-1">
-                  {jobs.length > 0
-                    ? `Showing ${indexOfFirstJob + 1}-${Math.min(indexOfLastJob, jobs.length)} of ${jobs.length} results`
-                    : "Try adjusting your search criteria"}
-                </p>
+                {!loading && (
+                  <p className="text-sm text-gray-600 mt-1">
+                    {pagination.totalJobs > 0
+                      ? `Showing ${((currentPage - 1) * jobsPerPage) + 1}-${Math.min(currentPage * jobsPerPage, pagination.totalJobs)} of ${pagination.totalJobs} ${pagination.totalJobs === 1 ? 'result' : 'results'}`
+                      : "Try adjusting your search or filters"}
+                  </p>
+                )}
               </div>
-              <select className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 focus:ring-2 focus:ring-teal-500 focus:border-teal-500">
-                <option>Most Recent</option>
-                <option>Most Relevant</option>
-                <option>Salary: High to Low</option>
-                <option>Salary: Low to High</option>
+              <select 
+                value={sortBy} 
+                onChange={handleSortChange}
+                className="px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 focus:ring-2 focus:ring-teal-800 focus:border-teal-800"
+              >
+                <option value="most-recent">Most Recent</option>
+                <option value="most-relevant">Most Relevant</option>
+                <option value="salary-high-low">Salary: High to Low</option>
+                <option value="salary-low-high">Salary: Low to High</option>
               </select>
             </div>
 
             {/* Job Cards */}
-            {jobs.length === 0 ? (
+            {loading ? (
               <div className="bg-white rounded-xl border border-gray-200 p-16 text-center">
-                <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                  <svg className="w-10 h-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="w-16 h-16 border-4 border-teal-800 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                <p className="text-gray-600">Loading jobs...</p>
+              </div>
+            ) : jobs.length === 0 ? (
+              <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
+                <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
                 </div>
-                <h3 className="text-xl font-bold text-gray-900 mb-2">
+                <h3 className="text-lg font-bold text-gray-900 mb-2">
                   No jobs found
                 </h3>
-                <p className="text-gray-600 mb-6 max-w-md mx-auto">
-                  We couldn't find any positions matching your criteria. Try adjusting your filters.
+                <p className="text-sm text-gray-600 mb-6 max-w-md mx-auto">
+                  No positions match your criteria. Try adjusting your search or filters.
                 </p>
                 <button
                   onClick={() => {
                     setFilters({ location: "", jobType: "", department: "", skills: "", salary: "", time: "", experience: "" });
                     setSearchQuery("");
+                    fetchJobs("", "");
                   }}
-                  className="inline-flex items-center gap-2 bg-teal-600 hover:bg-teal-700 text-white px-6 py-3 rounded-lg font-semibold transition-colors"
+                  className="inline-flex items-center gap-2 bg-teal-800 hover:bg-teal-900 text-white px-5 py-2.5 rounded-lg font-medium transition-colors text-sm"
                 >
                   Clear all filters
                 </button>
@@ -660,15 +662,15 @@ const AllJobs: React.FC = () => {
                   const jobSlug = createJobSlug(job.jobTitle || "", job._id);
                   return (
                     <Link key={job._id} href={`/job-details/${jobSlug}`} className="block">
-                    <div className="bg-white border border-gray-200 rounded-xl p-6 hover:border-teal-500 hover:shadow-lg transition-all duration-200 group h-full flex flex-col">
+                    <div className="bg-white border border-gray-200 rounded-xl p-6 hover:border-teal-800 hover:shadow-lg transition-all duration-200 group h-full flex flex-col">
                       <div className="flex items-start gap-4 mb-4">
                         {/* Company Logo */}
-                        <div className="w-12 h-12 bg-gradient-to-br from-teal-500 to-cyan-600 rounded-lg flex items-center justify-center text-white font-bold text-lg flex-shrink-0">
+                        <div className="w-12 h-12 bg-gradient-to-br from-teal-800 to-teal-700 rounded-lg flex items-center justify-center text-white font-bold text-lg flex-shrink-0">
                           {job.companyName.charAt(0)}
                         </div>
 
                         {/* Save Button */}
-                        <button className="ml-auto flex-shrink-0 w-9 h-9 flex items-center justify-center rounded-lg border-2 border-gray-200 text-gray-400 hover:border-teal-500 hover:text-teal-600 hover:bg-teal-50 transition-all">
+                        <button className="ml-auto flex-shrink-0 w-9 h-9 flex items-center justify-center rounded-lg border-2 border-gray-200 text-gray-400 hover:border-teal-800 hover:text-teal-800 hover:bg-teal-50 transition-all">
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
                           </svg>
@@ -677,7 +679,7 @@ const AllJobs: React.FC = () => {
 
                       {/* Job Info */}
                       <div className="flex-1">
-                        <h3 className="text-lg font-bold text-gray-900 group-hover:text-teal-600 transition-colors mb-1 line-clamp-2">
+                        <h3 className="text-lg font-bold text-gray-900 group-hover:text-teal-800 transition-colors mb-1 line-clamp-2">
                           {job.jobTitle}
                         </h3>
                         <p className="text-sm text-gray-700 font-medium mb-3">
@@ -697,7 +699,7 @@ const AllJobs: React.FC = () => {
                             <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
-                            <span className="font-semibold text-teal-700">{formatSalary(job)}</span>
+                            <span className="font-semibold text-teal-800">{formatSalary(job)}</span>
                           </div>
                           <div className="flex items-center gap-1.5">
                             <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -716,14 +718,14 @@ const AllJobs: React.FC = () => {
                               </span>
                             )}
                             {job.experience && (
-                              <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-teal-50 text-teal-700">
+                              <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-teal-50 text-teal-800">
                                 {job.experience}
                               </span>
                             )}
                           </div>
 
                           {/* Right Arrow Icon */}
-                          <div className="w-8 h-8 flex items-center justify-center rounded-full bg-teal-50 text-teal-600 group-hover:bg-teal-600 group-hover:text-white transition-all ml-auto">
+                          <div className="w-8 h-8 flex items-center justify-center rounded-full bg-teal-50 text-teal-800 group-hover:bg-teal-800 group-hover:text-white transition-all ml-auto">
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
                             </svg>
@@ -756,7 +758,7 @@ const AllJobs: React.FC = () => {
                       key={page}
                       onClick={() => handlePageChange(page as number)}
                       className={`px-4 py-2 rounded-lg font-medium transition-colors ${currentPage === page
-                          ? 'bg-teal-600 text-white'
+                          ? 'bg-teal-800 text-white'
                           : 'border border-gray-300 text-gray-700 hover:bg-gray-50'
                         }`}
                     >

@@ -180,14 +180,79 @@ function PatientInformationWithButton({ onRegisterClick, refreshKey, onEditPatie
 
         const userRole = getUserRole();
         
-        // Clinic and doctor roles have full access by default - no need to check permissions
+        // For clinic and doctor roles, fetch admin-level permissions from /api/clinic/sidebar-permissions
         if (userRole === "clinic" || userRole === "doctor") {
-          setPermissions({
-            canRead: true,
-            canUpdate: true,
-            canDelete: true,
-            canCreate: true,
-          });
+          try {
+            const res = await axios.get("/api/clinic/sidebar-permissions", {
+              headers: authHeaders,
+            });
+            
+            if (res.data.success) {
+              // Check if permissions array exists and is not null
+              // If permissions is null, admin hasn't set any restrictions yet - allow full access (backward compatibility)
+              if (res.data.permissions === null || !Array.isArray(res.data.permissions) || res.data.permissions.length === 0) {
+                // No admin restrictions set yet - default to full access for backward compatibility
+                setPermissions({
+                  canRead: true,
+                  canUpdate: true,
+                  canDelete: true,
+                  canCreate: true,
+                });
+              } else {
+                // Admin has set permissions - check the clinic_patient_registration module
+                const modulePermission = res.data.permissions.find((p) => {
+                  if (!p?.module) return false;
+                  // Check for clinic_patient_registration module
+                  if (p.module === "clinic_patient_registration") return true;
+                  if (p.module === "patient_registration") return true;
+                  return false;
+                });
+
+                if (modulePermission) {
+                  const actions = modulePermission.actions || {};
+                  
+                  // Check if "all" is true, which grants all permissions
+                  const moduleAll = actions.all === true || actions.all === "true" || String(actions.all).toLowerCase() === "true";
+                  const moduleRead = actions.read === true || actions.read === "true" || String(actions.read).toLowerCase() === "true";
+                  const moduleCreate = actions.create === true || actions.create === "true" || String(actions.create).toLowerCase() === "true";
+                  const moduleUpdate = actions.update === true || actions.update === "true" || String(actions.update).toLowerCase() === "true";
+                  const moduleDelete = actions.delete === true || actions.delete === "true" || String(actions.delete).toLowerCase() === "true";
+
+                  setPermissions({
+                    canRead: moduleAll || moduleRead,
+                    canCreate: moduleAll || moduleCreate,
+                    canUpdate: moduleAll || moduleUpdate,
+                    canDelete: moduleAll || moduleDelete,
+                  });
+                } else {
+                  // Module permission not found in the permissions array - default to read-only
+                  setPermissions({
+                    canRead: true, // Clinic/doctor can always read their own data
+                    canCreate: false,
+                    canUpdate: false,
+                    canDelete: false,
+                  });
+                }
+              }
+            } else {
+              // API response doesn't have permissions, default to full access (backward compatibility)
+              setPermissions({
+                canRead: true,
+                canUpdate: true,
+                canDelete: true,
+                canCreate: true,
+              });
+            }
+          } catch (err) {
+            console.error("Error fetching clinic sidebar permissions:", err);
+            // On error, default to full access (backward compatibility)
+            setPermissions({
+              canRead: true,
+              canUpdate: true,
+              canDelete: true,
+              canCreate: true,
+            });
+          }
           setPermissionsLoaded(true);
           return;
         }
@@ -299,16 +364,14 @@ function PatientInformationWithButton({ onRegisterClick, refreshKey, onEditPatie
   // If both canRead and canCreate are false, show access denied message
   if (!permissions.canRead && !permissions.canCreate) {
     return (
-      <div className="bg-white rounded-lg p-6 sm:p-8 border border-gray-200 shadow-sm">
-        <div className="text-center max-w-md mx-auto">
-          <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center mx-auto mb-3">
-            <UserPlus className="w-6 h-6 text-red-600" />
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-lg shadow-lg border border-red-200 p-8 text-center max-w-md">
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <UserPlus className="w-8 h-8 text-red-600" />
           </div>
-          <h3 className="text-lg font-bold text-gray-900 mb-2">
-            Access Denied
-          </h3>
-          <p className="text-sm text-gray-700 mb-3">
-            You do not have permission to view patient information.
+          <h2 className="text-xl font-bold text-gray-900 mb-2">Access Denied</h2>
+          <p className="text-sm text-gray-700 mb-4">
+            You do not have permission to view or register patients.
           </p>
           <p className="text-xs text-gray-600">
             Please contact your administrator to request access to the Patient Registration module.

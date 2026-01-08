@@ -347,17 +347,26 @@ export default function ClinicDetail() {
                 <span className="hidden sm:inline">Review</span>
               </button>
 
-              {clinic.location?.coordinates?.length === 2 && (
-                <a
-                  href={`https://www.google.com/maps/dir/?api=1&destination=${clinic.location.coordinates[1]},${clinic.location.coordinates[0]}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-300 font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 flex items-center gap-2"
-                >
-                  <Navigation className="w-4 h-4" />
-                  <span className="hidden sm:inline">Directions</span>
-                </a>
-              )}
+              {(() => {
+                // Use address if available (more accurate), otherwise fall back to coordinates
+                const mapsHref = clinic.address
+                  ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(clinic.address)}`
+                  : clinic.location?.coordinates?.length === 2
+                  ? `https://www.google.com/maps/dir/?api=1&destination=${clinic.location.coordinates[1]},${clinic.location.coordinates[0]}`
+                  : null;
+                
+                return mapsHref ? (
+                  <a
+                    href={mapsHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-300 font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 flex items-center gap-2"
+                  >
+                    <Navigation className="w-4 h-4" />
+                    <span className="hidden sm:inline">Directions</span>
+                  </a>
+                ) : null;
+              })()}
             </div>
           </div>
 

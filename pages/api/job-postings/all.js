@@ -9,7 +9,12 @@ export default async function handler(req, res) {
 
   await dbConnect();
 
-  const { location, jobType, department, skills, salary, time, experience, jobId, search } = req.query;
+  const { location, jobType, department, skills, salary, time, experience, jobId, search, sortBy, page, limit } = req.query;
+  
+  // ✅ Pagination parameters
+  const pageNumber = parseInt(page) || 1;
+  const pageSize = parseInt(limit) || 6; // Default 6 items per page
+  const skip = (pageNumber - 1) * pageSize;
 
   // ✅ Always only approved + active
   const filters = { 
@@ -51,10 +56,31 @@ export default async function handler(req, res) {
     filters.createdAt = { $gte: oneWeekAgo };
   }
 
+  // ✅ Determine sort order
+  let sortOrder = { createdAt: -1 }; // Default: Most Recent
+  if (sortBy) {
+    switch (sortBy) {
+      case "most-recent":
+        sortOrder = { createdAt: -1 };
+        break;
+      case "most-relevant":
+        sortOrder = { createdAt: -1 }; // Relevance can be enhanced later
+        break;
+      case "salary-high-low":
+        sortOrder = { salary: -1, createdAt: -1 };
+        break;
+      case "salary-low-high":
+        sortOrder = { salary: 1, createdAt: -1 };
+        break;
+      default:
+        sortOrder = { createdAt: -1 };
+    }
+  }
+
   try {
     let jobs = await JobPosting.find(filters)
       .populate("postedBy", "username role")
-      .sort({ createdAt: -1 })
+      .sort(sortOrder)
       .lean();
 
     const initialCount = jobs.length;
@@ -136,7 +162,46 @@ if (experience?.trim()) {
       });
     }
 
-    res.status(200).json({ success: true, jobs });
+    // ✅ Apply client-side sorting for salary (since salary is stored as string)
+    if (sortBy === "salary-high-low" || sortBy === "salary-low-high") {
+      jobs.sort((a, b) => {
+        const getSalaryValue = (job) => {
+          if (!job.salary) return 0;
+          const salaryStr = job.salary.toString();
+          const numbers = salaryStr.match(/\d+/g);
+          if (!numbers || numbers.length === 0) return 0;
+          // Use the first number (for ranges, use the max)
+          const values = numbers.map(n => parseInt(n, 10));
+          return Math.max(...values);
+        };
+        
+        const aVal = getSalaryValue(a);
+        const bVal = getSalaryValue(b);
+        
+        return sortBy === "salary-high-low" ? bVal - aVal : aVal - bVal;
+      });
+    }
+
+    // ✅ Get total count before pagination
+    const totalJobs = jobs.length;
+    const totalPages = Math.ceil(totalJobs / pageSize);
+
+    // ✅ Apply backend pagination
+    const paginatedJobs = jobs.slice(skip, skip + pageSize);
+
+    // ✅ Return paginated results with metadata
+    res.status(200).json({ 
+      success: true, 
+      jobs: paginatedJobs,
+      pagination: {
+        currentPage: pageNumber,
+        pageSize: pageSize,
+        totalJobs: totalJobs,
+        totalPages: totalPages,
+        hasNextPage: pageNumber < totalPages,
+        hasPreviousPage: pageNumber > 1
+      }
+    });
   } catch (error) {
     console.error("Error fetching jobs:", error);
     res.status(500).json({ success: false, error: "Failed to fetch jobs" });

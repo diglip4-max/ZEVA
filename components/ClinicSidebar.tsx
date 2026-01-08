@@ -89,6 +89,8 @@ import {
   Archive,
   HardDrive,
   Globe2,
+  ChevronDown,
+  GripVertical,
 } from "lucide-react";
 
 interface NavItemChild {
@@ -640,6 +642,238 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
         </button>
       )}
 
+      {/* Mobile Sidebar */}
+      <aside
+        className={clsx(
+          "fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-gray-200 transform transition-transform duration-300 ease-in-out lg:hidden",
+          {
+            "translate-x-0": isMobileOpen,
+            "-translate-x-full": !isMobileOpen,
+          },
+          className
+        )}
+        style={{ height: "100vh" }}
+      >
+        <div className="flex flex-col h-full">
+          {/* Mobile Header Section */}
+          <div className="p-4 border-b border-gray-200 flex-shrink-0 relative">
+            <div className="group cursor-pointer">
+              <div className="flex items-center gap-3 p-3 rounded-lg bg-gray-50 group-hover:bg-gray-100 transition-all duration-200 border border-gray-200">
+                <div className="w-10 h-10 bg-gray-800 rounded-lg flex items-center justify-center">
+                  <span className="text-white font-bold text-lg">Z</span>
+                </div>
+                <div>
+                  <span className="font-bold text-base text-gray-900 block">
+                    ZEVA
+                  </span>
+                  <span className="text-xs text-gray-700 font-medium">Clinic Panel</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Mobile Close Button */}
+            {(onExternalToggleMobile || !onExternalToggleMobile) && (
+              <button
+                onClick={() => {
+                  if (onExternalToggleMobile && externalIsMobileOpen !== undefined) {
+                    onExternalToggleMobile();
+                  } else {
+                    setInternalIsMobileOpen(false);
+                  }
+                }}
+                className="absolute right-4 top-4 bg-gray-100 text-gray-700 p-1.5 rounded-md hover:bg-gray-200 transition-all duration-200"
+                aria-label="Close sidebar"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            )}
+          </div>
+
+          {/* Mobile Navigation */}
+          <nav className="flex-1 overflow-y-auto custom-scrollbar px-3 py-4 min-h-0">
+            <div className="text-gray-700 text-xs font-semibold uppercase tracking-wider mb-3 px-2">
+              Navigation
+            </div>
+            <div className="space-y-1">
+              {isLoading ? (
+                <div className="text-xs text-gray-500 px-2">Loading menu…</div>
+              ) : (
+                items.map((item) => {
+                const isDropdownOpen = openDropdown === item.label;
+                const isActive = selectedItem 
+                  ? selectedItem === item.label 
+                  : router.pathname === item.path;
+
+                const handleItemClick = () => {
+                  setSelectedItem(item.label);
+                  if (item.path) {
+                    if (onExternalToggleMobile && externalIsMobileOpen) {
+                      onExternalToggleMobile();
+                    } else {
+                      setInternalIsMobileOpen(false);
+                    }
+                  }
+                };
+
+                if (item.children && item.children.length > 0) {
+                  const itemIndex = items.findIndex(i => i.label === item.label);
+                  return (
+                    <div 
+                      key={item.label} 
+                      className="space-y-1"
+                      draggable
+                      onDragStart={onDragStartParent(itemIndex)}
+                      onDragOver={onDragOver}
+                      onDrop={onDropParent(itemIndex)}
+                      onDragEnd={onDragEnd}
+                    >
+                      <button
+                        onClick={() => setOpenDropdown(openDropdown === item.label ? null : item.label)}
+                        className={clsx(
+                          "w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-all duration-200 text-left group cursor-move",
+                          {
+                            "bg-[#2D9AA5] text-white": isActive,
+                            "text-gray-700 hover:bg-gray-100": !isActive,
+                          }
+                        )}
+                      >
+                        <div className="flex items-center space-x-3">
+                          <GripVertical className={clsx(
+                            "w-4 h-4 flex-shrink-0 opacity-40 group-hover:opacity-70 transition-opacity",
+                            {
+                              "text-white": isActive,
+                              "text-gray-400": !isActive,
+                            }
+                          )} />
+                          <div className={clsx(
+                            "p-1.5 rounded-md transition-all duration-200 flex-shrink-0",
+                            {
+                              "bg-white/20 text-white": isActive,
+                              "text-gray-700 group-hover:text-gray-800 group-hover:bg-gray-100": !isActive,
+                            }
+                          )}>
+                            {iconMap[item.icon] || <span className="text-base">{item.icon}</span>}
+                          </div>
+                          <span className="font-medium text-sm">{item.label}</span>
+                        </div>
+                        <ChevronDown
+                          className={clsx(
+                            "w-4 h-4 transition-transform duration-200",
+                            {
+                              "rotate-180": isDropdownOpen,
+                              "text-white": isActive,
+                              "text-gray-500": !isActive,
+                            }
+                          )}
+                        />
+                      </button>
+                      {isDropdownOpen && (
+                        <div className="ml-4 space-y-1 border-l-2 border-gray-200 pl-2">
+                          {item.children.map((child, childIdx) => {
+                            const isChildActive = router.pathname === child.path;
+                            return child.path ? (
+                              <Link key={childIdx} href={child.path} onClick={handleItemClick}>
+                                <div
+                                  draggable
+                                  onDragStart={onDragStartChild(itemIndex, childIdx)}
+                                  onDragOver={onDragOver}
+                                  onDrop={onDropChild(itemIndex, childIdx)}
+                                  onDragEnd={onDragEnd}
+                                  className={clsx(
+                                    "px-3 py-2 rounded-lg transition-all duration-200 text-sm cursor-move flex items-center gap-2",
+                                    {
+                                      "bg-[#2D9AA5] text-white": isChildActive,
+                                      "text-gray-700 hover:bg-gray-100": !isChildActive,
+                                    }
+                                  )}
+                                >
+                                  <GripVertical className={clsx(
+                                    "w-3.5 h-3.5 flex-shrink-0 opacity-40",
+                                    {
+                                      "text-white": isChildActive,
+                                      "text-gray-400": !isChildActive,
+                                    }
+                                  )} />
+                                  {child.label}
+                                </div>
+                              </Link>
+                            ) : (
+                              <div
+                                key={childIdx}
+                                className="px-3 py-2 text-sm text-gray-500"
+                              >
+                                {child.label}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                }
+
+                const MenuItemContent = (
+                  <div
+                    draggable
+                    onDragStart={onDragStartParent(items.findIndex(i => i.label === item.label))}
+                    onDragOver={onDragOver}
+                    onDrop={onDropParent(items.findIndex(i => i.label === item.label))}
+                    onDragEnd={onDragEnd}
+                    onClick={safeClick(handleItemClick)}
+                    className={clsx(
+                      "w-full flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 group cursor-move",
+                      {
+                        "bg-[#2D9AA5] text-white": isActive,
+                        "text-gray-700 hover:bg-gray-100": !isActive,
+                      }
+                    )}
+                  >
+                    <GripVertical className={clsx(
+                      "w-4 h-4 mr-2 flex-shrink-0 opacity-40 group-hover:opacity-70 transition-opacity",
+                      {
+                        "text-white": isActive,
+                        "text-gray-400": !isActive,
+                      }
+                    )} />
+                    <div className={clsx(
+                      "p-1.5 rounded-md transition-all duration-200 flex-shrink-0",
+                      {
+                        "bg-white/20 text-white": isActive,
+                        "text-gray-700 group-hover:text-gray-800 group-hover:bg-gray-100": !isActive,
+                      }
+                    )}>
+                      {iconMap[item.icon] || <span className="text-base">{item.icon}</span>}
+                    </div>
+
+                    <div className="flex-1 min-w-0 ml-3">
+                      <div className={clsx(
+                        "font-medium text-sm transition-colors duration-200 truncate",
+                        {
+                          "text-white": isActive,
+                          "text-gray-900": !isActive,
+                        }
+                      )}>
+                        {item.label}
+                      </div>
+                    </div>
+                  </div>
+                );
+
+                return item.path ? (
+                  <Link key={item.path} href={item.path}>
+                    {MenuItemContent}
+                  </Link>
+                ) : (
+                  <div key={item.label}>{MenuItemContent}</div>
+                );
+              })
+              )}
+            </div>
+          </nav>
+        </div>
+      </aside>
 
       {/* Desktop Sidebar */}
       <aside
@@ -724,6 +958,13 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                         })}
                       >
                         <div className="flex items-center space-x-3">
+                          <GripVertical className={clsx(
+                            "w-4 h-4 flex-shrink-0 opacity-40 group-hover:opacity-70 transition-opacity",
+                            {
+                              "text-white": isDropdownOpen,
+                              "text-gray-400": !isDropdownOpen,
+                            }
+                          )} />
                           <div className={clsx(
                             "p-1.5 rounded-md transition-all duration-200 flex-shrink-0",
                             {
@@ -791,6 +1032,13 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                                   })}
                                 >
                                   <div className="flex items-center space-x-2.5">
+                                    <GripVertical className={clsx(
+                                      "w-3.5 h-3.5 flex-shrink-0 opacity-40 group-hover:opacity-70 transition-opacity",
+                                      {
+                                        "text-white": childActive,
+                                        "text-gray-400": !childActive,
+                                      }
+                                    )} />
                                     <div className={clsx(
                                       "p-1 rounded-md transition-all duration-200 flex-shrink-0",
                                       {
@@ -825,8 +1073,13 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                 // Regular (non-dropdown) item
                 const MenuItemContent = (
                   <div
+                    draggable
+                    onDragStart={onDragStartParent(parentIdx)}
+                    onDragOver={onDragOver}
+                    onDrop={onDropParent(parentIdx)}
+                    onDragEnd={onDragEnd}
                     className={clsx(
-                      "group relative block rounded-lg transition-all duration-200 cursor-pointer p-2.5 touch-manipulation",
+                      "group relative block rounded-lg transition-all duration-200 cursor-move p-2.5 touch-manipulation",
                       {
                         "bg-gray-800 text-white": isActive,
                         "hover:bg-gray-50 text-gray-700": !isActive,
@@ -842,6 +1095,13 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                     )}
 
                     <div className="flex items-center space-x-3">
+                      <GripVertical className={clsx(
+                        "w-4 h-4 flex-shrink-0 opacity-40 group-hover:opacity-70 transition-opacity",
+                        {
+                          "text-white": isActive,
+                          "text-gray-400": !isActive,
+                        }
+                      )} />
                       <div className={clsx(
                         "p-1.5 rounded-md transition-all duration-200 flex-shrink-0",
                         {

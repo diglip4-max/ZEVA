@@ -15,6 +15,8 @@ import {
     Camera,
     BadgeIndianRupee,
     Filter,
+    ChevronLeft,
+    ChevronRight,
 } from "lucide-react";
 import AuthModal from "../../components/AuthModal";
 import Image from "next/image";
@@ -27,7 +29,8 @@ export default function Home() {
     const [suggestions, setSuggestions] = useState([]);
     const [selectedService, setSelectedService] = useState("");
     const [clinics, setClinics] = useState([]);
-    const [coords, setCoords] = useState(null);
+    const [coords, setCoords] = useState(null); // Searched location coordinates
+    const [userCurrentLocation, setUserCurrentLocation] = useState(null); // User's actual current location
     const [ratingFilter, setRatingFilter] = useState(0);
     const [manualPlace, setManualPlace] = useState("");
     const [loading, setLoading] = useState(false);
@@ -40,6 +43,9 @@ export default function Home() {
     const router = useRouter();
 
     const [clinicReviews, setClinicReviews] = useState({});
+    
+    // State to track current image index for each clinic carousel
+    const [clinicImageIndices, setClinicImageIndices] = useState({});
 
     // Helper function to convert text to slug
     const textToSlug = (text) => {
@@ -59,6 +65,65 @@ export default function Home() {
             .split('-')
             .map(word => word.charAt(0).toUpperCase() + word.slice(1))
             .join(' ');
+    };
+
+    // Helper function to normalize image paths
+    // Converts absolute Windows file paths to relative URLs
+    const normalizeImagePath = (imagePath) => {
+        if (!imagePath) return '';
+        
+        // Handle malformed URLs that have localhost concatenated with file path
+        // e.g., "http://localhost:3000C:/Users/..." -> extract the file path part
+        if (imagePath.includes('localhost') && /[A-Za-z]:/.test(imagePath)) {
+            // Find the drive letter (C:, D:, etc.) and extract from there
+            const driveMatch = imagePath.match(/([A-Za-z]:.*)/);
+            if (driveMatch) {
+                imagePath = driveMatch[1];
+            }
+        }
+        
+        // If it's already a relative path starting with /, clean up and return
+        if (imagePath.startsWith('/')) {
+            // Remove double slashes
+            return imagePath.replace(/\/+/g, '/');
+        }
+        
+        // If it's already a full URL (http:// or https://), return as is
+        if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+            return imagePath;
+        }
+        
+        // If it's a Windows absolute path (C:/, D:/, etc.), extract the relative part
+        if (/^[A-Za-z]:/.test(imagePath)) {
+            // Find the uploads directory and extract everything from there
+            const uploadsIndex = imagePath.indexOf('/uploads/');
+            if (uploadsIndex !== -1) {
+                const relativePath = imagePath.substring(uploadsIndex);
+                // Remove double slashes
+                return relativePath.replace(/\/+/g, '/');
+            }
+            // If uploads not found, try to extract from common paths
+            const zevaIndex = imagePath.indexOf('ZEVA/');
+            if (zevaIndex !== -1) {
+                const afterZeva = imagePath.substring(zevaIndex + 5);
+                const uploadsInAfter = afterZeva.indexOf('/uploads/');
+                if (uploadsInAfter !== -1) {
+                    const relativePath = afterZeva.substring(uploadsInAfter);
+                    // Remove double slashes
+                    return relativePath.replace(/\/+/g, '/');
+                }
+            }
+        }
+        
+        // If it doesn't start with /, add it
+        if (!imagePath.startsWith('/')) {
+            // Remove double slashes before adding leading slash
+            const cleaned = imagePath.replace(/\/+/g, '/');
+            return '/' + cleaned.replace(/^\//, '');
+        }
+        
+        // Remove double slashes
+        return imagePath.replace(/\/+/g, '/');
     };
 
     // Update URL with search parameters - ALWAYS use values from input fields
@@ -271,6 +336,28 @@ export default function Home() {
         loadPersistedState();
     }, []);
 
+    // Get user's current location on component mount (for distance calculation)
+    useEffect(() => {
+        if (typeof window !== "undefined" && navigator.geolocation && !userCurrentLocation) {
+            // Silently try to get user's current location in the background
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    const { latitude, longitude } = pos.coords;
+                    setUserCurrentLocation({ lat: latitude, lng: longitude });
+                },
+                () => {
+                    // Silently fail - user's location not available or permission denied
+                    // This is okay, we'll use searched location for distance calculation
+                },
+                {
+                    enableHighAccuracy: false,
+                    timeout: 5000,
+                    maximumAge: 300000 // Cache for 5 minutes
+                }
+            );
+        }
+    }, []); // Only run once on mount
+
     // Separate useEffect for URL query parameters to avoid conflicts with localStorage
     useEffect(() => {
         if (!router.isReady || hasSearchedFromURL.current || isUpdatingURL.current) return; // Wait for router to be ready and prevent duplicate searches, and don't interfere during URL updates
@@ -450,6 +537,7 @@ export default function Home() {
     const clearSearch = () => {
         setClinics([]);
         setCoords(null);
+        setUserCurrentLocation(null); // Also clear user's current location
         setSelectedService("");
         setManualPlace("");
         setQuery("");
@@ -459,6 +547,12 @@ export default function Home() {
         setHasSearched(false);
         setFormErrors({ service: "", location: "" });
         clearPersistedState();
+        // Clear session token so that on refresh, previous results won't be loaded
+        if (typeof window !== "undefined") {
+            sessionStorage.removeItem("ayurvedaSessionToken");
+        }
+        // Clear URL parameters
+        updateURL("", "");
         toast("Search cleared", { icon: "🧹" });
     };
 
@@ -555,7 +649,15 @@ export default function Home() {
             const res = await axios.get("/api/clinics/nearby", {
                 params: { lat, lng, service: serviceToSearch },
             });
+            
+            // Use user's current location for distance calculation if available, otherwise use searched location
+            const distanceLat = userCurrentLocation?.lat || lat;
+            const distanceLng = userCurrentLocation?.lng || lng;
+            
             const clinicsWithDistance = res.data.clinics.map((clinic) => {
+                // Normalize photos array if it exists
+                const normalizedPhotos = clinic.photos?.map(photo => normalizeImagePath(photo)) || clinic.photos;
+                
                 if (
                     clinic.location &&
                     clinic.location.coordinates &&
@@ -563,13 +665,19 @@ export default function Home() {
                 ) {
                     const clinicLng = clinic.location.coordinates[0];
                     const clinicLat = clinic.location.coordinates[1];
-                    const distance = calculateDistance(lat, lng, clinicLat, clinicLng);
+                    // Calculate distance from user's current location (or searched location if current location not available)
+                    const distance = calculateDistance(distanceLat, distanceLng, clinicLat, clinicLng);
                     return {
                         ...clinic,
+                        photos: normalizedPhotos,
                         distance: distance,
                     };
                 } else {
-                    return { ...clinic, distance: null };
+                    return { 
+                        ...clinic, 
+                        photos: normalizedPhotos,
+                        distance: null 
+                    };
                 }
             });
             // Sort by distance, but keep Dubai prioritized clinics at top
@@ -643,6 +751,7 @@ export default function Home() {
             (pos) => {
                 const { latitude, longitude } = pos.coords;
                 setCoords({ lat: latitude, lng: longitude });
+                setUserCurrentLocation({ lat: latitude, lng: longitude }); // Store user's current location
                 setHasSearched(true);
                 
                 fetchClinics(latitude, longitude);
@@ -668,6 +777,25 @@ export default function Home() {
 
         setLoading(true);
         clearPersistedState(); // Clear old state when starting new search
+        
+        // Try to get user's current location in the background (for distance calculation)
+        if (typeof window !== "undefined" && navigator.geolocation && !userCurrentLocation) {
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    const { latitude, longitude } = pos.coords;
+                    setUserCurrentLocation({ lat: latitude, lng: longitude });
+                },
+                () => {
+                    // Silently fail - will use searched location for distance
+                },
+                {
+                    enableHighAccuracy: false,
+                    timeout: 3000,
+                    maximumAge: 300000
+                }
+            );
+        }
+        
         const geocodeToastId = toast.loading("Validating location...");
         try {
             const res = await axios.get("/api/clinics/geocode", {
@@ -880,7 +1008,7 @@ export default function Home() {
             />
             
             {/* Professional Header Section */}
-            <div className="w-full bg-gradient-to-br from-white via-[#f8fafc] to-[#f0f7ff] border-b border-[#e2e8f0] shadow-sm">
+            <div className="w-full bg-gradient-to-br from-white via-[#f8fafc] to-[#f0f7ff] border-b border-[#e2e8f0] shadow-sm sticky top-0 z-50">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
                     {/* Professional Header */}
                     <div className="text-center mb-6">
@@ -1197,7 +1325,7 @@ export default function Home() {
                     <div className="flex flex-col lg:flex-row gap-3">
                         {/* Filters Sidebar */}
                         <div className="lg:w-1/4">
-                            <div className="bg-white rounded-xl shadow-md border-2 border-[#e2e8f0] p-4 sticky top-4">
+                            <div className="bg-white rounded-xl shadow-md border-2 border-[#e2e8f0] p-4 sticky top-32 z-40">
                                 {/* Price Range Filter */}
                                 <div className="mb-4">
                                     <h3 className="text-sm font-bold text-[#1e293b] mb-3 flex items-center">
@@ -1560,15 +1688,99 @@ export default function Home() {
                                                 key={index}
                                                 className="bg-white rounded-xl shadow-md border-2 border-[#e2e8f0] overflow-hidden hover:shadow-lg hover:border-[#0284c7] transition-all duration-300 group"
                                             >
-                                                {/* Clinic Image */}
+                                                {/* Clinic Image Carousel */}
                                                 <div className="relative h-24 w-full bg-gradient-to-br from-[#e0f2fe] to-[#bae6fd] overflow-hidden">
-                                                    {clinic.photos?.[0] ? (
+                                                    {clinic.photos && clinic.photos.length > 0 ? (
+                                                        <>
+                                                            {/* Image Carousel */}
+                                                            <div className="relative w-full h-full">
+                                                                {(() => {
+                                                                    const currentIndex = clinicImageIndices[clinic._id] || 0;
+                                                                    const photos = clinic.photos.filter(photo => photo); // Filter out null/undefined
+                                                                    const hasMultiplePhotos = photos.length > 1;
+                                                                    const currentPhoto = photos[currentIndex];
+                                                                    
+                                                                    return (
+                                                                        <>
                                                         <Image
-                                                            src={clinic.photos[0]}
-                                                            alt={clinic.name || "Clinic Image"}
+                                                                                key={`${clinic._id}-${currentIndex}`}
+                                                                                src={normalizeImagePath(currentPhoto)}
+                                                                                alt={`${clinic.name || "Clinic Image"} - Photo ${currentIndex + 1}`}
                                                             fill
                                                             className="object-cover object-center group-hover:scale-105 transition-transform duration-300"
-                                                        />
+                                                                                unoptimized
+                                                                            />
+                                                                            
+                                                                            {/* Navigation Arrows - Only show if multiple photos */}
+                                                                            {hasMultiplePhotos && (
+                                                                                <>
+                                                                                    {/* Left Arrow */}
+                                                                                    <button
+                                                                                        onClick={(e) => {
+                                                                                            e.stopPropagation();
+                                                                                            const currentIdx = clinicImageIndices[clinic._id] || 0;
+                                                                                            const newIndex = currentIdx > 0 ? currentIdx - 1 : photos.length - 1;
+                                                                                            setClinicImageIndices(prev => ({
+                                                                                                ...prev,
+                                                                                                [clinic._id]: newIndex
+                                                                                            }));
+                                                                                        }}
+                                                                                        className="absolute left-1 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-1 rounded-full transition-all duration-200 z-10 opacity-0 group-hover:opacity-100"
+                                                                                        aria-label="Previous image"
+                                                                                    >
+                                                                                        <ChevronLeft className="w-3 h-3" />
+                                                                                    </button>
+                                                                                    
+                                                                                    {/* Right Arrow */}
+                                                                                    <button
+                                                                                        onClick={(e) => {
+                                                                                            e.stopPropagation();
+                                                                                            const currentIdx = clinicImageIndices[clinic._id] || 0;
+                                                                                            const newIndex = currentIdx < photos.length - 1 ? currentIdx + 1 : 0;
+                                                                                            setClinicImageIndices(prev => ({
+                                                                                                ...prev,
+                                                                                                [clinic._id]: newIndex
+                                                                                            }));
+                                                                                        }}
+                                                                                        className="absolute right-1 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-1 rounded-full transition-all duration-200 z-10 opacity-0 group-hover:opacity-100"
+                                                                                        aria-label="Next image"
+                                                                                    >
+                                                                                        <ChevronRight className="w-3 h-3" />
+                                                                                    </button>
+                                                                                    
+                                                                                    {/* Image Indicators/Dots */}
+                                                                                    <div className="absolute bottom-1 left-1/2 -translate-x-1/2 flex gap-1 z-10">
+                                                                                        {photos.map((_, idx) => (
+                                                                                            <button
+                                                                                                key={idx}
+                                                                                                onClick={(e) => {
+                                                                                                    e.stopPropagation();
+                                                                                                    setClinicImageIndices(prev => ({
+                                                                                                        ...prev,
+                                                                                                        [clinic._id]: idx
+                                                                                                    }));
+                                                                                                }}
+                                                                                                className={`w-1.5 h-1.5 rounded-full transition-all duration-200 ${
+                                                                                                    (clinicImageIndices[clinic._id] || 0) === idx
+                                                                                                        ? 'bg-white w-3'
+                                                                                                        : 'bg-white/50 hover:bg-white/75'
+                                                                                                }`}
+                                                                                                aria-label={`Go to image ${idx + 1}`}
+                                                                                            />
+                                                                                        ))}
+                                                                                    </div>
+                                                                                    
+                                                                                    {/* Image Counter */}
+                                                                                    <div className="absolute top-1 left-1 bg-black/50 text-white px-1.5 py-0.5 rounded text-xs font-medium z-10">
+                                                                                        {currentIndex + 1}/{photos.length}
+                                                                                    </div>
+                                                                                </>
+                                                                            )}
+                                                                        </>
+                                                                    );
+                                                                })()}
+                                                            </div>
+                                                        </>
                                                     ) : (
                                                         <div className="w-full h-full bg-gradient-to-br from-[#e0f2fe] to-[#bae6fd] flex items-center justify-center">
                                                             <div className="text-center">
@@ -1583,7 +1795,7 @@ export default function Home() {
                                                     )}
 
                                                     {/* Overlay badges */}
-                                                    <div className="absolute top-1.5 right-1.5">
+                                                    <div className="absolute top-1.5 right-1.5 z-20">
                                                         {clinic.verified && (
                                                             <div className="bg-[#059669] text-white px-1 py-0.5 rounded text-xs font-medium flex items-center">
                                                                 <Shield className="w-2 h-2 mr-0.5" />
@@ -1593,7 +1805,7 @@ export default function Home() {
                                                     </div>
 
                                                     {clinic.distance && (
-                                                        <div className="absolute bottom-1.5 left-1.5 bg-[#0284c7] text-white px-1 py-0.5 rounded text-xs font-medium flex items-center">
+                                                        <div className="absolute bottom-1.5 left-1.5 bg-[#0284c7] text-white px-1 py-0.5 rounded text-xs font-medium flex items-center z-20">
                                                             <Navigation className="w-2 h-2 mr-0.5" />
                                                             {formatDistance(clinic.distance)}
                                                         </div>
@@ -1640,9 +1852,17 @@ export default function Home() {
                                                             </div>
                                                         )}
                                                         <div className="flex gap-2 items-center">
-                                                            {clinic.location?.coordinates?.length === 2 && (
-                                                                <a
-                                                                    href={`https://www.google.com/maps/dir/?api=1&destination=${clinic.location.coordinates[1]},${clinic.location.coordinates[0]}`}
+                                                            {(() => {
+                                                                // Use address if available (more accurate), otherwise fall back to coordinates
+                                                                const mapsHref = clinic.address
+                                                                    ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(clinic.address)}`
+                                                                    : clinic.location?.coordinates?.length === 2
+                                                                    ? `https://www.google.com/maps/dir/?api=1&destination=${clinic.location.coordinates[1]},${clinic.location.coordinates[0]}`
+                                                                    : null;
+                                                                
+                                                                return mapsHref ? (
+                                                                    <a
+                                                                        href={mapsHref}
                                                                     target="_blank"
                                                                     rel="noopener noreferrer"
                                                                     onClick={(e) => e.stopPropagation()}
@@ -1651,7 +1871,8 @@ export default function Home() {
                                                                 >
                                                                     <Navigation className="w-3.5 h-3.5" />
                                                                 </a>
-                                                            )}
+                                                                ) : null;
+                                                            })()}
                                                             <a
                                                                 href={`/clinics/${textToSlug(clinic.name)}?c=${clinic._id}`}
                                                                 className="px-2.5 py-1 text-xs text-white bg-gradient-to-r from-[#0284c7] to-[#0ea5e9] hover:from-[#0369a1] hover:to-[#0284c7] rounded-lg font-medium transition-all shadow-sm hover:shadow whitespace-nowrap"

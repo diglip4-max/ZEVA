@@ -30,10 +30,10 @@ interface ClinicHeaderProps {
 }
 
 const ClinicHeader: React.FC<ClinicHeaderProps> = ({
-  handleToggleDesktop: _handleToggleDesktop,
-  handleToggleMobile: _handleToggleMobile,
-  isDesktopHidden: _isDesktopHidden = false,
-  isMobileOpen: _isMobileOpen = false,
+  handleToggleDesktop,
+  handleToggleMobile,
+  isDesktopHidden = false,
+  isMobileOpen = false,
 }) => {
   const router = useRouter();
   const [navigationItems, setNavigationItems] = useState<NavigationItem[]>([]);
@@ -154,8 +154,54 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
     <header className="w-full bg-white border-b border-gray-200 shadow-sm z-[49] backdrop-blur-sm bg-white/95">
       <div className="px-3 py-2.5 sm:px-4 sm:py-3 lg:px-6">
         <div className="flex items-center justify-between gap-2 sm:gap-3 lg:gap-4">
-          {/* Left: Empty space - Toggle button is handled by ClinicSidebar */}
-          <div className="flex items-center gap-2 flex-shrink-0 min-w-[2.5rem]">
+          {/* Left: Hamburger buttons - Always visible, priority positioning */}
+          <div className="flex items-center gap-2 flex-shrink-0 relative z-[51] min-w-[2.5rem]">
+            {/* Mobile Hamburger - Always visible on mobile, changes to X when sidebar is open */}
+            {handleToggleMobile && (
+              <button
+                onClick={handleToggleMobile}
+                className="p-2 rounded-lg bg-white hover:bg-gray-100 transition-all duration-200 lg:hidden shadow-sm border border-gray-200 relative z-[51] flex-shrink-0"
+                aria-label={isMobileOpen ? "Close sidebar" : "Open sidebar"}
+              >
+                {isMobileOpen ? (
+                  <svg
+                    className="w-5 h-5 text-gray-700 transition-transform duration-300"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                ) : (
+                  <svg
+                    className="w-5 h-5 text-gray-700 transition-transform duration-300"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                  </svg>
+                )}
+              </button>
+            )}
+
+            {/* Desktop Hamburger - Only show when sidebar is hidden */}
+            {handleToggleDesktop && isDesktopHidden && (
+              <button
+                onClick={handleToggleDesktop}
+                className="hidden lg:inline-flex p-2 rounded-lg bg-white hover:bg-gray-100 transition-colors duration-200 shadow-sm border border-gray-200 relative z-[51] flex-shrink-0"
+                aria-label="Toggle sidebar"
+              >
+                <svg
+                  className="w-5 h-5 text-gray-700 transition-transform duration-300"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              </button>
+            )}
           </div>
 
           {/* Center: Search Bar - Responsive width with adjusted mobile spacing */}

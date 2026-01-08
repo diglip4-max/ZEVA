@@ -39,6 +39,26 @@ function getAuthHeaders() {
   return token ? { Authorization: `Bearer ${token}` } : null;
 }
 
+function getUserRole() {
+  if (typeof window === 'undefined') return null;
+  try {
+    for (const key of TOKEN_PRIORITY) {
+      const token = window.localStorage.getItem(key) || window.sessionStorage.getItem(key);
+      if (token) {
+        try {
+          const payload = JSON.parse(atob(token.split('.')[1]));
+          return payload.role || null;
+        } catch (e) {
+          continue;
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Error getting user role:', error);
+  }
+  return null;
+}
+
 const MessageBanner = ({ type, text }) => {
   if (!text) return null;
 
@@ -172,77 +192,143 @@ function AddRoomPage({ contextOverride = null }) {
       return;
     }
     let cancelled = false;
-    const headers = getAuthHeaders();
-    if (!headers) {
-      setPermissions({
-        canCreate: false,
-        canRead: false,
-        canUpdate: false,
-        canDelete: false,
-      });
-      setPermissionsLoaded(true);
-      return;
-    }
-
+    
     const fetchPermissions = async () => {
       try {
-        setPermissionsLoaded(false);
-        const { data } = await axios.get("/api/clinic/permissions", { headers });
-        if (cancelled) return;
-
-        if (data.success && data.data) {
-          // Find clinic_addRoom module
-          const modulePermission = data.data.permissions?.find((p) => {
-            if (!p?.module) return false;
-            // Check for exact match or normalized match
-            const module = p.module || "";
-            return module === "clinic_addRoom" || 
-                   module === "addRoom" ||
-                   module.replace(/^(admin|clinic|doctor|agent)_/, "") === "addRoom" ||
-                   module.replace(/^(admin|clinic|doctor|agent)_/, "") === "add_room";
-          });
-
-          if (modulePermission) {
-            const actions = modulePermission.actions || {};
-            const moduleAll = actions.all === true || 
-                             actions.all === "true" || 
-                             String(actions.all).toLowerCase() === "true";
-
-            // Use module-level permissions (clinic_addRoom is a module, not a submodule)
-            setPermissions({
-              canCreate: moduleAll ? true : (actions.create === true),
-              canRead: moduleAll ? true : (actions.read === true),
-              canUpdate: moduleAll ? true : (actions.update === true),
-              canDelete: moduleAll ? true : (actions.delete === true),
-            });
-          } else {
-            // If no permission entry exists for this module, deny all access by default
-            setPermissions({
-              canCreate: false,
-              canRead: false,
-              canUpdate: false,
-              canDelete: false,
-            });
-          }
-        } else {
+        const authHeaders = getAuthHeaders();
+        if (!authHeaders) {
           setPermissions({
             canCreate: false,
             canRead: false,
             canUpdate: false,
             canDelete: false,
           });
+          setPermissionsLoaded(true);
+          return;
         }
-      } catch (error) {
-        console.error("Error fetching permissions:", error);
+
+        const userRole = getUserRole();
+        
+        // For clinic and doctor roles, fetch admin-level permissions from /api/clinic/sidebar-permissions
+        if (userRole === 'clinic' || userRole === 'doctor') {
+          try {
+            const res = await axios.get('/api/clinic/sidebar-permissions', {
+              headers: authHeaders,
+            });
+            
+            if (cancelled) return;
+            
+            if (res.data.success) {
+              // Check if permissions array exists and is not null
+              // If permissions is null, admin hasn't set any restrictions yet - allow full access (backward compatibility)
+              if (res.data.permissions === null || !Array.isArray(res.data.permissions) || res.data.permissions.length === 0) {
+                // No admin restrictions set yet - default to full access for backward compatibility
+                setPermissions({
+                  canCreate: true,
+                  canRead: true,
+                  canUpdate: true,
+                  canDelete: true,
+                });
+              } else {
+                // Admin has set permissions - check the clinic_addRoom module
+                const modulePermission = res.data.permissions.find((p) => {
+                  if (!p?.module) return false;
+                  // Check for clinic_addRoom module
+                  if (p.module === 'clinic_addRoom') return true;
+                  if (p.module === 'addRoom') return true;
+                  if (p.module === 'add_room') return true;
+                  if (p.module?.endsWith('addRoom')) return true;
+                  if (p.module?.endsWith('add_room')) return true;
+                  return false;
+                });
+
+                if (modulePermission) {
+                  const actions = modulePermission.actions || {};
+                  
+                  // Check if "all" is true, which grants all permissions
+                  const moduleAll = actions.all === true || actions.all === 'true' || String(actions.all).toLowerCase() === 'true';
+                  const moduleCreate = actions.create === true || actions.create === 'true' || String(actions.create).toLowerCase() === 'true';
+                  const moduleRead = actions.read === true || actions.read === 'true' || String(actions.read).toLowerCase() === 'true';
+                  const moduleUpdate = actions.update === true || actions.update === 'true' || String(actions.update).toLowerCase() === 'true';
+                  const moduleDelete = actions.delete === true || actions.delete === 'true' || String(actions.delete).toLowerCase() === 'true';
+
+                  setPermissions({
+                    canCreate: moduleAll || moduleCreate,
+                    canRead: moduleAll || moduleRead,
+                    canUpdate: moduleAll || moduleUpdate,
+                    canDelete: moduleAll || moduleDelete,
+                  });
+                } else {
+                  // Module permission not found in the permissions array - default to read-only
+                  setPermissions({
+                    canCreate: false,
+                    canRead: true, // Clinic/doctor can always read their own data
+                    canUpdate: false,
+                    canDelete: false,
+                  });
+                }
+              }
+            } else {
+              // API response doesn't have permissions, default to full access (backward compatibility)
+              setPermissions({
+                canCreate: true,
+                canRead: true,
+                canUpdate: true,
+                canDelete: true,
+              });
+            }
+          } catch (err) {
+            console.error('Error fetching clinic sidebar permissions:', err);
+            // On error, default to full access (backward compatibility)
+            if (!cancelled) {
+              setPermissions({
+                canCreate: true,
+                canRead: true,
+                canUpdate: true,
+                canDelete: true,
+              });
+            }
+          }
+          if (!cancelled) {
+            setPermissionsLoaded(true);
+          }
+          return;
+        }
+
+        // For agents, staff, and doctorStaff, use existing agent permissions logic
+        // (handled by useAgentPermissions hook)
+        if (['agent', 'staff', 'doctorStaff'].includes(userRole || '')) {
+          // Agent permissions are handled by useAgentPermissions hook
+          // Set default permissions here (will be overridden by agent permissions)
+          setPermissions({
+            canCreate: false,
+            canRead: false,
+            canUpdate: false,
+            canDelete: false,
+          });
+          setPermissionsLoaded(true);
+          return;
+        }
+
+        // For admin or unknown roles, default to full access
+        setPermissions({
+          canCreate: true,
+          canRead: true,
+          canUpdate: true,
+          canDelete: true,
+        });
+        setPermissionsLoaded(true);
+      } catch (err) {
+        console.error('Error fetching permissions:', err);
+        // On error, default to full access (backward compatibility)
         if (!cancelled) {
           setPermissions({
-            canCreate: false,
-            canRead: false,
-            canUpdate: false,
-            canDelete: false,
+            canCreate: true,
+            canRead: true,
+            canUpdate: true,
+            canDelete: true,
           });
         }
-      } finally {
         if (!cancelled) {
           setPermissionsLoaded(true);
         }
@@ -285,12 +371,20 @@ function AddRoomPage({ contextOverride = null }) {
         }
       }
     } catch (error) {
-      console.error("Error loading rooms", error);
+      // Silently handle 403 (Forbidden) and other permission errors
+      const status = error.response?.status;
+      if (status === 403 || status === 401) {
+        // Permission denied - silently handle without showing error
+        setRooms([]);
+        return;
+      }
+      // For other errors, log but don't show runtime error
       const errorMessage = error.response?.data?.message || "Failed to load rooms";
-      setMessage({ type: "error", text: errorMessage });
-      if (showToast) {
+      // Only show error message if it's not a permission issue
+      if (showToast && status !== 403 && status !== 401) {
         toast.error(errorMessage, { duration: 3000 });
       }
+      setMessage({ type: "error", text: errorMessage });
     }
   };
 
@@ -312,12 +406,20 @@ function AddRoomPage({ contextOverride = null }) {
         }
       }
     } catch (error) {
-      console.error("Error loading departments", error);
+      // Silently handle 403 (Forbidden) and other permission errors
+      const status = error.response?.status;
+      if (status === 403 || status === 401) {
+        // Permission denied - silently handle without showing error
+        setDepartments([]);
+        return;
+      }
+      // For other errors, log but don't show runtime error
       const errorMessage = error.response?.data?.message || "Failed to load departments";
-      setMessage({ type: "error", text: errorMessage });
-      if (showToast) {
+      // Only show error message if it's not a permission issue
+      if (showToast && status !== 403 && status !== 401) {
         toast.error(errorMessage, { duration: 3000 });
       }
+      setMessage({ type: "error", text: errorMessage });
     }
   };
 
@@ -339,12 +441,20 @@ function AddRoomPage({ contextOverride = null }) {
         }
       }
     } catch (error) {
-      console.error("Error loading packages", error);
+      // Silently handle 403 (Forbidden) and other permission errors
+      const status = error.response?.status;
+      if (status === 403 || status === 401) {
+        // Permission denied - silently handle without showing error
+        setPackages([]);
+        return;
+      }
+      // For other errors, log but don't show runtime error
       const errorMessage = error.response?.data?.message || "Failed to load packages";
-      setMessage({ type: "error", text: errorMessage });
-      if (showToast) {
+      // Only show error message if it's not a permission issue
+      if (showToast && status !== 403 && status !== 401) {
         toast.error(errorMessage, { duration: 3000 });
       }
+      setMessage({ type: "error", text: errorMessage });
     }
   };
 
@@ -380,7 +490,15 @@ function AddRoomPage({ contextOverride = null }) {
         setTreatments(allTreatments);
       }
     } catch (error) {
-      console.error("Error loading treatments", error);
+      // Silently handle 403 (Forbidden) and other permission errors
+      const status = error.response?.status;
+      if (status === 403 || status === 401) {
+        // Permission denied - silently handle without showing error
+        setTreatments([]);
+        return;
+      }
+      // For other errors, silently handle without showing runtime error
+      setTreatments([]);
     }
   };
 
@@ -416,7 +534,9 @@ function AddRoomPage({ contextOverride = null }) {
         }
       } catch (error) {
         if (!cancelled) {
-          if (!hasLoadedInitialData.current) {
+          // Silently handle permission errors (403, 401)
+          const status = error.response?.status;
+          if (status !== 403 && status !== 401 && !hasLoadedInitialData.current) {
             toast.error("Failed to load some data", { duration: 3000 });
           }
           setLoading(false);
@@ -983,15 +1103,19 @@ function AddRoomPage({ contextOverride = null }) {
           <p className="text-xs sm:text-sm">Checking your permissions...</p>
         </div>
       ) : !permissions.canRead ? (
-        <div className="bg-white rounded-lg border border-red-200 shadow-sm p-6 text-center space-y-2">
-          <div className="inline-flex w-12 h-12 items-center justify-center rounded-full bg-red-50 text-red-600 text-2xl">
-            !
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-lg border border-red-200 p-8 text-center max-w-md">
+            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Building2 className="w-8 h-8 text-red-600" />
+            </div>
+            <h2 className="text-xl font-bold text-gray-900 mb-2">Access Denied</h2>
+            <p className="text-sm text-gray-700 mb-4">
+              You do not have permission to view rooms, departments, and packages.
+            </p>
+            <p className="text-xs text-gray-600">
+              Please contact your administrator to request access to the Add Room module.
+            </p>
           </div>
-          <h2 className="text-base sm:text-lg font-semibold text-gray-900">Access denied</h2>
-          <p className="text-xs sm:text-sm text-gray-700">
-            You do not have permission to view or manage rooms and departments. Please contact your
-            administrator if you believe this is incorrect.
-          </p>
         </div>
       ) : (
         <>

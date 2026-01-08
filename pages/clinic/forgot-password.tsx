@@ -21,11 +21,26 @@ export default function ClinicForgotPassword() {
     setMessage('');
     setIsLoading(true);
     
+    // Get base URL dynamically - use current origin (localhost in dev, production URL in prod)
+    const getBaseUrl = () => {
+      if (typeof window !== 'undefined') {
+        return window.location.origin;
+      }
+      // Fallback for SSR
+      return process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+    };
+    
+    const baseUrl = getBaseUrl();
+    
+    // When handleCodeInApp: true, Firebase redirects to /auth/action on the current origin
+    // The url parameter is where Firebase redirects AFTER the action is completed
+    // IMPORTANT: Use the current origin explicitly to override Firebase console Action URL
     const actionCodeSettings = {
-  url: `${process.env.NEXT_PUBLIC_BASE_URL}/clinic/reset-password?email=${encodeURIComponent(email)}`,
-  handleCodeInApp: true,
-};
-
+      url: `${baseUrl}/clinic/reset-password?email=${encodeURIComponent(email)}`,
+      handleCodeInApp: true,
+      // Explicitly set the domain to current origin to override Firebase console settings
+      dynamicLinkDomain: undefined, // Let Firebase use current origin
+    };
 
     try {
       // First, check if email exists with clinic role
@@ -35,6 +50,11 @@ export default function ClinicForgotPassword() {
         // Email exists with clinic role, proceed with Firebase verification
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
+        
+        // Log for debugging
+        console.log('Sending password reset email from:', baseUrl);
+        console.log('Action code settings:', actionCodeSettings);
+        
         await sendSignInLinkToEmail(auth, email, actionCodeSettings);
         window.localStorage.setItem('clinicEmailForReset', email);
         setMessage('Verification email sent! Check your inbox.');

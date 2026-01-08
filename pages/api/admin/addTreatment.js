@@ -9,9 +9,11 @@ export default async function handler(req, res) {
   if (req.method === 'POST') {
     const { name, slug } = req.body;
 
-    if (!name) {
+    if (!name || !name.trim()) {
       return res.status(400).json({ message: 'Treatment name is required' });
     }
+
+    const trimmedName = name.trim();
 
     try {
       // Get the logged-in user
@@ -37,14 +39,17 @@ export default async function handler(req, res) {
         }
       }
       // Admin users bypass permission checks
-      const exists = await Treatment.findOne({ name });
+      // Check for duplicate treatment (case-insensitive)
+      const exists = await Treatment.findOne({ 
+        name: { $regex: new RegExp(`^${trimmedName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') }
+      });
       if (exists) {
         return res.status(409).json({ message: 'Treatment already exists' });
       }
 
       const treatment = new Treatment({ 
-        name,
-        slug: slug || name.toLowerCase().replace(/\s+/g, '-'),
+        name: trimmedName,
+        slug: slug || trimmedName.toLowerCase().replace(/\s+/g, '-'),
         subcategories: []
       });
       await treatment.save();

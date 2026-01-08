@@ -27,9 +27,18 @@ const ClinicLayout = ({ children, hideSidebar = false, hideHeader = false }: Cli
 
   return (
     <div className="flex min-h-screen bg-gray-100" role="application">
+      {/* Mobile Overlay - Shows when mobile sidebar is open */}
+      {!hideSidebar && isMobileOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 lg:hidden"
+          onClick={handleToggleMobile}
+          aria-hidden="true"
+        />
+      )}
+
       {/* Sidebar - ClinicSidebar with external state */}
       {!hideSidebar && (
-        <div className="h-screen sticky top-0 z-50">
+        <div className={`h-screen ${isMobileOpen ? 'fixed lg:sticky' : 'sticky'} top-0 z-50`}>
           <ClinicSidebar 
             externalIsDesktopHidden={isDesktopHidden}
             externalIsMobileOpen={isMobileOpen}

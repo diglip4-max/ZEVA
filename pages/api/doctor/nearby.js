@@ -6,6 +6,14 @@ import Treatment from "../../../models/Treatment";
 import "../../../models/Users"; // Register the User model
 import axios from "axios";
 
+// Helper to get base URL
+function getBaseUrl() {
+  if (process.env.NODE_ENV === "production") {
+    return process.env.NEXT_PUBLIC_BASE_URL || "https://zeva360.com";
+  }
+  return process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
+}
+
 export default async function handler(req, res) {
   await dbConnect();
   const { lat, lng, service } = req.query;
@@ -149,14 +157,6 @@ export default async function handler(req, res) {
 
     // ✅ Only include approved doctors
     doctors = doctors.filter((doc) => doc.user?.isApproved === true);
-
-    // Helper function to get base URL
-    const getBaseUrl = () => {
-      if (process.env.NODE_ENV === "production") {
-        return "https://zeva360.com";
-      }
-       return process.env.NEXT_PUBLIC_BASE_URL ;
-    };
 
     // ✅ Convert profileImage & photos to full URL
     doctors = doctors.map((doc) => {

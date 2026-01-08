@@ -3,7 +3,8 @@ import Blog from "../../../models/Blog";
 import User from "../../../models/Users";
 import Clinic from "../../../models/Clinic";
 import { getUserFromReq, requireRole } from "../lead-ms/auth";
-import { getClinicIdFromUser, checkClinicPermission } from "../lead-ms/permissions-helper";
+import { getClinicIdFromUser } from "../lead-ms/permissions-helper";
+import { checkAgentPermission } from "../agent/permissions-helper";
 
 export const config = {
   api: {
@@ -12,6 +13,45 @@ export const config = {
     },
   },
 };
+
+/**
+ * Common function to check blog permissions for agent/doctorStaff roles
+ * Clinic, doctor, and admin roles bypass permission checks
+ * @param {Object} me - User object from request
+ * @param {String} clinicId - Clinic ID
+ * @param {String} action - Action to check ("read", "create", "update", "delete")
+ * @param {String} errorMessage - Custom error message if permission denied
+ * @returns {Object|null} - Returns error response object if denied, null if granted
+ */
+async function checkBlogPermission(me, clinicId, action, errorMessage) {
+  // Bypass permission check for clinic, doctor, and admin roles
+  if (!["admin", "clinic", "doctor"].includes(me.role) && clinicId) {
+    const isAgent = me.role === "agent";
+    const isDoctorStaff = me.role === "doctorStaff";
+    
+    if (isAgent || isDoctorStaff) {
+      const result = await checkAgentPermission(
+        me._id,
+        "clinic_write_blog", // Use clinic_write_blog to match the module key format
+        action,
+        null // No submodule - this is a module-level check
+      );
+      
+      if (!result.hasPermission) {
+        return {
+          status: 403,
+          response: {
+            success: false,
+            message: result.error || errorMessage
+          }
+        };
+      }
+    }
+    // Clinic, admin, and doctor users bypass permission checks
+  }
+  
+  return null; // Permission granted
+}
 
 export default async function handler(req, res) {
   await dbConnect();
@@ -34,22 +74,15 @@ export default async function handler(req, res) {
             return res.status(404).json({ success: false, message: error });
           }
 
-          // ✅ Check permission for reading drafts (only for clinic roles, admin bypasses)
-          if (!isAdmin && !isDoctor && clinicId) {
-            const roleForPermission = isDoctorStaff ? "doctorStaff" : isAgent ? "agent" : me.role === "clinic" ? "clinic" : null;
-            const { hasPermission, error: permError } = await checkClinicPermission(
-              clinicId,
-              "write_blog", // Check "write_blog" module permission
-              "read",
-              null, // No submodule - this is a module-level check
-              roleForPermission
-            );
-            if (!hasPermission) {
-              return res.status(403).json({
-                success: false,
-                message: permError || "You do not have permission to view drafts"
-              });
-            }
+          // ✅ Check permission for reading drafts (only for agent/doctorStaff, clinic/admin/doctor bypass)
+          const permissionError = await checkBlogPermission(
+            me,
+            clinicId,
+            "read",
+            "You do not have permission to view drafts"
+          );
+          if (permissionError) {
+            return res.status(permissionError.status).json(permissionError.response);
           }
 
           const { id } = req.query;
@@ -87,8 +120,52 @@ export default async function handler(req, res) {
                   { role: "admin" },
                 ];
               }
+            } else if (me.role === "doctor") {
+              // For doctor, filter by role and postedBy
+              draftQuery.role = me.role;
+              draftQuery.$or = [
+                { postedBy: me._id }, // User owns the draft
+                { role: "admin" }, // Or user is admin
+              ];
+            } else if (me.role === "clinic") {
+              // For clinic role, find drafts posted by the clinic owner (similar to job-postings pattern)
+              const orConditions = [{ postedBy: me._id }];
+              
+              if (clinicId) {
+                // Find clinic owner and all users from this clinic
+                const clinic = await Clinic.findById(clinicId).select("owner");
+                const clinicUserIds = [];
+                
+                // Add clinic owner (who posted the drafts)
+                if (clinic && clinic.owner) {
+                  clinicUserIds.push(clinic.owner);
+                }
+                
+                // Add all users with this clinicId (agents, staff, doctors, etc.)
+                const clinicUsers = await User.find({ 
+                  clinicId: clinicId 
+                }).select("_id");
+                
+                clinicUsers.forEach(u => {
+                  if (!clinicUserIds.some(id => id.toString() === u._id.toString())) {
+                    clinicUserIds.push(u._id);
+                  }
+                });
+                
+                if (clinicUserIds.length > 0) {
+                  orConditions.push({ postedBy: { $in: clinicUserIds } });
+                }
+              }
+              
+              // Also include admin drafts
+              orConditions.push({ role: "admin" });
+              
+              draftQuery.$or = orConditions;
+            } else if (isAdmin) {
+              // Admin can see any draft - no additional filters needed
+              // draftQuery already has _id and status filters
             } else {
-              // For clinic/doctor/admin, use existing logic
+              // Fallback for other roles
               draftQuery.$or = [
                 { postedBy: me._id }, // User owns the draft
                 { role: "admin" }, // Or user is admin
@@ -151,8 +228,8 @@ export default async function handler(req, res) {
           } else if (isAdmin) {
             // Admin can see all drafts (but only drafts, not published)
             draftQuery = { status: "draft" };
-          } else {
-            // For clinic/doctor, filter by role and status
+          } else if (me.role === "doctor") {
+            // For doctor, filter by role and postedBy
             draftQuery = {
               status: "draft", // Always filter by draft status
               role: me.role,
@@ -160,6 +237,43 @@ export default async function handler(req, res) {
                 { postedBy: me._id }, // User owns the draft
                 { role: "admin" }, // Or user is admin
               ],
+            };
+          } else {
+            // For clinic role, find drafts posted by the clinic owner (similar to job-postings pattern)
+            const orConditions = [{ postedBy: me._id }];
+            
+            if (clinicId) {
+              // Find clinic owner and all users from this clinic
+              const clinic = await Clinic.findById(clinicId).select("owner");
+              const clinicUserIds = [];
+              
+              // Add clinic owner (who posted the drafts)
+              if (clinic && clinic.owner) {
+                clinicUserIds.push(clinic.owner);
+              }
+              
+              // Add all users with this clinicId (agents, staff, doctors, etc.)
+              const clinicUsers = await User.find({ 
+                clinicId: clinicId 
+              }).select("_id");
+              
+              clinicUsers.forEach(u => {
+                if (!clinicUserIds.some(id => id.toString() === u._id.toString())) {
+                  clinicUserIds.push(u._id);
+                }
+              });
+              
+              if (clinicUserIds.length > 0) {
+                orConditions.push({ postedBy: { $in: clinicUserIds } });
+              }
+            }
+            
+            // Also include admin drafts
+            orConditions.push({ role: "admin" });
+            
+            draftQuery = {
+              status: "draft", // Always filter by draft status
+              $or: orConditions,
             };
           }
 
@@ -189,22 +303,15 @@ export default async function handler(req, res) {
             return res.status(404).json({ success: false, message: error });
           }
 
-          // ✅ Check permission for creating drafts (only for clinic roles, admin bypasses)
-          if (!isAdmin && !isDoctor && clinicId) {
-            const roleForPermission = isDoctorStaff ? "doctorStaff" : isAgent ? "agent" : me.role === "clinic" ? "clinic" : null;
-            const { hasPermission, error: permError } = await checkClinicPermission(
-              clinicId,
-              "write_blog", // Check "write_blog" module permission
-              "create",
-              null, // No submodule - this is a module-level check
-              roleForPermission
-            );
-            if (!hasPermission) {
-              return res.status(403).json({
-                success: false,
-                message: permError || "You do not have permission to create drafts"
-              });
-            }
+          // ✅ Check permission for creating drafts (only for agent/doctorStaff, clinic/admin/doctor bypass)
+          const permissionError = await checkBlogPermission(
+            me,
+            clinicId,
+            "create",
+            "You do not have permission to create drafts"
+          );
+          if (permissionError) {
+            return res.status(permissionError.status).json(permissionError.response);
           }
 
           const { title, content, paramlink, isAutoSave } = req.body;
@@ -328,22 +435,15 @@ export default async function handler(req, res) {
             return res.status(404).json({ success: false, message: error });
           }
 
-          // ✅ Check permission for updating drafts (only for clinic roles, admin bypasses)
-          if (!isAdmin && !isDoctor && clinicId) {
-            const roleForPermission = isDoctorStaff ? "doctorStaff" : isAgent ? "agent" : me.role === "clinic" ? "clinic" : null;
-            const { hasPermission, error: permError } = await checkClinicPermission(
-              clinicId,
-              "write_blog", // Check "write_blog" module permission
-              "update",
-              null, // No submodule - this is a module-level check
-              roleForPermission
-            );
-            if (!hasPermission) {
-              return res.status(403).json({
-                success: false,
-                message: permError || "You do not have permission to update drafts"
-              });
-            }
+          // ✅ Check permission for updating drafts (only for agent/doctorStaff, clinic/admin/doctor bypass)
+          const permissionError = await checkBlogPermission(
+            me,
+            clinicId,
+            "update",
+            "You do not have permission to update drafts"
+          );
+          if (permissionError) {
+            return res.status(permissionError.status).json(permissionError.response);
           }
 
           // If paramlink is being updated, only conflict with published blogs
@@ -438,22 +538,15 @@ export default async function handler(req, res) {
             return res.status(404).json({ success: false, message: error });
           }
 
-          // ✅ Check permission for deleting drafts (only for clinic roles, admin bypasses)
-          if (!isAdmin && !isDoctor && clinicId) {
-            const roleForPermission = isDoctorStaff ? "doctorStaff" : isAgent ? "agent" : me.role === "clinic" ? "clinic" : null;
-            const { hasPermission, error: permError } = await checkClinicPermission(
-              clinicId,
-              "write_blog", // Check "write_blog" module permission
-              "delete",
-              null, // No submodule - this is a module-level check
-              roleForPermission
-            );
-            if (!hasPermission) {
-              return res.status(403).json({
-                success: false,
-                message: permError || "You do not have permission to delete drafts"
-              });
-            }
+          // ✅ Check permission for deleting drafts (only for agent/doctorStaff, clinic/admin/doctor bypass)
+          const permissionError = await checkBlogPermission(
+            me,
+            clinicId,
+            "delete",
+            "You do not have permission to delete drafts"
+          );
+          if (permissionError) {
+            return res.status(permissionError.status).json(permissionError.response);
           }
 
           await Blog.findByIdAndDelete(id);
