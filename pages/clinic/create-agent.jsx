@@ -89,15 +89,23 @@ const ManageAgentsPage = () => {
     setIsAgentRoute(hasAnyToken && agentRoute);
   }, [router.pathname, agentToken, clinicToken, doctorToken, adminToken]);
 
+  // Check if user has agentToken or userToken (doctorStaff) - these need agent-level permissions
+  const hasAgentOrUserToken = typeof window !== 'undefined' ? 
+    Boolean(localStorage.getItem('agentToken') || localStorage.getItem('userToken')) : false;
+
   const { permissions: agentPermissions, loading: permissionsLoading } = useAgentPermissions(
-    isAgentRoute ? 'create_agent' : null
+    hasAgentOrUserToken ? 'clinic_create_agent' : null
   );
 
   // Use strict boolean checks - only true if explicitly true
-  const agentCanRead = agentPermissions.canRead === true || agentPermissions.canAll === true;
-  const agentCanCreate = agentPermissions.canCreate === true || agentPermissions.canAll === true;
-  const agentCanUpdate = agentPermissions.canUpdate === true || agentPermissions.canAll === true;
-  const agentCanDelete = agentPermissions.canDelete === true || agentPermissions.canAll === true;
+  const agentCanRead = hasAgentOrUserToken && !permissionsLoading ? 
+    (agentPermissions.canAll === true || agentPermissions.canRead === true) : false;
+  const agentCanCreate = hasAgentOrUserToken && !permissionsLoading ? 
+    (agentPermissions.canAll === true || agentPermissions.canCreate === true) : false;
+  const agentCanUpdate = hasAgentOrUserToken && !permissionsLoading ? 
+    (agentPermissions.canAll === true || agentPermissions.canUpdate === true) : false;
+  const agentCanDelete = hasAgentOrUserToken && !permissionsLoading ? 
+    (agentPermissions.canAll === true || agentPermissions.canDelete === true) : false;
 
   // Debug logging to track permission values
   useEffect(() => {
@@ -177,8 +185,10 @@ const ManageAgentsPage = () => {
       return;
     }
 
-    // ✅ For clinic and doctor roles, fetch admin-level permissions from /api/clinic/sidebar-permissions
-    if (userRole === 'clinic' || userRole === 'doctor') {
+    // ✅ Check permissions based on token type, not userRole
+    // If clinicToken exists: fetch admin-level permissions from /api/clinic/sidebar-permissions
+    // If agentToken exists: fetch agent-level permissions (handled separately via useAgentPermissions)
+    if (clinicToken || doctorToken) {
       if (!authToken) {
         setClinicPerms({
           canCreate: false,
@@ -207,10 +217,19 @@ const ManageAgentsPage = () => {
         .get('/api/clinic/sidebar-permissions', { headers })
         .then(({ data }) => {
           if (data.success) {
+            // Debug: Log the API response
+            console.log('Clinic Sidebar Permissions API Response:', {
+              permissions: data.permissions,
+              permissionsLength: data.permissions?.length,
+              permissionsType: typeof data.permissions,
+              isArray: Array.isArray(data.permissions)
+            });
+            
             // Check if permissions array exists and is not null
             // If permissions is null, admin hasn't set any restrictions yet - allow full access (backward compatibility)
             if (data.permissions === null || !Array.isArray(data.permissions) || data.permissions.length === 0) {
               // No admin restrictions set yet - default to full access for backward compatibility
+              console.log('No permissions found, granting full access');
               setClinicPerms({
                 canCreate: true,
                 canRead: true,
@@ -219,33 +238,108 @@ const ManageAgentsPage = () => {
               });
             } else {
               // Admin has set permissions - check the clinic_create_agent module
+              // Try multiple variations of the module key to ensure we find it
+              console.log('Searching for clinic_create_agent in permissions:', data.permissions);
+              
               const modulePerm = data.permissions.find(
-                (perm) =>
-                  perm.module === 'clinic_create_agent' ||
-                  perm.module === 'create_agent' ||
-                  perm.module?.endsWith('create_agent')
+                (perm) => {
+                  const moduleKey = (perm.module || '').toString().trim();
+                  const normalizedKey = moduleKey.toLowerCase().replace(/[-_]/g, '_');
+                  
+                  return (
+                    moduleKey === 'clinic_create_agent' ||
+                    moduleKey === 'create_agent' ||
+                    moduleKey === 'clinic-create-agent' ||
+                    moduleKey === 'create-agent' ||
+                    normalizedKey === 'clinic_create_agent' ||
+                    normalizedKey === 'create_agent' ||
+                    moduleKey.endsWith('create_agent') ||
+                    moduleKey.endsWith('create-agent') ||
+                    moduleKey.includes('create_agent') ||
+                    moduleKey.includes('create-agent') ||
+                    normalizedKey.includes('create_agent')
+                  );
+                }
               );
+
+              console.log('Module permission search result:', modulePerm ? {
+                found: true,
+                module: modulePerm.module,
+                actions: modulePerm.actions
+              } : {
+                found: false,
+                availableModules: data.permissions?.map(p => p.module) || []
+              });
 
               if (modulePerm) {
                 const actions = modulePerm.actions || {};
                 
-                // Check if "all" is true, which grants all permissions
-                const moduleAll = actions.all === true || actions.all === 'true' || String(actions.all).toLowerCase() === 'true';
-                const moduleCreate = actions.create === true || actions.create === 'true' || String(actions.create).toLowerCase() === 'true';
-                const moduleRead = actions.read === true || actions.read === 'true' || String(actions.read).toLowerCase() === 'true';
-                const moduleUpdate = actions.update === true || actions.update === 'true' || String(actions.update).toLowerCase() === 'true';
-                const moduleDelete = actions.delete === true || actions.delete === 'true' || String(actions.delete).toLowerCase() === 'true';
-
-                setClinicPerms({
-                  canCreate: moduleAll || moduleCreate,
-                  canRead: moduleAll || moduleRead,
-                  canUpdate: moduleAll || moduleUpdate,
-                  canDelete: moduleAll || moduleDelete,
+                // Debug: Log the found module permission
+                console.log('Found module permission:', {
+                  module: modulePerm.module,
+                  actions: actions,
+                  all: actions.all,
+                  allType: typeof actions.all,
+                  read: actions.read,
+                  readType: typeof actions.read
                 });
+                
+                // Check if "all" is true, which grants all permissions
+                // Handle both boolean true and string "true"
+                const moduleAll = actions.all === true || 
+                                 actions.all === 'true' || 
+                                 String(actions.all).toLowerCase() === 'true' ||
+                                 actions.all === 1 ||
+                                 actions.all === '1';
+                
+                console.log('Module all permission check:', { moduleAll, allValue: actions.all, allType: typeof actions.all });
+                
+                // If "all" is true, grant all permissions immediately
+                if (moduleAll) {
+                  console.log('✅ Granting all permissions because all=true');
+                  setClinicPerms({
+                    canCreate: true,
+                    canRead: true,
+                    canUpdate: true,
+                    canDelete: true,
+                  });
+                } else {
+                  // Otherwise check individual permissions
+                  const moduleCreate = actions.create === true || actions.create === 'true' || String(actions.create).toLowerCase() === 'true' || actions.create === 1 || actions.create === '1';
+                  const moduleRead = actions.read === true || actions.read === 'true' || String(actions.read).toLowerCase() === 'true' || actions.read === 1 || actions.read === '1';
+                  const moduleUpdate = actions.update === true || actions.update === 'true' || String(actions.update).toLowerCase() === 'true' || actions.update === 1 || actions.update === '1';
+                  const moduleDelete = actions.delete === true || actions.delete === 'true' || String(actions.delete).toLowerCase() === 'true' || actions.delete === 1 || actions.delete === '1';
+
+                  console.log('Setting individual permissions:', { moduleCreate, moduleRead, moduleUpdate, moduleDelete });
+                  setClinicPerms({
+                    canCreate: moduleCreate,
+                    canRead: moduleRead,
+                    canUpdate: moduleUpdate,
+                    canDelete: moduleDelete,
+                  });
+                }
               } else {
-                // Module permission not found in the permissions array - default to read-only
+                // Module permission not found in the permissions array
+                // Check if ANY permission has all:true or read:true as a fallback
+                const hasAnyReadPermission = data.permissions?.some(perm => {
+                  const actions = perm.actions || {};
+                  return actions.all === true || 
+                         actions.all === 'true' || 
+                         actions.read === true || 
+                         actions.read === 'true' ||
+                         String(actions.all).toLowerCase() === 'true' ||
+                         String(actions.read).toLowerCase() === 'true';
+                });
+                
+                // Log for debugging
+                console.warn('❌ Module permission not found for clinic_create_agent. Available modules:', 
+                  data.permissions?.map(p => ({ module: p.module, actions: p.actions })) || []);
+                console.log('Has any read permission (fallback):', hasAnyReadPermission);
+                
+                // If any permission has read access, grant it (fallback)
+                // Otherwise, grant read-only access by default
                 setClinicPerms({
-                  canRead: true, // Clinic/doctor can always read their own data
+                  canRead: hasAnyReadPermission !== false, // Grant read if any permission has it, or default to true
                   canCreate: false,
                   canUpdate: false,
                   canDelete: false,
@@ -289,6 +383,7 @@ const ManageAgentsPage = () => {
   const isClinicUser = Boolean(clinicToken);
   const isDoctorUser = Boolean(doctorToken);
   const isAdminUser = Boolean(adminToken);
+  const isOwnerUser = false; // Owner role not currently implemented
   const userRole = getUserRole();
   
   const canClinicRead = clinicPerms.canRead;
@@ -297,24 +392,65 @@ const ManageAgentsPage = () => {
   const canClinicDelete = clinicPerms.canDelete;
 
   // Use permissions from API - respect actual permissions from the API response
-  // For agent route: use agent permissions from API
-  // For clinic route: use clinic permissions from API (which now respects admin-level permissions)
-  // Admin users get full access regardless of route
-  const canRead = isAgentRoute 
-    ? agentCanRead  // Agent route: always use API permissions
-    : (userRole === 'admin' ? true : canClinicRead); // Clinic route: admin gets full access, else use API permissions
+  // Priority: 
+  // 1. Admin users get full access regardless of route
+  // 2. If agentToken or userToken exists: use agent permissions (agent-level) from API
+  // 3. If clinicToken/doctorToken exists: use clinic permissions (admin-level permissions)
+  // 4. Otherwise: use clinic permissions if available
+  
+  const canRead = userRole === 'admin' 
+    ? true  // Admin gets full access
+    : (hasAgentOrUserToken && !permissionsLoading)
+      ? agentCanRead  // Agent/user token: use agent permissions (agent-level)
+      : (clinicToken || doctorToken) 
+        ? canClinicRead  // Clinic/doctor token: use clinic permissions (admin-level)
+        : canClinicRead;
     
-  const canCreate = isAgentRoute 
-    ? agentCanCreate  // Agent route: always use API permissions
-    : (userRole === 'admin' ? true : canClinicCreate);
+  const canCreate = userRole === 'admin' 
+    ? true  // Admin gets full access
+    : (hasAgentOrUserToken && !permissionsLoading)
+      ? agentCanCreate  // Agent/user token: use agent permissions (agent-level)
+      : (clinicToken || doctorToken) 
+        ? canClinicCreate  // Clinic/doctor token: use clinic permissions (admin-level)
+        : canClinicCreate;
     
-  const canUpdate = isAgentRoute 
-    ? agentCanUpdate  // Agent route: always use API permissions
-    : (userRole === 'admin' ? true : canClinicUpdate);
+  const canUpdate = userRole === 'admin' 
+    ? true  // Admin gets full access
+    : (hasAgentOrUserToken && !permissionsLoading)
+      ? agentCanUpdate  // Agent/user token: use agent permissions (agent-level)
+      : (clinicToken || doctorToken) 
+        ? canClinicUpdate  // Clinic/doctor token: use clinic permissions (admin-level)
+        : canClinicUpdate;
     
-  const canDelete = isAgentRoute 
-    ? agentCanDelete  // Agent route: always use API permissions
-    : (userRole === 'admin' ? true : canClinicDelete);
+  const canDelete = userRole === 'admin' 
+    ? true  // Admin gets full access
+    : (hasAgentOrUserToken && !permissionsLoading)
+      ? agentCanDelete  // Agent/user token: use agent permissions (agent-level)
+      : (clinicToken || doctorToken) 
+        ? canClinicDelete  // Clinic/doctor token: use clinic permissions (admin-level)
+        : canClinicDelete;
+
+  // Debug: Log final permission values
+  useEffect(() => {
+    if (!clinicPermsLoading && !permissionsLoading) {
+      console.log('🔍 Final Permission Check:', {
+        userRole,
+        isAgentRoute,
+        clinicPerms: {
+          canRead: canClinicRead,
+          canCreate: canClinicCreate,
+          canUpdate: canClinicUpdate,
+          canDelete: canClinicDelete
+        },
+        finalPermissions: {
+          canRead,
+          canCreate,
+          canUpdate,
+          canDelete
+        }
+      });
+    }
+  }, [canRead, canCreate, canUpdate, canDelete, clinicPermsLoading, permissionsLoading, userRole, isAgentRoute, canClinicRead, canClinicCreate, canClinicUpdate, canClinicDelete]);
 
   async function loadAgents() {
     try {
@@ -377,8 +513,8 @@ const ManageAgentsPage = () => {
 
   useEffect(() => {
     if (!token) return;
-    if ((isAgentRoute && permissionsLoading) || ((isClinicUser || isDoctorUser) && clinicPermsLoading)) return;
-    if (!canRead) {
+    if ((hasAgentOrUserToken && permissionsLoading) || ((isClinicUser || isDoctorUser) && clinicPermsLoading)) return;
+    if (canRead !== true) {
       setAgents([]);
       setDoctorStaff([]);
       setIsLoading(false);
@@ -387,7 +523,7 @@ const ManageAgentsPage = () => {
     loadAll(true);
   }, [
     token,
-    isAgentRoute,
+    hasAgentOrUserToken,
     permissionsLoading,
     canRead,
     isClinicUser,
@@ -396,9 +532,9 @@ const ManageAgentsPage = () => {
   ]);
 
   async function handleAction(agentId, action) {
-    if (!canRead) return;
+    if (canRead !== true) return;
     const requiresUpdate = action === 'approve' || action === 'decline';
-    if (requiresUpdate && !canUpdate) {
+    if (requiresUpdate && canUpdate !== true) {
       toast.error("You don't have permission to perform this action");
       return;
     }
@@ -429,7 +565,7 @@ const ManageAgentsPage = () => {
   }
 
   async function handleDelete(agentId) {
-    if (!canDelete) {
+    if (canDelete !== true) {
       toast.error("You don't have permission to delete members");
       return;
     }
@@ -462,7 +598,7 @@ const ManageAgentsPage = () => {
 
   async function handleResetPasswordSubmit(e) {
     e.preventDefault();
-    if (!canUpdate) {
+    if (canUpdate !== true) {
       toast.error("You don't have permission to update members");
       return;
     }
@@ -519,7 +655,7 @@ const ManageAgentsPage = () => {
   // Status and trend visualizations removed per request
 
   const handleCreateClick = () => {
-    if (!canCreate) {
+    if (canCreate !== true) {
       toast.error("You don't have permission to create agents");
       return;
     }
@@ -527,7 +663,7 @@ const ManageAgentsPage = () => {
   };
 
   // Wait for permissions to load before showing UI
-  if ((isAgentRoute && permissionsLoading) || (isClinicUser && clinicPermsLoading) || isLoading) {
+  if ((hasAgentOrUserToken && permissionsLoading) || (isClinicUser && clinicPermsLoading) || isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <div className="text-center">
@@ -538,9 +674,24 @@ const ManageAgentsPage = () => {
     );
   }
 
+  // Debug: Log when access denied check happens
+  if (canRead !== true) {
+    console.log('🚫 Access Denied Check Triggered:', {
+      canRead,
+      canCreate,
+      userRole,
+      isClinicUser,
+      hasAgentOrUserToken,
+      clinicPermsLoading,
+      permissionsLoading,
+      clinicPerms,
+      canClinicRead
+    });
+  }
+
   // If read permission is false, show access denied
-  if (!canRead) {
-    if (canCreate) {
+  if (canRead !== true) {
+    if (canCreate === true) {
       // Show create button only
       return (
         <div className="w-full min-h-screen bg-gray-50 dark:bg-gray-900 py-6 px-4 sm:px-6 lg:px-8">
@@ -566,7 +717,7 @@ const ManageAgentsPage = () => {
               <p className="text-sm text-gray-700 dark:text-gray-400 mb-4">
                 You do not have permission to view team members. However, you can create new members.
               </p>
-              {canCreate && (
+              {canCreate === true && (
                 <button
                   onClick={handleCreateClick}
                   className="inline-flex items-center gap-2 px-4 py-2 bg-gray-900 dark:bg-blue-600 hover:bg-gray-800 dark:hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm"
@@ -722,7 +873,7 @@ const ManageAgentsPage = () => {
                 </button>
               </div>
             </div>
-            {canCreate && (
+            {canCreate === true && (
               <button
                 onClick={handleCreateClick}
                 className="inline-flex items-center gap-2 px-4 py-2 bg-gray-900 dark:bg-blue-600 hover:bg-gray-800 dark:hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm w-full sm:w-auto justify-center"
@@ -745,11 +896,11 @@ const ManageAgentsPage = () => {
                 </div>
                 <p className="text-base font-semibold text-gray-900 dark:text-gray-100">No {activeView === 'agents' ? 'agents' : 'doctors'} found</p>
                 <p className="text-sm text-gray-700 dark:text-gray-400 mt-1 mb-4">
-                  {canCreate
+                  {canCreate === true
                     ? `Get started by adding your first ${activeView === 'agents' ? 'agent' : 'doctor'} to the team`
                     : 'You have read-only access.'}
                 </p>
-                {canCreate && (
+                {canCreate === true && (
                   <button
                     onClick={handleCreateClick}
                     className="inline-flex items-center gap-2 px-4 py-2 bg-gray-900 dark:bg-blue-600 hover:bg-gray-800 dark:hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
@@ -798,7 +949,7 @@ const ManageAgentsPage = () => {
                         </div>
                       </div>
                       {/* Only show 3-dot menu if canUpdate or canDelete is true */}
-                      {(canUpdate || canDelete) && (
+                      {(canUpdate === true || canDelete === true) && (
                         <div className="relative flex-shrink-0">
                           <button
                             type="button"
@@ -823,7 +974,7 @@ const ManageAgentsPage = () => {
                                 }}
                               />
                               <div className="absolute right-0 mt-1 w-40 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg z-20">
-                                {canUpdate && (
+                                {canUpdate === true && (
                                   <>
                                     <button
                                       className="w-full text-left px-3 py-2 text-[11px] hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 transition-colors"
@@ -859,7 +1010,7 @@ const ManageAgentsPage = () => {
                                     )}
                                   </>
                                 )}
-                                {canDelete && (
+                                {canDelete === true && (
                                   <button
                                     className="w-full text-left px-3 py-2 text-[11px] hover:bg-red-50 dark:hover:bg-red-900/30 text-red-700 dark:text-red-400 transition-colors border-t border-gray-200 dark:border-gray-700 flex items-center gap-2"
                                     onClick={(e) => {
@@ -891,7 +1042,7 @@ const ManageAgentsPage = () => {
 
                     {/* Card Footer - Actions */}
                     <div className="flex gap-2 pt-4 border-t border-gray-100 dark:border-gray-700">
-                      {canUpdate && (
+                      {canUpdate === true && (
                         <>
                           <button
                             onClick={(e) => {

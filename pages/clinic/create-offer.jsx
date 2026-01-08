@@ -103,35 +103,42 @@ function OffersPage() {
     setIsAgentRoute(agentPath && hasAgentToken);
   }, [router.pathname, hasAgentToken]);
 
+  // Check if user has agentToken or userToken (doctorStaff) - these need agent-level permissions
+  const hasAgentOrUserToken = typeof window !== 'undefined' ? 
+    Boolean(localStorage.getItem('agentToken') || localStorage.getItem('userToken')) : false;
+  
   const {
     permissions: agentPermissions,
     loading: agentPermissionsLoading,
-  } = useAgentPermissions(isAgentRoute ? "create_offers" : null);
+  } = useAgentPermissions(hasAgentOrUserToken ? "clinic_create_offers" : null);
 
+  // Handle agent-level permissions (for agentToken or userToken users)
   useEffect(() => {
-    if (!isAgentRoute) return;
+    if (!hasAgentOrUserToken) return;
     if (agentPermissionsLoading) return;
     
     // ✅ Ensure permissions are properly set from hook response
+    // Use strict boolean checks - only true if explicitly true
     const newPermissions = {
-      canCreate: Boolean(agentPermissions.canAll || agentPermissions.canCreate),
-      canUpdate: Boolean(agentPermissions.canAll || agentPermissions.canUpdate),
-      canDelete: Boolean(agentPermissions.canAll || agentPermissions.canDelete),
-      canRead: Boolean(agentPermissions.canAll || agentPermissions.canRead),
+      canCreate: agentPermissions.canAll === true || agentPermissions.canCreate === true,
+      canUpdate: agentPermissions.canAll === true || agentPermissions.canUpdate === true,
+      canDelete: agentPermissions.canAll === true || agentPermissions.canDelete === true,
+      canRead: agentPermissions.canAll === true || agentPermissions.canRead === true,
     };
     
-    console.log('Setting permissions from agentPermissions:', {
+    console.log('Setting agent-level permissions from API:', {
       agentPermissions,
       newPermissions,
-      hasAnyPermission: newPermissions.canCreate || newPermissions.canRead || newPermissions.canUpdate || newPermissions.canDelete
+      moduleKey: 'clinic_create_offers'
     });
     
     setPermissions(newPermissions);
     setPermissionsLoaded(true);
-  }, [isAgentRoute, agentPermissions, agentPermissionsLoading]);
+  }, [hasAgentOrUserToken, agentPermissions, agentPermissionsLoading]);
 
+  // Handle admin-level permissions (for clinicToken or doctorToken users)
   useEffect(() => {
-    if (isAgentRoute) return;
+    if (hasAgentOrUserToken) return; // Skip if user has agent/user token (handled above)
     let isMounted = true;
     
     const fetchPermissions = async () => {
@@ -149,9 +156,28 @@ function OffersPage() {
         }
 
         const userRole = getUserRole();
+        const clinicToken = typeof window !== 'undefined' ? localStorage.getItem('clinicToken') : null;
+        const doctorToken = typeof window !== 'undefined' ? localStorage.getItem('doctorToken') : null;
+        const adminToken = typeof window !== 'undefined' ? localStorage.getItem('adminToken') : null;
         
-        // For clinic and doctor roles, fetch admin-level permissions from /api/clinic/sidebar-permissions
-        if (userRole === 'clinic' || userRole === 'doctor') {
+        // ✅ For admin role, grant full access (bypass permission checks)
+        if (userRole === 'admin') {
+          if (isMounted) {
+            setPermissions({
+              canCreate: true,
+              canRead: true,
+              canUpdate: true,
+              canDelete: true,
+            });
+            setPermissionsLoaded(true);
+          }
+          return;
+        }
+        
+        // ✅ Check permissions based on token type, not userRole
+        // If clinicToken or doctorToken exists: fetch admin-level permissions from /api/clinic/sidebar-permissions
+        // If agentToken exists: use agent permissions (handled by useAgentPermissions hook)
+        if (clinicToken || doctorToken) {
           try {
             const res = await axios.get('/api/clinic/sidebar-permissions', {
               headers: authHeaders,
@@ -188,26 +214,49 @@ function OffersPage() {
                   const actions = modulePermission.actions || {};
                   
                   // Check if "all" is true, which grants all permissions
-                  const moduleAll = actions.all === true || actions.all === 'true' || String(actions.all).toLowerCase() === 'true';
-                  const moduleCreate = actions.create === true || actions.create === 'true' || String(actions.create).toLowerCase() === 'true';
-                  const moduleRead = actions.read === true || actions.read === 'true' || String(actions.read).toLowerCase() === 'true';
-                  const moduleUpdate = actions.update === true || actions.update === 'true' || String(actions.update).toLowerCase() === 'true';
-                  const moduleDelete = actions.delete === true || actions.delete === 'true' || String(actions.delete).toLowerCase() === 'true';
+                  // Handle both boolean true and string "true"
+                  const moduleAll = actions.all === true || 
+                                   actions.all === 'true' || 
+                                   String(actions.all).toLowerCase() === 'true' ||
+                                   actions.all === 1 ||
+                                   actions.all === '1';
+                  
+                  // If "all" is true, grant all permissions immediately
+                  if (moduleAll) {
+                    if (isMounted) {
+                      setPermissions({
+                        canCreate: true,
+                        canRead: true,
+                        canUpdate: true,
+                        canDelete: true,
+                      });
+                    }
+                  } else {
+                    // Otherwise check individual permissions
+                    const moduleCreate = actions.create === true || actions.create === 'true' || String(actions.create).toLowerCase() === 'true' || actions.create === 1 || actions.create === '1';
+                    const moduleRead = actions.read === true || actions.read === 'true' || String(actions.read).toLowerCase() === 'true' || actions.read === 1 || actions.read === '1';
+                    const moduleUpdate = actions.update === true || actions.update === 'true' || String(actions.update).toLowerCase() === 'true' || actions.update === 1 || actions.update === '1';
+                    const moduleDelete = actions.delete === true || actions.delete === 'true' || String(actions.delete).toLowerCase() === 'true' || actions.delete === 1 || actions.delete === '1';
 
-                  setPermissions({
-                    canCreate: moduleAll || moduleCreate,
-                    canRead: moduleAll || moduleRead,
-                    canUpdate: moduleAll || moduleUpdate,
-                    canDelete: moduleAll || moduleDelete,
-                  });
+                    if (isMounted) {
+                      setPermissions({
+                        canCreate: moduleCreate,
+                        canRead: moduleRead,
+                        canUpdate: moduleUpdate,
+                        canDelete: moduleDelete,
+                      });
+                    }
+                  }
                 } else {
                   // Module permission not found in the permissions array - default to read-only
-                  setPermissions({
-                    canCreate: false,
-                    canRead: true, // Clinic/doctor can always read their own data
-                    canUpdate: false,
-                    canDelete: false,
-                  });
+                  if (isMounted) {
+                    setPermissions({
+                      canCreate: false,
+                      canRead: true, // Clinic/doctor can always read their own data
+                      canUpdate: false,
+                      canDelete: false,
+                    });
+                  }
                 }
               }
             } else {
@@ -237,29 +286,44 @@ function OffersPage() {
           return;
         }
 
-        // For agents, staff, and doctorStaff, use existing agent permissions logic
-        // (handled by useAgentPermissions hook)
+        // For agents, staff, and doctorStaff with agentToken: use agent permissions logic
+        // (handled by useAgentPermissions hook - permissions will be set by that hook)
+        // Only set default here if no clinic/doctor token exists
         if (['agent', 'staff', 'doctorStaff'].includes(userRole || '')) {
-          // Agent permissions are handled by useAgentPermissions hook
-          // Set default permissions here (will be overridden by agent permissions)
-          setPermissions({
-            canCreate: false,
-            canRead: false,
-            canUpdate: false,
-            canDelete: false,
-          });
-          setPermissionsLoaded(true);
+          // Agent permissions are handled by useAgentPermissions hook when isAgentRoute is true
+          // For non-agent routes with agent role, check if they have clinic permissions via token
+          const agentToken = typeof window !== 'undefined' ? localStorage.getItem('agentToken') : null;
+          if (!agentToken && !clinicToken && !doctorToken) {
+            // No tokens available, deny access
+            if (isMounted) {
+              setPermissions({
+                canCreate: false,
+                canRead: false,
+                canUpdate: false,
+                canDelete: false,
+              });
+              setPermissionsLoaded(true);
+            }
+            return;
+          }
+          // If agent has clinicToken, permissions were already checked above
+          // Otherwise, agent permissions are handled by useAgentPermissions hook
+          if (isMounted) {
+            setPermissionsLoaded(true);
+          }
           return;
         }
 
         // For admin or unknown roles, default to full access
-        setPermissions({
-          canCreate: true,
-          canRead: true,
-          canUpdate: true,
-          canDelete: true,
-        });
-        setPermissionsLoaded(true);
+        if (isMounted) {
+          setPermissions({
+            canCreate: true,
+            canRead: true,
+            canUpdate: true,
+            canDelete: true,
+          });
+          setPermissionsLoaded(true);
+        }
       } catch (err) {
         console.error('Error fetching permissions:', err);
         // On error, default to full access (backward compatibility)
@@ -278,7 +342,52 @@ function OffersPage() {
     return () => {
       isMounted = false;
     };
-  }, [isAgentRoute, token]);
+  }, [hasAgentOrUserToken, token]);
+  
+  // Get token values for permission computation
+  const clinicToken = typeof window !== 'undefined' ? localStorage.getItem('clinicToken') : null;
+  const doctorToken = typeof window !== 'undefined' ? localStorage.getItem('doctorToken') : null;
+  const agentToken = typeof window !== 'undefined' ? localStorage.getItem('agentToken') : null;
+  const userToken = typeof window !== 'undefined' ? localStorage.getItem('userToken') : null;
+  const userRole = getUserRole();
+  
+  // Determine final permissions based on token type
+  // Priority: 
+  // 1. Admin users get full access
+  // 2. If agentToken or userToken exists: use agent permissions (agent-level) from API
+  // 3. If clinicToken/doctorToken exists: use clinic permissions (admin-level)
+  // 4. Otherwise: use permissions from state
+  const finalCanRead = userRole === 'admin' 
+    ? true
+    : (hasAgentOrUserToken && !agentPermissionsLoading)
+      ? (agentPermissions.canAll === true || agentPermissions.canRead === true)
+      : (clinicToken || doctorToken) 
+        ? permissions.canRead
+        : permissions.canRead;
+    
+  const finalCanCreate = userRole === 'admin' 
+    ? true
+    : (hasAgentOrUserToken && !agentPermissionsLoading)
+      ? (agentPermissions.canAll === true || agentPermissions.canCreate === true)
+      : (clinicToken || doctorToken) 
+        ? permissions.canCreate
+        : permissions.canCreate;
+    
+  const finalCanUpdate = userRole === 'admin' 
+    ? true
+    : (hasAgentOrUserToken && !agentPermissionsLoading)
+      ? (agentPermissions.canAll === true || agentPermissions.canUpdate === true)
+      : (clinicToken || doctorToken) 
+        ? permissions.canUpdate
+        : permissions.canUpdate;
+    
+  const finalCanDelete = userRole === 'admin' 
+    ? true
+    : (hasAgentOrUserToken && !agentPermissionsLoading)
+      ? (agentPermissions.canAll === true || agentPermissions.canDelete === true)
+      : (clinicToken || doctorToken) 
+        ? permissions.canDelete
+        : permissions.canDelete;
 
   // Fetch all offers
   const fetchOffers = async () => {
@@ -289,7 +398,7 @@ function OffersPage() {
     if (!permissionsLoaded) return;
     
     // ✅ Strict check: If user doesn't have read permission, don't make API call
-    if (permissions.canRead !== true) {
+    if (finalCanRead !== true) {
       setOffers([]);
       // Clear cache if no read permission
       if (typeof window !== "undefined") {
@@ -357,7 +466,7 @@ function OffersPage() {
     if (permissionsLoaded) {
       fetchOffers();
     }
-  }, [permissionsLoaded, permissions.canRead]);
+  }, [permissionsLoaded, finalCanRead]);
 
   const openEditModal = async (offerId) => {
     const storedToken = getStoredToken();
@@ -366,7 +475,7 @@ function OffersPage() {
       return;
     }
     // ✅ Strict check: Must have update permission
-    if (permissions.canUpdate !== true) {
+    if (finalCanUpdate !== true) {
       toast.error("You do not have permission to update offers");
       return;
     }
@@ -409,7 +518,7 @@ function OffersPage() {
 
   const requestDeleteOffer = (offer) => {
     // ✅ Strict check: Must have delete permission
-    if (permissions.canDelete !== true) {
+    if (finalCanDelete !== true) {
       toast.error("You do not have permission to delete offers");
       return;
     }
@@ -429,7 +538,7 @@ function OffersPage() {
     }
 
     // ✅ Double-check permission before making API call
-    if (permissions.canDelete !== true) {
+    if (finalCanDelete !== true) {
       toast.error("You do not have permission to delete offers");
       setConfirmModal({ isOpen: false, offerId: null, offerTitle: "" });
       return;
@@ -504,11 +613,11 @@ function OffersPage() {
       />
     <div className="min-h-screen bg-gray-50 p-3 sm:p-4">
       <div className="max-w-7xl mx-auto space-y-3">
-        {!permissionsLoaded ? (
+        {(!permissionsLoaded || (hasAgentOrUserToken && agentPermissionsLoading)) ? (
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 text-center">
             <p className="text-xs sm:text-sm text-gray-700 font-medium">Loading permissions...</p>
           </div>
-        ) : !permissions.canRead ? (
+        ) : !finalCanRead && !finalCanCreate ? (
           <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
             <div className="bg-white rounded-lg shadow-lg border border-red-200 p-8 text-center max-w-md">
               <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -516,11 +625,54 @@ function OffersPage() {
               </div>
               <h2 className="text-xl font-bold text-gray-900 mb-2">Access Denied</h2>
               <p className="text-sm text-gray-700 mb-4">
-                You do not have permission to view clinic offers.
+                You do not have permission to view or create clinic offers.
               </p>
               <p className="text-xs text-gray-600">
                 Please contact your administrator to request access to the Offers module.
               </p>
+            </div>
+          </div>
+        ) : !finalCanRead && finalCanCreate ? (
+          <div className="min-h-screen bg-gray-50 p-3 sm:p-4">
+            <div className="max-w-7xl mx-auto space-y-3">
+              {/* Compact Header Section */}
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 sm:p-4">
+                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2">
+                  <div>
+                    <h1 className="text-lg sm:text-xl font-bold text-gray-900 mb-0.5">Offers Management</h1>
+                    <p className="text-[10px] sm:text-xs text-gray-600">Create promotional offers for your clinic</p>
+                  </div>
+                  {finalCanCreate === true && (
+                    <button
+                      onClick={() => {
+                        setEditingOfferId(null);
+                        setEditingOfferData(null);
+                        setModalOpen(true);
+                      }}
+                      className="inline-flex items-center justify-center gap-1.5 bg-gray-800 hover:bg-gray-900 text-white px-3 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs sm:text-sm font-medium"
+                    >
+                      <PlusCircle className="h-3.5 w-3.5" />
+                      <span>Create New Offer</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Message when read is false but create is true */}
+              <div className="bg-white rounded-lg shadow-sm border border-amber-200 p-6 text-center">
+                <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <Package className="w-6 h-6 text-amber-600" />
+                </div>
+                <h3 className="text-lg font-bold text-gray-900 mb-2">
+                  Limited Access
+                </h3>
+                <p className="text-sm text-gray-700 mb-3">
+                  You can create new offers, but you don't have permission to view existing offers.
+                </p>
+                <p className="text-xs text-gray-600">
+                  Use the "Create New Offer" button above to add a new offer.
+                </p>
+              </div>
             </div>
           </div>
         ) : (
@@ -532,7 +684,7 @@ function OffersPage() {
                   <h1 className="text-lg sm:text-xl font-bold text-gray-900 mb-0.5">Offers Management</h1>
                   <p className="text-[10px] sm:text-xs text-gray-600">Create and manage promotional offers for your clinic</p>
                 </div>
-                {permissions.canCreate === true && (
+                {finalCanCreate === true && (
                   <button
                     onClick={() => {
                       setEditingOfferId(null);
@@ -640,12 +792,12 @@ function OffersPage() {
                       <Package className="h-5 w-5 text-gray-800" />
                     </div>
                     <h3 className="text-sm font-bold text-gray-900 mb-1">No offers yet</h3>
-                    {permissions.canRead === true ? (
+                    {finalCanRead === true ? (
                       <p className="text-gray-600 text-xs mb-3">Get started by creating your first promotional offer</p>
                     ) : (
                       <p className="text-gray-600 text-xs mb-3">You don't have permission to view offers, but you can create new ones</p>
                     )}
-                    {permissions.canCreate === true && (
+                    {finalCanCreate === true && (
                       <button
                         onClick={() => {
                           setEditingOfferId(null);
@@ -658,7 +810,7 @@ function OffersPage() {
                         <span>Create Your First Offer</span>
                       </button>
                     )}
-                    {permissions.canCreate !== true && (
+                    {finalCanCreate !== true && (
                       <p className="text-red-500 text-xs">You do not have permission to create offers</p>
                     )}
                   </div>
@@ -753,7 +905,7 @@ function OffersPage() {
                               </td>
                               <td className="px-2 py-2">
                                 <div className="flex items-center justify-end gap-1">
-                                  {permissions.canUpdate === true && (
+                                  {finalCanUpdate === true && (
                                     <button
                                       onClick={() => openEditModal(offer._id)}
                                       className="inline-flex items-center justify-center w-6 h-6 rounded bg-gray-100 text-gray-800 hover:bg-gray-200 transition-colors"
@@ -762,7 +914,7 @@ function OffersPage() {
                                       <Edit className="h-3 w-3" />
                                     </button>
                                   )}
-                                  {permissions.canDelete === true && (
+                                  {finalCanDelete === true && (
                                     <button
                                       onClick={() => requestDeleteOffer(offer)}
                                       className="inline-flex items-center justify-center w-6 h-6 rounded bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
@@ -771,7 +923,7 @@ function OffersPage() {
                                       <Trash2 className="h-3 w-3" />
                                     </button>
                                   )}
-                                  {!permissions.canUpdate && !permissions.canDelete && (
+                                  {!finalCanUpdate && !finalCanDelete && (
                                     <span className="text-[10px] text-gray-400">—</span>
                                   )}
                                 </div>
