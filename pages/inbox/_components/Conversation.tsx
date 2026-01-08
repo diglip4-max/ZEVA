@@ -56,7 +56,56 @@ const Conversation: React.FC<IProps> = ({
                   : "text-gray-500"
               }`}
             >
-              {truncateText(conversation?.recentMessage?.content || "", 22)}
+              {(() => {
+                const recent = conversation?.recentMessage || ({} as any);
+                let preview = recent.content || "";
+                if (!preview || preview.trim() === "") {
+                  // try multiple possible media indicators
+                  const mediaType =
+                    recent.mediaType ||
+                    recent.attachments?.[0]?.mediaType ||
+                    (recent.mediaUrl
+                      ? recent.mediaUrl.match(
+                          /\.(jpg|jpeg|png|gif|mp4|mp3|pdf|docx?)$/i
+                        )
+                        ? "document"
+                        : "file"
+                      : undefined);
+
+                  const filename =
+                    recent.fileName ||
+                    recent.attachments?.[0]?.fileName ||
+                    (recent.mediaUrl
+                      ? recent.mediaUrl.split("/").pop().split("?")[0]
+                      : undefined);
+
+                  const caption =
+                    recent.caption || recent.attachments?.[0]?.caption;
+
+                  if (mediaType) {
+                    const typeLabel =
+                      mediaType === "image"
+                        ? "Image"
+                        : mediaType === "video"
+                        ? "Video"
+                        : mediaType === "audio"
+                        ? "Audio"
+                        : mediaType === "document"
+                        ? "Document"
+                        : "File";
+
+                    if (filename) {
+                      preview = `${typeLabel}: ${filename}`;
+                    } else if (caption) {
+                      preview = `${typeLabel}: ${caption}`;
+                    } else {
+                      preview = typeLabel;
+                    }
+                  }
+                }
+
+                return truncateText(preview || "", 22);
+              })()}
             </p>
             {conversation?.unreadMessages?.length > 0 && (
               <span className="text-xs bg-gray-700 text-white px-2.5 py-0.5 rounded-full font-medium mt-1">

@@ -1,10 +1,10 @@
-import { useEffect, useRef, useState, useCallback } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import { Smile } from "lucide-react";
 import data from "@emoji-mart/data";
 import Picker from "@emoji-mart/react";
 
 interface EmojiPickerModalProps {
-  setValue?: (val: string) => void;
+  setValue?: React.Dispatch<React.SetStateAction<string>>;
   inputRef?: React.RefObject<HTMLTextAreaElement | HTMLInputElement>;
   triggerButton?: React.ReactNode;
   position?: Placement;
@@ -159,7 +159,7 @@ const EmojiPickerModal: React.FC<EmojiPickerModalProps> = ({
         input.focus();
       }, 0);
     } else {
-      // setValue((prev) => prev + emojiChar);
+      if (setValue) setValue((prev: string) => prev + emojiChar);
     }
 
     setIsOpen(false);
@@ -194,6 +194,7 @@ const EmojiPickerModal: React.FC<EmojiPickerModalProps> = ({
       <button
         ref={triggerRef}
         type="button"
+        title="Choose emoji"
         onClick={() => setIsOpen(!isOpen)}
         className={`
           focus:outline-none focus:ring-2 focus:ring-primary/20 

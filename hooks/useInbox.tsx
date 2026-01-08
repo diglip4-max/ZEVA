@@ -6,10 +6,14 @@ import useTemplate from "./useTemplate";
 import toast from "react-hot-toast";
 import {
   formatFileSize,
+  getMediaTypeFromFile,
   getMediaTypeFromMime,
   handleError,
+  handleUpload,
 } from "@/lib/helper";
 import debounce from "lodash.debounce";
+import { io, Socket } from "socket.io-client";
+import { jwtDecode } from "jwt-decode";
 
 export type VariableType = {
   type: "text";
@@ -18,11 +22,48 @@ export type VariableType = {
 
 interface IState {
   conversations: ConversationType[];
+  filters: {
+    status: string;
+  };
 }
+
+interface DecodedToken {
+  userId: string;
+  [key: string]: unknown;
+}
+
+export const TAG_COLORS = [
+  "bg-blue-100 text-blue-800 border-blue-200",
+  "bg-green-100 text-green-800 border-green-200",
+  "bg-yellow-100 text-yellow-800 border-yellow-200",
+  "bg-purple-100 text-purple-800 border-purple-200",
+  "bg-pink-100 text-pink-800 border-pink-200",
+  "bg-indigo-100 text-indigo-800 border-indigo-200",
+  "bg-red-100 text-red-800 border-red-200",
+  "bg-teal-100 text-teal-800 border-teal-200",
+  "bg-orange-100 text-orange-800 border-orange-200",
+  "bg-cyan-100 text-cyan-800 border-cyan-200",
+];
+
+export const getTagColor = (tag: string) => {
+  // Create a simple hash for consistent coloring
+  let hash = 0;
+  for (let i = 0; i < tag.length; i++) {
+    hash = tag.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const index = Math.abs(hash) % TAG_COLORS.length;
+  return TAG_COLORS[index];
+};
+
+export const tags = ["Important", "Follow-up", "Urgent", "Review", "Personal"];
+
+let socket: Socket | null = null;
 
 const useInbox = () => {
   const { providers } = useProvider();
   const { templates } = useTemplate();
+  const [_userId, setUserId] = useState<string | null>(null);
+  const [fetchConvLoading, setFetchConvLoading] = useState<boolean>(true);
   const [conversations, setConversations] = useState<IState["conversations"]>(
     []
   );
@@ -36,13 +77,13 @@ const useInbox = () => {
   const [totalConversations, setTotalConversations] = useState<number>(0);
   const [hasMoreConversations, setHasMoreConversations] =
     useState<boolean>(true);
-  const [fetchConvLoading, setFetchConvLoading] = useState<boolean>(true);
 
   const [currentMsgPage, setCurrentMsgPage] = useState<number>(1);
   const [totalMessages, setTotalMessages] = useState<number>(0);
   const [hasMoreMessages, setHasMoreMessages] = useState<boolean>(true);
   const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
   const [attachedFile, setAttachedFile] = useState<File | null>(null);
+  const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const [message, setMessage] = useState<string>("");
   const [mediaType, setMediaType] = useState<any>("");
   const [mediaUrl, setMediaUrl] = useState<string>("");
@@ -58,6 +99,30 @@ const useInbox = () => {
 
   const [searchConvInput, setSearchConvInput] = useState<string>("");
   const [showScrollButton, setShowScrollButton] = useState<boolean>(false);
+  const [whatsappRemainingTime, setWhatsappRemainingTime] =
+    useState<string>("");
+
+  // conversation status options
+  const [conversationStatusOptions, setConversationStatusOptions] = useState<
+    { label: string; value: string }[]
+  >([
+    { label: "All", value: "all" },
+    { label: "Read", value: "read" },
+    { label: "Unread", value: "unread" },
+    { label: "Open", value: "open" },
+    { label: "Closed", value: "closed" },
+    { label: "Archived", value: "archived" },
+    { label: "Blocked", value: "blocked" },
+    { label: "Trashed", value: "trashed" },
+  ]);
+  const [filters, setFilters] = useState<IState["filters"]>({
+    status: "all",
+  });
+  const [showStatusDropdown, setShowStatusDropdown] = useState(false);
+  const [isMobileView, setIsMobileView] = useState<boolean>(false);
+  const [isAddTagModalOpen, setIsAddTagModalOpen] = useState<boolean>(false);
+  const statusDropdownRef = React.useRef<HTMLDivElement | null>(null);
+  const statusBtnRef = React.useRef<HTMLButtonElement | null>(null);
 
   const textAreaRef = React.useRef<HTMLTextAreaElement | null>(null);
 
@@ -74,21 +139,45 @@ const useInbox = () => {
   };
 
   const fetchConversations = useCallback(
-    debounce(async () => {
+    debounce(async (page = 1) => {
       if (!token) return;
       try {
         setFetchConvLoading(true);
         const res = await axios.get("/api/conversations", {
-          params: { page: currentConvPage, limit: 10, search: searchConvInput },
+          params: {
+            page: page,
+            limit: 10,
+            search: searchConvInput,
+            status: filters.status,
+          },
           headers: { Authorization: `Bearer ${token}` },
         });
         if (res.data?.success) {
           // If requesting first page, replace conversations; otherwise append
-          const newConvs = res.data.conversations || [];
-          if (currentConvPage === 1) {
-            setConversations(newConvs);
+          const newConvs: ConversationType[] = res.data.conversations || [];
+          if (page === 1) {
+            const sortedConvs = newConvs.sort((a, b) => {
+              const dateA = a.recentMessage?.createdAt
+                ? new Date(a.recentMessage.createdAt).getTime()
+                : 0;
+              const dateB = b.recentMessage?.createdAt
+                ? new Date(b.recentMessage.createdAt).getTime()
+                : 0;
+              return dateB - dateA;
+            });
+            setConversations(sortedConvs);
           } else {
-            setConversations((prev) => [...prev, ...newConvs]);
+            setConversations((prev) =>
+              [...prev, ...newConvs]?.sort((a, b) => {
+                const dateA = a.recentMessage?.createdAt
+                  ? new Date(a.recentMessage.createdAt).getTime()
+                  : 0;
+                const dateB = b.recentMessage?.createdAt
+                  ? new Date(b.recentMessage.createdAt).getTime()
+                  : 0;
+                return dateB - dateA;
+              })
+            );
           }
           setTotalConversations(res?.data?.pagination?.totalConversations || 0);
           setHasMoreConversations(Boolean(res?.data?.pagination?.hasMore));
@@ -101,7 +190,7 @@ const useInbox = () => {
         setFetchConvLoading(false);
       }
     }, 300),
-    [currentConvPage, token, searchConvInput]
+    [currentConvPage, token, searchConvInput, filters]
   );
 
   const fetchMessages = useCallback(
@@ -112,7 +201,7 @@ const useInbox = () => {
         const res = await axios.get(
           `/api/messages/get-messages/${selectedConversation?._id}`,
           {
-            params: { page: currentMsgPage, limit: 50 },
+            params: { page: currentMsgPage, limit: 500 },
             headers: { Authorization: `Bearer ${token}` },
           }
         );
@@ -138,7 +227,12 @@ const useInbox = () => {
 
   const handleSendMessage = async () => {
     if (!selectedConversation) return;
-    if (!textAreaRef?.current?.value && !attachedFile) return;
+    if (
+      !textAreaRef?.current?.value &&
+      !attachedFile &&
+      attachedFiles.length === 0
+    )
+      return;
     if (!selectedProvider && !isLiveChatSelected) {
       toast.error("Please select a provider");
       return;
@@ -146,29 +240,39 @@ const useInbox = () => {
 
     const channel = selectedProvider?.type[0];
 
-    let mediaUrl;
+    let mediaUrl = "";
+    let mediaType = "";
 
     let attachmentFile = attachedFile;
+    // Use attachedFiles (multiple) if present, otherwise fallback to single attachedFile
+    const attachmentsFilesToUse =
+      attachedFiles && attachedFiles.length
+        ? attachedFiles
+        : attachedFile
+        ? [attachedFile]
+        : [];
+    console.log("Attachments to use:", attachmentsFilesToUse);
     setSendMsgLoading(true);
+
+    // for attachments upload
     if (attachedFile) {
-      //   const resData = await handleUpload(attachedFile);
-      //   if (resData && resData?.success) {
-      //     mediaUrl = resData?.url;
-      //     setMediaUrl(resData?.url);
-      //   }
+      const resData = await handleUpload(attachedFile);
+      if (resData && resData?.success) {
+        mediaUrl = resData?.url;
+        mediaType = getMediaTypeFromFile(attachedFile);
+        setMediaUrl(resData?.url);
+      }
     }
 
     let attachments: any[] = [];
-    if (mediaUrl && attachedFile) {
-      attachments = [
-        {
-          fileName: attachedFile?.name,
-          fileSize: attachedFile?.size.toString(),
-          mimeType: attachedFile?.type,
-          mediaUrl: mediaUrl,
-          mediaType: getMediaTypeFromMime(attachedFile?.type),
-        },
-      ];
+    if (mediaUrl && attachmentsFilesToUse.length) {
+      attachments = attachmentsFilesToUse.map((f) => ({
+        fileName: f?.name,
+        fileSize: f?.size.toString(),
+        mimeType: f?.type,
+        mediaUrl: mediaUrl,
+        mediaType: getMediaTypeFromMime(f?.type),
+      }));
     }
     const tempMessageId = Date.now()?.toString(); // Ensure a unique identifier
     const tempMessage = {
@@ -282,6 +386,7 @@ const useInbox = () => {
             // for whatsapp template if body variables exist
             headerParameters,
             bodyParameters,
+            attachments,
           },
           {
             headers: {
@@ -320,6 +425,9 @@ const useInbox = () => {
         // empty body and header variables
         setHeaderParameters([]);
         setBodyParameters([]);
+        // clear attached files after successful send
+        setAttachedFile(null);
+        setAttachedFiles([]);
       }
     } catch (error) {
       const errorHandledMessages = finalMessages.filter(
@@ -369,16 +477,173 @@ const useInbox = () => {
   // Infinite scroll handler
   const handleMsgScroll = () => {
     const el = messageRef.current;
-    if (!el || !hasMoreMessages) return;
-    const nearBottom = el.scrollHeight - el.scrollTop <= el.clientHeight + 60; // 60px threshold
-    if (nearBottom) {
+    if (!el) return;
+
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    const nearBottom = distanceFromBottom <= 60; // 60px threshold
+
+    // Toggle the scroll-to-bottom button: show when user is not near bottom
+    setShowScrollButton(!nearBottom);
+
+    // Pagination: only load more when near bottom and there are more messages
+    if (nearBottom && hasMoreMessages) {
       setCurrentMsgPage((p) => p + 1);
     }
   };
 
+  const checkWhatsappAvailabilityWindow = useCallback(async () => {
+    try {
+      const { data } = await axios.get(
+        `/api/conversations/whatsapp-window/${selectedConversation?._id}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      if (data && data?.success) {
+        setWhatsappRemainingTime(data?.remainingTime);
+      }
+    } catch (error) {
+      handleError(error);
+    }
+  }, [selectedConversation]);
+
+  // Check viewport on mount and window resize
   useEffect(() => {
-    fetchConversations();
+    const checkMobileView = () => {
+      // Using common mobile breakpoint (768px)
+      setIsMobileView(window.innerWidth < 768);
+    };
+
+    // Initial check
+    checkMobileView();
+
+    // Add resize event listener
+    window.addEventListener("resize", checkMobileView);
+
+    // Cleanup
+    return () => {
+      window.removeEventListener("resize", checkMobileView);
+    };
+  }, []);
+
+  // Socket connection
+  useEffect(() => {
+    if (!token) return;
+
+    // Type assertion to satisfy TS
+    const decoded = jwtDecode(token) as DecodedToken;
+    setUserId(decoded.userId);
+
+    socket = io({
+      path: "/api/messages/socketio",
+      query: { userId: decoded.userId },
+    });
+    socket.emit("register", decoded.userId);
+
+    socket.on("incomingMessage", (message: MessageType) => {
+      console.log("Incoming message via socket:", message);
+      console.log({
+        selectedConversationId: selectedConversation?._id,
+        messageConversationId: message.conversationId,
+      });
+
+      // Update conversations list
+      setConversations((prevConversations) => {
+        let convExists = false;
+        const updatedConversations = prevConversations.map((conv) => {
+          if (conv._id === message.conversationId) {
+            convExists = true;
+            return {
+              ...conv,
+              recentMessage: message,
+              unreadMessages: [...conv.unreadMessages, message._id],
+            };
+          }
+          return conv;
+        });
+
+        // If conversation doesn't exist, optionally fetch it from server
+        if (!convExists) {
+          // TODO: For simplicity, we won't fetch the full conversation here. In a real app, you might want to do that.
+          // TODO: You can also show a toast notification for new conversation message
+          // TODO: For now, just return previous conversations
+          // TODO: Alternatively, you could add the new conversation to the list if you have its details or you can fetch it.
+          return prevConversations;
+        }
+        // Move the updated conversation to the front
+        updatedConversations.sort((a, b) =>
+          a._id === message.conversationId
+            ? -1
+            : b._id === message.conversationId
+            ? 1
+            : 0
+        );
+        return updatedConversations;
+      });
+
+      // Update messages if it belongs to the selected conversation
+      if (message.conversationId === selectedConversation?._id) {
+        if (message?.channel === "whatsapp") checkWhatsappAvailabilityWindow();
+        setMessages((prev) => [...prev, message]);
+      }
+    });
+
+    socket.on("messageStatusUpdate", (message: any) => {
+      console.log("Message status update:", message);
+      console.log({
+        selectedConversationId: selectedConversation?._id,
+        messageConversationId: message.conversationId,
+        status: message.status,
+      });
+      if (message.conversationId === selectedConversation?._id) {
+        const updatedMessages = messages.map((msg) =>
+          msg._id === message._id ? { ...msg, status: message.status } : msg
+        );
+        setMessages(updatedMessages);
+      }
+    });
+
+    return () => {
+      socket?.disconnect();
+    };
+  }, [token, selectedConversation, messages]);
+
+  // status filter dropdown click outside handler
+  // Close dropdown on outside click or Escape
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        statusDropdownRef.current &&
+        !statusDropdownRef.current.contains(e.target as Node) &&
+        statusBtnRef.current &&
+        !statusBtnRef.current.contains(e.target as Node)
+      ) {
+        setShowStatusDropdown(false);
+      }
+    };
+
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setShowStatusDropdown(false);
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleEsc);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleEsc);
+    };
+  }, []);
+
+  useEffect(() => {
+    fetchConversations(currentConvPage);
   }, [currentConvPage, token, searchConvInput, fetchConversations]);
+
+  useEffect(() => {
+    setCurrentConvPage(1);
+    fetchConversations(1);
+  }, [filters]);
 
   useEffect(() => {
     if (!selectedConversation) return;
@@ -420,6 +685,11 @@ const useInbox = () => {
     }
   }, []);
 
+  useEffect(() => {
+    if (!selectedConversation) return;
+    checkWhatsappAvailabilityWindow();
+  }, [selectedConversation]);
+
   const state = {
     conversations,
     selectedConversation,
@@ -433,6 +703,7 @@ const useInbox = () => {
     providers,
     templates,
     attachedFile,
+    attachedFiles,
     selectedTemplate,
     message,
     textAreaRef,
@@ -446,12 +717,21 @@ const useInbox = () => {
     hasMoreMessages,
     isScrolledToBottom,
     subject,
-    selectedMessage,
     bodyParameters,
     headerParameters,
     isLiveChatSelected,
     searchConvInput,
     showScrollButton,
+    whatsappRemainingTime,
+    selectedMessage,
+    conversationStatusOptions,
+    // conversation status
+    filters,
+    showStatusDropdown,
+    statusDropdownRef,
+    statusBtnRef,
+    isMobileView,
+    isAddTagModalOpen,
   };
 
   return {
@@ -461,6 +741,7 @@ const useInbox = () => {
     setSelectedConversation,
     setSelectedProvider,
     setAttachedFile,
+    setAttachedFiles,
     setSelectedTemplate,
     setMessage,
     setMediaType,
@@ -469,6 +750,15 @@ const useInbox = () => {
     setIsLiveChatSelected,
     setSearchConvInput,
     setShowScrollButton,
+    setSelectedMessage,
+    setConversationStatusOptions,
+    // conversation filters
+    setFilters,
+    setShowStatusDropdown,
+    setIsMobileView,
+    setIsAddTagModalOpen,
+    fetchConversations,
+    fetchMessages,
     handleSendMessage,
     handleReadConversation,
     handleConvScroll,

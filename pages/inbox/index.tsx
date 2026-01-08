@@ -6,26 +6,32 @@ import AvatarComponent from "@/components/shared/AvatarComponent";
 import {
   Search,
   Filter,
-  MoreVertical,
   Send,
   ChevronDown,
+  ChevronLeft,
   Phone,
-  Info,
   Plus,
-  Tag,
   User,
   Mail,
-  // Smile,
+  X,
+  MoreHorizontal,
+  Smile,
+  Timer,
 } from "lucide-react";
 import CreateNewConversation from "./_components/CreateNewConversation";
 import Conversation from "./_components/Conversation";
-import useInbox from "@/hooks/useInbox";
+import useInbox, { getTagColor, tags } from "@/hooks/useInbox";
 import NoSelectedConversation from "@/components/NoSelectedConversation";
 import CustomDropdown from "@/components/shared/CustomDropdown";
 import { FaWhatsapp } from "react-icons/fa";
 import TemplatesModal from "./_components/TemplatesModal";
 import Message from "./_components/Message";
+import AttachmentModal from "@/components/shared/AttachmentModal";
 import { getFormatedTime } from "@/lib/helper";
+import WhatsappTimer from "./_components/WhatsappTimer";
+import EmojiPickerModal from "@/components/shared/EmojiPickerModal";
+import CollapsibleWrapper from "@/components/shared/CollapsibleWrapper";
+import AddTagModal from "@/components/modals/AddTagModal";
 // import EmojiPickerModal from "@/components/shared/EmojiPickerModal";
 
 const InboxPage: NextPageWithLayout = () => {
@@ -36,11 +42,17 @@ const InboxPage: NextPageWithLayout = () => {
     setSelectedConversation,
     setSelectedProvider,
     setAttachedFile,
+    setAttachedFiles,
     setSelectedTemplate,
     setMessage,
     setMediaType,
     setBodyParameters,
     setHeaderParameters,
+    setSelectedMessage,
+    setConversationStatusOptions,
+    setFilters,
+    setShowStatusDropdown,
+    setIsAddTagModalOpen,
     handleSendMessage,
     handleConvScroll,
     handleMsgScroll,
@@ -64,17 +76,31 @@ const InboxPage: NextPageWithLayout = () => {
     // bodyParameters,
     // headerParameters,
     textAreaRef,
-    // sendMsgLoading,
+    sendMsgLoading,
     messages,
     messageRef,
     showScrollButton,
     messagesEndRef,
+    whatsappRemainingTime,
+    selectedMessage,
+    conversationStatusOptions,
+    filters,
+    showStatusDropdown,
+    statusDropdownRef,
+    statusBtnRef,
+    currentConvPage,
+    isMobileView,
+    isAddTagModalOpen,
   } = state;
 
   return (
     <div className="flex h-[91vh] bg-gray-50 text-gray-800">
       {/* Left Sidebar - Conversations List */}
-      <div className="w-full md:w-1/3 lg:w-1/4 border-r border-gray-200 flex flex-col bg-white shadow-sm">
+      <div
+        className={`w-full md:w-1/3 lg:w-1/4 border-r border-gray-200 flex flex-col bg-white shadow-sm ${
+          isMobileView && selectedConversation ? "hidden" : ""
+        }`}
+      >
         {/* Header */}
         <div className="p-4 border-b border-gray-200">
           <div className="flex justify-between items-center mb-4">
@@ -101,7 +127,7 @@ const InboxPage: NextPageWithLayout = () => {
               <input
                 type="text"
                 placeholder="Search conversations..."
-                className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-800 focus:border-transparent transition-all"
+                className="w-full text-sm pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-gray-800 focus:border-transparent transition-all"
                 value={searchConvInput}
                 onChange={(e) => setSearchConvInput(e.target.value)}
               />
@@ -109,6 +135,106 @@ const InboxPage: NextPageWithLayout = () => {
             <button className="p-2.5 bg-gray-800 text-white border border-gray-800 rounded-lg hover:bg-gray-700 transition-colors shadow-sm">
               <Filter className="h-5 w-5" />
             </button>
+          </div>
+
+          {/* conversation status filter */}
+          <div className="relative flex items-center">
+            <div className="flex items-center">
+              {conversationStatusOptions?.slice(0, 4)?.map((option) => (
+                <button
+                  key={option.value}
+                  onClick={() =>
+                    setFilters((prev) => ({ ...prev, status: option.value }))
+                  }
+                  className={`px-3 py-1.5 mr-2 mb-2 rounded-full text-sm font-medium transition-all ${
+                    filters.status === option.value
+                      ? "bg-gray-800 text-white"
+                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="relative">
+              <button
+                ref={statusBtnRef}
+                onClick={() => setShowStatusDropdown((s) => !s)}
+                aria-expanded={showStatusDropdown}
+                className={`px-3 py-1.5 mr-2 mb-2 rounded-full text-sm font-medium transition-all ${
+                  showStatusDropdown
+                    ? "bg-gray-800 text-white"
+                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                }`}
+              >
+                <MoreHorizontal className="h-4 w-4" />
+              </button>
+
+              {showStatusDropdown && conversationStatusOptions?.length > 4 && (
+                <div
+                  ref={statusDropdownRef}
+                  role="menu"
+                  className="absolute right-0 mt-2 w-44 bg-white border border-gray-200 rounded-md shadow-lg z-50 py-1"
+                >
+                  {conversationStatusOptions.slice(4).map((opt) => (
+                    <button
+                      key={opt.value}
+                      onClick={() => {
+                        setFilters((prev) => ({ ...prev, status: opt.value }));
+                        setConversationStatusOptions((prev) => {
+                          const selIndex = prev.findIndex(
+                            (o) => o.value === opt.value
+                          );
+                          if (selIndex === -1) return prev;
+                          const selectedOption = prev[selIndex];
+
+                          // Keep reference to original 4th item (index 3)
+                          const originalThird = prev[3];
+
+                          // Remove selected from list
+                          const withoutSelected = prev.filter(
+                            (o) => o.value !== opt.value
+                          );
+
+                          // Insert selectedOption at index 3 (4th position)
+                          const insertIndex = Math.min(
+                            3,
+                            withoutSelected.length
+                          );
+                          let updatedOptions = [
+                            ...withoutSelected.slice(0, insertIndex),
+                            selectedOption,
+                            ...withoutSelected.slice(insertIndex),
+                          ];
+
+                          // If there was an original 3rd item (and it's not the selected one), move it to the end
+                          if (
+                            originalThird &&
+                            originalThird.value !== opt.value
+                          ) {
+                            const idx = updatedOptions.findIndex(
+                              (o) => o.value === originalThird.value
+                            );
+                            if (idx > -1) {
+                              updatedOptions.splice(idx, 1);
+                              updatedOptions.push(originalThird);
+                            }
+                          }
+
+                          return updatedOptions;
+                        });
+                        setShowStatusDropdown(false);
+                      }}
+                      role="menuitem"
+                      className={`w-full text-left px-3 py-2 text-sm transition-colors hover:bg-gray-50 text-gray-700`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -124,6 +250,8 @@ const InboxPage: NextPageWithLayout = () => {
                 No Conversations
               </span>
             </div>
+          ) : fetchConvLoading && currentConvPage === 1 ? (
+            <></>
           ) : (
             conversations.map((conv) => (
               <Conversation
@@ -145,7 +273,7 @@ const InboxPage: NextPageWithLayout = () => {
       </div>
 
       {/* Main Chat Area */}
-      <div className="flex-1 hidden md:flex flex-col bg-white relative">
+      <div className="flex-1 flex flex-col bg-white relative">
         {!selectedConversation ? (
           <NoSelectedConversation />
         ) : (
@@ -153,6 +281,14 @@ const InboxPage: NextPageWithLayout = () => {
             {/* Chat Header */}
             <div className="p-4 border-b border-gray-200 flex items-center justify-between bg-white shadow-sm">
               <div className="flex items-center space-x-3">
+                {isMobileView && (
+                  <button
+                    onClick={() => setSelectedConversation(null)}
+                    className="text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                  >
+                    <ChevronLeft className="h-5 w-5" />
+                  </button>
+                )}
                 <AvatarComponent
                   name={selectedConversation?.leadId?.name || ""}
                   size="md"
@@ -173,12 +309,16 @@ const InboxPage: NextPageWithLayout = () => {
               </div>
 
               <div className="flex items-center space-x-1">
-                <button className="p-2.5 text-gray-600 hover:bg-white hover:text-gray-800 rounded-lg transition-colors hover:shadow-sm">
+                <WhatsappTimer
+                  selectedProvider={selectedProvider}
+                  whatsappRemainingTime={whatsappRemainingTime}
+                />
+                {/* <button className="p-2.5 text-gray-600 hover:bg-white hover:text-gray-800 rounded-lg transition-colors hover:shadow-sm">
                   <Info className="h-5 w-5" />
                 </button>
                 <button className="p-2.5 text-gray-600 hover:bg-white hover:text-gray-800 rounded-lg transition-colors hover:shadow-sm">
                   <MoreVertical className="h-5 w-5" />
-                </button>
+                </button> */}
               </div>
             </div>
 
@@ -202,7 +342,10 @@ const InboxPage: NextPageWithLayout = () => {
               {/* Messages */}
               {messages.map((msg) => (
                 <div key={msg?._id} data-createdat={msg?.createdAt}>
-                  <Message message={msg} />
+                  <Message
+                    message={msg}
+                    onSelectMessage={(msg) => setSelectedMessage(msg)}
+                  />
                 </div>
               ))}
 
@@ -211,30 +354,51 @@ const InboxPage: NextPageWithLayout = () => {
             </div>
 
             {/* Scroll to bottom button (positioned relative to chat column, not the scrollable list) */}
-            {showScrollButton && (
+            {showScrollButton && !selectedMessage && (
               <button
                 onClick={handleScrollMsgsToBottom}
-                className="absolute right-6 bottom-52 cursor-pointer bg-gray-800 text-white p-3 rounded-full shadow-lg hover:bg-gray-700 transition-all hover:scale-105 hover:shadow-xl z-10"
+                className="absolute right-6 bottom-40 cursor-pointer bg-gray-800 text-white p-3 rounded-full shadow-lg hover:bg-gray-700 transition-all hover:scale-105 hover:shadow-xl z-10"
               >
                 <ChevronDown className="h-5 w-5" />
               </button>
             )}
 
             {/* Message Input */}
-            <div className="p-4 border-t border-gray-200 bg-white shadow-lg">
-              <div className="flex space-x-3">
+            <div className="border-t border-gray-200 bg-white shadow-lg">
+              {selectedMessage && (
+                <div className="m-2.5 p-3 bg-gray-50 border-l-4 border-l-green-500 rounded-lg flex justify-between items-start space-x-4">
+                  <div className="flex-1">
+                    <div className="text-sm text-gray-600 mb-1">
+                      Replying to{" "}
+                      {selectedMessage?.direction === "incoming"
+                        ? selectedMessage?.recipientId?.name
+                        : selectedMessage?.senderId?.name || "Customer Support"}
+                    </div>
+                    <div className="text-sm text-gray-800">
+                      {selectedMessage?.content || "Media message"}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setSelectedMessage(null)}
+                    className="text-gray-400 cursor-pointer hover:text-gray-600 transition-colors"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+              )}
+              <div className="flex space-x-3 p-2.5">
                 <textarea
                   ref={textAreaRef}
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
                   placeholder="Type your message here..."
-                  className="flex-1 bg-gray-50 border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-1 focus:ring-gray-800 focus:border-transparent transition-all"
+                  className="flex-1 text-sm border-none outline-none"
                   rows={3}
                 />
               </div>
 
               {/* Quick Actions */}
-              <div className="flex items-center justify-between mt-4 text-sm">
+              <div className="flex items-center justify-between bg-gray-50 p-2.5 mt-2 text-sm">
                 <div className="flex items-center gap-2">
                   <CustomDropdown
                     position="top-left"
@@ -489,6 +653,28 @@ const InboxPage: NextPageWithLayout = () => {
                     setHeaderParameters={setHeaderParameters}
                   />
 
+                  <AttachmentModal
+                    attachedFile={attachedFile}
+                    setAttachedFile={setAttachedFile}
+                    attachedFiles={state.attachedFiles}
+                    setAttachedFiles={setAttachedFiles}
+                  />
+
+                  <EmojiPickerModal
+                    inputRef={textAreaRef as any}
+                    triggerButton={
+                      <button className="border border-gray-300 cursor-pointer rounded-md p-2.5">
+                        <Smile
+                          size={20}
+                          className="text-muted-foreground transition-transform duration-200"
+                        />
+                      </button>
+                    }
+                    position="top-left"
+                    align="start"
+                    setValue={setMessage}
+                  />
+
                   {/* <EmojiPickerModal
                     triggerButton={
                       <button className="border border-gray-300 rounded-md p-2.5">
@@ -504,11 +690,24 @@ const InboxPage: NextPageWithLayout = () => {
                   /> */}
                 </div>
 
-                <div>
+                <div className="flex items-center gap-2">
                   <button
                     onClick={handleSendMessage}
-                    disabled={!message.trim()}
-                    className="bg-gradient-to-r from-gray-800 to-gray-900 text-white hover:from-gray-700 hover:to-gray-800 disabled:opacity-50 disabled:cursor-not-allowed px-5 py-3 rounded-xl font-semibold flex items-center space-x-2 transition-all hover:shadow-md"
+                    disabled={!message.trim() || !selectedProvider}
+                    className="bg-gradient-to-r from-gray-800 to-gray-900 text-white hover:from-gray-700 hover:to-gray-800 disabled:opacity-50 disabled:cursor-not-allowed p-2.5 rounded-xl font-semibold flex items-center space-x-2 transition-all hover:shadow-md"
+                  >
+                    <Timer className="h-5 w-5" />
+                  </button>
+                  <button
+                    onClick={handleSendMessage}
+                    disabled={
+                      sendMsgLoading ||
+                      (!message.trim() &&
+                        !attachedFile &&
+                        !(state.attachedFiles && state.attachedFiles.length)) ||
+                      !selectedProvider
+                    }
+                    className="bg-gradient-to-r from-gray-800 to-gray-900 text-white hover:from-gray-700 hover:to-gray-800 disabled:opacity-50 disabled:cursor-not-allowed p-2.5 rounded-xl font-semibold flex items-center space-x-2 transition-all hover:shadow-md"
                   >
                     <Send className="h-5 w-5" />
                   </button>
@@ -520,7 +719,7 @@ const InboxPage: NextPageWithLayout = () => {
       </div>
 
       {/* Right Sidebar - Conversation Info */}
-      {selectedConversation && (
+      {selectedConversation && !isMobileView && (
         <div className="w-full md:w-1/4 lg:w-1/4 border-l border-gray-200 bg-white flex flex-col">
           <div className="p-4 border-b border-gray-200">
             <h3 className="text-lg font-semibold">Conversation Info</h3>
@@ -528,85 +727,136 @@ const InboxPage: NextPageWithLayout = () => {
               Details about the selected conversation
             </p>
           </div>
-          <div className="flex-1 overflow-y-auto p-4 space-y-4">
-            {selectedConversation ? (
-              <>
-                <div className="flex items-center space-x-3">
-                  <AvatarComponent
-                    name={selectedConversation?.leadId?.name || ""}
-                    size="lg"
-                  />
-                  <div>
-                    <div className="font-semibold text-gray-800">
-                      {selectedConversation?.leadId?.name}
-                    </div>
-                    <div className="text-sm text-gray-500">
-                      {selectedConversation?.leadId?.phone ||
-                        selectedConversation?.leadId?.email}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 gap-2">
-                  <div className="p-3 bg-gray-50 rounded-lg border border-gray-100">
-                    <div className="flex items-center justify-between text-sm text-gray-600">
-                      <div className="flex items-center gap-2">
-                        <Phone className="h-4 w-4" />
-                        Phone
-                      </div>
-                      <div className="font-medium text-gray-800">
-                        {selectedConversation?.leadId?.phone || "—"}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="p-3 bg-gray-50 rounded-lg border border-gray-100">
-                    <div className="flex items-center justify-between text-sm text-gray-600">
-                      <div className="flex items-center gap-2">
-                        <Mail className="h-4 w-4" />
-                        Email
-                      </div>
-                      <div className="font-medium text-gray-800">
-                        {selectedConversation?.leadId?.email || "—"}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="p-3 bg-gray-50 rounded-lg border border-gray-100">
-                    <div className="flex items-center justify-between text-sm text-gray-600">
-                      <div className="flex items-center gap-2">
-                        <Tag className="h-4 w-4" />
-                        Tags
-                      </div>
-                      <div className="font-medium text-gray-800">
-                        {[].join(", ") || "None"}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
+          <CollapsibleWrapper headerTitle="Lead Details">
+            <div className="space-y-6 py-2.5">
+              <div className="flex items-center space-x-3">
+                <AvatarComponent
+                  name={selectedConversation?.leadId?.name || ""}
+                  size="lg"
+                />
                 <div>
-                  <h4 className="text-sm font-semibold text-gray-700">
-                    Conversation Meta
-                  </h4>
-                  <ul className="text-sm text-gray-600 mt-2 space-y-1">
-                    <li>Messages: {messages.length}</li>
-                    <li>
-                      Provider:{" "}
-                      {selectedProvider?.label ||
-                        selectedProvider?.phone ||
-                        "—"}
-                    </li>
-                    <li>Status: {selectedConversation?.status || "open"}</li>
-                  </ul>
+                  <div className="font-semibold text-gray-800">
+                    {selectedConversation?.leadId?.name}
+                  </div>
+                  <div className="text-sm text-gray-500">
+                    {selectedConversation?.leadId?.phone ||
+                      selectedConversation?.leadId?.email}
+                  </div>
                 </div>
-              </>
-            ) : (
-              <div className="text-sm text-gray-500">
-                Select a conversation to see details
               </div>
-            )}
-          </div>
+
+              <div className="grid grid-cols-1 gap-2">
+                <div className="p-3 bg-gray-50 rounded-lg border border-gray-100">
+                  <div className="flex items-center justify-between text-sm text-gray-600">
+                    <div className="flex items-center gap-2">
+                      <Phone className="h-4 w-4" />
+                      Phone
+                    </div>
+                    <div className="font-medium text-gray-800">
+                      {selectedConversation?.leadId?.phone || "—"}
+                    </div>
+                  </div>
+                </div>
+                <div className="p-3 bg-gray-50 rounded-lg border border-gray-100">
+                  <div className="flex items-center justify-between text-sm text-gray-600">
+                    <div className="flex items-center gap-2">
+                      <Mail className="h-4 w-4" />
+                      Email
+                    </div>
+                    <div className="font-medium text-gray-800">
+                      {selectedConversation?.leadId?.email || "—"}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* <div>
+                <h4 className="text-sm font-semibold text-gray-700">
+                  Conversation Meta
+                </h4>
+                <ul className="text-sm text-gray-600 mt-2 space-y-1">
+                  <li>Messages: {messages.length}</li>
+                  <li>
+                    Provider:{" "}
+                    {selectedProvider?.label || selectedProvider?.phone || "—"}
+                  </li>
+                  <li>Status: {selectedConversation?.status || "open"}</li>
+                </ul>
+              </div> */}
+            </div>
+          </CollapsibleWrapper>
+
+          {/* Tags */}
+          <CollapsibleWrapper
+            headerTitle="Tags"
+            rightActionButton={
+              <button
+                onClick={() => {
+                  // Add tag logic
+                  setIsAddTagModalOpen(true);
+                }}
+                className="text-sm cursor-pointer text-blue-600 hover:text-blue-800 font-medium"
+              >
+                Add
+              </button>
+            }
+          >
+            <div className="flex flex-wrap gap-2">
+              {tags.map((tag) => {
+                const colorClass = getTagColor(tag);
+
+                return (
+                  <div
+                    key={tag}
+                    className={`
+                ${colorClass}
+                inline-flex items-center gap-1.5 
+                px-3 py-1.5 
+                rounded-full 
+                border 
+                transition-all 
+                duration-200 
+                group
+              `}
+                  >
+                    <span className="text-xs font-medium">{tag}</span>
+
+                    {/* Remove button */}
+                    <button
+                      onClick={() => {}}
+                      className={`
+                  opacity-0 hidden group-hover:opacity-100
+                  group-hover:inline-flex
+                  transition-opacity duration-200
+                  p-0.5
+                  rounded-full
+                  hover:bg-white/50
+                  cursor-pointer
+                  focus:outline-none focus:ring-1 focus:ring-current
+                `}
+                      aria-label={`Remove ${tag} tag`}
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </CollapsibleWrapper>
         </div>
       )}
+
+      {/* Add Tag modal */}
+      <AddTagModal
+        isOpen={isAddTagModalOpen}
+        onClose={() => setIsAddTagModalOpen(false)}
+        onComplete={(tag) => console.log("Tag added:", tag)}
+        token={"your-auth-token"}
+        conversationId="conv-123"
+        conversationTitle="Customer Support Query"
+        conversationType="chat"
+        existingTags={["urgent", "billing"]}
+      />
     </div>
   );
 };

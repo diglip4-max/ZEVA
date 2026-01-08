@@ -9,7 +9,7 @@ import { useRouter } from "next/router";
 import { useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import useProvider from "./useProvider";
-import { handleError } from "@/lib/helper";
+import { handleError, handleUpload } from "@/lib/helper";
 
 export type TemplateHeaderType = "text" | "image" | "video" | "document" | "";
 
@@ -449,11 +449,11 @@ const useCreateAndEditTemplate = () => {
 
     // Handle file upload if headerFile exists
     if (headerFile) {
-      // formData.append("file", headerFile);
-      // const resData = await handleUpload(headerFile);
-      // if (resData && resData.success) {
-      //   formData.append("headerFileUrl", resData.url);
-      // }
+      formData.append("file", headerFile);
+      const resData = await handleUpload(headerFile);
+      if (resData && resData.success) {
+        formData.append("headerFileUrl", resData.url);
+      }
     }
 
     try {
@@ -591,10 +591,10 @@ const useCreateAndEditTemplate = () => {
     // Handle file upload if headerFile exists
     if (headerFile) {
       formData.append("file", headerFile);
-      // const resData = await handleUpload(headerFile);
-      // if (resData && resData.success) {
-      //   formData.append("headerFileUrl", resData.url);
-      // }
+      const resData = await handleUpload(headerFile);
+      if (resData && resData.success) {
+        formData.append("headerFileUrl", resData.url);
+      }
     }
 
     try {

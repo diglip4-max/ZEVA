@@ -5,6 +5,10 @@ import dbConnect from "../../../lib/database";
 import Lead from "../../../models/Lead";
 import Conversation from "../../../models/Conversation";
 import { getWhatsappMediaUrl } from "../../../services/whatsapp";
+import {
+  emitIncomingMessageToUser,
+  emitMessageStatusUpdateToUser,
+} from "../messages/socketio";
 
 // Utility: normalize phone number by removing leading + and non-digit chars
 const getWithoutPlusNumber = (num) => {
@@ -105,6 +109,10 @@ const processWhatsAppWebhook = async (req) => {
           message.errorMessage = errorMessage;
           await message.save();
           console.log(`Message ${id} status updated to ${status}`);
+
+          // Emit status update to user via socket
+          const userId = message?.senderId?.toString();
+          await emitMessageStatusUpdateToUser(userId, message);
         }
       }
     }
@@ -116,7 +124,8 @@ const processWhatsAppWebhook = async (req) => {
       const whatsappPhoneId = metadata.phone_number_id; // It is provider number now check which provider it is linked to
       const provider = await Provider.findOne({
         phone: whatsappPhoneId,
-      });
+      }).sort({ createdAt: -1 });
+      const userId = provider?.userId?.toString();
       console.log({ whatsappPhoneId, provider });
       console.log({ m: JSON.stringify(messages) });
       if (!provider) {
@@ -206,22 +215,76 @@ const processWhatsAppWebhook = async (req) => {
             const mediaId = message?.image?.id;
             caption = message?.image?.caption;
             console.log({ accessToken, mediaId });
-            mediaUrl = await getWhatsappMediaUrl(mediaId, accessToken);
+            {
+              const res = await getWhatsappMediaUrl(mediaId, accessToken);
+              if (typeof res === "string") {
+                mediaUrl = res;
+              } else if (res && res.url) {
+                mediaUrl = res.url;
+                // store filename for later when creating message
+                message._fetchedFilename = res.filename;
+              }
+            }
             mediaType = "image";
           } else if (message.type === "video") {
             const mediaId = message?.video?.id;
             caption = message?.video?.caption;
             // console.log({ accessToken, mediaId });
-            mediaUrl = await getWhatsappMediaUrl(mediaId, accessToken);
+            {
+              const res = await getWhatsappMediaUrl(mediaId, accessToken);
+              if (typeof res === "string") {
+                mediaUrl = res;
+              } else if (res && res.url) {
+                mediaUrl = res.url;
+                message._fetchedFilename = res.filename;
+              }
+            }
             mediaType = "video";
+          } else if (message.type === "sticker") {
+            // Handle sticker messages (often webp images, may have url or id)
+            const mediaId = message?.sticker?.id;
+            // // some webhook payloads already include a direct url
+            // if (message?.sticker?.url) {
+            //   mediaUrl = message.sticker.url;
+            // }
+            // attempt to fetch via API if mediaId present
+            if (mediaId) {
+              const res = await getWhatsappMediaUrl(mediaId, accessToken);
+              console.log({ res });
+              if (typeof res === "string") {
+                mediaUrl = res;
+              } else if (res && res.url) {
+                mediaUrl = res.url;
+                message._fetchedFilename = res.filename;
+              }
+            }
+            mediaType = "image"; // treat sticker as an image for downstream
           } else if (message.type === "document") {
             const mediaId = message?.document?.id;
             caption = message?.document?.caption;
             // console.log({ accessToken, mediaId });
-            mediaUrl = await getWhatsappMediaUrl(mediaId, accessToken);
+            {
+              const res = await getWhatsappMediaUrl(mediaId, accessToken);
+              if (typeof res === "string") {
+                mediaUrl = res;
+              } else if (res && res.url) {
+                mediaUrl = res.url;
+                message._fetchedFilename = res.filename;
+              }
+            }
             mediaType = "document";
           }
           console.log({ mediaType, mediaUrl });
+
+          let replyToMessageId = null;
+          if (message?.context?.id) {
+            const repliedMessage = await Message.findOne({
+              providerMessageId: message?.context?.id,
+            });
+            if (repliedMessage) {
+              replyToMessageId = repliedMessage?._id;
+            }
+          }
 
           const newMessage = new Message({
             clinicId,
@@ -230,15 +293,18 @@ const processWhatsAppWebhook = async (req) => {
             provider: provider?._id,
             channel: "whatsapp",
             messageType: "conversational",
-            // senderId: userId,
+            senderId: userId,
             recipientId: findLead?._id,
             direction: "incoming",
-            content: message.text?.body || caption || "",
+            content:
+              message.text?.body || caption || message?.button?.text || "",
             status: "received",
             source: "Zeva",
             providerMessageId: message.id, // whatsapp message id  like "wamid.HBXXXXXXXXXX"
+            replyToMessageId,
             mediaType,
             mediaUrl,
+            fileName: message._fetchedFilename || undefined,
           });
           conversation.recentMessage = newMessage?._id;
           conversation.unreadMessages.push(newMessage?._id);
@@ -247,26 +313,25 @@ const processWhatsAppWebhook = async (req) => {
 
           // const receiverSocketId = getReceiverSocketId(userId);
           // if (receiverSocketId) {
-          //   const findMessage = await Message.findById(newMessage._id)
-          //     .populate(
-          //       "senderId",
-          //       "firstName lastName email phone profilePicture"
-          //     )
-          //     .populate("recipientId", "name email phoneNumber")
-          //     .populate({
-          //       path: "replyToMessageId",
-          //       select: "content mediaType mediaUrl channel direction", // Fields of the reply message
-          //       populate: [
-          //         {
-          //           path: "senderId",
-          //           select: "firstName lastName email phone", // Specific fields of sender in the reply
-          //         },
-          //         {
-          //           path: "recipientId",
-          //           select: "name email phoneNumber", // Specific fields of recipient in the reply
-          //         },
-          //       ],
-          //     });
+          const findMessage = await Message.findById(newMessage._id)
+            .populate("senderId", "name email phone")
+            .populate("recipientId", "name email phone")
+            .populate({
+              path: "replyToMessageId",
+              select: "content mediaType mediaUrl channel direction", // Fields of the reply message
+              populate: [
+                {
+                  path: "senderId",
+                  select: "name email phone", // Specific fields of sender in the reply
+                },
+                {
+                  path: "recipientId",
+                  select: "name email phone", // Specific fields of recipient in the reply
+                },
+              ],
+            });
+
+          await emitIncomingMessageToUser(userId, findMessage);
           //   // it is used to send event to specific client
           //   io.to(receiverSocketId).emit("incomingMessage", findMessage);
 

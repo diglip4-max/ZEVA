@@ -235,7 +235,7 @@ const DeleteSegmentModal: React.FC<DeleteSegmentModalProps> = ({
                   value={confirmationText}
                   onChange={handleInputChange}
                   className={clsx(
-                    "w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-sm transition-colors",
+                    "w-full text-gray-500 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-sm transition-colors",
                     validationError
                       ? "border-red-500 bg-red-50"
                       : confirmationText.trim().toUpperCase() ===

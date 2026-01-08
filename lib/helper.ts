@@ -102,3 +102,84 @@ export const formatFileSize = (bytes: number) => {
   if (bytes < gb) return `${(bytes / mb).toFixed(2)} MB`;
   return `${(bytes / gb).toFixed(2)} GB`;
 };
+
+export const handleUpload = async (file: File) => {
+  try {
+    const formData = new FormData();
+    formData.append("file", file);
+    const { data } = await axios.post("/api/upload", formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
+    return data;
+  } catch (error) {
+    handleError(error);
+    return null;
+  }
+};
+
+export function getMediaTypeFromFile(
+  file?: File | null
+): "image" | "video" | "document" | "file" {
+  if (!file) return "file";
+
+  const mime = (file.type || "").toLowerCase();
+  if (mime.startsWith("image/")) return "image";
+  if (mime.startsWith("video/")) return "video";
+
+  const docMimes = new Set([
+    "application/pdf",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/vnd.ms-excel",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "application/vnd.ms-powerpoint",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    "text/plain",
+    "application/rtf",
+    "application/vnd.oasis.opendocument.text",
+  ]);
+  if (docMimes.has(mime)) return "document";
+
+  const ext = (file.name || "").split(".").pop()?.toLowerCase() || "";
+  const imageExts = new Set([
+    "jpg",
+    "jpeg",
+    "png",
+    "gif",
+    "webp",
+    "bmp",
+    "svg",
+    "heic",
+    "heif",
+  ]);
+  const videoExts = new Set([
+    "mp4",
+    "mov",
+    "webm",
+    "mkv",
+    "avi",
+    "flv",
+    "wmv",
+    "mpeg",
+  ]);
+  const docExts = new Set([
+    "pdf",
+    "doc",
+    "docx",
+    "xls",
+    "xlsx",
+    "ppt",
+    "pptx",
+    "txt",
+    "csv",
+    "rtf",
+    "odt",
+  ]);
+  if (imageExts.has(ext)) return "image";
+  if (videoExts.has(ext)) return "video";
+  if (docExts.has(ext) || ["zip", "rar", "7z"].includes(ext)) return "document";
+
+  return "file";
+}

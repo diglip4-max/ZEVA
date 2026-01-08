@@ -302,7 +302,7 @@ export const sendWhatsAppTypingIndicator = async (
 // main message handler
 export const handleWhatsappSendMessage = async (msgData) => {
   let resData = null;
-  const { credentials, to, clientMessageId } = msgData;
+  const { credentials, to } = msgData;
   const { accessToken, phoneNumberId } = credentials;
   console.log({ msgData, credentials, accessToken, phoneNumberId });
 
@@ -415,10 +415,16 @@ export const getWhatsappMediaUrl = async (tid, token) => {
   try {
     // 1. Fetch media details (URL & MIME type)
     const mediaDetails = await fetchMediaDetails(tid, token);
+    console.log({ mediaDetails });
     if (!mediaDetails || !mediaDetails.url) return "";
 
-    // 2. Fetch media file
-    const mediaBlob = await fetchMediaFile(mediaDetails.url, token);
+    // 2. Fetch media file and try to extract filename from headers or metadata
+    const { blob: mediaBlob, filename: fetchedFilename } = await fetchMediaFile(
+      mediaDetails.url,
+      token,
+      mediaDetails
+    );
+    console.log({ fetchedFilename, mediaBlob });
     if (!mediaBlob) return "";
 
     // 3. Get file extension from MIME type
@@ -426,8 +432,23 @@ export const getWhatsappMediaUrl = async (tid, token) => {
     console.log({ ext });
     if (!ext) return "";
 
-    // 4. Upload media and return URL
-    return await uploadMedia(mediaBlob, ext);
+    // 4. Upload media and return URL + filename (prefer fetchedFilename)
+    const uploadedUrl = await uploadMedia(
+      mediaBlob,
+      ext,
+      fetchedFilename ||
+        mediaDetails?.filename ||
+        mediaDetails?.file_name ||
+        undefined
+    );
+    return {
+      url: uploadedUrl,
+      filename:
+        fetchedFilename ||
+        mediaDetails?.filename ||
+        mediaDetails?.file_name ||
+        undefined,
+    };
   } catch (error) {
     console.error("Error fetching or uploading media:", error);
     return "";
@@ -452,21 +473,46 @@ const fetchMediaDetails = async (tid, token) => {
 };
 
 // Helper function to fetch media file as a Blob
-const fetchMediaFile = async (url, token) => {
+const fetchMediaFile = async (url, token, mediaDetails) => {
   try {
     const response = await axios.get(url, {
       headers: { Authorization: `Bearer ${token}` },
       responseType: "arraybuffer",
     });
-    console.log(response.data);
-    // Convert array buffer to a Blob
-    const mimeType =
-      response.headers["content-type"] || "application/octet-stream"; // Get MIME type
 
-    return new Blob([response.data], { type: mimeType }); // Convert array buffer to Blob
+    // Determine MIME type and possible filename
+    const mimeType =
+      response.headers["content-type"] ||
+      mediaDetails?.mime_type ||
+      "application/octet-stream";
+
+    // Try to extract filename from content-disposition header
+    let filename;
+    const cd =
+      response.headers["content-disposition"] ||
+      response.headers["Content-Disposition"];
+    if (cd) {
+      const m = cd.match(/filename\*?=(?:UTF-8'')?"?([^";]+)"?/i);
+      if (m && m[1]) {
+        filename = decodeURIComponent(m[1].replace(/\"/g, ""));
+      }
+    }
+
+    // Fallback to mediaDetails filename fields or URL
+    if (!filename && mediaDetails) {
+      filename =
+        mediaDetails.filename || mediaDetails.file_name || mediaDetails.name;
+    }
+    if (!filename) {
+      const urlName = url.split("/").pop().split("?")[0];
+      filename = urlName;
+    }
+
+    const blob = new Blob([response.data], { type: mimeType });
+    return { blob, filename };
   } catch (error) {
     console.error("Error fetching media file:", error);
-    return null;
+    return { blob: null, filename: null };
   }
 };
 
@@ -475,7 +521,13 @@ const getMimeExtension = (mimeType) => {
   const mimeMap = {
     "image/jpeg": "jpg",
     "image/png": "png",
+    "image/webp": "webp",
+    "image/gif": "gif",
+    "image/svg+xml": "svg",
+    "image/heic": "heic",
+    "image/heif": "heif",
     "video/mp4": "mp4",
+    "video/webm": "webm",
     "audio/ogg": "ogg",
     "application/pdf": "pdf",
   };

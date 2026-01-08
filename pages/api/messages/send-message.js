@@ -202,6 +202,7 @@ export default async function handler(req, res) {
           to: toPhoneNumber,
           type: "conversational",
           msg: content,
+          caption: content,
           ...(mediaType && { mediaType: mediaType || "" }),
           ...(mediaUrl && { mediaUrl: mediaUrl || "" }),
           clientMessageId: newMessage?._id, // Optional: Your message tracking ID

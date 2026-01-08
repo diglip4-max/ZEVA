@@ -102,9 +102,11 @@ export default async function handler(req, res) {
         message: "Secrets are required for provider configuration",
       });
     }
+    console.log({ me });
 
     const newProvider = new Provider({
       clinicId,
+      userId: me?._id,
       name: name.trim(),
       label: label?.trim() || "",
       phone: phone?.trim() || "",

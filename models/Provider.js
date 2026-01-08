@@ -9,6 +9,12 @@ const ProviderSchema = new mongoose.Schema(
       required: true,
       index: true,
     }, // ✅ Clinic that owns this Provider
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+      index: true,
+    },
 
     name: { type: String, required: true }, // eg: "whatsappCloud", "twilio"
     label: { type: String, required: true },

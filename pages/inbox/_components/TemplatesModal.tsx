@@ -5,7 +5,6 @@ import {
   Search,
   X,
   Check,
-  ChevronDown,
   Upload,
   FileText,
   Braces,
@@ -298,9 +297,6 @@ const TemplatesModal: FC<IProps> = ({
     </div>
   );
 
-  console.log("selectedTemplate", selectedTemplate);
-  console.log({ templates });
-
   return (
     <>
       {/* Template Selector Button */}
@@ -310,7 +306,7 @@ const TemplatesModal: FC<IProps> = ({
           disabled={!isBusinessHour}
           onClick={() => setIsDropdownOpen(!isDropdownOpen)}
           className={`
-            flex items-center gap-2 px-4 py-2.5 rounded-lg border transition-all duration-200
+            flex items-center cursor-pointer gap-1.5 p-2.5 rounded-lg border transition-all duration-200
             ${
               !isBusinessHour
                 ? "bg-gray-100 border-gray-300 text-gray-400 cursor-not-allowed"
@@ -319,105 +315,112 @@ const TemplatesModal: FC<IProps> = ({
           `}
         >
           <NotepadText className="w-5 h-5" />
-          {/* <span className="text-sm font-medium">Templates</span> */}
-          <ChevronDown
-            className={`w-4 h-4 transition-transform ${
-              isDropdownOpen ? "rotate-180" : ""
-            }`}
-          />
         </button>
 
-        {/* Template Dropdown */}
+        {/* Templates Modal (centered) */}
         {isDropdownOpen && (
-          <div className="absolute bottom-full mb-2 right-0 w-96 bg-white rounded-xl shadow-xl border border-gray-200 overflow-hidden z-50">
-            {/* Header */}
-            <div className="p-4 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-white">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="font-semibold text-gray-800 text-lg">
-                  Templates
-                </h3>
-                <button
-                  onClick={() => setIsDropdownOpen(false)}
-                  className="p-1 hover:bg-gray-100 rounded-full transition-colors"
-                >
-                  <X className="w-5 h-5 text-gray-500" />
-                </button>
-              </div>
+          <div className="fixed inset-0 z-50 overflow-y-auto">
+            {/* Backdrop (blurred) */}
+            <div
+              className="fixed inset-0 bg-black/50 backdrop-blur-sm transition-opacity"
+              onClick={() => setIsDropdownOpen(false)}
+            />
 
-              {/* Search Input */}
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <input
-                  type="text"
-                  value={searchInput}
-                  onChange={(e) => setSearchInput(e.target.value)}
-                  placeholder="Search templates..."
-                  className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-            </div>
-
-            {/* Template List */}
-            <div className="max-h-[400px] overflow-y-auto">
-              {filteredTemplates?.length === 0 ? (
-                <div className="p-8 text-center">
-                  <NotepadText className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                  <p className="text-gray-500 text-sm">No templates found</p>
-                  <p className="text-gray-400 text-xs mt-1">
-                    Create templates in your dashboard
-                  </p>
-                </div>
-              ) : (
-                <div className="p-2">
-                  {filteredTemplates?.map((item: Template) => (
-                    <div
-                      key={item._id}
-                      onClick={() => handleSelectTemplate(item)}
-                      className={`
-                        p-3 mb-2 rounded-lg border cursor-pointer transition-all duration-200
-                        ${
-                          selectedTemplate?._id === item._id
-                            ? "bg-blue-50 border-blue-200"
-                            : "bg-white border-gray-200 hover:border-blue-300 hover:bg-blue-50/50"
-                        }
-                      `}
+            {/* Centered Modal */}
+            <div className="relative min-h-full flex items-center justify-center p-4">
+              <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden">
+                {/* Header */}
+                <div className="p-4 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-white">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="font-semibold text-gray-800 text-lg">
+                      Templates
+                    </h3>
+                    <button
+                      onClick={() => setIsDropdownOpen(false)}
+                      className="p-1 hover:bg-gray-100 rounded-full transition-colors"
                     >
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1">
-                          <h4 className="font-medium text-gray-800 text-sm">
-                            {item.name}
-                          </h4>
-                          <p className="text-xs text-gray-500 truncate mt-1">
-                            {item.content?.substring(0, 40)}
-                            {item.content?.length > 40 ? "..." : ""}
-                          </p>
-                          <div className="flex items-center gap-2 mt-2">
-                            <span
-                              className={`px-2 py-1 rounded-full text-xs font-medium
-                              ${
-                                item.templateType === "sms"
-                                  ? "bg-blue-100 text-blue-700"
-                                  : item.templateType === "whatsapp"
-                                  ? "bg-green-100 text-green-700"
-                                  : "bg-purple-100 text-purple-700"
-                              }
-                            `}
-                            >
-                              {capitalize(item.templateType)}
-                            </span>
-                            <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs">
-                              {item.language}
-                            </span>
+                      <X className="w-5 h-5 text-gray-500" />
+                    </button>
+                  </div>
+
+                  {/* Search Input */}
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input
+                      type="text"
+                      value={searchInput}
+                      onChange={(e) => setSearchInput(e.target.value)}
+                      placeholder="Search templates..."
+                      className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                </div>
+
+                {/* Template List */}
+                <div className="p-2 overflow-y-auto max-h-[calc(90vh-140px)]">
+                  {filteredTemplates?.length === 0 ? (
+                    <div className="p-8 text-center">
+                      <NotepadText className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                      <p className="text-gray-500 text-sm">
+                        No templates found
+                      </p>
+                      <p className="text-gray-400 text-xs mt-1">
+                        Create templates in your dashboard
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="p-2">
+                      {filteredTemplates?.map((item: Template) => (
+                        <div
+                          key={item._id}
+                          onClick={() => handleSelectTemplate(item)}
+                          className={`
+                            p-3 mb-2 rounded-lg border cursor-pointer transition-all duration-200
+                            ${
+                              selectedTemplate?._id === item._id
+                                ? "bg-blue-50 border-blue-200"
+                                : "bg-white border-gray-200 hover:border-blue-300 hover:bg-blue-50/50"
+                            }
+                          `}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1">
+                              <h4 className="font-medium text-gray-800 text-sm">
+                                {item.name}
+                              </h4>
+                              <p className="text-xs text-gray-500 truncate mt-1">
+                                {item.content?.substring(0, 40)}
+                                {item.content?.length > 40 ? "..." : ""}
+                              </p>
+                              <div className="flex items-center gap-2 mt-2">
+                                <span
+                                  className={`px-2 py-1 rounded-full text-xs font-medium
+                                  ${
+                                    item.templateType === "sms"
+                                      ? "bg-blue-100 text-blue-700"
+                                      : item.templateType === "whatsapp"
+                                      ? "bg-green-100 text-green-700"
+                                      : "bg-purple-100 text-purple-700"
+                                  }
+                                `}
+                                >
+                                  {capitalize(item.templateType)}
+                                </span>
+                                <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs">
+                                  {item.language}
+                                </span>
+                              </div>
+                            </div>
+                            {selectedTemplate?._id === item._id && (
+                              <Check className="w-5 h-5 text-blue-600" />
+                            )}
                           </div>
                         </div>
-                        {selectedTemplate?._id === item._id && (
-                          <Check className="w-5 h-5 text-blue-600" />
-                        )}
-                      </div>
+                      ))}
                     </div>
-                  ))}
+                  )}
                 </div>
-              )}
+              </div>
             </div>
           </div>
         )}
@@ -428,7 +431,7 @@ const TemplatesModal: FC<IProps> = ({
         <div className="fixed inset-0 z-50 overflow-y-auto">
           {/* Backdrop */}
           <div
-            className="fixed inset-0 bg-black/50 transition-opacity"
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm transition-opacity"
             onClick={() => setIsTemplateSheetOpen(false)}
           />
 
@@ -556,10 +559,10 @@ const TemplatesModal: FC<IProps> = ({
                       <h4 className="text-sm font-semibold text-gray-700 mb-3">
                         Upload {capitalize(selectedTemplate?.headerType)}
                       </h4>
-                      <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:border-blue-400 transition-colors">
+                      <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:border-gray-400 transition-colors">
                         <div className="flex flex-col items-center">
                           <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mb-4">
-                            <Upload className="w-8 h-8 text-blue-500" />
+                            <Upload className="w-8 h-8 text-gray-500" />
                           </div>
                           <p className="text-sm font-medium text-gray-700 mb-2">
                             Drop your file here or click to browse
@@ -585,7 +588,7 @@ const TemplatesModal: FC<IProps> = ({
                                   : ".pdf,.doc,.docx,.pptx,.xlsx"
                               }
                             />
-                            <span className="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-medium rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all inline-flex items-center gap-2">
+                            <span className="px-6 py-2.5 bg-gradient-to-r from-gray-600 to-gray-700 text-white font-medium rounded-lg hover:from-gray-700 hover:to-gray-800 transition-all inline-flex items-center gap-2">
                               Browse Files
                             </span>
                           </label>
@@ -660,7 +663,7 @@ const TemplatesModal: FC<IProps> = ({
       {isModalOpen && (
         <div className="fixed inset-0 z-50 overflow-y-auto">
           <div
-            className="fixed inset-0 bg-black/50 transition-opacity"
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm transition-opacity"
             onClick={() => setIsModalOpen(false)}
           />
           <div className="relative min-h-full flex items-center justify-center p-4">

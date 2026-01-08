@@ -3,13 +3,23 @@ import { MessageType } from "@/types/conversations";
 import React, { useState } from "react";
 import DOMPurify from "dompurify";
 import AvatarComponent from "@/components/shared/AvatarComponent";
-import { Smile, ChevronDown, Plus, Reply, Eye } from "lucide-react";
+import {
+  Smile,
+  ChevronDown,
+  Plus,
+  Reply,
+  Eye,
+  FileText,
+  File,
+  Download,
+} from "lucide-react";
 
 interface IProps {
   message: MessageType;
+  onSelectMessage?: (message: MessageType) => void;
 }
 
-const Message: React.FC<IProps> = ({ message }) => {
+const Message: React.FC<IProps> = ({ message, onSelectMessage }) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [selectedEmoji, setSelectedEmoji] = useState<string | null>(null);
 
@@ -50,15 +60,13 @@ const Message: React.FC<IProps> = ({ message }) => {
   };
 
   const getSenderName = () => {
-    const name = message?.agentId?.name || "Customer Support";
+    const name = message?.senderId?.name || "Customer Support";
     return name?.length > 20 ? name.slice(0, 20) + "..." : name;
   };
 
   const getRecipientName = () => {
     const value =
-      message?.recipientId?.name ||
-      message?.recipientId?.phoneNumber ||
-      "Unknown";
+      message?.recipientId?.name || message?.recipientId?.phone || "Unknown";
     return value?.length > 20 ? value.slice(0, 20) + "..." : value;
   };
 
@@ -72,7 +80,7 @@ const Message: React.FC<IProps> = ({ message }) => {
     >
       {/* Incoming Message */}
       {!isOutgoing && (
-        <div className="flex items-start space-x-3 max-w-[85%]">
+        <div className="flex items-start space-x-3 max-w-full sm:max-w-[85%]">
           {/* Avatar */}
           <div className="flex-shrink-0">
             <AvatarComponent
@@ -116,7 +124,7 @@ const Message: React.FC<IProps> = ({ message }) => {
                   <div className="text-xs font-medium text-gray-600 mb-1">
                     {message?.replyToMessageId?.direction === "incoming"
                       ? message?.replyToMessageId?.recipientId?.name
-                      : "Customer Support"}
+                      : message?.senderId?.name || "Customer Support"}
                   </div>
                   <div
                     className="text-xs text-gray-500 line-clamp-2"
@@ -161,12 +169,46 @@ const Message: React.FC<IProps> = ({ message }) => {
                       href={message.mediaUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center space-x-2 p-3 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors"
+                      className="inline-flex items-center space-x-3 p-3 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors border border-gray-100"
                     >
-                      <span className="text-gray-400">📎</span>
-                      <span className="text-sm text-blue-600 hover:text-blue-700">
-                        Download file
-                      </span>
+                      <div className="p-2 rounded-md bg-gray-100 text-gray-600 flex items-center justify-center">
+                        {(() => {
+                          const mime =
+                            message?.attachments?.[0]?.mimeType || "";
+                          const isDoc =
+                            /pdf|word|msword|officedocument|text|sheet|presentation/i.test(
+                              mime
+                            ) ||
+                            /\.pdf$|\.docx?$|\.xlsx?$|\.pptx?$/i.test(
+                              message?.mediaUrl || ""
+                            );
+                          return isDoc ? (
+                            <FileText size={20} />
+                          ) : (
+                            <File size={20} />
+                          );
+                        })()}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium text-gray-800 truncate">
+                          {message.attachments?.[0]?.fileName ||
+                            (message.mediaUrl || "file")
+                              .split("/")
+                              .pop()
+                              ?.split("?")[0]
+                              ?.slice(0, 60)}
+                        </div>
+                        <div className="text-xs text-gray-500 mt-0.5">
+                          {message.attachments?.[0]?.fileSize
+                            ? `${(
+                                Number(message.attachments[0].fileSize) / 1024
+                              ).toFixed(2)} KB`
+                            : "Document"}
+                        </div>
+                      </div>
+                      <div className="flex-shrink-0 ml-3">
+                        <Download size={16} className="text-gray-500" />
+                      </div>
                     </a>
                   )}
                 </div>
@@ -220,7 +262,7 @@ const Message: React.FC<IProps> = ({ message }) => {
                       <span className="text-xs font-medium text-red-500 cursor-help">
                         {message?.status}
                       </span>
-                      <div className="absolute bottom-full left-0 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                      <div className="absolute bottom-full left-0 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity max-w-[250px] whitespace-normal break-words">
                         {message?.errorMessage}
                       </div>
                     </div>
@@ -281,7 +323,10 @@ const Message: React.FC<IProps> = ({ message }) => {
                     </div>
                     <button
                       onClick={() => {
-                        /* Handle reply */
+                        if (onSelectMessage) {
+                          onSelectMessage(message);
+                        }
+                        setIsDropdownOpen(false);
                       }}
                       className="flex items-center justify-center w-full py-2 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors"
                     >
@@ -300,7 +345,7 @@ const Message: React.FC<IProps> = ({ message }) => {
 
       {/* Outgoing Message */}
       {isOutgoing && (
-        <div className="flex items-start justify-end space-x-3 max-w-[85%]">
+        <div className="flex items-start justify-end space-x-3 max-w-full sm:max-w-[85%]">
           {/* Message Bubble */}
           <div className="relative group">
             {/* Message Content */}
@@ -375,12 +420,46 @@ const Message: React.FC<IProps> = ({ message }) => {
                       href={message.mediaUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center space-x-2 p-3 bg-white hover:bg-gray-50 rounded-lg border border-gray-200 transition-colors"
+                      className="inline-flex items-center space-x-3 p-3 bg-white hover:bg-gray-50 rounded-lg border border-gray-200 transition-colors"
                     >
-                      <span className="text-gray-400">📎</span>
-                      <span className="text-sm text-blue-600 hover:text-blue-700">
-                        Download file
-                      </span>
+                      <div className="p-2 rounded-md bg-gray-100 text-gray-600 flex items-center justify-center">
+                        {(() => {
+                          const mime =
+                            message?.attachments?.[0]?.mimeType || "";
+                          const isDoc =
+                            /pdf|word|msword|officedocument|text|sheet|presentation/i.test(
+                              mime
+                            ) ||
+                            /\.pdf$|\.docx?$|\.xlsx?$|\.pptx?$/i.test(
+                              message?.mediaUrl || ""
+                            );
+                          return isDoc ? (
+                            <FileText size={20} />
+                          ) : (
+                            <File size={20} />
+                          );
+                        })()}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium text-gray-800 truncate">
+                          {message.attachments?.[0]?.fileName ||
+                            (message.mediaUrl || "file")
+                              .split("/")
+                              .pop()
+                              ?.split("?")[0]
+                              ?.slice(0, 60)}
+                        </div>
+                        <div className="text-xs text-gray-500 mt-0.5">
+                          {message.attachments?.[0]?.fileSize
+                            ? `${(
+                                Number(message.attachments[0].fileSize) / 1024
+                              ).toFixed(2)} KB`
+                            : "Document"}
+                        </div>
+                      </div>
+                      <div className="flex-shrink-0 ml-3">
+                        <Download size={16} className="text-gray-500" />
+                      </div>
                     </a>
                   )}
                 </div>
@@ -434,7 +513,7 @@ const Message: React.FC<IProps> = ({ message }) => {
                       <span className="text-xs font-medium text-red-500 cursor-help">
                         {message?.status}
                       </span>
-                      <div className="absolute bottom-full left-0 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+                      <div className="absolute bottom-full left-0 mb-2 px-2 py-1 bg-gray-800 text-white rounded opacity-0 group-hover:opacity-100 transition-opacity w-[300px] whitespace-normal break-words text-sm">
                         {message?.errorMessage}
                       </div>
                     </div>
@@ -497,7 +576,10 @@ const Message: React.FC<IProps> = ({ message }) => {
                     </div>
                     <button
                       onClick={() => {
-                        /* Handle reply */
+                        if (onSelectMessage) {
+                          onSelectMessage(message);
+                        }
+                        setIsDropdownOpen(false);
                       }}
                       className="flex items-center justify-center w-full py-2 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors"
                     >

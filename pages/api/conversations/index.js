@@ -165,7 +165,10 @@ export default async function handler(req, res) {
           select: "_id name phone createdAt",
           model: "Lead",
         })
-        .populate("recentMessage", "subject channel content createdAt")
+        .populate(
+          "recentMessage",
+          "subject channel content mediaType mediaUrl attachments createdAt"
+        )
         .sort({ updatedAt: -1 })
         .skip(skip)
         .limit(limit);
