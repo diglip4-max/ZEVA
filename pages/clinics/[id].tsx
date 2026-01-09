@@ -100,29 +100,54 @@ export default function ClinicDetail() {
   const navigateToReview = useRef(false);
 
   useEffect(() => {
-    if (!router.isReady) return;
+    if (!router.isReady || !slug) return;
     
-    // Get clinic ID from query parameter (passed as ?c=... in URL)
-    // If no query param, check if the path param is actually an ObjectId (24 hex chars) for backward compatibility
-    const isObjectId = slug && /^[0-9a-fA-F]{24}$/.test(slug);
-    // Use query param 'c' if available, otherwise use slug if it's an ObjectId (backward compatibility)
-    const idToUse = clinicId || (isObjectId ? slug : null);
-    
-    if (!idToUse) return;
     const fetchClinic = async () => {
       try {
         setLoading(true);
         setError(null);
-        const res = await axios.get(`/api/clinics/${idToUse}`);
+        
+        // Check if slug is an ObjectId (for backward compatibility)
+        const isObjectId = /^[0-9a-fA-F]{24}$/.test(slug);
+        
+        let res;
+        if (isObjectId) {
+          // Old ObjectId-based URL - fetch by ObjectId first
+          try {
+            res = await axios.get(`/api/clinics/${slug}`);
+            const clinic = res.data?.clinic || res.data?.data || res.data;
+            
+            // If clinic has a slug, redirect to slug-based URL
+            if (clinic?.slug && clinic?.slugLocked) {
+              router.replace(`/clinics/${clinic.slug}`, undefined, { shallow: false });
+              return;
+            }
+          } catch (err: any) {
+            // If fetch fails, try redirect API
+            try {
+              // Redirect API will handle slug generation if needed
+              window.location.href = `/api/clinics/redirect/${slug}`;
+              return;
+            } catch (redirectErr) {
+              throw err;
+            }
+          }
+        } else {
+          // New slug-based URL - fetch by slug
+          res = await axios.get(`/api/clinics/by-slug/${slug}`);
+        }
+        
         setClinic(res.data?.clinic || res.data?.data || res.data);
-      } catch {
-        setError("Failed to load clinic");
+      } catch (err: any) {
+        console.error("Error fetching clinic:", err);
+        setError(err.response?.data?.message || "Failed to load clinic");
       } finally {
         setLoading(false);
       }
     };
+    
     fetchClinic();
-  }, [slug, clinicId, router.isReady]);
+  }, [slug, router.isReady, router]);
 
   useEffect(() => {
     if (!clinic?._id) return;

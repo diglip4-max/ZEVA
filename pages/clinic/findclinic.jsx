@@ -698,6 +698,26 @@ export default function Home() {
             });
             setClinics(clinicsWithDistance);
             setHasSearched(true);
+            
+            // Auto-adjust price range slider based on clinic prices
+            if (clinicsWithDistance.length > 0) {
+                const prices = clinicsWithDistance
+                    .map(c => parsePriceValue(c.pricing))
+                    .filter(p => p > 0);
+                
+                if (prices.length > 0) {
+                    const maxPrice = Math.max(...prices);
+                    const minPrice = Math.min(...prices);
+                    
+                    // Set max to at least the highest clinic price, rounded up to nearest 1000
+                    const newMax = Math.max(40000, Math.ceil(maxPrice / 1000) * 1000);
+                    
+                    // Only update if current max is too low
+                    if (priceRange[1] < maxPrice) {
+                        setPriceRange([priceRange[0], newMax]);
+                    }
+                }
+            }
 
             // Scroll to results section when clinics are loaded
             setTimeout(() => {
@@ -1356,7 +1376,7 @@ export default function Home() {
                                                 <input
                                                     type="range"
                                                     min="0"
-                                                    max="10000"
+                                                    max={Math.max(10000, Math.ceil(priceRange[1] / 1000) * 1000)}
                                                     value={priceRange[0]}
                                                     onChange={(e) => {
                                                         const newMin = parseInt(e.target.value);
@@ -1366,7 +1386,7 @@ export default function Home() {
                                                     }}
                                                     className="w-full h-1 bg-[#e2e8f0] rounded appearance-none cursor-pointer"
                                                     style={{
-                                                        background: `linear-gradient(to right, #0284c7 0%, #0284c7 ${(priceRange[0] / 10000) * 100}%, #e2e8f0 ${(priceRange[0] / 10000) * 100}%, #e2e8f0 100%)`
+                                                        background: `linear-gradient(to right, #0284c7 0%, #0284c7 ${(priceRange[0] / Math.max(10000, Math.ceil(priceRange[1] / 1000) * 1000)) * 100}%, #e2e8f0 ${(priceRange[0] / Math.max(10000, Math.ceil(priceRange[1] / 1000) * 1000)) * 100}%, #e2e8f0 100%)`
                                                     }}
                                                 />
                                             </div>
@@ -1379,7 +1399,7 @@ export default function Home() {
                                                 <input
                                                     type="range"
                                                     min="0"
-                                                    max="10000"
+                                                    max={Math.max(10000, Math.ceil(priceRange[1] / 1000) * 1000)}
                                                     value={priceRange[1]}
                                                     onChange={(e) => {
                                                         const newMax = parseInt(e.target.value);
@@ -1389,7 +1409,7 @@ export default function Home() {
                                                     }}
                                                     className="w-full h-1 bg-[#e2e8f0] rounded appearance-none cursor-pointer"
                                                     style={{
-                                                        background: `linear-gradient(to right, #0284c7 0%, #0284c7 ${(priceRange[1] / 10000) * 100}%, #e2e8f0 ${(priceRange[1] / 10000) * 100}%, #e2e8f0 100%)`
+                                                        background: `linear-gradient(to right, #0284c7 0%, #0284c7 ${(priceRange[1] / Math.max(10000, Math.ceil(priceRange[1] / 1000) * 1000)) * 100}%, #e2e8f0 ${(priceRange[1] / Math.max(10000, Math.ceil(priceRange[1] / 1000) * 1000)) * 100}%, #e2e8f0 100%)`
                                                     }}
                                                 />
                                             </div>
@@ -1398,7 +1418,7 @@ export default function Home() {
                                         {/* Price Labels */}
                                         <div className="flex justify-between text-xs text-[#64748b] mt-1">
                                             <span>₹0</span>
-                                            <span>₹10k</span>
+                                            <span>₹{Math.max(10000, Math.ceil(priceRange[1] / 1000) * 1000).toLocaleString()}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -1874,7 +1894,9 @@ export default function Home() {
                                                                 ) : null;
                                                             })()}
                                                             <a
-                                                                href={`/clinics/${textToSlug(clinic.name)}?c=${clinic._id}`}
+                                                                href={clinic.slug && clinic.slugLocked 
+                                                                    ? `/clinics/${clinic.slug}` 
+                                                                    : `/clinics/${clinic._id}`}
                                                                 className="px-2.5 py-1 text-xs text-white bg-gradient-to-r from-[#0284c7] to-[#0ea5e9] hover:from-[#0369a1] hover:to-[#0284c7] rounded-lg font-medium transition-all shadow-sm hover:shadow whitespace-nowrap"
                                                             >
                                                                 View Details

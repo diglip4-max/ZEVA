@@ -397,6 +397,15 @@ export default async function handler(req, res) {
         }
       });
 
+      // 🔒 Protect slug if it's locked (SEO stability)
+      // If slug is locked, prevent changes to slug and slugLocked fields
+      if (existingClinic.slugLocked) {
+        // Remove slug and slugLocked from updateData to prevent changes
+        delete updateData.slug;
+        delete updateData.slugLocked;
+        console.log("🔒 Slug is locked - preventing slug changes for SEO stability");
+      }
+
       console.log("🔄 Updating clinic with data:", updateData);
 
       // Update the clinic
