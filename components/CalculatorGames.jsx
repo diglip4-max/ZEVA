@@ -3,6 +3,9 @@ import {
   Droplet, Dumbbell, Scale, Activity, Wind, Apple, ArrowRight,
   ChevronLeft, ChevronRight, Gamepad2, Target, Brain, Heart, BookOpen
 } from 'lucide-react';
+import Career from './Career';
+import HealthCare from './HealthCare';
+
 
 const Link = ({ href, onClick, className, children }) => (
   <a href={href} onClick={onClick} className={className}>
@@ -176,19 +179,19 @@ const HealthCalculatorApp = () => {
   };
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-white mt-0">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10">
         
         {/* Calculators Section */}
         <section ref={sectionRef} id="games-section" className="mb-12 sm:mb-16">
           <div className="flex items-center justify-between mb-6 sm:mb-8">
             <div className="flex items-center gap-3">
-              <div className="bg-gray-800 rounded-xl p-2.5 shadow-sm">
+              <div className="bg-teal-600 rounded-xl p-2.5 shadow-sm">
                 <Activity className="text-white" size={24} strokeWidth={2} />
               </div>
               <div>
-                <h2 className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight">Health Calculators</h2>
-                <p className="text-gray-600 mt-0.5 text-xs sm:text-sm">Professional wellness tools</p>
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight" style={{ fontFamily: "'Playfair Display', serif" }}>Health Calculators</h2>
+                <p className="text-gray-600 mt-0.5 text-xs sm:text-sm" style={{ fontFamily: "'Playfair Display', serif" }}>Professional wellness tools</p>
               </div>
             </div>
             <Link 
@@ -243,7 +246,7 @@ const HealthCalculatorApp = () => {
                       {/* Button */}
                       <Link 
                         href={`/calculator/${calc.id}#games-section`} 
-                        className="w-full inline-flex items-center justify-center bg-gray-900 text-white px-4 py-2.5 rounded-lg text-xs font-medium hover:bg-gray-800 transition-all group/btn"
+                        className="w-full inline-flex items-center justify-center bg-teal-600 text-white px-4 py-2.5 rounded-lg text-xs font-medium hover:bg-teal-700 transition-all group/btn"
                       >
                         Calculate 
                         <ArrowRight size={14} className="ml-1.5 group-hover/btn:translate-x-0.5 transition-transform" />
@@ -265,17 +268,19 @@ const HealthCalculatorApp = () => {
             </Link>
           </div>
         </section>
+<Career/>
+<HealthCare />
 
         {/* Games Section */}
-        <section className="mb-12 sm:mb-16">
+        <section className="mb-12 mt-9 sm:mb-16">
           <div className="flex items-center justify-between mb-6 sm:mb-8">
             <div className="flex items-center gap-3">
-              <div className="bg-gray-800 rounded-xl p-2.5 shadow-sm">
+              <div className="bg-teal-600 rounded-xl p-2.5 shadow-sm">
                 <Gamepad2 className="text-white" size={24} strokeWidth={2} />
               </div>
               <div>
-                <h2 className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight">Health Games</h2>
-                <p className="text-gray-600 mt-0.5 text-xs sm:text-sm">Learn through interactive play</p>
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight" style={{ fontFamily: "'Playfair Display', serif" }}>Health Games</h2>
+                <p className="text-gray-600 mt-0.5 text-xs sm:text-sm" style={{ fontFamily: "'Playfair Display', serif" }}>Learn through interactive play</p>
               </div>
             </div>
             <Link 
@@ -330,7 +335,7 @@ const HealthCalculatorApp = () => {
                       {/* Button */}
                       <Link 
                         href={`/games/${game.id}#games-section`} 
-                        className="w-full inline-flex items-center justify-center bg-gray-900 text-white px-4 py-2.5 rounded-lg text-xs font-medium hover:bg-gray-800 transition-all group/btn"
+                        className="w-full inline-flex items-center justify-center bg-teal-600 text-white px-4 py-2.5 rounded-lg text-xs font-medium hover:bg-teal-700 transition-all group/btn"
                       >
                         <Gamepad2 size={14} className="mr-1.5" /> 
                         Play Now

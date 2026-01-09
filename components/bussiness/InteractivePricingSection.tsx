@@ -1,7 +1,7 @@
 import type { ReactElement } from "react";
 import { useEffect, useMemo, useState } from "react";
 
-import HowZevaWorksSection from "./HowZevaWorksSection";
+
 
 type CategoryKey = "operations" | "growth" | "team" | "finance" | "healthcare" | "marketing";
 
@@ -372,7 +372,7 @@ export default function InteractivePricingSection(): ReactElement {
                 </button>
               </div>
 
-              <div className="rounded-2xl bg-emerald-700 p-6 text-white shadow-[0_18px_46px_-30px_rgba(0,0,0,0.45)]">
+              <div className="rounded-2xl bg-blue-600 p-6 text-white shadow-[0_18px_46px_-30px_rgba(0,0,0,0.45)]">
                 <div className="flex items-center gap-2 text-sm font-extrabold">
                   <SparklesIcon className="h-4 w-4" />
                   Popular Package
@@ -393,7 +393,7 @@ export default function InteractivePricingSection(): ReactElement {
       </section>
 
       {/* Merge "How ZEVA Works" + "Why Switch to ZEVA?" at the bottom */}
-      <HowZevaWorksSection />
+
 
       {/* Toasts */}
       <div className="pointer-events-none fixed bottom-5 right-5 z-50 flex w-[320px] flex-col gap-2">

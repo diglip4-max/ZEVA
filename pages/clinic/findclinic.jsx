@@ -17,6 +17,7 @@ import {
     Filter,
     ChevronLeft,
     ChevronRight,
+    Eye,
 } from "lucide-react";
 import AuthModal from "../../components/AuthModal";
 import Image from "next/image";
@@ -71,6 +72,8 @@ export default function Home() {
     // Converts absolute Windows file paths to relative URLs
     const normalizeImagePath = (imagePath) => {
         if (!imagePath) return '';
+        // Normalize Windows backslashes to forward slashes
+        imagePath = String(imagePath).replace(/\\/g, '/');
         
         // Handle malformed URLs that have localhost concatenated with file path
         // e.g., "http://localhost:3000C:/Users/..." -> extract the file path part
@@ -91,6 +94,15 @@ export default function Home() {
         // If it's already a full URL (http:// or https://), return as is
         if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
             return imagePath;
+        }
+        
+        // Handle paths with uploads/clinic/ - extract filename
+        if (imagePath.includes('uploads/clinic/')) {
+            const filename = imagePath.split('uploads/clinic/').pop();
+            if (filename && filename.trim()) {
+                const cleanFilename = filename.split('?')[0].split('#')[0].trim();
+                return `/uploads/clinic/${cleanFilename}`;
+            }
         }
         
         // If it's a Windows absolute path (C:/, D:/, etc.), extract the relative part
@@ -115,9 +127,13 @@ export default function Home() {
             }
         }
         
-        // If it doesn't start with /, add it
+        // If it doesn't start with /, check if it's a filename and add /uploads/clinic/
         if (!imagePath.startsWith('/')) {
-            // Remove double slashes before adding leading slash
+            // If it looks like a filename (has extension), prepend /uploads/clinic/
+            if (/\.(jpg|jpeg|png|gif|webp|svg)$/i.test(imagePath)) {
+                return `/uploads/clinic/${imagePath}`;
+            }
+            // Otherwise, add leading slash
             const cleaned = imagePath.replace(/\/+/g, '/');
             return '/' + cleaned.replace(/^\//, '');
         }
@@ -156,7 +172,8 @@ export default function Home() {
     // Add missing state variables for filters
     const [priceRange, setPriceRange] = useState([0, 40000]);
     const [selectedTimes, setSelectedTimes] = useState([]);
-    const [sortBy, setSortBy] = useState('relevance');
+    // Default: show highest rated clinics first (user request)
+    const [sortBy, setSortBy] = useState('rating-high-low');
     const [hasSearched, setHasSearched] = useState(false);
     const [formErrors, setFormErrors] = useState({ service: "", location: "" });
     const [quickFilters, setQuickFilters] = useState({
@@ -208,9 +225,28 @@ export default function Home() {
                 });
             case 'rating-high-low':
                 return sorted.sort((a, b) => {
-                    const ratingA = clinicReviews[a._id]?.averageRating || 0;
-                    const ratingB = clinicReviews[b._id]?.averageRating || 0;
-                    return ratingB - ratingA;
+                    const ra = clinicReviews[a._id];
+                    const rb = clinicReviews[b._id];
+                    const aHas = (ra?.totalReviews || 0) > 0;
+                    const bHas = (rb?.totalReviews || 0) > 0;
+
+                    // Push clinics with no reviews to the bottom
+                    if (aHas !== bHas) return aHas ? -1 : 1;
+
+                    const ratingA = aHas ? (ra?.averageRating || 0) : -1;
+                    const ratingB = bHas ? (rb?.averageRating || 0) : -1;
+                    if (ratingB !== ratingA) return ratingB - ratingA;
+
+                    const reviewsA = ra?.totalReviews || 0;
+                    const reviewsB = rb?.totalReviews || 0;
+                    if (reviewsB !== reviewsA) return reviewsB - reviewsA;
+
+                    // Tie-breaker: nearer first if distance exists
+                    const distA = a.distance ?? Number.POSITIVE_INFINITY;
+                    const distB = b.distance ?? Number.POSITIVE_INFINITY;
+                    if (distA !== distB) return distA - distB;
+
+                    return (a.name || '').localeCompare(b.name || '');
                 });
             case 'experience-high-low':
                 // Since clinics don't have experience field, we'll sort by name
@@ -1167,7 +1203,7 @@ export default function Home() {
                                 {/* Search Button */}
                                 <button
                                     onClick={handleSearch}
-                                    className="px-6 py-3 text-white rounded-xl font-semibold bg-gradient-to-r from-[#0284c7] to-[#0ea5e9] hover:from-[#0369a1] hover:to-[#0284c7] transition-all text-sm shadow-md hover:shadow-lg transform hover:scale-105"
+                                    className="px-6 py-3 text-white rounded-xl font-semibold bg-amber-300 hover:bg-amber-400 transition-all text-sm shadow-md hover:shadow-lg transform hover:scale-105"
                                 >
                                     Search
                                 </button>
@@ -1270,10 +1306,11 @@ export default function Home() {
                                     <button
                                         onClick={locateMe}
                                         disabled={loading}
-                                        className="flex items-center justify-center px-3 py-3 bg-[#f8fafc] text-[#475569] rounded-xl hover:bg-[#f1f5f9] transition-all flex-shrink-0 border-2 border-[#e2e8f0] hover:border-[#cbd5e1] disabled:opacity-50 shadow-sm"
+                                        className="flex items-center px-3 py-3 bg-[#f8fafc] text-[#475569] rounded-xl hover:bg-[#f1f5f9] transition-all flex-shrink-0 border-2 border-[#e2e8f0] hover:border-[#cbd5e1] disabled:opacity-50 shadow-sm"
                                         title="Use Current Location"
                                     >
-                                        <Navigation className="w-5 h-5" />
+                                        <Navigation className="w-5 h-5 mr-1.5" />
+                                        <span>Near Me</span>
                                     </button>
                                 </div>
 
@@ -1305,7 +1342,7 @@ export default function Home() {
                                 {/* Mobile Search Button */}
                                 <button
                                     onClick={handleSearch}
-                                    className="w-full px-6 py-3 text-white rounded-xl font-semibold bg-gradient-to-r from-[#0284c7] to-[#0ea5e9] hover:from-[#0369a1] hover:to-[#0284c7] shadow-md hover:shadow-lg transition-all text-sm"
+                                    className="w-full px-6 py-3 text-white rounded-xl font-semibold bg-amber-300 hover:bg-amber-400 shadow-md hover:shadow-lg transition-all text-sm"
                                 >
                                     Search Clinics
                                 </button>
@@ -1318,7 +1355,7 @@ export default function Home() {
             {/* Results Section */}
             <div
                 ref={resultsRef}
-                className={`w-full bg-gradient-to-b from-[#f8fafc] to-white ${hasResults ? "pt-4 pb-6" : "pt-8 pb-12"}`}
+                className={`w-full bg-gradient-to-b from-[#f8fafc] to-white ${hasResults ? "pt-4 pb-6" : "pt-2 pb-12"}`}
             >
                 <div className="max-w-7xl mx-auto px-4 sm:px-6">
                 {clinics.length > 0 ? (
@@ -1689,26 +1726,66 @@ export default function Home() {
                                                 className="bg-white rounded-xl shadow-md border-2 border-[#e2e8f0] overflow-hidden hover:shadow-lg hover:border-[#0284c7] transition-all duration-300 group"
                                             >
                                                 {/* Clinic Image Carousel */}
-                                                <div className="relative h-24 w-full bg-gradient-to-br from-[#e0f2fe] to-[#bae6fd] overflow-hidden">
+                                                <div className="relative w-full bg-gradient-to-br from-cyan-50 to-teal-50 overflow-hidden" style={{ aspectRatio: '4/3' }}>
                                                     {clinic.photos && clinic.photos.length > 0 ? (
                                                         <>
                                                             {/* Image Carousel */}
                                                             <div className="relative w-full h-full">
                                                                 {(() => {
                                                                     const currentIndex = clinicImageIndices[clinic._id] || 0;
-                                                                    const photos = clinic.photos.filter(photo => photo); // Filter out null/undefined
+                                                                    const photos = (clinic.photos || []).filter(photo => photo); // Filter out null/undefined
+                                                                    if (photos.length === 0) {
+                                                                        return (
+                                                                            <div className="w-full h-full bg-gradient-to-br from-cyan-100 to-teal-100 flex items-center justify-center" style={{ aspectRatio: '4/3' }}>
+                                                                                <div className="text-center">
+                                                                                    <div className="w-10 h-10 sm:w-12 sm:h-12 bg-teal-600 rounded-full flex items-center justify-center mx-auto mb-1">
+                                                                                        <HeartPulse className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                                                                                    </div>
+                                                                                    <span className="text-xs text-teal-600 font-medium">
+                                                                                        {clinic.name?.split(" ")[0]}
+                                                                                    </span>
+                                                                                </div>
+                                                                            </div>
+                                                                        );
+                                                                    }
+
+                                                                    const safeIndex = currentIndex % photos.length;
                                                                     const hasMultiplePhotos = photos.length > 1;
-                                                                    const currentPhoto = photos[currentIndex];
+                                                                    const currentPhoto = photos[safeIndex];
                                                                     
                                                                     return (
                                                                         <>
-                                                        <Image
-                                                                                key={`${clinic._id}-${currentIndex}`}
+                                                        <img
+                                                                                key={`${clinic._id}-${safeIndex}`}
                                                                                 src={normalizeImagePath(currentPhoto)}
-                                                                                alt={`${clinic.name || "Clinic Image"} - Photo ${currentIndex + 1}`}
-                                                            fill
-                                                            className="object-cover object-center group-hover:scale-105 transition-transform duration-300"
-                                                                                unoptimized
+                                                                                alt={`${clinic.name || "Clinic Image"} - Photo ${safeIndex + 1}`}
+                                                            className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300"
+                                                                                style={{ 
+                                                                                  aspectRatio: '4/3',
+                                                                                  objectFit: 'contain',
+                                                                                  objectPosition: 'top center'
+                                                                                }}
+                                                                                onError={(e) => {
+                                                                                    // If image fails to load, show placeholder
+                                                                                    const img = e.currentTarget;
+                                                                                    img.onerror = null; // Prevent infinite loop
+                                                                                    img.style.display = 'none';
+                                                                                    // Show placeholder icon
+                                                                                    const placeholder = document.createElement('div');
+                                                                                    placeholder.className = 'w-full h-full flex items-center justify-center bg-gradient-to-br from-cyan-100 to-teal-100';
+                                                                                    placeholder.style.aspectRatio = '16/9';
+                                                                                    placeholder.innerHTML = `
+                                                                                        <div class="text-center">
+                                                                                            <div class="w-10 h-10 sm:w-12 sm:h-12 bg-teal-600 rounded-full flex items-center justify-center mx-auto mb-1">
+                                                                                                <svg class="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
+                                                                                                    <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                                                                                                </svg>
+                                                                                            </div>
+                                                                                            <span class="text-xs text-teal-600 font-medium">${clinic.name?.split(" ")[0] || 'Clinic'}</span>
+                                                                                        </div>
+                                                                                    `;
+                                                                                    img.parentElement.appendChild(placeholder);
+                                                                                }}
                                                                             />
                                                                             
                                                                             {/* Navigation Arrows - Only show if multiple photos */}
@@ -1772,7 +1849,7 @@ export default function Home() {
                                                                                     
                                                                                     {/* Image Counter */}
                                                                                     <div className="absolute top-1 left-1 bg-black/50 text-white px-1.5 py-0.5 rounded text-xs font-medium z-10">
-                                                                                        {currentIndex + 1}/{photos.length}
+                                                                                        {safeIndex + 1}/{photos.length}
                                                                                     </div>
                                                                                 </>
                                                                             )}
@@ -1851,7 +1928,8 @@ export default function Home() {
                                                                 </p>
                                                             </div>
                                                         )}
-                                                        <div className="flex gap-2 items-center">
+                                                        {/* Icons at right corner */}
+                                                        <div className="flex gap-2 items-center ml-auto">
                                                             {(() => {
                                                                 // Use address if available (more accurate), otherwise fall back to coordinates
                                                                 const mapsHref = clinic.address
@@ -1866,18 +1944,19 @@ export default function Home() {
                                                                     target="_blank"
                                                                     rel="noopener noreferrer"
                                                                     onClick={(e) => e.stopPropagation()}
-                                                                    className="flex items-center justify-center px-2.5 py-1.5 bg-[#0284c7] text-white rounded-lg hover:bg-[#0369a1] transition-all text-xs shadow-sm hover:shadow"
+                                                                    className="flex items-center justify-center w-8 h-8 bg-[#0284c7] text-white rounded-lg hover:bg-[#0369a1] transition-all shadow-sm hover:shadow"
                                                                     title="Get Directions"
                                                                 >
-                                                                    <Navigation className="w-3.5 h-3.5" />
+                                                                    <Navigation className="w-4 h-4" />
                                                                 </a>
                                                                 ) : null;
                                                             })()}
                                                             <a
                                                                 href={`/clinics/${textToSlug(clinic.name)}?c=${clinic._id}`}
-                                                                className="px-2.5 py-1 text-xs text-white bg-gradient-to-r from-[#0284c7] to-[#0ea5e9] hover:from-[#0369a1] hover:to-[#0284c7] rounded-lg font-medium transition-all shadow-sm hover:shadow whitespace-nowrap"
+                                                                className="flex items-center justify-center w-8 h-8 text-white bg-gradient-to-r from-[#0284c7] to-[#0ea5e9] hover:from-[#0369a1] hover:to-[#0284c7] rounded-lg transition-all shadow-sm hover:shadow"
+                                                                title="View Details"
                                                             >
-                                                                View Details
+                                                                <Eye className="w-4 h-4" />
                                                             </a>
                                                         </div>
                                                     </div>
@@ -1896,12 +1975,12 @@ export default function Home() {
                             <span className="ml-3 text-[#475569] text-xs">Searching...</span>
                         </div>
                     ) : (
-                        <div className="bg-white rounded-2xl border border-[#e2e8f0] shadow-sm p-6 sm:p-8">
+                        <div className="bg-white rounded-2xl border border-[#e2e8f0] shadow-sm p-6 sm:p-8 -mt-8">
                             <div className="text-center mb-6">
                                 <div className="w-16 h-16 rounded-full bg-[#fef2f2] flex items-center justify-center mx-auto mb-3">
                                     <Search className="w-8 h-8 text-[#dc2626]" />
                                 </div>
-                                <h3 className="text-lg sm:text-xl font-bold text-[#1e293b] mb-2">No Clinics Found</h3>
+                                <h3 className="text-lg sm:text-xl font-bold text-[#1e293b] mb-1">No Clinics Found</h3>
                                 <p className="text-sm text-[#64748b] mb-1">
                                     Try adjusting your filters or search with different criteria
                                 </p>

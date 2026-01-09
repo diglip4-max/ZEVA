@@ -47,7 +47,7 @@ const SuccessPopup: React.FC<SuccessPopupProps> = ({ isOpen, onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[9999] p-4">
       <div className="bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl">
         <div className="text-center">
           <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style={{ backgroundColor: '#2D9AA5' }}>
@@ -85,7 +85,7 @@ interface ToastProps {
 const Toast: React.FC<ToastProps> = ({ message, type, visible, onClose }) => {
   useEffect(() => {
     if (visible) {
-      const timer = setTimeout(onClose, 4000);
+      const timer = setTimeout(onClose, 5000);
       return () => clearTimeout(timer);
     }
   }, [visible, onClose]);
@@ -93,9 +93,9 @@ const Toast: React.FC<ToastProps> = ({ message, type, visible, onClose }) => {
   if (!visible || !message) return null;
 
   const styles = {
-    success: "bg-green-500 border-green-600",
-    error: "bg-red-500 border-red-600",
-    info: "bg-blue-500 border-blue-600",
+    success: "bg-gradient-to-r from-green-100 to-green-200 shadow-green-200",
+    error: "bg-gradient-to-r from-red-100 to-red-200 shadow-red-200",
+    info: "bg-gradient-to-r from-blue-100 to-blue-200 shadow-blue-200",
   };
   const icons = {
     success: "✓",
@@ -103,18 +103,53 @@ const Toast: React.FC<ToastProps> = ({ message, type, visible, onClose }) => {
     info: "ℹ",
   };
 
+  const textColorClasses = {
+    success: "text-green-800",
+    error: "text-red-800",
+    info: "text-blue-800",
+  };
+  
+  const iconColorClasses = {
+    success: "text-green-600",
+    error: "text-red-600",
+    info: "text-blue-600",
+  };
+
+  const hoverColorClasses = {
+    success: "hover:text-green-900",
+    error: "hover:text-red-900",
+    info: "hover:text-blue-900",
+  };
+
   return (
     <div
-      className={`fixed top-4 right-4 z-50 ${styles[type]} text-white px-6 py-4 rounded-xl shadow-lg flex items-center gap-3 min-w-[300px] animate-slide-in`}
+      className={`fixed top-20 right-4 z-[9999] ${styles[type]} ${textColorClasses[type]} px-6 py-4 rounded-xl shadow-2xl flex items-center gap-3 min-w-[320px] max-w-[90vw] animate-slide-in backdrop-blur-sm`}
+      style={{ 
+        animation: 'slideInRight 0.3s ease-out',
+        boxShadow: '0 10px 40px rgba(0, 0, 0, 0.15)'
+      }}
     >
-      <span className="text-xl">{icons[type]}</span>
-      <span className="flex-1">{message}</span>
+      <span className={`text-2xl font-bold flex-shrink-0 ${iconColorClasses[type]}`}>{icons[type]}</span>
+      <span className="flex-1 text-sm font-medium leading-relaxed">{message}</span>
       <button
         onClick={onClose}
-        className="text-white/80 hover:text-white text-xl"
+        className={`${textColorClasses[type]} opacity-80 ${hoverColorClasses[type]} text-2xl font-bold flex-shrink-0 hover:bg-white/30 rounded-full w-6 h-6 flex items-center justify-center transition-all`}
+        aria-label="Close"
       >
         ×
       </button>
+      <style jsx>{`
+        @keyframes slideInRight {
+          from {
+            transform: translateX(100%);
+            opacity: 0;
+          }
+          to {
+            transform: translateX(0);
+            opacity: 1;
+          }
+        }
+      `}</style>
     </div>
   );
 };

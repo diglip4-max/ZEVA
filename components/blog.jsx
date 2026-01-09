@@ -1,3 +1,4 @@
+"use client";
 import React, { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 
@@ -9,7 +10,8 @@ export default function BlogList() {
   const [showArrows, setShowArrows] = useState(false);
   const sliderRef = useRef(null);
 
-  const extractFirstImageFromContent = (htmlContent) => {
+  /* ---------------- helpers ---------------- */
+  const extractFirstImageFromContent = (htmlContent = "") => {
     const imgRegex = /<img[^>]+src="([^">]+)"/i;
     const match = htmlContent.match(imgRegex);
     return match ? match[1] : null;
@@ -17,98 +19,112 @@ export default function BlogList() {
 
   const getDisplayImage = (blog) => {
     if (blog.image) return { src: blog.image, isPlaceholder: false };
-    const contentImage = extractFirstImageFromContent(blog.content);
+    const contentImage = extractFirstImageFromContent(blog.content || "");
     if (contentImage) return { src: contentImage, isPlaceholder: false };
     return { src: "", isPlaceholder: true };
   };
 
-  const limitContentToWords = (htmlContent, wordLimit = 20) => {
-    const textContent = htmlContent.replace(/<[^>]*>/g, '');
+  const limitContentToWords = (htmlContent = "", wordLimit = 22) => {
+    const textContent = htmlContent.replace(/<[^>]*>/g, "");
     const words = textContent.trim().split(/\s+/);
-    const limitedWords = words.slice(0, wordLimit);
-    return limitedWords.join(' ') + (words.length > wordLimit ? '...' : '');
+    return (
+      words.slice(0, wordLimit).join(" ") +
+      (words.length > wordLimit ? "..." : "")
+    );
+  };
+
+  // Helper: create SEO-friendly slug from blog title with full ID
+  const createBlogSlug = (title, blogId) => {
+    if (!title || !blogId) return blogId || '';
+    const titleSlug = title
+      .toLowerCase()
+      .trim()
+      .replace(/[^\w\s-]/g, '')
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-')
+      .substring(0, 60);
+    return `${titleSlug}-${blogId}`;
   };
 
   const checkIfArrowsNeeded = () => {
     if (sliderRef.current) {
-      const hasOverflow = sliderRef.current.scrollWidth > sliderRef.current.clientWidth;
-      setShowArrows(hasOverflow);
+      setShowArrows(
+        sliderRef.current.scrollWidth > sliderRef.current.clientWidth
+      );
     }
   };
 
+  /* ---------------- slider controls ---------------- */
   const slideLeft = () => {
-    if (sliderRef.current) {
-      const slideWidth = sliderRef.current.clientWidth;
-      sliderRef.current.scrollBy({ left: -slideWidth, behavior: "smooth" });
-      setCurrentSlide(prev => Math.max(0, prev - 1));
-    }
+    if (!sliderRef.current) return;
+    const width = sliderRef.current.clientWidth;
+    sliderRef.current.scrollBy({ left: -width, behavior: "smooth" });
+    setCurrentSlide((p) => Math.max(0, p - 1));
   };
 
   const slideRight = () => {
-    if (sliderRef.current) {
-      const slideWidth = sliderRef.current.clientWidth;
-      const maxScroll = sliderRef.current.scrollWidth - sliderRef.current.clientWidth;
-      
-      if (sliderRef.current.scrollLeft >= maxScroll - 10) {
-        sliderRef.current.scrollTo({ left: 0, behavior: "smooth" });
-        setCurrentSlide(0);
-      } else {
-        sliderRef.current.scrollBy({ left: slideWidth, behavior: "smooth" });
-        setCurrentSlide(prev => Math.min(blogs.length - 1, prev + 1));
-      }
+    if (!sliderRef.current) return;
+    const width = sliderRef.current.clientWidth;
+    const maxScroll =
+      sliderRef.current.scrollWidth - sliderRef.current.clientWidth;
+    if (sliderRef.current.scrollLeft >= maxScroll - 10) {
+      sliderRef.current.scrollTo({ left: 0, behavior: "smooth" });
+      setCurrentSlide(0);
+    } else {
+      sliderRef.current.scrollBy({ left: width, behavior: "smooth" });
+      setCurrentSlide((p) => Math.min(blogs.length - 1, p + 1));
     }
   };
 
+  /* ---------------- data fetch ---------------- */
   useEffect(() => {
-    async function fetchBlogs() {
+    const fetchBlogs = async () => {
       try {
         const res = await fetch("/api/blog/getAllBlogs");
         const json = await res.json();
         if (res.ok && json.success) {
-          const allBlogs = json.blogs || json.data;
-          const sortedBlogs = allBlogs.sort(
+          const allBlogs = json.blogs || json.data || [];
+          const sorted = allBlogs.sort(
             (a, b) =>
               new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
           );
-          setBlogs(sortedBlogs.slice(0, 6));
+          setBlogs(sorted.slice(0, 6));
         } else {
-          setError(json.error || "Failed to fetch blogs");
+          setError("Failed to fetch blogs");
         }
       } catch {
         setError("Network error");
       } finally {
         setIsLoading(false);
       }
-    }
+    };
     fetchBlogs();
   }, []);
 
   useEffect(() => {
     checkIfArrowsNeeded();
-    window.addEventListener('resize', checkIfArrowsNeeded);
-    return () => window.removeEventListener('resize', checkIfArrowsNeeded);
+    window.addEventListener("resize", checkIfArrowsNeeded);
+    return () => window.removeEventListener("resize", checkIfArrowsNeeded);
   }, [blogs]);
 
+  /* ---------------- states ---------------- */
   if (error) {
     return (
-      <div className="w-full max-w-7xl mx-auto px-4 py-8">
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <p className="text-red-600 text-sm">Unable to load blogs. Please try again later.</p>
-        </div>
+      <div className="text-center py-12 text-red-600">
+        ⚠️ Unable to load blogs.
       </div>
     );
   }
 
   if (isLoading) {
     return (
-      <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="flex items-center justify-between mb-8">
-          <div className="h-8 bg-gray-200 rounded w-48 animate-pulse"></div>
-          <div className="h-10 bg-gray-200 rounded w-32 animate-pulse"></div>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="py-16 px-4">
+        <div className="max-w-7xl mx-auto flex gap-6 overflow-hidden">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="bg-gray-100 rounded-lg h-80 animate-pulse"></div>
+            <div
+              key={i}
+              className="min-w-[320px] h-96 bg-gray-200 rounded-2xl animate-pulse"
+            />
           ))}
         </div>
       </div>
@@ -117,146 +133,163 @@ export default function BlogList() {
 
   if (!blogs.length) {
     return (
-      <div className="w-full max-w-7xl mx-auto px-4 py-12">
-        <div className="bg-white border border-gray-200 rounded-lg p-8 text-center">
-          <p className="text-gray-600">No blogs available at the moment.</p>
-        </div>
+      <div className="text-center py-12 text-gray-500">
+        📭 No blogs available.
       </div>
     );
   }
 
-return (
-  <div className="w-full py-20" style={{ backgroundColor: '#f7f6ff' }}>
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      {/* Header Section */}
-      <div className="text-center mb-16">
-        <h2 className="text-4xl sm:text-5xl font-bold mb-8">
-          <span style={{ color: '#9810fa' }}>Health Blogs</span>
-          <span className="text-slate-700"> & Articles</span>
+  /* ---------------- UI ---------------- */
+  return (
+    <section className="py-16 px-4  bg-gradient-to-br from-indigo-50 via-white to-cyan-50 relative overflow-hidden">
+      {/* Decorative background elements */}
+      <div className="absolute top-0 right-0 w-96 h-96 bg-blue-100 rounded-full blur-3xl opacity-30 -z-10"></div>
+      <div className="absolute bottom-0 left-0 w-96 h-96 bg-purple-100 rounded-full blur-3xl opacity-30 -z-10"></div>
+      
+      {/* Header */}
+      <div className="max-w-7xl mx-auto mb-12 text-center">
+        {/* <div className="inline-block mb-4 px-4 py-2 bg-blue-100 rounded-full"> */}
+          {/* <span className="text-blue-600 font-semibold text-sm">✨ Latest Updates</span> */}
+        {/* </div> */}
+        <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-3">
+          Health Blogs{" "}
+          <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+            & Articles
+          </span>
         </h2>
+        <p className="text-gray-600 mb-9 max-w-2xl mx-auto">
+          Discover expert insights, wellness tips, and the latest health trends
+        </p>
       </div>
 
-      {/* Slider Container */}
-      <div className="relative">
-        {showArrows && (
-          <>
-            <button
-              onClick={slideLeft}
-              className="absolute -left-4 top-1/2 -translate-y-1/2 z-20 bg-white hover:bg-gray-100 shadow-lg rounded-full p-3 transition-all duration-200 disabled:opacity-30 disabled:cursor-not-allowed"
-              disabled={currentSlide === 0}
-            >
-              <svg className="w-5 h-5 text-slate-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-            </button>
+      {/* Slider */}
+      <div className="relative mt-4 max-w-7xl mx-auto">
+        {/* Previous Arrow */}
+        {blogs.length > 1 && (
+          <button
+            onClick={slideLeft}
+            disabled={currentSlide === 0}
+            className={`absolute left-0 md:-left-6 top-1/2 -translate-y-1/2 z-30 bg-white hover:bg-blue-50 shadow-xl rounded-full w-12 h-12 flex items-center justify-center transition-all hover:scale-110 border-2 border-blue-200 ${
+              currentSlide === 0
+                ? 'opacity-50 cursor-not-allowed'
+                : 'text-blue-700 hover:text-blue-800 hover:border-blue-300'
+            }`}
+            aria-label="Previous slide"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+        )}
 
-            <button
-              onClick={slideRight}
-              className="absolute -right-4 top-1/2 -translate-y-1/2 z-20 bg-white hover:bg-gray-100 shadow-lg rounded-full p-3 transition-all duration-200"
-            >
-              <svg className="w-5 h-5 text-slate-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </button>
-          </>
+        {/* Next Arrow */}
+        {blogs.length > 1 && (
+          <button
+            onClick={slideRight}
+            className="absolute right-0 md:-right-6 top-1/2 -translate-y-1/2 z-30 bg-white hover:bg-blue-50 shadow-xl rounded-full w-12 h-12 flex items-center justify-center text-blue-700 hover:text-blue-800 transition-all hover:scale-110 border-2 border-blue-200 hover:border-blue-300"
+            aria-label="Next slide"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
         )}
 
         <div
           ref={sliderRef}
-          className="overflow-x-auto scrollbar-hide scroll-smooth"
-          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+          className="flex gap-6 overflow-x-auto snap-x snap-mandatory scrollbar-hide px-4"
+          style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
         >
-          <div className="flex gap-6 pb-4" style={{ width: 'max-content' }}>
-            {blogs.map((blog) => {
-              const imageInfo = getDisplayImage(blog);
-              
-              return (
-                <Link key={blog._id} href={`/blogs/${blog._id}`}>
-                  <div className="w-[420px] group cursor-pointer">
-                    <article className="bg-white rounded-2xl overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 h-full flex flex-col p-6">
-                      {/* Image Container - Smaller and Contained */}
-                      <div className="relative h-44 overflow-hidden rounded-xl bg-gray-50 mb-5">
-                        {imageInfo.isPlaceholder ? (
-                          <div className="w-full h-full bg-gradient-to-br from-cyan-50 to-cyan-100 flex items-center justify-center">
-                            <div className="text-center">
-                              <svg className="w-16 h-16 text-cyan-300 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                              </svg>
-                              <p className="text-cyan-400 text-sm font-medium">No image</p>
-                            </div>
-                          </div>
-                        ) : (
-                          <img
-                            src={imageInfo.src}
-                            alt={blog.title}
-                            className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-500"
-                          />
-                        )}
-                      </div>
-
-                      {/* Content */}
-                      <div className="flex flex-col flex-1">
-                        {/* Title */}
-                        <h3 className="text-lg font-semibold text-slate-700 mb-3 line-clamp-2 leading-snug group-hover:text-slate-900 transition-colors min-h-[48px]">
-                          {blog.title}
-                        </h3>
-                      </div>
-                    </article>
+          {blogs.map((blog) => {
+            const imageInfo = getDisplayImage(blog);
+            return (
+              <article
+                key={blog._id}
+                className="min-w-[280px] md:min-w-[340px] snap-start bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 overflow-hidden group border border-gray-100 hover:border-blue-200"
+              >
+                {/* Image */}
+                <div className="relative h-44 bg-gradient-to-br from-blue-100 via-purple-50 to-cyan-100 overflow-hidden">
+                  {imageInfo.isPlaceholder ? (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-400">
+                      <svg className="w-16 h-16 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      <span className="text-sm">No Image</span>
+                    </div>
+                  ) : (
+                    <img
+                      src={imageInfo.src}
+                      alt={blog.title}
+                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                    />
+                  )}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                  <div className="absolute top-3 left-3 flex gap-2">
+                    <span className="bg-white/95 backdrop-blur-sm text-blue-600 px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1 shadow-md">
+                      <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" />
+                      </svg>
+                      Health
+                    </span>
                   </div>
-                </Link>
-              );
-            })}
-          </div>
-        </div>
+                </div>
 
-        {/* Dot Indicators */}
-        {showArrows && blogs.length > 1 && (
-          <div className="flex justify-center mt-12 gap-3">
-            {blogs.map((_, index) => (
-              <button
-                key={index}
-                onClick={() => {
-                  setCurrentSlide(index);
-                  if (sliderRef.current) {
-                    const cardWidth = 420 + 24;
-                    sliderRef.current.scrollTo({
-                      left: index * cardWidth,
-                      behavior: 'smooth'
-                    });
-                  }
-                }}
-                className={`rounded-full transition-all duration-300 ${
-                  index === currentSlide
-                    ? 'w-3 h-3'
-                    : 'bg-gray-300 w-2.5 h-2.5 hover:bg-gray-400'
-                }`}
-                style={index === currentSlide ? { backgroundColor: '#9810fa' } : {}}
-              />
-            ))}
-          </div>
-        )}
+                {/* Content */}
+                <div className="p-5">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center">
+                      <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
+                        <path fillRule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <span className="text-xs text-blue-600 font-bold uppercase tracking-wider">Latest Article</span>
+                  </div>
+                  
+                  <h3 className="text-lg font-bold text-gray-900 mb-2 line-clamp-2 leading-tight group-hover:text-blue-600 transition-colors">
+                    {blog.title}
+                  </h3>
+                  
+                  <p className="text-gray-600 text-sm mb-4 line-clamp-2 leading-relaxed">
+                    {limitContentToWords(blog.content)}
+                  </p>
+                  
+                  <div className="flex items-center justify-between pt-3 border-t border-gray-100">
+                    <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      {new Date(blog.createdAt).toLocaleDateString()}
+                    </div>
+                    <Link
+                      href={`/blogs/${blog.paramlink || createBlogSlug(blog.title, blog._id)}`}
+                      className="text-blue-600 hover:text-blue-700 font-semibold text-sm flex items-center gap-1.5 group-hover:gap-2.5 transition-all"
+                    >
+                      Read
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                      </svg>
+                    </Link>
+                  </div>
+                </div>
+              </article>
+            );
+          })}
+        </div>
       </div>
 
-      {/* View All Button */}
-      {blogs.length > 0 && (
-        <div className="text-center mt-12">
-          <Link href="/blogs/viewBlogs">
-            <button className="inline-flex items-center gap-2 text-white font-semibold px-8 py-3 rounded-lg transition-all group shadow-md hover:shadow-lg" style={{ backgroundColor: '#9810fa' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#7a0dcc'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#9810fa'}>
-              <span>View All Blogs</span>
-              <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
-              </svg>
-            </button>
-          </Link>
-        </div>
-      )}
-    </div>
-
-    <style jsx>{`
-      .scrollbar-hide::-webkit-scrollbar {
-        display: none;
-      }
-    `}</style>
-  </div>
-);
+      {/* View all */}
+      <div className="text-center mt-12">
+        <Link
+          href="/blogs/viewBlogs"
+          className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-600 to-teal-600 hover:from-blue-700 hover:to-teal-700 text-white font-semibold px-8 py-3.5 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 group"
+        >
+          View All Blogs
+          <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+          </svg>
+        </Link>
+      </div>
+    </section>
+  );
 }

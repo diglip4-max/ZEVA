@@ -16,10 +16,10 @@ import {
   BadgeIndianRupee,
   Clock,
   HeartPulse,
+  Eye,
 } from "lucide-react";
 import AuthModal from "../../components/AuthModal";
 import dayjs from "dayjs";
-import Image from "next/image";
 import { Stethoscope } from "lucide-react";
 
 interface Doctor {
@@ -98,6 +98,7 @@ export default function FindDoctor() {
   const [reviewsLoading, setReviewsLoading] = useState<{
     [key: string]: boolean;
   }>({});
+  const [hasSearched, setHasSearched] = useState(false);
 
   // Add ref for results section
   const resultsRef = useRef<HTMLDivElement>(null);
@@ -363,6 +364,7 @@ export default function FindDoctor() {
     setQuery("");
     setStarFilter(0);
     setSuggestions([]);
+    setHasSearched(false); // Reset search flag
     clearPersistedState();
     // Clear session token so that on refresh, previous results won't be loaded
     if (typeof window !== "undefined") {
@@ -503,6 +505,7 @@ export default function FindDoctor() {
       });
 
       setDoctors(doctorsWithDistance);
+      setHasSearched(true); // Mark that search has been performed
 
       // Fetch reviews for all doctors
       doctorsWithDistance.forEach((doctor: Doctor) => {
@@ -512,6 +515,7 @@ export default function FindDoctor() {
       });
     } catch {
       // console.error("Error fetching doctors:", err);
+      setHasSearched(true); // Mark search as performed even on error
     } finally {
       setLoading(false);
     }
@@ -552,6 +556,7 @@ export default function FindDoctor() {
     
     setLoading(true);
     clearPersistedState(); // Clear old state when starting new search
+    setHasSearched(true); // Mark that search has been performed
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const { latitude, longitude } = pos.coords;
@@ -571,6 +576,7 @@ export default function FindDoctor() {
       },
       () => {
         alert("Geolocation permission denied");
+        setHasSearched(true); // Mark search as performed even on error
         setLoading(false);
       }
     );
@@ -584,6 +590,7 @@ export default function FindDoctor() {
 
     setLoading(true);
     clearPersistedState(); // Clear old state when starting new search
+    setHasSearched(true); // Mark that search has been performed
     
     // Try to get user's current location in the background (for distance calculation)
     if (typeof window !== "undefined" && navigator.geolocation && !userCurrentLocation) {
@@ -619,6 +626,7 @@ export default function FindDoctor() {
       fetchDoctors(res.data.lat, res.data.lng, selectedService);
     } catch {
       // console.error("Error in manual place search:", err);
+      setHasSearched(true); // Mark search as performed even on error
       setLoading(false);
     }
   };
@@ -636,6 +644,7 @@ export default function FindDoctor() {
 
       setCoords({ lat: res.data.lat, lng: res.data.lng });
       setManualPlace(locationText);
+      setHasSearched(true); // Mark that search has been performed
       
       if (serviceText) {
         setQuery(serviceText);
@@ -645,6 +654,7 @@ export default function FindDoctor() {
       fetchDoctors(res.data.lat, res.data.lng, serviceText || undefined);
     } catch {
       // console.error("Error in URL-based place search:", err);
+      setHasSearched(true); // Mark search as performed even on error
       setLoading(false);
     }
   };
@@ -921,7 +931,7 @@ export default function FindDoctor() {
     >
       <div className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden border border-gray-100 flex flex-col">
         <div className="sticky top-0 bg-white/95 backdrop-blur-sm border-b border-gray-100 p-6 flex justify-between items-center z-10">
-          <h2 className="text-2xl font-bold text-gray-900 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+          <h2 className="text-2xl font-bold text-gray-900 bg-gradient-to-r from-blue-600 to-blue-600 bg-clip-text text-transparent">
             Available Appointments
           </h2>
           <button
@@ -932,7 +942,7 @@ export default function FindDoctor() {
           </button>
         </div>
         <div className="p-6 overflow-y-auto max-h-[70vh]">
-          <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-2xl border border-blue-100">
+          <div className="mb-6 p-4 bg-gradient-to-r from-white to-blue-50 rounded-2xl border border-blue-100">
             <h3 className="text-lg font-semibold text-gray-800 mb-1">
               {doctor.user.name}
             </h3>
@@ -1104,7 +1114,7 @@ export default function FindDoctor() {
           }}
         />
       </Head>
-      <div className="min-h-screen bg-[#f8fafc]">
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-blue-50 to-blue-50">
       <AuthModal
         isOpen={showAuthModal}
         onClose={handleAuthModalClose}
@@ -1120,12 +1130,12 @@ export default function FindDoctor() {
       )}
 
       {/* Professional Header Section */}
-      <div className="w-full bg-gradient-to-br from-white via-[#f8fafc] to-[#f0f7ff] border-b border-[#e2e8f0] shadow-sm">
+      <div className="w-full bg-gradient-to-br from-white via-blue-50 to-blue-50 border-b border-blue-100 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
           {/* Professional Header */}
           <div className="text-center mb-6">
             <div className="flex items-center justify-center mb-3">
-              <div className="w-12 h-12 rounded-full flex items-center justify-center mr-3 bg-gradient-to-br from-[#0284c7] via-[#0ea5e9] to-[#06b6d4] shadow-lg">
+              <div className="w-12 h-12 rounded-full flex items-center justify-center mr-3 bg-gradient-to-br from-blue-600 via-blue-600 to-blue-500 shadow-lg">
                 <Stethoscope className="w-6 h-6 text-white" />
                 </div>
               <div className="text-left">
@@ -1155,7 +1165,7 @@ export default function FindDoctor() {
                     setQuery(specialty);
                     fetchSuggestions(specialty);
                   }}
-                  className="px-3 py-1.5 text-[10px] font-medium rounded-full bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 text-blue-700 hover:from-blue-100 hover:to-purple-100 hover:border-blue-300 transition-all shadow-sm hover:shadow"
+                  className="px-3 py-1.5 text-[10px] font-medium rounded-full bg-gradient-to-r from-blue-50 to-blue-50 border border-blue-200 text-blue-700 hover:from-blue-100 hover:to-blue-100 hover:border-blue-300 transition-all shadow-sm hover:shadow"
                 >
                   {specialty}
                 </button>
@@ -1168,7 +1178,7 @@ export default function FindDoctor() {
                 {/* Search Input */}
                 <div className="relative flex-1 max-w-lg" style={{ zIndex: 10001 }}>
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none z-10">
-                    <Search className="h-5 w-5 text-[#0284c7]" />
+                    <Search className="h-5 w-5 text-blue-600" />
                     </div>
                     <input
                       type="text"
@@ -1179,7 +1189,7 @@ export default function FindDoctor() {
                         fetchSuggestions(e.target.value);
                       }}
                       onKeyPress={(e) => e.key === "Enter" && handleSearch()}
-                    className="w-full pl-11 pr-4 py-3 text-[#1e293b] rounded-xl focus:ring-2 focus:ring-[#0284c7] focus:border-[#0284c7] transition-all placeholder:text-[#94a3b8] text-sm border-2 border-[#e2e8f0] bg-white hover:border-[#cbd5e1]"
+                    className="w-full pl-11 pr-4 py-3 text-[#1e293b] rounded-xl focus:ring-2 focus:ring-blue-600 focus:border-blue-600 transition-all placeholder:text-[#94a3b8] text-sm border-2 border-blue-100 bg-white hover:border-blue-200"
                       ref={searchInputRef}
                     />
                     {/* Desktop Suggestions Dropdown */}
@@ -1209,11 +1219,11 @@ export default function FindDoctor() {
                                 }
                               }}
                             >
-                              <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-gradient-to-br from-purple-100 to-purple-200 flex items-center justify-center mr-3">
-                                <HeartPulse className="w-4 h-4 text-purple-600" />
+                              <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center mr-3">
+                                <HeartPulse className="w-4 h-4 text-blue-600" />
                               </div>
                               <div className="flex-1 min-w-0">
-                                <p className="font-semibold text-[#1e293b] group-hover:text-[#0284c7] transition-colors text-sm truncate">
+                                <p className="font-semibold text-[#1e293b] group-hover:text-blue-600 transition-colors text-sm truncate">
                                   {s.value}
                                 </p>
                                 <p className="text-xs text-gray-500 capitalize mt-0.5">
@@ -1233,14 +1243,14 @@ export default function FindDoctor() {
                 {/* Location Input */}
                 <div className="flex-1 relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none z-10">
-                    <MapPin className="h-5 w-5 text-[#0284c7]" />
+                    <MapPin className="h-5 w-5 text-blue-600" />
                     </div>
                     <input
                     placeholder="Enter city, area, or landmark..."
                       value={manualPlace}
                       onChange={(e) => setManualPlace(e.target.value)}
                       onKeyPress={(e) => e.key === "Enter" && searchByPlace()}
-                    className="w-full pl-11 pr-4 py-3 text-[#1e293b] rounded-xl focus:ring-2 focus:ring-[#0284c7] focus:border-[#0284c7] transition-all placeholder:text-[#94a3b8] text-sm border-2 border-[#e2e8f0] bg-white hover:border-[#cbd5e1]"
+                    className="w-full pl-11 pr-4 py-3 text-[#1e293b] rounded-xl focus:ring-2 focus:ring-blue-600 focus:border-blue-600 transition-all placeholder:text-[#94a3b8] text-sm border-2 border-blue-100 bg-white hover:border-blue-200"
                   />
                   </div>
 
@@ -1248,7 +1258,7 @@ export default function FindDoctor() {
                   <button
                     onClick={locateMe}
                     disabled={loading}
-                  className="flex items-center px-4 py-3 bg-[#f8fafc] text-[#475569] rounded-xl hover:bg-[#f1f5f9] transition-all text-sm font-medium border-2 border-[#e2e8f0] hover:border-[#cbd5e1] disabled:opacity-50 shadow-sm"
+                  className="flex items-center px-4 py-3 bg-[#f8fafc] text-[#475569] rounded-xl text-sm font-medium border-2 border-[#e2e8f0] disabled:opacity-50 shadow-sm"
                   title="Use Current Location"
                   >
                   <Navigation className="w-4 h-4 mr-1.5" />
@@ -1258,7 +1268,7 @@ export default function FindDoctor() {
                 {/* Search Button */}
                   <button
                     onClick={handleSearch}
-                  className="px-6 py-3 text-white rounded-xl font-semibold bg-gradient-to-r from-[#0284c7] to-[#0ea5e9] hover:from-[#0369a1] hover:to-[#0284c7] transition-all text-sm shadow-md hover:shadow-lg transform hover:scale-105"
+                  className="px-6 py-3 text-white rounded-xl font-semibold bg-amber-400 hover:bg-amber-500 transition-all text-sm shadow-md hover:shadow-lg transform hover:scale-105"
                   >
                     Search
                   </button>
@@ -1270,7 +1280,7 @@ export default function FindDoctor() {
                   <div className="flex items-center gap-2">
                     <div className="relative flex-1" style={{ zIndex: 10001 }}>
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none z-10">
-                      <Search className="h-5 w-5 text-[#0284c7]" />
+                      <Search className="h-5 w-5 text-blue-600" />
                       </div>
                       <input
                         type="text"
@@ -1281,7 +1291,7 @@ export default function FindDoctor() {
                           fetchSuggestions(e.target.value);
                         }}
                         onKeyPress={(e) => e.key === "Enter" && handleSearch()}
-                      className="w-full pl-11 pr-3 py-3 text-[#1e293b] rounded-xl focus:ring-2 focus:ring-[#0284c7] focus:border-[#0284c7] transition-all placeholder:text-[#94a3b8] text-sm border-2 border-[#e2e8f0] bg-white hover:border-[#cbd5e1]"
+                      className="w-full pl-11 pr-3 py-3 text-[#1e293b] rounded-xl focus:ring-2 focus:ring-blue-600 focus:border-blue-600 transition-all placeholder:text-[#94a3b8] text-sm border-2 border-blue-100 bg-white hover:border-blue-200"
                         ref={searchInputRef}
                       />
                       {/* Mobile Suggestions Dropdown */}
@@ -1311,11 +1321,11 @@ export default function FindDoctor() {
                                 }
                               }}
                             >
-                                <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-gradient-to-br from-purple-100 to-purple-200 flex items-center justify-center mr-3">
-                                  <HeartPulse className="w-4 h-4 text-purple-600" />
+                                <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center mr-3">
+                                  <HeartPulse className="w-4 h-4 text-blue-600" />
                                 </div>
                                 <div className="flex-1 min-w-0">
-                                <p className="font-semibold text-[#1e293b] group-hover:text-[#0284c7] transition-colors text-sm truncate">
+                                <p className="font-semibold text-[#1e293b] group-hover:text-blue-600 transition-colors text-sm truncate">
                                     {s.value}
                                   </p>
                                 <p className="text-xs text-gray-500 capitalize mt-0.5">
@@ -1333,17 +1343,18 @@ export default function FindDoctor() {
                       type="button"
                       onClick={locateMe}
                       disabled={loading}
-                    className="flex items-center justify-center px-3 py-3 bg-[#f8fafc] text-[#475569] rounded-xl hover:bg-[#f1f5f9] transition-all flex-shrink-0 border-2 border-[#e2e8f0] hover:border-[#cbd5e1] disabled:opacity-50 shadow-sm"
+                    className="flex items-center px-3 py-3 bg-[#f8fafc] text-[#475569] rounded-xl flex-shrink-0 border-2 border-[#e2e8f0] disabled:opacity-50 shadow-sm"
                     title="Use Current Location"
                     >
-                    <Navigation className="w-5 h-5" />
+                    <Navigation className="w-5 h-5 mr-1.5" />
+                    <span>Near Me</span>
                     </button>
                   </div>
 
                   {/* Location Input */}
                   <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none z-10">
-                    <MapPin className="h-5 w-5 text-[#0284c7]" />
+                    <MapPin className="h-5 w-5 text-blue-600" />
                     </div>
                     <input
                     placeholder="Enter city, area, or landmark..."
@@ -1357,7 +1368,7 @@ export default function FindDoctor() {
                   {/* Mobile Search Button */}
                     <button
                       onClick={handleSearch}
-                  className="w-full px-6 py-3 text-white rounded-xl font-semibold bg-gradient-to-r from-[#0284c7] to-[#0ea5e9] hover:from-[#0369a1] hover:to-[#0284c7] shadow-md hover:shadow-lg transition-all text-sm"
+                  className="w-full px-6 py-3 text-white rounded-xl font-semibold bg-amber-400 hover:bg-amber-500 shadow-md hover:shadow-lg transition-all text-sm"
                     >
                   Search Doctors
                     </button>
@@ -1369,7 +1380,7 @@ export default function FindDoctor() {
 
       {/* Results Section - Always rendered to prevent collapsing */}
       <div className="w-full bg-gradient-to-b from-[#f8fafc] to-white" data-search-results style={{ minHeight: '400px' }}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 pb-6" ref={resultsRef}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-2 pb-6" ref={resultsRef}>
           {doctors.length > 0 ? (
             <div className="flex flex-col lg:flex-row gap-4">
             {/* Filters Sidebar */}
@@ -1378,20 +1389,20 @@ export default function FindDoctor() {
                 {/* Price Range Filter */}
                   <div className="mb-4">
                     <h3 className="text-sm font-bold text-[#1e293b] mb-3 flex items-center">
-                      <BadgeIndianRupee className="w-4 h-4 mr-1.5 text-[#0284c7]" />
+                      <BadgeIndianRupee className="w-4 h-4 mr-1.5 text-blue-600" />
                       Price Range
                     </h3>
                   <div className="px-2">
                     {/* Price Display */}
-                    <div className="flex justify-between items-center mb-4 p-3 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border border-blue-100">
+                    <div className="flex justify-between items-center mb-4 p-3 bg-gradient-to-r from-blue-50 to-blue-50 rounded-lg border border-blue-100">
                       <div className="text-center">
                         <p className="text-xs text-gray-500 mb-1">Min Price</p>
-                        <p className="text-lg font-bold text-blue-500">₹ {priceRange[0].toLocaleString()}</p>
+                        <p className="text-lg font-bold text-blue-600">₹ {priceRange[0].toLocaleString()}</p>
                       </div>
                       <div className="w-px h-8 bg-gray-300"></div>
                       <div className="text-center">
                         <p className="text-xs text-gray-500 mb-1">Max Price</p>
-                        <p className="text-lg font-bold text-blue-500">₹ {priceRange[1].toLocaleString()}</p>
+                        <p className="text-lg font-bold text-blue-600">₹ {priceRange[1].toLocaleString()}</p>
                       </div>
                     </div>
 
@@ -1415,7 +1426,7 @@ export default function FindDoctor() {
                           }}
                           className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider-thumb"
                           style={{
-                            background: `linear-gradient(to right, #2D9AA5 0%, #2D9AA5 ${(priceRange[0] / 10000) * 100}%, #e5e7eb ${(priceRange[0] / 10000) * 100}%, #e5e7eb 100%)`
+                            background: `linear-gradient(to right, #2563eb 0%, #2563eb ${(priceRange[0] / 10000) * 100}%, #e5e7eb ${(priceRange[0] / 10000) * 100}%, #e5e7eb 100%)`
                           }}
                         />
                       </div>
@@ -1438,7 +1449,7 @@ export default function FindDoctor() {
                           }}
                           className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer slider-thumb"
                           style={{
-                            background: `linear-gradient(to right, #2D9AA5 0%, #2D9AA5 ${(priceRange[1] / 10000) * 100}%, #e5e7eb ${(priceRange[1] / 10000) * 100}%, #e5e7eb 100%)`
+                            background: `linear-gradient(to right, #2563eb 0%, #2563eb ${(priceRange[1] / 10000) * 100}%, #e5e7eb ${(priceRange[1] / 10000) * 100}%, #e5e7eb 100%)`
                           }}
                         />
                       </div>
@@ -1455,7 +1466,7 @@ export default function FindDoctor() {
                 {/* Sort By Filter - Compact */}
                 <div className="mb-4">
                     <h3 className="text-xs font-bold text-[#1e293b] mb-2.5 flex items-center">
-                      <Clock className="w-3.5 h-3.5 mr-1.5 text-[#0284c7]" />
+                      <Clock className="w-3.5 h-3.5 mr-1.5 text-blue-600" />
                       Sort By
                     </h3>
                   <div className="space-y-1.5">
@@ -1473,7 +1484,7 @@ export default function FindDoctor() {
                           value={option.value}
                           checked={sortBy === option.value}
                           onChange={(e) => setSortBy(e.target.value)}
-                            className="w-4 h-4 text-[#0284c7] bg-white border-[#cbd5e1] focus:ring-[#0284c7] focus:ring-2"
+                            className="w-4 h-4 text-blue-600 bg-white border-[#cbd5e1] focus:ring-blue-600 focus:ring-2"
                           />
                           <span className="ml-2 text-xs text-[#475569] font-medium">{option.label}</span>
                       </label>
@@ -1484,7 +1495,7 @@ export default function FindDoctor() {
                 {/* Star Rating Filter - Compact */}
                   <div className="mb-4">
                     <h3 className="text-xs font-bold text-[#1e293b] mb-2.5 flex items-center">
-                      <Star className="w-3.5 h-3.5 mr-1.5 text-[#0284c7]" />
+                      <Star className="w-3.5 h-3.5 mr-1.5 text-blue-600" />
                       Minimum Rating
                     </h3>
                   <div className="space-y-1.5">
@@ -1496,7 +1507,7 @@ export default function FindDoctor() {
                           value={rating}
                           checked={starFilter === rating}
                           onChange={(e) => setStarFilter(parseInt(e.target.value))}
-                            className="w-3.5 h-3.5 text-[#0284c7] bg-white border-[#cbd5e1] focus:ring-[#0284c7] focus:ring-1"
+                            className="w-3.5 h-3.5 text-blue-600 bg-white border-[#cbd5e1] focus:ring-blue-600 focus:ring-1"
                         />
                         <div className="ml-1.5 flex items-center">
                           <div className="flex">
@@ -1546,8 +1557,8 @@ export default function FindDoctor() {
                   </h2>
                   {selectedService && (
                       <p className="text-sm text-[#64748b] flex items-center">
-                        <span className="w-1.5 h-1.5 bg-[#0284c7] rounded-full mr-1.5"></span>
-                        Showing results for &quot;<span className="font-medium text-[#0284c7]">{selectedService}</span>&quot;
+                        <span className="w-1.5 h-1.5 bg-blue-600 rounded-full mr-1.5"></span>
+                        Showing results for &quot;<span className="font-medium text-blue-600">{selectedService}</span>&quot;
                     </p>
                   )}
                 </div>
@@ -1569,23 +1580,27 @@ export default function FindDoctor() {
                     <span className="ml-3 text-[#475569] text-xs">Searching...</span>
                 </div>
               ) : filteredDoctors.length === 0 ? (
-                  <div className="bg-white rounded-2xl border border-[#e2e8f0] shadow-sm p-6 sm:p-8">
+                  <div className="bg-white rounded-2xl  border border-[#e2e8f0] shadow-sm p-6 sm:p-8">
                     <div className="text-center mb-6">
-                      <div className="w-16 h-16 rounded-full bg-[#f0f7ff] flex items-center justify-center mx-auto mb-3">
-                        <Search className="w-8 h-8 text-[#0284c7]" />
+                      <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-50 to-blue-50 flex items-center justify-center mx-auto mb-3">
+                        <Search className="w-8 h-8 text-blue-600" />
                   </div>
-                      <h3 className="text-lg sm:text-xl font-bold text-[#1e293b] mb-2">
-                        No Doctors Found
+                      <h3 className="text-lg sm:text-xl font-bold text-[#1e293b] ">
+                        {doctors.length === 0 && hasSearched 
+                          ? `No Doctors Found at ${manualPlace || 'this location'}`
+                          : 'No Doctors Found'}
                   </h3>
-                      <p className="text-sm text-[#64748b] mb-1">
-                        Try adjusting your search criteria or filters
+                      <p className="text-sm text-[#64748b] ">
+                        {doctors.length === 0 && hasSearched
+                          ? `We couldn't find any doctors matching your search criteria at ${manualPlace || 'this location'}. Try searching in a different area or adjust your filters.`
+                          : 'Try adjusting your search criteria or filters'}
                       </p>
                     </div>
                     
                     {/* Professional ZEVA Doctors Information Section */}
                     <div className="bg-gradient-to-br from-[#f0f7ff] via-[#e0f2fe] to-[#bae6fd] rounded-xl p-6 sm:p-8 border border-[#cbd5e1] shadow-sm">
                       <div className="flex items-center mb-4">
-                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#0284c7] to-[#0ea5e9] flex items-center justify-center mr-3 shadow-md">
+                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-600 to-blue-600 flex items-center justify-center mr-3 shadow-md">
                           <Stethoscope className="w-6 h-6 text-white" />
                         </div>
                         <div>
@@ -1601,7 +1616,7 @@ export default function FindDoctor() {
                       <div className="grid md:grid-cols-2 gap-4 mb-6">
                         <div className="bg-white/80 backdrop-blur-sm rounded-lg p-4 border border-white/50">
                           <div className="flex items-start mb-2">
-                            <Shield className="w-5 h-5 text-[#0284c7] mr-2 flex-shrink-0 mt-0.5" />
+                            <Shield className="w-5 h-5 text-blue-600 mr-2 flex-shrink-0 mt-0.5" />
                             <div>
                               <h3 className="text-sm font-bold text-[#1e293b] mb-1">Verified Doctors</h3>
                               <p className="text-xs text-[#475569] leading-relaxed">
@@ -1613,7 +1628,7 @@ export default function FindDoctor() {
                         
                         <div className="bg-white/80 backdrop-blur-sm rounded-lg p-4 border border-white/50">
                           <div className="flex items-start mb-2">
-                            <Star className="w-5 h-5 text-[#0284c7] mr-2 flex-shrink-0 mt-0.5" />
+                            <Star className="w-5 h-5 text-blue-600 mr-2 flex-shrink-0 mt-0.5" />
                             <div>
                               <h3 className="text-sm font-bold text-[#1e293b] mb-1">Patient Reviews</h3>
                               <p className="text-xs text-[#475569] leading-relaxed">
@@ -1625,7 +1640,7 @@ export default function FindDoctor() {
                         
                         <div className="bg-white/80 backdrop-blur-sm rounded-lg p-4 border border-white/50">
                           <div className="flex items-start mb-2">
-                            <BadgeIndianRupee className="w-5 h-5 text-[#0284c7] mr-2 flex-shrink-0 mt-0.5" />
+                            <BadgeIndianRupee className="w-5 h-5 text-blue-600 mr-2 flex-shrink-0 mt-0.5" />
                             <div>
                               <h3 className="text-sm font-bold text-[#1e293b] mb-1">Transparent Fees</h3>
                               <p className="text-xs text-[#475569] leading-relaxed">
@@ -1637,7 +1652,7 @@ export default function FindDoctor() {
                         
                         <div className="bg-white/80 backdrop-blur-sm rounded-lg p-4 border border-white/50">
                           <div className="flex items-start mb-2">
-                            <Clock className="w-5 h-5 text-[#0284c7] mr-2 flex-shrink-0 mt-0.5" />
+                            <Clock className="w-5 h-5 text-blue-600 mr-2 flex-shrink-0 mt-0.5" />
                             <div>
                               <h3 className="text-sm font-bold text-[#1e293b] mb-1">Appointment Availability</h3>
                               <p className="text-xs text-[#475569] leading-relaxed">
@@ -1652,7 +1667,7 @@ export default function FindDoctor() {
                         <h3 className="text-base font-bold text-[#1e293b] mb-3 text-center">Why Choose ZEVA Doctors?</h3>
                         <div className="grid sm:grid-cols-2 gap-3 text-xs text-[#475569]">
                           <div className="flex items-start">
-                            <span className="text-[#0284c7] font-bold mr-2 text-base">•</span>
+                            <span className="text-blue-600 font-bold mr-2 text-base">•</span>
                             <span>
 Verified Doctors – Every doctor is thoroughly verified with proper certifications, credentials, and experience.
 
@@ -1660,7 +1675,7 @@ Verified Doctors – Every doctor is thoroughly verified with proper certificati
 </span>
                           </div>
                           <div className="flex items-start">
-                            <span className="text-[#0284c7] font-bold mr-2 text-base">•</span>
+                            <span className="text-blue-600 font-bold mr-2 text-base">•</span>
                             <span>Patient Reviews – Read real feedback and ratings from verified patients to make informed choices.
 
 
@@ -1668,12 +1683,12 @@ Verified Doctors – Every doctor is thoroughly verified with proper certificati
 </span>
                           </div>
                           <div className="flex items-start">
-                            <span className="text-[#0284c7] font-bold mr-2 text-base">•</span>
+                            <span className="text-blue-600 font-bold mr-2 text-base">•</span>
                             <span>Transparent Fees – Clear consultation charges with no hidden costs.
                             </span>
                           </div>
                           <div className="flex items-start">
-                            <span className="text-[#0284c7] font-bold mr-2 text-base">•</span>
+                            <span className="text-blue-600 font-bold mr-2 text-base">•</span>
                       <span>Easy Booking – View availability and schedule appointments in just a few clicks.
                       </span>
                           </div>
@@ -1697,20 +1712,23 @@ Verified Doctors – Every doctor is thoroughly verified with proper certificati
                     return (
                       <div
                         key={index}
-                        className="bg-white rounded-xl shadow-md border-2 border-[#e2e8f0] overflow-hidden hover:shadow-lg hover:border-[#0284c7] transition-all duration-300 group"
+                        className="bg-white rounded-xl shadow-md border-2 border-[#e2e8f0] overflow-hidden hover:shadow-lg hover:border-blue-600 transition-all duration-300 group"
                       >
                         {/* Doctor Image */}
-                        <div className="relative h-24 w-full bg-gradient-to-br from-[#e0f2fe] to-[#bae6fd] overflow-hidden">
+                        <div className="relative w-full bg-gradient-to-br from-blue-50 to-blue-50 overflow-hidden" style={{ aspectRatio: '4/3' }}>
                           {doctor.photos?.[0] ? (
-                            <Image
+                            <img
                               src={doctor.photos[0]}
                               alt={doctor.user?.name || "Doctor Image"}
-                              fill
-                              className="object-contain object-center group-hover:scale-105 transition-transform duration-300 bg-white"
+                              className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300"
+                              style={{ 
+                                aspectRatio: '4/3',
+                                objectFit: 'contain',
+                                objectPosition: 'top center'
+                              }}
                             />
-
                           ) : (
-                            <div className="w-full h-full bg-gradient-to-br from-blue-100 to-purple-100 flex items-center justify-center">
+                            <div className="w-full h-full bg-gradient-to-br from-blue-100 to-blue-100 flex items-center justify-center" style={{ aspectRatio: '4/3' }}>
                               <div className="text-center">
                                 <div className="w-16 h-16 bg-blue-200 rounded-full flex items-center justify-center mx-auto mb-2">
                                   <svg
@@ -1739,7 +1757,7 @@ Verified Doctors – Every doctor is thoroughly verified with proper certificati
                           </div>
 
                           {doctor.distance && (
-                            <div className="absolute bottom-1.5 left-1.5 bg-[#0284c7] text-white px-1 py-0.5 rounded text-xs font-medium flex items-center">
+                            <div className="absolute bottom-1.5 left-1.5 bg-blue-600 text-white px-1 py-0.5 rounded text-xs font-medium flex items-center">
                               <Navigation className="w-2 h-2 mr-0.5" />
                               {formatDistance(doctor.distance)}
                             </div>
@@ -1770,10 +1788,10 @@ Verified Doctors – Every doctor is thoroughly verified with proper certificati
                         </div>
 
                           {/* Doctor basic info */}
-                          <h3 className="text-sm font-bold text-[#1e293b] leading-tight mb-1.5 line-clamp-1 group-hover:text-[#0284c7] transition-colors">
+                          <h3 className="text-sm font-bold text-[#1e293b] leading-tight mb-1.5 line-clamp-1 group-hover:text-blue-600 transition-colors">
                               {doctor.user?.name}
                             </h3>
-                          <p className="text-[#0284c7] font-medium text-xs mb-1">
+                          <p className="text-blue-600 font-medium text-xs mb-1">
                               {doctor.degree}
                             </p>
                           <p className="text-[#64748b] text-xs line-clamp-2 mb-2 leading-relaxed">
@@ -1791,79 +1809,77 @@ Verified Doctors – Every doctor is thoroughly verified with proper certificati
                             {typeof doctor.consultationFee === "number" && doctor.consultationFee > 0 && (
                               <div className="text-right">
                                 <p className="text-xs text-[#64748b] mb-0.5">Consultation</p>
-                                <p className="text-sm font-bold text-[#0284c7]">
+                                <p className="text-sm font-bold text-blue-600">
                                   AED {doctor.consultationFee}
                                 </p>
                               </div>
                             )}
                           </div>
 
-                          {/* Availability */}
-                          <div className="mb-3">
-                            {(() => {
-                              const today = dayjs().startOf("day");
-                              const todaySlot = doctor.timeSlots && doctor.timeSlots.find((ts) => {
-                                const slotDate = dayjs(
-                                  capitalizeMonth(ts.date) + " " + dayjs().year(),
-                                  "DD MMMM YYYY"
-                                );
-                                return slotDate.isSame(today, "day");
-                              });
+                          {/* Availability and Action buttons in same row */}
+                          <div className="flex items-center justify-between">
+                            {/* Availability Status */}
+                            <div className="flex-shrink-0">
+                              {(() => {
+                                const today = dayjs().startOf("day");
+                                const todaySlot = doctor.timeSlots && doctor.timeSlots.find((ts) => {
+                                  const slotDate = dayjs(
+                                    capitalizeMonth(ts.date) + " " + dayjs().year(),
+                                    "DD MMMM YYYY"
+                                  );
+                                  return slotDate.isSame(today, "day");
+                                });
 
-                              if (!doctor.timeSlots || doctor.timeSlots.length === 0) {
-                                return (
-                                  <span className="inline-flex items-center px-2 py-1 bg-red-50 border border-red-200 text-red-700 rounded-md font-medium text-xs">
-                                    ✗ No appointments
-                                  </span>
-                                );
-                              } else if (todaySlot && todaySlot.availableSlots > 0) {
-                                return (
-                                  <span className="inline-flex items-center px-2 py-1 bg-green-50 border border-green-200 text-green-700 rounded-md font-medium text-xs">
-                                    ✓ Available today
-                                  </span>
-                                );
-                              } else {
-                                return (
-                                  <span className="inline-flex items-center px-2 py-1 bg-red-50 border border-red-200 text-red-700 rounded-md font-medium text-xs">
-                                    ✗ No appointment today
-                                  </span>
-                                );
-                              }
-                            })()}
-                          </div>
+                                if (!doctor.timeSlots || doctor.timeSlots.length === 0) {
+                                  return (
+                                    <span className="inline-flex items-center px-2 py-1 bg-red-50 border border-red-200 text-red-700 rounded-md font-medium text-xs">
+                                      ✗ No appointments
+                                    </span>
+                                  );
+                                } else if (todaySlot && todaySlot.availableSlots > 0) {
+                                  return (
+                                    <span className="inline-flex items-center px-2 py-1 bg-green-50 border border-green-200 text-green-700 rounded-md font-medium text-xs">
+                                      ✓ Available today
+                                    </span>
+                                  );
+                                } else {
+                                  return (
+                                    <span className="inline-flex items-center px-2 py-1 bg-red-50 border border-red-200 text-red-700 rounded-md font-medium text-xs">
+                                      ✗ No appointment today
+                                    </span>
+                                  );
+                                }
+                              })()}
+                            </div>
 
-                          {/* Action buttons */}
-                          <div className="flex gap-2">
-                            {(() => {
-                              // Use address if available (more accurate), otherwise fall back to coordinates
-                              const mapsHref = doctor.address
-                                ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(doctor.address)}`
-                                : doctor.location?.coordinates?.length === 2
-                                ? `https://www.google.com/maps/dir/?api=1&destination=${doctor.location.coordinates[1]},${doctor.location.coordinates[0]}`
-                                : null;
-                              
-                              return mapsHref ? (
+                            {/* Icons at right corner */}
+                            <div className="flex items-center gap-2">
+                              {/* Directions Button - Icon Only */}
+                              {(doctor.address || (doctor.location?.coordinates?.length === 2)) && (
                                 <a
-                                  href={mapsHref}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                onClick={(e) => e.stopPropagation()}
-                                className="flex items-center justify-center px-2.5 py-1.5 bg-[#0284c7] text-white rounded-lg hover:bg-[#0369a1] transition-all text-xs shadow-sm hover:shadow"
-                                title="Get Directions"
-                              >
-                                <Navigation className="w-3.5 h-3.5 mr-1" />
-                                <span className="hidden sm:inline">Directions</span>
-                              </a>
-                              ) : null;
-                            })()}
+                                  href={doctor.address
+                                    ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(doctor.address)}`
+                                    : `https://www.google.com/maps/dir/?api=1&destination=${doctor.location.coordinates[1]},${doctor.location.coordinates[0]}`
+                                  }
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="flex items-center justify-center w-8 h-8 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all shadow-sm hover:shadow"
+                                  title="Get Directions"
+                                >
+                                  <Navigation className="w-4 h-4" />
+                                </a>
+                              )}
 
-                            {/* View Full Details */}
-                            <a
-                              href={`/doctor/${textToSlug(doctor.user.name)}?d=${doctor._id}`}
-                              className="flex-1 flex items-center justify-center px-3 py-1.5 bg-gradient-to-r from-[#0284c7] to-[#0ea5e9] hover:from-[#0369a1] hover:to-[#0284c7] text-white rounded-lg transition-all text-xs font-medium shadow-sm hover:shadow"
-                            >
-                              View Details
-                            </a>
+                              {/* View Full Details */}
+                              <a
+                                href={`/doctor/${textToSlug(doctor.user.name)}?d=${doctor._id}`}
+                                className="flex items-center justify-center w-8 h-8 bg-gradient-to-r from-blue-600 to-blue-600 hover:from-blue-700 hover:to-blue-700 text-white rounded-lg transition-all shadow-sm hover:shadow"
+                                title="View Details"
+                              >
+                                <Eye className="w-4 h-4" />
+                              </a>
+                            </div>
                           </div>
 
                           {/* Contact */}
@@ -1886,24 +1902,28 @@ Verified Doctors – Every doctor is thoroughly verified with proper certificati
               )}
             </div>
           </div>
-          ) : (doctors.length === 0 && !loading && (selectedService || query.trim())) ? (
-          <div className="bg-white rounded-2xl border border-[#e2e8f0] shadow-sm p-6 sm:p-8">
+          ) : (doctors.length === 0 && !loading && hasSearched) ? (
+          <div className="bg-white rounded-2xl border border-[#e2e8f0] shadow-sm p-6 sm:p-8 -mt-8">
               <div className="text-center mb-6">
-                <div className="w-16 h-16 rounded-full bg-[#f0f7ff] flex items-center justify-center mx-auto mb-3">
-                  <Search className="w-8 h-8 text-[#0284c7]" />
+                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-50 to-blue-50 flex items-center justify-center mx-auto mb-3">
+                  <Search className="w-8 h-8 text-blue-600" />
                 </div>
-                <h3 className="text-lg sm:text-xl font-bold text-[#1e293b] mb-2">
-                  No Doctors Found
+                <h3 className="text-lg sm:text-xl font-bold text-[#1e293b] mb-1">
+                  {manualPlace 
+                    ? `No Doctors Found at ${manualPlace}`
+                    : 'No Doctors Found at this Location'}
                 </h3>
                 <p className="text-sm text-[#64748b] mb-1">
-                  Try adjusting your search criteria or filters
+                  {manualPlace 
+                    ? `We couldn't find any doctors in ${manualPlace}. Try searching in a different location or use the "Near Me" feature to find doctors close to you.`
+                    : 'We couldn\'t find any doctors at this location. Try searching in a different area or use the "Near Me" feature.'}
                 </p>
               </div>
               
               {/* Professional ZEVA Doctors Information Section */}
               <div className="bg-gradient-to-br from-[#f0f7ff] via-[#e0f2fe] to-[#bae6fd] rounded-xl p-6 sm:p-8 border border-[#cbd5e1] shadow-sm">
               <div className="flex flex-col sm:flex-row items-center sm:items-start mb-6">
-                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#0284c7] to-[#0ea5e9] flex items-center justify-center mr-0 sm:mr-4 mb-4 sm:mb-0 shadow-lg">
+                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-600 to-blue-600 flex items-center justify-center mr-0 sm:mr-4 mb-4 sm:mb-0 shadow-lg">
                   <Stethoscope className="w-8 h-8 text-white" />
                 </div>
                 <div className="text-center sm:text-left flex-1">
@@ -1918,7 +1938,7 @@ Verified Doctors – Every doctor is thoroughly verified with proper certificati
               
               <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                 <div className="bg-white/90 backdrop-blur-sm rounded-lg p-4 border border-white/50 shadow-sm">
-                  <Shield className="w-6 h-6 text-[#0284c7] mb-2" />
+                  <Shield className="w-6 h-6 text-blue-600 mb-2" />
                   <h3 className="text-sm font-bold text-[#1e293b] mb-1">Verified Doctors</h3>
                   <p className="text-xs text-[#475569] leading-relaxed">
                     All doctors are verified with proper certifications and credentials
@@ -1926,7 +1946,7 @@ Verified Doctors – Every doctor is thoroughly verified with proper certificati
                 </div>
                 
                 <div className="bg-white/90 backdrop-blur-sm rounded-lg p-4 border border-white/50 shadow-sm">
-                  <Star className="w-6 h-6 text-[#0284c7] mb-2" />
+                  <Star className="w-6 h-6 text-blue-600 mb-2" />
                   <h3 className="text-sm font-bold text-[#1e293b] mb-1">Patient Reviews</h3>
                   <p className="text-xs text-[#475569] leading-relaxed">
                     Real reviews and ratings from verified patients
@@ -1934,7 +1954,7 @@ Verified Doctors – Every doctor is thoroughly verified with proper certificati
                 </div>
                 
                 <div className="bg-white/90 backdrop-blur-sm rounded-lg p-4 border border-white/50 shadow-sm">
-                  <BadgeIndianRupee className="w-6 h-6 text-[#0284c7] mb-2" />
+                  <BadgeIndianRupee className="w-6 h-6 text-blue-600 mb-2" />
                   <h3 className="text-sm font-bold text-[#1e293b] mb-1">Transparent Fees</h3>
                   <p className="text-xs text-[#475569] leading-relaxed">
                     Clear consultation fees with no hidden charges
@@ -1942,7 +1962,7 @@ Verified Doctors – Every doctor is thoroughly verified with proper certificati
                 </div>
                 
                 <div className="bg-white/90 backdrop-blur-sm rounded-lg p-4 border border-white/50 shadow-sm">
-                  <Clock className="w-6 h-6 text-[#0284c7] mb-2" />
+                  <Clock className="w-6 h-6 text-blue-600 mb-2" />
                   <h3 className="text-sm font-bold text-[#1e293b] mb-1">Easy Booking</h3>
                   <p className="text-xs text-[#475569] leading-relaxed">
                     View availability and book appointments easily
@@ -1954,7 +1974,7 @@ Verified Doctors – Every doctor is thoroughly verified with proper certificati
                 <h3 className="text-lg font-bold text-[#1e293b] mb-4 text-center">Why Trust ZEVA Doctors?</h3>
                 <div className="grid sm:grid-cols-2 gap-3 text-sm text-[#475569]">
                   <div className="flex items-start">
-                    <span className="text-[#0284c7] font-bold mr-2 text-lg">✓</span>
+                    <span className="text-blue-600 font-bold mr-2 text-lg">✓</span>
                     <span>
 Verified Doctors – Every doctor is thoroughly verified with proper certifications, credentials, and experience.
 
@@ -1962,7 +1982,7 @@ Verified Doctors – Every doctor is thoroughly verified with proper certificati
 </span>
                   </div>
                   <div className="flex items-start">
-                    <span className="text-[#0284c7] font-bold mr-2 text-lg">✓</span>
+                    <span className="text-blue-600 font-bold mr-2 text-lg">✓</span>
                     <span>Patient Reviews – Read real feedback and ratings from verified patients to make informed choices.
 
 
@@ -1970,12 +1990,12 @@ Verified Doctors – Every doctor is thoroughly verified with proper certificati
 </span>
                   </div>
                   <div className="flex items-start">
-                    <span className="text-[#0284c7] font-bold mr-2 text-lg">✓</span>
+                    <span className="text-blue-600 font-bold mr-2 text-lg">✓</span>
                     <span>Transparent Fees – Clear consultation charges with no hidden costs.
                     </span>
                   </div>
                   <div className="flex items-start">
-                    <span className="text-[#0284c7] font-bold mr-2 text-lg">✓</span>
+                    <span className="text-blue-600 font-bold mr-2 text-lg">✓</span>
                     <span>Easy Booking – View availability and schedule appointments in just a few clicks.
                     </span>
                   </div>
@@ -2019,7 +2039,7 @@ Take control of your healthcare today. Enter your location, use the “Near Me�
             <div className="bg-white rounded-2xl border border-[#e2e8f0] shadow-sm p-8 sm:p-12">
               <div className="text-center mb-8">
                 <div className="w-20 h-20 rounded-full bg-gradient-to-br from-[#f0f7ff] to-[#e0f2fe] flex items-center justify-center mx-auto mb-4 shadow-md">
-                  <Stethoscope className="w-10 h-10 text-[#0284c7]" />
+                  <Stethoscope className="w-10 h-10 text-blue-600" />
                 </div>
                 <h2 className="text-2xl sm:text-3xl font-bold text-[#1e293b] mb-3">
                   Welcome to ZEVA Doctor Directory
@@ -2032,7 +2052,7 @@ Take control of your healthcare today. Enter your location, use the “Near Me�
               {/* Professional ZEVA Information Section */}
               <div className="bg-gradient-to-br from-[#f0f7ff] via-[#e0f2fe] to-[#bae6fd] rounded-xl p-6 sm:p-8 border border-[#cbd5e1] shadow-sm mb-6">
                 <div className="flex flex-col sm:flex-row items-center sm:items-start mb-6">
-                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#0284c7] to-[#0ea5e9] flex items-center justify-center mr-0 sm:mr-4 mb-4 sm:mb-0 shadow-lg">
+                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-600 to-blue-600 flex items-center justify-center mr-0 sm:mr-4 mb-4 sm:mb-0 shadow-lg">
                     <Stethoscope className="w-8 h-8 text-white" />
                   </div>
                   <div className="text-center sm:text-left flex-1">
@@ -2047,7 +2067,7 @@ Take control of your healthcare today. Enter your location, use the “Near Me�
                 
                 <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                   <div className="bg-white/90 backdrop-blur-sm rounded-lg p-4 border border-white/50 shadow-sm">
-                    <Shield className="w-6 h-6 text-[#0284c7] mb-2" />
+                    <Shield className="w-6 h-6 text-blue-600 mb-2" />
                     <h3 className="text-sm font-bold text-[#1e293b] mb-1">Verified Doctors</h3>
                     <p className="text-xs text-[#475569] leading-relaxed">
                       All doctors are verified with proper certifications and credentials
@@ -2055,7 +2075,7 @@ Take control of your healthcare today. Enter your location, use the “Near Me�
                   </div>
                   
                   <div className="bg-white/90 backdrop-blur-sm rounded-lg p-4 border border-white/50 shadow-sm">
-                    <Star className="w-6 h-6 text-[#0284c7] mb-2" />
+                    <Star className="w-6 h-6 text-blue-600 mb-2" />
                     <h3 className="text-sm font-bold text-[#1e293b] mb-1">Patient Reviews</h3>
                     <p className="text-xs text-[#475569] leading-relaxed">
                       Real reviews and ratings from verified patients
@@ -2063,7 +2083,7 @@ Take control of your healthcare today. Enter your location, use the “Near Me�
                   </div>
                   
                   <div className="bg-white/90 backdrop-blur-sm rounded-lg p-4 border border-white/50 shadow-sm">
-                    <BadgeIndianRupee className="w-6 h-6 text-[#0284c7] mb-2" />
+                    <BadgeIndianRupee className="w-6 h-6 text-blue-600 mb-2" />
                     <h3 className="text-sm font-bold text-[#1e293b] mb-1">Transparent Fees</h3>
                     <p className="text-xs text-[#475569] leading-relaxed">
                       Clear consultation fees with no hidden charges
@@ -2071,7 +2091,7 @@ Take control of your healthcare today. Enter your location, use the “Near Me�
                   </div>
                   
                   <div className="bg-white/90 backdrop-blur-sm rounded-lg p-4 border border-white/50 shadow-sm">
-                    <Clock className="w-6 h-6 text-[#0284c7] mb-2" />
+                    <Clock className="w-6 h-6 text-blue-600 mb-2" />
                     <h3 className="text-sm font-bold text-[#1e293b] mb-1">Easy Booking</h3>
                     <p className="text-xs text-[#475569] leading-relaxed">
                       View availability and book appointments easily
@@ -2083,7 +2103,7 @@ Take control of your healthcare today. Enter your location, use the “Near Me�
                   <h3 className="text-lg font-bold text-[#1e293b] mb-4 text-center">Why Trust ZEVA Doctors?</h3>
                   <div className="grid sm:grid-cols-2 gap-3 text-sm text-[#475569]">
                     <div className="flex items-start">
-                      <span className="text-[#0284c7] font-bold mr-2 text-lg">✓</span>
+                      <span className="text-blue-600 font-bold mr-2 text-lg">✓</span>
                       <span>
 Verified Doctors – Every doctor is thoroughly verified with proper certifications, credentials, and experience.
 
@@ -2091,7 +2111,7 @@ Verified Doctors – Every doctor is thoroughly verified with proper certificati
 </span>
                     </div>
                     <div className="flex items-start">
-                      <span className="text-[#0284c7] font-bold mr-2 text-lg">✓</span>
+                      <span className="text-blue-600 font-bold mr-2 text-lg">✓</span>
                       <span>Patient Reviews – Read real feedback and ratings from verified patients to make informed choices.
 
 
@@ -2099,11 +2119,11 @@ Verified Doctors – Every doctor is thoroughly verified with proper certificati
 </span>
                     </div>
                     <div className="flex items-start">
-                      <span className="text-[#0284c7] font-bold mr-2 text-lg">✓</span>
+                      <span className="text-blue-600 font-bold mr-2 text-lg">✓</span>
             <span>Transparent Fees – Clear consultation charges with no hidden costs.</span>
                     </div>
                     <div className="flex items-start">
-                      <span className="text-[#0284c7] font-bold mr-2 text-lg">✓</span>
+                      <span className="text-blue-600 font-bold mr-2 text-lg">✓</span>
                       <span>Easy Booking – View availability and schedule appointments in just a few clicks.
                       </span>
                     </div>

@@ -70,7 +70,7 @@ export default async function handler(req, res) {
       }
     }
     // Fetch all reviews for the clinic
-    const reviews = await Review.find({ clinicId })
+    const allReviews = await Review.find({ clinicId })
       .sort({ createdAt: -1 })
       .populate({
         path: "userId",
@@ -79,7 +79,25 @@ export default async function handler(req, res) {
       })
       .lean();
 
-    // Calculate average rating and total reviews
+    // Filter duplicates: Keep only the most recent review per user
+    const uniqueReviewsMap = new Map();
+    allReviews.forEach(review => {
+      const userId = review.userId?._id?.toString() || review.userId?.toString();
+      if (userId) {
+        // If user already has a review, keep the most recent one (since we sorted by createdAt: -1)
+        if (!uniqueReviewsMap.has(userId)) {
+          uniqueReviewsMap.set(userId, review);
+        }
+      } else {
+        // If userId is missing, include the review anyway
+        uniqueReviewsMap.set(`missing_${review._id}`, review);
+      }
+    });
+
+    // Convert map to array
+    const reviews = Array.from(uniqueReviewsMap.values());
+
+    // Calculate average rating and total reviews (only unique reviews)
     const totalReviews = reviews.length;
     const averageRating = totalReviews > 0 
       ? reviews.reduce((sum, review) => sum + review.rating, 0) / totalReviews 
