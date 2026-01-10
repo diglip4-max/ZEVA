@@ -1859,7 +1859,9 @@ Verified Doctors – Every doctor is thoroughly verified with proper certificati
 
                             {/* View Full Details */}
                             <a
-                              href={`/doctor/${textToSlug(doctor.user.name)}?d=${doctor._id}`}
+                              href={(doctor as any).slug && (doctor as any).slugLocked 
+                                ? `/doctor/${(doctor as any).slug}` 
+                                : `/doctor/${doctor._id}`}
                               className="flex-1 flex items-center justify-center px-3 py-1.5 bg-gradient-to-r from-[#0284c7] to-[#0ea5e9] hover:from-[#0369a1] hover:to-[#0284c7] text-white rounded-lg transition-all text-xs font-medium shadow-sm hover:shadow"
                             >
                               View Details

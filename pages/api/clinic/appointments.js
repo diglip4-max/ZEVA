@@ -62,14 +62,65 @@ export default async function handler(req, res) {
       const { date, doctorId, roomId } = req.query;
 
       let query = { clinicId };
+      let parsedDateMatch = null; // Store for debugging later
 
       // Filter by date if provided
+      // Normalize date to UTC midnight for consistent querying
       if (date) {
-        const startOfDay = new Date(date);
-        startOfDay.setHours(0, 0, 0, 0);
-        const endOfDay = new Date(date);
-        endOfDay.setHours(23, 59, 59, 999);
-        query.startDate = { $gte: startOfDay, $lte: endOfDay };
+        console.log("=== APPOINTMENTS QUERY DEBUG ===");
+        console.log("Received date query parameter:", date);
+        console.log("Type of date:", typeof date);
+        
+        // Parse date string (expected format: YYYY-MM-DD)
+        parsedDateMatch = String(date).trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        if (parsedDateMatch) {
+          const year = parseInt(parsedDateMatch[1], 10);
+          const month = parseInt(parsedDateMatch[2], 10) - 1; // Month is 0-indexed
+          const day = parseInt(parsedDateMatch[3], 10);
+          
+          console.log(`Parsed date components: year=${year}, month=${month + 1}, day=${day}`);
+          
+          // Create start of day in UTC (00:00:00.000)
+          const startOfDay = new Date(Date.UTC(year, month, day, 0, 0, 0, 0));
+          // Create end of day in UTC (23:59:59.999)
+          const endOfDay = new Date(Date.UTC(year, month, day, 23, 59, 59, 999));
+          
+          console.log("Query startOfDay (UTC):", startOfDay.toISOString());
+          console.log("Query endOfDay (UTC):", endOfDay.toISOString());
+          console.log("Query startOfDay timestamp:", startOfDay.getTime());
+          console.log("Query endOfDay timestamp:", endOfDay.getTime());
+          
+          // Use a wider range to catch any timezone edge cases
+          // Start from previous day 12:00 UTC to next day 12:00 UTC to ensure we catch all dates
+          const safeStart = new Date(Date.UTC(year, month, day, 0, 0, 0, 0));
+          safeStart.setUTCHours(0, 0, 0, 0);
+          const safeEnd = new Date(Date.UTC(year, month, day, 23, 59, 59, 999));
+          safeEnd.setUTCHours(23, 59, 59, 999);
+          
+          query.startDate = { $gte: safeStart, $lte: safeEnd };
+        } else {
+          // Fallback: try parsing as-is, but normalize to UTC
+          console.log("Date format didn't match YYYY-MM-DD, trying fallback parsing");
+          const parsedDate = new Date(date);
+          if (!isNaN(parsedDate.getTime())) {
+            const year = parsedDate.getUTCFullYear();
+            const month = parsedDate.getUTCMonth();
+            const day = parsedDate.getUTCDate();
+            console.log(`Fallback parsed: year=${year}, month=${month + 1}, day=${day}`);
+            const startOfDay = new Date(Date.UTC(year, month, day, 0, 0, 0, 0));
+            const endOfDay = new Date(Date.UTC(year, month, day, 23, 59, 59, 999));
+            console.log("Fallback startOfDay (UTC):", startOfDay.toISOString());
+            console.log("Fallback endOfDay (UTC):", endOfDay.toISOString());
+            query.startDate = { $gte: startOfDay, $lte: endOfDay };
+          } else {
+            console.log("ERROR: Could not parse date:", date);
+          }
+        }
+        console.log("Final query.startDate:", JSON.stringify({
+          $gte: query.startDate?.$gte?.toISOString(),
+          $lte: query.startDate?.$lte?.toISOString()
+        }, null, 2));
+        console.log("================================");
       }
 
       // Filter by doctor if provided
@@ -82,6 +133,9 @@ export default async function handler(req, res) {
         query.roomId = roomId;
       }
 
+      // IMPORTANT: Do NOT filter by status - return ALL appointments regardless of status
+      // (booked, Arrived, Consultation, Cancelled, etc. should all be shown)
+
       const appointments = await Appointment.find(query)
         .populate("patientId", "firstName lastName mobileNumber email invoiceNumber emrNumber gender")
         .populate("doctorId", "name email")
@@ -89,11 +143,72 @@ export default async function handler(req, res) {
         .sort({ startDate: 1, fromTime: 1 })
         .lean();
 
-      // Debug: Log bookedFrom values from database
+      // Debug: Log bookedFrom values and dates from database
       console.log("=== FETCHING APPOINTMENTS ===");
+      console.log(`Found ${appointments.length} appointments matching query`);
       appointments.forEach((apt) => {
-        console.log(`Appointment ${apt._id}: bookedFrom="${apt.bookedFrom}" (type: ${typeof apt.bookedFrom})`);
+        console.log(`Appointment ${apt._id}:`);
+        console.log(`  - bookedFrom="${apt.bookedFrom}" (type: ${typeof apt.bookedFrom})`);
+        console.log(`  - startDate (raw): ${apt.startDate}`);
+        console.log(`  - startDate (ISO): ${apt.startDate?.toISOString()}`);
+        console.log(`  - startDate (UTC date): ${apt.startDate ? new Date(apt.startDate).toISOString().split('T')[0] : 'N/A'}`);
       });
+      
+      // Also log what dates exist in DB for debugging
+      if (date && appointments.length === 0) {
+        console.log("⚠️ No appointments found for query date. Checking what dates exist in DB...");
+        const allAppointments = await Appointment.find({ clinicId })
+          .select("startDate _id")
+          .limit(20)
+          .sort({ startDate: -1 })
+          .lean();
+        console.log(`Sample of dates in DB (last 20):`);
+        allAppointments.forEach((apt) => {
+          if (apt.startDate) {
+            const dbDate = new Date(apt.startDate);
+            const dbDateStr = dbDate.toISOString().split('T')[0];
+            const dbDateUTC = new Date(Date.UTC(
+              dbDate.getUTCFullYear(),
+              dbDate.getUTCMonth(),
+              dbDate.getUTCDate(),
+              0, 0, 0, 0
+            ));
+            const dbDateUTCStr = dbDateUTC.toISOString().split('T')[0];
+            console.log(`  - ID: ${apt._id}`);
+            console.log(`    Raw ISO: ${dbDate.toISOString()}`);
+            console.log(`    Date string: ${dbDateStr}`);
+            console.log(`    UTC normalized: ${dbDateUTCStr}`);
+            console.log(`    Timestamp: ${dbDate.getTime()}`);
+          }
+        });
+        
+        // Also check if there are any appointments with dates close to the query date
+        if (parsedDateMatch) {
+          const year = parseInt(parsedDateMatch[1], 10);
+          const month = parseInt(parsedDateMatch[2], 10) - 1;
+          const day = parseInt(parsedDateMatch[3], 10);
+          
+          // Check day before and after
+          const dayBefore = new Date(Date.UTC(year, month, day - 1, 0, 0, 0, 0));
+          const dayAfter = new Date(Date.UTC(year, month, day + 1, 23, 59, 59, 999));
+          
+          const nearbyAppointments = await Appointment.find({
+            clinicId,
+            startDate: { $gte: dayBefore, $lte: dayAfter }
+          })
+          .select("startDate _id")
+          .limit(10)
+          .lean();
+          
+          console.log(`Appointments within ±1 day of query date (${date}):`);
+          nearbyAppointments.forEach((apt) => {
+            if (apt.startDate) {
+              const aptDate = new Date(apt.startDate);
+              console.log(`  - ID: ${apt._id}, Date: ${aptDate.toISOString()}`);
+            }
+          });
+        }
+      }
       console.log("=============================");
 
       return res.status(200).json({
@@ -267,14 +382,50 @@ export default async function handler(req, res) {
       }
 
       // Check for overlapping appointments (same doctor, room, date, and time)
-      const appointmentDate = new Date(startDate);
+      // Normalize startDate to UTC midnight for consistent comparison
+      let appointmentDate;
+      if (typeof startDate === 'string') {
+        const dateMatch = String(startDate).trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
+        if (dateMatch) {
+          const year = parseInt(dateMatch[1], 10);
+          const month = parseInt(dateMatch[2], 10) - 1;
+          const day = parseInt(dateMatch[3], 10);
+          appointmentDate = new Date(Date.UTC(year, month, day, 0, 0, 0, 0));
+        } else {
+          const parsed = new Date(startDate);
+          if (!isNaN(parsed.getTime())) {
+            const year = parsed.getUTCFullYear();
+            const month = parsed.getUTCMonth();
+            const day = parsed.getUTCDate();
+            appointmentDate = new Date(Date.UTC(year, month, day, 0, 0, 0, 0));
+          } else {
+            appointmentDate = new Date(startDate);
+          }
+        }
+      } else {
+        // If it's already a Date object, normalize it
+        const year = startDate.getUTCFullYear();
+        const month = startDate.getUTCMonth();
+        const day = startDate.getUTCDate();
+        appointmentDate = new Date(Date.UTC(year, month, day, 0, 0, 0, 0));
+      }
+      
+      // Query for appointments on the same date (using date range)
+      const startOfDay = new Date(appointmentDate);
+      const endOfDay = new Date(Date.UTC(
+        appointmentDate.getUTCFullYear(),
+        appointmentDate.getUTCMonth(),
+        appointmentDate.getUTCDate(),
+        23, 59, 59, 999
+      ));
+      
       const existingAppointment = await Appointment.findOne({
         clinicId,
+        doctorId,
+        startDate: { $gte: startOfDay, $lte: endOfDay },
         $or: [
-          { doctorId, startDate: appointmentDate, fromTime, toTime },
+          { fromTime, toTime },
           {
-            doctorId,
-            startDate: appointmentDate,
             $or: [
               { fromTime: { $gte: fromTime, $lt: toTime } },
               { toTime: { $gt: fromTime, $lte: toTime } },
@@ -293,6 +444,16 @@ export default async function handler(req, res) {
 
       // Create appointment
       console.log("💾 Creating appointment with bookedFrom:", validBookedFrom);
+      // Ensure appointmentDate is normalized to UTC midnight
+      const normalizedAppointmentDate = appointmentDate instanceof Date 
+        ? new Date(Date.UTC(
+            appointmentDate.getUTCFullYear(),
+            appointmentDate.getUTCMonth(),
+            appointmentDate.getUTCDate(),
+            0, 0, 0, 0
+          ))
+        : appointmentDate;
+      
       const appointmentData = {
         clinicId,
         patientId,
@@ -300,7 +461,7 @@ export default async function handler(req, res) {
         roomId,
         status,
         followType,
-        startDate: appointmentDate,
+        startDate: normalizedAppointmentDate,
         fromTime,
         toTime,
         referral: referral || "direct",

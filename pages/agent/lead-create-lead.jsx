@@ -1,7 +1,7 @@
 import React from "react";
 import AgentLayout from "../../components/AgentLayout";
 import withAgentAuth from "../../components/withAgentAuth";
-import { CreateLeadPageBase } from "../lead/create-lead";
+import { CreateLeadPageBase } from "../clinic/create-lead";
 
 const AgentLeadCreateLeadPage = () => {
   return <CreateLeadPageBase />;

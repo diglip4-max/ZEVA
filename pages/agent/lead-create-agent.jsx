@@ -1,7 +1,7 @@
 import React from "react";
 import AgentLayout from "../../components/AgentLayout";
 import withAgentAuth from "../../components/withAgentAuth";
-import { CreateAgentPageBase } from "../lead/create-agent";
+import { CreateAgentPageBase } from "../clinic/create-agent";
 
 const AgentLeadCreateAgentPage = () => {
   return <CreateAgentPageBase />;

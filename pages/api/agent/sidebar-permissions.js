@@ -13,36 +13,35 @@ const formatSlugSegment = (segment = "") =>
     .join("-")
     .replace(/--+/g, "-");
 
-const convertPathToAgent = (path = "", navigationRole = "clinic") => {
+const convertPathToStaff = (path = "", navigationRole = "clinic") => {
   if (!path) return path;
   const trimmed = path.replace(/^\/+/, "");
 
-  if (trimmed.startsWith("agent/")) {
+  if (trimmed.startsWith("staff/")) {
     return `/${trimmed}`;
   }
 
   if (trimmed.startsWith("clinic/")) {
     const relative = trimmed.slice("clinic/".length);
-    return `/agent/clinic-${formatSlugSegment(relative)}`;
+    return `/staff/clinic-${formatSlugSegment(relative)}`;
   }
 
   if (trimmed.startsWith("doctor/")) {
     const relative = trimmed.slice("doctor/".length);
-    return `/agent/doctor-${formatSlugSegment(relative)}`;
+    return `/staff/doctor-${formatSlugSegment(relative)}`;
   }
 
-  if (trimmed.startsWith("staff/")) {
-    const relative = trimmed.slice("staff/".length);
-    const prefix = navigationRole === "doctor" ? "doctor-staff" : "clinic-staff";
-    return `/agent/${prefix}-${formatSlugSegment(relative)}`;
+  if (trimmed.startsWith("agent/")) {
+    const relative = trimmed.slice("agent/".length);
+    return `/staff/${formatSlugSegment(relative)}`;
   }
 
   if (trimmed.startsWith("admin/")) {
     const relative = trimmed.slice("admin/".length);
-    return `/agent/${formatSlugSegment(relative)}`;
+    return `/staff/${formatSlugSegment(relative)}`;
   }
 
-  return `/agent/${formatSlugSegment(trimmed)}`;
+  return `/staff/${formatSlugSegment(trimmed)}`;
 };
 
 export default async function handler(req, res) {
@@ -70,18 +69,18 @@ export default async function handler(req, res) {
         isActive: true 
       }).sort({ order: 1 });
 
-      // Convert paths to agent routes
+      // Convert paths to staff routes
       const convertedItems = navigationItems.map(item => ({
         _id: item._id,
         label: item.label,
-        path: item.path ? convertPathToAgent(item.path, navigationRole) : null,
+        path: item.path ? convertPathToStaff(item.path, navigationRole) : null,
         icon: item.icon,
         description: item.description,
         order: item.order,
         moduleKey: item.moduleKey,
         subModules: (item.subModules || []).map(subModule => ({
           name: subModule.name,
-          path: subModule.path ? convertPathToAgent(subModule.path, navigationRole) : '',
+          path: subModule.path ? convertPathToStaff(subModule.path, navigationRole) : '',
           icon: subModule.icon,
           order: subModule.order
         }))
@@ -238,8 +237,8 @@ export default async function handler(req, res) {
           return null; // Don't show this module if no permissions are granted at module or submodule level
         }
 
-        // Convert path from admin/clinic/doctor/staff routes to agent routes
-        const agentPath = item.path ? convertPathToAgent(item.path, navigationRole) : null;
+        // Convert path from admin/clinic/doctor/staff routes to staff routes
+        const staffPath = item.path ? convertPathToStaff(item.path, navigationRole) : null;
 
         // Convert submodule paths as well
         const convertedSubModules = filteredSubModules.map(subModule => {
@@ -251,7 +250,7 @@ export default async function handler(req, res) {
           
           return {
             name: subModuleName,
-            path: subModulePath ? convertPathToAgent(subModulePath, navigationRole) : '',
+            path: subModulePath ? convertPathToStaff(subModulePath, navigationRole) : '',
             icon: subModuleIcon,
             order: subModuleOrder
           };
@@ -261,7 +260,7 @@ export default async function handler(req, res) {
         return {
           _id: item._id,
           label: item.label,
-          path: agentPath, // Converted to agent route
+          path: staffPath, // Converted to staff route
           icon: item.icon,
           description: item.description,
           order: item.order,
@@ -297,4 +296,3 @@ export default async function handler(req, res) {
     });
   }
 }
-

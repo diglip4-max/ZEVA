@@ -149,7 +149,7 @@ export default async function handler(req, res) {
     let doctors = await DoctorProfile.find(query)
       .populate("user", "name email phone profileImage isApproved")
       .select(
-        "degree experience address location user rating reviews verified consultationFee clinicContact timeSlots treatments photos resumeUrl"
+        "degree experience address location user rating reviews verified consultationFee clinicContact timeSlots treatments photos resumeUrl slug slugLocked"
       )
       // ✅ Use location info for result limits
       .limit(locationInfo.isInternational ? 100 : 50)

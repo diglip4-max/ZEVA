@@ -11,7 +11,7 @@ export default async function handler(req, res) {
   const regex = new RegExp(q, 'i'); // case-insensitive search
 
   const clinics = await Clinic.find({ name: regex })
-    .select('name address treatments pricing timings photos location')
+    .select('name address treatments pricing timings photos location slug slugLocked')
     .limit(10)
     .lean();
 

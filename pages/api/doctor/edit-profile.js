@@ -80,6 +80,15 @@ export default async function handler(req, res) {
     if (!profile)
       return res.status(404).json({ message: "Doctor profile not found" });
 
+    // 🔒 Protect slug if it's locked (SEO stability)
+    // If slug is locked, prevent changes to slug and slugLocked fields
+    if (profile.slugLocked) {
+      // Remove slug and slugLocked from update data to prevent changes
+      delete req.body.slug;
+      delete req.body.slugLocked;
+      console.log("🔒 Slug is locked - preventing slug changes for SEO stability");
+    }
+
     // Update fields
     profile.degree = degree;
     profile.experience = Number(experience);
