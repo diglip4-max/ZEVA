@@ -81,17 +81,33 @@ export default async function handler(req, res) {
         ? req.query.search.trim().toLowerCase()
         : null;
       // Agar ek ya multiple statuses aaye, unko array me convert karo
-      const statuses = req.query.statuses
-        ? Array.isArray(req.query.statuses)
-          ? req.query.statuses
-          : [req.query.statuses]
-        : [];
+      const parseQueryArray = (queryParam) => {
+        if (!queryParam) return [];
 
-      const types = req.query.types
-        ? Array.isArray(req.query.types)
-          ? req.query.types
-          : [req.query.types]
-        : [];
+        try {
+          if (Array.isArray(queryParam)) {
+            return queryParam;
+          }
+
+          // Handle comma-separated string
+          if (typeof queryParam === "string" && queryParam.includes(",")) {
+            return queryParam
+              .split(",")
+              .map((item) => item.trim())
+              .filter(Boolean);
+          }
+
+          // Handle JSON string
+          const parsed = JSON.parse(queryParam);
+          return Array.isArray(parsed) ? parsed : [parsed];
+        } catch (error) {
+          // If JSON parsing fails, treat as single value
+          return [String(queryParam)];
+        }
+      };
+
+      const statuses = parseQueryArray(req.query.statuses);
+      const types = parseQueryArray(req.query.types);
       let query = { clinicId: clinic._id };
 
       if (search) {

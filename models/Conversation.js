@@ -28,6 +28,15 @@ const ConversationSchema = new mongoose.Schema(
         ref: "Message",
       },
     ],
+    tags: [
+      {
+        type: String,
+        lowercase: true,
+        trim: true,
+        minLength: 2,
+        maxLength: 50,
+      },
+    ],
   },
   { timestamps: true }
 );

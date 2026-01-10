@@ -20,18 +20,19 @@ import {
 } from "lucide-react";
 import CreateNewConversation from "./_components/CreateNewConversation";
 import Conversation from "./_components/Conversation";
-import useInbox, { getTagColor, tags } from "@/hooks/useInbox";
+import useInbox, { getTagColor } from "@/hooks/useInbox";
 import NoSelectedConversation from "@/components/NoSelectedConversation";
 import CustomDropdown from "@/components/shared/CustomDropdown";
 import { FaWhatsapp } from "react-icons/fa";
 import TemplatesModal from "./_components/TemplatesModal";
 import Message from "./_components/Message";
 import AttachmentModal from "@/components/shared/AttachmentModal";
-import { getFormatedTime } from "@/lib/helper";
+import { capitalize, getFormatedTime } from "@/lib/helper";
 import WhatsappTimer from "./_components/WhatsappTimer";
 import EmojiPickerModal from "@/components/shared/EmojiPickerModal";
 import CollapsibleWrapper from "@/components/shared/CollapsibleWrapper";
 import AddTagModal from "@/components/modals/AddTagModal";
+import DeleteConversationModal from "./_components/DeleteConversationModal";
 // import EmojiPickerModal from "@/components/shared/EmojiPickerModal";
 
 const InboxPage: NextPageWithLayout = () => {
@@ -53,10 +54,14 @@ const InboxPage: NextPageWithLayout = () => {
     setFilters,
     setShowStatusDropdown,
     setIsAddTagModalOpen,
+    setIsDeleteConversationModalOpen,
     handleSendMessage,
     handleConvScroll,
     handleMsgScroll,
     handleScrollMsgsToBottom,
+    handleDeleteConversation,
+    handleAddTagToConversation,
+    handleRemoveTagFromConversation,
   } = useInbox();
   const {
     conversationRef,
@@ -91,6 +96,9 @@ const InboxPage: NextPageWithLayout = () => {
     currentConvPage,
     isMobileView,
     isAddTagModalOpen,
+    isDeleteConversationModalOpen,
+    isDeletingConversation,
+    isAddingTag,
   } = state;
 
   return (
@@ -694,7 +702,7 @@ const InboxPage: NextPageWithLayout = () => {
                   <button
                     onClick={handleSendMessage}
                     disabled={!message.trim() || !selectedProvider}
-                    className="bg-gradient-to-r from-gray-800 to-gray-900 text-white hover:from-gray-700 hover:to-gray-800 disabled:opacity-50 disabled:cursor-not-allowed p-2.5 rounded-xl font-semibold flex items-center space-x-2 transition-all hover:shadow-md"
+                    className="bg-white text-gray-700 border border-gray-200 disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed p-2.5 rounded-xl font-semibold flex items-center space-x-2 transition-all hover:shadow-md"
                   >
                     <Timer className="h-5 w-5" />
                   </button>
@@ -802,13 +810,17 @@ const InboxPage: NextPageWithLayout = () => {
             }
           >
             <div className="flex flex-wrap gap-2">
-              {tags.map((tag) => {
-                const colorClass = getTagColor(tag);
+              {selectedConversation?.tags?.length === 0 && (
+                <span className="text-sm text-gray-500">No tags added.</span>
+              )}
+              {selectedConversation?.tags?.length > 0 &&
+                selectedConversation?.tags.map((tag) => {
+                  const colorClass = getTagColor(tag);
 
-                return (
-                  <div
-                    key={tag}
-                    className={`
+                  return (
+                    <div
+                      key={tag}
+                      className={`
                 ${colorClass}
                 inline-flex items-center gap-1.5 
                 px-3 py-1.5 
@@ -818,13 +830,20 @@ const InboxPage: NextPageWithLayout = () => {
                 duration-200 
                 group
               `}
-                  >
-                    <span className="text-xs font-medium">{tag}</span>
+                    >
+                      <span className="text-xs font-medium">
+                        {capitalize(tag)}
+                      </span>
 
-                    {/* Remove button */}
-                    <button
-                      onClick={() => {}}
-                      className={`
+                      {/* Remove button */}
+                      <button
+                        onClick={() =>
+                          handleRemoveTagFromConversation(
+                            selectedConversation._id,
+                            tag
+                          )
+                        }
+                        className={`
                   opacity-0 hidden group-hover:opacity-100
                   group-hover:inline-flex
                   transition-opacity duration-200
@@ -834,15 +853,38 @@ const InboxPage: NextPageWithLayout = () => {
                   cursor-pointer
                   focus:outline-none focus:ring-1 focus:ring-current
                 `}
-                      aria-label={`Remove ${tag} tag`}
-                    >
-                      <X size={12} />
-                    </button>
-                  </div>
-                );
-              })}
+                        aria-label={`Remove ${tag} tag`}
+                      >
+                        <X size={12} />
+                      </button>
+                    </div>
+                  );
+                })}
             </div>
           </CollapsibleWrapper>
+
+          {/* Action Buttons */}
+          <div className="p-3">
+            <button
+              onClick={() => setIsDeleteConversationModalOpen(true)}
+              className="group relative w-full bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-medium rounded-xl cursor-pointer py-2.5 px-4 text-center transition-all duration-300 ease-in-out shadow-md hover:shadow-lg hover:shadow-red-200 active:scale-[0.98] active:shadow-md border border-red-400/20 text-sm flex items-center justify-center gap-2"
+            >
+              <svg
+                className="w-4 h-4 mb-0.5 transition-transform group-hover:scale-110"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                />
+              </svg>
+              Delete Conversation
+            </button>
+          </div>
         </div>
       )}
 
@@ -850,12 +892,21 @@ const InboxPage: NextPageWithLayout = () => {
       <AddTagModal
         isOpen={isAddTagModalOpen}
         onClose={() => setIsAddTagModalOpen(false)}
-        onComplete={(tag) => console.log("Tag added:", tag)}
-        token={"your-auth-token"}
-        conversationId="conv-123"
-        conversationTitle="Customer Support Query"
-        conversationType="chat"
-        existingTags={["urgent", "billing"]}
+        conversationId={selectedConversation?._id!}
+        conversationTitle={selectedConversation?.leadId?.name || ""}
+        conversationType="conversational"
+        existingTags={selectedConversation?.tags || []}
+        handleAddTagToConversation={handleAddTagToConversation}
+        loading={isAddingTag}
+      />
+
+      {/* Delete Conversation Modal */}
+      <DeleteConversationModal
+        isOpen={isDeleteConversationModalOpen}
+        onClose={() => setIsDeleteConversationModalOpen(false)}
+        onConfirm={() => handleDeleteConversation(selectedConversation?._id!)}
+        conversation={selectedConversation!}
+        loading={isDeletingConversation}
       />
     </div>
   );

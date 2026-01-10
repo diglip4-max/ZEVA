@@ -161,8 +161,6 @@ const EmojiPickerModal: React.FC<EmojiPickerModalProps> = ({
     } else {
       if (setValue) setValue((prev: string) => prev + emojiChar);
     }
-
-    setIsOpen(false);
   };
 
   const getPositionClasses = () => {

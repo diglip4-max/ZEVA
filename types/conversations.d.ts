@@ -7,6 +7,7 @@ export type ConversationType = {
   status: "open" | "closed" | "trashed" | "blocked" | "archived";
   recentMessage: Message;
   unreadMessages: string[];
+  tags: string[];
   createdAt: string;
   updatedAt: string;
 };

@@ -14,6 +14,7 @@ import {
 import debounce from "lodash.debounce";
 import { io, Socket } from "socket.io-client";
 import { jwtDecode } from "jwt-decode";
+import useAgents from "./useAgents";
 
 export type VariableType = {
   type: "text";
@@ -62,6 +63,7 @@ let socket: Socket | null = null;
 const useInbox = () => {
   const { providers } = useProvider();
   const { templates } = useTemplate();
+  const agents = useAgents()?.state?.agents || [];
   const [_userId, setUserId] = useState<string | null>(null);
   const [fetchConvLoading, setFetchConvLoading] = useState<boolean>(true);
   const [conversations, setConversations] = useState<IState["conversations"]>(
@@ -121,6 +123,12 @@ const useInbox = () => {
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
   const [isMobileView, setIsMobileView] = useState<boolean>(false);
   const [isAddTagModalOpen, setIsAddTagModalOpen] = useState<boolean>(false);
+  const [isDeleteConversationModalOpen, setIsDeleteConversationModalOpen] =
+    useState<boolean>(false);
+  const [isDeletingConversation, setIsDeletingConversation] =
+    useState<boolean>(false);
+
+  const [isAddingTag, setIsAddingTag] = useState<boolean>(false);
   const statusDropdownRef = React.useRef<HTMLDivElement | null>(null);
   const statusBtnRef = React.useRef<HTMLButtonElement | null>(null);
 
@@ -509,6 +517,105 @@ const useInbox = () => {
     }
   }, [selectedConversation]);
 
+  const handleDeleteConversation = async (conversationId: string) => {
+    if (!token) return;
+    try {
+      setIsDeletingConversation(true);
+      const { data } = await axios.delete(
+        `/api/conversations/delete-conversation/${conversationId}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+      if (data && data?.success) {
+        // Remove conversation from state
+        const updatedConversations = conversations.filter(
+          (conv) => conv._id !== conversationId
+        );
+        setConversations(updatedConversations);
+        setSelectedConversation(null);
+        setIsDeleteConversationModalOpen(false);
+        setTotalConversations((prev) => prev - 1);
+        toast.success("Conversation deleted successfully");
+      }
+    } catch (error) {
+      handleError(error);
+    } finally {
+      setIsDeletingConversation(false);
+    }
+  };
+
+  const handleAddTagToConversation = async (
+    conversationId: string,
+    tag: string
+  ) => {
+    if (!token) return;
+    try {
+      setIsAddingTag(true);
+      const { data } = await axios.post(
+        `/api/conversations/add-tags/${conversationId}`,
+        { tags: [tag] },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      if (data && data?.success) {
+        // Update conversation in state
+        const updatedConversations = conversations.map((conv) =>
+          conv._id === conversationId
+            ? { ...conv, tags: data?.data?.tags || [] }
+            : conv
+        );
+        console.log(
+          "Updated Conversations after adding tag:",
+          updatedConversations
+        );
+        setSelectedConversation((prev) =>
+          prev && prev._id === conversationId
+            ? { ...prev, tags: data?.data?.tags || [] }
+            : prev
+        );
+        console.log({ t: data?.data?.tags });
+        setConversations(updatedConversations);
+        setIsAddTagModalOpen(false);
+        toast.success("Tag added successfully");
+      }
+    } catch (error) {
+      handleError(error);
+    } finally {
+      setIsAddingTag(false);
+    }
+  };
+
+  const handleRemoveTagFromConversation = async (
+    conversationId: string,
+    tag: string
+  ) => {
+    if (!token) return;
+    try {
+      const { data } = await axios.post(
+        `/api/conversations/remove-tag/${conversationId}`,
+        { tag: tag },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      if (data && data?.success) {
+        // Update conversation in state
+        const updatedConversations = conversations.map((conv) =>
+          conv._id === conversationId
+            ? { ...conv, tags: data?.data?.tags || [] }
+            : conv
+        );
+        setSelectedConversation((prev) =>
+          prev && prev._id === conversationId
+            ? { ...prev, tags: data?.data?.tags || [] }
+            : prev
+        );
+        setConversations(updatedConversations);
+        toast.success("Tag removed successfully");
+      }
+    } catch (error) {
+      handleError(error);
+    }
+  };
+
   // Check viewport on mount and window resize
   useEffect(() => {
     const checkMobileView = () => {
@@ -732,6 +839,10 @@ const useInbox = () => {
     statusBtnRef,
     isMobileView,
     isAddTagModalOpen,
+    isDeleteConversationModalOpen,
+    isDeletingConversation,
+    isAddingTag,
+    agents,
   };
 
   return {
@@ -757,6 +868,9 @@ const useInbox = () => {
     setShowStatusDropdown,
     setIsMobileView,
     setIsAddTagModalOpen,
+    setIsDeleteConversationModalOpen,
+    setIsDeletingConversation,
+    setIsAddingTag,
     fetchConversations,
     fetchMessages,
     handleSendMessage,
@@ -764,6 +878,9 @@ const useInbox = () => {
     handleConvScroll,
     handleMsgScroll,
     handleScrollMsgsToBottom,
+    handleDeleteConversation,
+    handleAddTagToConversation,
+    handleRemoveTagFromConversation,
   };
 };
 

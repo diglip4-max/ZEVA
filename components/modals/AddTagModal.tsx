@@ -1,31 +1,31 @@
-import axios from "axios";
 import clsx from "clsx";
 import React, { useEffect, useState } from "react";
-import toast from "react-hot-toast";
 import { X, Tag, MessageSquare } from "lucide-react";
 
 interface IProps {
   isOpen: boolean;
   onClose: () => void;
-  onComplete: (tag: any) => void;
-  token: string;
   conversationId?: string;
   conversationTitle?: string;
   conversationType?: string;
   existingTags?: string[];
+  handleAddTagToConversation: (
+    conversationId: string,
+    tag: string
+  ) => Promise<void>;
+  loading: boolean;
 }
 
 const AddTagModal: React.FC<IProps> = ({
   isOpen,
   onClose,
-  onComplete,
-  token,
   conversationId,
   conversationTitle = "Untitled Conversation",
   conversationType = "chat",
   existingTags = [],
+  handleAddTagToConversation,
+  loading = false,
 }) => {
-  const [loading, setLoading] = useState<boolean>(false);
   const [tagName, setTagName] = useState<string>("");
 
   // Example tags based on conversation context
@@ -60,54 +60,6 @@ const AddTagModal: React.FC<IProps> = ({
 
   const resetModal = () => {
     setTagName("");
-    setLoading(false);
-  };
-
-  const handleAddTag = async () => {
-    if (!tagName?.trim()) {
-      toast.error("Tag name is required");
-      return;
-    }
-
-    // Check for duplicate tag names
-    if (existingTags.includes(tagName.trim().toLowerCase())) {
-      toast.error("This tag already exists on this conversation");
-      return;
-    }
-
-    try {
-      setLoading(true);
-      const { data } = await axios.post(
-        "/api/conversations/tags/add",
-        {
-          tagName: tagName.trim(),
-          conversationId,
-          conversationTitle,
-          conversationType,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      if (data && data?.success) {
-        toast.success("Tag added successfully");
-        if (onComplete) onComplete(data?.tag || null);
-        onClose();
-      } else {
-        toast.error(data?.message || "Failed to add tag");
-      }
-    } catch (error: any) {
-      console.log("Error in adding tag: ", error);
-      toast.error(
-        error.response?.data?.message || error.message || "Failed to add tag"
-      );
-    } finally {
-      setLoading(false);
-    }
   };
 
   // Don't render if not open
@@ -321,7 +273,9 @@ const AddTagModal: React.FC<IProps> = ({
             Cancel
           </button>
           <button
-            onClick={handleAddTag}
+            onClick={() =>
+              handleAddTagToConversation(conversationId!, tagName.trim())
+            }
             disabled={!tagName?.trim() || loading}
             className={clsx(
               "px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors",

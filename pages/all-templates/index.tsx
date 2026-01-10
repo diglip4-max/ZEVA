@@ -70,12 +70,13 @@ const TemplatesPage: NextPageWithLayout = () => {
           page: currentPage,
           limit: templatesPerPage,
           search: searchQuery,
-          statuses: filterStatus === "all" ? [] : [filterStatus],
-          types: filterType === "all" ? [] : [filterType],
+          statuses: JSON.stringify(
+            filterStatus === "all" ? [] : [filterStatus]
+          ),
+          types: JSON.stringify(filterType === "all" ? [] : [filterType]),
         },
         headers: { Authorization: `Bearer ${token}` },
       });
-      console.log({ filterStatus, filterType });
       if (res?.data?.success) {
         setTemplates(res?.data?.templates || []);
         setTotalPages(res?.data?.pagination?.totalPages || 1);
