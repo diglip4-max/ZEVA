@@ -25,6 +25,7 @@ interface BlogDoc {
   content: string;
   status: "draft" | "published";
   paramlink: string;
+  slugLocked?: boolean;
   postedBy: {
     _id: string;
     name: string;
@@ -1597,31 +1598,15 @@ export const getServerSideProps: GetServerSideProps<BlogDetailProps> = async ({
     const { id } = params as { id: string };
     await dbConnect();
 
-    // Helper: extract full MongoDB ObjectId from slug
-    // Format: blog-title-abc12345def67890 (title + full 24-char ID at the end)
-    const extractJobIdFromSlug = (slug: string): string | null => {
-      if (!slug) return null;
-      // MongoDB ObjectId is 24 hex characters
-      const objectIdPattern = /([a-f0-9]{24})$/i;
-      const match = slug.match(objectIdPattern);
-      return match ? match[1] : null;
-    };
-
     let blogDoc: BlogDoc | null = null;
-    const extractedId = extractJobIdFromSlug(id);
-
-    // OPTIMIZED APPROACH: Extract ID from slug and query directly
-    if (extractedId) {
-      console.log("⚡ Using optimized lookup by ID from slug:", extractedId);
-      // Direct database lookup by ID - FASTEST and most efficient
-      blogDoc = await BlogModel.findOne({ _id: extractedId, status: "published" })
+    
+    // PRIORITY 1: Try to find by paramlink (slug) first - this is the primary method
+    blogDoc = await BlogModel.findOne({ paramlink: id, status: "published" })
         .populate("postedBy", "name _id")
         .lean<BlogDoc>();
-    }
 
-    // If not found by extracted ID, try other methods (backward compatibility)
+    // PRIORITY 2: If not found by slug, check if it's a MongoDB ObjectId
     if (!blogDoc) {
-      // Check if it's a direct MongoDB ObjectId (24 hex characters)
       const isObjectId = /^[a-f0-9]{24}$/i.test(id);
       
       if (isObjectId) {
@@ -1629,11 +1614,38 @@ export const getServerSideProps: GetServerSideProps<BlogDetailProps> = async ({
         blogDoc = await BlogModel.findById(id)
           .populate("postedBy", "name _id")
           .lean<BlogDoc>();
+        
+        // If blog found by ID and has a slug, redirect to slug-based URL
+        if (blogDoc && blogDoc.paramlink && blogDoc.slugLocked) {
+          return {
+            redirect: {
+              destination: `/blogs/${blogDoc.paramlink}`,
+              permanent: true, // 301 redirect
+            },
+          };
+        }
       } else {
-        // Try to find by paramlink (legacy support)
-        blogDoc = await BlogModel.findOne({ paramlink: id, status: "published" })
+        // PRIORITY 3: Try extracting ID from slug format (backward compatibility)
+        // Format: blog-title-abc12345def67890 (title + full 24-char ID at the end)
+        const objectIdPattern = /([a-f0-9]{24})$/i;
+        const match = id.match(objectIdPattern);
+        const extractedId = match ? match[1] : null;
+        
+        if (extractedId) {
+          blogDoc = await BlogModel.findOne({ _id: extractedId, status: "published" })
           .populate("postedBy", "name _id")
           .lean<BlogDoc>();
+          
+          // If blog found and has a slug, redirect to slug-based URL
+          if (blogDoc && blogDoc.paramlink && blogDoc.slugLocked) {
+            return {
+              redirect: {
+                destination: `/blogs/${blogDoc.paramlink}`,
+                permanent: true, // 301 redirect
+              },
+            };
+          }
+        }
       }
     }
     

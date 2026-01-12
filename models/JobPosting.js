@@ -130,7 +130,14 @@ const JobPostingSchema = new mongoose.Schema({
     enum: ['pending', 'approved', 'declined'],
     default: 'pending',
   },
-  isActive: { type: Boolean, default: true }
+  isActive: { type: Boolean, default: true },
+  slug: {
+    type: String,
+    unique: true,
+    sparse: true, // Only unique when exists
+    index: true,
+  },
+  slugLocked: { type: Boolean, default: false }, // Lock slug once approved
 }, { timestamps: true });
 
 delete mongoose.models.JobPosting;

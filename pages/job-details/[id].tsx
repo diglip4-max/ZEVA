@@ -78,80 +78,79 @@ const JobDetail: React.FC = () => {
       const isObjectId = /^[a-f0-9]{24}$/i.test(id);
       
       if (isObjectId) {
-        // Old URL format with ID - fetch directly by ID
-        console.log("🔍 Detected ObjectId, fetching by ID:", id);
+        // Old URL format with ID - redirect to slug-based URL if available
+        console.log("🔍 Detected ObjectId, checking for slug redirect:", id);
         axios
-          .get<{ jobs: Job[] }>(`/api/job-postings/all?jobId=${id}`)
+          .get(`/api/jobs/redirect/${id}`)
+          .then(() => {
+            // Redirect API will handle the redirect
+            // If no redirect happens, fetch by ID as fallback
+            return axios.get<{ jobs: Job[] }>(`/api/job-postings/all?jobId=${id}`);
+          })
           .then((res) => {
-            if (res.data.jobs && res.data.jobs.length > 0) {
-              setJob(res.data.jobs[0]);
+            if (res?.data?.jobs && res.data.jobs.length > 0) {
+              const job = res.data.jobs[0];
+              // If job has slug, redirect to slug URL
+              if (job.slug && job.slugLocked) {
+                router.replace(`/job-details/${job.slug}`, undefined, { shallow: false });
+                return;
+              }
+              setJob(job);
             } else {
-              // If not found, try searching by slug
-              searchJobBySlug(id);
+              router.push('/job-listings');
             }
           })
           .catch(() => {
-            // If error, try searching by slug
-            searchJobBySlug(id);
+            router.push('/job-listings');
           });
       } else {
-        // New URL format with slug - search by job title
-        searchJobBySlug(id);
+        // New URL format with slug - fetch by slug
+        fetchJobBySlug(id);
       }
     }
   }, [id]);
 
-  const searchJobBySlug = async (slug: string) => {
-    console.log("🔍 Searching job by slug (optimized):", slug);
+  const fetchJobBySlug = async (slug: string) => {
+    console.log("🔍 Fetching job by slug:", slug);
     
-    // OPTIMIZED APPROACH: Extract full ID from slug and query directly
-    const jobId = extractJobIdFromSlug(slug);
-    
-    if (jobId) {
-      // Direct database lookup by ID - FASTEST and most efficient
-      console.log("⚡ Using optimized lookup by ID:", jobId);
-      try {
-        const res = await axios.get<{ jobs: Job[] }>(`/api/job-postings/all?jobId=${jobId}`);
-        
-        if (res.data.jobs && res.data.jobs.length > 0) {
-          const foundJob = res.data.jobs[0];
-          console.log("✅ Found job by ID (optimized):", foundJob.jobTitle);
-          setJob(foundJob);
-          return;
-        } else {
-          console.error("❌ Job not found for ID:", jobId);
-          router.push('/job-listings');
-          return;
-        }
-      } catch (error) {
-        console.error("Error fetching job by ID:", error);
+    try {
+      // Use the new slug-based API
+      const res = await axios.get<{ success: boolean; job: Job }>(`/api/jobs/by-slug/${slug}`);
+      
+      if (res.data.success && res.data.job) {
+        console.log("✅ Found job by slug:", res.data.job.jobTitle);
+        setJob(res.data.job);
+      } else {
+        console.error("❌ Job not found for slug:", slug);
         router.push('/job-listings');
-        return;
+      }
+    } catch (error: any) {
+      console.error("Error fetching job by slug:", error);
+      // If slug API fails, try fallback to ID extraction (for backward compatibility)
+      const jobId = extractJobIdFromSlug(slug);
+      if (jobId) {
+        try {
+          const res = await axios.get<{ jobs: Job[] }>(`/api/job-postings/all?jobId=${jobId}`);
+          if (res.data.jobs && res.data.jobs.length > 0) {
+            const foundJob = res.data.jobs[0];
+            console.log("✅ Found job by ID (fallback):", foundJob.jobTitle);
+            // If job has slug, redirect to slug URL
+            if (foundJob.slug && foundJob.slugLocked) {
+              router.replace(`/job-details/${foundJob.slug}`, undefined, { shallow: false });
+              return;
+            }
+            setJob(foundJob);
+          } else {
+            router.push('/job-listings');
+          }
+        } catch (fallbackError) {
+          router.push('/job-listings');
+        }
+      } else {
+        router.push('/job-listings');
       }
     }
-    
-    // Fallback: If no ID found in slug, try title-based search (backward compatibility)
-    console.log("⚠️ No ID in slug, falling back to title search");
-    try {
-      const res = await axios.get<{ jobs: Job[] }>(`/api/job-postings/all`);
-      const allJobs = res.data.jobs || [];
-      
-      // Extract title part from slug (everything before the ID part)
-      const titlePart = slug.replace(/-[a-f0-9]{24}$/i, '').replace(/-+$/, '');
-      
-      const foundJob = allJobs.find(job => {
-        if (!job.jobTitle) return false;
-        const jobTitleSlug = job.jobTitle
-          .toLowerCase()
-          .trim()
-          .replace(/[^\w\s-]/g, "")
-          .replace(/\s+/g, "-")
-          .replace(/-+/g, "-");
-        return jobTitleSlug === titlePart;
-      });
-      
-      if (foundJob) {
-        console.log("✅ Found job by title (fallback):", foundJob.jobTitle);
+  };
         setJob(foundJob);
       } else {
         console.error("❌ Job not found for slug:", slug);

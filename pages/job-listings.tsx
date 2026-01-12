@@ -16,6 +16,8 @@ type Job = {
   department?: string;
   experience?: string;
   jobTitle?: string;
+  slug?: string;
+  slugLocked?: boolean;
 };
 
 type Filters = {
@@ -659,7 +661,10 @@ const AllJobs: React.FC = () => {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {currentJobs.map((job) => {
-                  const jobSlug = createJobSlug(job.jobTitle || "", job._id);
+                  // Use database slug if available and locked, otherwise fallback to generated slug
+                  const jobSlug = (job.slug && job.slugLocked) 
+                    ? job.slug 
+                    : createJobSlug(job.jobTitle || "", job._id);
                   return (
                     <Link key={job._id} href={`/job-details/${jobSlug}`} className="block">
                     <div className="bg-white border border-gray-200 rounded-xl p-6 hover:border-teal-800 hover:shadow-lg transition-all duration-200 group h-full flex flex-col">

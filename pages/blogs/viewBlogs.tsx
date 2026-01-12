@@ -20,6 +20,8 @@ type Blog = {
   likesCount?: number;
   commentsCount?: number;
   liked?: boolean;
+  paramlink?: string;
+  slugLocked?: boolean;
 };
 
 export default function BlogList() {
@@ -273,7 +275,15 @@ export default function BlogList() {
 
   // Helper: create SEO-friendly slug from blog title with full ID
   // Format: blog-title-abc12345def67890 (title slug + full 24-char ID)
-  const createBlogSlug = (blogTitle: string, blogId: string): string => {
+  const createBlogSlug = (blog: Blog): string => {
+    // Use database paramlink if available and locked, otherwise generate from title
+    if (blog.paramlink && blog.slugLocked) {
+      return blog.paramlink;
+    }
+    
+    // Fallback: generate slug from title and ID
+    const blogTitle = blog.title || '';
+    const blogId = blog._id || '';
     if (!blogTitle) return blogId; // Fallback to ID if no title
     
     const titleSlug = blogTitle
@@ -636,7 +646,7 @@ return (
                                 onClick={(e) => {
                                   e.preventDefault();
                                   e.stopPropagation();
-                                  router.push(`/blogs/${createBlogSlug(blog.title, blog._id)}`);
+                                  router.push(`/blogs/${createBlogSlug(blog)}`);
                                 }}
                                 className="flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-gray-100 text-gray-600 hover:bg-blue-50 hover:text-blue-600 transition-all"
                               >
@@ -648,7 +658,7 @@ return (
                               </button>
                             </div>
 
-                            <Link href={`/blogs/${createBlogSlug(blog.title, blog._id)}`}>
+                            <Link href={`/blogs/${createBlogSlug(blog)}`}>
                               <button className="inline-flex items-center gap-1 px-3 py-1 bg-indigo-600 text-white font-medium rounded-md hover:bg-indigo-700 transition-all text-xs cursor-pointer">
                                 Read
                                 <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -777,7 +787,7 @@ return (
                     !trendingBlog.image.includes('video') ? trendingBlog.image : null);
 
                 return (
-                  <Link key={trendingBlog._id} href={`/blogs/${createBlogSlug(trendingBlog.title, trendingBlog._id)}`}>
+                  <Link key={trendingBlog._id} href={`/blogs/${createBlogSlug(trendingBlog)}`}>
                     <div className="flex gap-3 group cursor-pointer">
                       <div className="w-16 h-16 flex-shrink-0 bg-gray-100 rounded-md overflow-hidden">
                         {trendingImage ? (

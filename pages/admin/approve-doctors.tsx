@@ -31,6 +31,8 @@ interface Doctor {
   experience: number;
   address: string;
   resumeUrl: string;
+  slug?: string;
+  slugLocked?: boolean;
   treatments: Array<{
     mainTreatment: string;
     mainTreatmentSlug: string;
@@ -298,10 +300,17 @@ function AdminDoctors() {
         }
       }
 
-      await axios.post("/api/admin/action", { userId, action }, {
+      const response = await axios.post("/api/admin/action", { userId, action }, {
         headers: { Authorization: `Bearer ${token}` }
       });
+      
+      // Enhanced success message for approval
+      if (action === "approve") {
+        showToast(`Doctor approved successfully. SEO pipeline initiated.`, 'success');
+      } else {
       showToast(`Doctor ${action}d successfully`, 'success');
+      }
+      
       fetchDoctors();
     } catch (err: any) {
       console.error("Error:", err);
@@ -575,12 +584,22 @@ function AdminDoctors() {
           </div>
           <div className="flex items-center justify-between text-xs text-slate-500">
             <span>{doctor.experience} yrs exp.</span>
+            <div className="flex items-center gap-2">
+              {doctor.user.isApproved && doctor.slugLocked && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2 py-1 text-[10px] font-semibold text-green-700 border border-green-200" title="SEO optimized">
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  SEO Ready
+                </span>
+              )}
             <button
               onClick={() => setDetailDoctor(doctor)}
               className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600 hover:border-slate-300 hover:text-slate-900"
             >
               View info
             </button>
+            </div>
           </div>
           <div className="flex flex-wrap gap-2 border-t border-slate-100 pt-4">
             {actions.map((action) => (

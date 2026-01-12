@@ -33,7 +33,7 @@ export default async function handler(req, res) {
     // Get filter parameters from query
     const { search, jobType, location, department, salaryMin, salaryMax } = req.query;
     
-    console.log('🔍 API called with filters:', { search, jobType, location, department, salaryMin, salaryMax });
+    // console.log('🔍 API called with filters:', { search, jobType, location, department, salaryMin, salaryMax });
 
     // Build filter object for each status
     const buildFilter = (status) => {
@@ -67,9 +67,9 @@ export default async function handler(req, res) {
     };
 
     // Fetch jobs grouped by status with filters
-    const pendingJobs = await JobPosting.find(buildFilter('pending')).populate('postedBy', 'name email role');
-    const approvedJobs = await JobPosting.find(buildFilter('approved')).populate('postedBy', 'name email role');
-    const declinedJobs = await JobPosting.find(buildFilter('declined')).populate('postedBy', 'name email role');
+    const pendingJobs = await JobPosting.find(buildFilter('pending')).populate('postedBy', 'name email role').select('+slug +slugLocked');
+    const approvedJobs = await JobPosting.find(buildFilter('approved')).populate('postedBy', 'name email role').select('+slug +slugLocked');
+    const declinedJobs = await JobPosting.find(buildFilter('declined')).populate('postedBy', 'name email role').select('+slug +slugLocked');
 
     // Apply salary filter in memory (since salary is stored as string)
     const filterBySalary = (jobs) => {
