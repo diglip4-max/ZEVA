@@ -71,7 +71,7 @@ const SmsSender = () => {
 
       try {
         setPermissionsLoaded(false);
-        const token = 
+        const token =
           localStorage.getItem("clinicToken") ||
           sessionStorage.getItem("clinicToken") ||
           localStorage.getItem("agentToken") ||
@@ -80,7 +80,7 @@ const SmsSender = () => {
           sessionStorage.getItem("userToken") ||
           localStorage.getItem("doctorToken") ||
           sessionStorage.getItem("doctorToken");
-        
+
         if (!token) {
           setPermissions({
             canCreate: false,
@@ -186,8 +186,8 @@ const SmsSender = () => {
   const creditBadgeClass = walletLoading
     ? "border-slate-200 bg-slate-50 text-slate-500"
     : isWalletLow
-    ? "border-rose-200 bg-rose-50 text-rose-700 animate-pulse"
-    : "border-emerald-200 bg-emerald-50 text-emerald-700";
+      ? "border-rose-200 bg-rose-50 text-rose-700 animate-pulse"
+      : "border-emerald-200 bg-emerald-50 text-emerald-700";
 
   const extractRecipients = () =>
     numbersInput
@@ -351,21 +351,21 @@ const SmsSender = () => {
         },
       };
 
-    const res = await axios.post("/api/marketing/sms-send", payload, {
+      const res = await axios.post("/api/marketing/sms-send", payload, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-    if (res.data.success) {
+      if (res.data.success) {
         setStatus("✅ Messages queued successfully.");
         setResults(res.data.data || []);
         // Update wallet balance locally
         setWallet((prev) =>
           prev
             ? {
-                ...prev,
+              ...prev,
               balance: Math.max(prev.balance - creditsNeeded, 0),
               totalSent: (prev.totalSent || 0) + creditsNeeded,
-              }
+            }
             : prev
         );
       } else {
@@ -468,11 +468,10 @@ const SmsSender = () => {
                       key={id}
                       disabled={disabled}
                       onClick={() => setAddMethod(id)}
-                      className={`px-3 py-2 rounded-lg text-xs sm:text-sm font-medium border transition-colors ${
-                        addMethod === id 
-                          ? "bg-gray-800 text-white border-gray-800 shadow-sm" 
+                      className={`px-3 py-2 rounded-lg text-xs sm:text-sm font-medium border transition-colors ${addMethod === id
+                          ? "bg-gray-800 text-white border-gray-800 shadow-sm"
                           : "bg-white text-gray-700 border-gray-200 hover:border-gray-800"
-                      } ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
+                        } ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
                     >
                       {label}
                     </button>
@@ -550,11 +549,10 @@ const SmsSender = () => {
                       key={id}
                       disabled={disabled}
                       onClick={() => setMessageMode(id)}
-                      className={`w-full text-left px-3 py-2 rounded-lg border text-xs sm:text-sm font-medium transition-colors ${
-                        messageMode === id 
-                          ? "border-gray-800 bg-gray-800 text-white" 
+                      className={`w-full text-left px-3 py-2 rounded-lg border text-xs sm:text-sm font-medium transition-colors ${messageMode === id
+                          ? "border-gray-800 bg-gray-800 text-white"
                           : "border-gray-200 text-gray-700 hover:border-gray-800"
-                      } ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
+                        } ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
                     >
                       {label}
                     </button>
@@ -694,11 +692,10 @@ const SmsSender = () => {
             {/* Status & Results */}
             {status && (
               <div
-                className={`border rounded-lg px-3 py-2.5 text-xs sm:text-sm ${
-                  status.includes("✅") 
-                    ? "border-green-200 bg-green-50 text-green-800" 
+                className={`border rounded-lg px-3 py-2.5 text-xs sm:text-sm ${status.includes("✅")
+                    ? "border-green-200 bg-green-50 text-green-800"
                     : "border-red-200 bg-red-50 text-red-700"
-                }`}
+                  }`}
               >
                 {status}
               </div>
@@ -713,11 +710,10 @@ const SmsSender = () => {
                       <span className="font-mono text-xs">{item.to}</span>
                       <div className="flex items-center gap-2">
                         <span
-                          className={`text-xs font-semibold px-2 py-1 rounded-full ${
-                            item.status === "success" || item.status === "queued" 
-                              ? "bg-green-100 text-green-700" 
+                          className={`text-xs font-semibold px-2 py-1 rounded-full ${item.status === "success" || item.status === "queued"
+                              ? "bg-green-100 text-green-700"
                               : "bg-red-100 text-red-700"
-                          }`}
+                            }`}
                         >
                           {item.status}
                         </span>

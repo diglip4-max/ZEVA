@@ -160,8 +160,8 @@ export default async function handler(req, res) {
         };
       }
       if (segmentId) {
-        filter.segments = { $in: [segmentId] };
         // This finds leads where segments array contains the segmentId
+        filter.segments = { $in: [segmentId] };
       }
 
       // Pagination defaults & sanitization
@@ -181,6 +181,7 @@ export default async function handler(req, res) {
       const leads = await Lead.find(filter)
         .skip(skip)
         .limit(limit)
+        .sort({ createdAt: -1 })
         .populate({
           path: "treatments.treatment",
           model: "Treatment",

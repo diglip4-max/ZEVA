@@ -9,8 +9,19 @@ import {
   clearCheckpoint,
 } from "./checkpoint.js";
 import dbConnect from "../lib/database.js";
+import axios from "axios";
+import Template from "../models/Template.js";
+import { handleWhatsappSendMessage } from "../services/whatsapp.js";
+import Message from "../models/Message.js";
 
 console.log("📌 Import Leads Worker Started...");
+dbConnect()
+  .then(() => {
+    console.log("✅ Database connected for All Workers");
+  })
+  .catch((err) => {
+    console.error("❌ Database connection error for Import Leads Worker:", err);
+  });
 
 const importLeadsFromFileWorker = new Worker(
   "importLeadsFromFileQueue",
@@ -23,8 +34,6 @@ const importLeadsFromFileWorker = new Worker(
     const BATCH_SIZE = 500;
 
     try {
-      await dbConnect();
-
       // Validate segmentId if provided
       let segment = null;
       if (segmentId) {
@@ -173,5 +182,176 @@ importLeadsFromFileWorker.on("completed", (job, returnValue) => {
 });
 
 importLeadsFromFileWorker.on("failed", (job, err) => {
+  console.error(`❌ Job ${job?.id} failed:`, err.message);
+});
+
+const whatsappTemplateWorker = new Worker(
+  "whatsappTemplateQueue",
+  async (job) => {
+    console.log("Processing WhatsApp sync templates job: ", job.data);
+
+    const { accessToken, wabaId, providerId, clinicId } = job.data;
+    let url = `https://graph.facebook.com/v19.0/${wabaId}/message_templates?limit=25`;
+
+    try {
+      // ensure DB connection before performing any Template queries
+
+      while (url) {
+        const response = await axios.get(url, {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+
+        if (response.data?.data?.length) {
+          const templates = response.data.data;
+
+          const templatesData = [];
+
+          for (const item of templates) {
+            const templateId = item.id;
+            const components = item.components || [];
+
+            let content = "";
+            let variables = [];
+            let isHeader = false;
+            let isFooter = false;
+            let isButton = false;
+            let headerType = "text";
+            let headerText = "";
+            let headerVariables = [];
+            let headerVariableSampleValues = [];
+            let bodyVariableSampleValues = [];
+            let headerFileUrl = "";
+            let footer = "";
+            let templateButtons = [];
+
+            for (const temp of components) {
+              if (temp.type === "HEADER") {
+                isHeader = true;
+                if (temp.format === "TEXT") {
+                  headerText = temp.text;
+                  headerType = "text";
+                  const regex = /\{\{\d+\}\}/;
+                  if (regex.test(headerText)) {
+                    headerVariables = ["{{1}}"];
+                    headerVariableSampleValues = ["{{1}}"];
+                  }
+                } else {
+                  headerType = temp.format.toLowerCase();
+                  headerFileUrl = temp.example?.header_handle?.[0] || "";
+                }
+              } else if (temp.type === "BODY") {
+                content = temp.text;
+                variables = (temp.example?.body_text || []).map(
+                  (_, index) => `{{${index + 1}}}`
+                );
+                bodyVariableSampleValues = variables;
+              } else if (temp.type === "FOOTER") {
+                isFooter = true;
+                footer = temp.text;
+              } else if (temp.type === "BUTTONS") {
+                isButton = true;
+                templateButtons = temp.buttons || [];
+              }
+            }
+
+            templatesData.push({
+              clinicId,
+              templateId,
+              templateType: "whatsapp",
+              provider: providerId,
+              name: item.name,
+              uniqueName: item.name || "",
+              category: item.category?.toLowerCase() || "",
+              language: item.language,
+              status: item.status?.toLowerCase(),
+              content,
+              variables,
+              isHeader,
+              headerType,
+              headerText,
+              headerVariables,
+              headerVariableSampleValues,
+              bodyVariableSampleValues,
+              headerFileUrl,
+              isFooter,
+              footer,
+              isButton,
+              templateButtons,
+            });
+          }
+
+          // **Filter out duplicates before inserting**
+          const filteredTemplates = [];
+          for (const template of templatesData) {
+            const exists = await Template.exists({
+              templateId: template.templateId,
+            });
+            if (!exists) {
+              filteredTemplates.push(template);
+            }
+          }
+
+          if (filteredTemplates.length > 0) {
+            await Template.insertMany(filteredTemplates);
+          }
+          console.log("Syncing whatsapp templates batch...");
+        }
+
+        // Get next page if available
+        url = response.data.paging?.next || null;
+      }
+      console.log("Syncing whatsapp template completed.");
+    } catch (error) {
+      console.error(
+        "Error fetching templates:",
+        error.response?.data || error.message
+      );
+    }
+  },
+  { connection: redis, concurrency: 1 }
+);
+
+const scheduleMessageWorker = new Worker(
+  "scheduleMessageQueue",
+  async (job) => {
+    console.log("Processing schedule message worker job: ", job.data);
+    const { msgData } = job.data;
+
+    try {
+      let resData;
+      if (msgData?.channel === "sms") {
+        // resData = await handleSendS
+      } else if (msgData?.channel === "whatsapp") {
+        resData = await handleWhatsappSendMessage(msgData);
+      }
+
+      if (resData && msgData?.clientMessageId) {
+        const message = await Message.findById(msgData?.clientMessageId);
+        console.log({ message });
+        if (message) {
+          message.status = "queued";
+          message.providerMessageId = resData?.messages?.[0]?.id || "";
+          await message.save();
+        }
+      }
+
+      console.log("Schedule message response: ", resData);
+      return resData;
+    } catch (error) {
+      console.log("Error in send schedule message worker: ", error?.message);
+    }
+  },
+  {
+    connection: redis,
+    concurrency: 1,
+  }
+);
+
+scheduleMessageWorker.on("completed", (job, returnValue) => {
+  console.log(`✅ Schedule message job ${job.id} completed successfully`);
+  console.log(`✅ Schedule message completed job response: ${returnValue}`);
+});
+
+scheduleMessageWorker.on("failed", (job, err) => {
   console.error(`❌ Job ${job?.id} failed:`, err.message);
 });
