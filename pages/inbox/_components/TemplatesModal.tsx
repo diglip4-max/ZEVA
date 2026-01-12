@@ -8,6 +8,7 @@ import {
   Upload,
   FileText,
   Braces,
+  Eye,
 } from "lucide-react";
 import { capitalize, handleError } from "@/lib/helper";
 import { Template } from "@/types/templates";
@@ -209,11 +210,17 @@ const TemplatesModal: FC<IProps> = ({
       ) ?? true;
 
     // Check file upload if needed
-    const fileValid = !(
-      selectedTemplate?.isHeader &&
-      selectedTemplate?.headerType !== "text" &&
-      !attachedFile
-    );
+    let fileValid = true;
+
+    if (selectedTemplate?.isHeader && selectedTemplate?.headerType !== "text") {
+      // If header already has a file URL, allow without checking attachedFile
+      if (selectedTemplate?.headerFileUrl) {
+        fileValid = true;
+      } else {
+        // Otherwise, check if we have a new file attached
+        fileValid = !!attachedFile;
+      }
+    }
 
     return bodyFilled && headerFilled && fileValid;
   };
@@ -516,6 +523,27 @@ const TemplatesModal: FC<IProps> = ({
                           {selectedTemplate?.headerText}
                         </p>
                       </div>
+                    </div>
+                  )}
+
+                {/* for media template */}
+                {selectedTemplate?.headerType &&
+                  selectedTemplate?.headerType !== "text" &&
+                  selectedTemplate?.headerFileUrl && (
+                    <div className="mb-6">
+                      <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center">
+                        <span className="w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
+                        Attachment
+                      </h4>
+                      <button
+                        onClick={() =>
+                          window.open(selectedTemplate?.headerFileUrl, "_blank")
+                        }
+                        className="bg-green-600 rounded-lg flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-green-700 text-white"
+                      >
+                        <Eye className="w-4 h-4" />
+                        View
+                      </button>
                     </div>
                   )}
 

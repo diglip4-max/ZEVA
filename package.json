@@ -13,11 +13,11 @@
     "worker": "node bullmq/worker.js"
   },
   "dependencies": {
-    "@emoji-mart/data": "^1.2.1",
-    "@emoji-mart/react": "^1.1.1",
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
+    "@emoji-mart/data": "^1.2.1",
+    "@emoji-mart/react": "^1.1.1",
     "@heroicons/react": "^2.2.0",
     "@react-google-maps/api": "^2.20.7",
     "axios": "^1.12.2",
@@ -44,6 +44,7 @@
     "lodash.debounce": "^4.0.8",
     "lucide-react": "^0.522.0",
     "moment": "^2.30.1",
+    "moment-timezone": "^0.6.0",
     "mongoose": "^8.16.0",
     "mongoose-encryption": "^2.1.2",
     "multer": "^2.0.1",

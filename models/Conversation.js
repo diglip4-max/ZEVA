@@ -9,6 +9,11 @@ const ConversationSchema = new mongoose.Schema(
       index: true,
     }, // ✅ Clinic that owns this Conversation
 
+    ownerId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
+
     leadId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Lead",

@@ -6,6 +6,7 @@ import Message from "../../../models/Message";
 import { getUserFromReq, requireRole } from "../lead-ms/auth";
 
 export default async function handler(req, res) {
+  console.log({ b: req.body });
   if (req.method !== "GET") {
     return res
       .status(405)

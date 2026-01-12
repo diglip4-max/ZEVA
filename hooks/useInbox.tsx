@@ -15,6 +15,8 @@ import debounce from "lodash.debounce";
 import { io, Socket } from "socket.io-client";
 import { jwtDecode } from "jwt-decode";
 import useAgents from "./useAgents";
+import { User } from "@/types/users";
+import { Template } from "@/types/templates";
 
 export type VariableType = {
   type: "text";
@@ -64,6 +66,7 @@ const useInbox = () => {
   const { providers } = useProvider();
   const { templates } = useTemplate();
   const agents = useAgents()?.state?.agents || [];
+  const agentFetchLoading = useAgents()?.state?.loading || false;
   const [_userId, setUserId] = useState<string | null>(null);
   const [fetchConvLoading, setFetchConvLoading] = useState<boolean>(true);
   const [conversations, setConversations] = useState<IState["conversations"]>(
@@ -83,7 +86,9 @@ const useInbox = () => {
   const [currentMsgPage, setCurrentMsgPage] = useState<number>(1);
   const [totalMessages, setTotalMessages] = useState<number>(0);
   const [hasMoreMessages, setHasMoreMessages] = useState<boolean>(true);
-  const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
+  const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(
+    null
+  );
   const [attachedFile, setAttachedFile] = useState<File | null>(null);
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const [message, setMessage] = useState<string>("");
@@ -129,6 +134,14 @@ const useInbox = () => {
     useState<boolean>(false);
 
   const [isAddingTag, setIsAddingTag] = useState<boolean>(false);
+
+  // Conversation assignment logic
+  const [selectedAgent, setSelectedAgent] = useState<User | null>(null);
+
+  // schedule message state
+  const [isScheduleModalOpen, setIsScheduleModalOpen] =
+    useState<boolean>(false);
+
   const statusDropdownRef = React.useRef<HTMLDivElement | null>(null);
   const statusBtnRef = React.useRef<HTMLButtonElement | null>(null);
 
@@ -248,8 +261,8 @@ const useInbox = () => {
 
     const channel = selectedProvider?.type[0];
 
-    let mediaUrl = "";
-    let mediaType = "";
+    let mediaFileUrl = mediaUrl;
+    let mediaFileType = mediaType;
 
     let attachmentFile = attachedFile;
     // Use attachedFiles (multiple) if present, otherwise fallback to single attachedFile
@@ -266,8 +279,8 @@ const useInbox = () => {
     if (attachedFile) {
       const resData = await handleUpload(attachedFile);
       if (resData && resData?.success) {
-        mediaUrl = resData?.url;
-        mediaType = getMediaTypeFromFile(attachedFile);
+        mediaFileUrl = resData?.url;
+        mediaFileType = getMediaTypeFromFile(attachedFile);
         setMediaUrl(resData?.url);
       }
     }
@@ -278,7 +291,7 @@ const useInbox = () => {
         fileName: f?.name,
         fileSize: f?.size.toString(),
         mimeType: f?.type,
-        mediaUrl: mediaUrl,
+        mediaUrl: mediaFileUrl,
         mediaType: getMediaTypeFromMime(f?.type),
       }));
     }
@@ -295,8 +308,8 @@ const useInbox = () => {
       content: textAreaRef?.current?.value,
       provider: selectedProvider?._id,
       status: "sending", // Temporary status
-      mediaUrl,
-      mediaType,
+      mediaUrl: mediaFileUrl,
+      mediaType: mediaFileType,
       source: "Zeva",
       replyToMessageId: selectedMessage,
       attachments,
@@ -446,6 +459,230 @@ const useInbox = () => {
       handleError(error);
     } finally {
       setSendMsgLoading(false);
+    }
+  };
+
+  const handleScheduleMessage = async (scheduledData: {
+    scheduledDate: string;
+    scheduledTime: string;
+    scheduledTimezone: string;
+  }) => {
+    console.log("Scheduling message:", scheduledData);
+
+    if (!selectedConversation) return;
+    if (
+      !textAreaRef?.current?.value &&
+      !attachedFile &&
+      attachedFiles.length === 0
+    )
+      return;
+    if (!selectedProvider && !isLiveChatSelected) {
+      toast.error("Please select a provider");
+      return;
+    }
+
+    const channel = selectedProvider?.type[0];
+
+    let mediaFileUrl = "";
+    let mediaFileType = "";
+
+    let attachmentFile = attachedFile;
+    // Use attachedFiles (multiple) if present, otherwise fallback to single attachedFile
+    const attachmentsFilesToUse =
+      attachedFiles && attachedFiles.length
+        ? attachedFiles
+        : attachedFile
+        ? [attachedFile]
+        : [];
+    console.log("Attachments to use:", attachmentsFilesToUse);
+    setSendMsgLoading(true);
+
+    // for attachments upload
+    if (attachedFile) {
+      const resData = await handleUpload(attachedFile);
+      if (resData && resData?.success) {
+        mediaFileUrl = resData?.url;
+        mediaFileType = getMediaTypeFromFile(attachedFile);
+        setMediaUrl(resData?.url);
+      }
+    }
+
+    let attachments: any[] = [];
+    if (mediaUrl && attachmentsFilesToUse.length) {
+      attachments = attachmentsFilesToUse.map((f) => ({
+        fileName: f?.name,
+        fileSize: f?.size.toString(),
+        mimeType: f?.type,
+        mediaUrl: mediaFileUrl,
+        mediaType: getMediaTypeFromMime(f?.type),
+      }));
+    }
+    const tempMessageId = Date.now()?.toString(); // Ensure a unique identifier
+    const tempMessage = {
+      _id: tempMessageId,
+      conversationId: selectedConversation._id,
+      senderId: "",
+      recipientId: selectedConversation.leadId?._id,
+      channel: isLiveChatSelected ? "chat" : channel,
+      messageType: "conversational",
+      direction: "outgoing",
+      subject: subject,
+      content: textAreaRef?.current?.value,
+      provider: selectedProvider?._id,
+      status: "sending", // Temporary status
+      mediaUrl: mediaFileUrl,
+      mediaType: mediaFileType,
+      source: "Zeva",
+      replyToMessageId: selectedMessage,
+      attachments,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    setSelectedMessage(null);
+
+    // If the date group does not exist, add it at the end to preserve order
+    const finalMessages = [...messages, tempMessage];
+
+    // @ts-ignore
+    setMessages(finalMessages);
+    setIsScrolledToBottom(!isScrolledToBottom);
+    setMessage("");
+    setMediaType("");
+    setMediaUrl("");
+    setAttachedFile(null);
+    setSubject("");
+
+    try {
+      let data;
+      if (isLiveChatSelected) {
+        const payload = {
+          conversationId: selectedConversation._id,
+          recipientId: selectedConversation.leadId?._id,
+          channel: "chat",
+          content: tempMessage.content,
+          mediaUrl: tempMessage.mediaUrl,
+          mediaType: tempMessage.mediaType,
+          attachments: tempMessage?.attachments,
+          source: "Zeva",
+        };
+        const response = await axios.post(
+          "/api/messages/sendLiveMessage",
+          payload,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+        data = response?.data;
+      } else if (selectedProvider?.type?.includes("email")) {
+        const payload = {
+          conversationId: selectedConversation._id,
+          recipientIds: [selectedConversation.leadId?._id],
+          channel: "email",
+          subject: tempMessage.subject,
+          content: tempMessage.content,
+          source: "Zeva",
+          providerId: selectedProvider?._id,
+          replyToMessageId: tempMessage?.replyToMessageId?._id,
+          quotedMessageId: tempMessage?.replyToMessageId?.providerMessageId,
+          attachments: attachmentFile
+            ? [
+                {
+                  fileName: attachmentFile?.name,
+                  fileSize: formatFileSize(attachmentFile?.size),
+                  mimeType: attachmentFile?.type,
+                  mediaUrl,
+                  mediaType: getMediaTypeFromMime(attachmentFile?.type),
+                },
+              ]
+            : [],
+        };
+
+        const response = await axios.post(
+          "/api/messages/sendEmailMessage",
+          payload,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+        data = response?.data;
+      } else {
+        const response = await axios.post(
+          "/api/messages/schedule-message",
+          {
+            conversationId: selectedConversation._id,
+            recipientId: selectedConversation.leadId?._id,
+            providerId: selectedProvider?._id,
+            channel,
+            content: tempMessage.content,
+            mediaUrl: tempMessage.mediaUrl,
+            mediaType: tempMessage.mediaType,
+            source: "Zeva",
+            messageType: tempMessage?.messageType,
+            templateId: selectedTemplate?._id,
+            // for reply message
+            replyToMessageId: tempMessage?.replyToMessageId?._id,
+            quotedMessageId: tempMessage?.replyToMessageId?.providerMessageId,
+            // for whatsapp template if body variables exist
+            headerParameters,
+            bodyParameters,
+            attachments,
+            ...scheduledData,
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+        data = response?.data;
+      }
+
+      if (data && data.success) {
+        const newMessage = data.data;
+
+        const updatedFinalMessages = finalMessages.map((msg) =>
+          msg._id === tempMessageId ? newMessage : msg
+        );
+
+        setMessages(updatedFinalMessages);
+        setSelectedTemplate(null);
+
+        let updatedConversations = conversations?.map((c) =>
+          c?._id === selectedConversation?._id
+            ? { ...selectedConversation, recentMessage: newMessage }
+            : c
+        );
+
+        // updatedConversations = getUniqueConversations(updatedConversations);
+
+        // Move the updated conversation to the front
+        const sortedConversations = updatedConversations?.sort((a) =>
+          a?._id === selectedConversation?._id ? -1 : 1
+        );
+
+        setConversations(sortedConversations);
+
+        // empty body and header variables
+        setHeaderParameters([]);
+        setBodyParameters([]);
+        // clear attached files after successful send
+        setAttachedFile(null);
+        setAttachedFiles([]);
+      }
+    } catch (error) {
+      const errorHandledMessages = finalMessages.filter(
+        (msg) => msg._id !== tempMessageId
+      );
+      //   @ts-ignore
+      setMessages(errorHandledMessages);
+      handleError(error);
+    } finally {
+      setSendMsgLoading(false);
+      setIsScheduleModalOpen(false);
     }
   };
 
@@ -615,6 +852,55 @@ const useInbox = () => {
       handleError(error);
     }
   };
+
+  const handleAgentSelect = async (
+    agent: User | null,
+    conversationId: string
+  ) => {
+    setSelectedAgent(agent);
+    // Here you would typically make an API call to assign the conversation
+    console.log("Assigned conversation to:", agent);
+    if (!agent) return;
+    try {
+      const { data } = await axios.post(
+        `/api/conversations/assign-conversation/${conversationId}`,
+        {
+          ownerId: agent?._id,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      if (data && data?.success) {
+        // Update conversation in state
+        const updatedConversations = conversations.map((conv) =>
+          conv._id === conversationId ? { ...conv, ownerId: agent?._id } : conv
+        );
+        setSelectedConversation((prev) =>
+          prev && prev._id === conversationId
+            ? { ...prev, ownerId: agent?._id }
+            : prev
+        );
+        setConversations(updatedConversations);
+        toast.success("Conversation assigned successfully");
+      }
+    } catch (err) {
+      handleError(err);
+    }
+  };
+
+  // select agent by default based on selected conversation
+  useEffect(() => {
+    if (selectedConversation && agents?.length > 0) {
+      const findConvOwner = agents?.find(
+        (agent) => agent?._id === selectedConversation?.ownerId
+      );
+      if (findConvOwner) setSelectedAgent(findConvOwner);
+      else setSelectedAgent(null);
+    }
+  }, [agents, selectedConversation]);
 
   // Check viewport on mount and window resize
   useEffect(() => {
@@ -797,6 +1083,20 @@ const useInbox = () => {
     checkWhatsappAvailabilityWindow();
   }, [selectedConversation]);
 
+  useEffect(() => {
+    if (
+      selectedTemplate?.headerFileUrl &&
+      selectedTemplate?.headerType !== "text"
+    ) {
+      let mediaFileType = selectedTemplate?.headerType;
+      setMediaUrl(selectedTemplate?.headerFileUrl);
+      setMediaType(mediaFileType);
+    } else {
+      setMediaType("");
+      setMediaUrl("");
+    }
+  }, [selectedTemplate]);
+
   const state = {
     conversations,
     selectedConversation,
@@ -843,6 +1143,9 @@ const useInbox = () => {
     isDeletingConversation,
     isAddingTag,
     agents,
+    selectedAgent,
+    agentFetchLoading,
+    isScheduleModalOpen,
   };
 
   return {
@@ -856,6 +1159,7 @@ const useInbox = () => {
     setSelectedTemplate,
     setMessage,
     setMediaType,
+    setMediaUrl,
     setBodyParameters,
     setHeaderParameters,
     setIsLiveChatSelected,
@@ -871,6 +1175,8 @@ const useInbox = () => {
     setIsDeleteConversationModalOpen,
     setIsDeletingConversation,
     setIsAddingTag,
+    setSelectedAgent,
+    setIsScheduleModalOpen,
     fetchConversations,
     fetchMessages,
     handleSendMessage,
@@ -881,6 +1187,8 @@ const useInbox = () => {
     handleDeleteConversation,
     handleAddTagToConversation,
     handleRemoveTagFromConversation,
+    handleAgentSelect,
+    handleScheduleMessage,
   };
 };
 

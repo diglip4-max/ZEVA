@@ -11,11 +11,13 @@ import {
 import dbConnect from "../lib/database.js";
 import axios from "axios";
 import Template from "../models/Template.js";
+import { handleWhatsappSendMessage } from "../services/whatsapp.js";
+import Message from "../models/Message.js";
 
 console.log("📌 Import Leads Worker Started...");
 dbConnect()
   .then(() => {
-    console.log("✅ Database connected for Import Leads Worker");
+    console.log("✅ Database connected for All Workers");
   })
   .catch((err) => {
     console.error("❌ Database connection error for Import Leads Worker:", err);
@@ -308,3 +310,48 @@ const whatsappTemplateWorker = new Worker(
   },
   { connection: redis, concurrency: 1 }
 );
+
+const scheduleMessageWorker = new Worker(
+  "scheduleMessageQueue",
+  async (job) => {
+    console.log("Processing schedule message worker job: ", job.data);
+    const { msgData } = job.data;
+
+    try {
+      let resData;
+      if (msgData?.channel === "sms") {
+        // resData = await handleSendS
+      } else if (msgData?.channel === "whatsapp") {
+        resData = await handleWhatsappSendMessage(msgData);
+      }
+
+      if (resData && msgData?.clientMessageId) {
+        const message = await Message.findById(msgData?.clientMessageId);
+        console.log({ message });
+        if (message) {
+          message.status = "queued";
+          message.providerMessageId = resData?.messages?.[0]?.id || "";
+          await message.save();
+        }
+      }
+
+      console.log("Schedule message response: ", resData);
+      return resData;
+    } catch (error) {
+      console.log("Error in send schedule message worker: ", error?.message);
+    }
+  },
+  {
+    connection: redis,
+    concurrency: 1,
+  }
+);
+
+scheduleMessageWorker.on("completed", (job, returnValue) => {
+  console.log(`✅ Schedule message job ${job.id} completed successfully`);
+  console.log(`✅ Schedule message completed job response: ${returnValue}`);
+});
+
+scheduleMessageWorker.on("failed", (job, err) => {
+  console.error(`❌ Job ${job?.id} failed:`, err.message);
+});

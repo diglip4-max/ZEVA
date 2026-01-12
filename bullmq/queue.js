@@ -8,3 +8,6 @@ export const importLeadsFromFileQueue = new Queue("importLeadsFromFileQueue", {
 export const whatsappTemplateQueue = new Queue("whatsappTemplateQueue", {
   connection: redis,
 });
+export const scheduleMessageQueue = new Queue("scheduleMessageQueue", {
+  connection: redis,
+});

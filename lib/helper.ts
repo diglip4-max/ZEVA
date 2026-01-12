@@ -1,6 +1,7 @@
 import { OptionType } from "@/components/shared/CustomAsyncSelect";
 import axios from "axios";
 import moment from "moment";
+import momentTimezone from "moment-timezone";
 import toast from "react-hot-toast";
 
 export const loadSegmentOptions = async (
@@ -183,3 +184,32 @@ export function getMediaTypeFromFile(
 
   return "file";
 }
+
+export const formatScheduledTime = (
+  scheduleDate: string,
+  scheduleTime: string,
+  timezone: string
+): string => {
+  try {
+    if (!scheduleDate || !scheduleTime || !timezone) {
+      return "Scheduled time not set";
+    }
+
+    // Combine date and time
+    const scheduledMoment = momentTimezone.tz(
+      `${scheduleDate} ${scheduleTime}`,
+      "YYYY-MM-DD HH:mm",
+      timezone
+    );
+
+    if (!scheduledMoment.isValid()) {
+      return "Invalid schedule time";
+    }
+
+    // Format: "Jan 15, 2024 at 2:30 PM (EST)"
+    return scheduledMoment.format("MMM D, YYYY [at] h:mm A [(]z[)]");
+  } catch (error) {
+    console.error("Error formatting scheduled time:", error);
+    return "Error formatting schedule";
+  }
+};

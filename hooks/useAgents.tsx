@@ -11,7 +11,7 @@ const useAgents = () => {
   const fetchAgents = React.useCallback(async (token: string) => {
     setLoading(true);
     try {
-      const response = await fetch(`/api/agents?role=agent`, {
+      const response = await fetch(`/api/lead-ms/get-agents?role=agent`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },

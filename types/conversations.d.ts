@@ -3,6 +3,7 @@ import { Lead } from "./leads";
 export type ConversationType = {
   _id: string;
   clinicId: string;
+  ownerId: string;
   leadId: Lead;
   status: "open" | "closed" | "trashed" | "blocked" | "archived";
   recentMessage: Message;
@@ -42,7 +43,14 @@ export type MessageType = {
   content?: string;
   mediaUrl?: string;
   mediaType?: "image" | "" | "video" | "document" | "audio";
-  status?: "sent" | "delivered" | "read" | "queued" | "sending" | "failed";
+  status?:
+    | "sent"
+    | "delivered"
+    | "scheduled"
+    | "read"
+    | "queued"
+    | "sending"
+    | "failed";
   source?: string;
   errorMessage?: string;
   errorCode?: string;
@@ -62,6 +70,13 @@ export type MessageType = {
   callDuration: number;
 
   whatsappCall: boolean;
+
+  // schedule
+  schedule: {
+    date: string;
+    time: string;
+    timezone: strng;
+  };
   createdAt: string;
   updatedAt: string;
 };

@@ -17,6 +17,7 @@ type Props = {
   setAttachedFile?: (file: File | null) => void;
   setAttachedFiles?: (files: File[]) => void;
   attachedFiles?: File[];
+  mediaUrl?: string;
 };
 
 const formatBytes = (bytes: number) => {
@@ -99,6 +100,7 @@ export default function AttachmentModal({
   setAttachedFile,
   setAttachedFiles,
   attachedFiles,
+  mediaUrl,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [previews, setPreviews] = useState<Record<string, string>>({});
@@ -170,16 +172,16 @@ export default function AttachmentModal({
       <button
         onClick={() => setOpen(true)}
         className={`relative flex items-center cursor-pointer gap-2 p-2.5 rounded-lg hover:shadow-sm border transition-all duration-200 ${
-          attachedFiles && attachedFiles.length > 0
+          (attachedFiles && attachedFiles.length > 0) || mediaUrl
             ? "bg-green-200 border-green-500 hover:border-green-600 text-green-800"
             : "bg-white border-gray-300 hover:border-gray-400 text-gray-700"
         }`}
         title="Attach file"
       >
         <Paperclip className="h-5 w-5" />
-        {attachedFiles && attachedFiles.length > 0 && (
+        {((attachedFiles && attachedFiles?.length > 0) || mediaUrl) && (
           <span className="absolute -top-2 -right-2 bg-green-500 text-white rounded-full flex items-center justify-center w-4 h-4 text-xs font-semibold">
-            {attachedFiles.length}
+            {attachedFiles?.length || 1}
           </span>
         )}
       </button>

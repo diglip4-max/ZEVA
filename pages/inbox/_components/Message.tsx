@@ -1,4 +1,8 @@
-import { getChannelTitle, getFormatedTime } from "@/lib/helper";
+import {
+  formatScheduledTime,
+  getChannelTitle,
+  getFormatedTime,
+} from "@/lib/helper";
 import { MessageType } from "@/types/conversations";
 import React, { useState } from "react";
 import DOMPurify from "dompurify";
@@ -288,7 +292,7 @@ const Message: React.FC<IProps> = ({ message, onSelectMessage }) => {
             )}
 
             {/* Reaction Dropdown */}
-            <div className="absolute -right-10 top-1/2 transform -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+            <div className="absolute -right-10 top-1/2 z-50 transform -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
               <div className="relative">
                 <button
                   onClick={() => setIsDropdownOpen(!isDropdownOpen)}
@@ -519,7 +523,13 @@ const Message: React.FC<IProps> = ({ message, onSelectMessage }) => {
                     </div>
                   ) : (
                     <span className="text-xs font-medium text-gray-500">
-                      {message?.status}
+                      {message?.status === "scheduled"
+                        ? `scheduled: ${formatScheduledTime(
+                            message?.schedule?.date,
+                            message?.schedule?.time,
+                            message?.schedule?.timezone
+                          )}`
+                        : `${message?.status}`}
                     </span>
                   )}
                   {message?.source && (
@@ -541,7 +551,7 @@ const Message: React.FC<IProps> = ({ message, onSelectMessage }) => {
             )}
 
             {/* Reaction Dropdown */}
-            <div className="absolute -left-10 top-1/2 transform -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+            <div className="absolute -left-10 top-1/2 z-50 transform -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
               <div className="relative">
                 <button
                   onClick={() => setIsDropdownOpen(!isDropdownOpen)}

@@ -160,6 +160,13 @@ const MessageSchema = new mongoose.Schema(
     // for email gmail for tracking reply
     threadId: { type: String, default: "" },
     emailReceivedAt: { type: Date, default: null },
+
+    // for schedule a message at a date and time
+    schedule: {
+      date: String,
+      time: String,
+      timezone: String,
+    },
   },
   { timestamps: true }
 );

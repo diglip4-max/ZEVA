@@ -1,5 +1,5 @@
 import axios from "axios";
-import { uploadMedia } from "./upload";
+import { uploadMedia } from "./upload.js";
 
 export const getWhatsappUploadId = async (
   fileLength,

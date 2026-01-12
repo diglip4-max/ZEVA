@@ -501,22 +501,6 @@ const TemplatesPage: NextPageWithLayout = () => {
               <option value="inactive">Inactive</option>
             </select>
           </div>
-
-          {/* Quick Stats */}
-          <div className="flex items-center gap-4 ml-auto">
-            <div className="text-right">
-              <div className="text-2xl font-bold text-gray-800">
-                {templates.length}
-              </div>
-              <div className="text-sm text-gray-600">Total Templates</div>
-            </div>
-            <div className="text-right">
-              <div className="text-2xl font-bold text-green-600">
-                {templates.filter((t) => t.status === "active").length}
-              </div>
-              <div className="text-sm text-gray-600">Active</div>
-            </div>
-          </div>
         </div>
       </div>
 
@@ -906,15 +890,6 @@ const TemplatesPage: NextPageWithLayout = () => {
                         </div>
                       </div>
                     )}
-
-                  <div className="mt-4 flex gap-2">
-                    <button className="flex-1 px-3 py-2 bg-green-600 text-white rounded">
-                      Send
-                    </button>
-                    <button className="flex-1 px-3 py-2 bg-gray-100 text-gray-700 rounded">
-                      Download
-                    </button>
-                  </div>
                 </div>
               </div>
             </div>

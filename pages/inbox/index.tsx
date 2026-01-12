@@ -33,6 +33,8 @@ import EmojiPickerModal from "@/components/shared/EmojiPickerModal";
 import CollapsibleWrapper from "@/components/shared/CollapsibleWrapper";
 import AddTagModal from "@/components/modals/AddTagModal";
 import DeleteConversationModal from "./_components/DeleteConversationModal";
+import AssignConversation from "./_components/AssignConversation";
+import ScheduleMessage from "./_components/ScheduleMessage";
 // import EmojiPickerModal from "@/components/shared/EmojiPickerModal";
 
 const InboxPage: NextPageWithLayout = () => {
@@ -55,13 +57,16 @@ const InboxPage: NextPageWithLayout = () => {
     setShowStatusDropdown,
     setIsAddTagModalOpen,
     setIsDeleteConversationModalOpen,
+    setIsScheduleModalOpen,
     handleSendMessage,
+    handleScheduleMessage,
     handleConvScroll,
     handleMsgScroll,
     handleScrollMsgsToBottom,
     handleDeleteConversation,
     handleAddTagToConversation,
     handleRemoveTagFromConversation,
+    handleAgentSelect,
   } = useInbox();
   const {
     conversationRef,
@@ -75,6 +80,7 @@ const InboxPage: NextPageWithLayout = () => {
     providers,
     templates,
     attachedFile,
+    attachedFiles,
     selectedTemplate,
     message,
     // mediaType,
@@ -99,6 +105,11 @@ const InboxPage: NextPageWithLayout = () => {
     isDeleteConversationModalOpen,
     isDeletingConversation,
     isAddingTag,
+    agents,
+    selectedAgent,
+    agentFetchLoading,
+    isScheduleModalOpen,
+    mediaUrl,
   } = state;
 
   return (
@@ -316,11 +327,21 @@ const InboxPage: NextPageWithLayout = () => {
                 </div>
               </div>
 
-              <div className="flex items-center space-x-1">
+              <div className="flex items-center gap-2">
                 <WhatsappTimer
                   selectedProvider={selectedProvider}
                   whatsappRemainingTime={whatsappRemainingTime}
                 />
+                <AssignConversation
+                  agents={agents}
+                  selectedAgent={selectedAgent}
+                  onAgentSelect={(agent) =>
+                    handleAgentSelect(agent, selectedConversation?._id)
+                  }
+                  loading={agentFetchLoading}
+                  placeholder="Assign to agent..."
+                />
+
                 {/* <button className="p-2.5 text-gray-600 hover:bg-white hover:text-gray-800 rounded-lg transition-colors hover:shadow-sm">
                   <Info className="h-5 w-5" />
                 </button>
@@ -666,6 +687,7 @@ const InboxPage: NextPageWithLayout = () => {
                     setAttachedFile={setAttachedFile}
                     attachedFiles={state.attachedFiles}
                     setAttachedFiles={setAttachedFiles}
+                    mediaUrl={mediaUrl}
                   />
 
                   <EmojiPickerModal
@@ -700,7 +722,7 @@ const InboxPage: NextPageWithLayout = () => {
 
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={handleSendMessage}
+                    onClick={() => setIsScheduleModalOpen(true)}
                     disabled={!message.trim() || !selectedProvider}
                     className="bg-white text-gray-700 border border-gray-200 disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed p-2.5 rounded-xl font-semibold flex items-center space-x-2 transition-all hover:shadow-md"
                   >
@@ -907,6 +929,24 @@ const InboxPage: NextPageWithLayout = () => {
         onConfirm={() => handleDeleteConversation(selectedConversation?._id!)}
         conversation={selectedConversation!}
         loading={isDeletingConversation}
+      />
+
+      {/* schedule message modal */}
+      <ScheduleMessage
+        isOpen={isScheduleModalOpen}
+        onClose={() => setIsScheduleModalOpen(false)}
+        conversationId={selectedConversation?._id}
+        conversationTitle={selectedConversation?.leadId?.name || ""}
+        onSchedule={handleScheduleMessage}
+        message={message}
+        attachedFiles={
+          attachedFiles?.length > 0
+            ? attachedFiles
+            : attachedFile
+            ? [attachedFile]
+            : []
+        }
+        loading={sendMsgLoading}
       />
     </div>
   );
