@@ -341,7 +341,7 @@ const DoctorSidebar: FC<DoctorSidebarProps> = ({
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className={clsx(
-                              "font-medium text-sm transition-colors duration-200 truncate",
+                              "font-medium text-sm transition-colors duration-200",
                               {
                                 "text-white": isDropdownOpen,
                                 "text-gray-900": !isDropdownOpen,
@@ -403,7 +403,7 @@ const DoctorSidebar: FC<DoctorSidebarProps> = ({
                                     </div>
                                     <div className="flex-1 min-w-0">
                                       <div className={clsx(
-                                        "font-medium text-sm transition-colors duration-200 truncate",
+                                        "font-medium text-sm transition-colors duration-200",
                                         {
                                           "text-white": childActive,
                                           "text-gray-900": !childActive,
@@ -460,7 +460,7 @@ const DoctorSidebar: FC<DoctorSidebarProps> = ({
 
                       <div className="flex-1 min-w-0">
                         <div className={clsx(
-                          "font-medium text-sm transition-colors duration-200 truncate",
+                          "font-medium text-sm transition-colors duration-200",
                           {
                             "text-white": isActive,
                             "text-gray-900": !isActive,
@@ -573,7 +573,7 @@ const DoctorSidebar: FC<DoctorSidebarProps> = ({
                               </div>
                               <div className="flex-1 min-w-0">
                                 <div className={clsx(
-                                  "font-medium text-sm transition-colors duration-200 truncate",
+                                  "font-medium text-sm transition-colors duration-200",
                                   {
                                     "text-white": isDropdownOpen,
                                     "text-gray-900": !isDropdownOpen,
@@ -618,7 +618,7 @@ const DoctorSidebar: FC<DoctorSidebarProps> = ({
                                     >
                                       <div className="flex items-center space-x-2">
                                         <span className="text-xs">{child.icon}</span>
-                                        <span className="text-xs font-medium truncate">{child.label}</span>
+                                        <span className="text-xs font-medium">{child.label}</span>
                                       </div>
                                     </div>
                                   </Link>

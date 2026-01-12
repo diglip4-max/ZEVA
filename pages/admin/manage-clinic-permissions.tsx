@@ -152,7 +152,7 @@ const Toast = ({ toast, onClose }: { toast: Toast; onClose: () => void }) => {
 
 // Toast Container
 const ToastContainer = ({ toasts, removeToast }: { toasts: Toast[]; removeToast: (id: string) => void }) => (
-  <div className="fixed top-4 right-4 z-50 space-y-2">
+  <div className="fixed top-4 right-4 z-[100] space-y-2">
     {toasts.map((toast) => (
       <Toast key={toast.id} toast={toast} onClose={() => removeToast(toast.id)} />
     ))}
@@ -305,9 +305,6 @@ const ManageClinicPermissionsPage: NextPageWithLayout = () => {
       const data = await response.json();
       const clinicsData: Clinic[] = data?.clinics || [];
       setClinics(clinicsData);
-      if (clinicsData.length > 0) {
-        showToast(`Loaded ${clinicsData.length} clinic(s)`, 'success');
-      }
       return clinicsData;
     } catch (error) {
       console.error('Error fetching clinics:', error);
@@ -357,9 +354,6 @@ const ManageClinicPermissionsPage: NextPageWithLayout = () => {
       }));
 
       setDoctors(normalizedDoctors);
-      if (normalizedDoctors.length > 0) {
-        showToast(`Loaded ${normalizedDoctors.length} doctor(s)`, 'success');
-      }
       return normalizedDoctors;
     } catch (error) {
       console.error('Error fetching doctors:', error);

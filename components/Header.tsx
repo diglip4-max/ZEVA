@@ -110,7 +110,7 @@ const Header = () => {
   return (
     <>
       <header 
-        className={`bg-white shadow-md border-b border-gray-200 transition-all duration-300 ease-in-out ${
+        className={`bg-white shadow-md border-b border-gray-200 transition-all duration-300 ease-in-out relative z-[100] ${
           !isNavbarVisible ? '-translate-y-full opacity-0' : 'translate-y-0 opacity-100'
         }`}
       >
@@ -144,7 +144,7 @@ const Header = () => {
                   </svg>
                 </button>
                 {isDashboardDropdownOpen && (
-                  <div className="absolute right-0 mt-1 w-40 max-w-[calc(100vw-2rem)] bg-white rounded-md shadow-lg border border-gray-200 z-50">
+                  <div className="absolute right-0 mt-1 w-40 max-w-[calc(100vw-2rem)] bg-white rounded-md shadow-lg border border-gray-200 z-[9999]">
                     <div className="py-0.5">
                       <Link href="/clinic/login-clinic" onClick={() => setIsDashboardDropdownOpen(false)} className="block px-2 py-1.5 text-[10px] text-gray-700 hover:bg-gray-50">
                         Health Center
@@ -170,7 +170,7 @@ const Header = () => {
                   </svg>
                 </button>
                 {isRegisterDropdownOpen && (
-                  <div className="absolute right-0 mt-1 w-44 max-w-[calc(100vw-2rem)] bg-white rounded-md shadow-lg border border-gray-200 z-50">
+                  <div className="absolute right-0 mt-1 w-44 max-w-[calc(100vw-2rem)] bg-white rounded-md shadow-lg border border-gray-200 z-[9999]">
                     <div className="py-0.5">
                       <Link href="/clinic/register-clinic" onClick={() => setIsRegisterDropdownOpen(false)} className="block px-2 py-1.5 text-[10px] text-gray-700 hover:bg-gray-50">
                         Health Center
@@ -198,7 +198,7 @@ const Header = () => {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
                     </svg>
                   </button>
-                  <div className="absolute right-0 mt-1 w-32 max-w-[calc(100vw-2rem)] bg-white rounded-md shadow-lg border border-gray-200 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                  <div className="absolute right-0 mt-1 w-32 max-w-[calc(100vw-2rem)] bg-white rounded-md shadow-lg border border-gray-200 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-[9999]">
                     <div className="py-0.5">
                       <Link href="/user/profile" className="block px-2 py-1.5 text-[10px] text-gray-700 hover:bg-gray-50">
                         Profile
@@ -234,7 +234,7 @@ const Header = () => {
                 {isModulesDropdownOpen && (
                   <>
                     {/* Mobile/Tablet View */}
-                    <div className="lg:hidden absolute right-0 mt-2 w-80 max-w-[calc(100vw-2rem)] sm:max-w-md bg-white rounded-xl shadow-2xl border border-gray-200 z-50 overflow-hidden">
+                    <div className="lg:hidden absolute right-0 mt-2 w-80 max-w-[calc(100vw-2rem)] sm:max-w-md bg-white rounded-xl shadow-2xl border border-gray-200 z-[9999] overflow-hidden">
                       <div className="p-4 max-h-[calc(100vh-8rem)] overflow-y-auto">
                         <h3 className="text-sm font-semibold text-gray-700 mb-3">All Modules</h3>
                         <div className="grid grid-cols-2 gap-3">
@@ -256,7 +256,7 @@ const Header = () => {
                     </div>
 
                     {/* Desktop View - Full Width with 2 columns */}
-                    <div className="hidden lg:block fixed left-0 right-0 top-16 bg-white shadow-2xl border-b border-gray-200 z-50">
+                    <div className="hidden lg:block fixed left-0 right-0 top-16 bg-white shadow-2xl border-b border-gray-200 z-[9999]">
                       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 xl:px-10 py-6">
                         <div className="flex justify-between items-center mb-4">
                           <h3 className="text-base font-semibold text-gray-700">All Modules</h3>

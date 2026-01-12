@@ -405,11 +405,10 @@ const ClinicDashboard: NextPageWithLayout = () => {
   const [quickActions] = useState([
     { label: 'New Review', icon: Star, path: '/clinic/getAllReview', color: 'bg-yellow-500' },
     { label: 'New Enquiry', icon: Mail, path: '/clinic/get-Enquiry', color: 'bg-blue-500' },
-    { label: 'Add Staff', icon: Users, path: '/clinic/patient-information', color: 'bg-green-500' },
     { label: 'Create Blog', icon: FileText, path: '/clinic/BlogForm', color: 'bg-purple-500' },
     { label: 'Job Posting', icon: Briefcase, path: '/clinic/job-posting', color: 'bg-indigo-500' },
-    { label: 'Create Agent', icon: UserPlus, path: '/lead/create-agent', color: 'bg-teal-500' },
-    { label: 'Create Lead', icon: UserPlus, path: '/lead/create-lead', color: 'bg-orange-500' },
+    { label: 'Create Agent', icon: UserPlus, path: '/clinic/create-agent', color: 'bg-teal-500' },
+    { label: 'Create Lead', icon: UserPlus, path: '/clinic/create-lead', color: 'bg-orange-500' },
   ]);
 
   // Icon mapping

@@ -147,7 +147,7 @@ export default async function handler(req, res) {
     }
 
     let doctors = await DoctorProfile.find(query)
-      .populate("user", "name email phone profileImage isApproved")
+      .populate("user", "name email phone profileImage isApproved declined role")
       .select(
         "degree experience address location user rating reviews verified consultationFee clinicContact timeSlots treatments photos resumeUrl slug slugLocked"
       )
@@ -156,7 +156,7 @@ export default async function handler(req, res) {
       .lean();
 
     // ✅ Only include approved doctors
-    doctors = doctors.filter((doc) => doc.user?.isApproved === true);
+    doctors = doctors.filter((doc) => doc.user?.isApproved === true && doc.user?.declined !== true);
 
     // ✅ Convert profileImage & photos to full URL
     doctors = doctors.map((doc) => {

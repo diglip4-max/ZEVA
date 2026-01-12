@@ -40,12 +40,22 @@ export default async function handler(req, res) {
     }
 
     // Use central slug service to find clinic by slug
-    const clinic = await findBySlug('clinic', slug);
+    let clinic;
+    try {
+      clinic = await findBySlug('clinic', slug);
+    } catch (slugError) {
+      console.error("Error in findBySlug:", slugError);
+      return res.status(500).json({
+        success: false,
+        message: "Error searching for clinic",
+        error: slugError.message,
+      });
+    }
 
     if (!clinic) {
       return res.status(404).json({
         success: false,
-        message: "Clinic not found",
+        message: `Clinic not found with slug: ${slug}`,
       });
     }
 
@@ -53,7 +63,7 @@ export default async function handler(req, res) {
     if (!clinic.isApproved) {
       return res.status(404).json({
         success: false,
-        message: "Clinic not found",
+        message: "Clinic not found or not approved",
       });
     }
 

@@ -92,11 +92,11 @@ export default function WhyChooseZeva() {
     <div className="py-12 sm:py-16 px-4 bg-white">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="text-center mb-10 sm:mb-12">
-          <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-3">
+        <div className="text-center mb-5 sm:mb-8">
+          <h2 className="text-2xl sm:text-3xl font-bold text-blue-700 mb-3" style={{ fontFamily: "'Playfair Display', serif" }}>
             Why Choose ZEVA
           </h2>
-          <p className="text-sm sm:text-base text-gray-600 max-w-2xl mx-auto leading-relaxed">
+          <p className="text-base font-semibold sm:text-base text-gray-600 max-w-2xl mx-auto leading-relaxed" style={{ fontFamily: "'Playfair Display', serif" }}>
           ZEVA is your all-in-one healthcare platform, designed to simplify your health, wellness, and lifestyle needs. From trusted doctors to verified clinics, ZEVA brings together everything you need for a seamless healthcare experience.
           </p>
         </div>
@@ -158,7 +158,7 @@ export default function WhyChooseZeva() {
         <div className="text-center">
           <button
             onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-            className="group relative px-6 sm:px-8 py-2.5 sm:py-3 bg-gray-900 text-white font-semibold text-sm sm:text-base rounded-lg transition-all duration-200 hover:bg-gray-800 hover:shadow-lg active:scale-95"
+            className="group relative px-6 sm:px-8 py-2.5 sm:py-3 bg-amber-400 text-white font-semibold text-sm sm:text-base rounded-lg transition-all duration-200 hover:bg-amber-300 hover:shadow-lg active:scale-95"
           >
             <span className="flex items-center justify-center gap-2">
               Get Started with ZEVA

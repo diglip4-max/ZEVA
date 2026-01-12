@@ -69,7 +69,7 @@ const DoctorLayout = ({ children, hideSidebar = false, hideHeader = false }: Doc
 
         {/* Page Content */}
         <main 
-          className="flex-1 overflow-y-auto relative z-0" 
+          className="flex-1 overflow-y-auto relative" 
           role="main" 
           style={{ 
             overflowX: 'visible',
