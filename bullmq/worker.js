@@ -175,3 +175,159 @@ importLeadsFromFileWorker.on("completed", (job, returnValue) => {
 importLeadsFromFileWorker.on("failed", (job, err) => {
   console.error(`❌ Job ${job?.id} failed:`, err.message);
 });
+
+// ==================== PATIENT IMPORT WORKER ====================
+import PatientRegistration from "../models/PatientRegistration.js";
+import { generateEmrNumber } from "../lib/generateEmrNumber.js";
+
+console.log("📌 Import Patients Worker Started...");
+
+const importPatientsFromFileWorker = new Worker(
+  "importPatientsFromFileQueue",
+  async (job) => {
+    console.time(`PatientJob-${job.id}`);
+    console.log(`🚀 Processing Patient Import Job ID: ${job.id}`);
+
+    const WORKER_NAME = "importPatientsFromFile";
+    const { 
+      patientsToInsert, 
+      userId, 
+      computedInvoicedBy,
+      dateStr,
+      maxInvoiceSeq 
+    } = job.data;
+    const BATCH_SIZE = 100;
+
+    try {
+      await dbConnect();
+
+      let startIndex = await getCheckpoint(WORKER_NAME, job.id);
+      if (startIndex >= patientsToInsert.length) {
+        startIndex = 0;
+      }
+      console.log(`⏩ Resuming from index: ${startIndex}`);
+
+      let totalInserted = 0;
+      let totalFailed = 0;
+      const errors = [];
+      let invoiceSequence = maxInvoiceSeq;
+
+      const getNextInvoiceNumber = () => {
+        invoiceSequence++;
+        return `INV-${dateStr}-${String(invoiceSequence).padStart(3, "0")}`;
+      };
+
+      for (let i = startIndex; i < patientsToInsert.length; i += BATCH_SIZE) {
+        const batch = patientsToInsert.slice(i, i + BATCH_SIZE);
+        console.log(
+          `📦 Batch ${Math.floor(i / BATCH_SIZE) + 1}: ${batch.length} patients`
+        );
+
+        for (let j = 0; j < batch.length; j++) {
+          const patientData = batch[j];
+          const rowIndex = i + j + 2; // +2 because row 1 is header, and arrays are 0-indexed
+          
+          try {
+            // Generate invoice number
+            let invoiceNumber = getNextInvoiceNumber();
+            // Verify it doesn't exist (safety check)
+            let existingInvoice = await PatientRegistration.findOne({ invoiceNumber });
+            if (existingInvoice) {
+              // If exists, keep incrementing until we find a unique one
+              let attempts = 0;
+              while (existingInvoice && attempts < 100) {
+                invoiceSequence++;
+                invoiceNumber = getNextInvoiceNumber();
+                existingInvoice = await PatientRegistration.findOne({ invoiceNumber });
+                if (!existingInvoice) break;
+                attempts++;
+              }
+              if (attempts >= 100) {
+                totalFailed++;
+                errors.push(`Row ${rowIndex}: Could not generate unique invoice number`);
+                continue;
+              }
+            }
+
+            // Generate EMR number
+            const emrNumber = await generateEmrNumber();
+
+            // Create patient with generated numbers
+            const finalPatientData = {
+              ...patientData,
+              invoiceNumber,
+              emrNumber,
+              userId: userId,
+              invoicedBy: computedInvoicedBy,
+            };
+
+            await PatientRegistration.create(finalPatientData);
+            totalInserted++;
+          } catch (patientError) {
+            totalFailed++;
+            // Handle validation errors more gracefully
+            if (patientError.name === 'ValidationError') {
+              const validationErrors = Object.values(patientError.errors).map(e => e.message).join(", ");
+              errors.push(`Row ${rowIndex}: Patient validation failed: ${validationErrors}`);
+            } else if (patientError.code === 11000) {
+              const field = Object.keys(patientError.keyPattern)[0];
+              errors.push(`Row ${rowIndex}: ${field} already exists`);
+            } else {
+              errors.push(`Row ${rowIndex}: Failed to create patient: ${patientError.message || "Unknown error"}`);
+            }
+          }
+        }
+
+        // Save checkpoint every 5 batches
+        const nextIndex = i + BATCH_SIZE;
+        if (
+          nextIndex % (BATCH_SIZE * 5) === 0 ||
+          nextIndex >= patientsToInsert.length
+        ) {
+          await saveCheckpoint(WORKER_NAME, job.id, nextIndex);
+        }
+
+        // Yield to event loop every 3 batches
+        if (i % (BATCH_SIZE * 3) === 0) {
+          await new Promise((resolve) => setImmediate(resolve));
+        }
+      }
+
+      // Clear checkpoint
+      await clearCheckpoint(WORKER_NAME, job.id);
+
+      console.timeEnd(`PatientJob-${job.id}`);
+      console.log(
+        `🎉 Patient Import Job ${job.id} completed. Inserted: ${totalInserted}/${patientsToInsert.length}, Failed: ${totalFailed}`
+      );
+
+      return {
+        totalProcessed: patientsToInsert.length,
+        totalInserted,
+        totalFailed,
+        errors: errors.slice(0, 100), // Limit errors to first 100
+      };
+    } catch (error) {
+      console.error("Error in import patients from file worker: ", error?.message);
+      throw error;
+    }
+  },
+  {
+    connection: redis,
+    concurrency: 1,
+    limiter: {
+      max: 1,
+      duration: 500,
+    },
+  }
+);
+
+// Worker events
+importPatientsFromFileWorker.on("completed", (job, returnValue) => {
+  console.log(`✅ Patient Import Job ${job.id} completed successfully`);
+  console.log(`📊 ${returnValue?.totalInserted || 0} patients imported, ${returnValue?.totalFailed || 0} failed`);
+});
+
+importPatientsFromFileWorker.on("failed", (job, err) => {
+  console.error(`❌ Patient Import Job ${job?.id} failed:`, err.message);
+});

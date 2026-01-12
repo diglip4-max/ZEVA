@@ -412,17 +412,17 @@ function DoctorReviews() {
               <h3 className="text-sm font-semibold text-gray-900">Sentiment Distribution</h3>
             </div>
             <ResponsiveContainer width="100%" height={220}>
-              <PieChart>
+              <PieChart margin={{ top: 10, right: 40, left: 40, bottom: 10 }}>
                 <Pie
                   data={sentimentData}
                   cx="50%"
                   cy="50%"
                   innerRadius={50}
-                  outerRadius={80}
+                  outerRadius={75}
                   paddingAngle={2}
                   dataKey="value"
-                  label={({ name, percentage }) => `${name}: ${percentage}%`}
-                  labelLine={false}
+                  label={({ name, percentage }) => percentage > 0 ? `${name.split(' ')[0]}: ${percentage}%` : ''}
+                  labelLine={true}
                 >
                   {sentimentData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
@@ -442,7 +442,7 @@ function DoctorReviews() {
                 />
               </PieChart>
             </ResponsiveContainer>
-            <div className="flex justify-center gap-4 mt-2 text-xs">
+            <div className="flex justify-center flex-wrap gap-x-4 gap-y-1 mt-2 text-xs">
               {sentimentData.map((item, idx) => (
                 <div key={idx} className="flex items-center gap-1.5">
                   <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }}></div>

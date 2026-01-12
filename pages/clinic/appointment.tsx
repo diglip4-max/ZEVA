@@ -903,8 +903,8 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
       doctorId: doctor._id,
       doctorName: doctor.name,
       position: {
-        top: rect.bottom + window.scrollY + 8,
-        left: rect.left + window.scrollX + rect.width / 2,
+        top: rect.bottom + 8,
+        left: rect.left + rect.width / 2,
       },
     });
     if (!doctorTreatmentsMap[doctor._id] && !doctorTreatmentsLoading[doctor._id]) {
@@ -2331,7 +2331,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                     </span>
                   </button>
                   {doctorFilterOpen && (
-                    <div className="absolute z-40 mt-1 w-48 rounded border border-gray-200 dark:border-gray-300 bg-white dark:bg-gray-100 p-2 shadow-lg">
+                    <div className="absolute z-[100] mt-1 w-48 rounded border border-gray-200 dark:border-gray-300 bg-white dark:bg-gray-100 p-2 shadow-lg">
                       <div className="mb-1 flex items-center justify-between text-[10px] text-gray-700 dark:text-gray-800">
                         <span>Doctors</span>
                         <div className="flex gap-1.5">
@@ -2431,7 +2431,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                     </span>
                   </button>
                   {roomFilterOpen && (
-                    <div className="absolute z-40 mt-1 w-48 rounded border border-gray-200 dark:border-gray-300 bg-white dark:bg-gray-100 p-2 shadow-lg">
+                    <div className="absolute z-[100] mt-1 w-48 rounded border border-gray-200 dark:border-gray-300 bg-white dark:bg-gray-100 p-2 shadow-lg">
                       <div className="mb-1 flex items-center justify-between text-[10px] text-gray-700 dark:text-gray-800">
                         <span>Rooms</span>
                         <div className="flex gap-1.5">
@@ -3154,7 +3154,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
       {/* Custom Time Slot Modal */}
       {customTimeSlotModalOpen && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[110] p-4"
           onClick={() => setCustomTimeSlotModalOpen(false)}
         >
           <div

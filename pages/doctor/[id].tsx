@@ -8,6 +8,7 @@ import CalculatorGames from "../../components/CalculatorGames";
 import { useAuth } from "../../context/AuthContext";
 import AuthModal from "../../components/AuthModal";
 import toast, { Toaster } from "react-hot-toast";
+import { normalizeImagePath } from "../../lib/utils";
 
 interface DoctorProfile {
   _id: string;
@@ -356,7 +357,7 @@ export default function DoctorDetail() {
               {profile.photos?.[0] ? (
                 <div className="w-32 h-32 sm:w-40 sm:h-40 rounded-full border-4 border-white shadow-lg overflow-hidden bg-white">
                   <img
-                    src={profile.photos[0]}
+                    src={normalizeImagePath(profile.photos[0])}
                     alt={profile.user?.name}
                     className="w-full h-full object-cover"
                   />

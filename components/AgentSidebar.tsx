@@ -334,7 +334,7 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
                                       <div className="flex-1 min-w-0">
                                         <div
                                           className={clsx(
-                                            "font-medium text-xs transition-colors duration-200 truncate",
+                                            "font-medium text-xs transition-colors duration-200",
                                             {
                                               "text-white": childActive,
                                               "text-slate-900 group-hover:text-slate-900": !childActive,
@@ -346,7 +346,7 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
                                         {child.description && (
                                           <div
                                             className={clsx(
-                                              "text-[10px] mt-0.5 transition-all duration-200 truncate",
+                                              "text-[10px] mt-0.5 transition-all duration-200",
                                               {
                                                 "text-white/80": childActive,
                                                 "text-slate-500 group-hover:text-slate-600": !childActive,
@@ -403,7 +403,7 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
                             </div>
                             <div className="flex-1 min-w-0">
                               <div
-                                className={clsx("font-medium text-xs truncate", {
+                                className={clsx("font-medium text-xs", {
                                   "text-white": isActive,
                                   "text-slate-900 group-hover:text-slate-900": !isActive,
                                 })}
@@ -412,7 +412,7 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
                               </div>
                               {item.description && (
                                 <div
-                                  className={clsx("text-[10px] mt-0.5 truncate", {
+                                  className={clsx("text-[10px] mt-0.5", {
                                     "text-white/80": isActive,
                                     "text-slate-500 group-hover:text-slate-600": !isActive,
                                   })}
@@ -536,7 +536,7 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
                               <div className="flex-1 min-w-0">
                                 <div
                                   className={clsx(
-                                    "font-medium text-sm transition-colors duration-200 truncate",
+                                    "font-medium text-sm transition-colors duration-200",
                                     {
                                       "text-white": isDropdownOpen,
                                       "text-slate-900": !isDropdownOpen,
@@ -548,7 +548,7 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
                                 {item.description && (
                                   <div
                                     className={clsx(
-                                      "text-xs mt-0.5 transition-all duration-200 truncate",
+                                      "text-xs mt-0.5 transition-all duration-200",
                                       {
                                         "text-white/80": isDropdownOpen,
                                         "text-slate-500": !isDropdownOpen,
@@ -609,7 +609,7 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
                                         <div className="flex-1 min-w-0">
                                           <div
                                             className={clsx(
-                                              "font-medium text-sm transition-colors duration-200 truncate",
+                                              "font-medium text-sm transition-colors duration-200",
                                               {
                                                 "text-white": childActive,
                                                 "text-slate-900": !childActive,
@@ -621,7 +621,7 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
                                           {child.description && (
                                             <div
                                               className={clsx(
-                                                "text-xs mt-0.5 transition-all duration-200 truncate",
+                                                "text-xs mt-0.5 transition-all duration-200",
                                                 {
                                                   "text-white/80": childActive,
                                                   "text-slate-500": !childActive,
@@ -679,7 +679,7 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
                               <div className="flex-1 min-w-0">
                                 <div
                                   className={clsx(
-                                    "font-medium text-sm transition-colors duration-200 truncate",
+                                    "font-medium text-sm transition-colors duration-200",
                                     {
                                       "text-white": isActive,
                                       "text-slate-900": !isActive,
@@ -692,7 +692,7 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
                                 {item.description && (
                                   <div
                                     className={clsx(
-                                      "text-xs mt-0.5 transition-all duration-200 truncate",
+                                      "text-xs mt-0.5 transition-all duration-200",
                                       {
                                         "text-white/80": isActive,
                                         "text-slate-500": !isActive,

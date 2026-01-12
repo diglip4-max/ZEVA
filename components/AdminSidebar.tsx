@@ -395,7 +395,7 @@ const AdminSidebar: FC<AdminSidebarProps> = ({
                           <div className="flex-1 min-w-0">
                             <div
                               className={clsx(
-                                "font-medium text-sm transition-colors duration-200 truncate",
+                                "font-medium text-sm transition-colors duration-200",
                                 {
                                   "text-white": isDropdownOpen,
                                   "text-gray-900": !isDropdownOpen,
@@ -456,7 +456,7 @@ const AdminSidebar: FC<AdminSidebarProps> = ({
                                     <div className="flex-1 min-w-0">
                                       <div
                                         className={clsx(
-                                          "font-medium text-sm transition-colors duration-200 truncate",
+                                          "font-medium text-sm transition-colors duration-200",
                                           {
                                             "text-white": childActive,
                                             "text-gray-900": !childActive,
@@ -514,7 +514,7 @@ const AdminSidebar: FC<AdminSidebarProps> = ({
                       <div className="flex-1 min-w-0">
                         <div
                           className={clsx(
-                            "font-medium text-sm transition-colors duration-200 truncate",
+                            "font-medium text-sm transition-colors duration-200",
                             {
                               "text-white": isActive,
                               "text-gray-900": !isActive,

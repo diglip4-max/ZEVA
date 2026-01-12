@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { normalizeImagePath } from '../lib/utils';
 
 interface DoctorHeaderProps {
   handleToggleDesktop?: () => void;
@@ -15,7 +16,7 @@ const DoctorHeader: React.FC<DoctorHeaderProps> = ({
   isDesktopHidden: _isDesktopHidden = false,
   isMobileOpen = false,
 }) => {
-  const [doctorUser, setDoctorUser] = useState<{ name: string; email: string } | null>(null);
+  const [doctorUser, setDoctorUser] = useState<{ name: string; email: string; photo?: string } | null>(null);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -99,10 +100,18 @@ const DoctorHeader: React.FC<DoctorHeaderProps> = ({
             </div>
 
             {/* Avatar - Always visible */}
-            <div className="w-8 h-8 sm:w-9 sm:h-9 lg:w-10 lg:h-10 bg-[#2D9AA5] rounded-full flex items-center justify-center flex-shrink-0">
-              <span className="text-white font-medium text-xs sm:text-sm">
-                {doctorUser ? getInitials(doctorUser.name) : 'D'}
-              </span>
+            <div className="w-8 h-8 sm:w-9 sm:h-9 lg:w-10 lg:h-10 bg-[#2D9AA5] rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden">
+              {doctorUser?.photo ? (
+                <img
+                  src={normalizeImagePath(doctorUser.photo)}
+                  alt={doctorUser.name}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <span className="text-white font-medium text-xs sm:text-sm">
+                  {doctorUser ? getInitials(doctorUser.name) : 'D'}
+                </span>
+              )}
             </div>
 
             {/* Logout Button - Icon only on mobile, text on larger screens */}

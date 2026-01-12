@@ -5,6 +5,20 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 /**
+ * Normalizes an image path by handling backslashes, ensuring a leading slash,
+ * and ignoring external URLs.
+ * @param imagePath - The path or URL to normalize
+ * @returns A normalized path or URL
+ */
+export function normalizeImagePath(imagePath: string): string {
+  if (!imagePath) return "";
+  let p = imagePath.replace(/\\/g, "/");
+  if (p.startsWith("/")) return p;
+  if (p.startsWith("http")) return p;
+  return "/" + p;
+}
+
+/**
  * Generates a URL-friendly slug from text
  * @param text - The text to convert to slug
  * @returns A clean, URL-friendly slug
@@ -47,6 +61,10 @@ export async function generateUniqueSlug(
   
   return finalSlug;
 }
+
+
+
+
 
 
 

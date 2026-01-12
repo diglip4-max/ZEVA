@@ -21,6 +21,7 @@ import AuthModal from "../../components/AuthModal";
 import dayjs from "dayjs";
 import Image from "next/image";
 import { Stethoscope } from "lucide-react";
+import { normalizeImagePath } from "../../lib/utils";
 
 interface Doctor {
   _id: string;
@@ -164,7 +165,7 @@ export default function FindDoctor() {
   const updateURL = (treatment: string, location: string) => {
     // Set flag to prevent useEffect from interfering
     isUpdatingURL.current = true;
-    
+   
     const params = new URLSearchParams();
     if (treatment) {
       params.set('treatment', textToSlug(treatment));
@@ -173,12 +174,12 @@ export default function FindDoctor() {
       // Always use the actual location value from input - no special handling
       params.set('location', textToSlug(location));
     }
-    const newUrl = params.toString() 
+    const newUrl = params.toString()
       ? `${router.pathname}?${params.toString()}`
       : router.pathname;
-    
+   
     router.replace(newUrl, undefined, { shallow: true });
-    
+   
     // Reset flag after a short delay to allow URL to update
     setTimeout(() => {
       isUpdatingURL.current = false;
@@ -283,18 +284,18 @@ export default function FindDoctor() {
   // Separate useEffect for URL query parameters to avoid conflicts with localStorage
   useEffect(() => {
     if (!router.isReady || hasSearchedFromURL.current || isUpdatingURL.current) return;
-    
+   
     const { treatment, location } = router.query;
     if (treatment || location) {
       const treatmentText = treatment ? slugToText(String(treatment)) : '';
       const locationText = location ? slugToText(String(location)) : '';
-      
+     
       // Check if current form values don't match URL params (to avoid overwriting manual input)
       const currentLocationMatches = !locationText || manualPlace.trim().toLowerCase() === locationText.toLowerCase();
-      
+     
       if (locationText && locationText !== 'near-me' && !currentLocationMatches) {
         hasSearchedFromURL.current = true;
-        
+       
         // Set the form values
         if (treatmentText) {
           setQuery(treatmentText);
@@ -308,7 +309,7 @@ export default function FindDoctor() {
         }, 300);
       } else if (locationText === 'near-me' && treatmentText) {
         hasSearchedFromURL.current = true;
-        
+       
         // Handle near-me case
         setQuery(treatmentText);
         setSelectedService(treatmentText);
@@ -549,24 +550,31 @@ export default function FindDoctor() {
   const locateMe = () => {
     // Reset URL search flag so manual searches work
     hasSearchedFromURL.current = false;
-    
+   
     setLoading(true);
+    setDoctors([]); // Clear previous results to show loading state in results area
+    
+    // Explicitly scroll to results section
+    if (resultsRef.current) {
+      resultsRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
     clearPersistedState(); // Clear old state when starting new search
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const { latitude, longitude } = pos.coords;
         setCoords({ lat: latitude, lng: longitude });
         setUserCurrentLocation({ lat: latitude, lng: longitude }); // Store user's current location
-        
+       
         // Get values from input fields
         const treatmentValue = query.trim();
         const locationValue = manualPlace.trim();
         const serviceToUse = selectedService || treatmentValue;
-        
+       
         // Update URL with values from input fields (if location is empty, use "near-me")
         const locationForURL = locationValue || 'near-me';
         updateURL(serviceToUse || treatmentValue, locationForURL);
-        
+       
         fetchDoctors(latitude, longitude, selectedService);
       },
       () => {
@@ -583,8 +591,15 @@ export default function FindDoctor() {
     if (!placeQuery) return;
 
     setLoading(true);
-    clearPersistedState(); // Clear old state when starting new search
+    setDoctors([]); // Clear previous results to show loading state in results area
     
+    // Explicitly scroll to results section
+    if (resultsRef.current) {
+      resultsRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    clearPersistedState(); // Clear old state when starting new search
+   
     // Try to get user's current location in the background (for distance calculation)
     if (typeof window !== "undefined" && navigator.geolocation && !userCurrentLocation) {
       navigator.geolocation.getCurrentPosition(
@@ -602,20 +617,20 @@ export default function FindDoctor() {
         }
       );
     }
-    
+   
     try {
       const res = await axios.get("/api/doctor/geocode", {
         params: { place: placeQuery },
       });
       setCoords({ lat: res.data.lat, lng: res.data.lng });
-      
+     
       // Get values from input fields for URL update
       const treatmentValue = query.trim();
       const serviceToUse = selectedService || treatmentValue;
-      
+     
       // Update URL with values from input fields - always use actual input values
       updateURL(serviceToUse || treatmentValue, placeQuery);
-      
+     
       fetchDoctors(res.data.lat, res.data.lng, selectedService);
     } catch {
       // console.error("Error in manual place search:", err);
@@ -636,12 +651,12 @@ export default function FindDoctor() {
 
       setCoords({ lat: res.data.lat, lng: res.data.lng });
       setManualPlace(locationText);
-      
+     
       if (serviceText) {
         setQuery(serviceText);
         setSelectedService(serviceText);
       }
-      
+     
       fetchDoctors(res.data.lat, res.data.lng, serviceText || undefined);
     } catch {
       // console.error("Error in URL-based place search:", err);
@@ -653,18 +668,24 @@ export default function FindDoctor() {
   const handleSearch = async () => {
     // Reset URL search flag so manual searches work
     hasSearchedFromURL.current = false;
-    
+   
     // ALWAYS get values directly from input fields
     const treatmentValue = query.trim();
     const locationValue = manualPlace.trim();
-    
+   
     if (treatmentValue && coords) {
       clearPersistedState(); // Clear old state when starting new search
       setSelectedService(treatmentValue);
+      setDoctors([]); // Clear previous results
       
+      // Explicitly scroll to results section
+      if (resultsRef.current) {
+        resultsRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+     
       // Update URL with values from input fields
       updateURL(treatmentValue, locationValue || 'near-me');
-      
+     
       fetchDoctors(coords.lat, coords.lng, treatmentValue);
     } else if (locationValue) {
       // Update URL before searching
@@ -681,88 +702,88 @@ export default function FindDoctor() {
         const serviceLower = selectedService.toLowerCase();
         // Split service by hyphens and spaces to check for partial matches
         const serviceParts = serviceLower.split(/[- ]+/).filter(p => p.length > 0);
-        
+       
         // Check degree field
         if (doctor.degree && doctor.degree.toLowerCase().includes(serviceLower)) {
           return true;
         }
-        
+       
         // Check treatments array
         if (doctor.treatments && Array.isArray(doctor.treatments)) {
           return doctor.treatments.some((treatment: any) => {
             const mainTreatmentLower = treatment.mainTreatment?.toLowerCase() || '';
             const mainTreatmentSlugLower = treatment.mainTreatmentSlug?.toLowerCase() || '';
-            
+           
             // Check if service contains treatment or treatment contains service
             if (mainTreatmentLower && (
-              mainTreatmentLower.includes(serviceLower) || 
+              mainTreatmentLower.includes(serviceLower) ||
               serviceLower.includes(mainTreatmentLower)
             )) {
               return true;
             }
-            
+           
             // Check if service contains treatment slug or treatment slug contains service
             if (mainTreatmentSlugLower && (
-              mainTreatmentSlugLower.includes(serviceLower) || 
+              mainTreatmentSlugLower.includes(serviceLower) ||
               serviceLower.includes(mainTreatmentSlugLower) ||
               mainTreatmentSlugLower === serviceLower
             )) {
               return true;
             }
-            
+           
             // Check if any part of the service matches the treatment (for "vaccination-pediatrics" matching "pediatrics")
             if (serviceParts.length > 0 && mainTreatmentSlugLower) {
               if (serviceParts.some(part => mainTreatmentSlugLower.includes(part) || part.includes(mainTreatmentSlugLower))) {
                 return true;
               }
             }
-            
+           
             // Check subTreatments
             if (treatment.subTreatments && Array.isArray(treatment.subTreatments)) {
               return treatment.subTreatments.some((sub: any) => {
                 const subNameLower = sub.name?.toLowerCase() || '';
                 const subSlugLower = sub.slug?.toLowerCase() || '';
-                
+               
                 if (subNameLower && (
-                  subNameLower.includes(serviceLower) || 
+                  subNameLower.includes(serviceLower) ||
                   serviceLower.includes(subNameLower)
                 )) {
                   return true;
                 }
-                
+               
                 if (subSlugLower && (
-                  subSlugLower.includes(serviceLower) || 
+                  subSlugLower.includes(serviceLower) ||
                   serviceLower.includes(subSlugLower) ||
                   subSlugLower === serviceLower
                 )) {
                   return true;
                 }
-                
+               
                 // Check if any part of the service matches the sub treatment
                 if (serviceParts.length > 0 && subSlugLower) {
                   if (serviceParts.some(part => subSlugLower.includes(part) || part.includes(subSlugLower))) {
                     return true;
                   }
                 }
-                
+               
                 return false;
               });
             }
             return false;
           });
         }
-        
+       
         // Check legacy treatment field (backward compatibility)
         if (doctor.treatment) {
-          const treatmentArray = Array.isArray(doctor.treatment) 
-            ? doctor.treatment 
+          const treatmentArray = Array.isArray(doctor.treatment)
+            ? doctor.treatment
             : [doctor.treatment];
           return treatmentArray.some((t: string) => {
             const tLower = t.toLowerCase();
             return tLower.includes(serviceLower) || serviceLower.includes(tLower);
           });
         }
-        
+       
         return false;
       })();
 
@@ -1161,7 +1182,7 @@ export default function FindDoctor() {
                 </button>
               ))}
             </div>
-            
+           
             <div className="rounded-2xl p-4 sm:p-5 shadow-lg border border-[#e2e8f0] bg-white backdrop-blur-sm mb-6" style={{ position: 'relative', zIndex: 100 }}>
                 {/* Desktop Layout */}
               <div className="hidden md:flex gap-3 items-center">
@@ -1370,7 +1391,15 @@ export default function FindDoctor() {
       {/* Results Section - Always rendered to prevent collapsing */}
       <div className="w-full bg-gradient-to-b from-[#f8fafc] to-white" data-search-results style={{ minHeight: '400px' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 pb-6" ref={resultsRef}>
-          {doctors.length > 0 ? (
+          {loading ? (
+            <div className="flex flex-col items-center justify-center py-20 bg-white rounded-2xl border border-[#e2e8f0] shadow-sm">
+              <div className="animate-spin rounded-full h-12 w-12 border-4 border-[#e2e8f0] border-t-[#0284c7]"></div>
+              <h3 className="mt-4 text-lg font-bold text-[#1e293b]">Searching for Doctors</h3>
+              <p className="text-[#64748b] text-sm mt-2 text-center px-4">
+                Please wait while we find the best Ayurveda specialists near you.
+              </p>
+            </div>
+          ) : doctors.length > 0 ? (
             <div className="flex flex-col lg:flex-row gap-4">
             {/* Filters Sidebar */}
             <div className="lg:w-1/4">
@@ -1563,12 +1592,7 @@ export default function FindDoctor() {
                   )}
               </div>
 
-              {loading ? (
-                  <div className="flex items-center justify-center py-8">
-                    <div className="animate-spin rounded-full h-6 w-6 border-2 border-[#e2e8f0] border-t-[#0284c7]"></div>
-                    <span className="ml-3 text-[#475569] text-xs">Searching...</span>
-                </div>
-              ) : filteredDoctors.length === 0 ? (
+              {filteredDoctors.length === 0 ? (
                   <div className="bg-white rounded-2xl border border-[#e2e8f0] shadow-sm p-6 sm:p-8">
                     <div className="text-center mb-6">
                       <div className="w-16 h-16 rounded-full bg-[#f0f7ff] flex items-center justify-center mx-auto mb-3">
@@ -1581,7 +1605,7 @@ export default function FindDoctor() {
                         Try adjusting your search criteria or filters
                       </p>
                     </div>
-                    
+                   
                     {/* Professional ZEVA Doctors Information Section */}
                     <div className="bg-gradient-to-br from-[#f0f7ff] via-[#e0f2fe] to-[#bae6fd] rounded-xl p-6 sm:p-8 border border-[#cbd5e1] shadow-sm">
                       <div className="flex items-center mb-4">
@@ -1597,7 +1621,7 @@ export default function FindDoctor() {
                           </p>
                         </div>
                       </div>
-                      
+                     
                       <div className="grid md:grid-cols-2 gap-4 mb-6">
                         <div className="bg-white/80 backdrop-blur-sm rounded-lg p-4 border border-white/50">
                           <div className="flex items-start mb-2">
@@ -1610,7 +1634,7 @@ export default function FindDoctor() {
                             </div>
                           </div>
                         </div>
-                        
+                       
                         <div className="bg-white/80 backdrop-blur-sm rounded-lg p-4 border border-white/50">
                           <div className="flex items-start mb-2">
                             <Star className="w-5 h-5 text-[#0284c7] mr-2 flex-shrink-0 mt-0.5" />
@@ -1622,7 +1646,7 @@ export default function FindDoctor() {
                             </div>
                           </div>
                         </div>
-                        
+                       
                         <div className="bg-white/80 backdrop-blur-sm rounded-lg p-4 border border-white/50">
                           <div className="flex items-start mb-2">
                             <BadgeIndianRupee className="w-5 h-5 text-[#0284c7] mr-2 flex-shrink-0 mt-0.5" />
@@ -1634,7 +1658,7 @@ export default function FindDoctor() {
                             </div>
                           </div>
                         </div>
-                        
+                       
                         <div className="bg-white/80 backdrop-blur-sm rounded-lg p-4 border border-white/50">
                           <div className="flex items-start mb-2">
                             <Clock className="w-5 h-5 text-[#0284c7] mr-2 flex-shrink-0 mt-0.5" />
@@ -1647,7 +1671,7 @@ export default function FindDoctor() {
                           </div>
                         </div>
                       </div>
-                      
+                     
                       <div className="bg-white/90 backdrop-blur-sm rounded-lg p-5 border border-white/50">
                         <h3 className="text-base font-bold text-[#1e293b] mb-3 text-center">Why Choose ZEVA Doctors?</h3>
                         <div className="grid sm:grid-cols-2 gap-3 text-xs text-[#475569]">
@@ -1679,7 +1703,7 @@ Verified Doctors – Every doctor is thoroughly verified with proper certificati
                           </div>
                         </div>
                       </div>
-                      
+                     
                       <div className="mt-5 pt-5 border-t border-[#cbd5e1]">
                         <p className="text-sm text-[#475569] text-center leading-relaxed">
                           <strong className="text-[#1e293b]">Search Tip:</strong> Try searching by location (city, area), specialty (Panchakarma, Abhyanga), or doctor name to discover the best Ayurveda healthcare professionals in your area.
@@ -1697,189 +1721,133 @@ Verified Doctors – Every doctor is thoroughly verified with proper certificati
                     return (
                       <div
                         key={index}
-                        className="bg-white rounded-xl shadow-md border-2 border-[#e2e8f0] overflow-hidden hover:shadow-lg hover:border-[#0284c7] transition-all duration-300 group"
+                        className="flex flex-col bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-xl transition-all duration-300 group h-full"
                       >
-                        {/* Doctor Image */}
-                        <div className="relative h-24 w-full bg-gradient-to-br from-[#e0f2fe] to-[#bae6fd] overflow-hidden">
+                        {/* Doctor Image Container */}
+                        <div className="relative h-48 w-full overflow-hidden">
                           {doctor.photos?.[0] ? (
                             <Image
-                              src={doctor.photos[0]}
+                              src={normalizeImagePath(doctor.photos[0])}
                               alt={doctor.user?.name || "Doctor Image"}
                               fill
-                              className="object-contain object-center group-hover:scale-105 transition-transform duration-300 bg-white"
+                              className="object-cover object-center group-hover:scale-105 transition-transform duration-500"
                             />
-
                           ) : (
-                            <div className="w-full h-full bg-gradient-to-br from-blue-100 to-purple-100 flex items-center justify-center">
+                            <div className="w-full h-full bg-gray-100 flex items-center justify-center">
                               <div className="text-center">
-                                <div className="w-16 h-16 bg-blue-200 rounded-full flex items-center justify-center mx-auto mb-2">
-                                  <svg
-                                    className="w-8 h-8 text-blue-600"
-                                    fill="currentColor"
-                                    viewBox="0 0 24 24"
-                                  >
-                                    <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
-                                  </svg>
+                                <div className="w-12 h-12 bg-teal-800 rounded-full flex items-center justify-center mx-auto mb-2">
+                                  <Stethoscope className="w-6 h-6 text-white" />
                                 </div>
-                                <span className="text-sm text-blue-600 font-medium">
+                                <span className="text-sm text-teal-800 font-medium">
                                   {doctor.user?.name?.split(" ")[0]}
                                 </span>
                               </div>
                             </div>
                           )}
+                          
+                          {/* Badge Overlay */}
+                          <span className="absolute top-3 left-3 bg-amber-300 px-3 py-1 rounded-full text-xs font-semibold z-20">
+                            {doctorReviews[doctor._id]?.averageRating >= 4.8 ? "Top Rated" : "Most Booked"}
+                          </span>
 
-                          {/* Overlay badges */}
-                          <div className="absolute top-1.5 right-1.5">
-                            {doctor.verified && (
-                              <div className="bg-[#059669] text-white px-1 py-0.5 rounded text-xs font-medium flex items-center">
-                                <Shield className="w-2 h-2 mr-0.5" />
-                                ✓
-                              </div>
-                            )}
-                          </div>
+                          {/* Verified Overlay */}
+                          {doctor.verified && (
+                            <span className="absolute top-3 right-3 w-8 h-8 bg-teal-800 text-white rounded-full flex items-center justify-center z-20">
+                              <Shield className="w-4 h-4" />
+                            </span>
+                          )}
 
+                          {/* Distance Overlay */}
                           {doctor.distance && (
-                            <div className="absolute bottom-1.5 left-1.5 bg-[#0284c7] text-white px-1 py-0.5 rounded text-xs font-medium flex items-center">
-                              <Navigation className="w-2 h-2 mr-0.5" />
+                            <div className="absolute bottom-3 left-3 bg-teal-800 text-white px-2 py-1 rounded-md text-[10px] font-bold flex items-center z-20">
+                              <Navigation className="w-2.5 h-2.5 mr-1" />
                               {formatDistance(doctor.distance)}
                             </div>
                           )}
                         </div>
 
                         {/* Doctor Info */}
-                        <div className="p-3">
-                        {/* Rating */}
-                          <div className="flex items-center gap-1.5 mb-2">
-                          {isLoadingReviews ? (
-                              <span className="text-xs text-[#64748b]">Loading...</span>
-                          ) : hasRating ? (
-                            <>
-                              <div className="flex">
-                                {renderStars(doctorReviews[doctor._id].averageRating)}
-                              </div>
-                                <span className="text-xs font-semibold text-[#1e293b]">
-                                {doctorReviews[doctor._id].averageRating.toFixed(1)}
-                              </span>
-                                <span className="text-xs text-[#64748b]">
-                                  ({doctorReviews[doctor._id].totalReviews} reviews)
-                              </span>
-                            </>
-                          ) : reviewsLoaded ? (
-                              <span className="text-xs text-[#64748b]">No reviews yet</span>
-                          ) : null}
-                        </div>
-
-                          {/* Doctor basic info */}
-                          <h3 className="text-sm font-bold text-[#1e293b] leading-tight mb-1.5 line-clamp-1 group-hover:text-[#0284c7] transition-colors">
+                        <div className="p-4 flex-1 flex flex-col">
+                          <div className="flex justify-between gap-2 items-start">
+                            <div className="font-bold text-gray-900 text-lg line-clamp-1 group-hover:text-teal-800 transition-colors">
                               {doctor.user?.name}
-                            </h3>
-                          <p className="text-[#0284c7] font-medium text-xs mb-1">
-                              {doctor.degree}
-                            </p>
-                          <p className="text-[#64748b] text-xs line-clamp-2 mb-2 leading-relaxed">
-                              {doctor.address}
-                            </p>
-
-                          {/* Experience and Fee */}
-                          <div className="flex justify-between items-center mb-2 pt-2 border-t border-[#f1f5f9]">
-                            <div>
-                              <p className="text-xs text-[#64748b] mb-0.5">Experience</p>
-                              <p className="text-xs font-semibold text-[#1e293b]">
-                                {doctor.experience} years
-                              </p>
                             </div>
-                            {typeof doctor.consultationFee === "number" && doctor.consultationFee > 0 && (
-                              <div className="text-right">
-                                <p className="text-xs text-[#64748b] mb-0.5">Consultation</p>
-                                <p className="text-sm font-bold text-[#0284c7]">
-                                  AED {doctor.consultationFee}
-                                </p>
-                              </div>
+                            <div className="text-amber-500 text-sm font-bold whitespace-nowrap flex items-center gap-1">
+                              <Star className="w-4 h-4 fill-current" />
+                              {reviewsLoaded ? (doctorReviews[doctor._id]?.averageRating || 0).toFixed(1) : "0.0"}
+                            </div>
+                          </div>
+
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            {doctor.treatments && doctor.treatments.length > 0 ? (
+                              doctor.treatments.slice(0, 2).map((t: any) => (
+                                <span
+                                  key={t.mainTreatmentSlug}
+                                  className="text-[10px] px-2 py-1 bg-teal-50 text-teal-800 rounded-full font-medium"
+                                >
+                                  {t.mainTreatment}
+                                </span>
+                              ))
+                            ) : (
+                              <>
+                                <span className="text-[10px] px-2 py-1 bg-teal-50 text-teal-800 rounded-full font-medium">
+                                  {doctor.degree || "Healthcare"}
+                                </span>
+                                <span className="text-[10px] px-2 py-1 bg-teal-50 text-teal-800 rounded-full font-medium">
+                                  Wellness
+                                </span>
+                              </>
                             )}
                           </div>
 
-                          {/* Availability */}
-                          <div className="mb-3">
-                            {(() => {
-                              const today = dayjs().startOf("day");
-                              const todaySlot = doctor.timeSlots && doctor.timeSlots.find((ts) => {
-                                const slotDate = dayjs(
-                                  capitalizeMonth(ts.date) + " " + dayjs().year(),
-                                  "DD MMMM YYYY"
-                                );
-                                return slotDate.isSame(today, "day");
-                              });
-
-                              if (!doctor.timeSlots || doctor.timeSlots.length === 0) {
-                                return (
-                                  <span className="inline-flex items-center px-2 py-1 bg-red-50 border border-red-200 text-red-700 rounded-md font-medium text-xs">
-                                    ✗ No appointments
-                                  </span>
-                                );
-                              } else if (todaySlot && todaySlot.availableSlots > 0) {
-                                return (
-                                  <span className="inline-flex items-center px-2 py-1 bg-green-50 border border-green-200 text-green-700 rounded-md font-medium text-xs">
-                                    ✓ Available today
-                                  </span>
-                                );
-                              } else {
-                                return (
-                                  <span className="inline-flex items-center px-2 py-1 bg-red-50 border border-red-200 text-red-700 rounded-md font-medium text-xs">
-                                    ✗ No appointment today
-                                  </span>
-                                );
-                              }
-                            })()}
+                          <div className="mt-3 flex items-center gap-2 text-sm text-gray-600">
+                            <MapPin className="w-4 h-4 text-teal-800 shrink-0" />
+                            <span className="truncate">{doctor.address}</span>
                           </div>
 
-                          {/* Action buttons */}
-                          <div className="flex gap-2">
-                            {(() => {
-                              // Use address if available (more accurate), otherwise fall back to coordinates
-                              const mapsHref = doctor.address
-                                ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(doctor.address)}`
-                                : doctor.location?.coordinates?.length === 2
-                                ? `https://www.google.com/maps/dir/?api=1&destination=${doctor.location.coordinates[1]},${doctor.location.coordinates[0]}`
-                                : null;
+                          {/* Fee and Actions */}
+                          <div className="mt-auto pt-4 flex justify-between items-center">
+                            <div>
+                              <div className="text-[10px] text-gray-500 font-medium">Starting from</div>
+                              <div className="font-bold text-blue-700 text-sm">
+                                {typeof doctor.consultationFee === "number" && doctor.consultationFee > 0 
+                                  ? `AED ${doctor.consultationFee}` 
+                                  : "AED —"}
+                              </div>
+                            </div>
+                            
+                            <div className="flex gap-2 items-center">
+                              {(() => {
+                                const mapsHref = doctor.address
+                                  ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(doctor.address)}`
+                                  : doctor.location?.coordinates?.length === 2
+                                  ? `https://www.google.com/maps/dir/?api=1&destination=${doctor.location.coordinates[1]},${doctor.location.coordinates[0]}`
+                                  : null;
+                               
+                                return mapsHref ? (
+                                  <a
+                                    href={mapsHref}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="w-8 h-8 flex items-center justify-center bg-teal-800 text-white rounded-full hover:bg-teal-900 transition-all shadow-sm"
+                                    title="Get Directions"
+                                  >
+                                    <Navigation className="w-4 h-4" />
+                                  </a>
+                                ) : null;
+                              })()}
                               
-                              return mapsHref ? (
-                                <a
-                                  href={mapsHref}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                onClick={(e) => e.stopPropagation()}
-                                className="flex items-center justify-center px-2.5 py-1.5 bg-[#0284c7] text-white rounded-lg hover:bg-[#0369a1] transition-all text-xs shadow-sm hover:shadow"
-                                title="Get Directions"
-                              >
-                                <Navigation className="w-3.5 h-3.5 mr-1" />
-                                <span className="hidden sm:inline">Directions</span>
-                              </a>
-                              ) : null;
-                            })()}
-
-                            {/* View Full Details */}
-                            <a
-                              href={(doctor as any).slug && (doctor as any).slugLocked 
-                                ? `/doctor/${(doctor as any).slug}` 
-                                : `/doctor/${doctor._id}`}
-                              className="flex-1 flex items-center justify-center px-3 py-1.5 bg-gradient-to-r from-[#0284c7] to-[#0ea5e9] hover:from-[#0369a1] hover:to-[#0284c7] text-white rounded-lg transition-all text-xs font-medium shadow-sm hover:shadow"
-                            >
-                              View Details
-                            </a>
-                          </div>
-
-                          {/* Contact */}
-                          {doctor.clinicContact && (
-                            <div className="mt-2 pt-2 border-t border-[#f1f5f9]">
                               <a
-                                href={`tel:${doctor.clinicContact}`}
-                                className="flex items-center justify-center text-xs text-[#64748b] hover:text-[#059669] transition-colors font-medium"
+                                href={(doctor as any).slug && (doctor as any).slugLocked
+                                  ? `/doctor/${(doctor as any).slug}`
+                                  : `/doctor/${doctor._id}`}
+                                className="bg-amber-300 px-4 py-2 rounded-xl text-xs font-bold text-gray-900 hover:bg-amber-400 transition-all shadow-sm"
                               >
-                                <Phone className="w-3 h-3 mr-1 text-[#059669]" />
-                                {doctor.clinicContact}
+                                View Details
                               </a>
                             </div>
-                          )}
+                          </div>
                         </div>
                       </div>
                     );
@@ -1888,7 +1856,7 @@ Verified Doctors – Every doctor is thoroughly verified with proper certificati
               )}
             </div>
           </div>
-          ) : (doctors.length === 0 && !loading && (selectedService || query.trim())) ? (
+          ) : (selectedService || query.trim()) ? (
           <div className="bg-white rounded-2xl border border-[#e2e8f0] shadow-sm p-6 sm:p-8">
               <div className="text-center mb-6">
                 <div className="w-16 h-16 rounded-full bg-[#f0f7ff] flex items-center justify-center mx-auto mb-3">
@@ -1901,7 +1869,7 @@ Verified Doctors – Every doctor is thoroughly verified with proper certificati
                   Try adjusting your search criteria or filters
                 </p>
               </div>
-              
+             
               {/* Professional ZEVA Doctors Information Section */}
               <div className="bg-gradient-to-br from-[#f0f7ff] via-[#e0f2fe] to-[#bae6fd] rounded-xl p-6 sm:p-8 border border-[#cbd5e1] shadow-sm">
               <div className="flex flex-col sm:flex-row items-center sm:items-start mb-6">
@@ -1917,7 +1885,7 @@ Verified Doctors – Every doctor is thoroughly verified with proper certificati
                   </p>
                 </div>
               </div>
-              
+             
               <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                 <div className="bg-white/90 backdrop-blur-sm rounded-lg p-4 border border-white/50 shadow-sm">
                   <Shield className="w-6 h-6 text-[#0284c7] mb-2" />
@@ -1926,7 +1894,7 @@ Verified Doctors – Every doctor is thoroughly verified with proper certificati
                     All doctors are verified with proper certifications and credentials
                   </p>
                 </div>
-                
+               
                 <div className="bg-white/90 backdrop-blur-sm rounded-lg p-4 border border-white/50 shadow-sm">
                   <Star className="w-6 h-6 text-[#0284c7] mb-2" />
                   <h3 className="text-sm font-bold text-[#1e293b] mb-1">Patient Reviews</h3>
@@ -1934,7 +1902,7 @@ Verified Doctors – Every doctor is thoroughly verified with proper certificati
                     Real reviews and ratings from verified patients
                   </p>
                 </div>
-                
+               
                 <div className="bg-white/90 backdrop-blur-sm rounded-lg p-4 border border-white/50 shadow-sm">
                   <BadgeIndianRupee className="w-6 h-6 text-[#0284c7] mb-2" />
                   <h3 className="text-sm font-bold text-[#1e293b] mb-1">Transparent Fees</h3>
@@ -1942,7 +1910,7 @@ Verified Doctors – Every doctor is thoroughly verified with proper certificati
                     Clear consultation fees with no hidden charges
                   </p>
                 </div>
-                
+               
                 <div className="bg-white/90 backdrop-blur-sm rounded-lg p-4 border border-white/50 shadow-sm">
                   <Clock className="w-6 h-6 text-[#0284c7] mb-2" />
                   <h3 className="text-sm font-bold text-[#1e293b] mb-1">Easy Booking</h3>
@@ -1951,7 +1919,7 @@ Verified Doctors – Every doctor is thoroughly verified with proper certificati
                   </p>
                 </div>
               </div>
-              
+             
               <div className="bg-white/90 backdrop-blur-sm rounded-lg p-5 border border-white/50">
                 <h3 className="text-lg font-bold text-[#1e293b] mb-4 text-center">Why Trust ZEVA Doctors?</h3>
                 <div className="grid sm:grid-cols-2 gap-3 text-sm text-[#475569]">
@@ -1983,12 +1951,12 @@ Verified Doctors – Every doctor is thoroughly verified with proper certificati
                   </div>
                 </div>
               </div>
-              
+             
               <div className="mt-6 pt-6 border-t border-[#cbd5e1]">
                 <p className="text-sm text-[#475569] text-center leading-relaxed max-w-3xl mx-auto">
-                  <strong className="text-[#1e293b]">Get Started:</strong> 
+                  <strong className="text-[#1e293b]">Get Started:</strong>
 
-Take control of your healthcare today. Enter your location, use the “Near Me” feature, or search by specialty or doctor name to discover the best Ayurveda doctors and medical specialists near you. Experience convenient, transparent, and verified healthcare with ZEVA. 
+Take control of your healthcare today. Enter your location, use the “Near Me” feature, or search by specialty or doctor name to discover the best Ayurveda doctors and medical specialists near you. Experience convenient, transparent, and verified healthcare with ZEVA.
 
 
 
@@ -1998,7 +1966,7 @@ Take control of your healthcare today. Enter your location, use the “Near Me�
                 </p>
               </div>
               </div>
-              
+             
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
                 <button
                   type="button"
@@ -2030,7 +1998,7 @@ Take control of your healthcare today. Enter your location, use the “Near Me�
                   Discover trusted Ayurveda doctors and medical specialists in your area. Search by location, specialty, or doctor name to find the best healthcare providers.
                 </p>
               </div>
-              
+             
               {/* Professional ZEVA Information Section */}
               <div className="bg-gradient-to-br from-[#f0f7ff] via-[#e0f2fe] to-[#bae6fd] rounded-xl p-6 sm:p-8 border border-[#cbd5e1] shadow-sm mb-6">
                 <div className="flex flex-col sm:flex-row items-center sm:items-start mb-6">
@@ -2046,7 +2014,7 @@ Take control of your healthcare today. Enter your location, use the “Near Me�
                     </p>
                   </div>
                 </div>
-                
+               
                 <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                   <div className="bg-white/90 backdrop-blur-sm rounded-lg p-4 border border-white/50 shadow-sm">
                     <Shield className="w-6 h-6 text-[#0284c7] mb-2" />
@@ -2055,7 +2023,7 @@ Take control of your healthcare today. Enter your location, use the “Near Me�
                       All doctors are verified with proper certifications and credentials
                     </p>
                   </div>
-                  
+                 
                   <div className="bg-white/90 backdrop-blur-sm rounded-lg p-4 border border-white/50 shadow-sm">
                     <Star className="w-6 h-6 text-[#0284c7] mb-2" />
                     <h3 className="text-sm font-bold text-[#1e293b] mb-1">Patient Reviews</h3>
@@ -2063,7 +2031,7 @@ Take control of your healthcare today. Enter your location, use the “Near Me�
                       Real reviews and ratings from verified patients
                     </p>
                   </div>
-                  
+                 
                   <div className="bg-white/90 backdrop-blur-sm rounded-lg p-4 border border-white/50 shadow-sm">
                     <BadgeIndianRupee className="w-6 h-6 text-[#0284c7] mb-2" />
                     <h3 className="text-sm font-bold text-[#1e293b] mb-1">Transparent Fees</h3>
@@ -2071,7 +2039,7 @@ Take control of your healthcare today. Enter your location, use the “Near Me�
                       Clear consultation fees with no hidden charges
                     </p>
                   </div>
-                  
+                 
                   <div className="bg-white/90 backdrop-blur-sm rounded-lg p-4 border border-white/50 shadow-sm">
                     <Clock className="w-6 h-6 text-[#0284c7] mb-2" />
                     <h3 className="text-sm font-bold text-[#1e293b] mb-1">Easy Booking</h3>
@@ -2080,7 +2048,7 @@ Take control of your healthcare today. Enter your location, use the “Near Me�
                     </p>
                   </div>
                 </div>
-                
+               
                 <div className="bg-white/90 backdrop-blur-sm rounded-lg p-5 border border-white/50">
                   <h3 className="text-lg font-bold text-[#1e293b] mb-4 text-center">Why Trust ZEVA Doctors?</h3>
                   <div className="grid sm:grid-cols-2 gap-3 text-sm text-[#475569]">
@@ -2111,12 +2079,12 @@ Verified Doctors – Every doctor is thoroughly verified with proper certificati
                     </div>
                   </div>
                 </div>
-                
+               
                 <div className="mt-6 pt-6 border-t border-[#cbd5e1]">
                   <p className="text-sm text-[#475569] text-center leading-relaxed max-w-3xl mx-auto">
-                    <strong className="text-[#1e293b]">Get Started:</strong> 
+                    <strong className="text-[#1e293b]">Get Started:</strong>
 
-Take control of your healthcare today. Enter your location, use the “Near Me” feature, or search by specialty or doctor name to discover the best Ayurveda doctors and medical specialists near you. Experience convenient, transparent, and verified healthcare with ZEVA. 
+Take control of your healthcare today. Enter your location, use the “Near Me” feature, or search by specialty or doctor name to discover the best Ayurveda doctors and medical specialists near you. Experience convenient, transparent, and verified healthcare with ZEVA.
 
 
 
@@ -2126,7 +2094,7 @@ Take control of your healthcare today. Enter your location, use the “Near Me�
                   </p>
                 </div>
               </div>
-              
+             
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
                 <button
                   type="button"
