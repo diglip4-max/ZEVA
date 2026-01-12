@@ -32,15 +32,15 @@ const CARDS: PlatformCard[] = [
     Icon: Video,
   },
   {
-    title: "Find Clinics & Doctors",
+    title: "Find Clinics ",
     description: "Discover verified healthcare providers",
     href: "/clinic/findclinic",
     Icon: MapPin,
   },
   {
-    title: "Insurance Accepted",
-    description: "Find clinics that accept your insurance",
-    href: "/insurance",
+    title: "Find Doctors",
+    description:"Access qualified doctors providing reliable and expert medical care",
+    href: "/doctor/search",
     Icon: ShieldCheck,
   },
   // image.png

@@ -24,6 +24,7 @@ import {
   TrendingUp,
   Star,
 } from "lucide-react";
+import { normalizeImagePath } from "../../lib/utils";
 import {
   BarChart,
   Bar,
@@ -602,6 +603,7 @@ function DoctorDashboard() {
   const [treatments, setTreatments] = useState<Treatment[]>([]);
   const [geocodingStatus, setGeocodingStatus] = useState<string>("");
   const addressDebounceTimer = useRef<NodeJS.Timeout | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [showCustomTreatmentInput, setShowCustomTreatmentInput] =
     useState(false);
   const [newTreatment, setNewTreatment] = useState("");
@@ -798,10 +800,19 @@ function DoctorDashboard() {
           "File is too large and you have to upload file less than one mb only"
         );
         setPhotoFiles(null);
+        if (fileInputRef.current) fileInputRef.current.value = "";
       } else {
         setPhotoFiles(e.target.files);
         setPhotoError("");
       }
+    }
+  };
+
+  const clearPhotoFiles = () => {
+    setPhotoFiles(null);
+    setPhotoError("");
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
     }
   };
 
@@ -966,6 +977,17 @@ function DoctorDashboard() {
       toast.success("Profile updated successfully");
       setIsEditing(false);
       setData({ ...data!, doctorProfile: res.data.profile });
+
+      // Update doctorUser in localStorage with new photo if available
+      if (res.data.profile?.photos?.[0]) {
+        try {
+          const userData = JSON.parse(localStorage.getItem("doctorUser") || "{}");
+          userData.photo = res.data.profile.photos[0];
+          localStorage.setItem("doctorUser", JSON.stringify(userData));
+        } catch (e) {
+          console.error("Failed to update localStorage with photo", e);
+        }
+      }
     } catch {
       toast.error("Please update at least one field.");
     }
@@ -1042,16 +1064,16 @@ function DoctorDashboard() {
           },
         }}
       />
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 space-y-4">
         {!isEditing ? (
           <>
-            <div className="bg-white rounded-lg p-6 sm:p-8 border border-gray-200 shadow-sm">
-              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+            <div className="bg-white rounded-lg p-4 sm:p-5 border border-gray-200 shadow-sm">
+              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                 <div className="flex items-start gap-4">
                   <div className="relative flex-shrink-0">
-                    <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-xl overflow-hidden border-4 border-gray-100 bg-gray-50">
+                    <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl overflow-hidden border-4 border-gray-100 bg-gray-50">
                       {primaryPhoto ? (
-                        <Image src={primaryPhoto} alt={user.name} width={120} height={120} className="w-full h-full object-cover" />
+                        <Image src={normalizeImagePath(primaryPhoto)} alt={user.name} width={120} height={120} className="w-full h-full object-cover" />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-gray-400">
                           <Stethoscope className="w-8 h-8" />
@@ -1064,24 +1086,24 @@ function DoctorDashboard() {
                       </span>
                     )}
                   </div>
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2 text-sm text-gray-500">
-                      <Building2 className="w-4 h-4" />
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 text-xs text-gray-500">
+                      <Building2 className="w-3.5 h-3.5" />
                       <span>Doctor Profile</span>
                     </div>
-                    <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 break-words">
+                    <h1 className="text-xl sm:text-2xl font-bold text-gray-900 break-words">
                       Dr. {user.name}
                     </h1>
-                    <p className="text-sm text-gray-600 break-words">
+                    <p className="text-xs text-gray-600 break-words">
                       {doctorProfile.degree || "Qualification not added"}
                     </p>
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-gray-600">
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-600">
                       <span className="flex items-center gap-1">
-                        <User className="w-4 h-4" />
+                        <User className="w-3.5 h-3.5" />
                         {doctorProfile.experience || 0} yrs experience
                       </span>
                       <span className="flex items-center gap-1">
-                        <MapPin className="w-4 h-4" />
+                        <MapPin className="w-3.5 h-3.5" />
                         {doctorProfile.address || "Address not provided"}
                       </span>
                     </div>
@@ -1096,12 +1118,12 @@ function DoctorDashboard() {
               </div>
             </div>
 
-            <div className="bg-white rounded-lg p-6 border border-gray-200 shadow-sm">
-              <div className="flex items-center gap-2 mb-4">
-                <BarChart3 className="w-5 h-5 text-gray-700" />
-                <h2 className="text-lg font-bold text-gray-900">Statistics Overview</h2>
+            <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+              <div className="flex items-center gap-2 mb-3">
+                <BarChart3 className="w-4 h-4 text-gray-700" />
+                <h2 className="text-base font-bold text-gray-900">Statistics Overview</h2>
               </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
                 <StatCard icon={<Star className="w-5 h-5" />} label="Reviews" value={doctorStats.totalReviews} color="text-yellow-600" bgColor="bg-yellow-50" borderColor="border-yellow-200" loading={statsLoading} />
                 <StatCard icon={<Mail className="w-5 h-5" />} label="Enquiries" value={doctorStats.totalEnquiries} color="text-blue-600" bgColor="bg-blue-50" borderColor="border-blue-200" loading={statsLoading} />
                 <StatCard icon={<Heart className="w-5 h-5" />} label="Treatments" value={doctorStats.totalTreatments} color="text-rose-600" bgColor="bg-rose-50" borderColor="border-rose-200" />
@@ -1111,79 +1133,79 @@ function DoctorDashboard() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-2 space-y-6">
-                <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Contact Information</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              <div className="lg:col-span-2 space-y-4">
+                <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+                  <h3 className="text-base font-semibold text-gray-900 mb-3">Contact Information</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-blue-50 rounded-full flex items-center justify-center text-blue-600">
-                        <Mail className="w-5 h-5" />
+                      <div className="w-8 h-8 bg-blue-50 rounded-full flex items-center justify-center text-blue-600">
+                        <Mail className="w-4 h-4" />
                       </div>
                       <div>
-                        <p className="text-sm text-gray-500">Email</p>
-                        <p className="text-gray-900 break-words">{user.email}</p>
+                        <p className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">Email</p>
+                        <p className="text-sm text-gray-900 break-words">{user.email}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-green-50 rounded-full flex items-center justify-center text-green-600">
-                        <Phone className="w-5 h-5" />
+                      <div className="w-8 h-8 bg-green-50 rounded-full flex items-center justify-center text-green-600">
+                        <Phone className="w-4 h-4" />
                       </div>
                       <div>
-                        <p className="text-sm text-gray-500">Phone</p>
-                        <p className="text-gray-900">{user.phone || "Not provided"}</p>
+                        <p className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">Phone</p>
+                        <p className="text-sm text-gray-900">{user.phone || "Not provided"}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-purple-50 rounded-full flex items-center justify-center text-purple-600">
-                        <User className="w-5 h-5" />
+                      <div className="w-8 h-8 bg-purple-50 rounded-full flex items-center justify-center text-purple-600">
+                        <User className="w-4 h-4" />
                       </div>
                       <div>
-                        <p className="text-sm text-gray-500">Clinic Contact</p>
-                        <p className="text-gray-900">{doctorProfile.clinicContact || "Not provided"}</p>
+                        <p className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">Clinic Contact</p>
+                        <p className="text-sm text-gray-900">{doctorProfile.clinicContact || "Not provided"}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-orange-50 rounded-full flex items-center justify-center text-orange-600">
-                        <Calendar className="w-5 h-5" />
+                      <div className="w-8 h-8 bg-orange-50 rounded-full flex items-center justify-center text-orange-600">
+                        <Calendar className="w-4 h-4" />
                       </div>
                       <div>
-                        <p className="text-sm text-gray-500">Consultation Fee</p>
-                        <p className="text-gray-900">AED {doctorProfile.consultationFee || "0"}</p>
+                        <p className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">Consultation Fee</p>
+                        <p className="text-sm text-gray-900">AED {doctorProfile.consultationFee || "0"}</p>
                       </div>
                     </div>
                   </div>
                 </div>
 
-                <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Professional Details</h3>
+                <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+                  <h3 className="text-base font-semibold text-gray-900 mb-3">Professional Details</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <p className="text-sm text-gray-500">Experience</p>
-                      <p className="text-2xl font-bold text-gray-900">{doctorProfile.experience || 0} years</p>
+                      <p className="text-xs text-gray-500">Experience</p>
+                      <p className="text-lg font-bold text-gray-900">{doctorProfile.experience || 0} years</p>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-500">Address</p>
-                      <p className="text-gray-900 break-words">{doctorProfile.address || "Not provided"}</p>
+                      <p className="text-xs text-gray-500">Address</p>
+                      <p className="text-sm text-gray-900 break-words">{doctorProfile.address || "Not provided"}</p>
                     </div>
                   </div>
                 </div>
 
                 {doctorProfile.treatments && doctorProfile.treatments.length > 0 && (
-                  <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Treatments Offered</h3>
-                    <div className="space-y-3">
+                  <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+                    <h3 className="text-base font-semibold text-gray-900 mb-3">Treatments Offered</h3>
+                    <div className="space-y-2">
                       {doctorProfile.treatments.map((treatment, index) => (
-                        <div key={index} className="border border-gray-200 rounded-lg p-4">
-                          <p className="font-semibold text-gray-900">{treatment.mainTreatment}</p>
+                        <div key={index} className="border border-gray-200 rounded-lg p-3">
+                          <p className="font-semibold text-sm text-gray-900">{treatment.mainTreatment}</p>
                           {treatment.subTreatments && treatment.subTreatments.length > 0 && (
-                            <div className="mt-3">
-                              <p className="text-sm text-gray-500 mb-2">Sub-treatments</p>
-                              <div className="flex flex-wrap gap-2">
+                            <div className="mt-2">
+                              <p className="text-[10px] text-gray-500 mb-1">Sub-treatments</p>
+                              <div className="flex flex-wrap gap-1.5">
                                 {treatment.subTreatments.map((sub, idx) => (
                                   <span
                                     key={idx}
-                                    className="px-3 py-1 bg-gray-50 border border-gray-200 rounded-full text-xs text-gray-700"
+                                    className="px-2 py-0.5 bg-gray-50 border border-gray-200 rounded-full text-[10px] text-gray-700"
                                   >
                                     {sub.name}
                                     {typeof sub.price === "number" && sub.price > 0 && (
@@ -1204,12 +1226,12 @@ function DoctorDashboard() {
                 )}
 
                 {doctorProfile.photos && doctorProfile.photos.length > 0 && (
-                  <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Profile Gallery</h3>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+                    <h3 className="text-base font-semibold text-gray-900 mb-3">Profile Gallery</h3>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                       {doctorProfile.photos.map((photo, index) => (
-                        <div key={index} className="w-full h-32 sm:h-40 bg-gray-50 border border-gray-200 rounded-lg overflow-hidden">
-                          <Image src={photo} alt={`Photo ${index + 1}`} width={200} height={200} className="w-full h-full object-cover" />
+                        <div key={index} className="w-full h-28 sm:h-32 bg-gray-50 border border-gray-200 rounded-lg overflow-hidden">
+                          <Image src={normalizeImagePath(photo)} alt={`Photo ${index + 1}`} width={200} height={200} className="w-full h-full object-cover" />
                         </div>
                       ))}
                     </div>
@@ -1217,11 +1239,11 @@ function DoctorDashboard() {
                 )}
               </div>
 
-              <div className="space-y-6">
-                <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
-                  <div className="flex items-center gap-2 mb-4">
-                    <Clock className="w-5 h-5 text-gray-700" />
-                    <h3 className="text-lg font-semibold text-gray-900">Time Slots</h3>
+              <div className="space-y-4">
+                <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Clock className="w-4 h-4 text-gray-700" />
+                    <h3 className="text-base font-semibold text-gray-900">Time Slots</h3>
                   </div>
                   {timeSlots && timeSlots.length > 0 ? (
                     <div className="space-y-4 max-h-96 overflow-y-auto pr-2">
@@ -1348,10 +1370,10 @@ function DoctorDashboard() {
           </>
         ) : (
           <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
-            <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-gray-200">
+            <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-gray-200">
               <div>
-                <h2 className="text-lg font-semibold text-gray-900">Edit Profile</h2>
-                <p className="text-sm text-gray-600">Update your professional information</p>
+                <h2 className="text-base font-semibold text-gray-900">Edit Profile</h2>
+                <p className="text-xs text-gray-600">Update your professional information</p>
               </div>
               <button
                 type="button"
@@ -1362,13 +1384,13 @@ function DoctorDashboard() {
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="p-4 sm:p-8 space-y-8">
+            <form onSubmit={handleSubmit} className="p-4 sm:p-5 space-y-6">
               {/* Basic Information */}
               <div>
-                <h3 className="text-lg font-semibold text-black mb-4">
+                <h3 className="text-base font-semibold text-black mb-3">
                   Basic Information
                 </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
                   {[
                     "degree",
                     "experience",
@@ -1376,7 +1398,7 @@ function DoctorDashboard() {
                     "clinicContact",
                   ].map((field) => (
                     <div key={field}>
-                      <label className="block text-sm font-medium text-black mb-2 capitalize">
+                      <label className="block text-xs font-medium text-black mb-1.5 capitalize">
                         {field
                           .replace(/([A-Z])/g, " $1")
                           .replace(/^./, (str) => str.toUpperCase())}
@@ -1384,7 +1406,7 @@ function DoctorDashboard() {
 
                       {/* Add description just above clinicContact input */}
                       {field === "clinicContact" && (
-                        <p className="text-xs text-gray-500 mb-1">
+                        <p className="text-[10px] text-gray-500 mb-1">
                           This contact will help you get in touch with patients
                           professionally.
                         </p>
@@ -1399,7 +1421,7 @@ function DoctorDashboard() {
                         }
                         value={form[field as keyof FormData] as string}
                         onChange={handleChange}
-                        className={`w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200 text-black bg-white ${field === "phone"
+                        className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200 text-black bg-white text-sm ${field === "phone"
                             ? "cursor-not-allowed bg-gray-100"
                             : ""
                           }`}
@@ -1414,48 +1436,48 @@ function DoctorDashboard() {
 
               {/* Address and Location */}
               <div>
-                <h3 className="text-lg font-semibold text-black mb-4">
+                <h3 className="text-base font-semibold text-black mb-3">
                   Location
                 </h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4">
                   <div className="md:col-span-1">
-                    <label className="block text-sm font-medium text-black mb-2">
+                    <label className="block text-xs font-medium text-black mb-1.5">
                       Address
                     </label>
                     <input
                       name="address"
                       value={form.address}
                       onChange={handleAddressChangeWithGeocode}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white transition duration-200 text-black"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white transition duration-200 text-black text-sm"
                       placeholder="Enter address"
                     />
                     {geocodingStatus && (
-                      <span className="text-green-600 text-xs ml-2">
+                      <span className="text-green-600 text-[10px] ml-2">
                         {geocodingStatus}
                       </span>
                     )}
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-black mb-2">
+                    <label className="block text-xs font-medium text-black mb-1.5">
                       Latitude
                     </label>
                     <input
                       name="latitude"
                       value={form.latitude}
                       readOnly
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-black cursor-not-allowed"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-black cursor-not-allowed text-sm"
                       placeholder="Auto-filled"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-black mb-2">
+                    <label className="block text-xs font-medium text-black mb-1.5">
                       Longitude
                     </label>
                     <input
                       name="longitude"
                       value={form.longitude}
                       readOnly
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-black cursor-not-allowed"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-black cursor-not-allowed text-sm"
                       placeholder="Auto-filled"
                     />
                   </div>
@@ -1464,7 +1486,7 @@ function DoctorDashboard() {
 
               {/* Treatments */}
               <div>
-                <h3 className="text-lg font-semibold text-black mb-4">
+                <h3 className="text-base font-semibold text-black mb-3">
                   Treatments
                 </h3>
                 <TreatmentManager
@@ -1485,41 +1507,41 @@ function DoctorDashboard() {
 
               {/* Time Slots */}
               <div>
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-2 sm:gap-0">
-                  <h3 className="text-lg font-semibold text-black">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-3 gap-2 sm:gap-0">
+                  <h3 className="text-base font-semibold text-black">
                     Time Slots
                   </h3>
                   <button
                     type="button"
                     onClick={addTimeSlot}
-                    className="bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-700 transition w-full sm:w-auto"
+                    className="bg-blue-600 text-white px-3 py-1.5 rounded-lg text-sm font-semibold hover:bg-blue-700 transition w-full sm:w-auto"
                   >
                     + Add Slot
                   </button>
                 </div>
 
-                <div className="space-y-6">
+                <div className="space-y-4">
                   {timeSlots.map((slot, index) => (
                     <div
                       key={index}
-                      className="bg-gray-50 rounded-xl p-6 border border-gray-200"
+                      className="bg-gray-50 rounded-xl p-4 border border-gray-200"
                     >
-                      <div className="flex justify-between items-center mb-4">
-                        <h4 className="font-semibold text-black">
+                      <div className="flex justify-between items-center mb-3">
+                        <h4 className="font-semibold text-sm text-black">
                           Time Slot {index + 1}
                         </h4>
                         <button
                           type="button"
                           onClick={() => removeTimeSlot(index)}
-                          className="text-red-600 hover:text-red-800 font-medium transition-colors"
+                          className="text-red-600 hover:text-red-800 text-xs font-medium transition-colors"
                         >
                           Remove
                         </button>
                       </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
                         <div>
-                          <label className="block text-sm font-medium text-black mb-2">
+                          <label className="block text-xs font-medium text-black mb-1.5">
                             Date
                           </label>
                           <input
@@ -1529,11 +1551,11 @@ function DoctorDashboard() {
                             onChange={(e) =>
                               updateTimeSlot(index, "date", e.target.value)
                             }
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white transition duration-200 text-black placeholder-gray-500"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white transition duration-200 text-black text-sm placeholder-gray-500"
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-black mb-2">
+                          <label className="block text-xs font-medium text-black mb-1.5">
                             Available Slots
                           </label>
                           <input
@@ -1547,19 +1569,19 @@ function DoctorDashboard() {
                                 e.target.value
                               )
                             }
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white transition duration-200 text-black placeholder-gray-500"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white transition duration-200 text-black text-sm placeholder-gray-500"
                           />
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         <div>
-                          <label className="block text-sm font-medium text-black mb-2">
+                          <label className="block text-xs font-medium text-black mb-1.5">
                             Morning Sessions
                           </label>
                           <input
                             type="text"
-                            placeholder="09:00 AM - 09:30 AM, 10:00 AM - 10:30 AM"
+                            placeholder="09:00 AM - 09:30 AM"
                             value={slot.sessions.morning.join(", ")}
                             onChange={(e) =>
                               updateTimeSlot(
@@ -1568,16 +1590,16 @@ function DoctorDashboard() {
                                 e.target.value
                               )
                             }
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white transition duration-200 text-black placeholder-gray-500"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white transition duration-200 text-black text-sm placeholder-gray-500"
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-black mb-2">
+                          <label className="block text-xs font-medium text-black mb-1.5">
                             Evening Sessions
                           </label>
                           <input
                             type="text"
-                            placeholder="06:00 PM - 06:30 PM, 07:00 PM - 07:30 PM"
+                            placeholder="06:00 PM - 06:30 PM"
                             value={slot.sessions.evening.join(", ")}
                             onChange={(e) =>
                               updateTimeSlot(
@@ -1586,7 +1608,7 @@ function DoctorDashboard() {
                                 e.target.value
                               )
                             }
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white transition duration-200 text-black placeholder-gray-500"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white transition duration-200 text-black text-sm placeholder-gray-500"
                           />
                         </div>
                       </div>
@@ -1596,41 +1618,90 @@ function DoctorDashboard() {
               </div>
 
               {/* File Uploads */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-black mb-2">
+                  <label className="block text-xs font-medium text-black mb-1.5">
                     Doctor Profile
                   </label>
-                  <div className="relative">
+
+                  {/* Image Preview Area */}
+                  <div className="flex flex-wrap gap-2 mb-2">
+                    {/* Current Photos - Shown if no new selection */}
+                    {doctorProfile.photos && doctorProfile.photos.length > 0 && !photoFiles && (
+                      <div className="relative w-20 h-20 rounded-xl overflow-hidden border-2 border-blue-100 shadow-sm">
+                        <Image
+                          src={normalizeImagePath(doctorProfile.photos[0])}
+                          alt="Current profile"
+                          fill
+                          className="object-cover"
+                        />
+                        <div className="absolute bottom-0 inset-x-0 bg-blue-600/80 py-0.5 text-center">
+                          <span className="text-[10px] text-white font-bold">Current</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* New Selection Previews */}
+                    {photoFiles && Array.from(photoFiles).map((file, idx) => (
+                      <div key={idx} className="relative w-20 h-20 rounded-xl overflow-hidden border-2 border-green-200 shadow-md animate-in fade-in zoom-in duration-300">
+                        <img
+                          src={URL.createObjectURL(file)}
+                          alt="New preview"
+                          className="w-full h-full object-cover"
+                          onLoad={(e) => {
+                            // Revoke URL to prevent memory leaks after load
+                            // URL.revokeObjectURL((e.target as HTMLImageElement).src); 
+                            // Actually don't revoke here if we want it to stay visible
+                          }}
+                        />
+                        <div className="absolute top-0 right-0 p-1">
+                          <div className="bg-green-500 text-white rounded-full p-0.5 shadow-sm">
+                            <Plus className="w-3 h-3" />
+                          </div>
+                        </div>
+                        <div className="absolute bottom-0 inset-x-0 bg-green-600/80 py-0.5 text-center">
+                          <span className="text-[10px] text-white font-bold">New</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="relative group">
                     <input
+                      ref={fileInputRef}
                       type="file"
                       name="photos"
                       accept=".jpg,.jpeg,.png,.gif"
                       multiple
                       onChange={handlePhotoChange}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white transition duration-200 text-black file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white transition duration-200 text-black text-xs file:mr-3 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
                     />
-                    {photoError && (
-                      <p className="text-red-600 text-sm mt-2 font-medium">
-                        {photoError}
-                      </p>
+                    {photoFiles && photoFiles.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={clearPhotoFiles}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 p-1 bg-red-50 text-red-600 rounded-full hover:bg-red-100 transition-colors shadow-sm"
+                        title="Clear selection"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
                     )}
                   </div>
                 </div>
               </div>
 
               {/* Action Buttons */}
-              <div className="flex flex-col sm:flex-row gap-4 pt-6 border-t border-gray-200">
+              <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-gray-200">
                 <button
                   type="submit"
-                  className="flex-1 bg-blue-600 text-white px-8 py-3 rounded-lg font-semibold hover:bg-blue-700 transition"
+                  className="flex-1 bg-blue-600 text-white px-6 py-2 rounded-lg font-semibold hover:bg-blue-700 transition text-sm"
                 >
                   Save Changes
                 </button>
                 <button
                   type="button"
                   onClick={() => setIsEditing(false)}
-                  className="flex-1 bg-gray-200 text-gray-800 px-8 py-3 rounded-lg font-semibold hover:bg-gray-300 transition"
+                  className="flex-1 bg-gray-100 text-gray-800 px-6 py-2 rounded-lg font-semibold hover:bg-gray-200 transition text-sm"
                 >
                   Cancel
                 </button>
@@ -1654,18 +1725,18 @@ interface StatCardProps {
 }
 
 const StatCard = ({ icon, label, value, color, bgColor, borderColor, loading }: StatCardProps) => (
-  <div className={`bg-white rounded-lg p-4 border ${borderColor} ${bgColor} shadow-sm`}>
-    <div className={`flex items-center gap-2 mb-2 ${color}`}>
+  <div className={`bg-white rounded-lg p-3 border ${borderColor} ${bgColor} shadow-sm`}>
+    <div className={`flex items-center gap-2 mb-1 ${color}`}>
       {icon}
-      <span className="text-xs font-semibold text-gray-700">{label}</span>
+      <span className="text-[10px] font-bold text-gray-700 uppercase">{label}</span>
     </div>
     {loading ? (
       <div className="flex items-center gap-2">
-        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-500" />
-        <span className="text-xs text-gray-500">Loading...</span>
+        <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-gray-500" />
+        <span className="text-[10px] text-gray-500">Loading...</span>
       </div>
     ) : (
-      <p className="text-2xl font-bold text-gray-900">{value}</p>
+      <p className="text-xl font-bold text-gray-900">{value}</p>
     )}
   </div>
 );
@@ -1704,12 +1775,12 @@ const SummaryCard = ({ title, value, icon, color }: SummaryCardProps) => {
   const classes = colorClasses[color];
 
   return (
-    <div className={`bg-white rounded-lg p-4 border ${classes.border} shadow-sm`}>
-      <div className={`flex items-center gap-2 mb-2 ${classes.text}`}>
+    <div className={`bg-white rounded-lg p-3 border ${classes.border} shadow-sm`}>
+      <div className={`flex items-center gap-2 mb-1 ${classes.text}`}>
         {icon}
-        <span className="text-xs font-semibold text-gray-700">{title}</span>
+        <span className="text-[10px] font-bold text-gray-700 uppercase">{title}</span>
       </div>
-      <p className={`text-lg font-bold ${classes.text}`}>{value}</p>
+      <p className={`text-base font-bold ${classes.text}`}>{value}</p>
     </div>
   );
 };

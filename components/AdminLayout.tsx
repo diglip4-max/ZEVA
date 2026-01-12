@@ -68,7 +68,7 @@ const AdminLayout = ({
 
         {/* Page Content */}
         <main
-          className="flex-1 overflow-y-auto relative z-0"
+          className="flex-1 overflow-y-auto relative"
           role="main"
         >
           {children}

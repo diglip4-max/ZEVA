@@ -5,8 +5,9 @@ import axios from "axios";
 import withClinicAuth from "../../components/withClinicAuth";
 import ClinicLayout from "../../components/ClinicLayout";
 import type { NextPageWithLayout } from "../_app";
-import { Loader2, Calendar, Clock, X } from "lucide-react";
+import { Loader2, Calendar, Clock, X, Upload } from "lucide-react";
 import AppointmentBookingModal from "../../components/AppointmentBookingModal";
+import ImportAppointmentsModal from "../../components/ImportAppointmentsModal";
 import { Toaster, toast } from "react-hot-toast";
 import { useAgentPermissions } from '../../hooks/useAgentPermissions';
 
@@ -96,9 +97,35 @@ interface Appointment {
 }
 
 // Parse clinic timings string and generate time slots
-function parseTimings(timings: string): { startTime: string; endTime: string } | null {
+// Custom time slots format: "HH:MM-HH:MM" (24-hour format, no spaces, exact match)
+// Regular timings format: "9:00 AM - 5:00 PM" or "09:00-17:00" etc.
+function parseTimings(timings: string): { startTime: string; endTime: string; isCustom: boolean } | null {
   if (!timings || !timings.trim()) {
     return null;
+  }
+
+  // Check for custom time slots format first: "H:MM AM - H:MM PM" or "HH:MM AM - HH:MM PM"
+  // Examples: "8:00 AM - 11:00 PM", "08:00 AM - 11:00 PM"
+  const customFormatMatch = timings.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)\s*-\s*(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  if (customFormatMatch) {
+    // Convert 12-hour format to 24-hour format for internal use
+    const startHour = parseInt(customFormatMatch[1]);
+    const startMin = customFormatMatch[2];
+    const startPeriod = customFormatMatch[3].toUpperCase();
+    const endHour = parseInt(customFormatMatch[4]);
+    const endMin = customFormatMatch[5];
+    const endPeriod = customFormatMatch[6].toUpperCase();
+    
+    let start24Hour = startHour === 12 ? 0 : startHour;
+    if (startPeriod === "PM") start24Hour += 12;
+    let end24Hour = endHour === 12 ? 0 : endHour;
+    if (endPeriod === "PM") end24Hour += 12;
+    
+    return {
+      startTime: `${String(start24Hour).padStart(2, "0")}:${startMin}`,
+      endTime: `${String(end24Hour).padStart(2, "0")}:${endMin}`,
+      isCustom: true,
+    };
   }
 
   // Common formats: "9:00 AM - 5:00 PM", "09:00-17:00", "9 AM - 5 PM", etc.
@@ -131,10 +158,15 @@ function parseTimings(timings: string): { startTime: string; endTime: string } |
         return {
           startTime: `${String(Math.floor(start24 / 60)).padStart(2, "0")}:${String(start24 % 60).padStart(2, "0")}`,
           endTime: `${String(Math.floor(end24 / 60)).padStart(2, "0")}:${String(end24 % 60).padStart(2, "0")}`,
+          isCustom: false,
         };
       } else if (pattern === patterns[1]) {
-        // Format: "09:00-17:00"
-        return { startTime: match[1] + ":" + match[2], endTime: match[3] + ":" + match[4] };
+        // Format: "09:00-17:00" (but not the exact custom format which was already checked)
+        return { 
+          startTime: match[1] + ":" + match[2], 
+          endTime: match[3] + ":" + match[4],
+          isCustom: false,
+        };
       } else if (pattern === patterns[2]) {
         // Format: "9 AM - 5 PM"
         const startHour = parseInt(match[1]);
@@ -150,13 +182,14 @@ function parseTimings(timings: string): { startTime: string; endTime: string } |
         return {
           startTime: `${String(start24).padStart(2, "0")}:00`,
           endTime: `${String(end24).padStart(2, "0")}:00`,
+          isCustom: false,
         };
       }
     }
   }
 
   // Default: 9 AM to 5 PM if parsing fails
-  return { startTime: "09:00", endTime: "17:00" };
+  return { startTime: "09:00", endTime: "17:00", isCustom: false };
 }
 
 // Generate 15-minute time slots
@@ -181,6 +214,26 @@ function formatTime(time24: string): string {
   const hour12 = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
   const period = hour >= 12 ? "PM" : "AM";
   return `${hour12}:${String(min).padStart(2, "0")} ${period}`;
+}
+
+// Convert 12-hour format (e.g., "10:00 PM") to 24-hour format (e.g., "22:00")
+function convert12To24(time12: string): string {
+  if (!time12) return "";
+  // Handle formats like "10:00 PM", "10:00PM", "10:00 pm"
+  const match = time12.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  if (!match) return time12; // Return as-is if not in expected format
+  
+  let hour = parseInt(match[1]);
+  const min = match[2];
+  const period = match[3].toUpperCase();
+  
+  if (period === "PM" && hour !== 12) {
+    hour += 12;
+  } else if (period === "AM" && hour === 12) {
+    hour = 0;
+  }
+  
+  return `${String(hour).padStart(2, "0")}:${min}`;
 }
 
 const TOKEN_PRIORITY = [
@@ -225,35 +278,16 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>("");
   const [closingMinutes, setClosingMinutes] = useState<number | null>(null);
-  // Custom time slot state - Initialize from localStorage if available
-  const [useCustomTimeSlots, setUseCustomTimeSlots] = useState<boolean>(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("appointmentUseCustomTimeSlots");
-      if (saved !== null) {
-        return saved === "true";
-      }
-    }
-    return false;
-  });
-  const [customStartTime, setCustomStartTime] = useState<string>(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("appointmentCustomStartTime");
-      if (saved) {
-        return saved;
-      }
-    }
-    return "";
-  });
-  const [customEndTime, setCustomEndTime] = useState<string>(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("appointmentCustomEndTime");
-      if (saved) {
-        return saved;
-      }
-    }
-    return "";
-  });
+  // Custom time slot state - Initialize from database (fetched from clinic timings)
+  const [useCustomTimeSlots, setUseCustomTimeSlots] = useState<boolean>(false);
+  const [customStartTime, setCustomStartTime] = useState<string>("");
+  const [customEndTime, setCustomEndTime] = useState<string>("");
+  const [customTimeSlotsLoading, setCustomTimeSlotsLoading] = useState<boolean>(true);
+  // Refs to prevent infinite API calls
+  const hasLoadedTimingsRef = useRef<boolean>(false);
+  const lastSavedValuesRef = useRef<{ useCustomTimeSlots: boolean; customStartTime: string; customEndTime: string } | null>(null);
   const [customTimeSlotModalOpen, setCustomTimeSlotModalOpen] = useState<boolean>(false);
+  const [importModalOpen, setImportModalOpen] = useState<boolean>(false);
   const [bookingModal, setBookingModal] = useState<{
     isOpen: boolean;
     doctorId: string;
@@ -278,7 +312,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
     bookedFrom: "doctor",
   });
   
-  // Drag selection state for time slots
+  // Drag selection state for time slots (doctors)
   const [timeDragSelection, setTimeDragSelection] = useState<{
     isDragging: boolean;
     startMinutes: number | null;
@@ -290,7 +324,33 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
     endMinutes: null,
     doctorId: null,
   });
-  const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split("T")[0]);
+
+  // Drag selection state for time slots (rooms)
+  const [roomDragSelection, setRoomDragSelection] = useState<{
+    isDragging: boolean;
+    startMinutes: number | null;
+    endMinutes: number | null;
+    roomId: string | null;
+  }>({
+    isDragging: false,
+    startMinutes: null,
+    endMinutes: null,
+    roomId: null,
+  });
+  // Initialize selectedDate from localStorage if available, otherwise use today's date
+  const [selectedDate, setSelectedDate] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      const savedDate = localStorage.getItem("appointmentSelectedDate");
+      if (savedDate) {
+        // Validate the saved date format (YYYY-MM-DD)
+        const dateMatch = savedDate.match(/^\d{4}-\d{2}-\d{2}$/);
+        if (dateMatch) {
+          return savedDate;
+        }
+      }
+    }
+    return new Date().toISOString().split("T")[0];
+  });
   const [doctorTreatmentsMap, setDoctorTreatmentsMap] = useState<Record<string, DoctorTreatmentSummary[]>>({});
   const [doctorTreatmentsLoading, setDoctorTreatmentsLoading] = useState<Record<string, boolean>>({});
   const [doctorTreatmentsError, setDoctorTreatmentsError] = useState<Record<string, string>>({});
@@ -328,75 +388,8 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
     }
   }, [columnOrder]);
 
-  // Save custom time slot settings to localStorage whenever they change
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      localStorage.setItem("appointmentUseCustomTimeSlots", String(useCustomTimeSlots));
-    }
-  }, [useCustomTimeSlots]);
-
-  useEffect(() => {
-    if (typeof window !== "undefined" && customStartTime) {
-      localStorage.setItem("appointmentCustomStartTime", customStartTime);
-    }
-  }, [customStartTime]);
-
-  useEffect(() => {
-    if (typeof window !== "undefined" && customEndTime) {
-      localStorage.setItem("appointmentCustomEndTime", customEndTime);
-    }
-  }, [customEndTime]);
-
-  // Update time slots when custom time slots are enabled/disabled or changed
-  useEffect(() => {
-    if (useCustomTimeSlots && customStartTime && customEndTime) {
-      const startMinutes = timeStringToMinutes(customStartTime);
-      const endMinutes = timeStringToMinutes(customEndTime);
-      if (endMinutes > startMinutes) {
-        const slots = generateTimeSlots(customStartTime, customEndTime);
-        setTimeSlots(slots);
-        setClosingMinutes(endMinutes);
-      }
-    } else if (clinic?.timings && !useCustomTimeSlots) {
-      const parsed = parseTimings(clinic.timings);
-      if (parsed) {
-        const slots = generateTimeSlots(parsed.startTime, parsed.endTime);
-        setTimeSlots(slots);
-        setClosingMinutes(timeStringToMinutes(parsed.endTime));
-      }
-    }
-  }, [useCustomTimeSlots, customStartTime, customEndTime, clinic?.timings]);
-  const [doctorFilterOpen, setDoctorFilterOpen] = useState(false);
-  const [roomFilterOpen, setRoomFilterOpen] = useState(false);
-  const doctorFilterTouchedRef = useRef(false);
-  const roomFilterTouchedRef = useRef(false);
-  const doctorFilterRef = useRef<HTMLDivElement | null>(null);
-  const roomFilterRef = useRef<HTMLDivElement | null>(null);
-  const dragStopTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const timeDragSelectionRef = useRef(timeDragSelection);
-  
-  // Keep ref in sync with state
-  useEffect(() => {
-    timeDragSelectionRef.current = timeDragSelection;
-  }, [timeDragSelection]);
-  const [hoveredAppointment, setHoveredAppointment] = useState<{
-    appointment: Appointment;
-    position: { top: number; left: number };
-  } | null>(null);
-  
-  // Drag and drop state for appointments
-  const [draggedAppointmentId, setDraggedAppointmentId] = useState<string | null>(null);
-  const [dragOverDoctorId, setDragOverDoctorId] = useState<string | null>(null);
-  const [dragOverTimeSlot, setDragOverTimeSlot] = useState<{ doctorId: string; minutes: number } | null>(null);
-
-  // Central helper: log errors silently without showing toast popups
-  const showErrorToast = (_message: string) => {
-    // Requirement: do not show any axios error in toaster or noisy console logs on this page.
-    // Intentionally left blank to silently swallow UI error notifications.
-    // If needed for debugging, temporarily add a console.log here.
-  };
-
-  function getAuthHeaders(): Record<string, string> {
+  // Memoized getAuthHeaders to prevent infinite loops
+  const getAuthHeaders = useCallback((): Record<string, string> => {
     if (typeof window === "undefined") return {};
     let token = null;
     
@@ -420,7 +413,161 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
     
     if (!token) return {};
     return { Authorization: `Bearer ${token}` };
-  }
+  }, [routeContext]);
+
+  // Fetch custom time slot settings from database (only once)
+  // This runs after clinic data is loaded
+  useEffect(() => {
+    if (!permissionsLoaded || hasLoadedTimingsRef.current || !clinic) return;
+
+    const fetchCustomTimeSlots = async () => {
+      try {
+        setCustomTimeSlotsLoading(true);
+        const res = await axios.get("/api/clinic/custom-time-slots", {
+          headers: getAuthHeaders(),
+        });
+        if (res.data.success && res.data.appointmentTimeSlots) {
+          const slots = res.data.appointmentTimeSlots;
+          // Use 24-hour format for UI time inputs (customStartTime24/customEndTime24 if available, otherwise convert from 12-hour)
+          let startTime24 = "";
+          let endTime24 = "";
+          
+          if (slots.useCustomTimeSlots && slots.customStartTime && slots.customEndTime) {
+            // If 24-hour format is provided, use it directly
+            if (slots.customStartTime24 && slots.customEndTime24) {
+              startTime24 = slots.customStartTime24;
+              endTime24 = slots.customEndTime24;
+            } else {
+              // Convert 12-hour format to 24-hour format for UI
+              startTime24 = convert12To24(slots.customStartTime);
+              endTime24 = convert12To24(slots.customEndTime);
+            }
+          }
+          
+          const loadedValues = {
+            useCustomTimeSlots: slots.useCustomTimeSlots || false,
+            customStartTime: startTime24, // Store in 24-hour format for UI
+            customEndTime: endTime24, // Store in 24-hour format for UI
+          };
+          setUseCustomTimeSlots(loadedValues.useCustomTimeSlots);
+          // Set custom times from loaded values
+          if (loadedValues.useCustomTimeSlots && loadedValues.customStartTime && loadedValues.customEndTime) {
+            // Custom time slots are enabled - use them
+            setCustomStartTime(loadedValues.customStartTime);
+            setCustomEndTime(loadedValues.customEndTime);
+          } else if (clinic?.timings) {
+            // If no custom times, use clinic timings as fallback
+            const parsed = parseTimings(clinic.timings);
+            if (parsed && !parsed.isCustom) {
+              setCustomStartTime(parsed.startTime);
+              setCustomEndTime(parsed.endTime);
+            }
+          }
+          // Store initial values to prevent saving on load
+          lastSavedValuesRef.current = loadedValues;
+        }
+      } catch (err: any) {
+        console.error("Error fetching custom time slots:", err);
+        // On error, use clinic timings as fallback
+        setUseCustomTimeSlots(false);
+        if (clinic?.timings) {
+          const parsed = parseTimings(clinic.timings);
+          if (parsed && !parsed.isCustom) {
+            setCustomStartTime(parsed.startTime);
+            setCustomEndTime(parsed.endTime);
+            lastSavedValuesRef.current = {
+              useCustomTimeSlots: false,
+              customStartTime: parsed.startTime,
+              customEndTime: parsed.endTime,
+            };
+          } else {
+            lastSavedValuesRef.current = {
+              useCustomTimeSlots: false,
+              customStartTime: "",
+              customEndTime: "",
+            };
+          }
+        } else {
+          lastSavedValuesRef.current = {
+            useCustomTimeSlots: false,
+            customStartTime: "",
+            customEndTime: "",
+          };
+        }
+      } finally {
+        setCustomTimeSlotsLoading(false);
+        hasLoadedTimingsRef.current = true;
+      }
+    };
+
+    fetchCustomTimeSlots();
+  }, [permissionsLoaded, clinic, getAuthHeaders]);
+
+  // Note: Custom time slots are only saved when Apply button is clicked in the modal
+  // No auto-save on change to prevent unnecessary API calls
+
+  // Update time slots when custom time slots are enabled/disabled or changed
+  // Only apply after custom time slots have been loaded from database
+  useEffect(() => {
+    if (customTimeSlotsLoading) return; // Don't apply until loaded from database
+
+    if (useCustomTimeSlots && customStartTime && customEndTime) {
+      // Custom time slots are enabled - use them
+      const startMinutes = timeStringToMinutes(customStartTime);
+      const endMinutes = timeStringToMinutes(customEndTime);
+      if (endMinutes > startMinutes) {
+        const slots = generateTimeSlots(customStartTime, customEndTime);
+        setTimeSlots(slots);
+        setClosingMinutes(endMinutes);
+      }
+    } else if (clinic?.timings && !useCustomTimeSlots) {
+      // Use clinic's existing timings (not custom format)
+      const parsed = parseTimings(clinic.timings);
+      if (parsed && !parsed.isCustom) {
+        const slots = generateTimeSlots(parsed.startTime, parsed.endTime);
+        setTimeSlots(slots);
+        setClosingMinutes(timeStringToMinutes(parsed.endTime));
+      }
+      // If parsed is null or isCustom is true, don't set anything - wait for custom time slots
+    }
+  }, [useCustomTimeSlots, customStartTime, customEndTime, clinic?.timings, customTimeSlotsLoading]);
+  const [doctorFilterOpen, setDoctorFilterOpen] = useState(false);
+  const [roomFilterOpen, setRoomFilterOpen] = useState(false);
+  const doctorFilterTouchedRef = useRef(false);
+  const roomFilterTouchedRef = useRef(false);
+  const doctorFilterRef = useRef<HTMLDivElement | null>(null);
+  const roomFilterRef = useRef<HTMLDivElement | null>(null);
+  const dragStopTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const timeDragSelectionRef = useRef(timeDragSelection);
+  
+  // Keep ref in sync with state
+  useEffect(() => {
+    timeDragSelectionRef.current = timeDragSelection;
+  }, [timeDragSelection]);
+
+  const roomDragSelectionRef = useRef(roomDragSelection);
+  
+  // Keep ref in sync with state
+  useEffect(() => {
+    roomDragSelectionRef.current = roomDragSelection;
+  }, [roomDragSelection]);
+  const [hoveredAppointment, setHoveredAppointment] = useState<{
+    appointment: Appointment;
+    position: { top: number; left: number };
+  } | null>(null);
+  
+  // Drag and drop state for appointments
+  const [draggedAppointmentId, setDraggedAppointmentId] = useState<string | null>(null);
+  const [dragOverDoctorId, setDragOverDoctorId] = useState<string | null>(null);
+  const [dragOverTimeSlot, setDragOverTimeSlot] = useState<{ doctorId: string; minutes: number } | null>(null);
+
+  // Central helper: log errors silently without showing toast popups
+  const showErrorToast = (_message: string) => {
+    // Requirement: do not show any axios error in toaster or noisy console logs on this page.
+    // Intentionally left blank to silently swallow UI error notifications.
+    // If needed for debugging, temporarily add a console.log here.
+  };
+
 
   // Detect agent route and token
   useEffect(() => {
@@ -756,8 +903,8 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
       doctorId: doctor._id,
       doctorName: doctor.name,
       position: {
-        top: rect.bottom + window.scrollY + 8,
-        left: rect.left + window.scrollX + rect.width / 2,
+        top: rect.bottom + 8,
+        left: rect.left + rect.width / 2,
       },
     });
     if (!doctorTreatmentsMap[doctor._id] && !doctorTreatmentsLoading[doctor._id]) {
@@ -797,29 +944,19 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
           setRooms(res.data.rooms || []);
 
           // Parse timings and generate time slots
+          // Note: Custom time slots are loaded separately from /api/clinic/custom-time-slots
+          // Initialize custom times with clinic timings if not already set (only if not custom format)
           const parsed = parseTimings(res.data.clinic.timings);
-          if (parsed) {
-            const slots = generateTimeSlots(parsed.startTime, parsed.endTime);
-            setTimeSlots(slots);
-            setClosingMinutes(timeStringToMinutes(parsed.endTime));
-            // Initialize custom times with clinic timings
-            if (!customStartTime && !customEndTime) {
+          if (parsed && !parsed.isCustom) {
+            // Only initialize if custom time slots haven't been loaded yet
+            // Custom time slots will override these values when loaded
+            if (!hasLoadedTimingsRef.current) {
               setCustomStartTime(parsed.startTime);
               setCustomEndTime(parsed.endTime);
             }
-          } else {
-            // Default: 6 AM to 6 PM
-            const defaultStart = "06:00";
-            const defaultEnd = "18:00";
-            const slots = generateTimeSlots(defaultStart, defaultEnd);
-            setTimeSlots(slots);
-            setClosingMinutes(timeStringToMinutes(defaultEnd));
-            // Initialize custom times with defaults
-            if (!customStartTime && !customEndTime) {
-              setCustomStartTime(defaultStart);
-              setCustomEndTime(defaultEnd);
-            }
           }
+          // Don't set time slots here - they will be set by the useEffect that depends on useCustomTimeSlots
+          // This ensures custom time slots are loaded first before applying any time slots
           toast.success("Appointment schedule loaded successfully", { duration: 2000 });
         } else {
           const errorMsg = res.data.message || "Failed to load appointment data";
@@ -1033,18 +1170,30 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
       return;
     }
 
+    // Debug logging
+    console.log("[FRONTEND] Loading appointments for date:", selectedDate);
+    console.log("[FRONTEND] Date type:", typeof selectedDate);
+    console.log("[FRONTEND] Date format validation:", /^\d{4}-\d{2}-\d{2}$/.test(selectedDate));
+
     try {
-      const res = await axios.get(`/api/clinic/appointments?date=${selectedDate}`, {
+      const apiUrl = `/api/clinic/appointments?date=${selectedDate}`;
+      console.log("[FRONTEND] API URL:", apiUrl);
+      const res = await axios.get(apiUrl, {
         headers: getAuthHeaders(),
       });
 
       if (res.data.success) {
         const appointmentsData = res.data.appointments || [];
+        console.log(`[FRONTEND] Received ${appointmentsData.length} appointment(s) from API`);
+        // Show ALL appointments regardless of status (booked, Arrived, Consultation, etc.)
         setAppointments(appointmentsData);
         if (appointmentsData.length > 0) {
           toast.success(`Loaded ${appointmentsData.length} appointment(s)`, { duration: 2000 });
+        } else {
+          console.log("[FRONTEND] No appointments returned for date:", selectedDate);
         }
       } else {
+        console.error("[FRONTEND] API returned error:", res.data.message);
         showErrorToast(res.data.message || "Failed to load appointments");
       }
     } catch (err: any) {
@@ -1060,6 +1209,13 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
       }
     }
   }, [selectedDate, routeContext, permissions.canRead]);
+
+  // Persist selectedDate to localStorage whenever it changes
+  useEffect(() => {
+    if (typeof window !== "undefined" && selectedDate) {
+      localStorage.setItem("appointmentSelectedDate", selectedDate);
+    }
+  }, [selectedDate]);
 
   useEffect(() => {
     if (selectedDate) {
@@ -1336,7 +1492,17 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
   };
   */
 
+  // Helper function to format date as YYYY-MM-DD in local timezone
+  const formatDateLocal = (date: Date | string): string => {
+    const d = typeof date === 'string' ? new Date(date) : date;
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   // Get appointments for a specific doctor and row
+  // IMPORTANT: Show ALL appointments regardless of status (booked, Arrived, Consultation, Cancelled, etc.)
   // Only show appointments that were booked from the doctor column
   const getAppointmentsForRow = (doctorId: string, slotTime: string): Appointment[] => {
     return appointments.filter((apt) => {
@@ -1347,8 +1513,13 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
         console.log(`Filtering out appointment ${apt._id} from doctor column - bookedFrom is "room"`);
         return false;
       }
-      const aptDate = new Date(apt.startDate).toISOString().split("T")[0];
-      if (aptDate !== selectedDate) return false;
+      // Compare dates in local timezone to match the selectedDate
+      const aptDate = formatDateLocal(apt.startDate);
+      if (aptDate !== selectedDate) {
+        console.log(`Date mismatch: appointment date ${aptDate} !== selected date ${selectedDate} for appointment ${apt._id}`);
+        return false;
+      }
+      // NOTE: We do NOT filter by status - all statuses (booked, Arrived, Consultation, etc.) should be shown
       
       const rowStart = timeStringToMinutes(slotTime);
       const rowEnd = rowStart + ROW_INTERVAL_MINUTES;
@@ -1360,6 +1531,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
   };
 
   // Get appointments for a specific room and row
+  // IMPORTANT: Show ALL appointments regardless of status (booked, Arrived, Consultation, Cancelled, etc.)
   // Only show appointments that were booked from the room column
   const getRoomAppointmentsForRow = (roomId: string, slotTime: string): Appointment[] => {
     return appointments.filter((apt) => {
@@ -1371,8 +1543,10 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
         console.log(`Filtering out appointment ${apt._id} from room column - bookedFrom is "${bookedFrom}" (type: ${typeof bookedFrom}, not "room")`);
         return false;
       }
-      const aptDate = new Date(apt.startDate).toISOString().split("T")[0];
+      // Compare dates in local timezone to match the selectedDate
+      const aptDate = formatDateLocal(apt.startDate);
       if (aptDate !== selectedDate) return false;
+      // NOTE: We do NOT filter by status - all statuses (booked, Arrived, Consultation, etc.) should be shown
 
       const rowStart = timeStringToMinutes(slotTime);
       const rowEnd = rowStart + ROW_INTERVAL_MINUTES;
@@ -1393,7 +1567,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
   const lastBookableMinutes =
     closingMinutes !== null ? closingMinutes - SLOT_INTERVAL_MINUTES : null;
 
-  // Helper function to open modal with selected time range
+  // Helper function to open modal with selected time range (doctors)
   const openModalWithSelection = useCallback((startMinutes: number, endMinutes: number, doctorId: string) => {
     // ✅ Check permission before opening booking modal
     if (!permissions.canCreate) {
@@ -1441,7 +1615,55 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
     });
   }, [doctorStaff, selectedDate, minutesToDisplay, permissions.canCreate]);
 
-  // Global mouse event handlers for time slot drag selection
+  // Helper function to open modal with selected time range (rooms)
+  const openModalWithRoomSelection = useCallback((startMinutes: number, endMinutes: number, roomId: string) => {
+    // ✅ Check permission before opening booking modal
+    if (!permissions.canCreate) {
+      showErrorToast("You do not have permission to book appointments");
+      setRoomDragSelection({
+        isDragging: false,
+        startMinutes: null,
+        endMinutes: null,
+        roomId: null,
+      });
+      return;
+    }
+    
+    const minStart = Math.min(startMinutes, endMinutes);
+    const maxEnd = Math.max(startMinutes, endMinutes);
+    
+    // Only open modal if there's a valid selection (at least one slot)
+    if (maxEnd > minStart) {
+      const fromTime = `${String(Math.floor(minStart / 60)).padStart(2, "0")}:${String(minStart % 60).padStart(2, "0")}`;
+      const toTime = `${String(Math.floor(maxEnd / 60)).padStart(2, "0")}:${String(maxEnd % 60).padStart(2, "0")}`;
+      
+      const room = rooms.find((r) => r._id === roomId);
+      if (room) {
+        setBookingModal({
+          isOpen: true,
+          doctorId: "",
+          doctorName: "",
+          roomId: room._id,
+          roomName: room.name,
+          slotTime: fromTime,
+          slotDisplayTime: minutesToDisplay(minStart),
+          selectedDate,
+          bookedFrom: "room",
+          fromTime,
+          toTime,
+        });
+      }
+    }
+    
+    setRoomDragSelection({
+      isDragging: false,
+      startMinutes: null,
+      endMinutes: null,
+      roomId: null,
+    });
+  }, [rooms, selectedDate, minutesToDisplay, permissions.canCreate]);
+
+  // Global mouse event handlers for time slot drag selection (doctors)
   useEffect(() => {
     const handleGlobalMouseMove = (e: MouseEvent) => {
       if (!timeDragSelection.isDragging || !timeDragSelection.doctorId) return;
@@ -1536,6 +1758,102 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
       };
     }
   }, [timeDragSelection.isDragging, timeDragSelection.doctorId, timeDragSelection.startMinutes, timeDragSelection.endMinutes, timeSlots, lastBookableMinutes, isPastDay, isToday, currentMinutes, doctorStaff, selectedDate, minutesToDisplay, openModalWithSelection]);
+
+  // Global mouse event handlers for time slot drag selection (rooms)
+  useEffect(() => {
+    const handleGlobalMouseMove = (e: MouseEvent) => {
+      if (!roomDragSelection.isDragging || !roomDragSelection.roomId) return;
+      
+      // Clear previous timeout
+      if (dragStopTimeoutRef.current) {
+        clearTimeout(dragStopTimeoutRef.current);
+        dragStopTimeoutRef.current = null;
+      }
+      
+      // Find the room column element
+      const roomColumn = document.querySelector(`[data-room-id="${roomDragSelection.roomId}"]`);
+      if (!roomColumn) return;
+      
+      const rect = roomColumn.getBoundingClientRect();
+      const y = e.clientY - rect.top;
+      
+      // Calculate which time slot the mouse is over
+      const slotIndex = Math.floor(y / ROW_HEIGHT_PX);
+      if (slotIndex < 0 || slotIndex >= timeSlots.length) return;
+      
+      const slot = timeSlots[slotIndex];
+      const rowStartMinutes = timeStringToMinutes(slot.time);
+      
+      // Calculate offset within the row (0 or 15 minutes)
+      const offsetInRow = y - (slotIndex * ROW_HEIGHT_PX);
+      const subSlotOffset = offsetInRow < ROW_HEIGHT_PX / 2 ? 0 : SLOT_INTERVAL_MINUTES;
+      const currentMinutes = rowStartMinutes + subSlotOffset;
+      
+      const slotWithinClosing = lastBookableMinutes === null || currentMinutes <= lastBookableMinutes;
+      const now = new Date();
+      const currentTimeMinutes = now.getHours() * 60 + now.getMinutes();
+      const canBookSlot = !isPastDay && (!isToday || currentMinutes >= currentTimeMinutes) && slotWithinClosing;
+      
+      if (canBookSlot) {
+        setRoomDragSelection((prev) => ({
+          ...prev,
+          endMinutes: currentMinutes,
+        }));
+        
+        // Set timeout to open modal when mouse stops moving (500ms delay)
+        dragStopTimeoutRef.current = setTimeout(() => {
+          const currentSelection = roomDragSelectionRef.current;
+          if (currentSelection.isDragging && 
+              currentSelection.startMinutes !== null && 
+              currentSelection.endMinutes !== null && 
+              currentSelection.roomId) {
+            openModalWithRoomSelection(
+              currentSelection.startMinutes,
+              currentSelection.endMinutes,
+              currentSelection.roomId
+            );
+          }
+        }, 500);
+      }
+    };
+
+    const handleGlobalMouseUp = () => {
+      if (!roomDragSelection.isDragging) return;
+      
+      // Clear the timeout if mouse is released
+      if (dragStopTimeoutRef.current) {
+        clearTimeout(dragStopTimeoutRef.current);
+        dragStopTimeoutRef.current = null;
+      }
+      
+      const { startMinutes, endMinutes, roomId } = roomDragSelection;
+      if (startMinutes !== null && endMinutes !== null && roomId) {
+        openModalWithRoomSelection(startMinutes, endMinutes, roomId);
+      } else {
+        // Reset selection if invalid
+        setRoomDragSelection({
+          isDragging: false,
+          startMinutes: null,
+          endMinutes: null,
+          roomId: null,
+        });
+      }
+    };
+
+    if (roomDragSelection.isDragging) {
+      document.addEventListener("mousemove", handleGlobalMouseMove);
+      document.addEventListener("mouseup", handleGlobalMouseUp);
+      return () => {
+        document.removeEventListener("mousemove", handleGlobalMouseMove);
+        document.removeEventListener("mouseup", handleGlobalMouseUp);
+        // Clear timeout on cleanup
+        if (dragStopTimeoutRef.current) {
+          clearTimeout(dragStopTimeoutRef.current);
+          dragStopTimeoutRef.current = null;
+        }
+      };
+    }
+  }, [roomDragSelection.isDragging, roomDragSelection.roomId, roomDragSelection.startMinutes, roomDragSelection.endMinutes, timeSlots, lastBookableMinutes, isPastDay, isToday, currentMinutes, rooms, selectedDate, minutesToDisplay, openModalWithRoomSelection]);
 
   const tooltipDoctor = activeDoctorTooltip
     ? doctorStaff.find((doc) => doc._id === activeDoctorTooltip.doctorId)
@@ -1655,7 +1973,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
     setDraggedColumnId(null);
   };
 
-  // Time slot drag selection handlers
+  // Time slot drag selection handlers (doctors)
   const handleTimeSlotMouseDown = (e: React.MouseEvent, doctorId: string, startMinutes: number) => {
     // ✅ Check permission before allowing time slot selection
     if (!permissions.canCreate) {
@@ -1665,6 +1983,9 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
     
     // Only start drag on left mouse button and if slot is bookable
     if (e.button !== 0) return;
+    
+    // Prevent starting doctor drag if room drag is active
+    if (roomDragSelection.isDragging) return;
     
     const slotWithinClosing = lastBookableMinutes === null || startMinutes <= lastBookableMinutes;
     const canBookSlot = !isPastDay && (!isToday || startMinutes >= currentMinutes) && slotWithinClosing;
@@ -1680,8 +2001,35 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
     });
   };
 
+  // Time slot drag selection handlers (rooms)
+  const handleRoomSlotMouseDown = (e: React.MouseEvent, roomId: string, startMinutes: number) => {
+    // ✅ Check permission before allowing time slot selection
+    if (!permissions.canCreate) {
+      showErrorToast("You do not have permission to book appointments");
+      return;
+    }
+    
+    // Only start drag on left mouse button and if slot is bookable
+    if (e.button !== 0) return;
+    
+    // Prevent starting room drag if doctor drag is active
+    if (timeDragSelection.isDragging) return;
+    
+    const slotWithinClosing = lastBookableMinutes === null || startMinutes <= lastBookableMinutes;
+    const canBookSlot = !isPastDay && (!isToday || startMinutes >= currentMinutes) && slotWithinClosing;
+    
+    if (!canBookSlot) return;
+    
+    e.preventDefault();
+    setRoomDragSelection({
+      isDragging: true,
+      startMinutes,
+      endMinutes: startMinutes,
+      roomId,
+    });
+  };
 
-  // Check if a time slot is within the drag selection
+  // Check if a time slot is within the drag selection (doctors)
   const isSlotInSelection = (slotStartMinutes: number, slotEndMinutes: number, doctorId: string): boolean => {
     if (!timeDragSelection.isDragging || timeDragSelection.doctorId !== doctorId) return false;
     const { startMinutes, endMinutes } = timeDragSelection;
@@ -1694,25 +2042,51 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
     return slotStartMinutes < maxEnd && slotEndMinutes > minStart;
   };
 
+  // Check if a time slot is within the drag selection (rooms)
+  const isRoomSlotInSelection = (slotStartMinutes: number, slotEndMinutes: number, roomId: string): boolean => {
+    if (!roomDragSelection.isDragging || roomDragSelection.roomId !== roomId) return false;
+    const { startMinutes, endMinutes } = roomDragSelection;
+    if (startMinutes === null || endMinutes === null) return false;
+    
+    const minStart = Math.min(startMinutes, endMinutes);
+    const maxEnd = Math.max(startMinutes, endMinutes);
+    
+    // Check if slot overlaps with selection
+    return slotStartMinutes < maxEnd && slotEndMinutes > minStart;
+  };
+
   const handleBookingSuccess = () => {
-    // Reload appointments
-    axios
-      .get(`/api/clinic/appointments?date=${selectedDate}`, {
-        headers: getAuthHeaders(),
-      })
-      .then((res) => {
-        if (res.data.success) {
-          const appointmentsData = res.data.appointments || [];
-          setAppointments(appointmentsData);
-          toast.success("Appointment booked successfully!", { duration: 3000 });
-        } else {
-          showErrorToast(res.data.message || "Failed to reload appointments");
+    // Reload appointments - show ALL statuses (booked, Arrived, Consultation, etc.)
+    loadAppointments();
+    toast.success("Appointment booked successfully!", { duration: 3000 });
+  };
+
+  const handleImportSuccess = (importedDates?: string[]) => {
+    // If we have imported dates, navigate to the first one
+    if (importedDates && importedDates.length > 0) {
+      const firstDate = importedDates[0];
+      // Validate date format before setting
+      const dateMatch = firstDate.match(/^\d{4}-\d{2}-\d{2}$/);
+      if (dateMatch) {
+        setSelectedDate(firstDate);
+        // Also persist to localStorage immediately
+        if (typeof window !== "undefined") {
+          localStorage.setItem("appointmentSelectedDate", firstDate);
         }
-      })
-      .catch((err) => {
-        // Swallow reload errors; generic message already set
-        showErrorToast(err.response?.data?.message || "Failed to reload appointments");
-      });
+        toast.success(
+          `Appointments imported! Navigated to ${new Date(firstDate).toLocaleDateString()}.`,
+          { duration: 4000 }
+        );
+      } else {
+        console.error("Invalid date format from import:", firstDate);
+        loadAppointments();
+        toast.success("Appointments imported successfully! Refreshing schedule...", { duration: 3000 });
+      }
+    } else {
+      // Reload appointments for the current date
+      loadAppointments();
+      toast.success("Appointments imported successfully! Refreshing schedule...", { duration: 3000 });
+    }
   };
 
   if (loading || !permissionsLoaded) {
@@ -1849,12 +2223,28 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                   </p>
                 </div>
                 <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                  {permissions.canCreate === true && (
+                    <button
+                      onClick={() => setImportModalOpen(true)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded border border-blue-600 dark:border-blue-500 bg-blue-600 dark:bg-blue-500 text-xs font-medium text-white hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors"
+                      type="button"
+                      title="Import appointments from CSV or Excel"
+                    >
+                      <Upload className="w-3.5 h-3.5" />
+                      Import
+                    </button>
+                  )}
                   <div className="flex items-center gap-1.5">
                     <button
                       onClick={() => {
                         const current = new Date(selectedDate);
                         current.setDate(current.getDate() - 1);
-                        setSelectedDate(current.toISOString().split("T")[0]);
+                        const newDate = current.toISOString().split("T")[0];
+                        setSelectedDate(newDate);
+                        // Persist to localStorage
+                        if (typeof window !== "undefined") {
+                          localStorage.setItem("appointmentSelectedDate", newDate);
+                        }
                       }}
                       className="px-2 py-1 rounded border border-gray-300 dark:border-gray-300 bg-white dark:bg-gray-100 text-xs font-medium text-gray-700 dark:text-gray-800 hover:bg-gray-50 dark:hover:bg-gray-200 transition-colors"
                       type="button"
@@ -1863,7 +2253,12 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                     </button>
                     <button
                       onClick={() => {
-                        setSelectedDate(new Date().toISOString().split("T")[0]);
+                        const todayDate = new Date().toISOString().split("T")[0];
+                        setSelectedDate(todayDate);
+                        // Persist to localStorage
+                        if (typeof window !== "undefined") {
+                          localStorage.setItem("appointmentSelectedDate", todayDate);
+                        }
                         toast.success("Switched to today", { duration: 2000 });
                       }}
                       className="px-2 py-1 rounded border border-gray-900 dark:border-gray-300 bg-gray-900 dark:bg-gray-200 text-xs font-medium text-white dark:text-gray-900 hover:bg-gray-800 dark:hover:bg-gray-300 transition-colors"
@@ -1875,7 +2270,12 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                       onClick={() => {
                         const current = new Date(selectedDate);
                         current.setDate(current.getDate() + 1);
-                        setSelectedDate(current.toISOString().split("T")[0]);
+                        const newDate = current.toISOString().split("T")[0];
+                        setSelectedDate(newDate);
+                        // Persist to localStorage
+                        if (typeof window !== "undefined") {
+                          localStorage.setItem("appointmentSelectedDate", newDate);
+                        }
                       }}
                       className="px-2 py-1 rounded border border-gray-300 dark:border-gray-300 bg-white dark:bg-gray-100 text-xs font-medium text-gray-700 dark:text-gray-800 hover:bg-gray-50 dark:hover:bg-gray-200 transition-colors"
                       type="button"
@@ -1889,8 +2289,13 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                       type="date"
                       value={selectedDate}
                       onChange={(e) => {
-                        setSelectedDate(e.target.value);
-                        toast(`Viewing appointments for ${new Date(e.target.value).toLocaleDateString()}`, {
+                        const newDate = e.target.value;
+                        setSelectedDate(newDate);
+                        // Persist to localStorage
+                        if (typeof window !== "undefined") {
+                          localStorage.setItem("appointmentSelectedDate", newDate);
+                        }
+                        toast(`Viewing appointments for ${new Date(newDate).toLocaleDateString()}`, {
                           duration: 2000,
                           icon: "ℹ️",
                         });
@@ -1926,7 +2331,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                     </span>
                   </button>
                   {doctorFilterOpen && (
-                    <div className="absolute z-40 mt-1 w-48 rounded border border-gray-200 dark:border-gray-300 bg-white dark:bg-gray-100 p-2 shadow-lg">
+                    <div className="absolute z-[100] mt-1 w-48 rounded border border-gray-200 dark:border-gray-300 bg-white dark:bg-gray-100 p-2 shadow-lg">
                       <div className="mb-1 flex items-center justify-between text-[10px] text-gray-700 dark:text-gray-800">
                         <span>Doctors</span>
                         <div className="flex gap-1.5">
@@ -2026,7 +2431,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                     </span>
                   </button>
                   {roomFilterOpen && (
-                    <div className="absolute z-40 mt-1 w-48 rounded border border-gray-200 dark:border-gray-300 bg-white dark:bg-gray-100 p-2 shadow-lg">
+                    <div className="absolute z-[100] mt-1 w-48 rounded border border-gray-200 dark:border-gray-300 bg-white dark:bg-gray-100 p-2 shadow-lg">
                       <div className="mb-1 flex items-center justify-between text-[10px] text-gray-700 dark:text-gray-800">
                         <span>Rooms</span>
                         <div className="flex gap-1.5">
@@ -2140,7 +2545,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
             <div className="overflow-x-auto max-h-[75vh] overflow-y-auto relative">
             {/* Header with doctor names and rooms */}
               <div className="flex bg-gray-50 dark:bg-gray-200 border-b border-gray-200 dark:border-gray-300 sticky top-0 z-20">
-                <div className="w-16 sm:w-18 flex-shrink-0 border-r border-gray-200 dark:border-gray-300 p-1 bg-white dark:bg-gray-50 sticky left-0 z-30">
+                <div className="w-16 sm:w-18 flex-shrink-0 border-r border-gray-200 dark:border-gray-300 p-1 bg-white dark:bg-gray-50 sticky left-0 z-[70] relative after:content-[''] after:absolute after:top-0 after:bottom-0 after:right-[-2px] after:w-[2px] after:bg-white dark:after:bg-gray-50 after:pointer-events-none">
                   <div className="flex items-center gap-0.5 text-[8px] sm:text-[9px] font-semibold text-gray-900 dark:text-gray-900">
                     <Clock className="w-2.5 h-2.5" />
                   <span>Time</span>
@@ -2277,10 +2682,10 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
               {timeSlots.map((slot) => {
                 const rowStartMinutes = timeStringToMinutes(slot.time);
                 return (
-                  <div key={slot.time} className="flex border-b border-gray-100 dark:border-gray-300 hover:bg-gray-50/50 dark:hover:bg-gray-100/50 transition-colors min-w-max">
+                  <div key={slot.time} className="flex hover:bg-gray-50/50 dark:hover:bg-gray-100/50 transition-colors min-w-max">
                     {/* Time column */}
                     <div
-                      className="w-16 sm:w-18 flex-shrink-0 border-r border-gray-200 dark:border-gray-300 p-1 bg-white dark:bg-gray-50 relative sticky left-0 z-10"
+                      className="w-16 sm:w-18 flex-shrink-0 border-r border-gray-200 dark:border-gray-300 border-b border-gray-100 dark:border-gray-300 p-1 bg-white dark:bg-gray-50 relative sticky left-0 z-[60] after:content-[''] after:absolute after:top-0 after:bottom-0 after:right-[-2px] after:w-[2px] after:bg-white dark:after:bg-gray-50 after:pointer-events-none"
                       style={{ height: ROW_HEIGHT_PX }}
                     >
                       <p className="text-[8px] sm:text-[9px] font-semibold text-gray-900 dark:text-gray-900">{slot.displayTime}</p>
@@ -2300,7 +2705,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                       return (
                         <div
                             key={`${slot.time}-doctor-${doctor._id}`}
-                          className={`flex-1 min-w-[90px] sm:min-w-[100px] ${isLastColumn ? '' : 'border-r'} border-gray-200 dark:border-gray-300 relative bg-white dark:bg-gray-50 transition-colors ${isDragOver ? "bg-blue-50 dark:bg-blue-100 border-blue-300 dark:border-blue-400" : ""}`}
+                          className={`flex-1 min-w-[90px] sm:min-w-[100px] ${isLastColumn ? '' : 'border-r'} border-gray-200 dark:border-gray-300 border-b border-gray-100 dark:border-gray-300 relative bg-white dark:bg-gray-50 transition-colors ${isDragOver ? "bg-blue-50 dark:bg-blue-100 border-blue-300 dark:border-blue-400" : ""}`}
                           style={{ height: ROW_HEIGHT_PX }}
                           data-doctor-id={doctor._id}
                           onDragOver={(e) => {
@@ -2500,6 +2905,11 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                                           {!isShortAppointment && apt.patientEmrNumber && (
                                             <p className="truncate text-[9px] opacity-85 mt-0.5 font-medium">EMR: {apt.patientEmrNumber}</p>
                                           )}
+                                          {!isShortAppointment && apt.status && (
+                                            <p className="truncate text-[8px] opacity-90 mt-0.5 font-semibold uppercase">
+                                              {apt.status}
+                                            </p>
+                                          )}
                                         </div>
                                       </div>
                                       {!isShortAppointment && (
@@ -2521,11 +2931,14 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                         const room = column.data;
                       const roomAppointments = getRoomAppointmentsForRow(room._id, slot.time);
 
+                      const isInRoomSelection = roomDragSelection.isDragging && roomDragSelection.roomId === room._id;
+
                       return (
                         <div
                             key={`${slot.time}-room-${room._id}`}
-                          className={`flex-1 min-w-[90px] sm:min-w-[100px] ${isLastColumn ? '' : 'border-r'} border-gray-200 dark:border-gray-300 relative bg-white dark:bg-gray-50`}
+                          className={`flex-1 min-w-[90px] sm:min-w-[100px] ${isLastColumn ? '' : 'border-r'} border-gray-200 dark:border-gray-300 border-b border-gray-100 dark:border-gray-300 relative bg-white dark:bg-gray-50`}
                           style={{ height: ROW_HEIGHT_PX }}
+                          data-room-id={room._id}
                         >
                           <div className="absolute left-0 right-0 top-1/2 border-t border-gray-200 dark:border-gray-700 pointer-events-none" />
                           <div className="flex flex-col h-full">
@@ -2547,13 +2960,18 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                                 (!isToday || subStartMinutes >= currentMinutes) &&
                                 slotWithinClosing &&
                                 !isSubSlotOccupied;
+                              
+                              // Check if this slot is in the drag selection
+                              const isSelected = isInRoomSelection && isRoomSlotInSelection(subStartMinutes, subEndMinutes, room._id);
 
                               return (
                                 <div
                                   key={`${slot.time}-${room._id}-${offset}`}
                                   className={`flex-1 transition-all ${
-                                    canBookSlot
-                                      ? "cursor-pointer hover:bg-emerald-50 dark:hover:bg-emerald-100 border-l-2 border-transparent hover:border-emerald-400 dark:hover:border-emerald-500"
+                                    isSelected
+                                      ? "bg-emerald-200 dark:bg-emerald-200 border-l-2 border-emerald-500 dark:border-emerald-600 cursor-crosshair"
+                                      : canBookSlot
+                                      ? "cursor-crosshair hover:bg-emerald-50 dark:hover:bg-emerald-100 border-l-2 border-transparent hover:border-emerald-400 dark:hover:border-emerald-500"
                                       : isSubSlotOccupied
                                       ? "bg-gray-50 dark:bg-gray-100 cursor-not-allowed"
                                       : "bg-gray-50 dark:bg-gray-100 cursor-not-allowed"
@@ -2563,20 +2981,26 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                                     !permissions.canCreate
                                       ? "You do not have permission to book appointments"
                                       : canBookSlot
-                                      ? `Click to book appointment at ${minutesToDisplay(subStartMinutes)}`
+                                      ? `Click or drag to select time range starting at ${minutesToDisplay(subStartMinutes)}`
                                       : isPastDay
                                       ? "Cannot book appointments for past dates"
                                       : slotWithinClosing
                                       ? "Cannot book past time slots"
                                       : "Cannot book beyond clinic closing time"
                                   }
-                                  onClick={() => {
+                                  onMouseDown={(e) => {
+                                    if (canBookSlot && !draggedAppointmentId) {
+                                      handleRoomSlotMouseDown(e, room._id, subStartMinutes);
+                                    }
+                                  }}
+                                  onClick={(_e) => {
                                     // ✅ Check permission before opening booking modal
                                     if (!permissions.canCreate) {
                                       showErrorToast("You do not have permission to book appointments");
                                       return;
                                     }
-                                    if (canBookSlot) {
+                                    // Only handle click if not dragging (to avoid double-triggering)
+                                    if (canBookSlot && !roomDragSelection.isDragging && !draggedAppointmentId) {
                                       setBookingModal({
                                         isOpen: true,
                                         doctorId: "",
@@ -2688,6 +3112,11 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                                           {!isShortAppointment && apt.patientEmrNumber && (
                                             <p className="truncate text-[9px] opacity-85 dark:opacity-85 mt-0.5 font-medium text-gray-700 dark:text-gray-800">EMR: {apt.patientEmrNumber}</p>
                                           )}
+                                          {!isShortAppointment && apt.status && (
+                                            <p className="truncate text-[8px] opacity-90 dark:opacity-90 mt-0.5 font-semibold uppercase text-gray-700 dark:text-gray-800">
+                                              {apt.status}
+                                            </p>
+                                          )}
                                         </div>
                                       </div>
                                       {!isShortAppointment && (
@@ -2725,7 +3154,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
       {/* Custom Time Slot Modal */}
       {customTimeSlotModalOpen && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[110] p-4"
           onClick={() => setCustomTimeSlotModalOpen(false)}
         >
           <div
@@ -2798,21 +3227,66 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
 
               <div className="flex gap-2 pt-2">
                 <button
-                  onClick={() => {
+                  onClick={async () => {
                     if (useCustomTimeSlots && customStartTime && customEndTime) {
                       const startMinutes = timeStringToMinutes(customStartTime);
                       const endMinutes = timeStringToMinutes(customEndTime);
                       if (endMinutes > startMinutes) {
-                        const slots = generateTimeSlots(customStartTime, customEndTime);
-                        setTimeSlots(slots);
-                        setClosingMinutes(endMinutes);
-                        toast.success("Custom time slots applied", { duration: 2000 });
-                        setCustomTimeSlotModalOpen(false);
+                        // Save to database immediately
+                        try {
+                          const currentValues = {
+                            useCustomTimeSlots: true,
+                            customStartTime,
+                            customEndTime,
+                          };
+                          await axios.put(
+                            "/api/clinic/custom-time-slots",
+                            currentValues,
+                            { headers: getAuthHeaders() }
+                          );
+                          // Update ref to prevent duplicate save
+                          lastSavedValuesRef.current = currentValues;
+                          // Apply time slots locally
+                          const slots = generateTimeSlots(customStartTime, customEndTime);
+                          setTimeSlots(slots);
+                          setClosingMinutes(endMinutes);
+                          toast.success("Custom time slots saved and applied", { duration: 2000 });
+                          setCustomTimeSlotModalOpen(false);
+                        } catch (err: any) {
+                          console.error("Error saving custom time slots:", err);
+                          showErrorToast(err.response?.data?.message || "Failed to save custom time slots");
+                        }
                       } else {
                         showErrorToast("End time must be after start time");
                       }
                     } else {
-                      setCustomTimeSlotModalOpen(false);
+                      // If disabling custom time slots, save that to database
+                      try {
+                        const currentValues = {
+                          useCustomTimeSlots: false,
+                          customStartTime: "",
+                          customEndTime: "",
+                        };
+                        await axios.put(
+                          "/api/clinic/custom-time-slots",
+                          currentValues,
+                          { headers: getAuthHeaders() }
+                        );
+                        // Update ref to prevent duplicate save
+                        lastSavedValuesRef.current = currentValues;
+                        // Revert to clinic timings
+                        const parsed = parseTimings(clinic?.timings || "");
+                        if (parsed && !parsed.isCustom) {
+                          const slots = generateTimeSlots(parsed.startTime, parsed.endTime);
+                          setTimeSlots(slots);
+                          setClosingMinutes(timeStringToMinutes(parsed.endTime));
+                        }
+                        toast.success("Reverted to clinic timings", { duration: 2000 });
+                        setCustomTimeSlotModalOpen(false);
+                      } catch (err: any) {
+                        console.error("Error saving custom time slots:", err);
+                        showErrorToast(err.response?.data?.message || "Failed to save settings");
+                      }
                     }
                   }}
                   className="flex-1 px-4 py-2 bg-purple-600 dark:bg-purple-500 text-white rounded-lg hover:bg-purple-700 dark:hover:bg-purple-600 font-medium transition-colors"
@@ -2850,6 +3324,18 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
         doctorStaff={doctorStaff}
         getAuthHeaders={getAuthHeaders}
       />
+
+      {/* Import Appointments Modal */}
+      {permissions.canCreate === true && (
+        <ImportAppointmentsModal
+          isOpen={importModalOpen}
+          onClose={() => setImportModalOpen(false)}
+          onImported={handleImportSuccess}
+          doctorStaff={doctorStaff}
+          rooms={rooms}
+          getAuthHeaders={getAuthHeaders}
+        />
+      )}
 
       {activeDoctorTooltip && (
         <div

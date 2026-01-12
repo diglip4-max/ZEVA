@@ -132,29 +132,77 @@ export default function ClinicDetail() {
   const navigateToReview = useRef(false);
 
   useEffect(() => {
-    if (!router.isReady) return;
+    if (!router.isReady || !slug) return;
     
-    // Get clinic ID from query parameter (passed as ?c=... in URL)
-    // If no query param, check if the path param is actually an ObjectId (24 hex chars) for backward compatibility
-    const isObjectId = slug && /^[0-9a-fA-F]{24}$/.test(slug);
-    // Use query param 'c' if available, otherwise use slug if it's an ObjectId (backward compatibility)
-    const idToUse = clinicId || (isObjectId ? slug : null);
-    
-    if (!idToUse) return;
     const fetchClinic = async () => {
       try {
         setLoading(true);
         setError(null);
-        const res = await axios.get(`/api/clinics/${idToUse}`);
+        
+        // Check if slug is an ObjectId (for backward compatibility)
+        const isObjectId = /^[0-9a-fA-F]{24}$/.test(slug);
+        
+        let res;
+        if (isObjectId) {
+          // Old ObjectId-based URL - fetch by ObjectId first
+          try {
+            res = await axios.get(`/api/clinics/${slug}`);
+            const clinic = res.data?.clinic || res.data?.data || res.data;
+            
+            // If clinic has a slug, redirect to slug-based URL
+            if (clinic?.slug && clinic?.slugLocked) {
+              router.replace(`/clinics/${clinic.slug}`, undefined, { shallow: false });
+              return;
+            }
+          } catch (err: any) {
+            // If fetch fails, try redirect API
+            try {
+              // Redirect API will handle slug generation if needed
+              window.location.href = `/api/clinics/redirect/${slug}`;
+              return;
+            } catch (redirectErr) {
+              throw err;
+            }
+          }
+        } else {
+          // New slug-based URL - fetch by slug
+          try {
+            res = await axios.get(`/api/clinics/by-slug/${slug}`);
+          } catch (slugErr: any) {
+            // If slug fetch fails and we have clinicId in query params, try fetching by ID
+            if (slugErr.response?.status === 404 && clinicId) {
+              console.log("Slug not found, trying with clinic ID:", clinicId);
+              try {
+                res = await axios.get(`/api/clinics/${clinicId}`);
+                const clinic = res.data?.clinic || res.data?.data || res.data;
+                
+                // If clinic has a slug, redirect to slug-based URL
+                if (clinic?.slug && clinic?.slugLocked) {
+                  router.replace(`/clinics/${clinic.slug}`, undefined, { shallow: false });
+                  return;
+                }
+              } catch (idErr: any) {
+                // Both slug and ID failed, throw the original slug error
+                throw slugErr;
+              }
+            } else {
+              // Re-throw if it's not a 404 or no clinicId available
+              throw slugErr;
+            }
+          }
+        }
+        
         setClinic(res.data?.clinic || res.data?.data || res.data);
-      } catch {
-        setError("Failed to load clinic");
+      } catch (err: any) {
+        console.error("Error fetching clinic:", err);
+        setError(err.response?.data?.message || "Failed to load clinic");
       } finally {
         setLoading(false);
       }
     };
+    
     fetchClinic();
-  }, [slug, clinicId, router.isReady]);
+  }, [slug, router.isReady, router]);
 
   useEffect(() => {
     if (!clinic?._id) return;
@@ -306,21 +354,25 @@ export default function ClinicDetail() {
           {/* Profile Header Section */}
           <div className="p-6 sm:p-8 bg-gradient-to-r from-[#2D9AA5]/5 to-[#2D9AA5]/10 border-b border-gray-100">
             <div className="flex flex-col lg:flex-row gap-6 items-start">
-              {/* Clinic Image - Left Corner */}
-              {clinic.photos?.[0] && (
-                <div className="w-full max-w-sm lg:max-w-xs flex-shrink-0">
-                  <div className="relative w-full h-48 sm:h-56 lg:h-60 rounded-2xl overflow-hidden shadow-lg border-4 border-white bg-white">
-                    <Image
-                      src={normalizePhotoUrl(clinic.photos[0])}
-                      alt={clinic.name}
-                      fill
-                      className="object-contain"
-                      sizes="(max-width: 1024px) 80vw, 320px"
-                      priority
-                    />
+              {(() => {
+                const photosArray = clinic.photos || [];
+                const latestPhoto = photosArray.length > 0 ? photosArray[photosArray.length - 1] : null;
+                
+                return latestPhoto && (
+                  <div className="w-full max-w-sm lg:max-w-xs flex-shrink-0">
+                    <div className="relative w-full h-48 sm:h-56 lg:h-60 rounded-2xl overflow-hidden shadow-lg border-4 border-white bg-white">
+                      <Image
+                        src={normalizePhotoUrl(latestPhoto)}
+                        alt={clinic.name}
+                        fill
+                        className="object-contain"
+                        sizes="(max-width: 1024px) 80vw, 320px"
+                        priority
+                      />
+                    </div>
                   </div>
-                </div>
-              )}
+                );
+              })()}
 
               {/* Profile Info */}
               <div className="flex-1 min-w-0">

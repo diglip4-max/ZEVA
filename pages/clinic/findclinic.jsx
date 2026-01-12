@@ -17,7 +17,6 @@ import {
     Filter,
     ChevronLeft,
     ChevronRight,
-    Eye,
 } from "lucide-react";
 import AuthModal from "../../components/AuthModal";
 import Image from "next/image";
@@ -44,9 +43,6 @@ export default function Home() {
     const router = useRouter();
 
     const [clinicReviews, setClinicReviews] = useState({});
-    
-    // State to track current image index for each clinic carousel
-    const [clinicImageIndices, setClinicImageIndices] = useState({});
 
     // Helper function to convert text to slug
     const textToSlug = (text) => {
@@ -72,9 +68,7 @@ export default function Home() {
     // Converts absolute Windows file paths to relative URLs
     const normalizeImagePath = (imagePath) => {
         if (!imagePath) return '';
-        // Normalize Windows backslashes to forward slashes
-        imagePath = String(imagePath).replace(/\\/g, '/');
-        
+       
         // Handle malformed URLs that have localhost concatenated with file path
         // e.g., "http://localhost:3000C:/Users/..." -> extract the file path part
         if (imagePath.includes('localhost') && /[A-Za-z]:/.test(imagePath)) {
@@ -84,27 +78,18 @@ export default function Home() {
                 imagePath = driveMatch[1];
             }
         }
-        
+       
         // If it's already a relative path starting with /, clean up and return
         if (imagePath.startsWith('/')) {
             // Remove double slashes
             return imagePath.replace(/\/+/g, '/');
         }
-        
+       
         // If it's already a full URL (http:// or https://), return as is
         if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
             return imagePath;
         }
-        
-        // Handle paths with uploads/clinic/ - extract filename
-        if (imagePath.includes('uploads/clinic/')) {
-            const filename = imagePath.split('uploads/clinic/').pop();
-            if (filename && filename.trim()) {
-                const cleanFilename = filename.split('?')[0].split('#')[0].trim();
-                return `/uploads/clinic/${cleanFilename}`;
-            }
-        }
-        
+       
         // If it's a Windows absolute path (C:/, D:/, etc.), extract the relative part
         if (/^[A-Za-z]:/.test(imagePath)) {
             // Find the uploads directory and extract everything from there
@@ -126,18 +111,14 @@ export default function Home() {
                 }
             }
         }
-        
-        // If it doesn't start with /, check if it's a filename and add /uploads/clinic/
+       
+        // If it doesn't start with /, add it
         if (!imagePath.startsWith('/')) {
-            // If it looks like a filename (has extension), prepend /uploads/clinic/
-            if (/\.(jpg|jpeg|png|gif|webp|svg)$/i.test(imagePath)) {
-                return `/uploads/clinic/${imagePath}`;
-            }
-            // Otherwise, add leading slash
+            // Remove double slashes before adding leading slash
             const cleaned = imagePath.replace(/\/+/g, '/');
             return '/' + cleaned.replace(/^\//, '');
         }
-        
+       
         // Remove double slashes
         return imagePath.replace(/\/+/g, '/');
     };
@@ -146,7 +127,7 @@ export default function Home() {
     const updateURL = (treatment, location) => {
         // Set flag to prevent useEffect from interfering
         isUpdatingURL.current = true;
-        
+       
         const params = new URLSearchParams();
         if (treatment) {
             params.set('treatment', textToSlug(treatment));
@@ -155,12 +136,12 @@ export default function Home() {
             // Always use the actual location value from input - no special handling
             params.set('location', textToSlug(location));
         }
-        const newUrl = params.toString() 
+        const newUrl = params.toString()
             ? `${router.pathname}?${params.toString()}`
             : router.pathname;
-        
+       
         router.replace(newUrl, undefined, { shallow: true });
-        
+       
         // Reset flag after a short delay to allow URL to update
         setTimeout(() => {
             isUpdatingURL.current = false;
@@ -172,8 +153,7 @@ export default function Home() {
     // Add missing state variables for filters
     const [priceRange, setPriceRange] = useState([0, 40000]);
     const [selectedTimes, setSelectedTimes] = useState([]);
-    // Default: show highest rated clinics first (user request)
-    const [sortBy, setSortBy] = useState('rating-high-low');
+    const [sortBy, setSortBy] = useState('relevance');
     const [hasSearched, setHasSearched] = useState(false);
     const [formErrors, setFormErrors] = useState({ service: "", location: "" });
     const [quickFilters, setQuickFilters] = useState({
@@ -225,28 +205,9 @@ export default function Home() {
                 });
             case 'rating-high-low':
                 return sorted.sort((a, b) => {
-                    const ra = clinicReviews[a._id];
-                    const rb = clinicReviews[b._id];
-                    const aHas = (ra?.totalReviews || 0) > 0;
-                    const bHas = (rb?.totalReviews || 0) > 0;
-
-                    // Push clinics with no reviews to the bottom
-                    if (aHas !== bHas) return aHas ? -1 : 1;
-
-                    const ratingA = aHas ? (ra?.averageRating || 0) : -1;
-                    const ratingB = bHas ? (rb?.averageRating || 0) : -1;
-                    if (ratingB !== ratingA) return ratingB - ratingA;
-
-                    const reviewsA = ra?.totalReviews || 0;
-                    const reviewsB = rb?.totalReviews || 0;
-                    if (reviewsB !== reviewsA) return reviewsB - reviewsA;
-
-                    // Tie-breaker: nearer first if distance exists
-                    const distA = a.distance ?? Number.POSITIVE_INFINITY;
-                    const distB = b.distance ?? Number.POSITIVE_INFINITY;
-                    if (distA !== distB) return distA - distB;
-
-                    return (a.name || '').localeCompare(b.name || '');
+                    const ratingA = clinicReviews[a._id]?.averageRating || 0;
+                    const ratingB = clinicReviews[b._id]?.averageRating || 0;
+                    return ratingB - ratingA;
                 });
             case 'experience-high-low':
                 // Since clinics don't have experience field, we'll sort by name
@@ -397,20 +358,20 @@ export default function Home() {
     // Separate useEffect for URL query parameters to avoid conflicts with localStorage
     useEffect(() => {
         if (!router.isReady || hasSearchedFromURL.current || isUpdatingURL.current) return; // Wait for router to be ready and prevent duplicate searches, and don't interfere during URL updates
-        
+       
         const { treatment, location } = router.query;
         if (treatment || location) {
             const treatmentText = treatment ? slugToText(String(treatment)) : '';
             const locationText = location ? slugToText(String(location)) : '';
-            
+           
             // Only proceed if we have at least a location and haven't searched yet
             // Also check if the current form values don't match URL params (to avoid overwriting manual input)
             const currentTreatmentMatches = !treatmentText || (query.trim().toLowerCase() === treatmentText.toLowerCase() || selectedService.toLowerCase() === treatmentText.toLowerCase());
             const currentLocationMatches = !locationText || manualPlace.trim().toLowerCase() === locationText.toLowerCase();
-            
+           
             if (locationText && locationText !== 'near-me' && !hasSearched && !currentLocationMatches) {
                 hasSearchedFromURL.current = true;
-                
+               
                 // Set the form values
                 if (treatmentText) {
                     setQuery(treatmentText);
@@ -424,7 +385,7 @@ export default function Home() {
                 }, 300);
             } else if (locationText === 'near-me' && treatmentText && !hasSearched && !currentTreatmentMatches) {
                 hasSearchedFromURL.current = true;
-                
+               
                 // Handle near-me case
                 setQuery(treatmentText);
                 setSelectedService(treatmentText);
@@ -461,6 +422,11 @@ export default function Home() {
         currentPage,
         ratingFilter,
     ]);
+
+    // Reset currentPage when filters or results change
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [clinics, ratingFilter, priceRange, sortBy, quickFilters]);
 
     // Clear persisted state when user performs a new search
     const clearPersistedState = () => {
@@ -618,26 +584,26 @@ export default function Home() {
         if (!validateSearchInputs()) return;
         // Reset URL search flag so manual searches work
         hasSearchedFromURL.current = false;
-        
+       
         // ALWAYS get values directly from input fields
         const treatmentValue = query.trim();
         const locationValue = manualPlace.trim();
-        
+       
         // If query has value but selectedService doesn't, set selectedService to query
         const serviceToUse = treatmentValue && !selectedService ? treatmentValue : selectedService;
         if (treatmentValue && !selectedService) {
             setSelectedService(treatmentValue);
         }
-        
+       
         // Make sure we have a valid location
         if (!locationValue) {
             toast.error("Please enter a valid location");
             return;
         }
-        
+       
         // Update URL immediately with values from input fields
         updateURL(serviceToUse || treatmentValue, locationValue);
-        
+       
         // Then proceed with search
         searchByPlace(serviceToUse);
     };
@@ -685,15 +651,15 @@ export default function Home() {
             const res = await axios.get("/api/clinics/nearby", {
                 params: { lat, lng, service: serviceToSearch },
             });
-            
+           
             // Use user's current location for distance calculation if available, otherwise use searched location
             const distanceLat = userCurrentLocation?.lat || lat;
             const distanceLng = userCurrentLocation?.lng || lng;
-            
+           
             const clinicsWithDistance = res.data.clinics.map((clinic) => {
                 // Normalize photos array if it exists
                 const normalizedPhotos = clinic.photos?.map(photo => normalizeImagePath(photo)) || clinic.photos;
-                
+               
                 if (
                     clinic.location &&
                     clinic.location.coordinates &&
@@ -709,10 +675,10 @@ export default function Home() {
                         distance: distance,
                     };
                 } else {
-                    return { 
-                        ...clinic, 
+                    return {
+                        ...clinic,
                         photos: normalizedPhotos,
-                        distance: null 
+                        distance: null
                     };
                 }
             });
@@ -734,6 +700,26 @@ export default function Home() {
             });
             setClinics(clinicsWithDistance);
             setHasSearched(true);
+           
+            // Auto-adjust price range slider based on clinic prices
+            if (clinicsWithDistance.length > 0) {
+                const prices = clinicsWithDistance
+                    .map(c => parsePriceValue(c.pricing))
+                    .filter(p => p > 0);
+               
+                if (prices.length > 0) {
+                    const maxPrice = Math.max(...prices);
+                    const minPrice = Math.min(...prices);
+                   
+                    // Set max to at least the highest clinic price, rounded up to nearest 1000
+                    const newMax = Math.max(40000, Math.ceil(maxPrice / 1000) * 1000);
+                   
+                    // Only update if current max is too low
+                    if (priceRange[1] < maxPrice) {
+                        setPriceRange([priceRange[0], newMax]);
+                    }
+                }
+            }
 
             // Scroll to results section when clinics are loaded
             setTimeout(() => {
@@ -764,7 +750,7 @@ export default function Home() {
     const locateMe = () => {
         // Reset URL search flag so manual searches work
         hasSearchedFromURL.current = false;
-        
+       
         setLoading(true);
         clearPersistedState(); // Clear old state when starting new search
         if (typeof window === "undefined" || !navigator.geolocation) {
@@ -772,16 +758,16 @@ export default function Home() {
             setLoading(false);
             return;
         }
-        
+       
         // Get values from input fields
         const treatmentValue = query.trim();
         const locationValue = manualPlace.trim();
         const serviceToUse = selectedService || treatmentValue;
-        
+       
         // Update URL with values from input fields (if location is empty, use "near-me")
         const locationForURL = locationValue || 'near-me';
         updateURL(serviceToUse || treatmentValue, locationForURL);
-        
+       
         const locatingToast = toast.loading("Locating you...");
         navigator.geolocation.getCurrentPosition(
             (pos) => {
@@ -789,7 +775,7 @@ export default function Home() {
                 setCoords({ lat: latitude, lng: longitude });
                 setUserCurrentLocation({ lat: latitude, lng: longitude }); // Store user's current location
                 setHasSearched(true);
-                
+               
                 fetchClinics(latitude, longitude);
                 toast.success("Location detected");
                 toast.dismiss(locatingToast);
@@ -813,7 +799,7 @@ export default function Home() {
 
         setLoading(true);
         clearPersistedState(); // Clear old state when starting new search
-        
+       
         // Try to get user's current location in the background (for distance calculation)
         if (typeof window !== "undefined" && navigator.geolocation && !userCurrentLocation) {
             navigator.geolocation.getCurrentPosition(
@@ -831,7 +817,7 @@ export default function Home() {
                 }
             );
         }
-        
+       
         const geocodeToastId = toast.loading("Validating location...");
         try {
             const res = await axios.get("/api/clinics/geocode", {
@@ -842,14 +828,14 @@ export default function Home() {
             setFormErrors((prev) => ({ ...prev, location: "" }));
             toast.success(`Location pinned: ${placeQuery}`);
             setHasSearched(true);
-            
+           
             // Get values from input fields for URL update
             const treatmentValue = query.trim();
             const serviceToUse = serviceOverride || selectedService || treatmentValue;
-            
+           
             // Update URL with values from input fields - always use actual input values
             updateURL(serviceToUse || treatmentValue, placeQuery);
-            
+           
             fetchClinics(res.data.lat, res.data.lng, serviceOverride);
         } catch {
             toast.error("We couldn't find that place. Try a nearby landmark.");
@@ -874,7 +860,7 @@ export default function Home() {
             setCoords({ lat: res.data.lat, lng: res.data.lng });
             setFormErrors((prev) => ({ ...prev, location: "" }));
             setHasSearched(true);
-            
+           
             // Use the service from URL if provided
             const serviceToUse = serviceText || selectedService || query.trim();
             fetchClinics(res.data.lat, res.data.lng, serviceText);
@@ -974,6 +960,9 @@ export default function Home() {
     }, [clinics]);
 
     const filteredClinics = getFilteredClinics();
+    const pageSize = 6;
+    const totalPages = Math.ceil(filteredClinics.length / pageSize);
+    const paginatedClinics = filteredClinics.slice((currentPage - 1) * pageSize, currentPage * pageSize);
     const hasResults = clinics.length > 0;
 
     return (
@@ -1042,7 +1031,7 @@ export default function Home() {
                     style: { fontSize: "0.9rem" },
                 }}
             />
-            
+           
             {/* Professional Header Section */}
             <div className="w-full bg-gradient-to-br from-white via-[#f8fafc] to-[#f0f7ff] border-b border-[#e2e8f0] shadow-sm sticky top-0 z-50">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
@@ -1203,7 +1192,7 @@ export default function Home() {
                                 {/* Search Button */}
                                 <button
                                     onClick={handleSearch}
-                                    className="px-6 py-3 text-white rounded-xl font-semibold bg-amber-300 hover:bg-amber-400 transition-all text-sm shadow-md hover:shadow-lg transform hover:scale-105"
+                                    className="px-6 py-3 text-white rounded-xl font-semibold bg-gradient-to-r from-[#0284c7] to-[#0ea5e9] hover:from-[#0369a1] hover:to-[#0284c7] transition-all text-sm shadow-md hover:shadow-lg transform hover:scale-105"
                                 >
                                     Search
                                 </button>
@@ -1306,11 +1295,10 @@ export default function Home() {
                                     <button
                                         onClick={locateMe}
                                         disabled={loading}
-                                        className="flex items-center px-3 py-3 bg-[#f8fafc] text-[#475569] rounded-xl hover:bg-[#f1f5f9] transition-all flex-shrink-0 border-2 border-[#e2e8f0] hover:border-[#cbd5e1] disabled:opacity-50 shadow-sm"
+                                        className="flex items-center justify-center px-3 py-3 bg-[#f8fafc] text-[#475569] rounded-xl hover:bg-[#f1f5f9] transition-all flex-shrink-0 border-2 border-[#e2e8f0] hover:border-[#cbd5e1] disabled:opacity-50 shadow-sm"
                                         title="Use Current Location"
                                     >
-                                        <Navigation className="w-5 h-5 mr-1.5" />
-                                        <span>Near Me</span>
+                                        <Navigation className="w-5 h-5" />
                                     </button>
                                 </div>
 
@@ -1342,7 +1330,7 @@ export default function Home() {
                                 {/* Mobile Search Button */}
                                 <button
                                     onClick={handleSearch}
-                                    className="w-full px-6 py-3 text-white rounded-xl font-semibold bg-amber-300 hover:bg-amber-400 shadow-md hover:shadow-lg transition-all text-sm"
+                                    className="w-full px-6 py-3 text-white rounded-xl font-semibold bg-gradient-to-r from-[#0284c7] to-[#0ea5e9] hover:from-[#0369a1] hover:to-[#0284c7] shadow-md hover:shadow-lg transition-all text-sm"
                                 >
                                     Search Clinics
                                 </button>
@@ -1355,7 +1343,7 @@ export default function Home() {
             {/* Results Section */}
             <div
                 ref={resultsRef}
-                className={`w-full bg-gradient-to-b from-[#f8fafc] to-white ${hasResults ? "pt-4 pb-6" : "pt-2 pb-12"}`}
+                className={`w-full bg-gradient-to-b from-[#f8fafc] to-white ${hasResults ? "pt-4 pb-6" : "pt-8 pb-12"}`}
             >
                 <div className="max-w-7xl mx-auto px-4 sm:px-6">
                 {clinics.length > 0 ? (
@@ -1393,7 +1381,7 @@ export default function Home() {
                                                 <input
                                                     type="range"
                                                     min="0"
-                                                    max="10000"
+                                                    max={Math.max(10000, Math.ceil(priceRange[1] / 1000) * 1000)}
                                                     value={priceRange[0]}
                                                     onChange={(e) => {
                                                         const newMin = parseInt(e.target.value);
@@ -1403,7 +1391,7 @@ export default function Home() {
                                                     }}
                                                     className="w-full h-1 bg-[#e2e8f0] rounded appearance-none cursor-pointer"
                                                     style={{
-                                                        background: `linear-gradient(to right, #0284c7 0%, #0284c7 ${(priceRange[0] / 10000) * 100}%, #e2e8f0 ${(priceRange[0] / 10000) * 100}%, #e2e8f0 100%)`
+                                                        background: `linear-gradient(to right, #0284c7 0%, #0284c7 ${(priceRange[0] / Math.max(10000, Math.ceil(priceRange[1] / 1000) * 1000)) * 100}%, #e2e8f0 ${(priceRange[0] / Math.max(10000, Math.ceil(priceRange[1] / 1000) * 1000)) * 100}%, #e2e8f0 100%)`
                                                     }}
                                                 />
                                             </div>
@@ -1416,7 +1404,7 @@ export default function Home() {
                                                 <input
                                                     type="range"
                                                     min="0"
-                                                    max="10000"
+                                                    max={Math.max(10000, Math.ceil(priceRange[1] / 1000) * 1000)}
                                                     value={priceRange[1]}
                                                     onChange={(e) => {
                                                         const newMax = parseInt(e.target.value);
@@ -1426,7 +1414,7 @@ export default function Home() {
                                                     }}
                                                     className="w-full h-1 bg-[#e2e8f0] rounded appearance-none cursor-pointer"
                                                     style={{
-                                                        background: `linear-gradient(to right, #0284c7 0%, #0284c7 ${(priceRange[1] / 10000) * 100}%, #e2e8f0 ${(priceRange[1] / 10000) * 100}%, #e2e8f0 100%)`
+                                                        background: `linear-gradient(to right, #0284c7 0%, #0284c7 ${(priceRange[1] / Math.max(10000, Math.ceil(priceRange[1] / 1000) * 1000)) * 100}%, #e2e8f0 ${(priceRange[1] / Math.max(10000, Math.ceil(priceRange[1] / 1000) * 1000)) * 100}%, #e2e8f0 100%)`
                                                     }}
                                                 />
                                             </div>
@@ -1435,7 +1423,7 @@ export default function Home() {
                                         {/* Price Labels */}
                                         <div className="flex justify-between text-xs text-[#64748b] mt-1">
                                             <span>₹0</span>
-                                            <span>₹10k</span>
+                                            <span>₹{Math.max(10000, Math.ceil(priceRange[1] / 1000) * 1000).toLocaleString()}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -1618,7 +1606,7 @@ export default function Home() {
                                             Try adjusting your search criteria or filters
                                         </p>
                                     </div>
-                                    
+                                   
                                     {/* Professional ZEVA Clinics Information Section */}
                                     <div className="bg-gradient-to-br from-[#f0f7ff] via-[#e0f2fe] to-[#bae6fd] rounded-xl p-6 sm:p-8 border border-[#cbd5e1] shadow-sm">
                                         <div className="flex items-center mb-4">
@@ -1634,7 +1622,7 @@ export default function Home() {
                                                 </p>
                                             </div>
                                         </div>
-                                        
+                                       
                                         <div className="grid md:grid-cols-2 gap-4 mb-6">
                                             <div className="bg-white/80 backdrop-blur-sm rounded-lg p-4 border border-white/50">
                                                 <div className="flex items-start mb-2">
@@ -1647,7 +1635,7 @@ export default function Home() {
                                                     </div>
                                                 </div>
                                             </div>
-                                            
+                                           
                                             <div className="bg-white/80 backdrop-blur-sm rounded-lg p-4 border border-white/50">
                                                 <div className="flex items-start mb-2">
                                                     <Star className="w-5 h-5 text-[#0284c7] mr-2 flex-shrink-0 mt-0.5" />
@@ -1659,7 +1647,7 @@ export default function Home() {
                                                     </div>
                                                 </div>
                                             </div>
-                                            
+                                           
                                             <div className="bg-white/80 backdrop-blur-sm rounded-lg p-4 border border-white/50">
                                                 <div className="flex items-start mb-2">
                                                     <BadgeIndianRupee className="w-5 h-5 text-[#0284c7] mr-2 flex-shrink-0 mt-0.5" />
@@ -1671,7 +1659,7 @@ export default function Home() {
                                                     </div>
                                                 </div>
                                             </div>
-                                            
+                                           
                                             <div className="bg-white/80 backdrop-blur-sm rounded-lg p-4 border border-white/50">
                                                 <div className="flex items-start mb-2">
                                                     <MapPin className="w-5 h-5 text-[#0284c7] mr-2 flex-shrink-0 mt-0.5" />
@@ -1684,7 +1672,7 @@ export default function Home() {
                                                 </div>
                                             </div>
                                         </div>
-                                        
+                                       
                                         <div className="bg-white/90 backdrop-blur-sm rounded-lg p-5 border border-white/50">
                                             <h3 className="text-base font-bold text-[#1e293b] mb-3 text-center">Why Choose ZEVA Healthcare?</h3>
                                             <div className="grid sm:grid-cols-2 gap-3 text-xs text-[#475569]">
@@ -1706,7 +1694,7 @@ export default function Home() {
                                                 </div>
                                             </div>
                                         </div>
-                                        
+                                       
                                         <div className="mt-5 pt-5 border-t border-[#cbd5e1]">
                                             <p className="text-sm text-[#475569] text-center leading-relaxed">
                                                 <strong className="text-[#1e293b]">Search Tip:</strong> Try searching by location (city, area), treatment type (Panchakarma, Abhyanga), or clinic name to discover the best Ayurveda healthcare providers in your area.
@@ -1715,248 +1703,156 @@ export default function Home() {
                                     </div>
                                 </div>
                             ) : (
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 relative z-10">
-                                    {filteredClinics.map((clinic, index) => {
+                                <>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 relative z-10">
+                                        {paginatedClinics.map((clinic, index) => {
                                         const hasRating = clinicReviews[clinic._id]?.totalReviews > 0;
                                         const reviewsLoaded = clinicReviews[clinic._id] !== undefined;
 
                                         return (
                                             <div
                                                 key={index}
-                                                className="bg-white rounded-xl shadow-md border-2 border-[#e2e8f0] overflow-hidden hover:shadow-lg hover:border-[#0284c7] transition-all duration-300 group"
+                                                className="bg-white rounded-2xl border overflow-hidden hover:shadow-xl transition h-full flex flex-col group"
                                             >
-                                                {/* Clinic Image Carousel */}
-                                                <div className="relative w-full bg-gradient-to-br from-cyan-50 to-teal-50 overflow-hidden" style={{ aspectRatio: '4/3' }}>
+                                                {/* Clinic Image */}
+                                                <div className="relative bg-gray-100 overflow-hidden" style={{ aspectRatio: '4/3' }}>
                                                     {clinic.photos && clinic.photos.length > 0 ? (
-                                                        <>
-                                                            {/* Image Carousel */}
-                                                            <div className="relative w-full h-full">
-                                                                {(() => {
-                                                                    const currentIndex = clinicImageIndices[clinic._id] || 0;
-                                                                    const photos = (clinic.photos || []).filter(photo => photo); // Filter out null/undefined
-                                                                    if (photos.length === 0) {
-                                                                        return (
-                                                                            <div className="w-full h-full bg-gradient-to-br from-cyan-100 to-teal-100 flex items-center justify-center" style={{ aspectRatio: '4/3' }}>
-                                                                                <div className="text-center">
-                                                                                    <div className="w-10 h-10 sm:w-12 sm:h-12 bg-teal-600 rounded-full flex items-center justify-center mx-auto mb-1">
-                                                                                        <HeartPulse className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
-                                                                                    </div>
-                                                                                    <span className="text-xs text-teal-600 font-medium">
-                                                                                        {clinic.name?.split(" ")[0]}
-                                                                                    </span>
-                                                                                </div>
+                                                        <div className="relative w-full h-full">
+                                                            {(() => {
+                                                                const photos = (clinic.photos || []).filter(photo => photo);
+                                                                const latestPhoto = photos.length > 0 ? photos[photos.length - 1] : null;
+                                                                
+                                                                return latestPhoto ? (
+                                                                    <img
+                                                                        src={normalizeImagePath(latestPhoto)}
+                                                                        alt={clinic.name || "Clinic Image"}
+                                                                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                                                                        style={{
+                                                                            objectFit: 'cover',
+                                                                            width: '100%',
+                                                                            height: '100%',
+                                                                            display: 'block'
+                                                                        }}
+                                                                        onError={(e) => {
+                                                                            e.currentTarget.src = "/image1.png";
+                                                                        }}
+                                                                    />
+                                                                ) : (
+                                                                    <div className="w-full h-full bg-gray-100 flex items-center justify-center">
+                                                                        <div className="text-center">
+                                                                            <div className="w-12 h-12 bg-teal-800 rounded-full flex items-center justify-center mx-auto mb-2">
+                                                                                <HeartPulse className="w-6 h-6 text-white" />
                                                                             </div>
-                                                                        );
-                                                                    }
-
-                                                                    const safeIndex = currentIndex % photos.length;
-                                                                    const hasMultiplePhotos = photos.length > 1;
-                                                                    const currentPhoto = photos[safeIndex];
-                                                                    
-                                                                    return (
-                                                                        <>
-                                                        <img
-                                                                                key={`${clinic._id}-${safeIndex}`}
-                                                                                src={normalizeImagePath(currentPhoto)}
-                                                                                alt={`${clinic.name || "Clinic Image"} - Photo ${safeIndex + 1}`}
-                                                            className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300"
-                                                                                style={{ 
-                                                                                  aspectRatio: '4/3',
-                                                                                  objectFit: 'contain',
-                                                                                  objectPosition: 'top center'
-                                                                                }}
-                                                                                onError={(e) => {
-                                                                                    // If image fails to load, show placeholder
-                                                                                    const img = e.currentTarget;
-                                                                                    img.onerror = null; // Prevent infinite loop
-                                                                                    img.style.display = 'none';
-                                                                                    // Show placeholder icon
-                                                                                    const placeholder = document.createElement('div');
-                                                                                    placeholder.className = 'w-full h-full flex items-center justify-center bg-gradient-to-br from-cyan-100 to-teal-100';
-                                                                                    placeholder.style.aspectRatio = '16/9';
-                                                                                    placeholder.innerHTML = `
-                                                                                        <div class="text-center">
-                                                                                            <div class="w-10 h-10 sm:w-12 sm:h-12 bg-teal-600 rounded-full flex items-center justify-center mx-auto mb-1">
-                                                                                                <svg class="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
-                                                                                                    <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
-                                                                                                </svg>
-                                                                                            </div>
-                                                                                            <span class="text-xs text-teal-600 font-medium">${clinic.name?.split(" ")[0] || 'Clinic'}</span>
-                                                                                        </div>
-                                                                                    `;
-                                                                                    img.parentElement.appendChild(placeholder);
-                                                                                }}
-                                                                            />
-                                                                            
-                                                                            {/* Navigation Arrows - Only show if multiple photos */}
-                                                                            {hasMultiplePhotos && (
-                                                                                <>
-                                                                                    {/* Left Arrow */}
-                                                                                    <button
-                                                                                        onClick={(e) => {
-                                                                                            e.stopPropagation();
-                                                                                            const currentIdx = clinicImageIndices[clinic._id] || 0;
-                                                                                            const newIndex = currentIdx > 0 ? currentIdx - 1 : photos.length - 1;
-                                                                                            setClinicImageIndices(prev => ({
-                                                                                                ...prev,
-                                                                                                [clinic._id]: newIndex
-                                                                                            }));
-                                                                                        }}
-                                                                                        className="absolute left-1 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-1 rounded-full transition-all duration-200 z-10 opacity-0 group-hover:opacity-100"
-                                                                                        aria-label="Previous image"
-                                                                                    >
-                                                                                        <ChevronLeft className="w-3 h-3" />
-                                                                                    </button>
-                                                                                    
-                                                                                    {/* Right Arrow */}
-                                                                                    <button
-                                                                                        onClick={(e) => {
-                                                                                            e.stopPropagation();
-                                                                                            const currentIdx = clinicImageIndices[clinic._id] || 0;
-                                                                                            const newIndex = currentIdx < photos.length - 1 ? currentIdx + 1 : 0;
-                                                                                            setClinicImageIndices(prev => ({
-                                                                                                ...prev,
-                                                                                                [clinic._id]: newIndex
-                                                                                            }));
-                                                                                        }}
-                                                                                        className="absolute right-1 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-1 rounded-full transition-all duration-200 z-10 opacity-0 group-hover:opacity-100"
-                                                                                        aria-label="Next image"
-                                                                                    >
-                                                                                        <ChevronRight className="w-3 h-3" />
-                                                                                    </button>
-                                                                                    
-                                                                                    {/* Image Indicators/Dots */}
-                                                                                    <div className="absolute bottom-1 left-1/2 -translate-x-1/2 flex gap-1 z-10">
-                                                                                        {photos.map((_, idx) => (
-                                                                                            <button
-                                                                                                key={idx}
-                                                                                                onClick={(e) => {
-                                                                                                    e.stopPropagation();
-                                                                                                    setClinicImageIndices(prev => ({
-                                                                                                        ...prev,
-                                                                                                        [clinic._id]: idx
-                                                                                                    }));
-                                                                                                }}
-                                                                                                className={`w-1.5 h-1.5 rounded-full transition-all duration-200 ${
-                                                                                                    (clinicImageIndices[clinic._id] || 0) === idx
-                                                                                                        ? 'bg-white w-3'
-                                                                                                        : 'bg-white/50 hover:bg-white/75'
-                                                                                                }`}
-                                                                                                aria-label={`Go to image ${idx + 1}`}
-                                                                                            />
-                                                                                        ))}
-                                                                                    </div>
-                                                                                    
-                                                                                    {/* Image Counter */}
-                                                                                    <div className="absolute top-1 left-1 bg-black/50 text-white px-1.5 py-0.5 rounded text-xs font-medium z-10">
-                                                                                        {safeIndex + 1}/{photos.length}
-                                                                                    </div>
-                                                                                </>
-                                                                            )}
-                                                                        </>
-                                                                    );
-                                                                })()}
-                                                            </div>
-                                                        </>
+                                                                            <span className="text-sm text-teal-800 font-medium">
+                                                                                {clinic.name}
+                                                                            </span>
+                                                                        </div>
+                                                                    </div>
+                                                                );
+                                                            })()}
+                                                        </div>
                                                     ) : (
-                                                        <div className="w-full h-full bg-gradient-to-br from-[#e0f2fe] to-[#bae6fd] flex items-center justify-center">
+                                                        <div className="w-full h-full bg-gray-100 flex items-center justify-center">
                                                             <div className="text-center">
-                                                                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-[#0284c7] rounded-full flex items-center justify-center mx-auto mb-1">
-                                                                    <HeartPulse className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                                                                <div className="w-12 h-12 bg-teal-800 rounded-full flex items-center justify-center mx-auto mb-2">
+                                                                    <HeartPulse className="w-6 h-6 text-white" />
                                                                 </div>
-                                                                <span className="text-xs text-[#0284c7] font-medium">
-                                                                    {clinic.name?.split(" ")[0]}
+                                                                <span className="text-sm text-teal-800 font-medium">
+                                                                    {clinic.name}
                                                                 </span>
                                                             </div>
                                                         </div>
                                                     )}
+                                                    
+                                                    {/* Badge Overlay */}
+                                                    <span className="absolute top-3 left-3 bg-amber-300 px-3 py-1 rounded-full text-xs font-semibold">
+                                                        {clinicReviews[clinic._id]?.averageRating >= 4.8 ? "Top Rated" : clinic.isDubaiPrioritized ? "Premium" : "Most Booked"}
+                                                    </span>
 
-                                                    {/* Overlay badges */}
-                                                    <div className="absolute top-1.5 right-1.5 z-20">
-                                                        {clinic.verified && (
-                                                            <div className="bg-[#059669] text-white px-1 py-0.5 rounded text-xs font-medium flex items-center">
-                                                                <Shield className="w-2 h-2 mr-0.5" />
-                                                                ✓
-                                                            </div>
-                                                        )}
-                                                    </div>
+                                                    {/* Verified Overlay */}
+                                                    <span className="absolute top-3 right-3 w-8 h-8 bg-teal-800 text-white rounded-full flex items-center justify-center z-20">
+                                                        <Shield className="w-4 h-4" />
+                                                    </span>
 
+                                                    {/* Distance Overlay */}
                                                     {clinic.distance && (
-                                                        <div className="absolute bottom-1.5 left-1.5 bg-[#0284c7] text-white px-1 py-0.5 rounded text-xs font-medium flex items-center z-20">
-                                                            <Navigation className="w-2 h-2 mr-0.5" />
+                                                        <div className="absolute bottom-3 left-3 bg-teal-800 text-white px-2 py-1 rounded-md text-[10px] font-bold flex items-center z-20">
+                                                            <Navigation className="w-2.5 h-2.5 mr-1" />
                                                             {formatDistance(clinic.distance)}
                                                         </div>
                                                     )}
                                                 </div>
 
                                                 {/* Clinic Info */}
-                                                <div className="p-3">
-                                                    {/* Rating */}
-                                                    <div className="flex items-center gap-1.5 mb-2">
-                                                        {hasRating ? (
-                                                            <>
-                                                                <div className="flex">
-                                                                    {renderStars(clinicReviews[clinic._id].averageRating)}
-                                                                </div>
-                                                                <span className="text-xs font-semibold text-[#1e293b]">
-                                                                    {clinicReviews[clinic._id].averageRating.toFixed(1)}
-                                                                </span>
-                                                                <span className="text-xs text-[#64748b]">
-                                                                    ({clinicReviews[clinic._id].totalReviews} reviews)
-                                                                </span>
-                                                            </>
-                                                        ) : reviewsLoaded ? (
-                                                            <span className="text-xs text-[#64748b]">No reviews yet</span>
-                                                        ) : null}
+                                                <div className="p-4 flex-1 flex flex-col">
+                                                    <div className="flex justify-between gap-2">
+                                                        <div className="font-semibold text-gray-900 line-clamp-1 group-hover:text-teal-800 transition-colors">
+                                                            {clinic.name}
+                                                        </div>
+                                                        <div className="text-amber-500 text-sm font-semibold whitespace-nowrap">
+                                                            ★ {reviewsLoaded ? (clinicReviews[clinic._id]?.averageRating || 0).toFixed(1) : "0.0"}
+                                                        </div>
                                                     </div>
 
-                                                    {/* Name and Address */}
-                                                    <h3 className="text-sm font-bold text-[#1e293b] leading-tight mb-1.5 line-clamp-1 group-hover:text-[#0284c7] transition-colors">
-                                                        {clinic.name}
-                                                    </h3>
-                                                    <p className="text-[#64748b] text-xs line-clamp-2 mb-2 leading-relaxed">
-                                                        {clinic.address}
-                                                    </p>
+                                                    <div className="mt-2 flex flex-wrap gap-2">
+                                                        {clinic.services?.slice(0, 2).map((s) => (
+                                                            <span
+                                                                key={s}
+                                                                className="text-[10px] px-2 py-1 bg-teal-50 text-teal-800 rounded-full font-medium"
+                                                            >
+                                                                {s}
+                                                            </span>
+                                                        )) || (
+                                                            <>
+                                                                <span className="text-[10px] px-2 py-1 bg-teal-50 text-teal-800 rounded-full font-medium">Healthcare</span>
+                                                                <span className="text-[10px] px-2 py-1 bg-teal-50 text-teal-800 rounded-full font-medium">Wellness</span>
+                                                            </>
+                                                        )}
+                                                    </div>
+
+                                                    <div className="mt-3 flex items-center gap-2 text-sm text-gray-600">
+                                                        <MapPin className="w-4 h-4 text-teal-800 shrink-0" />
+                                                        <span className="truncate">{clinic.address}</span>
+                                                    </div>
 
                                                     {/* Fee and Actions */}
-                                                    <div className="flex justify-between items-center gap-2 pt-2 border-t border-[#f1f5f9]">
-                                                        {clinic.pricing && (
-                                                            <div>
-                                                                <p className="text-xs text-[#64748b] mb-0.5">Consultation</p>
-                                                                <p className="text-sm font-bold text-[#0284c7]">
-                                                                    AED {clinic.pricing}
-                                                                </p>
+                                                    <div className="mt-auto pt-4 flex justify-between items-center">
+                                                        <div>
+                                                            <div className="text-[10px] text-gray-500 font-medium">Starting from</div>
+                                                            <div className="font-bold text-blue-700 text-sm">
+                                                                {clinic.pricing ? `AED ${clinic.pricing}` : "AED —"}
                                                             </div>
-                                                        )}
-                                                        {/* Icons at right corner */}
-                                                        <div className="flex gap-2 items-center ml-auto">
+                                                        </div>
+                                                        
+                                                        <div className="flex gap-2 items-center">
                                                             {(() => {
-                                                                // Use address if available (more accurate), otherwise fall back to coordinates
                                                                 const mapsHref = clinic.address
                                                                     ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(clinic.address)}`
                                                                     : clinic.location?.coordinates?.length === 2
                                                                     ? `https://www.google.com/maps/dir/?api=1&destination=${clinic.location.coordinates[1]},${clinic.location.coordinates[0]}`
                                                                     : null;
-                                                                
+                                                               
                                                                 return mapsHref ? (
                                                                     <a
                                                                         href={mapsHref}
-                                                                    target="_blank"
-                                                                    rel="noopener noreferrer"
-                                                                    onClick={(e) => e.stopPropagation()}
-                                                                    className="flex items-center justify-center w-8 h-8 bg-[#0284c7] text-white rounded-lg hover:bg-[#0369a1] transition-all shadow-sm hover:shadow"
-                                                                    title="Get Directions"
-                                                                >
-                                                                    <Navigation className="w-4 h-4" />
-                                                                </a>
+                                                                        target="_blank"
+                                                                        rel="noopener noreferrer"
+                                                                        onClick={(e) => e.stopPropagation()}
+                                                                        className="w-8 h-8 flex items-center justify-center bg-teal-800 text-white rounded-full hover:bg-teal-900 transition-all shadow-sm"
+                                                                        title="Get Directions"
+                                                                    >
+                                                                        <Navigation className="w-4 h-4" />
+                                                                    </a>
                                                                 ) : null;
                                                             })()}
+                                                            
                                                             <a
-                                                                href={`/clinics/${textToSlug(clinic.name)}?c=${clinic._id}`}
-                                                                className="flex items-center justify-center w-8 h-8 text-white bg-gradient-to-r from-[#0284c7] to-[#0ea5e9] hover:from-[#0369a1] hover:to-[#0284c7] rounded-lg transition-all shadow-sm hover:shadow"
-                                                                title="View Details"
+                                                                href={clinic.slug && clinic.slugLocked
+                                                                    ? `/clinics/${clinic.slug}`
+                                                                    : `/clinics/${clinic._id}`}
+                                                                className="bg-amber-300 px-4 py-2 rounded-xl text-xs font-bold text-gray-900 hover:bg-amber-400 transition-all shadow-sm"
                                                             >
-                                                                <Eye className="w-4 h-4" />
+                                                                View Details
                                                             </a>
                                                         </div>
                                                     </div>
@@ -1965,9 +1861,66 @@ export default function Home() {
                                         );
                                     })}
                                 </div>
-                            )}
-                        </div>
+
+                                {/* Pagination Controls */}
+                                {totalPages > 1 && (
+                                    <div className="mt-8 flex justify-center items-center gap-4 pb-10">
+                                        <button
+                                            onClick={() => {
+                                                setCurrentPage(prev => Math.max(prev - 1, 1));
+                                                resultsRef.current?.scrollIntoView({ behavior: 'smooth' });
+                                            }}
+                                            disabled={currentPage === 1}
+                                            className={`flex items-center gap-2 px-4 py-2 rounded-xl border-2 transition-all ${
+                                                currentPage === 1
+                                                    ? 'bg-gray-50 border-gray-200 text-gray-300 cursor-not-allowed'
+                                                    : 'bg-white border-teal-800 text-teal-800 hover:bg-teal-50'
+                                            }`}
+                                        >
+                                            <ChevronLeft className="w-4 h-4" />
+                                            <span>Previous</span>
+                                        </button>
+
+                                        <div className="flex gap-2">
+                                            {Array.from({ length: totalPages }).map((_, i) => (
+                                                <button
+                                                    key={i}
+                                                    onClick={() => {
+                                                        setCurrentPage(i + 1);
+                                                        resultsRef.current?.scrollIntoView({ behavior: 'smooth' });
+                                                    }}
+                                                    className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold transition-all ${
+                                                        currentPage === i + 1
+                                                            ? 'bg-teal-800 text-white shadow-lg'
+                                                            : 'bg-white border-2 border-gray-200 text-gray-600 hover:border-teal-800 hover:text-teal-800'
+                                                    }`}
+                                                >
+                                                    {i + 1}
+                                                </button>
+                                            ))}
+                                        </div>
+
+                                        <button
+                                            onClick={() => {
+                                                setCurrentPage(prev => Math.min(prev + 1, totalPages));
+                                                resultsRef.current?.scrollIntoView({ behavior: 'smooth' });
+                                            }}
+                                            disabled={currentPage === totalPages}
+                                            className={`flex items-center gap-2 px-4 py-2 rounded-xl border-2 transition-all ${
+                                                currentPage === totalPages
+                                                    ? 'bg-gray-50 border-gray-200 text-gray-300 cursor-not-allowed'
+                                                    : 'bg-white border-teal-800 text-teal-800 hover:bg-teal-50'
+                                            }`}
+                                        >
+                                            <span>Next</span>
+                                            <ChevronRight className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                )}
+                            </>
+                        )}
                     </div>
+                </div>
                 ) : hasSearched ? (
                     loading ? (
                         <div className="flex items-center justify-center py-8">
@@ -1975,17 +1928,17 @@ export default function Home() {
                             <span className="ml-3 text-[#475569] text-xs">Searching...</span>
                         </div>
                     ) : (
-                        <div className="bg-white rounded-2xl border border-[#e2e8f0] shadow-sm p-6 sm:p-8 -mt-8">
+                        <div className="bg-white rounded-2xl border border-[#e2e8f0] shadow-sm p-6 sm:p-8">
                             <div className="text-center mb-6">
                                 <div className="w-16 h-16 rounded-full bg-[#fef2f2] flex items-center justify-center mx-auto mb-3">
                                     <Search className="w-8 h-8 text-[#dc2626]" />
                                 </div>
-                                <h3 className="text-lg sm:text-xl font-bold text-[#1e293b] mb-1">No Clinics Found</h3>
+                                <h3 className="text-lg sm:text-xl font-bold text-[#1e293b] mb-2">No Clinics Found</h3>
                                 <p className="text-sm text-[#64748b] mb-1">
                                     Try adjusting your filters or search with different criteria
                                 </p>
                             </div>
-                            
+                           
                             {/* Professional ZEVA Clinics Information Section */}
                             <div className="bg-gradient-to-br from-[#f0f7ff] via-[#e0f2fe] to-[#bae6fd] rounded-xl p-6 sm:p-8 border border-[#cbd5e1] shadow-sm mb-4">
                                 <div className="flex items-center mb-4">
@@ -2001,7 +1954,7 @@ export default function Home() {
                                         </p>
                                     </div>
                                 </div>
-                                        
+                                       
                                 <div className="grid md:grid-cols-2 gap-4 mb-6">
                                     <div className="bg-white/80 backdrop-blur-sm rounded-lg p-4 border border-white/50">
                                         <div className="flex items-start mb-2">
@@ -2014,7 +1967,7 @@ export default function Home() {
                                             </div>
                                         </div>
                                     </div>
-                                    
+                                   
                                     <div className="bg-white/80 backdrop-blur-sm rounded-lg p-4 border border-white/50">
                                         <div className="flex items-start mb-2">
                                             <Star className="w-5 h-5 text-[#0284c7] mr-2 flex-shrink-0 mt-0.5" />
@@ -2026,7 +1979,7 @@ export default function Home() {
                                             </div>
                                         </div>
                                     </div>
-                                    
+                                   
                                     <div className="bg-white/80 backdrop-blur-sm rounded-lg p-4 border border-white/50">
                                         <div className="flex items-start mb-2">
                                             <BadgeIndianRupee className="w-5 h-5 text-[#0284c7] mr-2 flex-shrink-0 mt-0.5" />
@@ -2038,7 +1991,7 @@ export default function Home() {
                                             </div>
                                         </div>
                                     </div>
-                                    
+                                   
                                     <div className="bg-white/80 backdrop-blur-sm rounded-lg p-4 border border-white/50">
                                         <div className="flex items-start mb-2">
                                             <MapPin className="w-5 h-5 text-[#0284c7] mr-2 flex-shrink-0 mt-0.5" />
@@ -2051,7 +2004,7 @@ export default function Home() {
                                         </div>
                                     </div>
                                 </div>
-                                        
+                                       
                                 <div className="bg-white/90 backdrop-blur-sm rounded-lg p-5 border border-white/50">
                                     <h3 className="text-base font-bold text-[#1e293b] mb-3 text-center">Why Choose ZEVA Healthcare?</h3>
                                     <div className="grid sm:grid-cols-2 gap-3 text-xs text-[#475569]">
@@ -2073,14 +2026,14 @@ export default function Home() {
                                         </div>
                                     </div>
                                 </div>
-                                        
+                                       
                                 <div className="mt-5 pt-5 border-t border-[#cbd5e1]">
                                     <p className="text-sm text-[#475569] text-center leading-relaxed">
                                         <strong className="text-[#1e293b]">Search Tip:</strong> Try searching by location (city, area), treatment type (Panchakarma, Abhyanga), or clinic name to discover the best Ayurveda healthcare providers in your area.
                                     </p>
                                 </div>
                             </div>
-                            
+                           
                             <div className="flex items-center justify-center gap-3">
                                 <button
                                     type="button"
@@ -2113,7 +2066,7 @@ export default function Home() {
 
                             </p>
                         </div>
-                        
+                       
                         {/* Professional ZEVA Information Section */}
                         <div className="bg-gradient-to-br from-[#f0f7ff] via-[#e0f2fe] to-[#bae6fd] rounded-xl p-6 sm:p-8 border border-[#cbd5e1] shadow-sm mb-6">
                             <div className="flex flex-col sm:flex-row items-center sm:items-start mb-6">
@@ -2130,7 +2083,7 @@ export default function Home() {
                                     </p>
                                 </div>
                             </div>
-                            
+                           
                             <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                                 <div className="bg-white/90 backdrop-blur-sm rounded-lg p-4 border border-white/50 shadow-sm">
                                     <Shield className="w-6 h-6 text-[#0284c7] mb-2" />
@@ -2139,7 +2092,7 @@ export default function Home() {
                                         All clinics are verified with proper certifications and credentials
                                     </p>
                                 </div>
-                                
+                               
                                 <div className="bg-white/90 backdrop-blur-sm rounded-lg p-4 border border-white/50 shadow-sm">
                                     <Star className="w-6 h-6 text-[#0284c7] mb-2" />
                                     <h3 className="text-sm font-bold text-[#1e293b] mb-1">Patient Reviews</h3>
@@ -2147,7 +2100,7 @@ export default function Home() {
                                         Real reviews and ratings from verified patients
                                     </p>
                                 </div>
-                                
+                               
                                 <div className="bg-white/90 backdrop-blur-sm rounded-lg p-4 border border-white/50 shadow-sm">
                                     <BadgeIndianRupee className="w-6 h-6 text-[#0284c7] mb-2" />
                                     <h3 className="text-sm font-bold text-[#1e293b] mb-1">Transparent Pricing</h3>
@@ -2155,7 +2108,7 @@ export default function Home() {
                                         Clear consultation fees with no hidden charges
                                     </p>
                                 </div>
-                                
+                               
                                 <div className="bg-white/90 backdrop-blur-sm rounded-lg p-4 border border-white/50 shadow-sm">
                                     <MapPin className="w-6 h-6 text-[#0284c7] mb-2" />
                                     <h3 className="text-sm font-bold text-[#1e293b] mb-1">Easy Search</h3>
@@ -2164,7 +2117,7 @@ export default function Home() {
                                     </p>
                                 </div>
                             </div>
-                            
+                           
                             <div className="bg-white/90 backdrop-blur-sm rounded-lg p-5 border border-white/50">
                                 <h3 className="text-lg font-bold text-[#1e293b] mb-4 text-center">Why Users Trust ZEVA:
 </h3>
@@ -2196,14 +2149,14 @@ export default function Home() {
                                     </div>
                                 </div>
                             </div>
-                            
+                           
                             <div className="mt-6 pt-6 border-t border-[#cbd5e1]">
                                 <p className="text-sm text-[#475569] text-center leading-relaxed max-w-3xl mx-auto">
                                     <strong className="text-[#1e293b]">Get Started:</strong> Enter your location or use the "Near Me" feature to find verified Ayurveda clinics. You can search by treatment type (Panchakarma, Abhyanga, Shirodhara), clinic name, or browse by location to discover the best healthcare providers near you.
                                 </p>
                             </div>
                         </div>
-                        
+                       
                         <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
                             <button
                                 type="button"
@@ -2225,7 +2178,7 @@ export default function Home() {
                 )}
                 </div>
             </div>
-            
+           
             {isVisible && (
                 <button
                     onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}

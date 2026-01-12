@@ -106,14 +106,7 @@ const LoadingSpinner = () => (
 );
 
 // Lightweight inline placeholder to avoid 404 loops
-const PLACEHOLDER_DATA_URI =
-  'data:image/svg+xml;utf8,' +
-  encodeURIComponent(
-    `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="320" viewBox="0 0 800 320">
-      <rect width="100%" height="100%" fill="#f3f4f6"/>
-      <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="#9ca3af" font-size="20" font-family="Arial, sans-serif">No image available</text>
-    </svg>`
-  );
+const PLACEHOLDER_DATA_URI = "/image1.png";
 
 const Header = ({
   onEditClick,
@@ -318,17 +311,17 @@ const TreatmentManager = ({
       const currentTreatment = items[mainTreatmentIndex];
       const trimmedSubTreatment = customSubTreatment.trim();
       const normalizedSubTreatment = trimmedSubTreatment.toLowerCase();
-      
+     
       // Check for duplicate sub-treatments (case-insensitive)
-      const isDuplicate = currentTreatment.subTreatments?.some((st) => 
+      const isDuplicate = currentTreatment.subTreatments?.some((st) =>
         st.name?.toLowerCase().trim() === normalizedSubTreatment
       );
-      
+     
       if (isDuplicate) {
         toast.error(`Sub-treatment "${trimmedSubTreatment}" already exists`);
         return;
       }
-      
+     
       const newSubTreatment = {
         name: trimmedSubTreatment,
         slug: trimmedSubTreatment.toLowerCase().replace(/\s+/g, "-"),
@@ -408,20 +401,20 @@ const TreatmentManager = ({
     subTreatmentName: string
   ) => {
     const currentTreatment = items[mainTreatmentIndex];
-    
+   
     // Normalize for comparison: lowercase and trim
     const normalizedSubTreatmentName = subTreatmentName.toLowerCase().trim();
-    
+   
     // Check if sub-treatment already exists (case-insensitive)
-    const isDuplicate = currentTreatment.subTreatments?.some(st => 
+    const isDuplicate = currentTreatment.subTreatments?.some(st =>
       st.name?.toLowerCase().trim() === normalizedSubTreatmentName
     );
-    
+   
     if (isDuplicate) {
       toast.error(`Sub-treatment "${subTreatmentName}" already exists`);
       return;
     }
-    
+   
     const newSubTreatment = {
       name: subTreatmentName,
       slug: subTreatmentName.toLowerCase().replace(/\s+/g, "-"),
@@ -722,30 +715,45 @@ const ClinicCard = ({ clinic, onEdit, getImagePath, canUpdate, stats, statsLoadi
   ) || 0;
 
   return (
-  <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-    {/* Profile Header Section with Image in Corner - Compact */}
-    <div className="p-3 sm:p-4 border-b border-gray-200">
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+      {/* Profile Header Section with Image in Corner - Compact */}
+      <div className="p-3 sm:p-4 border-b border-gray-200">
       <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
         {/* Clinic Image - Top Left Corner */}
         <div className="relative flex-shrink-0">
           <div className="relative w-20 h-20 sm:w-24 sm:h-24 lg:w-28 lg:h-28 rounded-lg overflow-hidden border-2 border-gray-200 shadow-sm bg-gray-50">
-            {clinic.photos?.[0] ? (() => {
-              const imageSrc = getImagePath(clinic.photos[0]);
-              // Validate the URL before passing to Image component
-              if (!imageSrc || imageSrc === '') {
+            {(() => {
+              // Get the last photo (most recently uploaded profile picture) instead of first
+              const photosArray = clinic.photos || [];
+              const latestPhoto = photosArray.length > 0 ? photosArray[photosArray.length - 1] : null;
+              
+              if (!latestPhoto) {
                 return (
-                  <div className="w-full h-full bg-gray-100 flex items-center justify-center">
+                  <div key="no-photo" className="w-full h-full bg-gray-100 flex items-center justify-center">
                     <Camera className="w-8 h-8 sm:w-10 sm:h-10 text-gray-400" />
                   </div>
                 );
               }
+              
+              const imageSrc = getImagePath(latestPhoto);
+              
+              // Validate the URL before passing to Image component
+              if (!imageSrc || imageSrc === '') {
+                return (
+                  <div key="invalid-src" className="w-full h-full bg-gray-100 flex items-center justify-center">
+                    <Camera className="w-8 h-8 sm:w-10 sm:h-10 text-gray-400" />
+                  </div>
+                );
+              }
+              
               // Use regular img tag for data URIs to avoid Next.js Image validation issues
               if (imageSrc.startsWith('data:')) {
                 return (
                   <img
+                    key="data-uri-image"
                     src={imageSrc}
                     alt={clinic.name || 'Clinic photo'}
-                    className="w-full h-full object-contain"
+                    className="w-full h-full object-cover"
                     onError={(e) => {
                       const img = e.currentTarget as HTMLImageElement;
                       img.onerror = null;
@@ -754,10 +762,12 @@ const ClinicCard = ({ clinic, onEdit, getImagePath, canUpdate, stats, statsLoadi
                   />
                 );
               }
+              
               return (
                 <Image
+                  key="profile-image"
                   src={imageSrc}
-                  className="w-full h-full object-contain"
+                  className="w-full h-full object-cover"
                   alt={clinic.name || 'Clinic photo'}
                   width={160}
                   height={160}
@@ -769,11 +779,7 @@ const ClinicCard = ({ clinic, onEdit, getImagePath, canUpdate, stats, statsLoadi
                   }}
                 />
               );
-            })() : (
-              <div className="w-full h-full bg-gray-100 flex items-center justify-center">
-                <Camera className="w-8 h-8 sm:w-10 sm:h-10 text-gray-400" />
-              </div>
-            )}
+            })()}
           </div>
           {canUpdate && (
             <button
@@ -882,7 +888,7 @@ const ClinicCard = ({ clinic, onEdit, getImagePath, canUpdate, stats, statsLoadi
             </div>
           </div>
         </div>
-        
+       
         <div className="flex items-center gap-2 p-2.5 sm:p-3 bg-gray-50 rounded-lg border border-gray-200">
           <div className="w-8 h-8 bg-gray-800 rounded-lg flex items-center justify-center flex-shrink-0">
             <Clock className="w-4 h-4 text-white" />
@@ -1022,7 +1028,7 @@ function ClinicManagementDashboard() {
   const [geocodingStatus, setGeocodingStatus] = useState<string>("");
   const addressDebounceTimer = useRef<NodeJS.Timeout | null>(null);
   const [photoError, setPhotoError] = useState("");
-  
+ 
   // Permission state
   const [permissions, setPermissions] = useState({
     canRead: false,
@@ -1047,9 +1053,9 @@ function ClinicManagementDashboard() {
     if (!photoPath || typeof photoPath !== 'string' || photoPath.trim() === '') {
       return PLACEHOLDER_DATA_URI;
     }
-    
+   
     const trimmedPath = photoPath.trim();
-    
+   
     // If it's already a valid HTTP/HTTPS URL, return it
     if (trimmedPath.startsWith("http://") || trimmedPath.startsWith("https://")) {
       try {
@@ -1059,14 +1065,14 @@ function ClinicManagementDashboard() {
         return PLACEHOLDER_DATA_URI;
       }
     }
-    
+   
     // If it starts with /, validate it's a proper path
     if (trimmedPath.startsWith("/")) {
       // Remove any query strings or fragments that might cause issues
       const cleanPath = trimmedPath.split('?')[0].split('#')[0];
       return cleanPath;
     }
-    
+   
     // Handle paths with uploads/clinic/
     if (trimmedPath.includes("uploads/clinic/")) {
       const filename = trimmedPath.split("uploads/clinic/").pop();
@@ -1076,13 +1082,13 @@ function ClinicManagementDashboard() {
         return `/uploads/clinic/${cleanFilename}`;
       }
     }
-    
+   
     // Default: prepend /uploads/clinic/ but validate the path
     const cleanPath = trimmedPath.split('?')[0].split('#')[0].trim();
     if (cleanPath === '' || cleanPath.includes('..')) {
       return PLACEHOLDER_DATA_URI;
     }
-    
+   
     return `/uploads/clinic/${cleanPath}`;
   };
 
@@ -1123,14 +1129,14 @@ function ClinicManagementDashboard() {
         }
 
         const userRole = getUserRole();
-        
+       
         // For clinic and doctor roles, fetch admin-level permissions from /api/clinic/sidebar-permissions
         if (userRole === "clinic" || userRole === "doctor") {
           try {
             const res = await axios.get("/api/clinic/sidebar-permissions", {
               headers: authHeaders,
             });
-            
+           
             if (res.data.success) {
               // Check if permissions array exists and is not null
               // If permissions is null, admin hasn't set any restrictions yet - allow full access (backward compatibility)
@@ -1153,7 +1159,7 @@ function ClinicManagementDashboard() {
 
                 if (modulePermission) {
                   const actions = modulePermission.actions || {};
-                  
+                 
                   // Check if "all" is true, which grants all permissions
                   const moduleAll = actions.all === true || actions.all === "true" || String(actions.all).toLowerCase() === "true";
                   const moduleRead = actions.read === true || actions.read === "true" || String(actions.read).toLowerCase() === "true";
@@ -1204,12 +1210,12 @@ function ClinicManagementDashboard() {
             if (token) {
               const payload = JSON.parse(atob(token.split('.')[1]));
               const agentId = payload.userId || payload.id;
-              
+             
               if (agentId) {
                 const res = await axios.get(`/api/agent/permissions?agentId=${agentId}`, {
                   headers: authHeaders,
                 });
-                
+               
                 if (res.data.success && res.data.data) {
                   permissionsData = res.data.data;
                 }
@@ -1232,7 +1238,7 @@ function ClinicManagementDashboard() {
 
             if (modulePermission) {
               const actions = modulePermission.actions || {};
-              
+             
               // Module-level "all" grants all permissions
               const moduleAll = actions.all === true || actions.all === "true" || String(actions.all).toLowerCase() === "true";
               const moduleRead = actions.read === true || actions.read === "true" || String(actions.read).toLowerCase() === "true";
@@ -1290,7 +1296,7 @@ function ClinicManagementDashboard() {
       if (!permissionsLoaded) return;
 
       const userRole = getUserRole();
-      
+     
       // ✅ Check read permission for all roles (including clinic and doctor with admin-level permissions)
       if (!permissions.canRead) {
         setClinics([]);
@@ -1311,7 +1317,7 @@ function ClinicManagementDashboard() {
           // Suppress error overlay for 403 errors
           validateStatus: (status) => status === 200 || status === 403,
         });
-        
+       
         // Check if response is 403
         if (res.status === 403) {
           // Handle 403 silently - this is expected when permissions are not granted
@@ -1326,7 +1332,7 @@ function ClinicManagementDashboard() {
           setLoading(false);
           return;
         }
-        
+       
         setClinics(
           Array.isArray(res.data.clinics) ? res.data.clinics : [res.data.clinic]
         );
@@ -1387,7 +1393,7 @@ function ClinicManagementDashboard() {
 
         if (statsRes.data.success) {
           const stats = statsRes.data.stats;
-          
+         
           // Calculate stats from clinic data
           const currentClinic = clinics[0];
           const totalTreatments = currentClinic?.treatments?.length || 0;
@@ -1505,15 +1511,15 @@ function ClinicManagementDashboard() {
     const trimmed = newTreatment.trim();
     console.log("Adding custom treatment:", trimmed);
     console.log("Current treatments:", editForm.treatments);
-    
+   
     // Normalize for comparison: lowercase and trim
     const normalizedTrimmed = trimmed.toLowerCase();
-    
+   
     // Check for duplicates (case-insensitive)
-    const isDuplicate = editForm.treatments?.some((t) => 
+    const isDuplicate = editForm.treatments?.some((t) =>
       t.mainTreatment?.toLowerCase().trim() === normalizedTrimmed
     );
-    
+   
     if (trimmed && !isDuplicate) {
       try {
         const authHeaders = getAuthHeaders();
@@ -1574,15 +1580,15 @@ function ClinicManagementDashboard() {
   const addTreatmentFromDropdown = (treatmentName: string) => {
     console.log("Adding treatment from dropdown:", treatmentName);
     console.log("Current treatments:", editForm.treatments);
-    
+   
     // Normalize for comparison: lowercase and trim
     const normalizedTreatmentName = treatmentName.toLowerCase().trim();
-    
+   
     // Check for duplicates (case-insensitive)
-    const isDuplicate = editForm.treatments?.some((t) => 
+    const isDuplicate = editForm.treatments?.some((t) =>
       t.mainTreatment?.toLowerCase().trim() === normalizedTreatmentName
     );
-    
+   
     if (treatmentName && !isDuplicate) {
       setEditForm((prev) => {
         const newTreatments = [
@@ -1675,16 +1681,28 @@ function ClinicManagementDashboard() {
       });
 
       // Debug: Log the FormData contents
-      for (const [key, value] of Object.entries(formData.entries())) {
-        console.log(`FormData ${key}:`, value);
+      console.log("FormData entries:");
+      for (const [key, value] of formData.entries()) {
+        console.log(`FormData ${key}:`, value instanceof File ? `File: ${value.name} (${value.size} bytes)` : value);
       }
+      console.log("Selected files count:", selectedFiles.length);
 
-      const response = await axios.put(`/api/clinics/${editingClinicId}`, formData, {
+      // Ensure axios properly handles FormData
+      const config = {
         headers: {
           ...authHeaders,
-          "Content-Type": "multipart/form-data",
+          // Don't set Content-Type manually - axios will set it automatically with boundary
         },
-      });
+        // Ensure axios treats this as FormData
+        transformRequest: (data: FormData | unknown) => {
+          if (data instanceof FormData) {
+            return data;
+          }
+          return data;
+        },
+      };
+
+      const response = await axios.put(`/api/clinics/${editingClinicId}`, formData, config);
 
       if (response.data.success) {
         setClinics((prev) =>
@@ -1699,7 +1717,13 @@ function ClinicManagementDashboard() {
       }
     } catch (error: any) {
       console.error("Error updating clinic:", error);
-      const errorMessage = error.response?.data?.message || "Error updating clinic. Please try again.";
+      console.error("Error response:", error.response?.data);
+      console.error("Error details:", error.response?.data?.details);
+      const errorMessage = error.response?.data?.message || error.response?.data?.error || "Error updating clinic. Please try again.";
+      const errorDetails = error.response?.data?.details;
+      if (errorDetails) {
+        console.error("Validation errors:", errorDetails);
+      }
       toast.error(errorMessage);
     } finally {
       setUpdating(false);
@@ -1779,8 +1803,8 @@ function ClinicManagementDashboard() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Toaster 
-        position="top-right" 
+      <Toaster
+        position="top-right"
         toastOptions={{
           duration: 3000,
           style: {
@@ -1948,41 +1972,54 @@ function ClinicManagementDashboard() {
                     <div className="relative border-2 border-dashed border-gray-200 rounded-xl p-6 sm:p-8 text-center hover:border-[#2D9AA5]/50 hover:bg-[#2D9AA5]/5 transition-all">
                       <input
                         type="file"
-                        accept="image/*"
+                        accept="image/jpeg,image/jpg,image/png"
                         multiple
                         onChange={(e) => {
                           if (e.target.files && e.target.files.length > 0) {
                             const files = Array.from(e.target.files);
                             const validFiles: File[] = [];
+                            const invalidFiles: string[] = [];
                             let hasError = false;
-                            
+                           
                             files.forEach((file) => {
-                            if (
-                              file.type !== "image/png" &&
-                              file.type !== "image/jpeg" &&
-                              file.type !== "image/jpg"
-                            ) {
-                                setPhotoError("Please upload only PNG or JPG files");
-                                toast.error(`${file.name}: Please upload a PNG or JPG file`);
+                              // Check if file is JPG or PNG format
+                              const fileExtension = file.name.split('.').pop()?.toLowerCase() || '';
+                              const isJPG = fileExtension === 'jpg' || fileExtension === 'jpeg';
+                              const isPNG = fileExtension === 'png';
+                              const isValidFormat = isJPG || isPNG;
+                              
+                              if (!isValidFormat) {
+                                const extUpper = fileExtension.toUpperCase() || 'UNKNOWN';
+                                invalidFiles.push(`${file.name} (${extUpper})`);
                                 hasError = true;
-                            } else if (file.size > 1024 * 1024) {
-                                setPhotoError("File size must be less than 1MB");
-                                toast.error(`${file.name}: File size must be less than 1MB`);
+                              } else if (file.size > 1024 * 1024) {
+                                invalidFiles.push(`${file.name} (Size: ${(file.size / 1024 / 1024).toFixed(2)}MB)`);
                                 hasError = true;
-                            } else {
+                              } else {
                                 validFiles.push(file);
                               }
                             });
-                            
+                           
+                            // Show error popup for invalid files
+                            if (invalidFiles.length > 0) {
+                              const errorMsg = invalidFiles.length === 1 
+                                ? `"${invalidFiles[0].split(' (')[0]}": Only JPG and PNG formats are allowed. File size must be less than 1MB.`
+                                : `${invalidFiles.length} file(s) invalid: Only JPG and PNG formats are allowed. File size must be less than 1MB.`;
+                              
+                              toast.error(errorMsg, { duration: 5000 });
+                              // Clear photoError to hide direct error display
+                              setPhotoError("");
+                            }
+                           
+                            // Add valid files
                             if (validFiles.length > 0) {
                               setSelectedFiles((prev) => [...prev, ...validFiles]);
                               setPhotoError("");
                               toast.success(`${validFiles.length} photo(s) added successfully`);
                             }
-                            
-                            if (hasError && validFiles.length === 0) {
-                              // Don't clear existing files if some were invalid
-                            }
+                           
+                            // Reset file input to allow selecting files again
+                            e.target.value = '';
                           }
                         }}
                         className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
@@ -1994,9 +2031,9 @@ function ClinicManagementDashboard() {
                         Click to upload photos
                       </p>
                       <p className="text-gray-500 text-sm">
-                        PNG, JPG up to 1MB each (Multiple files allowed)
+                        JPG, PNG up to 1MB each (Multiple files allowed)
                       </p>
-                      
+                     
                       {/* Display selected files */}
                       {selectedFiles.length > 0 && (
                         <div className="mt-4 space-y-2">
@@ -2031,64 +2068,64 @@ function ClinicManagementDashboard() {
                           </div>
                         </div>
                       )}
-                      
+                     
                       {/* Display existing photos from clinic */}
                       {editForm.photos && editForm.photos.length > 0 && (
                         <div className="mt-4 space-y-2">
                           <p className="text-sm font-medium text-gray-700">
-                            Current Photos ({editForm.photos.length}):
+                            Current Profile Picture:
                           </p>
-                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                            {editForm.photos.map((photo, index) => (
-                              <div
-                                key={index}
-                                className="relative group"
-                              >
-                                <div className="relative w-full h-24 rounded-lg overflow-hidden border border-gray-200 bg-gray-50">
-                                  {photo ? (
-                                    <img
-                                      src={getImagePath(photo)}
-                                      alt={`Clinic photo ${index + 1}`}
-                                      className="w-full h-full object-cover"
-                                      onError={(e) => {
-                                        const img = e.currentTarget as HTMLImageElement;
-                                        img.onerror = null;
-                                        img.src = PLACEHOLDER_DATA_URI;
-                                      }}
-                                    />
-                                  ) : (
-                                    <div className="w-full h-full flex items-center justify-center">
-                                      <Camera className="w-6 h-6 text-gray-400" />
-                                    </div>
-                                  )}
+                          <div className="relative group inline-block">
+                            {(() => {
+                              // Get only the latest photo (most recently uploaded profile picture)
+                              const photosArray = editForm.photos || [];
+                              const latestPhoto = photosArray.length > 0 ? photosArray[photosArray.length - 1] : null;
+                              
+                              if (!latestPhoto) {
+                                return (
+                                  <div className="relative w-full max-w-xs h-48 rounded-lg overflow-hidden border border-gray-200 bg-gray-50 flex items-center justify-center">
+                                    <Camera className="w-6 h-6 text-gray-400" />
+                                  </div>
+                                );
+                              }
+                              
+                              return (
+                                <div className="relative w-full max-w-xs h-48 rounded-lg overflow-hidden border border-gray-200 bg-gray-50">
+                                  <img
+                                    src={getImagePath(latestPhoto)}
+                                    alt="Current clinic profile picture"
+                                    className="w-full h-full object-cover"
+                                    onError={(e) => {
+                                      const img = e.currentTarget as HTMLImageElement;
+                                      img.onerror = null;
+                                      img.src = PLACEHOLDER_DATA_URI;
+                                    }}
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setEditForm((prev) => {
+                                        const updatedPhotos = prev.photos?.slice(0, -1) || [];
+                                        return {
+                                          ...prev,
+                                          photos: updatedPhotos,
+                                        };
+                                      });
+                                      toast.success("Profile picture removed. Please upload a new one.");
+                                    }}
+                                    className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-2 hover:bg-red-600 transition-colors opacity-0 group-hover:opacity-100 shadow-lg z-10"
+                                    title="Remove profile picture"
+                                  >
+                                    <X className="w-4 h-4" />
+                                  </button>
                                 </div>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setEditForm((prev) => ({
-                                      ...prev,
-                                      photos: prev.photos?.filter((_, i) => i !== index) || [],
-                                    }));
-                                    toast.success("Photo removed");
-                                  }}
-                                  className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors opacity-0 group-hover:opacity-100"
-                                  title="Remove photo"
-                                >
-                                  <X className="w-3 h-3" />
-                                </button>
-                              </div>
-                            ))}
+                              );
+                            })()}
                           </div>
                         </div>
                       )}
-                      
-                      {photoError && (
-                        <div className="mt-3 p-2 bg-red-50 rounded-lg">
-                          <p className="text-red-600 text-sm font-medium">
-                            {photoError}
-                          </p>
-                        </div>
-                      )}
+                     
+                      {/* Error messages are shown via toast popup only */}
                     </div>
                   </div>
                 </div>
@@ -2187,7 +2224,7 @@ function ClinicManagementDashboard() {
                         statsLoading={statsLoading}
                       />
                     ))}
-                    
+                   
                     {/* Statistics Charts Section - Compact */}
                     {clinics.length > 0 && (
                       <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
@@ -2208,9 +2245,9 @@ function ClinicManagementDashboard() {
                                 <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                                 <XAxis dataKey="name" stroke="#6b7280" fontSize={11} />
                                 <YAxis stroke="#6b7280" fontSize={11} />
-                                <Tooltip 
-                                  contentStyle={{ 
-                                    backgroundColor: '#fff', 
+                                <Tooltip
+                                  contentStyle={{
+                                    backgroundColor: '#fff',
                                     border: '1px solid #e5e7eb',
                                     borderRadius: '6px',
                                     fontSize: '11px'
@@ -2237,23 +2274,23 @@ function ClinicManagementDashboard() {
                                 margin={{ top: 10, right: 20, left: 10, bottom: 5 }}
                               >
                                 <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                                <XAxis 
-                                  dataKey="name" 
-                                  stroke="#6b7280" 
+                                <XAxis
+                                  dataKey="name"
+                                  stroke="#6b7280"
                                   fontSize={10}
                                   tick={{ fill: '#6b7280' }}
                                   angle={-15}
                                   textAnchor="end"
                                   height={40}
                                 />
-                                <YAxis 
-                                  stroke="#6b7280" 
+                                <YAxis
+                                  stroke="#6b7280"
                                   fontSize={11}
                                   tick={{ fill: '#6b7280' }}
                                 />
-                                <Tooltip 
-                                  contentStyle={{ 
-                                    backgroundColor: '#fff', 
+                                <Tooltip
+                                  contentStyle={{
+                                    backgroundColor: '#fff',
                                     border: '1px solid #e5e7eb',
                                     borderRadius: '6px',
                                     fontSize: '11px'
@@ -2337,7 +2374,7 @@ function ClinicManagementDashboard() {
                       statsLoading={statsLoading}
                     />
                   ))}
-                  
+                 
                   {/* Statistics Charts Section - Compact */}
                   {clinics.length > 0 && (
                     <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
@@ -2358,9 +2395,9 @@ function ClinicManagementDashboard() {
                               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                               <XAxis dataKey="name" stroke="#6b7280" fontSize={11} />
                               <YAxis stroke="#6b7280" fontSize={11} />
-                              <Tooltip 
-                                contentStyle={{ 
-                                  backgroundColor: '#fff', 
+                              <Tooltip
+                                contentStyle={{
+                                  backgroundColor: '#fff',
                                   border: '1px solid #e5e7eb',
                                   borderRadius: '6px',
                                   fontSize: '11px'
@@ -2387,23 +2424,23 @@ function ClinicManagementDashboard() {
                               margin={{ top: 10, right: 20, left: 10, bottom: 5 }}
                             >
                               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                              <XAxis 
-                                dataKey="name" 
-                                stroke="#6b7280" 
+                              <XAxis
+                                dataKey="name"
+                                stroke="#6b7280"
                                 fontSize={10}
                                 tick={{ fill: '#6b7280' }}
                                 angle={-15}
                                 textAnchor="end"
                                 height={40}
                               />
-                              <YAxis 
-                                stroke="#6b7280" 
+                              <YAxis
+                                stroke="#6b7280"
                                 fontSize={11}
                                 tick={{ fill: '#6b7280' }}
                               />
-                              <Tooltip 
-                                contentStyle={{ 
-                                  backgroundColor: '#fff', 
+                              <Tooltip
+                                contentStyle={{
+                                  backgroundColor: '#fff',
                                   border: '1px solid #e5e7eb',
                                   borderRadius: '6px',
                                   fontSize: '11px'

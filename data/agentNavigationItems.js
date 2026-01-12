@@ -1,7 +1,7 @@
 export const agentNavigationItems = [
   {
     label: "Dashboard",
-    path: "/agent/dashboard",
+    path: "/staff/dashboard",
     icon: "🏠",
     description: "Overview & metrics",
     moduleKey: "agent_dashboard",
@@ -10,7 +10,7 @@ export const agentNavigationItems = [
   },
   {
     label: "Assigned Leads",
-    path: "/agent/assigned-leads",
+    path: "/staff/assigned-leads",
     icon: "📋",
     description: "Leads assigned to you",
     moduleKey: "agent_assigned_leads",
@@ -19,7 +19,7 @@ export const agentNavigationItems = [
   },
   {
     label: "Create Agent",
-    path: "/agent/create-agent",
+    path: "/staff/create-agent",
     icon: "📅",
     description: "Manage agents",
     moduleKey: "agent_create_agent",
@@ -28,7 +28,7 @@ export const agentNavigationItems = [
   },
   {
     label: "Create Permission",
-    path: "/agent/permission",
+    path: "/staff/permission",
     icon: "🔒",
     description: "Manage permissions",
     moduleKey: "agent_permission",
@@ -37,7 +37,7 @@ export const agentNavigationItems = [
   },
   {
     label: "Create Lead",
-    path: "/agent/create-lead",
+    path: "/staff/create-lead",
     icon: "👤",
     description: "Create new leads",
     moduleKey: "agent_create_lead",
@@ -46,7 +46,7 @@ export const agentNavigationItems = [
   },
   {
     label: "Create offers",
-    path: "/agent/create-offer",
+    path: "/staff/create-offer",
     icon: "🤑",
     description: "Manage offers",
     moduleKey: "agent_create_offer",

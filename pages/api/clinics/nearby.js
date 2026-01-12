@@ -145,7 +145,7 @@ export default async function handler(req, res) {
 
     let clinics = await Clinic.find(query)
       .select(
-        "name address treatments servicesName location pricing timings photos phone rating reviews verified"
+        "name address treatments servicesName location pricing timings photos phone rating reviews verified slug slugLocked"
       )
       .limit(locationInfo.isInternational ? 100 : 50)
       .lean();

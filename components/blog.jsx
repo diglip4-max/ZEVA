@@ -57,21 +57,25 @@ export default function BlogList() {
   /* ---------------- slider controls ---------------- */
   const slideLeft = () => {
     if (!sliderRef.current) return;
-    const width = sliderRef.current.clientWidth;
-    sliderRef.current.scrollBy({ left: -width, behavior: "smooth" });
+    const container = sliderRef.current;
+    const cardWidth = container.querySelector('article')?.clientWidth || container.clientWidth;
+    const scrollAmount = cardWidth + 24; // 24 is gap-6
+    container.scrollBy({ left: -scrollAmount, behavior: "smooth" });
     setCurrentSlide((p) => Math.max(0, p - 1));
   };
 
   const slideRight = () => {
     if (!sliderRef.current) return;
-    const width = sliderRef.current.clientWidth;
-    const maxScroll =
-      sliderRef.current.scrollWidth - sliderRef.current.clientWidth;
-    if (sliderRef.current.scrollLeft >= maxScroll - 10) {
-      sliderRef.current.scrollTo({ left: 0, behavior: "smooth" });
+    const container = sliderRef.current;
+    const cardWidth = container.querySelector('article')?.clientWidth || container.clientWidth;
+    const scrollAmount = cardWidth + 24;
+    const maxScroll = container.scrollWidth - container.clientWidth;
+    
+    if (container.scrollLeft >= maxScroll - 50) {
+      container.scrollTo({ left: 0, behavior: "smooth" });
       setCurrentSlide(0);
     } else {
-      sliderRef.current.scrollBy({ left: width, behavior: "smooth" });
+      container.scrollBy({ left: scrollAmount, behavior: "smooth" });
       setCurrentSlide((p) => Math.min(blogs.length - 1, p + 1));
     }
   };
@@ -141,10 +145,10 @@ export default function BlogList() {
 
   /* ---------------- UI ---------------- */
   return (
-    <section className="py-16 px-4  bg-gradient-to-br from-indigo-50 via-white to-cyan-50 relative overflow-hidden">
+    <section className="py-16 px-4 md:px-12 bg-gradient-to-br from-indigo-50 via-white to-cyan-50 relative overflow-hidden">
       {/* Decorative background elements */}
-      <div className="absolute top-0 right-0 w-96 h-96 bg-blue-100 rounded-full blur-3xl opacity-30 -z-10"></div>
-      <div className="absolute bottom-0 left-0 w-96 h-96 bg-purple-100 rounded-full blur-3xl opacity-30 -z-10"></div>
+      <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-blue-100/40 rounded-full blur-[100px] -z-10"></div>
+      <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-purple-100/40 rounded-full blur-[100px] -z-10"></div>
       
       {/* Header */}
       <div className="max-w-7xl mx-auto mb-12 text-center">
@@ -165,14 +169,11 @@ export default function BlogList() {
       {/* Slider */}
       <div className="relative mt-4 max-w-7xl mx-auto">
         {/* Previous Arrow */}
-        {blogs.length > 1 && (
+        {blogs.length > 3 && (
           <button
             onClick={slideLeft}
-            disabled={currentSlide === 0}
-            className={`absolute left-0 md:-left-6 top-1/2 -translate-y-1/2 z-30 bg-white hover:bg-blue-50 shadow-xl rounded-full w-12 h-12 flex items-center justify-center transition-all hover:scale-110 border-2 border-blue-200 ${
-              currentSlide === 0
-                ? 'opacity-50 cursor-not-allowed'
-                : 'text-blue-700 hover:text-blue-800 hover:border-blue-300'
+            className={`absolute -left-4 md:-left-12 top-1/2 -translate-y-1/2 z-40 bg-white/90 backdrop-blur-sm shadow-xl rounded-full w-12 h-12 flex items-center justify-center transition-all hover:scale-110 border border-white text-blue-600 hover:text-blue-700 ${
+              currentSlide === 0 ? 'opacity-0 pointer-events-none' : 'opacity-100'
             }`}
             aria-label="Previous slide"
           >
@@ -183,10 +184,12 @@ export default function BlogList() {
         )}
 
         {/* Next Arrow */}
-        {blogs.length > 1 && (
+        {blogs.length > 3 && (
           <button
             onClick={slideRight}
-            className="absolute right-0 md:-right-6 top-1/2 -translate-y-1/2 z-30 bg-white hover:bg-blue-50 shadow-xl rounded-full w-12 h-12 flex items-center justify-center text-blue-700 hover:text-blue-800 transition-all hover:scale-110 border-2 border-blue-200 hover:border-blue-300"
+            className={`absolute -right-4 md:-right-12 top-1/2 -translate-y-1/2 z-40 bg-white/90 backdrop-blur-sm shadow-xl rounded-full w-12 h-12 flex items-center justify-center text-blue-600 hover:text-blue-700 transition-all hover:scale-110 border border-white ${
+              (currentSlide >= blogs.length - 3) && blogs.length > 3 ? 'md:opacity-100' : 'opacity-100'
+            }`}
             aria-label="Next slide"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -197,7 +200,7 @@ export default function BlogList() {
 
         <div
           ref={sliderRef}
-          className="flex gap-6 overflow-x-auto snap-x snap-mandatory scrollbar-hide px-4"
+          className="flex gap-6 overflow-x-auto snap-x snap-mandatory scrollbar-hide pb-12 pt-4 px-2"
           style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
         >
           {blogs.map((blog) => {
@@ -205,7 +208,7 @@ export default function BlogList() {
             return (
               <article
                 key={blog._id}
-                className="min-w-[280px] md:min-w-[340px] snap-start bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 overflow-hidden group border border-gray-100 hover:border-blue-200"
+                className="flex-shrink-0 w-[85%] md:w-[calc((100%-48px)/3)] snap-start bg-white rounded-2xl shadow-md hover:shadow-xl transition-all duration-500 overflow-hidden group border border-gray-100 hover:border-blue-200"
               >
                 {/* Image */}
                 <div className="relative h-44 bg-gradient-to-br from-blue-100 via-purple-50 to-cyan-100 overflow-hidden">

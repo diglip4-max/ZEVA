@@ -144,12 +144,15 @@ export default async function handler(req, res) {
       clinics = clinicAgg.map((c) => {
         const mainTreatments = (c.treatments || []).map((t) => t?.mainTreatment).filter(Boolean);
         const tags = toArrayUnique([...(c.servicesName || []), ...mainTreatments]).slice(0, 3);
+        // Get the last photo (most recently uploaded profile picture) instead of first
+        const photosArray = c.photos || [];
+        const latestPhoto = photosArray.length > 0 ? photosArray[photosArray.length - 1] : null;
         return {
           type: "clinic",
           _id: String(c._id),
           name: c.name || "Clinic",
           address: c.address || "",
-          image: normalizeImageUrl(c.photos?.[0]),
+          image: normalizeImageUrl(latestPhoto),
           startingFrom: c.pricing ? `AED ${c.pricing}` : "",
           averageRating: round1(c.averageRating),
           totalReviews: c.totalReviews || 0,
@@ -243,12 +246,15 @@ export default async function handler(req, res) {
       doctors = doctorAgg.map((d) => {
         const mainTreatments = (d.treatments || []).map((t) => t?.mainTreatment).filter(Boolean);
         const tags = toArrayUnique([d.degree, ...mainTreatments]).slice(0, 3);
+        // Get the last photo (most recently uploaded profile picture) instead of first
+        const photosArray = d.photos || [];
+        const latestPhoto = photosArray.length > 0 ? photosArray[photosArray.length - 1] : null;
         return {
           type: "doctor",
           _id: String(d._id),
           name: d.name || "Doctor",
           address: d.address || "",
-          image: normalizeImageUrl(d.photos?.[0]),
+          image: normalizeImageUrl(latestPhoto),
           startingFrom: typeof d.consultationFee === "number" ? `AED ${d.consultationFee}` : "",
           averageRating: round1(d.averageRating),
           totalReviews: d.totalReviews || 0,

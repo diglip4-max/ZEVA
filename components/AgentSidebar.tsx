@@ -57,7 +57,6 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
   const router = useRouter();
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
-  const [selectedItem, setSelectedItem] = useState<string | null>(null);
   const [navigationItems, setNavigationItems] = useState<NavItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -157,9 +156,18 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
   }, [router]);
 
   const filteredItems = useMemo(() => {
+    // Add Dashboard item at the beginning
+    const dashboardItem: NavItem = {
+      label: 'Dashboard',
+      path: '/staff/dashboard',
+      icon: '📊',
+      description: 'Staff Dashboard',
+      order: 0,
+    };
+
     // Navigation items are already filtered by the API based on permissions
     // Just return them as-is, but ensure children are properly structured
-    return navigationItems.map(item => ({
+    const apiItems = navigationItems.map(item => ({
           ...item,
       children: item.children && item.children.length > 0 ? item.children : undefined,
     })).filter(item => {
@@ -169,6 +177,9 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
       }
       return true;
     });
+
+    // Prepend Dashboard item at the beginning
+    return [dashboardItem, ...apiItems];
   }, [navigationItems]);
 
   return (
@@ -244,7 +255,9 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
               <div className="space-y-1">
                 {filteredItems.map((item) => {
                   const isDropdownOpen = openDropdown === item.label;
-                  const isActive = selectedItem ? selectedItem === item.label : router.pathname === item.path;
+                  // Use exact path matching - only match if pathname exactly equals item.path
+                  // Clear selectedItem when route changes to ensure pathname-based matching
+                  const isActive = item.path ? router.pathname === item.path : false;
                   const isHovered = hoveredItem === item.path;
 
                   if (item.children && item.children.length > 0) {
@@ -260,7 +273,6 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
                           )}
                           onClick={() => {
                             setOpenDropdown(isDropdownOpen ? null : item.label);
-                            setSelectedItem(item.label);
                           }}
                         >
                           <div className="flex items-center space-x-2">
@@ -288,9 +300,8 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
                         {isDropdownOpen && (
                           <div className="pl-5 mt-1 space-y-1">
                             {item.children.map((child) => {
-                              const childActive = selectedItem
-                                ? selectedItem === child.label
-                                : router.pathname === child.path;
+                              // Use exact path matching for child items too
+                              const childActive = child.path ? router.pathname === child.path : false;
                               return (
                                 <Link key={child.path} href={child.path!}>
                                   <div
@@ -304,7 +315,9 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
                                     )}
                                     onMouseEnter={() => setHoveredItem(child.path!)}
                                     onMouseLeave={() => setHoveredItem(null)}
-                                    onClick={() => setSelectedItem(child.label)}
+                                    onClick={() => {
+                                      // Don't set selectedItem - let pathname matching handle active state
+                                    }}
                                   >
                                     <div className="flex items-center space-x-2">
                                       <div
@@ -321,7 +334,7 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
                                       <div className="flex-1 min-w-0">
                                         <div
                                           className={clsx(
-                                            "font-medium text-xs transition-colors duration-200 truncate",
+                                            "font-medium text-xs transition-colors duration-200",
                                             {
                                               "text-white": childActive,
                                               "text-slate-900 group-hover:text-slate-900": !childActive,
@@ -333,7 +346,7 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
                                         {child.description && (
                                           <div
                                             className={clsx(
-                                              "text-[10px] mt-0.5 transition-all duration-200 truncate",
+                                              "text-[10px] mt-0.5 transition-all duration-200",
                                               {
                                                 "text-white/80": childActive,
                                                 "text-slate-500 group-hover:text-slate-600": !childActive,
@@ -370,7 +383,7 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
                           onMouseLeave={() => setHoveredItem(null)}
                           onClick={() => {
                             setOpenDropdown(null);
-                            setSelectedItem(item.label);
+                            // Don't set selectedItem - let pathname matching handle active state
                           }}
                         >
                           {isActive && (
@@ -390,7 +403,7 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
                             </div>
                             <div className="flex-1 min-w-0">
                               <div
-                                className={clsx("font-medium text-xs truncate", {
+                                className={clsx("font-medium text-xs", {
                                   "text-white": isActive,
                                   "text-slate-900 group-hover:text-slate-900": !isActive,
                                 })}
@@ -399,7 +412,7 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
                               </div>
                               {item.description && (
                                 <div
-                                  className={clsx("text-[10px] mt-0.5 truncate", {
+                                  className={clsx("text-[10px] mt-0.5", {
                                     "text-white/80": isActive,
                                     "text-slate-500 group-hover:text-slate-600": !isActive,
                                   })}
@@ -488,7 +501,8 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
               ) : (
                 <div className="space-y-1">
                   {filteredItems.map((item) => {
-                    const isActive = selectedItem ? selectedItem === item.label : router.pathname === item.path;
+                    // Use exact path matching for mobile too
+                    const isActive = item.path ? router.pathname === item.path : false;
                     const isDropdownOpen = openDropdown === item.label;
 
                     if (item.children && item.children.length > 0) {
@@ -504,7 +518,7 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
                             )}
                             onClick={() => {
                               setOpenDropdown(isDropdownOpen ? null : item.label);
-                              setSelectedItem(item.label);
+                              // Don't set selectedItem - let pathname matching handle active state
                             }}
                           >
                             <div className="flex items-center space-x-3">
@@ -522,7 +536,7 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
                               <div className="flex-1 min-w-0">
                                 <div
                                   className={clsx(
-                                    "font-medium text-sm transition-colors duration-200 truncate",
+                                    "font-medium text-sm transition-colors duration-200",
                                     {
                                       "text-white": isDropdownOpen,
                                       "text-slate-900": !isDropdownOpen,
@@ -534,7 +548,7 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
                                 {item.description && (
                                   <div
                                     className={clsx(
-                                      "text-xs mt-0.5 transition-all duration-200 truncate",
+                                      "text-xs mt-0.5 transition-all duration-200",
                                       {
                                         "text-white/80": isDropdownOpen,
                                         "text-slate-500": !isDropdownOpen,
@@ -561,8 +575,8 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
                           {isDropdownOpen && (
                             <div className="pl-6 mt-1 space-y-1">
                               {item.children.map((child) => {
-                                const childActive =
-                                  selectedItem ? selectedItem === child.label : router.pathname === child.path;
+                                // Use exact path matching for child items too
+                                const childActive = child.path ? router.pathname === child.path : false;
 
                                 return (
                                   <Link key={child.path} href={child.path!}>
@@ -577,7 +591,7 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
                                       )}
                                       onClick={() => {
                                         handleItemClick();
-                                        setSelectedItem(child.label);
+                                        // Don't set selectedItem - let pathname matching handle active state
                                       }}
                                     >
                                       <div className="flex items-center space-x-2">
@@ -595,7 +609,7 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
                                         <div className="flex-1 min-w-0">
                                           <div
                                             className={clsx(
-                                              "font-medium text-sm transition-colors duration-200 truncate",
+                                              "font-medium text-sm transition-colors duration-200",
                                               {
                                                 "text-white": childActive,
                                                 "text-slate-900": !childActive,
@@ -607,7 +621,7 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
                                           {child.description && (
                                             <div
                                               className={clsx(
-                                                "text-xs mt-0.5 transition-all duration-200 truncate",
+                                                "text-xs mt-0.5 transition-all duration-200",
                                                 {
                                                   "text-white/80": childActive,
                                                   "text-slate-500": !childActive,
@@ -641,7 +655,7 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
                               }
                             )}
                             onClick={() => {
-                              setSelectedItem(item.label);
+                              // Don't set selectedItem - let pathname matching handle active state
                               handleItemClick();
                             }}
                           >
@@ -665,7 +679,7 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
                               <div className="flex-1 min-w-0">
                                 <div
                                   className={clsx(
-                                    "font-medium text-sm transition-colors duration-200 truncate",
+                                    "font-medium text-sm transition-colors duration-200",
                                     {
                                       "text-white": isActive,
                                       "text-slate-900": !isActive,
@@ -678,7 +692,7 @@ const AgentSidebar: FC<AgentSidebarProps> = ({
                                 {item.description && (
                                   <div
                                     className={clsx(
-                                      "text-xs mt-0.5 transition-all duration-200 truncate",
+                                      "text-xs mt-0.5 transition-all duration-200",
                                       {
                                         "text-white/80": isActive,
                                         "text-slate-500": !isActive,

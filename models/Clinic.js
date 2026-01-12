@@ -23,6 +23,13 @@ const ClinicSchema = new mongoose.Schema(
     },
     isApproved: { type: Boolean, default: false },
     declined: { type: Boolean, default: false },
+    slug: { 
+      type: String, 
+      unique: true, 
+      sparse: true, // Only unique when exists
+      index: true 
+    },
+    slugLocked: { type: Boolean, default: false }, // Lock slug once approved
   },
   { timestamps: true }
 );

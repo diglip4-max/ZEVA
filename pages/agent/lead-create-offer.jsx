@@ -1,7 +1,7 @@
 import React from "react";
 import AgentLayout from "../../components/AgentLayout";
 import withAgentAuth from "../../components/withAgentAuth";
-import { CreateOfferPageBase } from "../lead/create-offer";
+import { CreateOfferPageBase } from "../clinic/create-offer";
 
 const AgentLeadCreateOfferPage = () => {
   return <CreateOfferPageBase />;

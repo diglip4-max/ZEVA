@@ -25,16 +25,18 @@ const upload = multer({
   storage: storage,
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
   fileFilter: function (req, file, cb) {
-    const allowedTypes = /jpeg|jpg|png|gif/;
-    const extname = allowedTypes.test(
+    // Only accept JPG and PNG formats
+    const allowedMimeTypes = ['image/jpeg', 'image/jpg', 'image/png'];
+    const allowedExtensions = /jpeg|jpg|png/;
+    const extname = allowedExtensions.test(
       path.extname(file.originalname).toLowerCase()
     );
-    const mimetype = allowedTypes.test(file.mimetype);
+    const mimetype = allowedMimeTypes.includes(file.mimetype);
 
     if (mimetype && extname) {
       return cb(null, true);
     } else {
-      cb(new Error("Only image files are allowed"));
+      cb(new Error(`File type "${file.mimetype}" is not allowed. Only JPG and PNG formats are allowed.`));
     }
   },
 });
@@ -396,6 +398,15 @@ export default async function handler(req, res) {
           delete updateData[key];
         }
       });
+
+      // 🔒 Protect slug if it's locked (SEO stability)
+      // If slug is locked, prevent changes to slug and slugLocked fields
+      if (existingClinic.slugLocked) {
+        // Remove slug and slugLocked from updateData to prevent changes
+        delete updateData.slug;
+        delete updateData.slugLocked;
+        console.log("🔒 Slug is locked - preventing slug changes for SEO stability");
+      }
 
       console.log("🔄 Updating clinic with data:", updateData);
 

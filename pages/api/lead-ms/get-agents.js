@@ -140,12 +140,17 @@ export default async function handler(req, res) {
           }
         }
       } else if (me.role === 'agent') {
-        // Agent sees only agents from their clinic (not doctorStaff)
-        if (me.clinicId) {
-          query = { clinicId: me.clinicId, role: 'agent' };
-        } else {
+        // Agent sees only agents/doctorStaff from their clinic
+        if (!me.clinicId) {
           // If agent has no clinicId, return empty
           return res.status(200).json({ success: true, agents: [] });
+        }
+        // Filter by clinicId and respect the roleFilter
+        if (roleFilter === 'doctorStaff') {
+          query = { clinicId: me.clinicId, role: 'doctorStaff' };
+        } else {
+          // Default to agent role (for backward compatibility and when roleFilter is 'agent')
+          query = { clinicId: me.clinicId, role: 'agent' };
         }
       } else if (me.role === 'doctorStaff') {
         // Doctor staff should mirror doctor visibility but scoped to their clinic/creations

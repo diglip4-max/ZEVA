@@ -1,6 +1,7 @@
 import dbConnect from "../../../lib/database";
 import PatientRegistration from "../../../models/PatientRegistration";
 import { getUserFromReq } from "../lead-ms/auth";
+import { generateEmrNumber } from "../../../lib/generateEmrNumber";
 
 export default async function handler(req, res) {
   await dbConnect();
@@ -39,11 +40,6 @@ export default async function handler(req, res) {
       });
     }
 
-    // Generate invoice number if not provided
-    const invoiceNumber =
-      emrNumber ||
-      `INV-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-
     // Check if patient with same mobile number exists
     const existingPatient = await PatientRegistration.findOne({ mobileNumber });
 
@@ -64,6 +60,28 @@ export default async function handler(req, res) {
       });
     }
 
+    // Generate invoice number
+    let invoiceNumber;
+    let attempts = 0;
+    let invoiceExists = true;
+    while (invoiceExists && attempts < 10) {
+      invoiceNumber = `INV-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+      invoiceExists = await PatientRegistration.findOne({ invoiceNumber });
+      attempts++;
+    }
+    if (invoiceExists) {
+      return res.status(500).json({
+        success: false,
+        message: "Could not generate unique invoice number. Please try again.",
+      });
+    }
+
+    // Generate EMR number if not provided or empty
+    let finalEmrNumber = emrNumber?.trim() || "";
+    if (!finalEmrNumber) {
+      finalEmrNumber = await generateEmrNumber();
+    }
+
     // Create new patient with minimal required fields
     const defaultDoctorName =
       clinicUser.name ||
@@ -76,7 +94,7 @@ export default async function handler(req, res) {
       invoicedDate: new Date(),
       invoicedBy: clinicUser.name || clinicUser.email || "Clinic",
       userId: clinicUser._id,
-      emrNumber: emrNumber || "",
+      emrNumber: finalEmrNumber,
       firstName,
       lastName: lastName || "",
       gender,

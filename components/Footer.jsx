@@ -35,9 +35,9 @@ const footerSections = [
     links: [
       { label: "List Your Clinic", href: "/clinic/register-clinic" },
       { label: "For Doctors", href: "/doctor/search" },
-      { label: "For Hospitals", href: "/hospitals" },
-      { label: "Business Solutions", href: "/solutions" },
-      { label: "Partner Program", href: "/partners" },
+      // { label: "For Hospitals", href: "/hospitals" },
+      // { label: "Business Solutions", href: "/solutions" },
+      // { label: "Partner Program", href: "/partners" },
     ],
   },
   {

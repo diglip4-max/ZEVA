@@ -30,15 +30,15 @@ export default function StaffDoctorLogin() {
         localStorage.removeItem("userToken");
         // Clear form after successful login
         setForm({ email: "", password: "" });
-        router.push("/agent/dashboard");
+        router.push("/staff/dashboard");
       } else {
-        // doctorStaff (userToken) should also land on the agent dashboard
+        // doctorStaff (userToken) should also land on the staff dashboard
         localStorage.setItem("userToken", token);
         localStorage.setItem("agentUser", JSON.stringify(user)); // Store user info for header
         localStorage.removeItem("agentToken");
         // Clear form after successful login
         setForm({ email: "", password: "" });
-        router.push("/agent/dashboard");
+        router.push("/staff/dashboard");
       }
     } catch (err) {
       setError(err.response?.data?.message || "Login failed");

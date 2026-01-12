@@ -3,6 +3,7 @@ import Link from "next/link";
 import axios from "axios";
 import { ChevronRight, ChevronLeft, MapPin, Shield, Sparkles, Stethoscope, Building2 } from "lucide-react";
 import TelemedicinePromoSection from "./TelemedicinePromoSection";
+import { normalizeImagePath } from "../lib/utils";
 
 type ProviderCard = {
   type: "clinic" | "doctor";
@@ -48,14 +49,6 @@ const ProviderHref = (p: ProviderCard) => {
 
 const DEFAULT_IMG = "/image1.png";
 
-const normalizeImagePath = (imagePath: string) => {
-  if (!imagePath) return "";
-  let p = imagePath.replace(/\\/g, "/");
-  if (p.startsWith("/")) return p;
-  if (p.startsWith("http")) return p;
-  return "/" + p;
-};
-
 const TabButton: React.FC<{
   active: boolean;
   onClick: () => void;
@@ -83,11 +76,17 @@ const Card: React.FC<{ p: ProviderCard }> = ({ p }) => {
   return (
     <Link href={ProviderHref(p)} className="group">
       <div className="bg-white rounded-2xl border overflow-hidden hover:shadow-xl transition h-full flex flex-col">
-        <div className="relative h-36 bg-gray-100">
+        <div className="relative bg-gray-100 overflow-hidden" style={{ aspectRatio: '4/3' }}>
           <img
             src={normalizeImagePath(p.image) || DEFAULT_IMG}
             alt={p.name}
             className="w-full h-full object-cover"
+            style={{
+              objectFit: 'cover',
+              width: '100%',
+              height: '100%',
+              display: 'block'
+            }}
             onError={(e) => {
               (e.currentTarget as HTMLImageElement).src = DEFAULT_IMG;
             }}
