@@ -7,6 +7,8 @@ import Clinic from "../../../models/Clinic";
 import { getUserFromReq, requireRole } from "../lead-ms/auth";
 import { getClinicIdFromUser, checkClinicPermission } from "../lead-ms/permissions-helper";
 import { checkAgentPermission } from "../agent/permissions-helper";
+import { generateAndLockSlug } from "../../../lib/slugService";
+import { runSEOPipeline } from "../../../lib/seo/SEOOrchestrator";
 
 export default async function handler(req, res) {
   await dbConnect();
@@ -345,7 +347,47 @@ export default async function handler(req, res) {
               { new: true, runValidators: true }
             ).populate("postedBy", "name email");
 
-            return res.status(200).json({ success: true, blog: updatedBlog });
+            // Step 2: Generate and lock slug for published blog
+            if (updatedBlog && !updatedBlog.slugLocked) {
+              try {
+                console.log(`🔄 Generating slug for blog: ${updatedBlog.title} (ID: ${draftId})`);
+                
+                // Use central slug service to generate and lock slug
+                const blogWithSlug = await generateAndLockSlug('blog', draftId.toString());
+                
+                if (blogWithSlug.paramlink && blogWithSlug.slugLocked) {
+                  console.log(`✅ Slug generated successfully: ${blogWithSlug.paramlink}`);
+                  
+                  // Step 3: Run SEO pipeline after slug generation
+                  try {
+                    console.log(`🚀 Running SEO pipeline for blog: ${draftId}`);
+                    const refreshedBlog = await Blog.findById(draftId);
+                    const seoResult = await runSEOPipeline('blog', draftId.toString(), refreshedBlog);
+                    if (seoResult.success) {
+                      console.log(`✅ SEO pipeline completed successfully`);
+                    } else {
+                      console.warn(`⚠️ SEO pipeline completed with warnings:`, seoResult.errors);
+                    }
+                  } catch (seoError) {
+                    // SEO errors are non-fatal - log but continue
+                    console.error("❌ SEO pipeline error (non-fatal):", seoError.message);
+                  }
+                } else {
+                  console.log(`⚠️ Slug generation completed but slugLocked is false`);
+                }
+              } catch (slugError) {
+                // If slug generation fails but blog is published, continue
+                console.error("❌ Slug generation error (non-fatal):", slugError.message);
+                console.error("Error stack:", slugError.stack);
+              }
+            } else if (updatedBlog && updatedBlog.slugLocked) {
+              console.log(`⏭️ Skipping slug generation - slug already locked: ${updatedBlog.paramlink}`);
+            }
+
+            // Refresh blog data to get updated slug
+            const finalBlog = await Blog.findById(draftId).populate("postedBy", "name email");
+
+            return res.status(200).json({ success: true, blog: finalBlog });
           }
 
           // If not publishing from a draft, create a new published blog
@@ -372,6 +414,41 @@ export default async function handler(req, res) {
             postedBy: me._id,
             role: blogRole,
           });
+
+          // Step 2: Generate and lock slug for published blog
+          if (publishedBlog && !publishedBlog.slugLocked) {
+            try {
+              console.log(`🔄 Generating slug for blog: ${publishedBlog.title} (ID: ${publishedBlog._id})`);
+              
+              // Use central slug service to generate and lock slug
+              const blogWithSlug = await generateAndLockSlug('blog', publishedBlog._id.toString());
+              
+              if (blogWithSlug.paramlink && blogWithSlug.slugLocked) {
+                console.log(`✅ Slug generated successfully: ${blogWithSlug.paramlink}`);
+                
+                // Step 3: Run SEO pipeline after slug generation
+                try {
+                  console.log(`🚀 Running SEO pipeline for blog: ${publishedBlog._id}`);
+                  const refreshedBlog = await Blog.findById(publishedBlog._id);
+                  const seoResult = await runSEOPipeline('blog', publishedBlog._id.toString(), refreshedBlog);
+                  if (seoResult.success) {
+                    console.log(`✅ SEO pipeline completed successfully`);
+                  } else {
+                    console.warn(`⚠️ SEO pipeline completed with warnings:`, seoResult.errors);
+                  }
+                } catch (seoError) {
+                  // SEO errors are non-fatal - log but continue
+                  console.error("❌ SEO pipeline error (non-fatal):", seoError.message);
+                }
+              } else {
+                console.log(`⚠️ Slug generation completed but slugLocked is false`);
+              }
+            } catch (slugError) {
+              // If slug generation fails but blog is published, continue
+              console.error("❌ Slug generation error (non-fatal):", slugError.message);
+              console.error("Error stack:", slugError.stack);
+            }
+          }
 
           // Populate the postedBy field to return user info
           const populatedBlog = await Blog.findById(publishedBlog._id).populate(

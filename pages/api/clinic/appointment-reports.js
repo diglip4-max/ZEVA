@@ -2,6 +2,7 @@ import dbConnect from "../../../lib/database";
 import AppointmentReport from "../../../models/AppointmentReport";
 import Appointment from "../../../models/Appointment";
 import Clinic from "../../../models/Clinic";
+import Room from "../../../models/Room";
 import PatientRegistration from "../../../models/PatientRegistration";
 import { getUserFromReq } from "../lead-ms/auth";
 

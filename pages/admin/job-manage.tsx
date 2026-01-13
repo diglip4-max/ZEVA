@@ -396,12 +396,18 @@ function AdminJobs() {
     }
     
     try {
-      await axios.patch(
+      const response = await axios.patch(
         "/api/admin/job-updateStatus",
         { jobId, status },
         { headers: { Authorization: `Bearer ${token}` } }
       );
+      
+      // Enhanced success message for approval
+      if (status === "approved") {
+        showToast(`Job approved successfully. SEO pipeline initiated.`, 'success');
+      } else {
       showToast(`Job ${status} successfully`, 'success');
+      }
       // Refetch jobs with current filters
       fetchJobs(filters);
       // Also refresh filter options

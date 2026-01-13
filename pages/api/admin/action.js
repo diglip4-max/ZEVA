@@ -8,6 +8,7 @@ import DoctorDepartment from "../../../models/DoctorDepartment";
 import { getUserFromReq } from "../lead-ms/auth";
 import { checkAgentPermission } from "../agent/permissions-helper";
 import { generateAndLockSlug } from "../../../lib/slugService";
+import { runSEOPipeline } from "../../../lib/seo/SEOOrchestrator";
 
 export default async function handler(req, res) {
   await dbConnect();
@@ -91,6 +92,22 @@ export default async function handler(req, res) {
           
           if (updatedProfile.slug && updatedProfile.slugLocked) {
             console.log(`✅ Slug generated successfully: ${updatedProfile.slug}`);
+            
+            // Step 3: Run SEO pipeline after slug generation
+            try {
+              console.log(`🚀 Running SEO pipeline for doctor: ${doctorProfile._id}`);
+              // Refresh doctor profile with populated user
+              const refreshedProfile = await DoctorProfile.findById(doctorProfile._id).populate('user');
+              const seoResult = await runSEOPipeline('doctor', doctorProfile._id.toString(), refreshedProfile, updatedUser);
+              if (seoResult.success) {
+                console.log(`✅ SEO pipeline completed successfully`);
+              } else {
+                console.warn(`⚠️ SEO pipeline completed with warnings:`, seoResult.errors);
+              }
+            } catch (seoError) {
+              // SEO errors are non-fatal - log but continue
+              console.error("❌ SEO pipeline error (non-fatal):", seoError.message);
+            }
           } else {
             console.log(`⚠️ Slug generation completed but slugLocked is false`);
           }

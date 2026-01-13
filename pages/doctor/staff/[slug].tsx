@@ -12,8 +12,8 @@ const routeMap: { [key: string]: () => Promise<any> } = {
   // Staff routes
   'staff-dashboard': () => import('../../staff/staff-dashboard'),
   'add-service': () => import('../../staff/add-service'),
-  'patient-registration': () => import('../../staff/patient-registration'),
-  'patient-information': () => import('../../staff/patient-information'),
+  'patient-registration': () => import('../../clinic/patient-registration'),
+  'patient-information': () => import('../../clinic/patient-information'),
   'eodNotes': () => import('../../staff/eodNotes'),
   'AddPettyCashForm': () => import('../../staff/AddPettyCashForm'),
   'add-vendor': () => import('../../staff/add-vendor'),

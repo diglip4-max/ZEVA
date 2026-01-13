@@ -702,7 +702,7 @@ export default function Home() {
             });
             setClinics(clinicsWithDistance);
             setHasSearched(true);
-           
+
             // Auto-adjust price range slider based on clinic prices
             if (clinicsWithDistance.length > 0) {
                 const prices = clinicsWithDistance

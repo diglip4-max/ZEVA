@@ -36,7 +36,7 @@ export default async function handler(req, res) {
     // Admin users bypass permission checks
     const doctorProfiles = await DoctorProfile.find()
       .populate("user", "name email phone isApproved declined password")
-      .select("degree experience address treatments resumeUrl user")
+      .select("degree experience address treatments resumeUrl user slug slugLocked")
       .lean();
 
     // Set base URL for resume URLs

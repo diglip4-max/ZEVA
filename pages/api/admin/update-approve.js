@@ -4,6 +4,7 @@ import Clinic from "../../../models/Clinic";
 import { getUserFromReq } from "../lead-ms/auth";
 import { checkAgentPermission } from "../agent/permissions-helper";
 import { generateAndLockSlug } from "../../../lib/slugService";
+import { runSEOPipeline } from "../../../lib/seo/SEOOrchestrator";
 
 export default async function handler(req, res) {
   await dbConnect();
@@ -86,6 +87,20 @@ export default async function handler(req, res) {
         
         if (slugGenerated) {
           console.log(`✅ Slug generated successfully: ${finalClinic.slug}`);
+          
+          // Step 3: Run SEO pipeline after slug generation
+          try {
+            console.log(`🚀 Running SEO pipeline for clinic: ${clinicId}`);
+            const seoResult = await runSEOPipeline('clinic', clinicId.toString(), finalClinic);
+            if (seoResult.success) {
+              console.log(`✅ SEO pipeline completed successfully`);
+            } else {
+              console.warn(`⚠️ SEO pipeline completed with warnings:`, seoResult.errors);
+            }
+          } catch (seoError) {
+            // SEO errors are non-fatal - log but continue
+            console.error("❌ SEO pipeline error (non-fatal):", seoError.message);
+          }
         } else {
           console.log(`⚠️ Slug generation completed but slugLocked is false`);
         }

@@ -56,27 +56,10 @@ export default async function handler(req, res) {
       return res.redirect(301, slugRoute); // 301 = Permanent redirect
     }
 
-    // If no slug exists, try to generate one (for backward compatibility)
-    // Only if doctor is approved
-    const User = require("../../../../models/Users").default;
-    const user = await User.findById(doctorProfile.user);
-    if (user && user.isApproved) {
-      try {
-        const { generateAndLockSlug } = await import("../../../../lib/slugService");
-        const updatedProfile = await generateAndLockSlug('doctor', doctorProfile._id.toString());
-        
-        if (updatedProfile.slug && updatedProfile.slugLocked) {
-          const slugRoute = getEntityRoute('doctor', updatedProfile.slug);
-          return res.redirect(301, slugRoute);
-        }
-      } catch (slugError) {
-        console.error("Error generating slug during redirect:", slugError);
-        // Fall through to return ObjectId-based URL
-      }
-    }
-
-    // Fallback: Return ObjectId-based URL (for backward compatibility)
-    // This should rarely happen, but ensures no broken links
+    // ⚠️ FIXED: Redirect API should NOT generate slugs (GET requests should be idempotent)
+    // If no slug exists, redirect to ObjectId-based URL
+    // Slug generation should only happen during approval process, not on redirect
+    // Use backfill script to generate slugs for existing approved doctors
     return res.redirect(302, `/doctor/${id}`);
 
   } catch (error) {

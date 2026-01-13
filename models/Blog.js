@@ -23,6 +23,7 @@ const BlogSchema = new mongoose.Schema({
   content: { type: String, required: true },
   status: { type: String, enum: ["draft", "published"], default: "draft" },
   paramlink: { type: String, required: true },
+  slugLocked: { type: Boolean, default: false }, // Lock slug once published
   postedBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "User",
