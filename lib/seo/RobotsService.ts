@@ -83,12 +83,27 @@ export function generateRobotsMetaString(decision: IndexingDecision): string {
  * Get robots meta for entity
  */
 export async function getRobotsMetaForEntity(
-  entityType: 'clinic' | 'doctor',
+  entityType: 'clinic' | 'doctor' | 'offer',
   entityId: string,
   decision?: IndexingDecision
 ): Promise<RobotsMeta> {
+  // For offers, use the provided decision directly (no IndexingService needed)
+  if (entityType === 'offer') {
+    if (!decision) {
+      // Default decision for offers without explicit decision
+      decision = {
+        shouldIndex: false,
+        reason: 'No indexing decision provided',
+        priority: 'low',
+        warnings: [],
+      };
+    }
+    return getRobotsMeta(decision);
+  }
+  
+  // For other entity types, use IndexingService
   const { decideIndexing } = await import('./IndexingService');
-  const indexingDecision = decision || await decideIndexing(entityType, entityId);
+  const indexingDecision = decision || await decideIndexing(entityType as 'clinic' | 'doctor', entityId);
   return getRobotsMeta(indexingDecision);
 }
 

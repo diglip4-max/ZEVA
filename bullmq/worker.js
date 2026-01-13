@@ -9,8 +9,19 @@ import {
   clearCheckpoint,
 } from "./checkpoint.js";
 import dbConnect from "../lib/database.js";
+import axios from "axios";
+import Template from "../models/Template.js";
+import { handleWhatsappSendMessage } from "../services/whatsapp.js";
+import Message from "../models/Message.js";
 
 console.log("📌 Import Leads Worker Started...");
+dbConnect()
+  .then(() => {
+    console.log("✅ Database connected for All Workers");
+  })
+  .catch((err) => {
+    console.error("❌ Database connection error for Import Leads Worker:", err);
+  });
 
 const importLeadsFromFileWorker = new Worker(
   "importLeadsFromFileQueue",
@@ -23,8 +34,6 @@ const importLeadsFromFileWorker = new Worker(
     const BATCH_SIZE = 500;
 
     try {
-      await dbConnect();
-
       // Validate segmentId if provided
       let segment = null;
       if (segmentId) {
@@ -176,158 +185,173 @@ importLeadsFromFileWorker.on("failed", (job, err) => {
   console.error(`❌ Job ${job?.id} failed:`, err.message);
 });
 
-// ==================== PATIENT IMPORT WORKER ====================
-import PatientRegistration from "../models/PatientRegistration.js";
-import { generateEmrNumber } from "../lib/generateEmrNumber.js";
-
-console.log("📌 Import Patients Worker Started...");
-
-const importPatientsFromFileWorker = new Worker(
-  "importPatientsFromFileQueue",
+const whatsappTemplateWorker = new Worker(
+  "whatsappTemplateQueue",
   async (job) => {
-    console.time(`PatientJob-${job.id}`);
-    console.log(`🚀 Processing Patient Import Job ID: ${job.id}`);
+    console.log("Processing WhatsApp sync templates job: ", job.data);
 
-    const WORKER_NAME = "importPatientsFromFile";
-    const { 
-      patientsToInsert, 
-      userId, 
-      computedInvoicedBy,
-      dateStr,
-      maxInvoiceSeq 
-    } = job.data;
-    const BATCH_SIZE = 100;
+    const { accessToken, wabaId, providerId, clinicId } = job.data;
+    let url = `https://graph.facebook.com/v19.0/${wabaId}/message_templates?limit=25`;
 
     try {
-      await dbConnect();
+      // ensure DB connection before performing any Template queries
 
-      let startIndex = await getCheckpoint(WORKER_NAME, job.id);
-      if (startIndex >= patientsToInsert.length) {
-        startIndex = 0;
-      }
-      console.log(`⏩ Resuming from index: ${startIndex}`);
+      while (url) {
+        const response = await axios.get(url, {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
 
-      let totalInserted = 0;
-      let totalFailed = 0;
-      const errors = [];
-      let invoiceSequence = maxInvoiceSeq;
+        if (response.data?.data?.length) {
+          const templates = response.data.data;
 
-      const getNextInvoiceNumber = () => {
-        invoiceSequence++;
-        return `INV-${dateStr}-${String(invoiceSequence).padStart(3, "0")}`;
-      };
+          const templatesData = [];
 
-      for (let i = startIndex; i < patientsToInsert.length; i += BATCH_SIZE) {
-        const batch = patientsToInsert.slice(i, i + BATCH_SIZE);
-        console.log(
-          `📦 Batch ${Math.floor(i / BATCH_SIZE) + 1}: ${batch.length} patients`
-        );
+          for (const item of templates) {
+            const templateId = item.id;
+            const components = item.components || [];
 
-        for (let j = 0; j < batch.length; j++) {
-          const patientData = batch[j];
-          const rowIndex = i + j + 2; // +2 because row 1 is header, and arrays are 0-indexed
-          
-          try {
-            // Generate invoice number
-            let invoiceNumber = getNextInvoiceNumber();
-            // Verify it doesn't exist (safety check)
-            let existingInvoice = await PatientRegistration.findOne({ invoiceNumber });
-            if (existingInvoice) {
-              // If exists, keep incrementing until we find a unique one
-              let attempts = 0;
-              while (existingInvoice && attempts < 100) {
-                invoiceSequence++;
-                invoiceNumber = getNextInvoiceNumber();
-                existingInvoice = await PatientRegistration.findOne({ invoiceNumber });
-                if (!existingInvoice) break;
-                attempts++;
-              }
-              if (attempts >= 100) {
-                totalFailed++;
-                errors.push(`Row ${rowIndex}: Could not generate unique invoice number`);
-                continue;
+            let content = "";
+            let variables = [];
+            let isHeader = false;
+            let isFooter = false;
+            let isButton = false;
+            let headerType = "text";
+            let headerText = "";
+            let headerVariables = [];
+            let headerVariableSampleValues = [];
+            let bodyVariableSampleValues = [];
+            let headerFileUrl = "";
+            let footer = "";
+            let templateButtons = [];
+
+            for (const temp of components) {
+              if (temp.type === "HEADER") {
+                isHeader = true;
+                if (temp.format === "TEXT") {
+                  headerText = temp.text;
+                  headerType = "text";
+                  const regex = /\{\{\d+\}\}/;
+                  if (regex.test(headerText)) {
+                    headerVariables = ["{{1}}"];
+                    headerVariableSampleValues = ["{{1}}"];
+                  }
+                } else {
+                  headerType = temp.format.toLowerCase();
+                  headerFileUrl = temp.example?.header_handle?.[0] || "";
+                }
+              } else if (temp.type === "BODY") {
+                content = temp.text;
+                variables = (temp.example?.body_text || []).map(
+                  (_, index) => `{{${index + 1}}}`
+                );
+                bodyVariableSampleValues = variables;
+              } else if (temp.type === "FOOTER") {
+                isFooter = true;
+                footer = temp.text;
+              } else if (temp.type === "BUTTONS") {
+                isButton = true;
+                templateButtons = temp.buttons || [];
               }
             }
 
-            // Generate EMR number
-            const emrNumber = await generateEmrNumber();
+            templatesData.push({
+              clinicId,
+              templateId,
+              templateType: "whatsapp",
+              provider: providerId,
+              name: item.name,
+              uniqueName: item.name || "",
+              category: item.category?.toLowerCase() || "",
+              language: item.language,
+              status: item.status?.toLowerCase(),
+              content,
+              variables,
+              isHeader,
+              headerType,
+              headerText,
+              headerVariables,
+              headerVariableSampleValues,
+              bodyVariableSampleValues,
+              headerFileUrl,
+              isFooter,
+              footer,
+              isButton,
+              templateButtons,
+            });
+          }
 
-            // Create patient with generated numbers
-            const finalPatientData = {
-              ...patientData,
-              invoiceNumber,
-              emrNumber,
-              userId: userId,
-              invoicedBy: computedInvoicedBy,
-            };
-
-            await PatientRegistration.create(finalPatientData);
-            totalInserted++;
-          } catch (patientError) {
-            totalFailed++;
-            // Handle validation errors more gracefully
-            if (patientError.name === 'ValidationError') {
-              const validationErrors = Object.values(patientError.errors).map(e => e.message).join(", ");
-              errors.push(`Row ${rowIndex}: Patient validation failed: ${validationErrors}`);
-            } else if (patientError.code === 11000) {
-              const field = Object.keys(patientError.keyPattern)[0];
-              errors.push(`Row ${rowIndex}: ${field} already exists`);
-            } else {
-              errors.push(`Row ${rowIndex}: Failed to create patient: ${patientError.message || "Unknown error"}`);
+          // **Filter out duplicates before inserting**
+          const filteredTemplates = [];
+          for (const template of templatesData) {
+            const exists = await Template.exists({
+              templateId: template.templateId,
+            });
+            if (!exists) {
+              filteredTemplates.push(template);
             }
           }
+
+          if (filteredTemplates.length > 0) {
+            await Template.insertMany(filteredTemplates);
+          }
+          console.log("Syncing whatsapp templates batch...");
         }
 
-        // Save checkpoint every 5 batches
-        const nextIndex = i + BATCH_SIZE;
-        if (
-          nextIndex % (BATCH_SIZE * 5) === 0 ||
-          nextIndex >= patientsToInsert.length
-        ) {
-          await saveCheckpoint(WORKER_NAME, job.id, nextIndex);
-        }
+        // Get next page if available
+        url = response.data.paging?.next || null;
+      }
+      console.log("Syncing whatsapp template completed.");
+    } catch (error) {
+      console.error(
+        "Error fetching templates:",
+        error.response?.data || error.message
+      );
+    }
+  },
+  { connection: redis, concurrency: 1 }
+);
 
-        // Yield to event loop every 3 batches
-        if (i % (BATCH_SIZE * 3) === 0) {
-          await new Promise((resolve) => setImmediate(resolve));
+const scheduleMessageWorker = new Worker(
+  "scheduleMessageQueue",
+  async (job) => {
+    console.log("Processing schedule message worker job: ", job.data);
+    const { msgData } = job.data;
+
+    try {
+      let resData;
+      if (msgData?.channel === "sms") {
+        // resData = await handleSendS
+      } else if (msgData?.channel === "whatsapp") {
+        resData = await handleWhatsappSendMessage(msgData);
+      }
+
+      if (resData && msgData?.clientMessageId) {
+        const message = await Message.findById(msgData?.clientMessageId);
+        console.log({ message });
+        if (message) {
+          message.status = "queued";
+          message.providerMessageId = resData?.messages?.[0]?.id || "";
+          await message.save();
         }
       }
 
-      // Clear checkpoint
-      await clearCheckpoint(WORKER_NAME, job.id);
-
-      console.timeEnd(`PatientJob-${job.id}`);
-      console.log(
-        `🎉 Patient Import Job ${job.id} completed. Inserted: ${totalInserted}/${patientsToInsert.length}, Failed: ${totalFailed}`
-      );
-
-      return {
-        totalProcessed: patientsToInsert.length,
-        totalInserted,
-        totalFailed,
-        errors: errors.slice(0, 100), // Limit errors to first 100
-      };
+      console.log("Schedule message response: ", resData);
+      return resData;
     } catch (error) {
-      console.error("Error in import patients from file worker: ", error?.message);
-      throw error;
+      console.log("Error in send schedule message worker: ", error?.message);
     }
   },
   {
     connection: redis,
     concurrency: 1,
-    limiter: {
-      max: 1,
-      duration: 500,
-    },
   }
 );
 
-// Worker events
-importPatientsFromFileWorker.on("completed", (job, returnValue) => {
-  console.log(`✅ Patient Import Job ${job.id} completed successfully`);
-  console.log(`📊 ${returnValue?.totalInserted || 0} patients imported, ${returnValue?.totalFailed || 0} failed`);
+scheduleMessageWorker.on("completed", (job, returnValue) => {
+  console.log(`✅ Schedule message job ${job.id} completed successfully`);
+  console.log(`✅ Schedule message completed job response: ${returnValue}`);
 });
 
-importPatientsFromFileWorker.on("failed", (job, err) => {
-  console.error(`❌ Patient Import Job ${job?.id} failed:`, err.message);
+scheduleMessageWorker.on("failed", (job, err) => {
+  console.error(`❌ Job ${job?.id} failed:`, err.message);
 });

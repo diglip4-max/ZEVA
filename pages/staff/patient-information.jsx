@@ -395,6 +395,7 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
                     <thead>
                       <tr className="border-b border-gray-200">
                         <th className="text-left py-2.5 px-3 text-[11px] font-semibold text-gray-700 uppercase">NAME</th>
+                        <th className="text-left py-2.5 px-3 text-[11px] font-semibold text-gray-700 uppercase">EMR NUMBER</th>
                         <th className="text-left py-2.5 px-3 text-[11px] font-semibold text-gray-700 uppercase">GENDER</th>
                         <th className="text-left py-2.5 px-3 text-[11px] font-semibold text-gray-700 uppercase">EMAIL</th>
                         <th className="text-left py-2.5 px-3 text-[11px] font-semibold text-gray-700 uppercase">MOBILE</th>
@@ -405,7 +406,7 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
                     <tbody>
                       {displayedPatients.length === 0 ? (
                         <tr>
-                          <td colSpan="6" className="py-10 text-center">
+                          <td colSpan="7" className="py-10 text-center">
                             <div className="inline-flex items-center justify-center w-12 h-12 bg-gray-100 rounded-full mb-2.5">
                               <User className="h-6 w-6 text-gray-500" />
                             </div>
@@ -418,6 +419,9 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
                           <tr key={patient._id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
                             <td className="py-3 px-3">
                               <p className="text-xs font-medium text-gray-900">{patient.firstName} {patient.lastName}</p>
+                            </td>
+                            <td className="py-3 px-3">
+                              <p className="text-xs font-medium text-gray-900">{patient.emrNumber || '-'}</p>
                             </td>
                             <td className="py-3 px-3">
                               <p className="text-xs text-gray-900">{patient.gender || '-'}</p>

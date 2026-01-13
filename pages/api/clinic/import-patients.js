@@ -5,10 +5,10 @@ import { getAuthorizedStaffUser } from "../../../server/staff/authHelpers";
 import { checkClinicPermission } from "../lead-ms/permissions-helper";
 import { checkAgentPermission } from "../agent/permissions-helper";
 import Clinic from "../../../models/Clinic";
+import { generateEmrNumber } from "../../../lib/generateEmrNumber";
 import csv from "csvtojson";
 import multer from "multer";
 import * as XLSX from "xlsx";
-import { importPatientsFromFileQueue } from "../../../bullmq/queue.js";
 
 // Multer setup
 const upload = multer({ storage: multer.memoryStorage() });
@@ -206,9 +206,21 @@ export default async function handler(req, res) {
       }
     }
 
-    // Validate and prepare patient data for queue
-    const patientsToInsert = [];
-    const validationErrors = [];
+    // Sequential generator for invoice numbers
+    let invoiceSequence = maxInvoiceSeq;
+
+    const getNextInvoiceNumber = () => {
+      invoiceSequence++;
+      return `INV-${dateStr}-${String(invoiceSequence).padStart(3, "0")}`;
+    };
+
+    // Process patients
+    const results = {
+      total: jsonArray.length,
+      imported: 0,
+      failed: 0,
+      errors: [],
+    };
 
     for (let i = 0; i < jsonArray.length; i++) {
       const row = jsonArray[i];
@@ -233,27 +245,58 @@ export default async function handler(req, res) {
         }
 
         if (errors.length > 0) {
-          validationErrors.push(`Row ${i + 2}: ${errors.join(", ")}`);
+          results.failed++;
+          results.errors.push(`Row ${i + 2}: ${errors.join(", ")}`);
           continue;
         }
 
         // Validate and normalize phone number
         const patientPhone = String(mapped.mobileNumber).trim().replace(/\D/g, "");
         if (patientPhone.length !== 10) {
-          validationErrors.push(`Row ${i + 2}: Invalid phone number. Must be exactly 10 digits.`);
+          results.failed++;
+          results.errors.push(`Row ${i + 2}: Invalid phone number. Must be exactly 10 digits.`);
           continue;
         }
 
         // Validate gender
         const gender = String(mapped.gender).trim();
         if (!["Male", "Female", "Other"].includes(gender)) {
-          validationErrors.push(`Row ${i + 2}: Invalid gender. Must be Male, Female, or Other.`);
+          results.failed++;
+          results.errors.push(`Row ${i + 2}: Invalid gender. Must be Male, Female, or Other.`);
           continue;
         }
 
-        // Prepare patient data (without invoice/EMR numbers - will be generated in worker)
+        // Always auto-generate sequential invoice number (ignore any provided in file)
+        let invoiceNumber = getNextInvoiceNumber();
+        // Verify it doesn't exist (safety check)
+        let existingInvoice = await PatientRegistration.findOne({ invoiceNumber });
+        if (existingInvoice) {
+          // If exists, keep incrementing until we find a unique one
+          let attempts = 0;
+          while (existingInvoice && attempts < 100) {
+            invoiceSequence++;
+            invoiceNumber = getNextInvoiceNumber();
+            existingInvoice = await PatientRegistration.findOne({ invoiceNumber });
+            if (!existingInvoice) break;
+            attempts++;
+          }
+          if (attempts >= 100) {
+            results.failed++;
+            results.errors.push(`Row ${i + 2}: Could not generate unique invoice number. Please try again.`);
+            continue;
+          }
+        }
+
+        // Always auto-generate sequential EMR number using generateEmrNumber function (ignore any provided in file)
+        const emrNumber = await generateEmrNumber();
+
+        // Prepare patient data
         const patientData = {
+          invoiceNumber: invoiceNumber,
           invoicedDate: mapped.invoicedDate ? new Date(mapped.invoicedDate) : new Date(),
+          invoicedBy: computedInvoicedBy,
+          userId: user._id,
+          emrNumber: emrNumber,
           firstName: String(mapped.firstName).trim(),
           lastName: mapped.lastName ? String(mapped.lastName).trim() : "",
           gender: gender,
@@ -280,162 +323,44 @@ export default async function handler(req, res) {
           notes: mapped.notes ? String(mapped.notes).trim() : "",
         };
 
-        patientsToInsert.push(patientData);
-      } catch (error) {
-        validationErrors.push(`Row ${i + 2}: ${error.message || "Unknown error"}`);
-      }
-    }
-
-    // If there are validation errors, return them immediately
-    if (validationErrors.length > 0 && patientsToInsert.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "All rows have validation errors",
-        data: {
-          total: jsonArray.length,
-          imported: 0,
-          failed: validationErrors.length,
-          errors: validationErrors,
-        },
-      });
-    }
-
-    // Queue the job for background processing
-    try {
-      const job = await importPatientsFromFileQueue.add(
-        "importPatients",
-        {
-          patientsToInsert,
-          userId: user._id,
-          computedInvoicedBy,
-          dateStr,
-          maxInvoiceSeq,
-        },
-        {
-          attempts: 3,
-          backoff: {
-            type: "exponential",
-            delay: 2000,
-          },
-          removeOnComplete: {
-            age: 24 * 3600, // Keep completed jobs for 24 hours
-            count: 1000, // Keep max 1000 completed jobs
-          },
-          removeOnFail: {
-            age: 7 * 24 * 3600, // Keep failed jobs for 7 days
-          },
-        }
-      );
-
-      return res.status(202).json({
-        success: true,
-        message: `Patient import job queued. ${patientsToInsert.length} patients will be processed in the background.`,
-        jobId: job.id,
-        data: {
-          total: jsonArray.length,
-          queued: patientsToInsert.length,
-          validationErrors: validationErrors.length,
-          errors: validationErrors.slice(0, 10), // Return first 10 validation errors
-        },
-      });
-    } catch (queueError) {
-      console.error("Error queueing patient import job:", queueError);
-      
-      // If Redis is not available, fall back to synchronous processing
-      if (queueError.code === "ECONNREFUSED" || queueError.message?.includes("ECONNREFUSED")) {
-        console.warn("⚠️ Redis not available, falling back to synchronous processing");
-        
-        // Process synchronously (fallback)
-        const results = {
-          total: jsonArray.length,
-          imported: 0,
-          failed: validationErrors.length,
-          errors: validationErrors,
-        };
-
-        // Import patients synchronously
-        const date = new Date();
-        const dateStrSync = `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, "0")}${String(date.getDate()).padStart(2, "0")}`;
-        const invoicePattern = new RegExp(`^INV-${dateStrSync}-(\\d+)$`);
-        
-        const patientsWithInvoice = await PatientRegistration.find({
-          invoiceNumber: { $regex: invoicePattern },
-        })
-          .select("invoiceNumber")
-          .lean();
-
-        let maxInvoiceSeqSync = 0;
-        for (const patient of patientsWithInvoice) {
-          if (patient.invoiceNumber) {
-            const match = patient.invoiceNumber.match(invoicePattern);
-            if (match) {
-              const num = parseInt(match[1], 10);
-              if (num > maxInvoiceSeqSync) {
-                maxInvoiceSeqSync = num;
-              }
-            }
-          }
-        }
-
-        let invoiceSequence = maxInvoiceSeqSync;
-        const getNextInvoiceNumber = () => {
-          invoiceSequence++;
-          return `INV-${dateStrSync}-${String(invoiceSequence).padStart(3, "0")}`;
-        };
-
-        const { generateEmrNumber } = await import("../../../lib/generateEmrNumber.js");
-
-        for (let i = 0; i < patientsToInsert.length; i++) {
-          try {
-            let invoiceNumber = getNextInvoiceNumber();
-            let existingInvoice = await PatientRegistration.findOne({ invoiceNumber });
-            if (existingInvoice) {
-              let attempts = 0;
-              while (existingInvoice && attempts < 100) {
-                invoiceSequence++;
-                invoiceNumber = getNextInvoiceNumber();
-                existingInvoice = await PatientRegistration.findOne({ invoiceNumber });
-                if (!existingInvoice) break;
-                attempts++;
-              }
-            }
-
-            const emrNumber = await generateEmrNumber();
-            const finalPatientData = {
-              ...patientsToInsert[i],
-              invoiceNumber,
-              emrNumber,
-              userId: user._id,
-              invoicedBy: computedInvoicedBy,
-            };
-
-            await PatientRegistration.create(finalPatientData);
-            results.imported++;
-          } catch (patientError) {
+        // Create patient
+        try {
+          await PatientRegistration.create(patientData);
+          results.imported++;
+        } catch (patientError) {
+          // Handle validation errors more gracefully
+          if (patientError.name === 'ValidationError') {
+            const validationErrors = Object.values(patientError.errors).map(e => e.message).join(", ");
             results.failed++;
-            if (patientError.name === 'ValidationError') {
-              const validationErrors = Object.values(patientError.errors).map(e => e.message).join(", ");
-              results.errors.push(`Row ${i + 2}: Patient validation failed: ${validationErrors}`);
-            } else if (patientError.code === 11000) {
-              const field = Object.keys(patientError.keyPattern)[0];
-              results.errors.push(`Row ${i + 2}: ${field} already exists`);
-            } else {
-              results.errors.push(`Row ${i + 2}: Failed to create patient: ${patientError.message || "Unknown error"}`);
-            }
+            results.errors.push(`Row ${i + 2}: Patient validation failed: ${validationErrors}`);
+          } else if (patientError.code === 11000) {
+            const field = Object.keys(patientError.keyPattern)[0];
+            results.failed++;
+            results.errors.push(`Row ${i + 2}: ${field} already exists`);
+          } else {
+            results.failed++;
+            results.errors.push(`Row ${i + 2}: Failed to create patient: ${patientError.message || "Unknown error"}`);
           }
         }
-
-        return res.status(200).json({
-          success: true,
-          message: `Imported ${results.imported} patients synchronously (Redis not available). ${results.failed} failed.`,
-          data: results,
-          warning: "Processed synchronously because Redis is not available. For better performance, please start Redis server.",
-        });
+      } catch (error) {
+        results.failed++;
+        // Format error message to be more user-friendly
+        let errorMessage = "Unknown error";
+        if (error.name === 'ValidationError') {
+          const validationErrors = Object.values(error.errors).map(e => e.message).join(", ");
+          errorMessage = `Validation failed: ${validationErrors}`;
+        } else if (error.message) {
+          errorMessage = error.message;
+        }
+        results.errors.push(`Row ${i + 2}: ${errorMessage}`);
       }
-      
-      // Re-throw other queue errors
-      throw queueError;
     }
+
+    return res.status(200).json({
+      success: true,
+      data: results,
+      message: `Imported ${results.imported} patients. ${results.failed} failed.`,
+    });
   } catch (error) {
     console.error("Error importing patients:", error);
     return res.status(500).json({

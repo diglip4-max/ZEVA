@@ -83,6 +83,7 @@ export default function ImportLeadsModal({
   const mappableFields = [
     { id: "name", label: "Name", required: true },
     { id: "phone", label: "Phone", required: true },
+    { id: "email", label: "Email", required: true },
     { id: "gender", label: "Gender", required: false },
     { id: "age", label: "Age", required: false },
     { id: "followUpDate", label: "Follow-up Date", required: false },

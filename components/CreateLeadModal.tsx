@@ -19,6 +19,7 @@ export default function CreateLeadModal({
   const [formData, setFormData] = useState({
     name: "",
     phone: "",
+    email: "",
     gender: "Male",
     age: "",
     treatments: [] as Array<{ treatment: string; subTreatment: string | null }>,
@@ -120,6 +121,7 @@ export default function CreateLeadModal({
       // Reset form when modal closes
       setFormData({
         name: "",
+        email: "",
         phone: "",
         gender: "Male",
         age: "",
@@ -144,15 +146,23 @@ export default function CreateLeadModal({
       HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
     >
   ) => {
-    if (e.target.name === 'phone') {
+    if (e.target.name === "phone") {
       // Only allow digits and limit to 10 digits
-      const value = e.target.value.replace(/\D/g, '');
+      const value = e.target.value.replace(/\D/g, "");
       if (value.length <= 10) {
         setFormData({ ...formData, phone: value });
       }
+    } else if (e.target.name === "email") {
+      // Keep email as typed; validation will run on submit and inline
+      setFormData({ ...formData, email: e.target.value });
     } else {
       setFormData({ ...formData, [e.target.name]: e.target.value });
     }
+  };
+
+  const isValidEmail = (email: string) => {
+    if (!email) return false;
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
   };
 
   const handleTreatmentChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -205,6 +215,12 @@ export default function CreateLeadModal({
     // Validate phone number
     if (!formData.phone || formData.phone.length !== 10) {
       alert("Please enter a valid 10-digit phone number");
+      return;
+    }
+
+    // Validate email if provided
+    if (formData.email && !isValidEmail(formData.email.trim())) {
+      alert("Please enter a valid email address");
       return;
     }
 
@@ -285,7 +301,7 @@ export default function CreateLeadModal({
                 Basic Information
               </h3>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <div>
                   <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">
                     Name <span className="text-red-500">*</span>
@@ -314,12 +330,42 @@ export default function CreateLeadModal({
                     placeholder="Enter 10-digit phone number"
                     required
                   />
-                  {formData.phone.length > 0 && formData.phone.length !== 10 && (
-                    <p className="text-[10px] text-red-500 mt-1">Phone number must be exactly 10 digits</p>
-                  )}
+                  {formData.phone.length > 0 &&
+                    formData.phone.length !== 10 && (
+                      <p className="text-[10px] text-red-500 mt-1">
+                        Phone number must be exactly 10 digits
+                      </p>
+                    )}
                   {formData.phone.length === 10 && (
-                    <p className="text-[10px] text-green-600 mt-1">Valid phone number</p>
+                    <p className="text-[10px] text-green-600 mt-1">
+                      Valid phone number
+                    </p>
                   )}
+                </div>
+                <div>
+                  <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    name="email"
+                    value={formData.email}
+                    onChange={handleChange}
+                    className="w-full border border-gray-200 rounded-lg px-2.5 py-2 focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all text-xs sm:text-sm"
+                    placeholder="Enter email address"
+                  />
+                  {formData.email.length > 0 &&
+                    !isValidEmail(formData.email) && (
+                      <p className="text-[10px] text-red-500 mt-1">
+                        Invalid email format
+                      </p>
+                    )}
+                  {formData.email.length > 0 &&
+                    isValidEmail(formData.email) && (
+                      <p className="text-[10px] text-green-600 mt-1">
+                        Valid email
+                      </p>
+                    )}
                 </div>
               </div>
 

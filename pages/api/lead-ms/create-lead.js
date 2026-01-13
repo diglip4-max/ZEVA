@@ -128,6 +128,7 @@ export default async function handler(req, res) {
       const {
         name,
         phone,
+        email,
         gender,
         age,
         treatments,
@@ -142,7 +143,14 @@ export default async function handler(req, res) {
         segmentId,
       } = body;
 
-      if (!name || !phone || !gender || !source || !treatments?.length) {
+      if (
+        !name ||
+        !phone ||
+        !email ||
+        !gender ||
+        !source ||
+        !treatments?.length
+      ) {
         return res
           .status(400)
           .json({ success: false, message: "Required fields missing" });
@@ -217,6 +225,7 @@ export default async function handler(req, res) {
         clinicId,
         name,
         phone,
+        email,
         gender,
         age,
         treatments: validatedTreatments,

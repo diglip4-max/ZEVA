@@ -585,14 +585,6 @@ function AdminDoctors() {
           <div className="flex items-center justify-between text-xs text-slate-500">
             <span>{doctor.experience} yrs exp.</span>
             <div className="flex items-center gap-2">
-              {doctor.user.isApproved && doctor.slugLocked && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2 py-1 text-[10px] font-semibold text-green-700 border border-green-200" title="SEO optimized">
-                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  SEO Ready
-                </span>
-              )}
             <button
               onClick={() => setDetailDoctor(doctor)}
               className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600 hover:border-slate-300 hover:text-slate-900"
