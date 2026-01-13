@@ -23,20 +23,20 @@ export default function WhyChooseZeva() {
       iconBg: "from-emerald-500 to-teal-600",
       stats: "8+ Health Tools"
     },
-    {
-      icon: MapPin,
-      title: "Location Services",
-      description: "Find nearby hospitals, pharmacies, and emergency services with real-time mapping and directions.",
-      iconBg: "from-indigo-500 to-blue-600",
-      stats: "GPS-Enabled Location Services"
-    },
-    {
-      icon: Video,
-      title: "Telemedicine",
-      description: "Book secure video consultations with board-certified physicians anytime, anywhere. ZEVA is a HIPAA-compliant platform that protects your privacy.",
-      iconBg: "from-rose-500 to-pink-600",
-      stats: "24/7 Telemedicine"
-    },
+    // {
+    //   icon: MapPin,
+    //   title: "Location Services",
+    //   description: "Find nearby hospitals, pharmacies, and emergency services with real-time mapping and directions.",
+    //   iconBg: "from-indigo-500 to-blue-600",
+    //   stats: "GPS-Enabled Location Services"
+    // },
+    // {
+    //   icon: Video,
+    //   title: "Telemedicine",
+    //   description: "Book secure video consultations with board-certified physicians anytime, anywhere. ZEVA is a HIPAA-compliant platform that protects your privacy.",
+    //   iconBg: "from-rose-500 to-pink-600",
+    //   stats: "24/7 Telemedicine"
+    // },
     {
       icon: FileText,
       title: "Digital Records",
@@ -44,20 +44,20 @@ export default function WhyChooseZeva() {
       iconBg: "from-amber-500 to-orange-600",
       stats: "Secure Digital Records"
     },
-    {
-      icon: Briefcase,
-      title: "Career Hub",
-      description: "Explore medical jobs, career growth opportunities, and professional networking through ZEVA’s Career Hub.",
-      iconBg: "from-purple-500 to-fuchsia-600",
-      stats: "500+ Career Opportunities"
-    },
-    {
-      icon: BookOpen,
-      title: "Health Knowledge",
-      description: "Stay informed with health blogs, treatment guides, and wellness insights, including Ayurveda and modern therapies.",
-      iconBg: "from-sky-500 to-blue-600",
-      stats: "1000+ Evidence-Based Articles"
-    },
+    // {
+    //   icon: Briefcase,
+    //   title: "Career Hub",
+    //   description: "Explore medical jobs, career growth opportunities, and professional networking through ZEVA’s Career Hub.",
+    //   iconBg: "from-purple-500 to-fuchsia-600",
+    //   stats: "500+ Career Opportunities"
+    // },
+    // {
+    //   icon: BookOpen,
+    //   title: "Health Knowledge",
+    //   description: "Stay informed with health blogs, treatment guides, and wellness insights, including Ayurveda and modern therapies.",
+    //   iconBg: "from-sky-500 to-blue-600",
+    //   stats: "1000+ Evidence-Based Articles"
+    // },
     {
       icon: Star,
       title: "Patient Reviews",
@@ -135,7 +135,7 @@ export default function WhyChooseZeva() {
         </div>
 
         {/* Stats Section */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-6 mb-10">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-6 mt-9 mb-10">
           <div className="text-center p-4 bg-gray-50 rounded-lg border border-gray-200">
             <div className="text-2xl sm:text-3xl font-bold text-gray-900 mb-1">10K+</div>
             <div className="text-xs sm:text-sm text-gray-600">Healthcare Providers</div>

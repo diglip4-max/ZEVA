@@ -777,7 +777,7 @@ return (
                     !trendingBlog.image.includes('video') ? trendingBlog.image : null);
 
                 return (
-                  <Link key={trendingBlog._id} href={`/blogs/${createBlogSlug(trendingBlog.title, trendingBlog._id)}`}>
+                  <Link key={trendingBlog._id} href={`/blogs/${createBlogSlug(trendingBlog.title, trendingBlog._id)}`} className="block">
                     <div className="flex gap-3 group cursor-pointer">
                       <div className="w-16 h-16 flex-shrink-0 bg-gray-100 rounded-md overflow-hidden">
                         {trendingImage ? (

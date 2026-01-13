@@ -42,14 +42,14 @@ const Loader = () => {
           <div className="absolute inset-0 rounded-full border-2 border-slate-200"></div>
           
           {/* Animated ring */}
-          <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-indigo-500 animate-spin"></div>
+          <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-teal-600 animate-spin"></div>
           
           {/* Inner glow - more visible */}
-          <div className="absolute inset-2 rounded-full bg-gradient-to-br from-indigo-500/40 to-purple-500/40"></div>
+          <div className="absolute inset-2 rounded-full bg-gradient-to-br from-teal-600/40 to-blue-600/40"></div>
           
           {/* Center icon */}
           <div className="absolute inset-0 flex items-center justify-center">
-            <Zap className="w-7 h-7 text-indigo-500 fill-indigo-500" strokeWidth={2} />
+            <Zap className="w-7 h-7 text-teal-600 fill-teal-600" strokeWidth={2} />
           </div>
         </div>
         
@@ -58,14 +58,14 @@ const Loader = () => {
           <h1 className="text-3xl font-semibold tracking-tight text-slate-900">
             ZEVA
           </h1>
-          <div className="h-px w-12 bg-gradient-to-r from-transparent via-indigo-500 to-transparent mx-auto"></div>
+          <div className="h-px w-12 bg-gradient-to-r from-transparent via-teal-600 to-transparent mx-auto"></div>
         </div>
         
         {/* Progress Bar */}
         <div className="w-64 space-y-3">
           <div className="h-1 bg-slate-200 rounded-full overflow-hidden">
             <div 
-              className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full transition-all duration-700 ease-out"
+              className="h-full bg-gradient-to-r from-teal-600 to-blue-600 rounded-full transition-all duration-700 ease-out"
               style={{ width: `${progress}%` }}
             >
               <div className="h-full w-full bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer"></div>

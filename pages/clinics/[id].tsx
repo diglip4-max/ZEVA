@@ -11,6 +11,7 @@ import {
   Award,
   Calendar,
   Users,
+  ChevronLeft,
   ChevronRight,
   Shield,
   Heart,
@@ -350,6 +351,17 @@ export default function ClinicDetail() {
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
       {/* Main Content */}
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {/* Back Button */}
+        <div className="flex justify-end">
+          <button 
+            onClick={() => router.back()} 
+            className="flex items-center gap-2 text-gray-600 hover:text-[#2D9AA5] transition-colors mb-6 group"
+          >
+            <ChevronLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
+            <span className="font-medium">Back </span>
+          </button>
+        </div>
+
         <div className="bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden">
           {/* Profile Header Section */}
           <div className="p-6 sm:p-8 bg-gradient-to-r from-[#2D9AA5]/5 to-[#2D9AA5]/10 border-b border-gray-100">
