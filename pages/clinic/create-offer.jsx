@@ -9,6 +9,7 @@ import {
   Package,
   TrendingUp,
   Calendar,
+  Download,
 } from "lucide-react";
 import { Toaster, toast } from "react-hot-toast";
 import CreateOfferModal from "../../components/CreateOfferModal";
@@ -476,6 +477,66 @@ function OffersPage() {
     }
   };
 
+  // Export offers to CSV
+  const exportOffersToCSV = () => {
+    // Check if user has read permission
+    if (finalCanRead !== true) {
+      toast.error("You do not have permission to export offers");
+      return;
+    }
+    
+    if (offers.length === 0) {
+      toast.error("No offers to export");
+      return;
+    }
+    
+    // Define CSV headers
+    const headers = [
+      "Title",
+      "Description",
+      "Type",
+      "Value",
+      "Code",
+      "Slug",
+      "Start Date",
+      "End Date",
+      "Status",
+      "Created At",
+      "Updated At"
+    ];
+    
+    // Prepare CSV content
+    const csvContent = [
+      headers.join(","),
+      ...offers.map(offer => [
+        `"${(offer.title || '').replace(/"/g, '""')}"`,
+        `"${(offer.description || '').replace(/"/g, '""')}"`,
+        `"${offer.type || ''}"`,
+        `"${offer.value || ''}"`,
+        `"${offer.code || ''}"`,
+        `"${offer.slug || ''}"`,
+        `"${offer.startsAt ? new Date(offer.startsAt).toLocaleDateString() : ''}"`,
+        `"${offer.endsAt ? new Date(offer.endsAt).toLocaleDateString() : ''}"`,
+        `"${offer.status || ''}"`,
+        `"${offer.createdAt ? new Date(offer.createdAt).toLocaleString() : ''}"`,
+        `"${offer.updatedAt ? new Date(offer.updatedAt).toLocaleString() : ''}"`
+      ].join(","))
+    ].join("\n");
+    
+    // Create and download the CSV file
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `offers_export_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    toast.success(`${offers.length} offers exported successfully!`);
+  };
+
   // Calculate enhanced stats
   const activeOffers = offers.filter((o) => o.status === "active").length;
   const inactiveOffers = offers.filter((o) => o.status !== "active").length;
@@ -546,19 +607,28 @@ function OffersPage() {
                     <h1 className="text-lg sm:text-xl font-bold text-gray-900 mb-0.5">Offers Management</h1>
                     <p className="text-[10px] sm:text-xs text-gray-600">Create promotional offers for your clinic</p>
                   </div>
-                  {finalCanCreate === true && (
+                  <div className="flex gap-2">
+                    {finalCanCreate === true && (
+                      <button
+                        onClick={() => {
+                          setEditingOfferId(null);
+                          setEditingOfferData(null);
+                          setModalOpen(true);
+                        }}
+                        className="inline-flex items-center justify-center gap-1.5 bg-gray-800 hover:bg-gray-900 text-white px-2 py-1 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs font-medium"
+                      >
+                        <PlusCircle className="h-3 w-3" />
+                        <span>Create New Offer</span>
+                      </button>
+                    )}
                     <button
-                      onClick={() => {
-                        setEditingOfferId(null);
-                        setEditingOfferData(null);
-                        setModalOpen(true);
-                      }}
-                      className="inline-flex items-center justify-center gap-1.5 bg-gray-800 hover:bg-gray-900 text-white px-3 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs sm:text-sm font-medium"
+                      onClick={exportOffersToCSV}
+                      className="inline-flex items-center justify-center gap-1.5 bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs font-medium"
                     >
-                      <PlusCircle className="h-3.5 w-3.5" />
-                      <span>Create New Offer</span>
+                      <Download className="h-3 w-3" />
+                      <span>Export</span>
                     </button>
-                  )}
+                  </div>
                 </div>
               </div>
 
@@ -588,19 +658,28 @@ function OffersPage() {
                   <h1 className="text-lg sm:text-xl font-bold text-gray-900 mb-0.5">Offers Management</h1>
                   <p className="text-[10px] sm:text-xs text-gray-600">Create and manage promotional offers for your clinic</p>
                 </div>
-                {finalCanCreate === true && (
+                <div className="flex gap-2">
+                  {finalCanCreate === true && (
+                    <button
+                      onClick={() => {
+                        setEditingOfferId(null);
+                        setEditingOfferData(null);
+                        setModalOpen(true);
+                      }}
+                      className="inline-flex items-center justify-center gap-1.5 bg-gray-800 hover:bg-gray-900 text-white px-3 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs sm:text-sm font-medium"
+                    >
+                      <PlusCircle className="h-3.5 w-3.5" />
+                      <span>Create New Offer</span>
+                    </button>
+                  )}
                   <button
-                    onClick={() => {
-                      setEditingOfferId(null);
-                      setEditingOfferData(null);
-                      setModalOpen(true);
-                    }}
-                    className="inline-flex items-center justify-center gap-1.5 bg-gray-800 hover:bg-gray-900 text-white px-3 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs sm:text-sm font-medium"
+                    onClick={exportOffersToCSV}
+                    className="inline-flex items-center justify-center gap-1.5 bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs sm:text-sm font-medium"
                   >
-                    <PlusCircle className="h-3.5 w-3.5" />
-                    <span>Create New Offer</span>
+                    <Download className="h-3.5 w-3.5" />
+                    <span>Export</span>
                   </button>
-                )}
+                </div>
               </div>
             </div>
 

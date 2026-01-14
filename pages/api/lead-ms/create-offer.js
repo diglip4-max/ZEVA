@@ -5,6 +5,7 @@ import Clinic from "../../../models/Clinic";
 import { getUserFromReq, requireRole } from "./auth";
 import { getClinicIdFromUser, checkClinicPermission } from "./permissions-helper";
 import { checkAgentPermission } from "../agent/permissions-helper";
+import { getRobotsMetaForEntity } from "../../../lib/seo/RobotsService";
 import mongoose from "mongoose";
 
 export default async function handler(req, res) {
@@ -136,6 +137,40 @@ export default async function handler(req, res) {
     });
 
     await offer.save();
+
+    // Generate robots meta tags for the offer
+    try {
+      console.log(`🤖 [SEO] Generating robots meta for offer: ${offer._id}`);
+      
+      // Create a simple indexing decision for the offer
+      // Active offers should be indexed, others should not
+      const shouldIndex = offer.status === 'active' && 
+                         offer.title && 
+                         offer.description && 
+                         offer.endsAt && 
+                         new Date(offer.endsAt) > new Date();
+      
+      const indexingDecision = {
+        shouldIndex: shouldIndex,
+        reason: shouldIndex ? 'Offer is active and valid' : 'Offer is not active or expired',
+        priority: shouldIndex ? 'high' : 'low',
+        warnings: [],
+      };
+
+      const robotsMeta = await getRobotsMetaForEntity('offer', offer._id.toString(), indexingDecision);
+      
+      console.log(`   📊 Robots Meta Result:`, JSON.stringify({
+        content: robotsMeta.content,
+        noindex: robotsMeta.noindex,
+        nofollow: robotsMeta.nofollow,
+      }, null, 2));
+      
+      // You can store robotsMeta in the offer if needed, or just log it
+      // For now, we'll just log it
+    } catch (robotsError) {
+      console.error("❌ Robots meta generation error (non-fatal):", robotsError.message);
+    }
+
     return res.status(201).json({ success: true, offer });
   } catch (err) {
     console.error("Error creating offer:", err);

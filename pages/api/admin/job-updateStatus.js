@@ -4,6 +4,8 @@ import JobApplication from '../../../models/JobApplication';
 import Notification from '../../../models/Notification';
 import { getUserFromReq } from '../lead-ms/auth';
 import { checkAgentPermission } from '../agent/permissions-helper';
+import { generateAndLockSlug } from '../../../lib/slugService';
+import { runSEOPipeline } from '../../../lib/seo/SEOOrchestrator';
 
 export default async function handler(req, res) {
   await dbConnect();
@@ -47,10 +49,51 @@ export default async function handler(req, res) {
         return res.status(400).json({ message: 'Invalid status' });
       }
 
+      // Step 1: Update job status
       const job = await JobPosting.findByIdAndUpdate(jobId, { status }, { new: true });
       if (!job) return res.status(404).json({ message: 'Job not found' });
 
-      return res.status(200).json({ success: true, job });
+      // Step 2: Generate and lock slug for approved jobs
+      if (status === 'approved' && !job.slugLocked) {
+        try {
+          console.log(`🔄 Generating slug for job: ${job.jobTitle} (ID: ${jobId})`);
+          
+          // Use central slug service to generate and lock slug
+          const updatedJob = await generateAndLockSlug('job', jobId.toString());
+          
+          if (updatedJob.slug && updatedJob.slugLocked) {
+            console.log(`✅ Slug generated successfully: ${updatedJob.slug}`);
+            
+            // Step 3: Run SEO pipeline after slug generation
+            try {
+              console.log(`🚀 Running SEO pipeline for job: ${jobId}`);
+              const seoResult = await runSEOPipeline('job', jobId.toString(), updatedJob);
+              if (seoResult.success) {
+                console.log(`✅ SEO pipeline completed successfully`);
+              } else {
+                console.warn(`⚠️ SEO pipeline completed with warnings:`, seoResult.errors);
+              }
+            } catch (seoError) {
+              // SEO errors are non-fatal - log but continue
+              console.error("❌ SEO pipeline error (non-fatal):", seoError.message);
+            }
+          } else {
+            console.log(`⚠️ Slug generation completed but slugLocked is false`);
+          }
+        } catch (slugError) {
+          // If slug generation fails but job is approved, continue with approval
+          console.error("❌ Slug generation error (non-fatal):", slugError.message);
+          console.error("Error stack:", slugError.stack);
+          // Continue with approval even if slug generation fails
+        }
+      } else if (status === 'approved' && job.slugLocked) {
+        console.log(`⏭️ Skipping slug generation - slug already locked: ${job.slug}`);
+      }
+
+      // Refresh job data to get updated slug
+      const finalJob = await JobPosting.findById(jobId);
+
+      return res.status(200).json({ success: true, job: finalJob });
     }
 
     // Delete job + related data
