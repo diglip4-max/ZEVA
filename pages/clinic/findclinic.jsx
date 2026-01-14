@@ -363,13 +363,13 @@ export default function Home() {
         if (treatment || location) {
             const treatmentText = treatment ? slugToText(String(treatment)) : '';
             const locationText = location ? slugToText(String(location)) : '';
+            const rawLocation = location ? String(location).toLowerCase() : '';
            
-            // Only proceed if we have at least a location and haven't searched yet
-            // Also check if the current form values don't match URL params (to avoid overwriting manual input)
-            const currentTreatmentMatches = !treatmentText || (query.trim().toLowerCase() === treatmentText.toLowerCase() || selectedService.toLowerCase() === treatmentText.toLowerCase());
-            const currentLocationMatches = !locationText || manualPlace.trim().toLowerCase() === locationText.toLowerCase();
+            // On fresh mount (when hasSearchedFromURL is false), we want to trigger search from URL
+            // even if we already loaded from localStorage, to ensure fresh results as requested.
+            // This ensures that when a user returns to the page (e.g. via back button), the results are refreshed.
            
-            if (locationText && locationText !== 'near-me' && !hasSearched && !currentLocationMatches) {
+            if (locationText && rawLocation !== 'near-me') {
                 hasSearchedFromURL.current = true;
                
                 // Set the form values
@@ -383,19 +383,21 @@ export default function Home() {
                 setTimeout(() => {
                     searchByPlaceFromURL(locationText, treatmentText || null);
                 }, 300);
-            } else if (locationText === 'near-me' && treatmentText && !hasSearched && !currentTreatmentMatches) {
+            } else if (rawLocation === 'near-me') {
                 hasSearchedFromURL.current = true;
                
                 // Handle near-me case
-                setQuery(treatmentText);
-                setSelectedService(treatmentText);
+                if (treatmentText) {
+                    setQuery(treatmentText);
+                    setSelectedService(treatmentText);
+                }
                 // Trigger locateMe after a delay
                 setTimeout(() => {
                     locateMe();
                 }, 300);
             }
         }
-    }, [router.isReady, router.query.treatment, router.query.location, hasSearched]);
+    }, [router.isReady, router.query.treatment, router.query.location]);
 
     // Save search state to localStorage whenever it changes
     useEffect(() => {

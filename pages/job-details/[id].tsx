@@ -25,6 +25,8 @@ interface Job {
   perks?: string[];
   languagesPreferred?: string[];
   description?: string;
+  slug?: string;
+  slugLocked?: boolean;
 }
 
 interface User {
@@ -150,17 +152,7 @@ const JobDetail: React.FC = () => {
         router.push('/job-listings');
       }
     }
-  };
-        setJob(foundJob);
-      } else {
-        console.error("❌ Job not found for slug:", slug);
-        router.push('/job-listings');
-      }
-    } catch (error) {
-      console.error("Error searching job by slug:", error);
-      router.push('/job-listings');
-    }
-  };
+  }
 
   useEffect(() => {
     if (isAuthenticated && shouldApplyAfterLogin.current) {

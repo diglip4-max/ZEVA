@@ -146,27 +146,19 @@ const HealthCalculatorApp = () => {
 
   const scrollLeft = () => {
     if (sliderRef.current) {
-      sliderRef.current.scrollBy({ left: -(window.innerWidth < 768 ? 320 : 380), behavior: 'smooth' });
+      const scrollAmount = sliderRef.current.clientWidth;
+      sliderRef.current.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
     }
   };
 
   const scrollRight = () => {
     if (sliderRef.current) {
-      sliderRef.current.scrollBy({ left: window.innerWidth < 768 ? 320 : 380, behavior: 'smooth' });
+      const scrollAmount = sliderRef.current.clientWidth;
+      sliderRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
     }
   };
 
-  const scrollGamesLeft = () => {
-    if (gamesSliderRef.current) {
-      gamesSliderRef.current.scrollBy({ left: -(window.innerWidth < 768 ? 320 : 380), behavior: 'smooth' });
-    }
-  };
 
-  const scrollGamesRight = () => {
-    if (gamesSliderRef.current) {
-      gamesSliderRef.current.scrollBy({ left: window.innerWidth < 768 ? 320 : 380, behavior: 'smooth' });
-    }
-  };
 
   const getBadgeStyles = (badge) => {
     switch (badge) {
@@ -226,8 +218,8 @@ const HealthCalculatorApp = () => {
               {calculators.map((calc) => {
                 const IconComponent = calc.icon;
                 return (
-                  <div key={calc.id} className="flex-shrink-0 w-[280px] sm:w-[300px] snap-start">
-                    <div className="bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-200 border border-gray-200 p-5 h-full group hover:border-gray-300">
+                  <div key={calc.id} className="flex-shrink-0 w-[280px] sm:w-[calc((100%-16px)/2)] md:w-[calc((100%-32px)/3)] lg:w-[calc((100%-48px)/4)] snap-start">
+                    <div className="bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-200 border border-gray-200 p-5 h-full group hover:border-gray-300 overflow-hidden">
                       
                       {/* Icon and Category */}
                       <div className="flex items-start justify-between mb-4">
@@ -293,20 +285,7 @@ const HealthCalculatorApp = () => {
           </div>
 
           <div className="relative">
-            <button 
-              onClick={scrollGamesLeft} 
-              className="hidden lg:flex absolute -left-4 top-1/2 -translate-y-1/2 z-20 bg-white shadow-md rounded-full p-2 text-gray-700 hover:bg-gray-50 hover:shadow-lg transition-all border border-gray-200"
-              aria-label="Scroll games left"
-            >
-              <ChevronLeft size={20} strokeWidth={2.5} />
-            </button>
-            <button 
-              onClick={scrollGamesRight} 
-              className="hidden lg:flex absolute -right-4 top-1/2 -translate-y-1/2 z-20 bg-white shadow-md rounded-full p-2 text-gray-700 hover:bg-gray-50 hover:shadow-lg transition-all border border-gray-200"
-              aria-label="Scroll games right"
-            >
-              <ChevronRight size={20} strokeWidth={2.5} />
-            </button>
+
 
             <div 
               ref={gamesSliderRef} 
@@ -315,8 +294,8 @@ const HealthCalculatorApp = () => {
               {games.map((game) => {
                 const IconComponent = game.icon;
                 return (
-                  <div key={game.id} className="flex-shrink-0 w-[280px] sm:w-[300px] snap-start">
-                    <div className="bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-200 border border-gray-200 p-5 h-full group hover:border-gray-300">
+                  <div key={game.id} className="flex-shrink-0 w-[280px] sm:w-[calc((100%-16px)/2)] md:w-[calc((100%-32px)/3)] lg:w-[calc((100%-48px)/4)] snap-start">
+                    <div className="bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-200 border border-gray-200 p-5 h-full group hover:border-gray-300 overflow-hidden">
                       
                       {/* Icon and Category */}
                       <div className="flex items-start justify-between mb-4">
