@@ -15,7 +15,7 @@ export type ConversationType = {
 
 export type MessageData = {
   date: string;
-  messages: Message[];
+  messages: MessageType[];
 };
 
 export type ConversationStatus =

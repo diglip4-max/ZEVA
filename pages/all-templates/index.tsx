@@ -32,6 +32,7 @@ const TemplatesPage: NextPageWithLayout = () => {
   const [filterType, setFilterType] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [isSyncing, setIsSyncing] = useState<boolean>(false);
 
   const [permissions, _setPermissions] = useState({
     canCreate: false,
@@ -104,7 +105,7 @@ const TemplatesPage: NextPageWithLayout = () => {
   const handleSyncTemplates = async () => {
     if (!token) return;
     try {
-      setLoading(true);
+      setIsSyncing(true);
       const res = await axios.post(
         "/api/all-templates/sync-templates",
         {},
@@ -117,8 +118,6 @@ const TemplatesPage: NextPageWithLayout = () => {
       }
     } catch (error) {
       console.log("Error syncing templates: ", error);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -356,10 +355,12 @@ const TemplatesPage: NextPageWithLayout = () => {
           <div className="flex items-center gap-2">
             <button
               onClick={handleSyncTemplates}
-              className="inline-flex items-center justify-center cursor-pointer gap-1.5 bg-white border border-gray-200 hover:bg-gray-100 text-gray-600 px-3 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs sm:text-sm font-medium"
+              className={`inline-flex items-center justify-center cursor-pointer gap-1.5 ${
+                !isSyncing ? "bg-white" : "bg-gray-200"
+              } border border-gray-200 hover:bg-gray-100 text-gray-600 px-3 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs sm:text-sm font-medium`}
             >
               <RefreshCcw className="h-5 w-5" />
-              Sync Templates
+              {!isSyncing ? "Sync Templates" : "Syncing..."}
             </button>
             <Link href="/all-templates/new">
               <button className="inline-flex items-center justify-center cursor-pointer gap-1.5 bg-gray-800 hover:bg-gray-900 text-white px-3 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs sm:text-sm font-medium">

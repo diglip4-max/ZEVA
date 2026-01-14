@@ -48,6 +48,7 @@ export async function emitIncomingMessageToUser(userId, message) {
   console.log({
     userId,
     socketId,
+    io,
   });
   if (io && socketId) {
     io.to(socketId).emit("incomingMessage", message);

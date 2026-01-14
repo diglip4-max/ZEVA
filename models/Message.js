@@ -124,6 +124,11 @@ const MessageSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    emojis: [
+      {
+        type: String,
+      },
+    ],
     // New field for quoted messages
     replyToMessageId: {
       type: mongoose.Schema.Types.ObjectId,

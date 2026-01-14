@@ -6,7 +6,7 @@ import Message from "../../../models/Message";
 import { getUserFromReq, requireRole } from "../lead-ms/auth";
 
 export default async function handler(req, res) {
-  console.log({ b: req.body });
+  
   if (req.method !== "GET") {
     return res
       .status(405)
@@ -97,6 +97,13 @@ export default async function handler(req, res) {
       } else {
         query.status = status;
       }
+
+      // fetch by filters of ownerId
+      if (req.query.ownerId) {
+        query.ownerId = req.query.ownerId;
+      }
+
+
 
       // Search by contact name or phone number
       let leadIdsFromSearch = null;

@@ -38,7 +38,6 @@ export default async function handler(req, res) {
       }
       clinic = await Clinic.findById(me.clinicId);
     } else if (me.role === "doctor") {
-      // Doctor uses their clinicId if they have one
       if (!me.clinicId) {
         return res
           .status(403)
@@ -46,7 +45,6 @@ export default async function handler(req, res) {
       }
       clinic = await Clinic.findById(me.clinicId);
     } else if (me.role === "doctorStaff" || me.role === "staff") {
-      // DoctorStaff/Staff uses their clinicId if they have one
       if (!me.clinicId) {
         return res
           .status(403)
@@ -54,7 +52,6 @@ export default async function handler(req, res) {
       }
       clinic = await Clinic.findById(me.clinicId);
     } else if (me.role === "admin") {
-      // Admin can access all leads, but we still need clinicId if provided
       const { clinicId: adminClinicId } = req.query;
       if (adminClinicId) {
         clinic = await Clinic.findById(adminClinicId);
@@ -66,12 +63,10 @@ export default async function handler(req, res) {
         .status(404)
         .json({ success: false, message: "Clinic not found for this user" });
     }
-
     // ✅TODO: Check permission for reading leads (only for clinic, agent, doctor, and doctorStaff/staff; admin bypasses)
     if (me.role !== "admin" && clinic._id) {
       // For Get Messages Permissions
     }
-
     try {
       const { conversationId } = req.query;
       const page = parseInt(req.query.page) || 1;
@@ -88,28 +83,49 @@ export default async function handler(req, res) {
         .populate("recipientId", "name email phone")
         .populate({
           path: "replyToMessageId",
-          select: "content mediaType mediaUrl channel direction", // Fields of the reply message
+          select: "content mediaType mediaUrl channel direction",
           populate: [
             {
               path: "senderId",
-              select: "name email phone", // Specific fields of sender in the reply
+              select: "name email phone",
             },
             {
               path: "recipientId",
-              select: "name email phone", // Specific fields of recipient in the reply
+              select: "name email phone",
             },
           ],
-        });
-      messages = messages.reverse(); // Reverse to chronological order
-      const totalMessages = await Message.countDocuments(query);
+        })
+        .lean(); // 🔥 CRITICAL: Add .lean() to get plain JavaScript objects
 
+      // Group messages by date
+      const groupedMessages = {};
+
+      messages.forEach((message) => {
+        if (!message.createdAt) return;
+
+        const date = new Date(message.createdAt).toISOString().split("T")[0];
+        if (!groupedMessages[date]) {
+          groupedMessages[date] = [];
+        }
+        groupedMessages[date].push(message);
+      });
+
+      // Convert grouped messages into array of {date, messages} sorted in ascending order of date
+      const formatedData = Object.keys(groupedMessages)
+        .sort((a, b) => new Date(a) - new Date(b))
+        .map((date) => ({
+          date,
+          messages: groupedMessages[date].reverse(), // Reverse the messages within each date group
+        }));
+
+      const totalMessages = await Message.countDocuments(query);
       const totalPages = Math.ceil(totalMessages / limit);
       const hasMore = page * limit < totalMessages;
 
       res.status(200).json({
         success: true,
         message: "Found.",
-        messages,
+        data: formatedData,
         pagination: {
           totalMessages,
           totalPages,

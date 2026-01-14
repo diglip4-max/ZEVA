@@ -1,4 +1,9 @@
-import { ConversationType, MessageType, Provider } from "@/types/conversations";
+import {
+  ConversationType,
+  MessageData,
+  MessageType,
+  Provider,
+} from "@/types/conversations";
 import axios from "axios";
 import React, { useCallback, useEffect, useState } from "react";
 import useProvider from "./useProvider";
@@ -27,6 +32,7 @@ interface IState {
   conversations: ConversationType[];
   filters: {
     status: string;
+    agentId: string;
   };
 }
 
@@ -67,12 +73,14 @@ const useInbox = () => {
   const { templates } = useTemplate();
   const agents = useAgents()?.state?.agents || [];
   const agentFetchLoading = useAgents()?.state?.loading || false;
-  const [_userId, setUserId] = useState<string | null>(null);
+  const [socketInstance, setSocketInstance] = useState<Socket | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
   const [fetchConvLoading, setFetchConvLoading] = useState<boolean>(true);
+  const [fetchMsgsLoading, setFetchMsgsLoading] = useState<boolean>(true);
   const [conversations, setConversations] = useState<IState["conversations"]>(
     []
   );
-  const [messages, setMessages] = useState<MessageType[]>([]);
+  const [messages, setMessages] = useState<MessageData[]>([]);
   const [selectedConversation, setSelectedConversation] =
     useState<ConversationType | null>(null);
   const [selectedProvider, setSelectedProvider] = useState<Provider | null>(
@@ -124,6 +132,7 @@ const useInbox = () => {
   ]);
   const [filters, setFilters] = useState<IState["filters"]>({
     status: "all",
+    agentId: "",
   });
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
   const [isMobileView, setIsMobileView] = useState<boolean>(false);
@@ -142,17 +151,105 @@ const useInbox = () => {
   const [isScheduleModalOpen, setIsScheduleModalOpen] =
     useState<boolean>(false);
 
+  // filter modal state
+  const [isFilterModalOpen, setIsFilterModalOpen] = useState<boolean>(false);
+
   const statusDropdownRef = React.useRef<HTMLDivElement | null>(null);
   const statusBtnRef = React.useRef<HTMLButtonElement | null>(null);
 
   const textAreaRef = React.useRef<HTMLTextAreaElement | null>(null);
 
   const conversationRef = React.useRef<HTMLDivElement | null>(null);
+  const scrollMsgsRef = React.useRef<HTMLDivElement | null>(null);
+  const previousScrollTopRef = React.useRef<number | null>(0); // Track previous scroll position for messages to stop fetching when scroll top to bottom
   const messageRef = React.useRef<HTMLDivElement | null>(null);
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
 
   const token =
     typeof window !== "undefined" ? localStorage.getItem("clinicToken") : null;
+
+  // Separate function to handle incoming messages
+  const handleIncomingMessage = useCallback(
+    (message: MessageType) => {
+      console.log("Incoming message via socket:", message);
+
+      // Update conversations list
+      setConversations((prevConversations) => {
+        let convExists = false;
+        const updatedConversations = prevConversations.map((conv) => {
+          if (conv._id === message.conversationId) {
+            convExists = true;
+            return {
+              ...conv,
+              recentMessage: message,
+              unreadMessages: [...(conv.unreadMessages || []), message._id],
+            };
+          }
+          return conv;
+        });
+
+        if (!convExists) {
+          return prevConversations;
+        }
+
+        // Move the updated conversation to the front
+        updatedConversations.sort((a, b) =>
+          a._id === message.conversationId
+            ? -1
+            : b._id === message.conversationId
+            ? 1
+            : 0
+        );
+        return updatedConversations;
+      });
+
+      // Update messages if it belongs to the selected conversation
+      if (message.conversationId === selectedConversation?._id) {
+        setMessages((prevMessages) => {
+          const lastGroup = prevMessages[prevMessages.length - 1];
+          const today = new Date().toISOString().split("T")[0];
+
+          if (lastGroup && lastGroup.date === today) {
+            // Add to existing today's group
+            return prevMessages.map((group, index) =>
+              index === prevMessages.length - 1
+                ? { ...group, messages: [...group.messages, message] }
+                : group
+            );
+          } else {
+            // Create new group for today
+            return [...prevMessages, { date: today, messages: [message] }];
+          }
+        });
+      }
+    },
+    [selectedConversation]
+  );
+
+  // Separate function to handle status updates
+  const handleMessageStatusUpdate = useCallback(
+    (message: MessageType) => {
+      console.log("Message status update:", message);
+
+      if (message.conversationId === selectedConversation?._id) {
+        setMessages((prevMessages) =>
+          prevMessages.map((group) => {
+            const updatedMessages = group.messages.map((msg) =>
+              msg._id === message._id ? message : msg
+            );
+
+            // Check if any message was actually updated
+            const hasChange = updatedMessages.some(
+              (msg, index) => msg._id !== group.messages[index]?._id
+            );
+
+            return hasChange ? { ...group, messages: updatedMessages } : group;
+          })
+        );
+      }
+    },
+    [selectedConversation]
+  );
 
   // Scroll to bottom
   const handleScrollMsgsToBottom = () => {
@@ -170,6 +267,7 @@ const useInbox = () => {
             limit: 10,
             search: searchConvInput,
             status: filters.status,
+            ownerId: filters.agentId,
           },
           headers: { Authorization: `Bearer ${token}` },
         });
@@ -214,37 +312,57 @@ const useInbox = () => {
     [currentConvPage, token, searchConvInput, filters]
   );
 
-  const fetchMessages = useCallback(
-    debounce(async () => {
-      if (!token) return;
-      if (!selectedConversation) return;
-      try {
-        const res = await axios.get(
-          `/api/messages/get-messages/${selectedConversation?._id}`,
-          {
-            params: { page: currentMsgPage, limit: 500 },
-            headers: { Authorization: `Bearer ${token}` },
-          }
-        );
-        if (res.data?.success) {
-          // If requesting first page, replace conversations; otherwise append
-          const newMsgs = res.data.messages || [];
-          if (currentMsgPage === 1) {
-            setMessages(newMsgs);
-          } else {
-            setMessages((prev) => [...prev, ...newMsgs]);
-          }
-          setTotalMessages(res?.data?.pagination?.totalMessages || 0);
-          setHasMoreMessages(Boolean(res?.data?.pagination?.hasMore));
-        } else {
-          setMessages([]);
+  const fetchMessages = async (page = 1) => {
+    if (!token) return;
+    if (!selectedConversation) return;
+    try {
+      setFetchMsgsLoading(true);
+      const res = await axios.get(
+        `/api/messages/get-messages/${selectedConversation?._id}`,
+        {
+          params: { page: page, limit: 5 },
+          headers: { Authorization: `Bearer ${token}` },
         }
-      } catch (error) {
+      );
+      if (res.data?.success) {
+        // If requesting first page, replace conversations; otherwise append
+        const messagesData = res.data?.data || [];
+        if (page === 1) {
+          setMessages(messagesData);
+        } else {
+          let mergedMessages = [...messages]?.map((g) => ({
+            ...g,
+            messages: [...g?.messages],
+          }));
+          mergedMessages?.forEach((ng) => {
+            const existingGroupIndex = mergedMessages?.findIndex(
+              (g) => g?.date === ng?.date
+            );
+            if (existingGroupIndex !== -1) {
+              // Merge into existing date group
+              mergedMessages[existingGroupIndex].messages = [
+                ...ng?.messages,
+                ...mergedMessages[existingGroupIndex].messages,
+              ];
+            } else {
+              // Push new date group at begining
+              mergedMessages.unshift(ng);
+            }
+          });
+          setMessages(mergedMessages);
+        }
+        setTotalMessages(res?.data?.pagination?.totalMessages || 0);
+        setHasMoreMessages(Boolean(res?.data?.pagination?.hasMore));
+        setCurrentMsgPage(page);
+      } else {
         setMessages([]);
       }
-    }, 300),
-    [selectedConversation, currentMsgPage, token]
-  );
+    } catch (error) {
+      setMessages([]);
+    } finally {
+      setFetchMsgsLoading(false);
+    }
+  };
 
   const handleSendMessage = async () => {
     if (!selectedConversation) return;
@@ -296,6 +414,7 @@ const useInbox = () => {
       }));
     }
     const tempMessageId = Date.now()?.toString(); // Ensure a unique identifier
+    const dateString = new Date().toISOString().split("T")[0];
     const tempMessage = {
       _id: tempMessageId,
       conversationId: selectedConversation._id,
@@ -319,7 +438,25 @@ const useInbox = () => {
     setSelectedMessage(null);
 
     // If the date group does not exist, add it at the end to preserve order
-    const finalMessages = [...messages, tempMessage];
+    const tempMessages = messages.map((group) => ({
+      ...group,
+      messages: [...group.messages],
+    }));
+
+    let dateGroupExists = false;
+    const updatedMessages = tempMessages.map((group) => {
+      if (group?.date === dateString) {
+        dateGroupExists = true;
+        return {
+          ...group,
+          messages: [...group.messages, tempMessage],
+        };
+      }
+      return group;
+    });
+    const finalMessages = dateGroupExists
+      ? updatedMessages
+      : [...updatedMessages, { date: dateString, messages: [tempMessage] }];
 
     // @ts-ignore
     setMessages(finalMessages);
@@ -421,10 +558,18 @@ const useInbox = () => {
       if (data && data.success) {
         const newMessage = data.data;
 
-        const updatedFinalMessages = finalMessages.map((msg) =>
-          msg._id === tempMessageId ? newMessage : msg
+        const updatedFinalMessages = finalMessages.map((group) =>
+          group?.date === dateString
+            ? {
+                ...group,
+                messages: group.messages.map((msg) =>
+                  msg?._id === tempMessageId ? newMessage : msg
+                ),
+              }
+            : group
         );
 
+        // @ts-ignore
         setMessages(updatedFinalMessages);
         setSelectedTemplate(null);
 
@@ -451,8 +596,15 @@ const useInbox = () => {
         setAttachedFiles([]);
       }
     } catch (error) {
-      const errorHandledMessages = finalMessages.filter(
-        (msg) => msg._id !== tempMessageId
+      const errorHandledMessages = finalMessages.map((g) =>
+        g?.date === dateString
+          ? {
+              ...g,
+              messages: g?.messages?.filter(
+                (msg) => msg?._id !== tempMessageId
+              ),
+            }
+          : g
       );
       //   @ts-ignore
       setMessages(errorHandledMessages);
@@ -518,6 +670,7 @@ const useInbox = () => {
       }));
     }
     const tempMessageId = Date.now()?.toString(); // Ensure a unique identifier
+    const dateString = new Date().toISOString().split("T")[0];
     const tempMessage = {
       _id: tempMessageId,
       conversationId: selectedConversation._id,
@@ -541,7 +694,26 @@ const useInbox = () => {
     setSelectedMessage(null);
 
     // If the date group does not exist, add it at the end to preserve order
-    const finalMessages = [...messages, tempMessage];
+    // If the date group does not exist, add it at the end to preserve order
+    const tempMessages = messages.map((group) => ({
+      ...group,
+      messages: [...group.messages],
+    }));
+
+    let dateGroupExists = false;
+    const updatedMessages = tempMessages.map((group) => {
+      if (group.date === dateString) {
+        dateGroupExists = true;
+        return {
+          ...group,
+          messages: [...group.messages, tempMessage],
+        };
+      }
+      return group;
+    });
+    const finalMessages = dateGroupExists
+      ? updatedMessages
+      : [...updatedMessages, { date: dateString, messages: [tempMessage] }];
 
     // @ts-ignore
     setMessages(finalMessages);
@@ -644,10 +816,18 @@ const useInbox = () => {
       if (data && data.success) {
         const newMessage = data.data;
 
-        const updatedFinalMessages = finalMessages.map((msg) =>
-          msg._id === tempMessageId ? newMessage : msg
+        const updatedFinalMessages = finalMessages.map((group) =>
+          group?.date === dateString
+            ? {
+                ...group,
+                messages: group.messages.map((msg) =>
+                  msg?._id === tempMessageId ? newMessage : msg
+                ),
+              }
+            : group
         );
 
+        // @ts-ignore
         setMessages(updatedFinalMessages);
         setSelectedTemplate(null);
 
@@ -674,8 +854,15 @@ const useInbox = () => {
         setAttachedFiles([]);
       }
     } catch (error) {
-      const errorHandledMessages = finalMessages.filter(
-        (msg) => msg._id !== tempMessageId
+      const errorHandledMessages = finalMessages.map((g) =>
+        g?.date === dateString
+          ? {
+              ...g,
+              messages: g?.messages?.filter(
+                (msg) => msg?._id !== tempMessageId
+              ),
+            }
+          : g
       );
       //   @ts-ignore
       setMessages(errorHandledMessages);
@@ -734,6 +921,41 @@ const useInbox = () => {
     if (nearBottom && hasMoreMessages) {
       setCurrentMsgPage((p) => p + 1);
     }
+  };
+  const handleScrollMessages = () => {
+    if (!scrollMsgsRef.current || fetchMsgsLoading || !hasMoreMessages) {
+      return;
+    }
+
+    const { scrollTop, scrollHeight, clientHeight } = scrollMsgsRef.current;
+    const isAtBottom = scrollTop + clientHeight >= scrollHeight - 10;
+
+    setIsScrolledToBottom(!isAtBottom);
+
+    if (previousScrollTopRef.current === null) {
+      previousScrollTopRef.current = scrollTop;
+      return;
+    }
+
+    // Only load more messages if we're near the top and haven't reached the limit
+    if (
+      scrollTop < previousScrollTopRef.current &&
+      scrollTop <= 20 &&
+      hasMoreMessages
+    ) {
+      const nextPage = currentMsgPage + 1;
+      const prevHeight = scrollMsgsRef.current.scrollHeight; // ✅ Store scroll height before fetching
+      fetchMessages(nextPage).then(() => {
+        requestAnimationFrame(() => {
+          if (scrollMsgsRef.current) {
+            const newHeight = scrollMsgsRef.current.scrollHeight;
+            scrollMsgsRef.current.scrollTop += newHeight - prevHeight; // ✅ Adjust scroll after messages append
+          }
+        });
+      });
+    }
+
+    previousScrollTopRef.current = scrollTop;
   };
 
   const checkWhatsappAvailabilityWindow = useCallback(async () => {
@@ -891,6 +1113,18 @@ const useInbox = () => {
     }
   };
 
+  const handleAgentFilterChange = (agentId: string | null) => {
+    setFilters((prev) => ({
+      ...prev,
+      agentId: agentId || "", // Convert null to '' to remove the filter
+    }));
+  };
+
+  const handleApplyFilters = () => {
+    // Fetch conversations with new filters
+    setCurrentConvPage(1);
+  };
+
   // select agent by default based on selected conversation
   useEffect(() => {
     if (selectedConversation && agents?.length > 0) {
@@ -923,85 +1157,75 @@ const useInbox = () => {
 
   // Socket connection
   useEffect(() => {
-    if (!token) return;
+    if (!token && !userId) return;
 
-    // Type assertion to satisfy TS
-    const decoded = jwtDecode(token) as DecodedToken;
-    setUserId(decoded.userId);
+    const decoded = jwtDecode(token || "{}") as DecodedToken;
+    const currentUserId = userId || decoded?.userId;
+    setUserId(currentUserId);
 
-    socket = io({
-      path: "/api/messages/socketio",
-      query: { userId: decoded.userId },
-    });
-    socket.emit("register", decoded.userId);
-
-    socket.on("incomingMessage", (message: MessageType) => {
-      console.log("Incoming message via socket:", message);
-      console.log({
-        selectedConversationId: selectedConversation?._id,
-        messageConversationId: message.conversationId,
+    // Create socket if it doesn't exist or is disconnected
+    if (!socket || !socket.connected) {
+      socket = io({
+        path: "/api/messages/socketio",
+        query: { userId: currentUserId },
+        transports: ["websocket", "polling"], // Add transports for better compatibility
+        reconnection: true,
+        reconnectionAttempts: 5,
+        reconnectionDelay: 1000,
       });
 
-      // Update conversations list
-      setConversations((prevConversations) => {
-        let convExists = false;
-        const updatedConversations = prevConversations.map((conv) => {
-          if (conv._id === message.conversationId) {
-            convExists = true;
-            return {
-              ...conv,
-              recentMessage: message,
-              unreadMessages: [...conv.unreadMessages, message._id],
-            };
-          }
-          return conv;
-        });
+      setSocketInstance(socket);
 
-        // If conversation doesn't exist, optionally fetch it from server
-        if (!convExists) {
-          // TODO: For simplicity, we won't fetch the full conversation here. In a real app, you might want to do that.
-          // TODO: You can also show a toast notification for new conversation message
-          // TODO: For now, just return previous conversations
-          // TODO: Alternatively, you could add the new conversation to the list if you have its details or you can fetch it.
-          return prevConversations;
-        }
-        // Move the updated conversation to the front
-        updatedConversations.sort((a, b) =>
-          a._id === message.conversationId
-            ? -1
-            : b._id === message.conversationId
-            ? 1
-            : 0
-        );
-        return updatedConversations;
+      // Log socket events for debugging
+      socket.on("connect", () => {
+        console.log("Socket connected with ID:", socket?.id);
       });
 
-      // Update messages if it belongs to the selected conversation
-      if (message.conversationId === selectedConversation?._id) {
-        if (message?.channel === "whatsapp") checkWhatsappAvailabilityWindow();
-        setMessages((prev) => [...prev, message]);
-      }
-    });
-
-    socket.on("messageStatusUpdate", (message: any) => {
-      console.log("Message status update:", message);
-      console.log({
-        selectedConversationId: selectedConversation?._id,
-        messageConversationId: message.conversationId,
-        status: message.status,
+      socket.on("connect_error", (error) => {
+        console.error("Socket connection error:", error);
       });
-      if (message.conversationId === selectedConversation?._id) {
-        const updatedMessages = messages.map((msg) =>
-          msg._id === message._id ? { ...msg, status: message.status } : msg
-        );
-        setMessages(updatedMessages);
-      }
-    });
 
+      socket.on("disconnect", (reason) => {
+        console.log("Socket disconnected:", reason);
+      });
+
+      socket.emit("register", currentUserId);
+
+      // Set up message listeners
+      socket.on("incomingMessage", handleIncomingMessage);
+      socket.on("messageStatusUpdate", handleMessageStatusUpdate);
+    } else if (socket.connected) {
+      // Re-register if socket is already connected
+      socket.emit("register", currentUserId);
+    }
+
+    console.log({ socket });
+
+    // Cleanup function
     return () => {
-      socket?.disconnect();
+      // Don't disconnect the socket, just remove the listeners
+      // This allows the socket to persist across re-renders
+      if (socket) {
+        socket.off("incomingMessage", handleIncomingMessage);
+        socket.off("messageStatusUpdate", handleMessageStatusUpdate);
+      }
     };
-  }, [token, selectedConversation, messages]);
+  }, [token, userId, handleIncomingMessage, handleMessageStatusUpdate]); // Remove messages from dependencies
+
+  // Debug: Log socket events
+  useEffect(() => {
+    if (socketInstance) {
+      console.log("Socket instance updated:", socketInstance.id);
+      console.log("Socket connected:", socketInstance.connected);
+
+      // Debug all socket events
+      const originalEmit = socketInstance.emit;
+      socketInstance.emit = function (...args) {
+        console.log("Socket emitting:", args[0], args[1]);
+        return originalEmit.apply(this, args);
+      };
+    }
+  }, [socketInstance]);
 
   // status filter dropdown click outside handler
   // Close dropdown on outside click or Escape
@@ -1040,14 +1264,20 @@ const useInbox = () => {
 
   useEffect(() => {
     if (!selectedConversation) return;
+
+    // Reset messages and pagination when conversation changes
     setMessages([]);
     setCurrentMsgPage(1);
-  }, [selectedConversation]);
 
+    // Fetch messages for the newly selected conversation
+    fetchMessages(1);
+  }, [selectedConversation, token]);
+
+  // Effect for pagination - only runs when currentMsgPage changes after initial load
   useEffect(() => {
-    if (!selectedConversation) return;
-    fetchMessages();
-  }, [selectedConversation, currentMsgPage, token, fetchMessages]);
+    if (!selectedConversation || currentMsgPage <= 1) return;
+    fetchMessages(currentMsgPage);
+  }, [currentMsgPage]);
 
   useEffect(() => {
     if (providers.length === 0) return;
@@ -1064,10 +1294,17 @@ const useInbox = () => {
     }
   }, [selectedConversation]);
 
-  // Auto-scroll to bottom on new messages
+  // Auto-scroll to bottom only when switching conversations, not when loading more messages via pagination
   useEffect(() => {
-    handleScrollMsgsToBottom();
-  }, [messages]);
+    // Only auto-scroll when first loading a conversation (when messages are initially loaded)
+    // We can detect this by checking if we're on page 1 and it's the initial load
+    if (currentMsgPage === 1 && messages.length > 0) {
+      // Use setTimeout to ensure DOM has updated before scrolling
+      setTimeout(() => {
+        handleScrollMsgsToBottom();
+      }, 0);
+    }
+  }, [messages, currentMsgPage]);
 
   // Add scroll event listener
   useEffect(() => {
@@ -1117,7 +1354,9 @@ const useInbox = () => {
     mediaType,
     mediaUrl,
     sendMsgLoading,
+    fetchMsgsLoading,
     messages,
+    scrollMsgsRef,
     messageRef,
     messagesEndRef,
     totalMessages,
@@ -1146,6 +1385,7 @@ const useInbox = () => {
     selectedAgent,
     agentFetchLoading,
     isScheduleModalOpen,
+    isFilterModalOpen,
   };
 
   return {
@@ -1177,17 +1417,20 @@ const useInbox = () => {
     setIsAddingTag,
     setSelectedAgent,
     setIsScheduleModalOpen,
+    setIsFilterModalOpen,
     fetchConversations,
     fetchMessages,
     handleSendMessage,
     handleReadConversation,
     handleConvScroll,
-    handleMsgScroll,
+    handleScrollMessages,
     handleScrollMsgsToBottom,
     handleDeleteConversation,
     handleAddTagToConversation,
     handleRemoveTagFromConversation,
     handleAgentSelect,
+    handleAgentFilterChange,
+    handleApplyFilters,
     handleScheduleMessage,
   };
 };

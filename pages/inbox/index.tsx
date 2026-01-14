@@ -35,6 +35,9 @@ import AddTagModal from "@/components/modals/AddTagModal";
 import DeleteConversationModal from "./_components/DeleteConversationModal";
 import AssignConversation from "./_components/AssignConversation";
 import ScheduleMessage from "./_components/ScheduleMessage";
+import ConversationSkeleton from "./_components/ConversationSkeleton";
+import MessageSkeleton from "./_components/MessageSkeleton";
+import FilterModal from "./_components/FilterModal";
 // import EmojiPickerModal from "@/components/shared/EmojiPickerModal";
 
 const InboxPage: NextPageWithLayout = () => {
@@ -58,15 +61,18 @@ const InboxPage: NextPageWithLayout = () => {
     setIsAddTagModalOpen,
     setIsDeleteConversationModalOpen,
     setIsScheduleModalOpen,
+    setIsFilterModalOpen,
     handleSendMessage,
     handleScheduleMessage,
     handleConvScroll,
-    handleMsgScroll,
+    handleScrollMessages,
     handleScrollMsgsToBottom,
     handleDeleteConversation,
     handleAddTagToConversation,
     handleRemoveTagFromConversation,
     handleAgentSelect,
+    handleAgentFilterChange,
+    handleApplyFilters,
   } = useInbox();
   const {
     conversationRef,
@@ -88,8 +94,8 @@ const InboxPage: NextPageWithLayout = () => {
     // headerParameters,
     textAreaRef,
     sendMsgLoading,
+    fetchMsgsLoading,
     messages,
-    messageRef,
     showScrollButton,
     messagesEndRef,
     whatsappRemainingTime,
@@ -109,7 +115,9 @@ const InboxPage: NextPageWithLayout = () => {
     selectedAgent,
     agentFetchLoading,
     isScheduleModalOpen,
+    isFilterModalOpen,
     mediaUrl,
+    scrollMsgsRef,
   } = state;
 
   return (
@@ -151,8 +159,21 @@ const InboxPage: NextPageWithLayout = () => {
                 onChange={(e) => setSearchConvInput(e.target.value)}
               />
             </div>
-            <button className="p-2.5 bg-gray-800 text-white border border-gray-800 rounded-lg hover:bg-gray-700 transition-colors shadow-sm">
+            <button
+              onClick={() => setIsFilterModalOpen(true)}
+              className={`relative p-2.5 border ${
+                filters?.agentId
+                  ? "bg-blue-100 text-blue-500 border-blue-500"
+                  : "bg-white text-gray-600 border-gray-300"
+              } rounded-lg hover:bg-gray-100 cursor-pointer transition-colors shadow-sm`}
+            >
               <Filter className="h-5 w-5" />
+
+              {filters?.agentId && (
+                <span className="absolute -top-2 -right-2 bg-blue-500 text-white w-4 h-4 text-xs flex items-center justify-center rounded-full">
+                  1
+                </span>
+              )}
             </button>
           </div>
 
@@ -282,11 +303,13 @@ const InboxPage: NextPageWithLayout = () => {
             ))
           )}
           {fetchConvLoading && (
-            <div className="text-center">
-              <span className="text-sm text-gray-500 text-center mt-3 block">
-                Loading...
-              </span>
-            </div>
+            <>
+              {Array(6)
+                .fill(0)
+                .map((_, index) => (
+                  <ConversationSkeleton key={index} />
+                ))}
+            </>
           )}
         </div>
       </div>
@@ -353,30 +376,44 @@ const InboxPage: NextPageWithLayout = () => {
 
             {/* Messages Area */}
             <div
-              ref={messageRef}
-              onScroll={handleMsgScroll}
+              ref={scrollMsgsRef}
+              onScroll={handleScrollMessages}
               className="flex-1 overflow-y-auto overflow-x-hidden p-4 space-y-6 bg-gradient-to-b from-gray-50 to-gray-100"
             >
-              {/* Sticky Date Header (updates based on visible messages) */}
-              {messages.length > 0 && (
-                <div className="sticky top-2 z-10 pointer-events-none">
-                  <div className="text-center">
-                    <span className="text-sm text-gray-500 bg-white px-4 py-2 rounded-full border border-gray-200 shadow-sm font-medium">
-                      {"11/02/2025"}
-                    </span>
-                  </div>
-                </div>
+              {fetchMsgsLoading && (
+                <>
+                  <MessageSkeleton />
+                </>
               )}
-
               {/* Messages */}
-              {messages.map((msg) => (
-                <div key={msg?._id} data-createdat={msg?.createdAt}>
-                  <Message
-                    message={msg}
-                    onSelectMessage={(msg) => setSelectedMessage(msg)}
-                  />
-                </div>
-              ))}
+              {messages.map((item, parentIndex: number) => {
+                return (
+                  <div key={parentIndex?.toString()}>
+                    <div className="flex items-center my-5">
+                      <div className="flex-grow border-t border-slate-200"></div>
+                      <p className="mx-3 text-sm text-gray-600">{item?.date}</p>
+                      <div className="flex-grow border-t border-slate-200"></div>
+                    </div>
+                    {item?.messages?.map((msg, childIndex: number) => {
+                      return parentIndex === messages?.length - 1 &&
+                        childIndex === item?.messages?.length - 1 ? (
+                        <div key={msg?._id} ref={messagesEndRef}>
+                          <Message
+                            message={msg}
+                            onSelectMessage={(msg) => setSelectedMessage(msg)}
+                          />
+                        </div>
+                      ) : (
+                        <Message
+                          key={msg?._id}
+                          message={msg}
+                          onSelectMessage={(msg) => setSelectedMessage(msg)}
+                        />
+                      );
+                    })}
+                  </div>
+                );
+              })}
 
               {/* Scroll anchor */}
               <div ref={messagesEndRef} />
@@ -947,6 +984,16 @@ const InboxPage: NextPageWithLayout = () => {
             : []
         }
         loading={sendMsgLoading}
+      />
+
+      {/* Filter Modal */}
+      <FilterModal
+        isOpen={isFilterModalOpen}
+        onClose={() => setIsFilterModalOpen(false)}
+        agents={agents}
+        selectedAgentId={filters.agentId || null}
+        onAgentSelect={handleAgentFilterChange}
+        onApplyFilters={handleApplyFilters}
       />
     </div>
   );
