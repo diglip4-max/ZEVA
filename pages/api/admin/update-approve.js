@@ -89,18 +89,109 @@ export default async function handler(req, res) {
           console.log(`✅ Slug generated successfully: ${finalClinic.slug}`);
           
           // Step 3: Run SEO pipeline after slug generation
+          let seoResult = null;
+          let seoMessages = [];
+          
           try {
             console.log(`🚀 Running SEO pipeline for clinic: ${clinicId}`);
-            const seoResult = await runSEOPipeline('clinic', clinicId.toString(), finalClinic);
+            seoResult = await runSEOPipeline('clinic', clinicId.toString(), finalClinic);
+            
             if (seoResult.success) {
               console.log(`✅ SEO pipeline completed successfully`);
+              
+              // Generate user-friendly messages from SEO results
+              if (seoResult.indexing) {
+                if (!seoResult.indexing.shouldIndex) {
+                  seoMessages.push({
+                    type: 'info',
+                    message: `🚧 Your clinic page is saved as draft. ${seoResult.indexing.reason}. Complete your profile to appear on Google search results.`,
+                  });
+                } else {
+                  seoMessages.push({
+                    type: 'success',
+                    message: `✅ Your clinic page is ready for Google search!`,
+                  });
+                }
+              }
+              
+              if (seoResult.robots) {
+                const robotsMsg = seoResult.robots.noindex 
+                  ? 'Search engines will wait until your profile is complete.'
+                  : 'Search engines can now index your clinic page.';
+                seoMessages.push({
+                  type: 'info',
+                  message: robotsMsg,
+                });
+              }
+              
+              if (seoResult.meta) {
+                seoMessages.push({
+                  type: 'success',
+                  message: `✨ We optimized your clinic page for Google search to improve visibility.`,
+                });
+              }
+              
+              if (seoResult.headings) {
+                seoMessages.push({
+                  type: 'success',
+                  message: `🧾 Page headings are optimized to avoid duplication on search engines.`,
+                });
+              }
+              
+              if (seoResult.canonical) {
+                seoMessages.push({
+                  type: 'success',
+                  message: `🔗 Your clinic page has a single official link to avoid confusion on Google.`,
+                });
+              }
+              
+              if (seoResult.duplicateCheck) {
+                if (seoResult.duplicateCheck.isDuplicate) {
+                  seoMessages.push({
+                    type: 'warning',
+                    message: `⚠️ Similar clinic found: ${seoResult.duplicateCheck.reason}`,
+                  });
+                } else {
+                  seoMessages.push({
+                    type: 'success',
+                    message: `✅ Your clinic is recognized as a separate and unique business.`,
+                  });
+                }
+              }
+              
+              if (seoResult.sitemapUpdated) {
+                seoMessages.push({
+                  type: 'success',
+                  message: `📡 Your clinic page has been submitted for discovery on search engines.`,
+                });
+              }
+              
+              if (seoResult.pinged) {
+                seoMessages.push({
+                  type: 'success',
+                  message: `🚀 Search engines have been notified. Your page will start appearing soon.`,
+                });
+              }
+              
             } else {
               console.warn(`⚠️ SEO pipeline completed with warnings:`, seoResult.errors);
+              seoMessages.push({
+                type: 'warning',
+                message: `⚠️ SEO setup completed with some warnings. Please review your clinic profile.`,
+              });
             }
           } catch (seoError) {
             // SEO errors are non-fatal - log but continue
             console.error("❌ SEO pipeline error (non-fatal):", seoError.message);
+            seoMessages.push({
+              type: 'error',
+              message: `❌ SEO setup encountered an error. Your clinic is approved but SEO features may be limited.`,
+            });
           }
+          
+          // Store SEO messages in response
+          finalClinic._seoMessages = seoMessages;
+          finalClinic._seoResult = seoResult;
         } else {
           console.log(`⚠️ Slug generation completed but slugLocked is false`);
         }
@@ -118,11 +209,30 @@ export default async function handler(req, res) {
       ? " and slug generated" 
       : "";
 
-    res.status(200).json({
+    // Generate final response with SEO information
+    const response = {
       success: true,
       message: "Clinic approved" + slugMessage,
       clinic: finalClinic,
-    });
+    };
+    
+    // Add SEO messages if available
+    if (finalClinic._seoMessages) {
+      response.seo_messages = finalClinic._seoMessages;
+      response.seo_result = finalClinic._seoResult;
+      
+      // Clean up temporary fields before sending
+      delete finalClinic._seoMessages;
+      delete finalClinic._seoResult;
+    }
+    
+    // Add slug lock message
+    if (slugGenerated && finalClinic.slugLocked) {
+      response.slug_locked = true;
+      response.slug_lock_message = "🔒 Your clinic link is now permanent and cannot be changed to protect SEO rankings.";
+    }
+
+    res.status(200).json(response);
   } catch (error) {
     console.error("❌ Clinic Approval Error:", error);
     res.status(500).json({

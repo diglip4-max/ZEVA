@@ -58,6 +58,64 @@ export default async function handler(req, res) {
       // Clinic, admin, and doctor users bypass permission checks
     }
 
+    // Generate slug preview (not locked yet, will be locked on approval)
+    let slugPreview = null;
+    let slugPreviewUrl = null;
+    let slugUserMessage = null;
+    
+    try {
+      const { slugify, generateUniqueSlug } = await import('../../../lib/utils');
+      
+      // Extract city from location
+      let cityName = '';
+      if (req.body.location) {
+        const locationParts = req.body.location.split(',').map(part => part.trim());
+        cityName = locationParts[0] || '';
+      }
+
+      // Generate base slug from job title
+      const baseSlugFromTitle = slugify(req.body.jobTitle);
+      let baseSlug = baseSlugFromTitle;
+      if (cityName) {
+        const citySlug = slugify(cityName);
+        baseSlug = `${baseSlugFromTitle}-${citySlug}`;
+      }
+
+      if (baseSlug) {
+        // Check if slug exists (checking locked slugs only)
+        const checkExists = async (slugToCheck) => {
+          const existing = await JobPosting.findOne({
+            slug: slugToCheck,
+            slugLocked: true,
+            status: 'approved',
+          });
+          return !!existing;
+        };
+
+        // Generate unique slug
+        const finalSlug = await generateUniqueSlug(baseSlug, checkExists);
+        slugPreview = finalSlug;
+        
+        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://zeva360.com';
+        slugPreviewUrl = `${baseUrl}/job-details/${finalSlug}`;
+        
+        // User-friendly message
+        const collisionResolved = finalSlug !== baseSlug;
+        if (collisionResolved && cityName) {
+          slugUserMessage = `Good news! Another job already uses this title, so we added your city (${cityName}) to create a unique page for you.`;
+        } else if (collisionResolved) {
+          slugUserMessage = 'Good news! Another job already uses this title, so we added a number to create a unique page for you.';
+        } else {
+          slugUserMessage = 'Your job posting page is ready! We created a unique URL based on your job title' + 
+            (cityName ? ` and city (${cityName})` : '') + 
+            ' to help candidates find you easily.';
+        }
+      }
+    } catch (slugError) {
+      console.error('❌ Slug preview generation error (non-fatal):', slugError.message);
+      // Continue with job creation even if slug preview fails
+    }
+
     const newJob = await JobPosting.create({
       ...req.body,
       postedBy: me._id,
@@ -66,7 +124,15 @@ export default async function handler(req, res) {
       status: 'pending',
     });
 
-    res.status(201).json({ success: true, job: newJob });
+    res.status(201).json({ 
+      success: true, 
+      job: newJob,
+      slug_preview: slugPreview ? {
+        slug: slugPreview,
+        url: slugPreviewUrl,
+        user_message: slugUserMessage,
+      } : null,
+    });
   } catch (error) {
     console.error("Error creating job:", error);
     res.status(500).json({ success: false, message: "Internal server error" });

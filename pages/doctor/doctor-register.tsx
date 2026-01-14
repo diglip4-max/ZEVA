@@ -119,6 +119,14 @@ export default function DoctorRegister() {
   const [isCheckingEmail, setIsCheckingEmail] = useState<boolean>(false);
   const [emailError, setEmailError] = useState<string>("");
   const [showSuccessPopup, setShowSuccessPopup] = useState<boolean>(false);
+  const [slugPreview, setSlugPreview] = useState<{
+    slug: string;
+    url: string;
+    user_message: string;
+    collision_resolved: boolean;
+  } | null>(null);
+  const [isCheckingSlug, setIsCheckingSlug] = useState<boolean>(false);
+  const slugCheckTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Fetch treatments from backend API
   useEffect(() => {
@@ -174,6 +182,46 @@ export default function DoctorRegister() {
       setToast({ show: false, message: "", type: 'info' });
     }, 5000);
   };
+
+  // Check slug availability when name and address change
+  const checkSlugAvailability = useCallback(async (name: string, address: string) => {
+    if (!name.trim() || !address.trim()) {
+      setSlugPreview(null);
+      return;
+    }
+
+    // Clear previous timer
+    if (slugCheckTimerRef.current) {
+      clearTimeout(slugCheckTimerRef.current);
+    }
+
+    // Debounce slug check
+    slugCheckTimerRef.current = setTimeout(async () => {
+      setIsCheckingSlug(true);
+      try {
+        const response = await axios.post('/api/doctor/check-slug', {
+          name: name.trim(),
+          address: address.trim(),
+        });
+
+        if (response.data.success) {
+          setSlugPreview({
+            slug: response.data.slug,
+            url: response.data.url,
+            user_message: response.data.user_message,
+            collision_resolved: response.data.collision_resolved || false,
+          });
+        } else {
+          setSlugPreview(null);
+        }
+      } catch (error) {
+        console.error('Error checking slug:', error);
+        setSlugPreview(null);
+      } finally {
+        setIsCheckingSlug(false);
+      }
+    }, 500); // 500ms debounce
+  }, []);
 
   // Send email verification link
   const sendVerificationLink = async () => {
@@ -391,11 +439,22 @@ export default function DoctorRegister() {
       data.append('longitude', form.longitude.toString());
     }
     try {
-      await axios.post("/api/doctor/register", data, {
+      const response = await axios.post("/api/doctor/register", data, {
         headers: {
           "Content-Type": "multipart/form-data",
         },
       });
+      
+      // Show slug preview message if available
+      if (response.data.slug_preview) {
+        showToast(
+          response.data.slug_preview.user_message || "Doctor registered successfully!",
+          "success"
+        );
+      } else {
+        showToast("Doctor registered successfully!", "success");
+      }
+      
       // Show success popup
       setShowSuccessPopup(true);
       // Reset the form fields
@@ -540,11 +599,49 @@ return (
                     type="text"
                     placeholder="Dr. John Smith"
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:border-[#2D9AA5] focus:ring-2 focus:ring-[#2D9AA5]/20 transition-all text-black placeholder-black/50 outline-none"
-                    onChange={handleChange}
+                    onChange={(e) => {
+                      handleChange(e);
+                      // Check slug when name changes
+                      checkSlugAvailability(e.target.value, form.address);
+                    }}
                     value={form.name || ""}
                     required
                   />
                 </div>
+
+                {/* Slug Preview */}
+                {slugPreview && form.name.trim() && form.address.trim() && (
+                  <div className={`p-3 rounded-lg border-2 ${
+                    slugPreview.collision_resolved 
+                      ? 'bg-blue-50 border-blue-200' 
+                      : 'bg-green-50 border-green-200'
+                  }`}>
+                    <div className="flex items-start gap-2">
+                      <div className="flex-1">
+                        <p className="text-xs font-semibold text-gray-700 mb-1">
+                          {slugPreview.collision_resolved ? '🔗 Your Unique Doctor URL:' : '🔗 Your Doctor URL:'}
+                        </p>
+                        <a
+                          href={slugPreview.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-[#2D9AA5] hover:underline break-all font-mono"
+                        >
+                          {slugPreview.url}
+                        </a>
+                        <p className="text-xs text-gray-600 mt-2">
+                          {slugPreview.user_message}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {isCheckingSlug && form.name.trim() && form.address.trim() && (
+                  <div className="p-2 bg-gray-50 border border-gray-200 rounded-lg">
+                    <p className="text-xs text-gray-500">Checking slug availability...</p>
+                  </div>
+                )}
 
                 {/* Email and Phone */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -739,7 +836,11 @@ return (
                     placeholder="Enter your complete practice address"
                     rows={2}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:border-[#2D9AA5] focus:ring-2 focus:ring-[#2D9AA5]/20 transition-all resize-none text-black placeholder-black/50 outline-none"
-                    onChange={handleChange}
+                    onChange={(e) => {
+                      handleChange(e);
+                      // Check slug when address changes
+                      checkSlugAvailability(form.name, e.target.value);
+                    }}
                     value={form.address || ""}
                     required
                   ></textarea>

@@ -64,7 +64,7 @@ const normalizePhotoUrl = (url: string | undefined): string => {
   if (url.startsWith('http://') || url.startsWith('https://')) {
     // Make sure it's a proper URL, not concatenated with file path
     if (!/[A-Za-z]:/.test(url)) {
-      return url;
+    return url;
     }
     // If it has a drive letter, it's malformed, extract the path part
     const driveMatch = url.match(/([A-Za-z]:.*)/);
@@ -359,18 +359,18 @@ export default function ClinicDetail() {
                 const latestPhoto = photosArray.length > 0 ? photosArray[photosArray.length - 1] : null;
                 
                 return latestPhoto && (
-                  <div className="w-full max-w-sm lg:max-w-xs flex-shrink-0">
-                    <div className="relative w-full h-48 sm:h-56 lg:h-60 rounded-2xl overflow-hidden shadow-lg border-4 border-white bg-white">
-                      <Image
+                <div className="w-full max-w-sm lg:max-w-xs flex-shrink-0">
+                  <div className="relative w-full h-48 sm:h-56 lg:h-60 rounded-2xl overflow-hidden shadow-lg border-4 border-white bg-white">
+                    <Image
                         src={normalizePhotoUrl(latestPhoto)}
-                        alt={clinic.name}
-                        fill
-                        className="object-contain"
-                        sizes="(max-width: 1024px) 80vw, 320px"
-                        priority
-                      />
-                    </div>
+                      alt={clinic.name}
+                      fill
+                      className="object-contain"
+                      sizes="(max-width: 1024px) 80vw, 320px"
+                      priority
+                    />
                   </div>
+                </div>
                 );
               })()}
 

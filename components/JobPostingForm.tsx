@@ -1,7 +1,8 @@
 // components/JobPostingForm.tsx
-import React, { useMemo, useState, useEffect, useRef } from 'react';
+import React, { useMemo, useState, useEffect, useRef, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import type { ComponentType } from 'react';
+import axios from 'axios';
 import {
   Bold,
   Italic,
@@ -130,6 +131,14 @@ const JobPostingForm: React.FC<JobPostingFormProps> = ({
   const [currentStep, setCurrentStep] = useState<number>(0);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [touched, setTouched] = useState<Record<string, boolean>>({});
+  const [slugPreview, setSlugPreview] = useState<{
+    slug: string;
+    url: string;
+    user_message: string;
+    collision_resolved: boolean;
+  } | null>(null);
+  const [isCheckingSlug, setIsCheckingSlug] = useState<boolean>(false);
+  const slugCheckTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // React Quill refs and state
   const quillRef = useRef<{ getEditor: () => MinimalQuillEditor } | null>(null);
@@ -202,6 +211,15 @@ const JobPostingForm: React.FC<JobPostingFormProps> = ({
     }
     return null;
   };
+
+  // Cleanup slug check timer on unmount
+  useEffect(() => {
+    return () => {
+      if (slugCheckTimerRef.current) {
+        clearTimeout(slugCheckTimerRef.current);
+      }
+    };
+  }, []);
 
   // Setup floating toolbar
   useEffect(() => {
@@ -313,6 +331,46 @@ const JobPostingForm: React.FC<JobPostingFormProps> = ({
     }
   };
 
+  // Check slug availability when jobTitle and location change
+  const checkSlugAvailability = useCallback(async (jobTitle: string, location: string) => {
+    if (!jobTitle.trim() || !location.trim()) {
+      setSlugPreview(null);
+      return;
+    }
+
+    // Clear previous timer
+    if (slugCheckTimerRef.current) {
+      clearTimeout(slugCheckTimerRef.current);
+    }
+
+    // Debounce slug check
+    slugCheckTimerRef.current = setTimeout(async () => {
+      setIsCheckingSlug(true);
+      try {
+        const response = await axios.post('/api/job-postings/check-slug', {
+          jobTitle: jobTitle.trim(),
+          location: location.trim(),
+        });
+
+        if (response.data.success) {
+          setSlugPreview({
+            slug: response.data.slug,
+            url: response.data.url,
+            user_message: response.data.user_message,
+            collision_resolved: response.data.collision_resolved || false,
+          });
+        } else {
+          setSlugPreview(null);
+        }
+      } catch (error) {
+        console.error('Error checking slug:', error);
+        setSlugPreview(null);
+      } finally {
+        setIsCheckingSlug(false);
+      }
+    }, 500); // 500ms debounce
+  }, []);
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({
@@ -322,6 +380,12 @@ const JobPostingForm: React.FC<JobPostingFormProps> = ({
     setTouched(prev => ({ ...prev, [name]: true }));
     const fieldError = validateField(name as FieldKey, value);
     setErrors(prev => ({ ...prev, [name]: fieldError }));
+    
+    // Check slug when jobTitle or location changes
+    if (name === 'jobTitle' || name === 'location') {
+      const newFormData = { ...formData, [name]: value };
+      checkSlugAvailability(newFormData.jobTitle, newFormData.location);
+    }
   };
 
   const handleDescriptionChange = (value: string) => {
@@ -625,6 +689,40 @@ const JobPostingForm: React.FC<JobPostingFormProps> = ({
                       <p className="mt-1 text-[9px] text-red-600">{errors.jobTitle}</p>
                     )}
                   </div>
+                  
+                  {/* Slug Preview */}
+                  {slugPreview && formData.jobTitle.trim() && formData.location.trim() && (
+                    <div className={`col-span-full p-3 rounded-lg border-2 ${
+                      slugPreview.collision_resolved 
+                        ? 'bg-blue-50 border-blue-200' 
+                        : 'bg-green-50 border-green-200'
+                    }`}>
+                      <div className="flex items-start gap-2">
+                        <div className="flex-1">
+                          <p className="text-xs font-semibold text-gray-700 mb-1">
+                            {slugPreview.collision_resolved ? '🔗 Your Unique Job URL:' : '🔗 Your Job URL:'}
+                          </p>
+                          <a
+                            href={slugPreview.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs text-blue-600 hover:underline break-all font-mono"
+                          >
+                            {slugPreview.url}
+                          </a>
+                          <p className="text-xs text-gray-600 mt-2">
+                            {slugPreview.user_message}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {isCheckingSlug && formData.jobTitle.trim() && formData.location.trim() && (
+                    <div className="col-span-full p-2 bg-gray-50 border border-gray-200 rounded-lg">
+                      <p className="text-xs text-gray-500">Checking slug availability...</p>
+                    </div>
+                  )}
 
                   <div className="col-span-1">
                     <label className={`block ${labelClass} font-medium text-gray-700`}>

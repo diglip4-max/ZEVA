@@ -238,6 +238,14 @@ const RegisterClinic: React.FC & {
   });
   const [showToast, setShowToast] = useState<boolean>(false);
   const dropdownRef = useRef<HTMLDivElement | null>(null);
+  const [slugPreview, setSlugPreview] = useState<{
+    slug: string;
+    url: string;
+    user_message: string;
+    collision_resolved: boolean;
+  } | null>(null);
+  const [isCheckingSlug, setIsCheckingSlug] = useState<boolean>(false);
+  const slugCheckTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const showToastMessage = (
     message: string,
@@ -246,6 +254,46 @@ const RegisterClinic: React.FC & {
     setToast({ message, type });
     setShowToast(true);
   };
+
+  // Check slug availability when name and address change
+  const checkSlugAvailability = useCallback(async (name: string, address: string) => {
+    if (!name.trim() || !address.trim()) {
+      setSlugPreview(null);
+      return;
+    }
+
+    // Clear previous timer
+    if (slugCheckTimerRef.current) {
+      clearTimeout(slugCheckTimerRef.current);
+    }
+
+    // Debounce slug check
+    slugCheckTimerRef.current = setTimeout(async () => {
+      setIsCheckingSlug(true);
+      try {
+        const response = await axios.post('/api/clinics/check-slug', {
+          name: name.trim(),
+          address: address.trim(),
+        });
+
+        if (response.data.success) {
+          setSlugPreview({
+            slug: response.data.slug,
+            url: response.data.url,
+            user_message: response.data.user_message,
+            collision_resolved: response.data.collision_resolved || false,
+          });
+        } else {
+          setSlugPreview(null);
+        }
+      } catch (error) {
+        console.error('Error checking slug:', error);
+        setSlugPreview(null);
+      } finally {
+        setIsCheckingSlug(false);
+      }
+    }, 500); // 500ms debounce
+  }, []);
 
   const validateStep = (step: number): boolean => {
     const newErrors: Errors = {};
@@ -577,9 +625,18 @@ const RegisterClinic: React.FC & {
     if (licenseDoc) data.append("licenseDocument", licenseDoc);
 
     try {
-      await axios.post("/api/clinics/register", data);
+      const response = await axios.post("/api/clinics/register", data);
       setShowSuccessPopup(true);
-      showToastMessage("Clinic registered successfully!", "success");
+      
+      // Show slug preview message if available
+      if (response.data.slug_preview) {
+        showToastMessage(
+          response.data.slug_preview.user_message || "Clinic registered successfully!",
+          "success"
+        );
+      } else {
+        showToastMessage("Clinic registered successfully!", "success");
+      }
     } catch (err: any) {
       const errorMessage = err?.response?.data?.message || "Clinic registration failed";
       // Don't show "Invalid address" error if location is already set
@@ -862,9 +919,45 @@ const RegisterClinic: React.FC & {
                             onChange={(e) => {
                               setForm((f) => ({ ...f, name: e.target.value }));
                               if (errors.name) setErrors((prev) => ({ ...prev, name: undefined }));
+                              // Check slug when name changes
+                              checkSlugAvailability(e.target.value, form.address);
                             }}
                           />
                         </div>
+
+                        {/* Slug Preview */}
+                        {slugPreview && form.name.trim() && form.address.trim() && (
+                          <div className={`p-3 rounded-lg border-2 ${
+                            slugPreview.collision_resolved 
+                              ? 'bg-blue-50 border-blue-200' 
+                              : 'bg-green-50 border-green-200'
+                          }`}>
+                            <div className="flex items-start gap-2">
+                              <div className="flex-1">
+                                <p className="text-xs font-semibold text-gray-700 mb-1">
+                                  {slugPreview.collision_resolved ? '🔗 Your Unique Clinic URL:' : '🔗 Your Clinic URL:'}
+                                </p>
+                                <a
+                                  href={slugPreview.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-xs text-[#00b480] hover:underline break-all font-mono"
+                                >
+                                  {slugPreview.url}
+                                </a>
+                                <p className="text-xs text-gray-600 mt-2">
+                                  {slugPreview.user_message}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {isCheckingSlug && form.name.trim() && form.address.trim() && (
+                          <div className="p-2 bg-gray-50 border border-gray-200 rounded-lg">
+                            <p className="text-xs text-gray-500">Checking slug availability...</p>
+                          </div>
+                        )}
 
                         <div className="relative text-black" ref={dropdownRef}>
                           <label className="block text-[11px] font-semibold text-gray-700 mb-0.5">
@@ -1079,7 +1172,11 @@ const RegisterClinic: React.FC & {
                             className={`text-black w-full px-2 py-1.5 border-2 rounded-lg focus:outline-none bg-gray-50 resize-none text-xs ${errors.address ? "border-red-400" : "border-gray-200 focus:border-[#00b480]"
                               }`}
                             value={form.address}
-                            onChange={handleAddressChange}
+                            onChange={(e) => {
+                              handleAddressChange(e);
+                              // Check slug when address changes
+                              checkSlugAvailability(form.name, e.target.value);
+                            }}
                             rows={2}
                           />
                         </div>
