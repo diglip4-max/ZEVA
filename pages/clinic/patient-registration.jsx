@@ -843,6 +843,15 @@ function PatientInformationWithButton({ onRegisterClick, onImportClick, refreshK
             {permissions.canCreate && (
               <div className="flex items-center gap-2">
                 <button
+                  onClick={() => {
+                    // Find the export button in PatientInformation and click it? 
+                    // No, better to just trigger it if we had a ref.
+                    // But for now, since it's in PatientInformation, it's already there.
+                  }}
+                  className="hidden" // Just a placeholder if needed
+                >
+                </button>
+                <button
                   onClick={onImportClick}
                   className="inline-flex items-center justify-center gap-1 bg-white hover:bg-gray-50 text-gray-800 border border-gray-300 px-2.5 py-1.5 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-[10px] sm:text-xs font-medium"
                 >

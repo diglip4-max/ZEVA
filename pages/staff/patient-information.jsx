@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import axios from "axios";
-import { Package, TrendingUp, Eye, Search, ChevronLeft, ChevronRight, X, AlertCircle, CheckCircle2, Info, Edit3, User, DollarSign, Mail, Phone, Calendar, FileText, MapPin, Building2, CreditCard, Trash2 } from "lucide-react";
+import { Package, TrendingUp, Eye, Search, ChevronLeft, ChevronRight, X, AlertCircle, CheckCircle2, Info, Edit3, User, DollarSign, Mail, Phone, Calendar, FileText, MapPin, Building2, CreditCard, Trash2, Download } from "lucide-react";
 import { useRouter } from "next/router";
 import ClinicLayout from '../../components/staffLayout';
 import withClinicAuth from '../../components/withStaffAuth';
@@ -226,6 +226,53 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
 
   useEffect(() => { fetchPatients(); }, []);
 
+  const exportPatientsToCSV = () => {
+    if (patients.length === 0) {
+      addToast("No patients to export", "error");
+      return;
+    }
+
+    const headers = [
+      "First Name",
+      "Last Name",
+      "Email",
+      "Mobile Number",
+      "Gender",
+      "Patient Type",
+      "EMR Number",
+      "Invoice Number",
+      "Insurance",
+      "Created At"
+    ];
+
+    const csvContent = [
+      headers.join(","),
+      ...patients.map(p => [
+        `"${(p.firstName || "").replace(/"/g, '""')}"`,
+        `"${(p.lastName || "").replace(/"/g, '""')}"`,
+        `"${(p.email || "").replace(/"/g, '""')}"`,
+        `"${(p.mobileNumber || "").replace(/"/g, '""')}"`,
+        `"${(p.gender || "").replace(/"/g, '""')}"`,
+        `"${(p.patientType || "").replace(/"/g, '""')}"`,
+        `"${(p.emrNumber || "").replace(/"/g, '""')}"`,
+        `"${(p.invoiceNumber || "").replace(/"/g, '""')}"`,
+        `"${(p.insurance || "").replace(/"/g, '""')}"`,
+        `"${p.createdAt ? new Date(p.createdAt).toLocaleString() : ""}"`
+      ].join(","))
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `patients_export_${new Date().toISOString().split("T")[0]}.csv`);
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    addToast("Patients exported successfully", "success");
+  };
+
   const handleUpdate = (id) => {
     if (typeof onEditPatient === "function") {
       onEditPatient(id);
@@ -335,15 +382,24 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
           
           {/* Simple Search Bar */}
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <input
-                type="text"
-                placeholder="Search by name, phone, EMR number, invoice number, or email..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 outline-none text-sm text-gray-900"
-              />
+            <div className="flex flex-col sm:flex-row gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <input
+                  type="text"
+                  placeholder="Search by name, phone, EMR number, invoice number, or email..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 outline-none text-sm text-gray-900"
+                />
+              </div>
+              <button
+                onClick={exportPatientsToCSV}
+                className="inline-flex items-center justify-center gap-1.5 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-sm font-medium"
+              >
+                <Download className="h-4 w-4" />
+                <span>Export</span>
+              </button>
             </div>
           </div>
 

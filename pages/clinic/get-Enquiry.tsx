@@ -19,6 +19,7 @@ import ClinicLayout from "../../components/ClinicLayout";
 import type { NextPageWithLayout } from "../_app";
 import withClinicAuth from "../../components/withClinicAuth";
 import { useAgentPermissions } from '../../hooks/useAgentPermissions';
+import { Toaster, toast } from 'react-hot-toast';
 
 interface Enquiry {
   _id: string;
@@ -426,6 +427,8 @@ function ClinicEnquiries({ contextOverride = null }: { contextOverride?: "clinic
         })
       : "No enquiries yet";
 
+
+
   if (loading || !permissionsLoaded || (isAgentRoute && agentPermissionsLoading)) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">
@@ -459,6 +462,39 @@ function ClinicEnquiries({ contextOverride = null }: { contextOverride?: "clinic
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 sm:p-6">
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          duration: 3000,
+          style: {
+            background: "#1f2937",
+            color: "#f9fafb",
+            fontSize: "12px",
+            padding: "8px 12px",
+            borderRadius: "6px",
+          },
+          success: {
+            iconTheme: {
+              primary: "#10b981",
+              secondary: "#fff",
+            },
+            style: {
+              background: "#10b981",
+              color: "#fff",
+            },
+          },
+          error: {
+            iconTheme: {
+              primary: "#ef4444",
+              secondary: "#fff",
+            },
+            style: {
+              background: "#ef4444",
+              color: "#fff",
+            },
+          },
+        }}
+      />
       {/* Compact Unique Header */}
       <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm mb-4 sm:mb-6">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-5">
