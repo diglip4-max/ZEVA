@@ -73,7 +73,6 @@ const useInbox = () => {
   const { templates } = useTemplate();
   const agents = useAgents()?.state?.agents || [];
   const agentFetchLoading = useAgents()?.state?.loading || false;
-  const [socketInstance, setSocketInstance] = useState<Socket | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [fetchConvLoading, setFetchConvLoading] = useState<boolean>(true);
   const [fetchMsgsLoading, setFetchMsgsLoading] = useState<boolean>(true);
@@ -136,6 +135,7 @@ const useInbox = () => {
   });
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
   const [isMobileView, setIsMobileView] = useState<boolean>(false);
+  const [isProfileView, setIsProfileView] = useState<boolean>(false);
   const [isAddTagModalOpen, setIsAddTagModalOpen] = useState<boolean>(false);
   const [isDeleteConversationModalOpen, setIsDeleteConversationModalOpen] =
     useState<boolean>(false);
@@ -165,91 +165,21 @@ const useInbox = () => {
   const messageRef = React.useRef<HTMLDivElement | null>(null);
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
 
-  const token =
-    typeof window !== "undefined" ? localStorage.getItem("clinicToken") : null;
+  const getTokenByPath = () => {
+    if (typeof window === "undefined") return null;
 
-  // Separate function to handle incoming messages
-  const handleIncomingMessage = useCallback(
-    (message: MessageType) => {
-      console.log("Incoming message via socket:", message);
+    const pathname = window.location.pathname;
 
-      // Update conversations list
-      setConversations((prevConversations) => {
-        let convExists = false;
-        const updatedConversations = prevConversations.map((conv) => {
-          if (conv._id === message.conversationId) {
-            convExists = true;
-            return {
-              ...conv,
-              recentMessage: message,
-              unreadMessages: [...(conv.unreadMessages || []), message._id],
-            };
-          }
-          return conv;
-        });
+    if (pathname === "/clinic/inbox") {
+      return localStorage.getItem("clinicToken");
+    } else if (pathname === "/staff/clinic-inbox") {
+      return localStorage.getItem("agentToken");
+    } else {
+      return localStorage.getItem("userToken");
+    }
+  };
 
-        if (!convExists) {
-          return prevConversations;
-        }
-
-        // Move the updated conversation to the front
-        updatedConversations.sort((a, b) =>
-          a._id === message.conversationId
-            ? -1
-            : b._id === message.conversationId
-            ? 1
-            : 0
-        );
-        return updatedConversations;
-      });
-
-      // Update messages if it belongs to the selected conversation
-      if (message.conversationId === selectedConversation?._id) {
-        setMessages((prevMessages) => {
-          const lastGroup = prevMessages[prevMessages.length - 1];
-          const today = new Date().toISOString().split("T")[0];
-
-          if (lastGroup && lastGroup.date === today) {
-            // Add to existing today's group
-            return prevMessages.map((group, index) =>
-              index === prevMessages.length - 1
-                ? { ...group, messages: [...group.messages, message] }
-                : group
-            );
-          } else {
-            // Create new group for today
-            return [...prevMessages, { date: today, messages: [message] }];
-          }
-        });
-      }
-    },
-    [selectedConversation]
-  );
-
-  // Separate function to handle status updates
-  const handleMessageStatusUpdate = useCallback(
-    (message: MessageType) => {
-      console.log("Message status update:", message);
-
-      if (message.conversationId === selectedConversation?._id) {
-        setMessages((prevMessages) =>
-          prevMessages.map((group) => {
-            const updatedMessages = group.messages.map((msg) =>
-              msg._id === message._id ? message : msg
-            );
-
-            // Check if any message was actually updated
-            const hasChange = updatedMessages.some(
-              (msg, index) => msg._id !== group.messages[index]?._id
-            );
-
-            return hasChange ? { ...group, messages: updatedMessages } : group;
-          })
-        );
-      }
-    },
-    [selectedConversation]
-  );
+  const token = getTokenByPath();
 
   // Scroll to bottom
   const handleScrollMsgsToBottom = () => {
@@ -313,51 +243,78 @@ const useInbox = () => {
   );
 
   const fetchMessages = async (page = 1) => {
-    if (!token) return;
-    if (!selectedConversation) return;
+    if (!token || !selectedConversation) return;
+
     try {
       setFetchMsgsLoading(true);
+
       const res = await axios.get(
         `/api/messages/get-messages/${selectedConversation?._id}`,
         {
-          params: { page: page, limit: 5 },
+          params: { page, limit: 5 },
           headers: { Authorization: `Bearer ${token}` },
         }
       );
-      if (res.data?.success) {
-        // If requesting first page, replace conversations; otherwise append
-        const messagesData = res.data?.data || [];
-        if (page === 1) {
-          setMessages(messagesData);
-        } else {
-          let mergedMessages = [...messages]?.map((g) => ({
+
+      if (!res.data?.success) {
+        setMessages([]);
+        return;
+      }
+
+      const incomingGroups: MessageData[] = res.data?.data || [];
+
+      if (page === 1) {
+        setMessages(incomingGroups);
+      } else {
+        setMessages((prev) => {
+          // Deep copy previous messages
+          const merged = prev.map((g) => ({
             ...g,
-            messages: [...g?.messages],
+            messages: [...g.messages],
           }));
-          mergedMessages?.forEach((ng) => {
-            const existingGroupIndex = mergedMessages?.findIndex(
-              (g) => g?.date === ng?.date
+
+          // Create set of existing message IDs
+          const existingMsgIds = new Set(
+            merged.flatMap((g) => g.messages.map((m) => m._id))
+          );
+
+          incomingGroups.forEach((newGroup) => {
+            const index = merged.findIndex((g) => g.date === newGroup.date);
+
+            // Filter out duplicate messages
+            const uniqueMessages = newGroup.messages.filter(
+              (m) => !existingMsgIds.has(m._id)
             );
-            if (existingGroupIndex !== -1) {
-              // Merge into existing date group
-              mergedMessages[existingGroupIndex].messages = [
-                ...ng?.messages,
-                ...mergedMessages[existingGroupIndex].messages,
+
+            if (!uniqueMessages.length) return;
+
+            if (index !== -1) {
+              // prepend older messages
+              merged[index].messages = [
+                ...uniqueMessages,
+                ...merged[index].messages,
               ];
             } else {
-              // Push new date group at begining
-              mergedMessages.unshift(ng);
+              // add new date group at top
+              merged.unshift({
+                ...newGroup,
+                messages: uniqueMessages,
+              });
             }
+
+            // update set
+            uniqueMessages.forEach((m) => existingMsgIds.add(m._id));
           });
-          setMessages(mergedMessages);
-        }
-        setTotalMessages(res?.data?.pagination?.totalMessages || 0);
-        setHasMoreMessages(Boolean(res?.data?.pagination?.hasMore));
-        setCurrentMsgPage(page);
-      } else {
-        setMessages([]);
+
+          return merged;
+        });
       }
+
+      setTotalMessages(res.data.pagination?.totalMessages || 0);
+      setHasMoreMessages(Boolean(res.data.pagination?.hasMore));
+      setCurrentMsgPage(page);
     } catch (error) {
+      console.error(error);
       setMessages([]);
     } finally {
       setFetchMsgsLoading(false);
@@ -1160,21 +1117,15 @@ const useInbox = () => {
     if (!token && !userId) return;
 
     const decoded = jwtDecode(token || "{}") as DecodedToken;
+    console.log({ token, userId, socket, decoded });
     const currentUserId = userId || decoded?.userId;
     setUserId(currentUserId);
-
-    // Create socket if it doesn't exist or is disconnected
-    if (!socket || !socket.connected) {
+    try {
+      // Create socket if it doesn't exist or is disconnected
       socket = io({
         path: "/api/messages/socketio",
         query: { userId: currentUserId },
-        transports: ["websocket", "polling"], // Add transports for better compatibility
-        reconnection: true,
-        reconnectionAttempts: 5,
-        reconnectionDelay: 1000,
       });
-
-      setSocketInstance(socket);
 
       // Log socket events for debugging
       socket.on("connect", () => {
@@ -1192,40 +1143,92 @@ const useInbox = () => {
       socket.emit("register", currentUserId);
 
       // Set up message listeners
-      socket.on("incomingMessage", handleIncomingMessage);
-      socket.on("messageStatusUpdate", handleMessageStatusUpdate);
-    } else if (socket.connected) {
-      // Re-register if socket is already connected
-      socket.emit("register", currentUserId);
+      socket.on("incomingMessage", (message: MessageType) => {
+        console.log("Incoming message via socket:", message);
+
+        // Update conversations list
+        setConversations((prevConversations) => {
+          let convExists = false;
+          const updatedConversations = prevConversations.map((conv) => {
+            if (conv._id === message.conversationId) {
+              convExists = true;
+              return {
+                ...conv,
+                recentMessage: message,
+                unreadMessages: [...(conv.unreadMessages || []), message._id],
+              };
+            }
+            return conv;
+          });
+
+          if (!convExists) {
+            return prevConversations;
+          }
+
+          // Move the updated conversation to the front
+          updatedConversations.sort((a, b) =>
+            a._id === message.conversationId
+              ? -1
+              : b._id === message.conversationId
+              ? 1
+              : 0
+          );
+          return updatedConversations;
+        });
+
+        // Update messages if it belongs to the selected conversation
+        if (message.conversationId === selectedConversation?._id) {
+          setMessages((prevMessages) => {
+            const lastGroup = prevMessages[prevMessages.length - 1];
+            const today = new Date().toISOString().split("T")[0];
+
+            if (lastGroup && lastGroup.date === today) {
+              // Add to existing today's group
+              return prevMessages.map((group, index) =>
+                index === prevMessages.length - 1
+                  ? { ...group, messages: [...group.messages, message] }
+                  : group
+              );
+            } else {
+              // Create new group for today
+              return [...prevMessages, { date: today, messages: [message] }];
+            }
+          });
+        }
+      });
+      socket.on("messageStatusUpdate", (message: MessageType) => {
+        console.log("Message status update:", message);
+
+        if (message.conversationId === selectedConversation?._id) {
+          setMessages((prevMessages) =>
+            prevMessages.map((group) => {
+              const updatedMessages = group.messages.map((msg) =>
+                msg._id === message._id ? message : msg
+              );
+
+              // Check if any message was actually updated
+              const hasChange = updatedMessages.some(
+                (msg, index) => msg._id !== group.messages[index]?._id
+              );
+
+              return hasChange
+                ? { ...group, messages: updatedMessages }
+                : group;
+            })
+          );
+        }
+      });
+    } catch (error) {
+      console.log("Error: ", error);
     }
 
     console.log({ socket });
 
     // Cleanup function
     return () => {
-      // Don't disconnect the socket, just remove the listeners
-      // This allows the socket to persist across re-renders
-      if (socket) {
-        socket.off("incomingMessage", handleIncomingMessage);
-        socket.off("messageStatusUpdate", handleMessageStatusUpdate);
-      }
+      socket?.disconnect();
     };
-  }, [token, userId, handleIncomingMessage, handleMessageStatusUpdate]); // Remove messages from dependencies
-
-  // Debug: Log socket events
-  useEffect(() => {
-    if (socketInstance) {
-      console.log("Socket instance updated:", socketInstance.id);
-      console.log("Socket connected:", socketInstance.connected);
-
-      // Debug all socket events
-      const originalEmit = socketInstance.emit;
-      socketInstance.emit = function (...args) {
-        console.log("Socket emitting:", args[0], args[1]);
-        return originalEmit.apply(this, args);
-      };
-    }
-  }, [socketInstance]);
+  }, []); // Remove messages from dependencies
 
   // status filter dropdown click outside handler
   // Close dropdown on outside click or Escape
@@ -1377,6 +1380,7 @@ const useInbox = () => {
     statusDropdownRef,
     statusBtnRef,
     isMobileView,
+    isProfileView,
     isAddTagModalOpen,
     isDeleteConversationModalOpen,
     isDeletingConversation,
@@ -1411,6 +1415,7 @@ const useInbox = () => {
     setFilters,
     setShowStatusDropdown,
     setIsMobileView,
+    setIsProfileView,
     setIsAddTagModalOpen,
     setIsDeleteConversationModalOpen,
     setIsDeletingConversation,

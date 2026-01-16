@@ -1,9 +1,9 @@
-import React from 'react';
+import React from "react";
 
 const MessageSkeleton = () => {
   // Randomly choose between incoming and outgoing for variety
-  const isOutgoing = Math.random() > 0.5;
-  
+  const isOutgoing = true;
+
   return (
     <>
       {/* Incoming Message Skeleton */}
@@ -14,7 +14,7 @@ const MessageSkeleton = () => {
             <div className="flex-shrink-0">
               <div className="h-10 w-10 bg-gray-200 rounded-full animate-pulse"></div>
             </div>
-            
+
             {/* Message bubble skeleton */}
             <div className="relative group">
               <div className="relative bg-white rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm border border-gray-100 max-w-[600px] animate-pulse">
@@ -28,14 +28,14 @@ const MessageSkeleton = () => {
                     <div className="h-3 bg-gray-200 rounded w-16"></div>
                   </div>
                 </div>
-                
+
                 {/* Message content skeleton */}
                 <div className="space-y-2">
                   <div className="h-4 bg-gray-200 rounded w-full"></div>
                   <div className="h-4 bg-gray-200 rounded w-5/6"></div>
                   <div className="h-4 bg-gray-200 rounded w-4/6"></div>
                 </div>
-                
+
                 {/* Status skeleton */}
                 <div className="flex items-center justify-between mt-3 pt-2 border-t border-gray-100">
                   <div>
@@ -47,7 +47,7 @@ const MessageSkeleton = () => {
           </div>
         </div>
       )}
-      
+
       {/* Outgoing Message Skeleton */}
       {isOutgoing && (
         <div className="flex justify-end mb-4">
@@ -65,14 +65,14 @@ const MessageSkeleton = () => {
                     <div className="h-3 bg-gray-200 rounded w-16"></div>
                   </div>
                 </div>
-                
+
                 {/* Message content skeleton */}
                 <div className="space-y-2">
                   <div className="h-4 bg-gray-200 rounded w-full"></div>
                   <div className="h-4 bg-gray-200 rounded w-5/6"></div>
                   <div className="h-4 bg-gray-200 rounded w-4/6"></div>
                 </div>
-                
+
                 {/* Status skeleton */}
                 <div className="flex items-center justify-between mt-3 pt-2 border-t border-gray-200/50">
                   <div>
@@ -81,7 +81,7 @@ const MessageSkeleton = () => {
                 </div>
               </div>
             </div>
-            
+
             {/* Avatar skeleton */}
             <div className="flex-shrink-0">
               <div className="h-10 w-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-semibold shadow-md animate-pulse"></div>

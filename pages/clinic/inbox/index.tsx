@@ -1,7 +1,7 @@
 import ClinicLayout from "@/components/ClinicLayout";
 import withClinicAuth from "@/components/withClinicAuth";
 import React, { ReactElement } from "react";
-import { NextPageWithLayout } from "../_app";
+import { NextPageWithLayout } from "../../_app";
 import AvatarComponent from "@/components/shared/AvatarComponent";
 import {
   Search,
@@ -17,6 +17,7 @@ import {
   MoreHorizontal,
   Smile,
   Timer,
+  MoreVertical,
 } from "lucide-react";
 import CreateNewConversation from "./_components/CreateNewConversation";
 import Conversation from "./_components/Conversation";
@@ -62,6 +63,7 @@ const InboxPage: NextPageWithLayout = () => {
     setIsDeleteConversationModalOpen,
     setIsScheduleModalOpen,
     setIsFilterModalOpen,
+    setIsProfileView,
     handleSendMessage,
     handleScheduleMessage,
     handleConvScroll,
@@ -107,6 +109,7 @@ const InboxPage: NextPageWithLayout = () => {
     statusBtnRef,
     currentConvPage,
     isMobileView,
+    isProfileView,
     isAddTagModalOpen,
     isDeleteConversationModalOpen,
     isDeletingConversation,
@@ -125,7 +128,9 @@ const InboxPage: NextPageWithLayout = () => {
       {/* Left Sidebar - Conversations List */}
       <div
         className={`w-full md:w-1/3 lg:w-1/4 border-r border-gray-200 flex flex-col bg-white shadow-sm ${
-          isMobileView && selectedConversation ? "hidden" : ""
+          (isMobileView && selectedConversation) || isProfileView
+            ? "hidden"
+            : ""
         }`}
       >
         {/* Header */}
@@ -315,7 +320,13 @@ const InboxPage: NextPageWithLayout = () => {
       </div>
 
       {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col bg-white relative">
+      <div
+        className={`${
+          (!selectedConversation && isMobileView) || isProfileView
+            ? "hidden"
+            : "flex-1 flex"
+        } flex-col bg-white relative`}
+      >
         {!selectedConversation ? (
           <NoSelectedConversation />
         ) : (
@@ -336,10 +347,10 @@ const InboxPage: NextPageWithLayout = () => {
                   size="md"
                 />
                 <div>
-                  <h3 className="font-semibold text-gray-800 text-lg">
+                  <h3 className="font-semibold text-gray-800 text-base sm:text-lg">
                     {selectedConversation?.leadId?.name}
                   </h3>
-                  <div className="flex items-center space-x-2 text-sm text-gray-500">
+                  <div className="flex items-center space-x-2 text-sm sm:text-sm text-gray-500">
                     <span>
                       Last seen{" "}
                       {getFormatedTime(
@@ -350,28 +361,39 @@ const InboxPage: NextPageWithLayout = () => {
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
-                <WhatsappTimer
-                  selectedProvider={selectedProvider}
-                  whatsappRemainingTime={whatsappRemainingTime}
-                />
-                <AssignConversation
-                  agents={agents}
-                  selectedAgent={selectedAgent}
-                  onAgentSelect={(agent) =>
-                    handleAgentSelect(agent, selectedConversation?._id)
-                  }
-                  loading={agentFetchLoading}
-                  placeholder="Assign to agent..."
-                />
+              {!isMobileView ? (
+                <div className="flex items-center gap-2">
+                  <WhatsappTimer
+                    selectedProvider={selectedProvider}
+                    whatsappRemainingTime={whatsappRemainingTime}
+                  />
+                  <AssignConversation
+                    agents={agents}
+                    selectedAgent={selectedAgent}
+                    onAgentSelect={(agent) =>
+                      handleAgentSelect(agent, selectedConversation?._id)
+                    }
+                    loading={agentFetchLoading}
+                    placeholder="Assign to agent..."
+                  />
 
-                {/* <button className="p-2.5 text-gray-600 hover:bg-white hover:text-gray-800 rounded-lg transition-colors hover:shadow-sm">
+                  {/* <button className="p-2.5 text-gray-600 hover:bg-white hover:text-gray-800 rounded-lg transition-colors hover:shadow-sm">
                   <Info className="h-5 w-5" />
                 </button>
                 <button className="p-2.5 text-gray-600 hover:bg-white hover:text-gray-800 rounded-lg transition-colors hover:shadow-sm">
                   <MoreVertical className="h-5 w-5" />
                 </button> */}
-              </div>
+                </div>
+              ) : (
+                <div>
+                  <button
+                    onClick={() => setIsProfileView(true)}
+                    className="text-gray-600 hover:bg-white hover:text-gray-800 rounded-lg transition-colors hover:shadow-sm"
+                  >
+                    <MoreVertical className="h-5 w-5" />
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Messages Area */}
@@ -706,6 +728,7 @@ const InboxPage: NextPageWithLayout = () => {
                       </div>
                     </div>
                   </CustomDropdown>
+
                   <TemplatesModal
                     templates={templates}
                     attachedFile={attachedFile}
@@ -719,28 +742,32 @@ const InboxPage: NextPageWithLayout = () => {
                     setHeaderParameters={setHeaderParameters}
                   />
 
-                  <AttachmentModal
-                    attachedFile={attachedFile}
-                    setAttachedFile={setAttachedFile}
-                    attachedFiles={state.attachedFiles}
-                    setAttachedFiles={setAttachedFiles}
-                    mediaUrl={mediaUrl}
-                  />
+                  {!isMobileView && (
+                    <>
+                      <AttachmentModal
+                        attachedFile={attachedFile}
+                        setAttachedFile={setAttachedFile}
+                        attachedFiles={state.attachedFiles}
+                        setAttachedFiles={setAttachedFiles}
+                        mediaUrl={mediaUrl}
+                      />
 
-                  <EmojiPickerModal
-                    inputRef={textAreaRef as any}
-                    triggerButton={
-                      <button className="border border-gray-300 cursor-pointer rounded-md p-2.5">
-                        <Smile
-                          size={20}
-                          className="text-muted-foreground transition-transform duration-200"
-                        />
-                      </button>
-                    }
-                    position="top-left"
-                    align="start"
-                    setValue={setMessage}
-                  />
+                      <EmojiPickerModal
+                        inputRef={textAreaRef as any}
+                        triggerButton={
+                          <button className="border border-gray-300 cursor-pointer rounded-md p-2.5">
+                            <Smile
+                              size={20}
+                              className="text-muted-foreground transition-transform duration-200"
+                            />
+                          </button>
+                        }
+                        position="top-left"
+                        align="start"
+                        setValue={setMessage}
+                      />
+                    </>
+                  )}
 
                   {/* <EmojiPickerModal
                     triggerButton={
@@ -786,13 +813,25 @@ const InboxPage: NextPageWithLayout = () => {
       </div>
 
       {/* Right Sidebar - Conversation Info */}
-      {selectedConversation && !isMobileView && (
+      {selectedConversation && (!isMobileView || isProfileView) && (
         <div className="w-full md:w-1/4 lg:w-1/4 border-l border-gray-200 bg-white flex flex-col">
-          <div className="p-4 border-b border-gray-200">
-            <h3 className="text-lg font-semibold">Conversation Info</h3>
-            <p className="text-sm text-gray-500">
-              Details about the selected conversation
-            </p>
+          <div className="p-4 flex items-center space-x-3 border-b border-gray-200">
+            {isMobileView && (
+              <button
+                onClick={() => setIsProfileView(false)}
+                className="text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </button>
+            )}
+            <div>
+              <h3 className="text-base sm:text-lg font-semibold">
+                Conversation Info
+              </h3>
+              <p className="text-sm sm:text-sm text-gray-500">
+                Details about the selected conversation
+              </p>
+            </div>
           </div>
           <CollapsibleWrapper headerTitle="Lead Details">
             <div className="space-y-6 py-2.5">

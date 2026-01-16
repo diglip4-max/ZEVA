@@ -10,8 +10,21 @@ const useProvider = () => {
   const [emailProviders, setEmailProviders] = useState<Provider[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
-  const token =
-    typeof window !== "undefined" ? localStorage.getItem("clinicToken") : null;
+  const getTokenByPath = () => {
+    if (typeof window === "undefined") return null;
+
+    const pathname = window.location.pathname;
+
+    if (pathname === "/clinic/inbox") {
+      return localStorage.getItem("clinicToken");
+    } else if (pathname === "/staff/clinic-inbox") {
+      return localStorage.getItem("agentToken");
+    } else {
+      return localStorage.getItem("userToken");
+    }
+  };
+
+  const token = getTokenByPath();
 
   const fetchProviders = useCallback(async () => {
     try {

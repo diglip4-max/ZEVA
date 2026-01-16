@@ -1,4 +1,5 @@
 import { Lead } from "./leads";
+import { User } from "./users";
 
 export type ConversationType = {
   _id: string;
@@ -57,6 +58,14 @@ export type MessageType = {
   providerMessageId?: string;
   replyToMessageId?: Message;
   emoji?: string;
+  emojis: [
+    {
+      emoji: string;
+      user: any;
+      lead: any;
+      addedAt: string;
+    }
+  ];
   emailReceivedAt?: string;
   replyToMessageId: string;
   threadId?: string; // for email reply thread
