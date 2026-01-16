@@ -5,7 +5,7 @@ import axios from "axios";
 import { useRouter } from "next/router";
 import withClinicAuth from "../../components/withClinicAuth";
 import ClinicLayout from "../../components/ClinicLayout";
-import { Loader2, Trash2, AlertCircle, CheckCircle, X, Building2, DoorOpen, Plus, Edit2, Calendar, Package, ChevronDown } from "lucide-react";
+import { Loader2, Trash2, AlertCircle, CheckCircle, X, Building2, DoorOpen, Plus, Edit2, Calendar, Package, ChevronDown, Download } from "lucide-react";
 import { useAgentPermissions } from "../../hooks/useAgentPermissions";
 import { Toaster, toast } from "react-hot-toast";
 
@@ -1031,6 +1031,80 @@ function AddRoomPage({ contextOverride = null }) {
   const roomCreateDisabled = submitting || !permissions.canCreate;
   const deptCreateDisabled = submittingDept || !permissions.canCreate;
 
+  const exportAllData = () => {
+    if (rooms.length === 0 && departments.length === 0 && packages.length === 0) {
+      toast.error("No data available to export");
+      return;
+    }
+
+    const csvRows = [];
+    
+    // Add instruction for Excel to use comma as separator
+    csvRows.push(["sep=,"]);
+
+    // Departments section
+    csvRows.push(["--- DEPARTMENTS ---"]);
+    csvRows.push(["Department Name", "Created At"]);
+    if (departments.length > 0) {
+      departments.forEach((dept) => {
+        csvRows.push([
+          `"${(dept.name || "").replace(/"/g, '""')}"`,
+          `"${dept.createdAt ? new Date(dept.createdAt).toLocaleString() : "N/A"}"`,
+        ]);
+      });
+    } else {
+      csvRows.push(["No departments available"]);
+    }
+    csvRows.push([]); // Blank row
+
+    // Rooms section
+    csvRows.push(["--- ROOMS ---"]);
+    csvRows.push(["Room Name", "Created At"]);
+    if (rooms.length > 0) {
+      rooms.forEach((room) => {
+        csvRows.push([
+          `"${(room.name || "").replace(/"/g, '""')}"`,
+          `"${room.createdAt ? new Date(room.createdAt).toLocaleString() : "N/A"}"`,
+        ]);
+      });
+    } else {
+      csvRows.push(["No rooms available"]);
+    }
+    csvRows.push([]); // Blank row
+
+    // Packages section
+    csvRows.push(["--- PACKAGES ---"]);
+    csvRows.push(["Package Name", "Price", "Treatments", "Created At"]);
+    if (packages.length > 0) {
+      packages.forEach((pkg) => {
+        const treatmentList = (pkg.treatments || [])
+          .map(t => `${t.treatmentName || t.name} (${t.sessions || 1} sessions)`)
+          .join("; ");
+        csvRows.push([
+          `"${(pkg.name || "").replace(/"/g, '""')}"`,
+          `"${pkg.price || "0"}"`,
+          `"${treatmentList.replace(/"/g, '""')}"`,
+          `"${pkg.createdAt ? new Date(pkg.createdAt).toLocaleString() : "N/A"}"`,
+        ]);
+      });
+    } else {
+      csvRows.push(["No packages available"]);
+    }
+
+    const csvContent = csvRows.map((e) => e.join(",")).join("\n");
+    // Add UTF-8 BOM for Excel
+    const blob = new Blob(["\ufeff" + csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `clinic_add_room_export_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success("All data exported successfully!");
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       <style dangerouslySetInnerHTML={{__html: `
@@ -1123,11 +1197,21 @@ function AddRoomPage({ contextOverride = null }) {
           <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
               <div className="flex-1">
-                <div className="flex items-center gap-2 mb-2">
-                  <Building2 className="w-5 h-5 text-gray-700" />
-                  <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
-                    Room, Department & Package Management
-                  </h1>
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <div className="flex items-center gap-2">
+                    <Building2 className="w-5 h-5 text-gray-700" />
+                    <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
+                      Room, Department & Package Management
+                    </h1>
+                  </div>
+                  {/* <button
+                    onClick={exportAllData}
+                    className="inline-flex items-center gap-1.5 bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-lg text-xs transition-colors font-medium shadow-sm hover:shadow-md"
+                    title="Export all data to CSV"
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                    <span>Export All</span>
+                  </button> */}
                 </div>
                 <p className="text-xs sm:text-sm text-gray-600">
                   Create and manage rooms, departments, and packages for your clinic
@@ -1182,35 +1266,15 @@ function AddRoomPage({ contextOverride = null }) {
                   <Package className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                   <span className="whitespace-nowrap">Packages</span>
                 </button>
+                <button
+                  onClick={exportAllData}
+                  className="inline-flex items-center gap-1.5 bg-green-600 hover:bg-green-700 text-white px-2.5 py-1.5 rounded-lg text-xs transition-colors font-medium shadow-sm hover:shadow-md"
+                  title="Export all data to CSV"
+                >
+                  <Download className="h-3 w-3" />
+                  <span>Export</span>
+                </button>
               </div>
-            </div>
-          </div>
-
-          {/* Stats Cards - Matching Dashboard Theme */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
-              <div className="flex items-center gap-2 mb-2">
-                <DoorOpen className="w-4 h-4 text-gray-700" />
-                <span className="text-xs font-semibold text-gray-700">Total Rooms</span>
-              </div>
-              <p className="text-2xl font-bold text-gray-900 mb-1">{rooms.length}</p>
-              <p className="text-xs text-gray-600">Active rooms in your clinic</p>
-            </div>
-            <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
-              <div className="flex items-center gap-2 mb-2">
-                <Building2 className="w-4 h-4 text-gray-700" />
-                <span className="text-xs font-semibold text-gray-700">Total Departments</span>
-              </div>
-              <p className="text-2xl font-bold text-gray-900 mb-1">{departments.length}</p>
-              <p className="text-xs text-gray-600">Active departments in your clinic</p>
-            </div>
-            <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
-              <div className="flex items-center gap-2 mb-2">
-                <Package className="w-4 h-4 text-gray-700" />
-                <span className="text-xs font-semibold text-gray-700">Total Packages</span>
-              </div>
-              <p className="text-2xl font-bold text-gray-900 mb-1">{packages.length}</p>
-              <p className="text-xs text-gray-600">Active packages in your clinic</p>
             </div>
           </div>
 
@@ -1500,6 +1564,34 @@ function AddRoomPage({ contextOverride = null }) {
                 </button>
               </form>
             )}
+          </div>
+
+          {/* Stats Cards - Matching Dashboard Theme */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+              <div className="flex items-center gap-2 mb-2">
+                <DoorOpen className="w-4 h-4 text-gray-700" />
+                <span className="text-xs font-semibold text-gray-700">Total Rooms</span>
+              </div>
+              <p className="text-2xl font-bold text-gray-900 mb-1">{rooms.length}</p>
+              <p className="text-xs text-gray-600">Active rooms in your clinic</p>
+            </div>
+            <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+              <div className="flex items-center gap-2 mb-2">
+                <Building2 className="w-4 h-4 text-gray-700" />
+                <span className="text-xs font-semibold text-gray-700">Total Departments</span>
+              </div>
+              <p className="text-2xl font-bold text-gray-900 mb-1">{departments.length}</p>
+              <p className="text-xs text-gray-600">Active departments in your clinic</p>
+            </div>
+            <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+              <div className="flex items-center gap-2 mb-2">
+                <Package className="w-4 h-4 text-gray-700" />
+                <span className="text-xs font-semibold text-gray-700">Total Packages</span>
+              </div>
+              <p className="text-2xl font-bold text-gray-900 mb-1">{packages.length}</p>
+              <p className="text-xs text-gray-600">Active packages in your clinic</p>
+            </div>
           </div>
 
           {/* Rooms List - Only show when viewMode is "room" */}

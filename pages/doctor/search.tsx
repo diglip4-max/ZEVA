@@ -1967,7 +1967,7 @@ Take control of your healthcare today. Enter your location, use the â€œNear Meâ€
               </div>
               </div>
              
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+              <div className="flex flex-col mt-5 sm:flex-row items-center justify-center gap-3">
                 <button
                   type="button"
                   onClick={locateMe}

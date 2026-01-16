@@ -2,7 +2,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
-import { Users, Mail, Phone, FileText, Search, Filter, X } from 'lucide-react';
+import { Users, Mail, Phone, FileText, Search, Filter, X, Download } from 'lucide-react';
 
 interface JobInfo {
   jobTitle: string;
@@ -140,6 +140,49 @@ const ApplicationsDashboard: React.FC<ApplicationsDashboardProps> = ({
 
     fetchApplications();
   }, [tokenKey, apiEndpoint, permissions.canRead]);
+
+  const exportApplicantsToCSV = () => {
+    if (applications.length === 0) {
+      toast.error("No applicants to export");
+      return;
+    }
+
+    const headers = [
+      "Name",
+      "Email",
+      "Phone",
+      "Job Title",
+      "Location",
+      "Job Type",
+      "Status",
+      "Applied At"
+    ];
+
+    const csvContent = [
+      headers.join(","),
+      ...applications.map(app => [
+        `"${(app.applicantId?.name || "").replace(/"/g, '""')}"`,
+        `"${(app.applicantId?.email || "").replace(/"/g, '""')}"`,
+        `"${(app.applicantId?.phone || "").replace(/"/g, '""')}"`,
+        `"${(app.jobId?.jobTitle || "").replace(/"/g, '""')}"`,
+        `"${(app.jobId?.location || "").replace(/"/g, '""')}"`,
+        `"${(app.jobId?.jobType || "").replace(/"/g, '""')}"`,
+        `"${(app.status || "").replace(/"/g, '""')}"`,
+        `"${app.createdAt ? new Date(app.createdAt).toLocaleString() : ""}"`
+      ].join(","))
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `applicants_export_${new Date().toISOString().split("T")[0]}.csv`);
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success("Applicants exported successfully");
+  };
 
   const updateStatus = async (applicationId: string, status: string): Promise<void> => {
     if (!permissions.canUpdate) {
@@ -445,6 +488,14 @@ const ApplicationsDashboard: React.FC<ApplicationsDashboardProps> = ({
                 <Filter className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                 <span className="hidden sm:inline">Advanced</span>
                 <span className="sm:hidden">Filter</span>
+              </button>
+              
+              <button
+                onClick={exportApplicantsToCSV}
+                className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-md text-[10px] sm:text-xs font-medium transition-colors whitespace-nowrap bg-green-600 text-white hover:bg-green-700 shadow-sm"
+              >
+                <Download className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                <span>Export</span>
               </button>
             </div>
 

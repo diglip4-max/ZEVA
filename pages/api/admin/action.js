@@ -94,20 +94,111 @@ export default async function handler(req, res) {
             console.log(`✅ Slug generated successfully: ${updatedProfile.slug}`);
             
             // Step 3: Run SEO pipeline after slug generation
+            let seoResult = null;
+            let seoMessages = [];
+            
             try {
               console.log(`🚀 Running SEO pipeline for doctor: ${doctorProfile._id}`);
               // Refresh doctor profile with populated user
               const refreshedProfile = await DoctorProfile.findById(doctorProfile._id).populate('user');
-              const seoResult = await runSEOPipeline('doctor', doctorProfile._id.toString(), refreshedProfile, updatedUser);
+              seoResult = await runSEOPipeline('doctor', doctorProfile._id.toString(), refreshedProfile, updatedUser);
+              
               if (seoResult.success) {
                 console.log(`✅ SEO pipeline completed successfully`);
+                
+                // Generate user-friendly messages from SEO results
+                if (seoResult.indexing) {
+                  if (!seoResult.indexing.shouldIndex) {
+                    seoMessages.push({
+                      type: 'info',
+                      message: `🚧 Your doctor page is saved as draft. ${seoResult.indexing.reason}. Complete your profile to appear on Google search results.`,
+                    });
+                  } else {
+                    seoMessages.push({
+                      type: 'success',
+                      message: `✅ Your doctor page is ready for Google search!`,
+                    });
+                  }
+                }
+                
+                if (seoResult.robots) {
+                  const robotsMsg = seoResult.robots.noindex 
+                    ? 'Search engines will wait until your profile is complete.'
+                    : 'Search engines can now index your doctor page.';
+                  seoMessages.push({
+                    type: 'info',
+                    message: robotsMsg,
+                  });
+                }
+                
+                if (seoResult.meta) {
+                  seoMessages.push({
+                    type: 'success',
+                    message: `✨ We optimized your doctor page for Google search to improve visibility.`,
+                  });
+                }
+                
+                if (seoResult.headings) {
+                  seoMessages.push({
+                    type: 'success',
+                    message: `🧾 Page headings are optimized to avoid duplication on search engines.`,
+                  });
+                }
+                
+                if (seoResult.canonical) {
+                  seoMessages.push({
+                    type: 'success',
+                    message: `🔗 Your doctor page has a single official link to avoid confusion on Google.`,
+                  });
+                }
+                
+                if (seoResult.duplicateCheck) {
+                  if (seoResult.duplicateCheck.isDuplicate) {
+                    seoMessages.push({
+                      type: 'warning',
+                      message: `⚠️ Similar doctor found: ${seoResult.duplicateCheck.reason}`,
+                    });
+                  } else {
+                    seoMessages.push({
+                      type: 'success',
+                      message: `✅ Your doctor is recognized as a separate and unique professional.`,
+                    });
+                  }
+                }
+                
+                if (seoResult.sitemapUpdated) {
+                  seoMessages.push({
+                    type: 'success',
+                    message: `📡 Your doctor page has been submitted for discovery on search engines.`,
+                  });
+                }
+                
+                if (seoResult.pinged) {
+                  seoMessages.push({
+                    type: 'success',
+                    message: `🚀 Search engines have been notified. Your page will start appearing soon.`,
+                  });
+                }
+                
               } else {
                 console.warn(`⚠️ SEO pipeline completed with warnings:`, seoResult.errors);
+                seoMessages.push({
+                  type: 'warning',
+                  message: `⚠️ SEO setup completed with some warnings. Please review your doctor profile.`,
+                });
               }
             } catch (seoError) {
               // SEO errors are non-fatal - log but continue
               console.error("❌ SEO pipeline error (non-fatal):", seoError.message);
+              seoMessages.push({
+                type: 'error',
+                message: `❌ SEO setup encountered an error. Your doctor is approved but SEO features may be limited.`,
+              });
             }
+            
+            // Store SEO messages in response
+            updatedUser._seoMessages = seoMessages;
+            updatedUser._seoResult = seoResult;
           } else {
             console.log(`⚠️ Slug generation completed but slugLocked is false`);
           }
@@ -122,10 +213,32 @@ export default async function handler(req, res) {
       }
     }
 
-    return res.status(200).json({
+    // Generate final response with SEO information
+    const response = {
       message: `Doctor ${action === "approve" ? "approved" : "declined"} successfully`,
       user: updatedUser,
-    });
+    };
+    
+    // Add SEO messages if available (only for approval)
+    if (action === "approve" && updatedUser._seoMessages) {
+      response.seo_messages = updatedUser._seoMessages;
+      response.seo_result = updatedUser._seoResult;
+      
+      // Clean up temporary fields before sending
+      delete updatedUser._seoMessages;
+      delete updatedUser._seoResult;
+    }
+    
+    // Add slug lock message if slug was generated
+    if (action === "approve") {
+      const doctorProfile = await DoctorProfile.findOne({ user: userId });
+      if (doctorProfile && doctorProfile.slugLocked) {
+        response.slug_locked = true;
+        response.slug_lock_message = "🔒 Your doctor link is now permanent and cannot be changed to protect SEO rankings.";
+      }
+    }
+
+    return res.status(200).json(response);
   } catch (error) {
     return res.status(500).json({ message: "Server error", error: error.message });
   }
