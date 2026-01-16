@@ -402,11 +402,24 @@ function AdminJobs() {
         { headers: { Authorization: `Bearer ${token}` } }
       );
       
-      // Enhanced success message for approval
+      // Enhanced success message for approval with SEO details
       if (status === "approved") {
+        // Show SEO messages if available
+        if (response.data?.seo_messages && Array.isArray(response.data.seo_messages)) {
+          response.data.seo_messages.forEach((msg: { type: string; message: string }) => {
+            showToast(msg.message, msg.type as 'success' | 'error' | 'info' | 'warning');
+          });
+        }
+        
+        // Show slug lock message if available
+        if (response.data?.slug_lock_message) {
+          showToast(response.data.slug_lock_message, 'success');
+        }
+        
+        // Default success message
         showToast(`Job approved successfully. SEO pipeline initiated.`, 'success');
       } else {
-      showToast(`Job ${status} successfully`, 'success');
+        showToast(`Job ${status} successfully`, 'success');
       }
       // Refetch jobs with current filters
       fetchJobs(filters);

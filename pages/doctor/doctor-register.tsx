@@ -1,41 +1,90 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import axios from "axios";
-import { useRouter } from "next/router";
+import { ChangeEvent, FormEvent } from "react";
+import React from "react";
+import type { KeyboardEvent } from "react";
+import Layout from "@/components/Layout";
+import { GoogleMap, Marker } from "@react-google-maps/api";
 import { auth } from "../../lib/firebase";
 import {
   isSignInWithEmailLink,
   signInWithEmailLink,
   sendSignInLinkToEmail,
 } from "firebase/auth";
-import {
-  Mail,
-  CheckCircle,
-  AlertCircle,
-  Upload,
-  MapPin,
-  User,
-  Phone,
-  GraduationCap,
-  Briefcase,
-  Building2,
-  FileText,
-  Clock,
-  TrendingUp,
-  Users,
-  Calendar,
-  Award,
-  ArrowRight,
-  ArrowLeft,
-  Loader2,
-  X,
-  Check,
-} from "lucide-react";
+import { Mail } from "lucide-react";
+import { useRouter } from "next/router";
 
-const DoctorRegister = () => {
+interface SuccessPopupProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+const SuccessPopup: React.FC<SuccessPopupProps> = ({ isOpen, onClose }) => {
   const router = useRouter();
-  // State management
-  const [currentStep, setCurrentStep] = useState(1);
-  const [form, setForm] = useState({
+
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isOpen]);
+
+  if (!isOpen) return null;
+
+  const handleRedirect = () => {
+    onClose();
+    router.push("/");
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[99999] p-4" style={{ zIndex: 99999 }}>
+      <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl">
+        <div className="text-center">
+          <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style={{ backgroundColor: '#2D9AA5' }}>
+            <span className="text-3xl text-white">🎉</span>
+          </div>
+          <h3 className="text-xl font-bold text-gray-900 mb-2">
+            Registration Complete!
+          </h3>
+          <p className="text-sm text-gray-600 mb-5">
+            Your profile is under review. We'll notify you once approved.
+          </p>
+          <button
+            onClick={handleRedirect}
+            className="text-white font-semibold py-3 px-8 rounded-xl transition-all duration-300 hover:opacity-90"
+            style={{ background: `linear-gradient(to right, #2D9AA5, #258A94)` }}
+          >
+            Go to Home Page
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default function DoctorRegister() {
+  const searchRef = useRef<HTMLDivElement>(null);
+  const registrationRef = useRef<HTMLDivElement>(null);
+
+  interface TreatmentResponse {
+    treatments: { name: string }[];
+  }
+
+  // State variables
+  const [form, setForm] = useState<{
+    name: string;
+    phone: string;
+    email: string;
+    specialization: string;
+    degree: string;
+    experience: string;
+    address: string;
+    resume: File | null;
+    latitude: number;
+    longitude: number;
+  }>({
     name: "",
     phone: "",
     email: "",
@@ -47,738 +96,1094 @@ const DoctorRegister = () => {
     latitude: 0,
     longitude: 0,
   });
+
   const [resumeFileName, setResumeFileName] = useState("");
-  const [emailVerified, setEmailVerified] = useState(false);
-  const [emailSent, setEmailSent] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const [locationInput, setLocationInput] = useState("");
-  const [specializationType, setSpecializationType] = useState("dropdown");
+  const [fileError, setFileError] = useState("");
+  const [specializationType, setSpecializationType] = useState<"dropdown" | "other">("dropdown");
   const [customSpecialization, setCustomSpecialization] = useState("");
-  const [toast, setToast] = useState({ show: false, message: "", type: "info" });
-  const nameInputRef = useRef<HTMLInputElement>(null);
+  const [treatments, setTreatments] = useState<string[]>([]);
+  const [toast, setToast] = useState<{ show: boolean; message: string; type: 'success' | 'error' | 'info' }>({
+    show: false,
+    message: "",
+    type: 'info'
+  });
+  const [locationInput, setLocationInput] = useState<string>("");
+  const [locationDebounceTimer, setLocationDebounceTimer] = useState<NodeJS.Timeout | null>(null);
+  const [geocoder, setGeocoder] = useState<google.maps.Geocoder | null>(null);
+  const [locationError, setLocationError] = useState<string>("");
+  const [emailVerified, setEmailVerified] = useState<boolean>(false);
+  const [emailSent, setEmailSent] = useState<boolean>(false);
+  const [isCheckingEmail, setIsCheckingEmail] = useState<boolean>(false);
+  const [emailError, setEmailError] = useState<string>("");
+  const [showSuccessPopup, setShowSuccessPopup] = useState<boolean>(false);
+  const [slugPreview, setSlugPreview] = useState<{
+    slug: string;
+    url: string;
+    user_message: string;
+    collision_resolved: boolean;
+  } | null>(null);
+  const [isCheckingSlug, setIsCheckingSlug] = useState<boolean>(false);
+  const slugCheckTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  const treatments = [
-    "General Physician",
-    "Cardiologist", 
-    "Dermatologist",
-    "Pediatrician",
-    "Orthopedic",
-    "Neurologist",
-    "Psychiatrist",
-    "Gynecologist",
-    "Dentist",
-    "ENT Specialist"
-  ];
-
-  const showToast = (message: string, type: "success" | "error" | "info" = "info") => {
-    setToast({ show: true, message, type });
-    setTimeout(() => setToast({ show: false, message: "", type: "info" }), 5000);
-  };
-
+  // Fetch treatments from backend API
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (isSignInWithEmailLink(auth, window.location.href)) {
-      const storedEmail = window.localStorage.getItem("doctorEmail") || "";
-      if (!storedEmail) {
-        showToast("Email not found for verification. Open link on same device.", "error");
-        return;
+    const fetchTreatments = async () => {
+      try {
+        const res = await axios.get<TreatmentResponse>("/api/doctor/getTreatment");
+        if (res.data && Array.isArray(res.data.treatments)) {
+          setTreatments(res.data.treatments.map((t) => t.name));
+        }
+      } catch {
+        setTreatments([]);
       }
-      signInWithEmailLink(auth, storedEmail, window.location.href)
+    };
+    fetchTreatments();
+
+    // Handle Firebase email verification link
+    if (isSignInWithEmailLink(auth, window.location.href)) {
+      const stored = localStorage.getItem("doctorEmail") || "";
+      signInWithEmailLink(auth, stored, window.location.href)
         .then(() => {
-          setForm((prev) => ({ ...prev, email: storedEmail }));
+          setForm((f) => ({ ...f, email: stored || "" }));
           setEmailVerified(true);
           setEmailSent(true);
+          setEmailError("");
           showToast("Email verified successfully!", "success");
-          setTimeout(() => {
-            if (nameInputRef.current) {
-              nameInputRef.current.focus();
-            }
-          }, 0);
         })
-        .catch(() => {
-          showToast("Invalid or expired verification link", "error");
-        });
+        .catch(() => showToast("Invalid verification link", "error"));
     }
   }, []);
 
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        searchRef.current &&
+        !searchRef.current.contains(event.target as Node)
+      ) {
+        // Removed unused state variable 'suggestions'
+        // setSuggestions([]);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      if (locationDebounceTimer) clearTimeout(locationDebounceTimer);
+    };
+  }, [locationDebounceTimer]);
+
+  // Toast notification function
+  const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
+    setToast({ show: true, message, type });
+    setTimeout(() => {
+      setToast({ show: false, message: "", type: 'info' });
+    }, 5000);
+  };
+
+  // Check slug availability when name and address change
+  const checkSlugAvailability = useCallback(async (name: string, address: string) => {
+    if (!name.trim() || !address.trim()) {
+      setSlugPreview(null);
+      return;
+    }
+
+    // Clear previous timer
+    if (slugCheckTimerRef.current) {
+      clearTimeout(slugCheckTimerRef.current);
+    }
+
+    // Debounce slug check
+    slugCheckTimerRef.current = setTimeout(async () => {
+      setIsCheckingSlug(true);
+      try {
+        const response = await axios.post('/api/doctor/check-slug', {
+          name: name.trim(),
+          address: address.trim(),
+        });
+
+        if (response.data.success) {
+          setSlugPreview({
+            slug: response.data.slug,
+            url: response.data.url,
+            user_message: response.data.user_message,
+            collision_resolved: response.data.collision_resolved || false,
+          });
+        } else {
+          setSlugPreview(null);
+        }
+      } catch (error) {
+        console.error('Error checking slug:', error);
+        setSlugPreview(null);
+      } finally {
+        setIsCheckingSlug(false);
+      }
+    }, 500); // 500ms debounce
+  }, []);
+
+  // Send email verification link
   const sendVerificationLink = async () => {
-    if (!form.email || !form.email.includes("@")) {
+    if (!form.email) {
+      showToast("Please enter an email address", "error");
+      return;
+    }
+
+    // Validate email format
+    if (!form.email.includes("@")) {
+      setEmailError("Enter a valid email");
       showToast("Please enter a valid email address", "error");
       return;
     }
 
-    setIsLoading(true);
+    setIsCheckingEmail(true);
+    setEmailError("");
 
     try {
-      const checkResponse = await axios.post("/api/doctor/check-email", {
-        email: form.email,
-      });
-
+      // First check if email already exists in database for doctor role
+      const checkResponse = await axios.post('/api/doctor/check-email', { email: form.email });
+      
+      // If email exists (status 200), show error message
       if (checkResponse.status === 200) {
-        showToast("This email already exists", "error");
-        setIsLoading(false);
+        showToast("This email already exist", "error");
+        setEmailError("This email already exist");
+        setIsCheckingEmail(false);
         return;
       }
-    } catch (error) {
+    } catch (error: any) {
+      // If email doesn't exist (404), proceed to send verification link
       if (axios.isAxiosError(error) && error.response?.status === 404) {
+        // Email doesn't exist for doctor role, proceed with sending verification link
         try {
-          await sendSignInLinkToEmail(auth, form.email, {
+          sendSignInLinkToEmail(auth, form.email, {
             url: window.location.href,
             handleCodeInApp: true,
           });
-          window.localStorage.setItem("doctorEmail", form.email);
+          localStorage.setItem("doctorEmail", form.email);
           setEmailSent(true);
           showToast("Verification link sent! Check your inbox.", "success");
-        } catch {
+        } catch (firebaseError) {
+          console.error('Firebase error:', firebaseError);
           showToast("Failed to send verification link. Please try again.", "error");
-        } finally {
-          setIsLoading(false);
         }
-        return;
       } else {
+        // Other errors
+        console.error('Error checking email:', error);
         showToast("Error checking email. Please try again.", "error");
-        setIsLoading(false);
-        return;
       }
+      setIsCheckingEmail(false);
+      return;
     }
-
-    setIsLoading(false);
+    
+    setIsCheckingEmail(false);
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    const target = e.target as HTMLInputElement;
-    const files = target.files;
-    
+  // Map load callback
+  const onMapLoad = useCallback(() => {
+    if (typeof window !== 'undefined' && window.google) {
+      const geocoderInstance = new window.google.maps.Geocoder();
+      setGeocoder(geocoderInstance);
+    }
+  }, []);
+
+  // Geocode location function
+  const geocodeLocation = useCallback(
+    (location: string) => {
+      if (!geocoder || !location.trim()) {
+        setLocationError("");
+        return;
+      }
+      
+      // Try with the location input first
+      geocoder.geocode({ address: location }, (results, status) => {
+        if (status === "OK" && results && results[0]) {
+          const loc = results[0].geometry.location;
+          setForm((f) => ({
+            ...f,
+            latitude: loc.lat(),
+            longitude: loc.lng(),
+          }));
+          showToast("Location updated on map!", "success");
+          setLocationError("");
+        } else if (status === "ZERO_RESULTS") {
+          // If location input fails, try with address field
+          if (form.address && form.address.trim().length > 5) {
+            geocoder.geocode({ address: form.address }, (addressResults, addressStatus) => {
+              if (addressStatus === "OK" && addressResults && addressResults[0]) {
+                const loc = addressResults[0].geometry.location;
+                setForm((f) => ({
+                  ...f,
+                  latitude: loc.lat(),
+                  longitude: loc.lng(),
+                }));
+                showToast("Location updated using address field!", "success");
+                setLocationError("");
+              } else {
+                setLocationError("");
+                // Don't show error toast if user is still typing
+              }
+            });
+          } else {
+            setLocationError("");
+            // Don't show error if user is still typing
+          }
+        } else {
+          setLocationError("");
+          // Don't show persistent error - let user click on map instead
+        }
+      });
+    },
+    [geocoder, form.address]
+  );
+
+  // Handle location input change
+  const handleLocationChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newLocation = e.target.value;
+    setLocationInput(newLocation);
+    setLocationError(""); // Clear error when user types
+    if (locationDebounceTimer) clearTimeout(locationDebounceTimer);
+    const timer = setTimeout(() => {
+      if (newLocation.trim().length > 3) {
+        geocodeLocation(newLocation);
+      } else {
+        setLocationError("");
+      }
+    }, 1000); // Increased debounce time for better results
+    setLocationDebounceTimer(timer);
+  };
+
+  const handleChange = (
+    e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) => {
+    const { name, value, files } = e.target as HTMLInputElement;
     if (files && files.length > 0) {
       setForm((prev) => ({ ...prev, [name]: files[0] }));
       if (name === "resume") {
         setResumeFileName(files[0].name);
       }
     } else {
+      // Limit phone to 10 digits
       if (name === "phone") {
         const onlyNums = value.replace(/[^0-9]/g, "").slice(0, 10);
         setForm((prev) => ({ ...prev, [name]: onlyNums }));
       } else {
         setForm((prev) => ({ ...prev, [name]: value }));
+        
+        // Auto-geocode address field if location is not set
+        if (name === "address" && value.trim().length > 10) {
+          if (locationDebounceTimer) clearTimeout(locationDebounceTimer);
+          const timer = setTimeout(() => {
+            // Check current form state before geocoding
+            setForm((currentForm) => {
+              // Only geocode if location is not already set
+              if ((currentForm.latitude === 0 || currentForm.longitude === 0) && geocoder) {
+                geocoder.geocode({ address: value }, (results, status) => {
+                  if (status === "OK" && results && results[0]) {
+                    const loc = results[0].geometry.location;
+                    setForm((f) => ({
+                      ...f,
+                      latitude: loc.lat(),
+                      longitude: loc.lng(),
+                    }));
+                    setLocationInput(value);
+                    setLocationError("");
+                  }
+                });
+              }
+              return currentForm;
+            });
+          }, 1500);
+          setLocationDebounceTimer(timer);
+        }
       }
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-
+    
+    // Email verification validation
     if (!emailVerified) {
-      showToast("Please verify your email first", "error");
+      showToast("Please verify your email address before submitting.", 'error');
+      setEmailError("Email must be verified");
       return;
     }
-
-    if (form.phone.length !== 10) {
-      showToast("Please enter a valid 10-digit phone number", "error");
+    
+    // Phone validation: must be exactly 10 digits
+    if (!form.phone || form.phone.length !== 10) {
+      showToast("Please enter a valid 10-digit phone number.", 'error');
       return;
     }
-
-    if (!form.name || !form.specialization || !form.degree || !form.experience || !form.address || !form.resume) {
-      showToast("Please complete all required fields", "error");
+    // Location validation
+    if (form.latitude === 0 && form.longitude === 0) {
+      showToast("Please set location on map by typing address or clicking on map.", 'error');
+      setLocationError("Location is required");
       return;
     }
-
-    setIsLoading(true);
-
-    try {
-      const data = new FormData();
-      
-      // Append all form fields
-      data.append("name", form.name);
-      data.append("phone", form.phone);
-      data.append("email", form.email);
-      data.append("specialization", form.specialization);
-      data.append("degree", form.degree);
-      data.append("experience", form.experience);
-      data.append("address", form.address);
-      data.append("latitude", String(form.latitude || 0));
-      data.append("longitude", String(form.longitude || 0));
-      
-      // Append resume file if exists
-      if (form.resume) {
-        const resumeFile = form.resume as any;
-        if (resumeFile && typeof resumeFile === 'object' && 'name' in resumeFile) {
-          data.append("resume", resumeFile);
+    const data = new FormData();
+    Object.entries(form).forEach(([key, value]) => {
+      // Only append if value is not null or undefined
+      if (value !== null && value !== undefined) {
+        // Convert numbers to strings for FormData
+        if (typeof value === 'number') {
+          data.append(key, value.toString());
+        } else {
+          data.append(key, value as string | Blob);
         }
       }
-
+    });
+    // Explicitly ensure latitude and longitude are sent
+    if (form.latitude !== 0 && form.longitude !== 0) {
+      data.append('latitude', form.latitude.toString());
+      data.append('longitude', form.longitude.toString());
+    }
+    try {
       const response = await axios.post("/api/doctor/register", data, {
         headers: {
           "Content-Type": "multipart/form-data",
         },
       });
-
-      if (response.status === 201) {
-        setShowSuccessModal(true);
-        showToast("Registration submitted successfully!", "success");
-        // Reset form after successful submission
-        setTimeout(() => {
-          setForm({
-            name: "",
-            phone: "",
-            email: "",
-            specialization: "",
-            degree: "",
-            experience: "",
-            address: "",
-            resume: null,
-            latitude: 0,
-            longitude: 0,
-          });
-          setResumeFileName("");
-          setEmailVerified(false);
-          setEmailSent(false);
-          setCurrentStep(1);
-        }, 2000);
-      }
-    } catch (error) {
-      console.error("Registration error:", error);
-      if (axios.isAxiosError(error) && error.response) {
-        const errorMessage = error.response.data?.message || "Registration failed. Please try again.";
-        showToast(errorMessage, "error");
+      
+      // Show slug preview message if available
+      if (response.data.slug_preview) {
+        showToast(
+          response.data.slug_preview.user_message || "Doctor registered successfully!",
+          "success"
+        );
       } else {
-        showToast("Registration failed. Please try again.", "error");
+        showToast("Doctor registered successfully!", "success");
       }
-    } finally {
-      setIsLoading(false);
+      
+      // Show success popup
+      setShowSuccessPopup(true);
+      // Reset the form fields
+      setForm({
+        name: "",
+        phone: "",
+        email: "",
+        specialization: "",
+        degree: "",
+        experience: "",
+        address: "",
+        resume: null,
+        latitude: 0,
+        longitude: 0,
+      });
+      setResumeFileName("");
+      setLocationInput("");
+      setEmailVerified(false);
+      setEmailSent(false);
+      setEmailError("");
+    } catch (err: unknown) {
+      let message = "Registration failed";
+
+      interface AxiosErrorWithMessage {
+        response?: {
+          data?: {
+            message?: string;
+          };
+        };
+      }
+
+      const axiosError = err as AxiosErrorWithMessage;
+
+      if (typeof axiosError.response?.data?.message === "string") {
+        message = axiosError.response.data.message;
+      }
+
+      showToast(message, 'error');
     }
   };
 
-  const validateStep = () => {
-    if (currentStep === 1) {
-      return emailVerified && form.email && form.phone.length === 10 && form.name;
-    }
-    if (currentStep === 2) {
-      return form.specialization && form.degree && form.experience;
-    }
-    if (currentStep === 3) {
-      return form.address && resumeFileName;
-    }
-    return true;
-  };
-
-  const nextStep = () => {
-    if (validateStep()) {
-      setCurrentStep(prev => Math.min(prev + 1, 3));
-    } else {
-      showToast("Please complete all required fields", "error");
+  const handlePhoneKeyPress = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (!/[0-9]/.test(e.key)) {
+      e.preventDefault();
     }
   };
 
-  const prevStep = () => {
-    setCurrentStep(prev => Math.max(prev - 1, 1));
+  const handlePhoneInput = (e: ChangeEvent<HTMLInputElement>) => {
+    e.target.value = e.target.value.replace(/[^0-9]/g, "");
   };
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-teal-50 via-white to-blue-50">
-      {/* Toast Notification */}
-      {toast.show && (
-        <div className="fixed top-4 right-4 left-4 sm:left-auto sm:right-6 z-[9999] animate-slide-in-right">
-          <div className={`flex items-center gap-2 sm:gap-3 px-4 sm:px-6 py-3 sm:py-4 rounded-xl shadow-2xl backdrop-blur-sm border ${
-            toast.type === 'success' ? 'bg-green-500/90 border-green-400' :
-            toast.type === 'error' ? 'bg-red-500/90 border-red-400' :
-            'bg-blue-500/90 border-blue-400'
-          } text-white w-full sm:min-w-[320px] sm:w-auto`}>
-            {toast.type === 'success' && <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />}
-            {toast.type === 'error' && <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />}
-            <span className="font-medium text-sm sm:text-base flex-1">{toast.message}</span>
-            <button onClick={() => setToast({ show: false, message: "", type: "info" })} className="ml-auto flex-shrink-0">
-              <X className="w-4 h-4" />
-            </button>
+  const handleExperienceKeyPress = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (!/[0-9]/.test(e.key)) {
+      e.preventDefault();
+    }
+  };
+
+  const handleExperienceInput = (e: ChangeEvent<HTMLInputElement>) => {
+    e.target.value = e.target.value.replace(/[^0-9]/g, "");
+  };
+
+return (
+  <>
+    {/* Toast Notifications */}
+    {toast.show && (
+      <div className="fixed top-4 right-4 z-50 max-w-sm">
+        <div className={`bg-white rounded-lg p-4 shadow-lg border-l-4 flex items-center gap-3 ${
+          toast.type === 'success' ? 'border-emerald-500 animate-[slideIn_0.3s_ease-out]' :
+          toast.type === 'error' ? 'border-red-500 animate-[slideIn_0.3s_ease-out]' : 
+          'border-blue-500 animate-[slideIn_0.3s_ease-out]'
+        }`}>
+          <div className="flex-shrink-0">
+            {toast.type === 'success' && (
+              <svg className="w-5 h-5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            )}
+            {toast.type === 'error' && (
+              <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" fill="none" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 9l-6 6m0-6l6 6" />
+              </svg>
+            )}
+            {toast.type === 'info' && (
+              <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" fill="none" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 16v-4m0-4h.01" />
+              </svg>
+            )}
           </div>
+          <div className="flex-1">
+            <p className="text-sm font-medium text-black">{toast.message}</p>
+            {toast.type === 'success' && (
+              <p className="text-xs text-emerald-600 mt-1">
+                Redirecting to home page...
+              </p>
+            )}
+          </div>
+          <button
+            className="text-black hover:text-gray-600 transition-colors p-1 rounded"
+            onClick={() => setToast({ show: false, message: "", type: 'info' })}
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
         </div>
-      )}
+      </div>
+    )}
 
-      {/* Success Modal */}
-      {showSuccessModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[9999] p-4 sm:p-6">
-          <div className="bg-white rounded-2xl sm:rounded-3xl shadow-2xl max-w-md w-full p-6 sm:p-8 animate-scale-in">
-            <div className="text-center">
-              <div className="w-16 h-16 sm:w-20 sm:h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4 sm:mb-6">
-                <CheckCircle className="w-10 h-10 sm:w-12 sm:h-12 text-green-600" />
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-white">
+      <div className="grid lg:grid-cols-2 min-h-screen">
+        
+        {/* Left Side - Registration Form */}
+        <div className="flex items-start justify-center p-4 lg:p-6 pt-8 lg:pt-10">
+          <div className="w-full max-w-4xl">
+            
+            {/* Header */}
+            <div className="mb-4">
+              <div className="inline-flex items-center justify-center w-12 h-12 bg-gradient-to-br from-[#2D9AA5] to-cyan-600 rounded-full mb-3 shadow-lg">
+                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                </svg>
               </div>
-              <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2 sm:mb-3">Registration Complete!</h2>
-              <p className="text-gray-600 mb-2 text-sm sm:text-base">Your Doctor profile is under review.</p>
-              <p className="text-gray-500 text-xs sm:text-sm mb-6 sm:mb-8">We'll notify you once your profile has been approved.</p>
-              <button
-                onClick={() => {
-                  setShowSuccessModal(false);
-                  router.push("/");
-                }}
-                className="w-full bg-gradient-to-r from-teal-600 to-blue-600 text-white py-2.5 sm:py-3 rounded-xl font-semibold hover:shadow-lg transition-all text-sm sm:text-base"
-              >
-                Go to Home Page
-              </button>
+              <h1 className="text-2xl font-bold text-black mb-1">
+                Doctor Registration
+              </h1>
+              <p className="text-black/70 text-sm">
+                Join ZEVA's network of healthcare professionals
+              </p>
             </div>
-          </div>
-        </div>
-      )}
 
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8">
-        {/* Header */}
-        <div className="text-center mb-6 sm:mb-8 lg:mb-12">
-          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-teal-600 to-blue-600 bg-clip-text text-transparent mb-2 sm:mb-3 lg:mb-4 px-2">
-            Doctor Registration Portal
-          </h1>
-          <p className="text-gray-600 text-xs sm:text-sm max-w-2xl mx-auto px-2">
-            Create your professional profile and connect with thousands of patients seeking trusted healthcare
-          </p>
-        </div>
+            {/* Form */}
+            <div className="bg-white rounded-2xl shadow-lg p-5 border border-gray-100" ref={registrationRef}>
+              <form onSubmit={handleSubmit} className="space-y-3">
 
-        <div className="grid lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8 max-w-7xl mx-auto">
-          {/* Left: Registration Form */}
-          <div className="lg:col-span-2">
-            <div className="bg-white rounded-2xl sm:rounded-3xl shadow-xl p-4 sm:p-6 lg:p-8 border border-gray-100">
-              {/* Progress Steps */}
-              <div className="mb-6 sm:mb-8 lg:mb-10">
-                <div className="flex items-center justify-between mb-3 sm:mb-4">
-                  {[1, 2, 3].map((step) => (
-                    <div key={step} className="flex-1">
-                      <div className="flex items-center">
-                        <div className={`w-8 h-8 sm:w-9 sm:h-9 lg:w-10 lg:h-10 rounded-full flex items-center justify-center font-bold transition-all text-xs sm:text-sm ${
-                          currentStep >= step 
-                            ? 'bg-gradient-to-r from-blue-600 to-teal-600 text-white shadow-lg' 
-                            : 'bg-gray-200 text-gray-500'
-                        }`}>
-                          {currentStep > step ? <Check className="w-4 h-4 sm:w-5 sm:h-5" /> : step}
-                        </div>
-                        {step < 3 && (
-                          <div className={`flex-1 h-0.5 sm:h-1 mx-1 sm:mx-2 transition-all ${
-                            currentStep > step ? 'bg-gradient-to-r from-teal-600 to-blue-600' : 'bg-gray-200'
-                          }`} />
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <div className="flex justify-between text-xs sm:text-sm px-1">
-                  <span className={currentStep >= 1 ? 'text-blue-600 font-semibold' : 'text-gray-500'}>Contact Info</span>
-                  <span className={currentStep >= 2 ? 'text-blue-600 font-semibold' : 'text-gray-500'}>Professional Details</span>
-                  <span className={currentStep >= 3 ? 'text-blue-600 font-semibold' : 'text-gray-500'}>Documents</span>
-                </div>
-              </div>
+                {/* Name */}
+                {/* <div>
+                  <label className="block text-sm font-medium text-black mb-2">Full Name *</label>
+                  <input
+                    name="name"
+                    type="text"
+                    placeholder="Dr. John Smith"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:border-[#2D9AA5] focus:ring-2 focus:ring-[#2D9AA5]/20 transition-all text-black placeholder-black/50 outline-none"
+                    onChange={(e) => {
+                      handleChange(e);
+                      // Check slug when name changes
+                      checkSlugAvailability(e.target.value, form.address);
+                    }}
+                    value={form.name || ""}
+                    required
+                  />
+                </div> */}
 
-              <form onSubmit={handleSubmit}>
-                {/* Step 1: Contact Information */}
-                {currentStep === 1 && (
-                  <div className="space-y-4 sm:space-y-6 animate-fade-in">
-                    <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4 sm:mb-6 flex items-center gap-2">
-                      <User className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
-                      Contact Information
-                    </h2>
-
-                    {/* Email Verification */}
-                    <div className="bg-gradient-to-br from-teal-50 to-blue-50 p-4 sm:p-6 rounded-xl sm:rounded-2xl border border-blue-100">
-                      <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">
-                        <Mail className="w-3 h-3 sm:w-4 sm:h-4 inline mr-1 sm:mr-2" />
-                        Email Address *
-                      </label>
-                      <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
-                        <input
-                          type="email"
-                          name="email"
-                          value={form.email}
-                          onChange={handleChange}
-                          disabled={emailVerified}
-                          className="flex-1 px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 rounded-lg sm:rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 text-sm sm:text-base"
-                          placeholder="doctor@example.com"
-                          required
-                        />
-                        {!emailVerified ? (
-                          <button
-                            type="button"
-                            onClick={sendVerificationLink}
-                            disabled={isLoading || emailSent}
-                            className="px-4 sm:px-6 py-2 sm:py-3 bg-gradient-to-r from-teal-600 to-blue-600 text-white rounded-lg sm:rounded-xl font-semibold hover:from-teal-700 hover:to-blue-700 transition-all disabled:bg-gray-400 flex items-center justify-center gap-2 text-sm sm:text-base whitespace-nowrap"
-                          >
-                            {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-                            <span className="hidden sm:inline">{isLoading ? "Sending..." : emailSent ? "Link Sent" : "Send Link"}</span>
-                            <span className="sm:hidden">{isLoading ? "..." : emailSent ? "Sent" : "Send"}</span>
-                          </button>
-                        ) : (
-                          <div className="px-4 sm:px-6 py-2 sm:py-3 bg-green-100 text-green-700 rounded-lg sm:rounded-xl font-semibold flex items-center justify-center gap-2 text-sm sm:text-base">
-                            <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5" />
-                            Verified
-                          </div>
-                        )}
-                      </div>
-                      {emailSent && !emailVerified && (
-                        <p className="text-xs sm:text-sm text-blue-600 mt-2">✓ Verification link sent! Check your inbox and click the verify button above.</p>
-                      )}
-                    </div>
-
-                    {/* Name */}
-                    <div>
-                      <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">
-                        <User className="w-3 h-3 sm:w-4 sm:h-4 inline mr-1 sm:mr-2" />
-                        Full Name *
-                      </label>
-                      <input
-                        type="text"
-                        name="name"
-                        value={form.name}
-                        onChange={handleChange}
-                        disabled={!emailVerified}
-                        ref={nameInputRef}
-                        className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 rounded-lg sm:rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 text-sm sm:text-base"
-                        placeholder="Dr. John Doe"
-                        required
-                      />
-                    </div>
-
-                    {/* Phone */}
-                    <div>
-                      <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">
-                        <Phone className="w-3 h-3 sm:w-4 sm:h-4 inline mr-1 sm:mr-2" />
-                        Phone Number *
-                      </label>
-                      <input
-                        type="tel"
-                        name="phone"
-                        value={form.phone}
-                        onChange={handleChange}
-                        disabled={!emailVerified}
-                        className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 rounded-lg sm:rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 text-sm sm:text-base"
-                        placeholder="1234567890"
-                        maxLength={10}
-                        required
-                      />
-                      <p className="text-xs text-gray-500 mt-1">{form.phone.length}/10 digits</p>
-                    </div>
-                  </div>
-                )}
-
-                {/* Step 2: Professional Details */}
-                {currentStep === 2 && (
-                  <div className="space-y-4 sm:space-y-6 animate-fade-in">
-                    <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4 sm:mb-6 flex items-center gap-2">
-                      <Briefcase className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
-                      Professional Details
-                    </h2>
-
-                    {/* Specialization */}
-                    <div>
-                      <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">
-                        Specialization *
-                      </label>
-                      <select
-                        name="specialization"
-                        value={specializationType === "other" ? "other" : form.specialization}
-                        onChange={(e) => {
-                          if (e.target.value === "other") {
-                            setSpecializationType("other");
-                            setForm(prev => ({ ...prev, specialization: "" }));
-                          } else {
-                            setSpecializationType("dropdown");
-                            setForm(prev => ({ ...prev, specialization: e.target.value }));
-                          }
-                        }}
-                        className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 rounded-lg sm:rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base"
-                        required
-                      >
-                        <option value="">Select Specialization</option>
-                        {treatments.map((t) => (
-                          <option key={t} value={t}>{t}</option>
-                        ))}
-                        <option value="other">Other</option>
-                      </select>
-                      {specializationType === "other" && (
-                        <input
-                          type="text"
-                          value={customSpecialization}
-                          onChange={(e) => {
-                            setCustomSpecialization(e.target.value);
-                            setForm(prev => ({ ...prev, specialization: e.target.value }));
-                          }}
-                          className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 rounded-lg sm:rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent mt-3 text-sm sm:text-base"
-                          placeholder="Enter your specialization"
-                          required
-                        />
-                      )}
-                    </div>
-
-                    {/* Degree */}
-                    <div>
-                      <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">
-                        <GraduationCap className="w-3 h-3 sm:w-4 sm:h-4 inline mr-1 sm:mr-2" />
-                        Degree *
-                      </label>
-                      <input
-                        type="text"
-                        name="degree"
-                        value={form.degree}
-                        onChange={handleChange}
-                        className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 rounded-lg sm:rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base"
-                        placeholder="MBBS, MD, etc."
-                        required
-                      />
-                    </div>
-
-                    {/* Experience */}
-                    <div>
-                      <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">
-                        <Clock className="w-3 h-3 sm:w-4 sm:h-4 inline mr-1 sm:mr-2" />
-                        Experience (Years) *
-                      </label>
-                      <input
-                        type="number"
-                        name="experience"
-                        value={form.experience}
-                        onChange={handleChange}
-                        className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 rounded-lg sm:rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base"
-                        placeholder="5"
-                        min="0"
-                        required
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {/* Step 3: Documents & Location */}
-                {currentStep === 3 && (
-                  <div className="space-y-4 sm:space-y-6 animate-fade-in">
-                    <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-4 sm:mb-6 flex items-center gap-2">
-                      <FileText className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
-                      Documents & Location
-                    </h2>
-
-                    {/* Address */}
-                    <div>
-                      <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">
-                        <Building2 className="w-3 h-3 sm:w-4 sm:h-4 inline mr-1 sm:mr-2" />
-                        Clinic Address *
-                      </label>
-                      <textarea
-                        name="address"
-                        value={form.address}
-                        onChange={handleChange}
-                        className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 rounded-lg sm:rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base resize-none"
-                        placeholder="123 Medical Center, City, State"
-                        rows={3}
-                        required
-                      />
-                    </div>
-
-                    {/* Location */}
-                    <div>
-                      <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">
-                        <MapPin className="w-3 h-3 sm:w-4 sm:h-4 inline mr-1 sm:mr-2" />
-                        Location (Optional)
-                      </label>
-                      <input
-                        type="text"
-                        value={locationInput}
-                        onChange={(e) => setLocationInput(e.target.value)}
-                        className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 rounded-lg sm:rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base mb-2"
-                        placeholder="Search for your location..."
-                      />
-                      <div className="mt-2 sm:mt-4 bg-gray-100 rounded-lg sm:rounded-xl h-48 sm:h-64 flex items-center justify-center text-gray-500 text-xs sm:text-sm">
-                        <MapPin className="w-6 h-6 sm:w-8 sm:h-8 mr-2" />
-                        Map integration placeholder
-                      </div>
-                    </div>
-
-                    {/* Resume Upload */}
-                    <div>
-                      <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">
-                        <Upload className="w-3 h-3 sm:w-4 sm:h-4 inline mr-1 sm:mr-2" />
-                        Upload Resume *
-                      </label>
-                      <div className="relative">
-                        <input
-                          type="file"
-                          name="resume"
-                          onChange={handleChange}
-                          accept=".pdf,.doc,.docx"
-                          className="hidden"
-                          id="resume-upload"
-                          required
-                        />
-                        <label
-                          htmlFor="resume-upload"
-                          className="flex items-center justify-center gap-2 sm:gap-3 w-full px-3 sm:px-4 py-4 sm:py-6 border-2 border-dashed border-gray-300 rounded-lg sm:rounded-xl cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition-all"
+                {/* Slug Preview */}
+                {slugPreview && form.name.trim() && form.address.trim() && (
+                  <div className={`p-3 rounded-lg border-2 ${
+                    slugPreview.collision_resolved 
+                      ? 'bg-blue-50 border-blue-200' 
+                      : 'bg-green-50 border-green-200'
+                  }`}>
+                    <div className="flex items-start gap-2">
+                      <div className="flex-1">
+                        <p className="text-xs font-semibold text-gray-700 mb-1">
+                          {slugPreview.collision_resolved ? '🔗 Your Unique Doctor URL:' : '🔗 Your Doctor URL:'}
+                        </p>
+                        <a
+                          href={slugPreview.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-[#2D9AA5] hover:underline break-all font-mono"
                         >
-                          {resumeFileName ? (
-                            <>
-                              <FileText className="w-5 h-5 sm:w-6 sm:h-6 text-green-600 flex-shrink-0" />
-                              <span className="text-green-700 font-medium text-xs sm:text-sm truncate">{resumeFileName}</span>
-                            </>
-                          ) : (
-                            <>
-                              <Upload className="w-5 h-5 sm:w-6 sm:h-6 text-gray-400 flex-shrink-0" />
-                              <span className="text-gray-600 text-xs sm:text-sm text-center">Click to upload resume (PDF, DOC, DOCX)</span>
-                            </>
-                          )}
-                        </label>
+                          {slugPreview.url}
+                        </a>
+                        <p className="text-xs text-gray-600 mt-2">
+                          {slugPreview.user_message}
+                        </p>
                       </div>
-                      <p className="text-xs text-gray-500 mt-2">Max file size: 1MB</p>
                     </div>
                   </div>
                 )}
+                
+                {isCheckingSlug && form.name.trim() && form.address.trim() && (
+                  <div className="p-2 bg-gray-50 border border-gray-200 rounded-lg">
+                    <p className="text-xs text-gray-500">Checking slug availability...</p>
+                  </div>
+                )}
 
-                {/* Navigation Buttons */}
-                <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 mt-6 sm:mt-8 pt-4 sm:pt-6 border-t border-gray-200">
-                  {currentStep > 1 && (
-                    <button
-                      type="button"
-                      onClick={prevStep}
-                      className="w-full sm:flex-1 px-4 sm:px-6 py-2.5 sm:py-3 border border-gray-300 text-gray-700 rounded-lg sm:rounded-xl font-semibold hover:bg-gray-50 transition-all flex items-center justify-center gap-2 text-sm sm:text-base"
+                {/* Email and Phone */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-black mb-1.5">
+                      Email * {emailVerified && <span className="text-green-600 text-xs">✓ Verified</span>}
+                    </label>
+                    <div className="flex gap-1.5">
+                      <div className="flex-1 relative">
+                        <Mail className="absolute left-2.5 top-1/2 transform -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+                        <input
+                          name="email"
+                          type="email"
+                          placeholder="doctor@example.com"
+                          className={`w-full pl-9 pr-3 py-2 border rounded-lg focus:ring-2 transition-all text-sm text-black placeholder-black/50 outline-none ${
+                            emailError
+                              ? "border-red-400 focus:border-red-500 focus:ring-red-500/20"
+                              : emailVerified
+                                ? "border-green-400 focus:border-green-500 focus:ring-green-500/20"
+                                : "border-gray-300 focus:border-[#2D9AA5] focus:ring-[#2D9AA5]/20"
+                          }`}
+                          onChange={(e) => {
+                            handleChange(e);
+                            if (emailError) setEmailError("");
+                            if (emailVerified) {
+                              setEmailVerified(false);
+                              setEmailSent(false);
+                            }
+                          }}
+                          value={form.email || ""}
+                          disabled={emailVerified}
+                          required
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        className={`px-3 py-2 rounded-lg font-semibold whitespace-nowrap transition-all text-xs flex items-center justify-center gap-1 ${
+                          emailVerified
+                            ? "bg-green-600 text-white"
+                            : emailSent
+                              ? "bg-gray-100 text-gray-600 cursor-not-allowed"
+                              : isCheckingEmail
+                                ? "bg-gray-400 text-white cursor-not-allowed"
+                                : "bg-gradient-to-r from-[#2D9AA5] to-[#258A94] text-white hover:from-[#258A94] hover:to-[#1d7a84]"
+                        }`}
+                        onClick={sendVerificationLink}
+                        disabled={(emailSent && !emailVerified) || isCheckingEmail}
+                      >
+                        {emailVerified ? (
+                          <>
+                            <span>✓</span> Verified
+                          </>
+                        ) : emailSent ? (
+                          "Sent"
+                        ) : isCheckingEmail ? (
+                          <>
+                            <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                            Checking...
+                          </>
+                        ) : (
+                          "Verify"
+                        )}
+                      </button>
+                    </div>
+                    {emailError && (
+                      <p className="text-red-500 text-xs mt-0.5">{emailError}</p>
+                    )}
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-black mb-1.5">Phone *</label>
+                    <input
+                      name="phone"
+                      type="tel"
+                      placeholder="+1 (555) 000-0000"
+                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 transition-all text-sm text-black placeholder-black/50 outline-none ${
+                        emailVerified 
+                          ? "border-gray-300 focus:border-[#2D9AA5] focus:ring-[#2D9AA5]/20" 
+                          : "border-gray-200 bg-gray-100 cursor-not-allowed opacity-60"
+                      }`}
+                      onChange={handleChange}
+                      onKeyPress={handlePhoneKeyPress}
+                      onInput={handlePhoneInput}
+                      value={form.phone || ""}
+                      disabled={!emailVerified}
+                      required
+                    />
+                    {!emailVerified && (
+                      <p className="text-xs text-gray-500 mt-0.5">Verify email first</p>
+                    )}
+                  </div>
+                </div>
+                
+                {/* Name and Specialization */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-black mb-1.5">Full Name *</label>
+                    <input
+                      name="name"
+                      type="text"
+                      placeholder="Dr. John Smith"
+                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 transition-all text-sm text-black placeholder-black/50 outline-none ${
+                        emailVerified 
+                          ? "border-gray-300 focus:border-[#2D9AA5] focus:ring-[#2D9AA5]/20" 
+                          : "border-gray-200 bg-gray-100 cursor-not-allowed opacity-60"
+                      }`}
+                      onChange={(e) => {
+                        handleChange(e);
+                        // Check slug when name changes
+                        checkSlugAvailability(e.target.value, form.address);
+                      }}
+                      value={form.name || ""}
+                      disabled={!emailVerified}
+                      required
+                    />
+                    {!emailVerified && (
+                      <p className="text-xs text-gray-500 mt-0.5">Verify email first</p>
+                    )}
+                  </div>
+                  <div className="relative">
+                    <label className="block text-xs font-medium text-black mb-1.5">Specialization *</label>
+                    <select
+                      id="specialization"
+                      name="specialization"
+                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 transition-all appearance-none text-sm text-black outline-none bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHZpZXdCb3g9IjAgMCAyMCAyMCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTUgN0wxMCAxMkwxNSA3IiBzdHJva2U9IiM2QjcyODAiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+Cjwvc3ZnPgo=')] bg-[length:1.5em_1.5em] bg-[right_0.5rem_center] bg-no-repeat pr-10 ${
+                        emailVerified 
+                          ? "border-gray-300 focus:border-[#2D9AA5] focus:ring-[#2D9AA5]/20 bg-white" 
+                          : "border-gray-200 bg-gray-100 cursor-not-allowed opacity-60"
+                      }`}
+                      value={
+                        specializationType === "dropdown"
+                          ? form.specialization
+                          : "other"
+                      }
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        if (value === "") {
+                          setSpecializationType("dropdown");
+                          setForm((prev) => ({
+                            ...prev,
+                            specialization: "",
+                          }));
+                          setCustomSpecialization("");
+                        } else if (value === "other") {
+                          setSpecializationType("other");
+                          setForm((prev) => ({
+                            ...prev,
+                            specialization: "",
+                          }));
+                        } else {
+                          setSpecializationType("dropdown");
+                          setForm((prev) => ({
+                            ...prev,
+                            specialization: value,
+                          }));
+                        }
+                      }}
+                      disabled={!emailVerified}
+                      required
                     >
-                      <ArrowLeft className="w-4 h-4" />
-                      Previous
-                    </button>
-                  )}
-                  {currentStep < 3 ? (
-                    <button
-                      type="button"
-                      onClick={nextStep}
-                      className="w-full sm:flex-1 px-4 sm:px-6 py-2.5 sm:py-3 bg-gradient-to-r from-teal-600 to-blue-600 text-white rounded-lg sm:rounded-xl font-semibold hover:shadow-lg transition-all flex items-center justify-center gap-2 text-sm sm:text-base"
-                    >
-                      Next Step
-                      <ArrowRight className="w-4 h-4" />
-                    </button>
-                  ) : (
-                    <button
-                      type="submit"
-                      disabled={isLoading}
-                      className="w-full sm:flex-1 px-4 sm:px-6 py-2.5 sm:py-3 bg-gradient-to-r from-teal-600 to-blue-600 text-white rounded-lg sm:rounded-xl font-semibold hover:shadow-lg transition-all disabled:opacity-50 flex items-center justify-center gap-2 text-sm sm:text-base"
-                    >
-                      {isLoading ? (
-                        <>
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                          <span className="hidden sm:inline">Submitting...</span>
-                          <span className="sm:hidden">Submitting</span>
-                        </>
-                      ) : (
-                        <>
-                          <span className="hidden sm:inline">Complete Registration</span>
-                          <span className="sm:hidden">Complete</span>
-                          <CheckCircle className="w-4 h-4" />
-                        </>
-                      )}
-                    </button>
+                      <option value="" disabled hidden>
+                        Select Specialization
+                      </option>
+                      {treatments.map((t) => (
+                        <option key={t} value={t}>
+                          {t}
+                        </option>
+                      ))}
+                      <option value="other">
+                        Other
+                      </option>
+                    </select>
+                    {!emailVerified && (
+                      <p className="text-xs text-gray-500 mt-0.5">Verify email first</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Custom Specialization */}
+                {specializationType === "other" && (
+                  <div>
+                    <label className="block text-xs font-medium text-black mb-1.5">Enter Specialization *</label>
+                    <input
+                      type="text"
+                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 transition-all text-sm text-black placeholder-black/50 outline-none ${
+                        emailVerified 
+                          ? "border-gray-300 focus:border-[#2D9AA5] focus:ring-[#2D9AA5]/20" 
+                          : "border-gray-200 bg-gray-100 cursor-not-allowed opacity-60"
+                      }`}
+                      placeholder="e.g., Sports Medicine"
+                      value={customSpecialization}
+                      onChange={(e) => {
+                        setCustomSpecialization(e.target.value);
+                        setForm((prev) => ({
+                          ...prev,
+                          specialization: e.target.value,
+                        }));
+                      }}
+                      disabled={!emailVerified}
+                      required
+                    />
+                  </div>
+                )}
+
+                {/* Experience and Degree */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-black mb-1.5">Experience (Years) *</label>
+                    <input
+                      name="experience"
+                      type="text"
+                      placeholder="5"
+                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 transition-all text-sm text-black placeholder-black/50 outline-none ${
+                        emailVerified 
+                          ? "border-gray-300 focus:border-[#2D9AA5] focus:ring-[#2D9AA5]/20" 
+                          : "border-gray-200 bg-gray-100 cursor-not-allowed opacity-60"
+                      }`}
+                      onChange={handleChange}
+                      onKeyPress={handleExperienceKeyPress}
+                      onInput={handleExperienceInput}
+                      value={form.experience || ""}
+                      disabled={!emailVerified}
+                      required
+                    />
+                    {!emailVerified && (
+                      <p className="text-xs text-gray-500 mt-0.5">Verify email first</p>
+                    )}
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-black mb-1.5">Degree *</label>
+                    <input
+                      name="degree"
+                      type="text"
+                      placeholder="MBBS, MD, etc."
+                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 transition-all text-sm text-black placeholder-black/50 outline-none ${
+                        emailVerified 
+                          ? "border-gray-300 focus:border-[#2D9AA5] focus:ring-[#2D9AA5]/20" 
+                          : "border-gray-200 bg-gray-100 cursor-not-allowed opacity-60"
+                      }`}
+                      onChange={handleChange}
+                      value={form.degree || ""}
+                      disabled={!emailVerified}
+                      required
+                    />
+                    {!emailVerified && (
+                      <p className="text-xs text-gray-500 mt-0.5">Verify email first</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Address */}
+                <div>
+                  <label className="block text-xs font-medium text-black mb-1.5">Clinic Address *</label>
+                  <textarea
+                    name="address"
+                    placeholder="Enter your complete practice address"
+                    rows={2}
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 transition-all resize-none text-sm text-black placeholder-black/50 outline-none ${
+                      emailVerified 
+                        ? "border-gray-300 focus:border-[#2D9AA5] focus:ring-[#2D9AA5]/20" 
+                        : "border-gray-200 bg-gray-100 cursor-not-allowed opacity-60"
+                    }`}
+                    onChange={(e) => {
+                      handleChange(e);
+                      // Check slug when address changes
+                      checkSlugAvailability(form.name, e.target.value);
+                    }}
+                    value={form.address || ""}
+                    disabled={!emailVerified}
+                    required
+                  ></textarea>
+                  {!emailVerified && (
+                    <p className="text-xs text-gray-500 mt-0.5">Verify email first</p>
                   )}
                 </div>
+
+                {/* Location with Map */}
+                <div>
+                  <label className="block text-xs font-medium text-black mb-1.5">
+                    Location <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Type address or location (e.g., Noida Sector 5)"
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 transition-all text-sm text-black placeholder-black/50 outline-none mb-1.5 ${
+                      emailVerified 
+                        ? locationError 
+                          ? "border-red-400 focus:border-red-500" 
+                          : "border-gray-300 focus:border-[#2D9AA5] focus:ring-[#2D9AA5]/20"
+                        : "border-gray-200 bg-gray-100 cursor-not-allowed opacity-60"
+                    }`}
+                    value={locationInput}
+                    onChange={handleLocationChange}
+                    disabled={!emailVerified}
+                  />
+                  {!emailVerified && (
+                    <p className="text-xs text-gray-500 mb-1.5">Verify email first</p>
+                  )}
+                  {emailVerified && (
+                    <p className="text-xs text-gray-500 mb-1.5">Or click map to pin location</p>
+                  )}
+                  <div className={`h-40 border-2 rounded-lg overflow-hidden ${
+                    locationError ? "border-red-400" : "border-gray-300"
+                  } ${!emailVerified ? "opacity-60 pointer-events-none" : ""}`}>
+                    <GoogleMap
+                      zoom={form.latitude !== 0 ? 15 : 12}
+                      center={{
+                        lat: form.latitude !== 0 ? form.latitude : 28.61,
+                        lng: form.longitude !== 0 ? form.longitude : 77.2,
+                      }}
+                      mapContainerStyle={{ width: "100%", height: "100%" }}
+                      onLoad={onMapLoad}
+                      onClick={(e) => {
+                        if (e.latLng && emailVerified) {
+                          setForm((f) => ({
+                            ...f,
+                            latitude: e.latLng!.lat(),
+                            longitude: e.latLng!.lng(),
+                          }));
+                          setLocationError("");
+                          // Reverse geocode to update location input
+                          if (geocoder) {
+                            geocoder.geocode({ location: e.latLng }, (results, status) => {
+                              if (status === "OK" && results && results[0]) {
+                                setLocationInput(results[0].formatted_address);
+                              }
+                            });
+                          }
+                        }
+                      }}
+                    >
+                      {form.latitude !== 0 && (
+                        <Marker position={{ lat: form.latitude, lng: form.longitude }} />
+                      )}
+                    </GoogleMap>
+                  </div>
+                  {locationError && form.latitude === 0 && form.longitude === 0 && (
+                    <p className="text-xs text-red-500 mt-1">{locationError}</p>
+                  )}
+                  {form.latitude !== 0 && form.longitude !== 0 && (
+                    <p className="text-xs text-green-600 mt-1">✓ Location set successfully</p>
+                  )}
+                </div>
+
+                {/* File Upload */}
+                <div>
+                  <label className="block text-xs font-medium text-black mb-1.5">Upload Resume *</label>
+                  <div className="relative">
+                    <input
+                      type="file"
+                      name="resume"
+                      accept=".pdf,.doc,.docx"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const maxSize = 1024 * 1024;
+                          if (file.size > maxSize) {
+                            setFileError("File is too large");
+                            e.target.value = "";
+                            return;
+                          }
+                          setFileError("");
+                          setResumeFileName(file.name);
+                          handleChange(e);
+                        }
+                      }}
+                      className={`absolute inset-0 w-full h-full opacity-0 z-10 ${
+                        emailVerified ? "cursor-pointer" : "cursor-not-allowed"
+                      }`}
+                      disabled={!emailVerified}
+                      required
+                    />
+                    <div className={`w-full px-3 py-2 border-2 border-dashed rounded-lg text-sm text-black/60 transition-all text-center ${
+                      emailVerified 
+                        ? "border-gray-300 bg-gray-50 hover:bg-[#2D9AA5]/5 hover:border-[#2D9AA5]" 
+                        : "border-gray-200 bg-gray-100 opacity-60"
+                    }`}>
+                      {resumeFileName ? `📄 ${resumeFileName}` : "Upload Resume (PDF, DOC, DOCX)"}
+                    </div>
+                  </div>
+                  <div className={`text-xs mt-0.5 ${fileError ? "text-red-500" : "text-black/50"}`}>
+                    {fileError || "Max file size: 1MB"}
+                  </div>
+                  {!emailVerified && (
+                    <p className="text-xs text-gray-500 mt-0.5">Verify email first</p>
+                  )}
+                </div>
+
+                {/* Submit Button */}
+                <button
+                  type="submit"
+                  className={`w-full bg-gradient-to-r from-[#2D9AA5] to-cyan-600 text-white py-2 px-6 rounded-lg font-semibold text-sm transition-all duration-200 shadow-lg ${
+                    emailVerified 
+                      ? "hover:from-[#238892] hover:to-cyan-700 transform hover:-translate-y-0.5 hover:shadow-xl" 
+                      : "opacity-60 cursor-not-allowed"
+                  }`}
+                  disabled={!emailVerified}
+                >
+                  Complete Registration
+                </button>
               </form>
             </div>
           </div>
+        </div>
 
-          {/* Right: Benefits */}
-          <div className="space-y-4 sm:space-y-6 mt-6 lg:mt-0">
-            <div className="bg-gradient-to-br from-teal-600 to-blue-600 rounded-2xl sm:rounded-3xl shadow-xl p-5 sm:p-6 lg:p-8 text-white">
-              <h2 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6">Why Join ZEVA?</h2>
-              <div className="space-y-3 sm:space-y-4">
-                <div className="flex items-start gap-3 sm:gap-4">
-                  <div className="bg-white/20 p-2 sm:p-3 rounded-lg sm:rounded-xl backdrop-blur-sm flex-shrink-0">
-                    <TrendingUp className="w-5 h-5 sm:w-6 sm:h-6" />
+        {/* Right Side - Why Register */}
+        <div className="hidden lg:flex items-start justify-center p-4 lg:p-6 pt-8 lg:pt-10">
+          <div className="w-full max-w-xl">
+            <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl shadow-xl p-6 lg:p-8 border border-blue-400 mt-24 lg:mt-28">
+            
+            {/* Header */}
+            <div className="mb-6 text-center">
+              <h2 className="text-2xl font-bold mb-2 text-white">Why Register With ZEVA?</h2>
+              <p className="text-blue-50 text-sm">
+                Join thousands of practitioners who trust our platform
+              </p>
+            </div>
+
+            {/* Benefits Cards */}
+            <div className="grid grid-cols-1 gap-3">
+              <div className="bg-white/95 backdrop-blur-sm p-4 rounded-xl shadow-md border border-white/30 hover:shadow-lg transition-all hover:scale-[1.02]">
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0">
+                    <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                      <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                      </svg>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="font-semibold mb-1 text-sm sm:text-base">Personal Dashboard</h3>
-                    <p className="text-xs sm:text-sm text-blue-100">Comprehensive analytics and practice management tools</p>
+                  <div className="flex-1">
+                    <h3 className="font-bold text-gray-900 text-sm mb-1">Personal Dashboard</h3>
+                    <p className="text-gray-600 text-xs">
+                      Get comprehensive analytics and insights to manage your practice effectively
+                    </p>
                   </div>
                 </div>
-                <div className="flex items-start gap-3 sm:gap-4">
-                  <div className="bg-white/20 p-2 sm:p-3 rounded-lg sm:rounded-xl backdrop-blur-sm flex-shrink-0">
-                    <Users className="w-5 h-5 sm:w-6 sm:h-6" />
+              </div>
+
+              <div className="bg-white/95 backdrop-blur-sm p-4 rounded-xl shadow-md border border-white/30 hover:shadow-lg transition-all hover:scale-[1.02]">
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0">
+                    <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                      <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                      </svg>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="font-semibold mb-1 text-sm sm:text-base">Patient Network</h3>
-                    <p className="text-xs sm:text-sm text-blue-100">Connect with thousands of verified patients</p>
+                  <div className="flex-1">
+                    <h3 className="font-bold text-gray-900 text-sm mb-1">Extensive Patient Network</h3>
+                    <p className="text-gray-600 text-xs">
+                      Connect with thousands of patients seeking trusted healthcare
+                    </p>
                   </div>
                 </div>
-                <div className="flex items-start gap-3 sm:gap-4">
-                  <div className="bg-white/20 p-2 sm:p-3 rounded-lg sm:rounded-xl backdrop-blur-sm flex-shrink-0">
-                    <Calendar className="w-5 h-5 sm:w-6 sm:h-6" />
+              </div>
+
+              <div className="bg-white/95 backdrop-blur-sm p-4 rounded-xl shadow-md border border-white/30 hover:shadow-lg transition-all hover:scale-[1.02]">
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0">
+                    <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+                      <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2 2v2m4 6h.01M5 20h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                      </svg>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="font-semibold mb-1 text-sm sm:text-base">Smart Scheduling</h3>
-                    <p className="text-xs sm:text-sm text-blue-100">AI-powered appointment management system</p>
+                  <div className="flex-1">
+                    <h3 className="font-bold text-gray-900 text-sm mb-1">Post Job Opportunities</h3>
+                    <p className="text-gray-600 text-xs">
+                      Hire qualified staff directly through the platform
+                    </p>
                   </div>
                 </div>
-                <div className="flex items-start gap-3 sm:gap-4">
-                  <div className="bg-white/20 p-2 sm:p-3 rounded-lg sm:rounded-xl backdrop-blur-sm flex-shrink-0">
-                    <Award className="w-5 h-5 sm:w-6 sm:h-6" />
+              </div>
+
+              <div className="bg-white/95 backdrop-blur-sm p-4 rounded-xl shadow-md border border-white/30 hover:shadow-lg transition-all hover:scale-[1.02]">
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0">
+                    <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
+                      <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="font-semibold mb-1 text-sm sm:text-base">Build Authority</h3>
-                    <p className="text-xs sm:text-sm text-blue-100">Write blogs and share medical expertise</p>
+                  <div className="flex-1">
+                    <h3 className="font-bold text-gray-900 text-sm mb-1">Write & Share Blogs</h3>
+                    <p className="text-gray-600 text-xs">
+                      Share your expertise to establish authority and attract patients
+                    </p>
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="bg-white rounded-2xl sm:rounded-3xl shadow-xl p-4 sm:p-6 border border-gray-100">
-              <h3 className="font-bold text-gray-900 mb-3 sm:mb-4 text-base sm:text-lg">Additional Benefits</h3>
-              <ul className="space-y-2 sm:space-y-3 text-xs sm:text-sm text-gray-600">
+            {/* Additional Features */}
+            <div className="mt-4 p-4 bg-white/95 backdrop-blur-sm rounded-xl shadow-md border border-white/30">
+              <h4 className="font-bold text-gray-900 mb-2 flex items-center gap-2 text-sm">
+                <svg className="w-4 h-4 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                Additional Benefits
+              </h4>
+              <ul className="space-y-1.5 text-gray-600 text-xs">
                 <li className="flex items-center gap-2">
-                  <Check className="w-3 h-3 sm:w-4 sm:h-4 text-green-600 flex-shrink-0" />
-                  24/7 customer support
+                  <div className="w-1.5 h-1.5 bg-gray-400 rounded-full flex-shrink-0"></div>
+                  24/7 customer support for all practitioners
                 </li>
                 <li className="flex items-center gap-2">
-                  <Check className="w-3 h-3 sm:w-4 sm:h-4 text-green-600 flex-shrink-0" />
-                  Free marketing tools
+                  <div className="w-1.5 h-1.5 bg-gray-400 rounded-full flex-shrink-0"></div>
+                  Free marketing tools and promotional materials
                 </li>
                 <li className="flex items-center gap-2">
-                  <Check className="w-3 h-3 sm:w-4 sm:h-4 text-green-600 flex-shrink-0" />
-                  Secure patient data management
+                  <div className="w-1.5 h-1.5 bg-gray-400 rounded-full flex-shrink-0"></div>
+                  Secure patient data management system
                 </li>
                 <li className="flex items-center gap-2">
-                  <Check className="w-3 h-3 sm:w-4 sm:h-4 text-green-600 flex-shrink-0" />
-                  Regular platform updates
+                  <div className="w-1.5 h-1.5 bg-gray-400 rounded-full flex-shrink-0"></div>
+                  Regular platform updates and new features
                 </li>
               </ul>
             </div>
+            </div>
           </div>
         </div>
+
       </div>
-
-      <style jsx>{`
-        @keyframes slide-in-right {
-          from {
-            transform: translateX(100%);
-            opacity: 0;
-          }
-          to {
-            transform: translateX(0);
-            opacity: 1;
-          }
-        }
-        @keyframes scale-in {
-          from {
-            transform: scale(0.9);
-            opacity: 0;
-          }
-          to {
-            transform: scale(1);
-            opacity: 1;
-          }
-        }
-        @keyframes fade-in {
-          from {
-            opacity: 0;
-          }
-          to {
-            opacity: 1;
-          }
-        }
-        .animate-slide-in-right {
-          animation: slide-in-right 0.3s ease-out;
-        }
-        .animate-scale-in {
-          animation: scale-in 0.3s ease-out;
-        }
-        .animate-fade-in {
-          animation: fade-in 0.3s ease-out;
-        }
-      `}</style>
     </div>
-  );
-};
 
-export default DoctorRegister;
+    <style jsx>{`
+      @keyframes slideIn {
+        from {
+          transform: translateX(100%);
+          opacity: 0;
+        }
+        to {
+          transform: translateX(0);
+          opacity: 1;
+        }
+      }
+    `}</style>
+    
+    {/* Success Popup */}
+    <SuccessPopup isOpen={showSuccessPopup} onClose={() => setShowSuccessPopup(false)} />
+  </>
+  );
+}
+
+DoctorRegister.getLayout = function PageLayout(page: React.ReactNode) {
+  return <Layout>{page}</Layout>;
+};

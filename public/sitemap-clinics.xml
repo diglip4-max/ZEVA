@@ -1,13 +1,18 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>http://localhost:3000/clinics/green-valey</loc>
-    <lastmod>2026-01-10T09:42:17.067Z</lastmod>
+    <loc>http://localhost:3000/clinics/moon-clinic-noida-sector-8</loc>
+    <lastmod>2026-01-16T08:08:50.371Z</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>  <url>
-    <loc>http://localhost:3000/clinics/jdcjd</loc>
-    <lastmod>2026-01-09T10:55:41.718Z</lastmod>
+    <loc>http://localhost:3000/clinics/sunshine-clinic</loc>
+    <lastmod>2026-01-13T11:52:38.022Z</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>  <url>
+    <loc>http://localhost:3000/clinics/sunshine-clinic-noida-sector-2</loc>
+    <lastmod>2026-01-13T13:00:54.324Z</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url></urlset>

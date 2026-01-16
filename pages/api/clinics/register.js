@@ -126,6 +126,63 @@ export default async function handler(req, res) {
       }
     }
 
+    // Generate slug preview (not locked yet, will be locked on approval)
+    let slugPreview = null;
+    let slugPreviewUrl = null;
+    let slugUserMessage = null;
+    
+    try {
+      const { slugify, generateUniqueSlug } = await import('../../../lib/utils');
+      
+      // Extract city from address
+      let cityName = '';
+      if (address) {
+        const addressParts = address.split(',').map(part => part.trim());
+        cityName = addressParts[0] || '';
+      }
+
+      // Generate base slug
+      const baseSlugFromName = slugify(name);
+      let baseSlug = baseSlugFromName;
+      if (cityName) {
+        const citySlug = slugify(cityName);
+        baseSlug = `${baseSlugFromName}-${citySlug}`;
+      }
+
+      if (baseSlug) {
+        // Check if slug exists (checking locked slugs only)
+        const checkExists = async (slugToCheck) => {
+          const existing = await Clinic.findOne({
+            slug: slugToCheck,
+            slugLocked: true,
+          });
+          return !!existing;
+        };
+
+        // Generate unique slug
+        const finalSlug = await generateUniqueSlug(baseSlug, checkExists);
+        slugPreview = finalSlug;
+        
+        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://zeva360.com';
+        slugPreviewUrl = `${baseUrl}/clinics/${finalSlug}`;
+        
+        // User-friendly message
+        const collisionResolved = finalSlug !== baseSlug;
+        if (collisionResolved && cityName) {
+          slugUserMessage = `Good news! Another clinic already uses this name, so we added your city (${cityName}) to create a unique page for you.`;
+        } else if (collisionResolved) {
+          slugUserMessage = 'Good news! Another clinic already uses this name, so we added a number to create a unique page for you.';
+        } else {
+          slugUserMessage = 'Your clinic page is ready! We created a unique URL based on your clinic name' + 
+            (cityName ? ` and city (${cityName})` : '') + 
+            ' to help patients find you easily.';
+        }
+      }
+    } catch (slugError) {
+      console.error('❌ Slug preview generation error (non-fatal):', slugError.message);
+      // Continue with clinic creation even if slug preview fails
+    }
+
     // Create clinic
     const clinic = await Clinic.create({
       owner: user._id,
@@ -142,7 +199,15 @@ export default async function handler(req, res) {
       },
     });
 
-    return res.status(200).json({ message: 'Clinic saved', clinic });
+    return res.status(200).json({ 
+      message: 'Clinic saved', 
+      clinic,
+      slug_preview: slugPreview ? {
+        slug: slugPreview,
+        url: slugPreviewUrl,
+        user_message: slugUserMessage,
+      } : null,
+    });
   } catch (err) {
     console.error('❌ Clinic Save Error:', err);
     return res.status(500).json({

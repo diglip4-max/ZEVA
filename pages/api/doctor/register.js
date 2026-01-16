@@ -135,6 +135,67 @@ export default async function handler(req, res) {
         ];
       }
 
+      // Generate slug preview (not locked yet, will be locked on approval)
+      let slugPreview = null;
+      let slugPreviewUrl = null;
+      let slugUserMessage = null;
+      
+      try {
+        const { slugify, generateUniqueSlug } = await import('../../../lib/utils');
+        
+        // Extract city from address
+        let cityName = '';
+        if (address) {
+          const addressParts = address.split(',').map(part => part.trim());
+          cityName = addressParts[0] || '';
+        }
+
+        // Generate base slug from doctor name (add "dr-" prefix)
+        const baseSlugFromName = slugify(`dr ${name}`);
+        let baseSlug = baseSlugFromName;
+        if (cityName) {
+          const citySlug = slugify(cityName);
+          baseSlug = `${baseSlugFromName}-${citySlug}`;
+        }
+
+        if (baseSlug) {
+          // Check if slug exists (checking locked slugs only)
+          const checkExists = async (slugToCheck) => {
+            const existing = await DoctorProfile.findOne({
+              slug: slugToCheck,
+              slugLocked: true,
+            }).populate('user', 'isApproved');
+            
+            if (existing && existing.user && existing.user.isApproved) {
+              return true;
+            }
+            return false;
+          };
+
+          // Generate unique slug
+          const finalSlug = await generateUniqueSlug(baseSlug, checkExists);
+          slugPreview = finalSlug;
+          
+          const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://zeva360.com';
+          slugPreviewUrl = `${baseUrl}/doctors/${finalSlug}`;
+          
+          // User-friendly message
+          const collisionResolved = finalSlug !== baseSlug;
+          if (collisionResolved && cityName) {
+            slugUserMessage = `Good news! Another doctor already uses this name, so we added your city (${cityName}) to create a unique page for you.`;
+          } else if (collisionResolved) {
+            slugUserMessage = 'Good news! Another doctor already uses this name, so we added a number to create a unique page for you.';
+          } else {
+            slugUserMessage = 'Your doctor page is ready! We created a unique URL based on your name' + 
+              (cityName ? ` and city (${cityName})` : '') + 
+              ' to help patients find you easily.';
+          }
+        }
+      } catch (slugError) {
+        console.error('❌ Slug preview generation error (non-fatal):', slugError.message);
+        // Continue with doctor creation even if slug preview fails
+      }
+
       // Create doctor profile
       const doctor = await DoctorProfile.create({
         user: user._id,
@@ -153,6 +214,11 @@ export default async function handler(req, res) {
         message: "Doctor registered successfully",
         user,
         doctor,
+        slug_preview: slugPreview ? {
+          slug: slugPreview,
+          url: slugPreviewUrl,
+          user_message: slugUserMessage,
+        } : null,
       });
     } catch (err) {
       // Rollback user if doctor profile fails

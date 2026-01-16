@@ -73,6 +73,7 @@ export const jobPostingService = {
         },
       });
 
+      // Return full response data including slug_preview
       return response.data;
     } catch (error) {
       if (axios.isAxiosError(error)) {
