@@ -1,7 +1,7 @@
 import ClinicLayout from "@/components/ClinicLayout";
 import withClinicAuth from "@/components/withClinicAuth";
 import React, { ReactElement } from "react";
-import { NextPageWithLayout } from "../_app";
+import { NextPageWithLayout } from "../../_app";
 import AvatarComponent from "@/components/shared/AvatarComponent";
 import {
   Search,
@@ -17,6 +17,7 @@ import {
   MoreHorizontal,
   Smile,
   Timer,
+  MoreVertical,
 } from "lucide-react";
 import CreateNewConversation from "./_components/CreateNewConversation";
 import Conversation from "./_components/Conversation";
@@ -35,6 +36,9 @@ import AddTagModal from "@/components/modals/AddTagModal";
 import DeleteConversationModal from "./_components/DeleteConversationModal";
 import AssignConversation from "./_components/AssignConversation";
 import ScheduleMessage from "./_components/ScheduleMessage";
+import ConversationSkeleton from "./_components/ConversationSkeleton";
+import MessageSkeleton from "./_components/MessageSkeleton";
+import FilterModal from "./_components/FilterModal";
 // import EmojiPickerModal from "@/components/shared/EmojiPickerModal";
 
 const InboxPage: NextPageWithLayout = () => {
@@ -58,15 +62,19 @@ const InboxPage: NextPageWithLayout = () => {
     setIsAddTagModalOpen,
     setIsDeleteConversationModalOpen,
     setIsScheduleModalOpen,
+    setIsFilterModalOpen,
+    setIsProfileView,
     handleSendMessage,
     handleScheduleMessage,
     handleConvScroll,
-    handleMsgScroll,
+    handleScrollMessages,
     handleScrollMsgsToBottom,
     handleDeleteConversation,
     handleAddTagToConversation,
     handleRemoveTagFromConversation,
     handleAgentSelect,
+    handleAgentFilterChange,
+    handleApplyFilters,
   } = useInbox();
   const {
     conversationRef,
@@ -88,8 +96,8 @@ const InboxPage: NextPageWithLayout = () => {
     // headerParameters,
     textAreaRef,
     sendMsgLoading,
+    fetchMsgsLoading,
     messages,
-    messageRef,
     showScrollButton,
     messagesEndRef,
     whatsappRemainingTime,
@@ -101,6 +109,7 @@ const InboxPage: NextPageWithLayout = () => {
     statusBtnRef,
     currentConvPage,
     isMobileView,
+    isProfileView,
     isAddTagModalOpen,
     isDeleteConversationModalOpen,
     isDeletingConversation,
@@ -109,7 +118,9 @@ const InboxPage: NextPageWithLayout = () => {
     selectedAgent,
     agentFetchLoading,
     isScheduleModalOpen,
+    isFilterModalOpen,
     mediaUrl,
+    scrollMsgsRef,
   } = state;
 
   return (
@@ -117,7 +128,9 @@ const InboxPage: NextPageWithLayout = () => {
       {/* Left Sidebar - Conversations List */}
       <div
         className={`w-full md:w-1/3 lg:w-1/4 border-r border-gray-200 flex flex-col bg-white shadow-sm ${
-          isMobileView && selectedConversation ? "hidden" : ""
+          (isMobileView && selectedConversation) || isProfileView
+            ? "hidden"
+            : ""
         }`}
       >
         {/* Header */}
@@ -151,8 +164,21 @@ const InboxPage: NextPageWithLayout = () => {
                 onChange={(e) => setSearchConvInput(e.target.value)}
               />
             </div>
-            <button className="p-2.5 bg-gray-800 text-white border border-gray-800 rounded-lg hover:bg-gray-700 transition-colors shadow-sm">
+            <button
+              onClick={() => setIsFilterModalOpen(true)}
+              className={`relative p-2.5 border ${
+                filters?.agentId
+                  ? "bg-blue-100 text-blue-500 border-blue-500"
+                  : "bg-white text-gray-600 border-gray-300"
+              } rounded-lg hover:bg-gray-100 cursor-pointer transition-colors shadow-sm`}
+            >
               <Filter className="h-5 w-5" />
+
+              {filters?.agentId && (
+                <span className="absolute -top-2 -right-2 bg-blue-500 text-white w-4 h-4 text-xs flex items-center justify-center rounded-full">
+                  1
+                </span>
+              )}
             </button>
           </div>
 
@@ -282,17 +308,25 @@ const InboxPage: NextPageWithLayout = () => {
             ))
           )}
           {fetchConvLoading && (
-            <div className="text-center">
-              <span className="text-sm text-gray-500 text-center mt-3 block">
-                Loading...
-              </span>
-            </div>
+            <>
+              {Array(6)
+                .fill(0)
+                .map((_, index) => (
+                  <ConversationSkeleton key={index} />
+                ))}
+            </>
           )}
         </div>
       </div>
 
       {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col bg-white relative">
+      <div
+        className={`${
+          (!selectedConversation && isMobileView) || isProfileView
+            ? "hidden"
+            : "flex-1 flex"
+        } flex-col bg-white relative`}
+      >
         {!selectedConversation ? (
           <NoSelectedConversation />
         ) : (
@@ -313,10 +347,10 @@ const InboxPage: NextPageWithLayout = () => {
                   size="md"
                 />
                 <div>
-                  <h3 className="font-semibold text-gray-800 text-lg">
+                  <h3 className="font-semibold text-gray-800 text-base sm:text-lg">
                     {selectedConversation?.leadId?.name}
                   </h3>
-                  <div className="flex items-center space-x-2 text-sm text-gray-500">
+                  <div className="flex items-center space-x-2 text-sm sm:text-sm text-gray-500">
                     <span>
                       Last seen{" "}
                       {getFormatedTime(
@@ -327,56 +361,81 @@ const InboxPage: NextPageWithLayout = () => {
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
-                <WhatsappTimer
-                  selectedProvider={selectedProvider}
-                  whatsappRemainingTime={whatsappRemainingTime}
-                />
-                <AssignConversation
-                  agents={agents}
-                  selectedAgent={selectedAgent}
-                  onAgentSelect={(agent) =>
-                    handleAgentSelect(agent, selectedConversation?._id)
-                  }
-                  loading={agentFetchLoading}
-                  placeholder="Assign to agent..."
-                />
+              {!isMobileView ? (
+                <div className="flex items-center gap-2">
+                  <WhatsappTimer
+                    selectedProvider={selectedProvider}
+                    whatsappRemainingTime={whatsappRemainingTime}
+                  />
+                  <AssignConversation
+                    agents={agents}
+                    selectedAgent={selectedAgent}
+                    onAgentSelect={(agent) =>
+                      handleAgentSelect(agent, selectedConversation?._id)
+                    }
+                    loading={agentFetchLoading}
+                    placeholder="Assign to agent..."
+                  />
 
-                {/* <button className="p-2.5 text-gray-600 hover:bg-white hover:text-gray-800 rounded-lg transition-colors hover:shadow-sm">
+                  {/* <button className="p-2.5 text-gray-600 hover:bg-white hover:text-gray-800 rounded-lg transition-colors hover:shadow-sm">
                   <Info className="h-5 w-5" />
                 </button>
                 <button className="p-2.5 text-gray-600 hover:bg-white hover:text-gray-800 rounded-lg transition-colors hover:shadow-sm">
                   <MoreVertical className="h-5 w-5" />
                 </button> */}
-              </div>
+                </div>
+              ) : (
+                <div>
+                  <button
+                    onClick={() => setIsProfileView(true)}
+                    className="text-gray-600 hover:bg-white hover:text-gray-800 rounded-lg transition-colors hover:shadow-sm"
+                  >
+                    <MoreVertical className="h-5 w-5" />
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Messages Area */}
             <div
-              ref={messageRef}
-              onScroll={handleMsgScroll}
+              ref={scrollMsgsRef}
+              onScroll={handleScrollMessages}
               className="flex-1 overflow-y-auto overflow-x-hidden p-4 space-y-6 bg-gradient-to-b from-gray-50 to-gray-100"
             >
-              {/* Sticky Date Header (updates based on visible messages) */}
-              {messages.length > 0 && (
-                <div className="sticky top-2 z-10 pointer-events-none">
-                  <div className="text-center">
-                    <span className="text-sm text-gray-500 bg-white px-4 py-2 rounded-full border border-gray-200 shadow-sm font-medium">
-                      {"11/02/2025"}
-                    </span>
-                  </div>
-                </div>
+              {fetchMsgsLoading && (
+                <>
+                  <MessageSkeleton />
+                </>
               )}
-
               {/* Messages */}
-              {messages.map((msg) => (
-                <div key={msg?._id} data-createdat={msg?.createdAt}>
-                  <Message
-                    message={msg}
-                    onSelectMessage={(msg) => setSelectedMessage(msg)}
-                  />
-                </div>
-              ))}
+              {messages.map((item, parentIndex: number) => {
+                return (
+                  <div key={parentIndex?.toString()}>
+                    <div className="flex items-center my-5">
+                      <div className="flex-grow border-t border-slate-200"></div>
+                      <p className="mx-3 text-sm text-gray-600">{item?.date}</p>
+                      <div className="flex-grow border-t border-slate-200"></div>
+                    </div>
+                    {item?.messages?.map((msg, childIndex: number) => {
+                      return parentIndex === messages?.length - 1 &&
+                        childIndex === item?.messages?.length - 1 ? (
+                        <div key={msg?._id} ref={messagesEndRef}>
+                          <Message
+                            message={msg}
+                            onSelectMessage={(msg) => setSelectedMessage(msg)}
+                          />
+                        </div>
+                      ) : (
+                        <Message
+                          key={msg?._id}
+                          message={msg}
+                          onSelectMessage={(msg) => setSelectedMessage(msg)}
+                        />
+                      );
+                    })}
+                  </div>
+                );
+              })}
 
               {/* Scroll anchor */}
               <div ref={messagesEndRef} />
@@ -669,6 +728,7 @@ const InboxPage: NextPageWithLayout = () => {
                       </div>
                     </div>
                   </CustomDropdown>
+
                   <TemplatesModal
                     templates={templates}
                     attachedFile={attachedFile}
@@ -682,28 +742,32 @@ const InboxPage: NextPageWithLayout = () => {
                     setHeaderParameters={setHeaderParameters}
                   />
 
-                  <AttachmentModal
-                    attachedFile={attachedFile}
-                    setAttachedFile={setAttachedFile}
-                    attachedFiles={state.attachedFiles}
-                    setAttachedFiles={setAttachedFiles}
-                    mediaUrl={mediaUrl}
-                  />
+                  {!isMobileView && (
+                    <>
+                      <AttachmentModal
+                        attachedFile={attachedFile}
+                        setAttachedFile={setAttachedFile}
+                        attachedFiles={state.attachedFiles}
+                        setAttachedFiles={setAttachedFiles}
+                        mediaUrl={mediaUrl}
+                      />
 
-                  <EmojiPickerModal
-                    inputRef={textAreaRef as any}
-                    triggerButton={
-                      <button className="border border-gray-300 cursor-pointer rounded-md p-2.5">
-                        <Smile
-                          size={20}
-                          className="text-muted-foreground transition-transform duration-200"
-                        />
-                      </button>
-                    }
-                    position="top-left"
-                    align="start"
-                    setValue={setMessage}
-                  />
+                      <EmojiPickerModal
+                        inputRef={textAreaRef as any}
+                        triggerButton={
+                          <button className="border border-gray-300 cursor-pointer rounded-md p-2.5">
+                            <Smile
+                              size={20}
+                              className="text-muted-foreground transition-transform duration-200"
+                            />
+                          </button>
+                        }
+                        position="top-left"
+                        align="start"
+                        setValue={setMessage}
+                      />
+                    </>
+                  )}
 
                   {/* <EmojiPickerModal
                     triggerButton={
@@ -749,13 +813,25 @@ const InboxPage: NextPageWithLayout = () => {
       </div>
 
       {/* Right Sidebar - Conversation Info */}
-      {selectedConversation && !isMobileView && (
+      {selectedConversation && (!isMobileView || isProfileView) && (
         <div className="w-full md:w-1/4 lg:w-1/4 border-l border-gray-200 bg-white flex flex-col">
-          <div className="p-4 border-b border-gray-200">
-            <h3 className="text-lg font-semibold">Conversation Info</h3>
-            <p className="text-sm text-gray-500">
-              Details about the selected conversation
-            </p>
+          <div className="p-4 flex items-center space-x-3 border-b border-gray-200">
+            {isMobileView && (
+              <button
+                onClick={() => setIsProfileView(false)}
+                className="text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </button>
+            )}
+            <div>
+              <h3 className="text-base sm:text-lg font-semibold">
+                Conversation Info
+              </h3>
+              <p className="text-sm sm:text-sm text-gray-500">
+                Details about the selected conversation
+              </p>
+            </div>
           </div>
           <CollapsibleWrapper headerTitle="Lead Details">
             <div className="space-y-6 py-2.5">
@@ -947,6 +1023,16 @@ const InboxPage: NextPageWithLayout = () => {
             : []
         }
         loading={sendMsgLoading}
+      />
+
+      {/* Filter Modal */}
+      <FilterModal
+        isOpen={isFilterModalOpen}
+        onClose={() => setIsFilterModalOpen(false)}
+        agents={agents}
+        selectedAgentId={filters.agentId || null}
+        onAgentSelect={handleAgentFilterChange}
+        onApplyFilters={handleApplyFilters}
       />
     </div>
   );

@@ -124,6 +124,28 @@ const MessageSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    emojis: [
+      {
+        emoji: {
+          type: String,
+          required: true,
+        },
+        user: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "User",
+        },
+        lead: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Lead",
+        },
+        addedAt: {
+          type: Date,
+          default: Date.now,
+        },
+        // Add validation to ensure either user OR lead is set
+        _id: false,
+      },
+    ],
     // New field for quoted messages
     replyToMessageId: {
       type: mongoose.Schema.Types.ObjectId,

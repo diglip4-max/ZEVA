@@ -6,7 +6,7 @@ import Message from "../../../models/Message";
 import { getUserFromReq, requireRole } from "../lead-ms/auth";
 
 export default async function handler(req, res) {
-  console.log({ b: req.body });
+  
   if (req.method !== "GET") {
     return res
       .status(405)
@@ -98,6 +98,18 @@ export default async function handler(req, res) {
         query.status = status;
       }
 
+      // fetch by filters of ownerId
+      if (req.query.ownerId) {
+        query.ownerId = req.query.ownerId;
+      }
+
+      // if role is agent then only show assigned conversations
+      if (me.role === "agent"){
+        query.ownerId = me._id;
+      }
+
+      console.log({meUser:me})
+
       // Search by contact name or phone number
       let leadIdsFromSearch = null;
       if (search) {
@@ -108,6 +120,7 @@ export default async function handler(req, res) {
 
         leadIdsFromSearch = matchingLeads.map((c) => c._id).filter(Boolean);
       }
+
 
       // Ensure leadId actually references an existing Lead in this clinic.
       const existingLeadIds = await Lead.find({

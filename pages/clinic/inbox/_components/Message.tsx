@@ -17,15 +17,26 @@ import {
   File,
   Download,
 } from "lucide-react";
+import toast from "react-hot-toast";
+import axios from "axios";
 
 interface IProps {
   message: MessageType;
   onSelectMessage?: (message: MessageType) => void;
+  onMessageUpdate?: (message: MessageType) => void;
 }
 
-const Message: React.FC<IProps> = ({ message, onSelectMessage }) => {
+const Message: React.FC<IProps> = ({
+  message,
+  onSelectMessage,
+  onMessageUpdate,
+}) => {
+  const token =
+    typeof window !== "undefined" ? localStorage.getItem("clinicToken") : null;
+
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [selectedEmoji, setSelectedEmoji] = useState<string | null>(null);
+  const [isReacting, setIsReacting] = useState<boolean>(false);
 
   const formatedTime =
     message?.direction === "incoming" && message?.channel === "email"
@@ -57,12 +68,126 @@ const Message: React.FC<IProps> = ({ message, onSelectMessage }) => {
     }
   };
 
-  const handleReactWithEmoji = (_msg: MessageType, emoji: string) => {
-    setSelectedEmoji(emoji);
-    setIsDropdownOpen(false);
-    // Add your reaction logic here
+  const handleReactWithEmoji = async (message: MessageType, emoji: string) => {
+    if (isReacting) return; // Prevent multiple clicks
+
+    try {
+      setIsReacting(true);
+      setIsDropdownOpen(false);
+      setSelectedEmoji(emoji);
+
+      const payload = {
+        providerMessageId: message.providerMessageId,
+        messageId: message._id,
+        emoji: emoji,
+      };
+
+      const response = await axios.post(
+        "/api/messages/send-reaction-message",
+        payload,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (response.data.success) {
+        toast.success(response.data.message, {
+          duration: 3000,
+          position: "top-right",
+        });
+
+        // Update parent component if callback provided
+        if (onMessageUpdate) {
+          onMessageUpdate(response.data.data);
+        }
+      }
+    } catch (error: any) {
+      console.error("Reaction error:", error);
+      setSelectedEmoji(null);
+      toast.error(error.response?.data?.message || "Failed to react", {
+        duration: 4000,
+      });
+    } finally {
+      setIsReacting(false);
+    }
+  };
+  // Add emoji display logic
+  const displayEmojis = () => {
+    // Combine message emojis with temporary selected emoji
+    const allEmojis = [...(message.emojis || [])];
+    const currentUserId = message?.senderId?._id;
+
+    if (selectedEmoji) {
+      // Check if user already reacted
+      const userReactionIndex = allEmojis.findIndex(
+        (e) => e?.user === currentUserId
+      );
+
+      if (userReactionIndex > -1) {
+        // Update existing reaction in display
+        allEmojis[userReactionIndex] = {
+          ...allEmojis[userReactionIndex],
+          emoji: selectedEmoji,
+        };
+      } else {
+        // Add temporary reaction
+        allEmojis.push({
+          emoji: selectedEmoji,
+          user: { _id: currentUserId }, // Temporary user object
+          lead: {},
+          addedAt: new Date().toISOString(),
+        });
+      }
+    }
+
+    return allEmojis;
   };
 
+  // Get grouped emojis for display
+  const groupedEmojis = () => {
+    const reactions = displayEmojis();
+    const grouped: { [key: string]: number } = {};
+
+    reactions.forEach((reaction) => {
+      if (reaction.emoji) {
+        grouped[reaction.emoji] = (grouped[reaction.emoji] || 0) + 1;
+      }
+    });
+
+    return grouped;
+  };
+
+  // Render emoji reactions
+  const renderEmojiReactions = () => {
+    const grouped = groupedEmojis();
+    const emojiArray = Object.entries(grouped);
+
+    if (emojiArray.length === 0) return null;
+
+    return (
+      <div
+        className={`absolute ${
+          message.direction === "incoming"
+            ? "-bottom-3 left-4"
+            : "-bottom-3 right-4"
+        } flex items-center flex-wrap gap-1 bg-white rounded-full px-2 py-1 shadow-sm border border-gray-200 max-w-[120px]`}
+      >
+        {emojiArray?.map(([emoji, count]) => (
+          <div key={emoji} className="flex items-center">
+            <span className="text-sm">{emoji}</span>
+            {count > 1 && (
+              <span className="text-xs text-gray-500 ml-0.5">{count}</span>
+            )}
+          </div>
+        ))}
+        <span className="text-sm text-gray-600 mt-0.5">
+          {emojiArray?.length > 1 ? emojiArray?.length : ""}
+        </span>
+      </div>
+    );
+  };
   const getSenderName = () => {
     const name = message?.senderId?.name || "Customer Support";
     return name?.length > 20 ? name.slice(0, 20) + "..." : name;
@@ -283,13 +408,14 @@ const Message: React.FC<IProps> = ({ message, onSelectMessage }) => {
             </div>
 
             {/* Reaction Emoji */}
-            {(message?.emoji || selectedEmoji) && (
+            {/* {(message?.emoji || selectedEmoji) && (
               <div className="absolute -bottom-3 left-4 bg-white rounded-full px-2 py-1 shadow-sm border border-gray-200">
                 <span className="text-sm">
                   {message?.emoji || selectedEmoji}
                 </span>
               </div>
-            )}
+            )} */}
+            {renderEmojiReactions()}
 
             {/* Reaction Dropdown */}
             <div className="absolute -right-10 top-1/2 z-50 transform -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
@@ -542,13 +668,14 @@ const Message: React.FC<IProps> = ({ message, onSelectMessage }) => {
             </div>
 
             {/* Reaction Emoji */}
-            {(message?.emoji || selectedEmoji) && (
+            {/* {(message?.emoji || selectedEmoji) && (
               <div className="absolute -bottom-3 right-4 bg-white rounded-full px-2 py-1 shadow-sm border border-gray-200">
                 <span className="text-sm">
                   {message?.emoji || selectedEmoji}
                 </span>
               </div>
-            )}
+            )} */}
+            {renderEmojiReactions()}
 
             {/* Reaction Dropdown */}
             <div className="absolute -left-10 top-1/2 z-50 transform -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
