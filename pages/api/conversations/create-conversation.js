@@ -87,6 +87,7 @@ export default async function handler(req, res) {
     const newConversation = await Conversation.create({
       clinicId,
       leadId,
+      ownerId: me._id,
     });
 
     const findConv = await Conversation.findById(newConversation._id).populate({

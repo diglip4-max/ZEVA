@@ -382,6 +382,8 @@ export const handleWhatsappSendMessage = async (msgData) => {
       };
     }
 
+    console.log({ msgData, apiPayload });
+
     // 3. Make API call to Meta
     const { data } = await axios.post(apiUrl, apiPayload, {
       headers: {
