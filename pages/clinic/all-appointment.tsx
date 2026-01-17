@@ -19,6 +19,7 @@
     XCircle,
     X,
     Receipt,
+    Download,
   } from "lucide-react";
   import EditAppointmentModal from "../../components/EditAppointmentModal";
   import AppointmentHistoryModal from "../../components/AppointmentHistoryModal";
@@ -542,6 +543,62 @@
       setPage(1);
     };
 
+    const exportAppointmentsToCSV = () => {
+      if (appointments.length === 0) {
+        alert("No appointments to export");
+        return;
+      }
+
+      const headers = [
+        "Visit ID",
+        "EMR Number",
+        "Patient Name",
+        "Patient Number",
+        "Patient Email",
+        "Doctor",
+        "Room",
+        "Status",
+        "Follow Type",
+        "Referral",
+        "Emergency",
+        "Registered Date",
+        "Registered Time",
+        "Invoice Number",
+        "Created At"
+      ];
+
+      const csvContent = [
+        headers.join(","),
+        ...appointments.map(app => [
+          `"${(app.visitId || "").replace(/"/g, '""')}"`,
+          `"${(app.emrNumber || "").replace(/"/g, '""')}"`,
+          `"${(app.patientName || "").replace(/"/g, '""')}"`,
+          `"${(app.patientNumber || "").replace(/"/g, '""')}"`,
+          `"${(app.patientEmail || "").replace(/"/g, '""')}"`,
+          `"${(app.doctorName || "").replace(/"/g, '""')}"`,
+          `"${(app.roomName || "").replace(/"/g, '""')}"`,
+          `"${(app.status || "").replace(/"/g, '""')}"`,
+          `"${(app.followType || "").replace(/"/g, '""')}"`,
+          `"${(app.referral || "").replace(/"/g, '""')}"`,
+          `"${(app.emergency || "").replace(/"/g, '""')}"`,
+          `"${(app.registeredDate || "")}"`,
+          `"${(app.registeredTime || "")}"`,
+          `"${(app.invoiceNumber || "").replace(/"/g, '""')}"`,
+          `"${app.createdAt ? new Date(app.createdAt).toLocaleString() : ""}"`
+        ].join(","))
+      ].join("\n");
+
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `appointments_export_${new Date().toISOString().split("T")[0]}.csv`);
+      link.style.visibility = "hidden";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    };
+
     const getStatusBadgeColor = (status: string) => {
       const statusLower = status.toLowerCase();
       if (statusLower === "discharged") return "bg-gray-100 text-gray-800";
@@ -658,14 +715,21 @@
                     </div>
                     <div className="flex items-center gap-2">
                       <button
+                        onClick={exportAppointmentsToCSV}
+                        className="inline-flex items-center justify-center gap-1 sm:gap-1.5 bg-green-600 hover:bg-green-700 text-white px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-[10px] sm:text-xs md:text-sm font-medium"
+                      >
+                        <Download className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                        <span className="hidden xs:inline">Export</span>
+                      </button>
+                      <button
                         onClick={() => setShowFilters(!showFilters)}
                         className="inline-flex items-center justify-center gap-1 sm:gap-1.5 bg-gray-800 hover:bg-gray-900 text-white px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-[10px] sm:text-xs md:text-sm font-medium"
                       >
                         <Filter className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                          <span className="hidden xs:inline">{showFilters ? "Hide Filters" : "Show Filters"}</span>
-                          <span className="xs:hidden">{showFilters ? "Hide" : "Filters"}</span>
-                  </button>
-                </div>
+                        <span className="hidden xs:inline">{showFilters ? "Hide Filters" : "Show Filters"}</span>
+                        <span className="xs:hidden">{showFilters ? "Hide" : "Filters"}</span>
+                      </button>
+                    </div>
               </div>
 
               {/* Quick Search */}

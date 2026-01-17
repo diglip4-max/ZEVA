@@ -4,7 +4,7 @@ import ClinicLayout from '../../components/ClinicLayout';
 import withClinicAuth from '../../components/withClinicAuth';
 import CreateLeadModal from '../../components/CreateLeadModal';
 import LeadViewModal from '../../components/LeadViewModal';
-import { Grid3x3, PlusCircle, Tag } from "lucide-react";
+import { Grid3x3, PlusCircle, Tag, Download } from "lucide-react";
 import ImportLeadsModal from "@/components/ImportLeadsModal";
 import Link from "next/link";
 import CustomAsyncSelect from "@/components/shared/CustomAsyncSelect";
@@ -206,6 +206,50 @@ function LeadsPage() {
     }
   };
 
+  const exportLeadsToCSV = () => {
+    if (leads.length === 0) {
+      alert("No leads to export");
+      return;
+    }
+
+    const headers = [
+      "Name",
+      "Email",
+      "Phone",
+      "Treatment",
+      "Source",
+      "Status",
+      "Offer",
+      "Notes",
+      "Created At"
+    ];
+
+    const csvContent = [
+      headers.join(","),
+      ...leads.map(lead => [
+        `"${(lead.name || "").replace(/"/g, '""')}"`,
+        `"${(lead.email || "").replace(/"/g, '""')}"`,
+        `"${(lead.phone || "").replace(/"/g, '""')}"`,
+        `"${(lead.treatment || "").replace(/"/g, '""')}"`,
+        `"${(lead.source || "").replace(/"/g, '""')}"`,
+        `"${(lead.status || "").replace(/"/g, '""')}"`,
+        `"${(lead.offer || "").replace(/"/g, '""')}"`,
+        `"${(lead.notes || "").replace(/"/g, '""')}"`,
+        `"${lead.createdAt ? new Date(lead.createdAt).toLocaleString() : ""}"`
+      ].join(","))
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `leads_export_${new Date().toISOString().split("T")[0]}.csv`);
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   useEffect(() => {
     if (segment) {
       setSelectedSegment({ label: segment?.name, value: segment?._id })
@@ -292,6 +336,13 @@ function LeadsPage() {
               <p className="text-[10px] sm:text-xs text-gray-500">Filter, review, and assign leads to your team</p>
             </div>
             <div className="flex items-center gap-2.5">
+              <button
+                onClick={exportLeadsToCSV}
+                className="inline-flex items-center justify-center gap-1.5 bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs sm:text-sm font-medium"
+              >
+                <Download className="h-3.5 w-3.5" />
+                <span>Export</span>
+              </button>
               {permissions.canCreate && (
                 <Link
                   href="/lead/segments"

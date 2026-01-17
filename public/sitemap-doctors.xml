@@ -1,18 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>http://localhost:3000/doctors/dr-atul-noida-sector-66</loc>
-    <lastmod>2026-01-14T05:17:57.712Z</lastmod>
+    <loc>http://localhost:3000/doctors/dr-kmk-sector-2</loc>
+    <lastmod>2026-01-16T08:14:03.198Z</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>  <url>
     <loc>http://localhost:3000/doctors/monika</loc>
     <lastmod>2026-01-12T06:42:23.628Z</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.9</priority>
-  </url>  <url>
-    <loc>http://localhost:3000/doctors/pggg</loc>
-    <lastmod>2026-01-09T12:08:07.488Z</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url></urlset>
