@@ -35,9 +35,20 @@ export const jobApiConfig = {
 
 export type UserRole = keyof typeof jobApiConfig;
 
+// Response type for job creation
+export interface JobCreationResponse {
+  success: boolean;
+  job: any;
+  slug_preview?: {
+    slug: string;
+    url: string;
+    user_message: string;
+  } | null;
+}
+
 // Generic job posting service
 export const jobPostingService = {
-  async createJob(formData: JobFormData, role: UserRole): Promise<void> {
+  async createJob(formData: JobFormData, role: UserRole): Promise<JobCreationResponse> {
     const config = jobApiConfig[role];
     const token = localStorage.getItem(config.tokenKey);
     console.log("Creating job with config:", config);
@@ -86,19 +97,19 @@ export const jobPostingService = {
   },
 
   // Role-specific convenience methods
-  async createClinicJob(formData: JobFormData): Promise<void> {
+  async createClinicJob(formData: JobFormData): Promise<JobCreationResponse> {
     return this.createJob(formData, "clinic");
   },
 
-  async createDoctorJob(formData: JobFormData): Promise<void> {
+  async createDoctorJob(formData: JobFormData): Promise<JobCreationResponse> {
     return this.createJob(formData, "doctor");
   },
 
-  async createHospitalJob(formData: JobFormData): Promise<void> {
+  async createHospitalJob(formData: JobFormData): Promise<JobCreationResponse> {
     return this.createJob(formData, "hospital");
   },
 
-  async createAdminJob(formData: JobFormData): Promise<void> {
+  async createAdminJob(formData: JobFormData): Promise<JobCreationResponse> {
     return this.createJob(formData, "admin");
   },
 };

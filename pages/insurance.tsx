@@ -7,15 +7,9 @@ import {
   CreditCard,
   FileText,
   Clock,
-  Building2,
   ArrowRight,
-  Phone,
-  Mail,
-  MapPin,
   DollarSign,
   Lock,
-  Users,
-  Heart,
   AlertCircle,
 } from 'lucide-react';
 

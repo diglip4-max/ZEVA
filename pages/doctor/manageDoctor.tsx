@@ -598,7 +598,7 @@ function DoctorDashboard() {
     longitude: "",
   });
   const [photoFiles, setPhotoFiles] = useState<FileList | null>(null);
-  const [photoError, setPhotoError] = useState("");
+  const [_photoError, setPhotoError] = useState("");
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
   const [treatments, setTreatments] = useState<Treatment[]>([]);
   const [geocodingStatus, setGeocodingStatus] = useState<string>("");
@@ -1648,12 +1648,7 @@ function DoctorDashboard() {
                           src={URL.createObjectURL(file)}
                           alt="New preview"
                           className="w-full h-full object-cover"
-                          onLoad={(e) => {
-                            // Revoke URL to prevent memory leaks after load
-                            // URL.revokeObjectURL((e.target as HTMLImageElement).src); 
-                            // Actually don't revoke here if we want it to stay visible
-                          }}
-                        />
+                                                  />
                         <div className="absolute top-0 right-0 p-1">
                           <div className="bg-green-500 text-white rounded-full p-0.5 shadow-sm">
                             <Plus className="w-3 h-3" />

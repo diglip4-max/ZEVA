@@ -3,14 +3,12 @@ import Head from 'next/head';
 import Link from 'next/link';
 import {
   Code,
-  CheckCircle2,
   Shield,
   Zap,
   Book,
   ArrowRight,
   Key,
   Globe,
-  Lock,
   Settings,
 } from 'lucide-react';
 

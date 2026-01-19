@@ -1,7 +1,7 @@
 import React from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
-import { Search, Calendar, FileText, Video, Shield, Clock, CheckCircle2, ArrowRight, Users, Heart, Star } from 'lucide-react';
+import { Search, Calendar, FileText, Video, Shield, Clock, CheckCircle2, ArrowRight, Star } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 const HowItWorks: React.FC = () => {

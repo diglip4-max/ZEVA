@@ -44,8 +44,6 @@ export default function DoctorDetail() {
   const router = useRouter();
   // 'id' from path will be the slug (doctor name)
   const slug = router.query.id as string | undefined;
-  // Get the actual doctor ID from query parameter (passed as ?d=... in URL to avoid conflict)
-  const doctorId = router.query.d as string | undefined;
   const [profile, setProfile] = useState<DoctorProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

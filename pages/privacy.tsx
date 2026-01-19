@@ -1,7 +1,7 @@
 import React from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
-import { Shield, Lock, Eye, FileText, ArrowLeft } from 'lucide-react';
+import { Shield, Lock, ArrowLeft } from 'lucide-react';
 
 const Privacy: React.FC = () => {
   const sections = [
