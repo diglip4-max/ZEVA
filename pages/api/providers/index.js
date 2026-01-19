@@ -80,10 +80,15 @@ export default async function handler(req, res) {
       const search = req.query.search
         ? req.query.search.trim().toLowerCase()
         : null;
+      const status = req.query.status || "all";
 
       let query = { clinicId: clinic._id };
       if (search) {
         query.$or = [{ label: { $regex: search, $options: "i" } }];
+      }
+
+      if (status !== "all") {
+        query.status = status;
       }
 
       const totalProviders = await Provider.countDocuments(query);

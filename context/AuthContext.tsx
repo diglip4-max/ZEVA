@@ -1,7 +1,14 @@
 // context/AuthContext.tsx
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import axios from 'axios';
-import { useRouter } from 'next/router';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  ReactNode,
+} from "react";
+import axios from "axios";
+import { useRouter } from "next/router";
+import { getTokenByPath } from "@/lib/helper";
 
 interface User {
   _id: string;
@@ -14,7 +21,15 @@ interface User {
 interface AuthContextType {
   user: User | null;
   login: (email: string, password: string) => Promise<void>;
-  register: (name: string, email: string, password: string, phone?: string, gender?: string, dateOfBirth?: string, age?: number) => Promise<void>;
+  register: (
+    name: string,
+    email: string,
+    password: string,
+    phone?: string,
+    gender?: string,
+    dateOfBirth?: string,
+    age?: number
+  ) => Promise<void>;
   logout: () => void;
   isAuthenticated: boolean;
   loading: boolean;
@@ -25,7 +40,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const useAuth = (): AuthContextType => {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
 };
@@ -35,8 +50,10 @@ interface AuthProviderProps {
 }
 
 // ✅ Custom type guard — no Axios types needed
-function isAxiosError(error: unknown): error is { response?: { data?: { message?: string } } } {
-  return typeof error === 'object' && error !== null && 'isAxiosError' in error;
+function isAxiosError(
+  error: unknown
+): error is { response?: { data?: { message?: string } } } {
+  return typeof error === "object" && error !== null && "isAxiosError" in error;
 }
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
@@ -45,7 +62,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const router = useRouter();
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
+    const token = getTokenByPath();
     if (token) {
       verifyToken(token);
     } else {
@@ -55,17 +72,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const verifyToken = async (token: string) => {
     try {
-      const response = await axios.get<{ user: User }>('/api/auth/verify', {
+      const response = await axios.get<{ user: User }>("/api/auth/verify", {
         headers: { Authorization: `Bearer ${token}` },
       });
       setUser(response.data.user);
     } catch (error: unknown) {
       if (isAxiosError(error)) {
-        console.error(error.response?.data?.message || 'Token verification failed');
+        console.error(
+          error.response?.data?.message || "Token verification failed"
+        );
       } else {
-        console.error('Unexpected error verifying token', error);
+        console.error("Unexpected error verifying token", error);
       }
-      localStorage.removeItem('token');
+      localStorage.removeItem("token");
     } finally {
       setLoading(false);
     }
@@ -73,25 +92,36 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const login = async (email: string, password: string) => {
     try {
-      const response = await axios.post<{ user: User; token: string }>('/api/auth/login', {
-        email,
-        password,
-      });
+      const response = await axios.post<{ user: User; token: string }>(
+        "/api/auth/login",
+        {
+          email,
+          password,
+        }
+      );
 
       const { user, token } = response.data;
-      localStorage.setItem('token', token);
+      localStorage.setItem("token", token);
       setUser(user);
     } catch (error: unknown) {
       if (isAxiosError(error)) {
-        throw new Error(error.response?.data?.message || 'Login failed');
+        throw new Error(error.response?.data?.message || "Login failed");
       }
-      throw new Error('Unexpected login error');
+      throw new Error("Unexpected login error");
     }
   };
 
-  const register = async (name: string, email: string, password: string, phone?: string, gender?: string, dateOfBirth?: string, age?: number) => {
+  const register = async (
+    name: string,
+    email: string,
+    password: string,
+    phone?: string,
+    gender?: string,
+    dateOfBirth?: string,
+    age?: number
+  ) => {
     try {
-      await axios.post('/api/auth/register', {
+      await axios.post("/api/auth/register", {
         name,
         email,
         password,
@@ -105,16 +135,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       await login(email, password);
     } catch (error: unknown) {
       if (isAxiosError(error)) {
-        throw new Error(error.response?.data?.message || 'Registration failed');
+        throw new Error(error.response?.data?.message || "Registration failed");
       }
-      throw new Error('Unexpected registration error');
+      throw new Error("Unexpected registration error");
     }
   };
 
   const logout = () => {
-    localStorage.removeItem('token');
+    localStorage.removeItem("token");
     setUser(null);
-    router.push('/');
+    router.push("/");
   };
 
   const value: AuthContextType = {

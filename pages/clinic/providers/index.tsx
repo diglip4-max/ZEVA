@@ -82,14 +82,17 @@ const ProvidersPage: NextPageWithLayout = () => {
 
   useEffect(() => {
     fetchAllProviders();
-  }, []);
+  }, [activeTab, currentPage]);
 
   const fetchAllProviders = useCallback(async () => {
     try {
       setLoading(true);
-      const { data } = await axios.get(`/api/providers`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const { data } = await axios.get(
+        `/api/providers?status=${activeTab}&page=${currentPage}&limit=${providersPerPage}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
 
       if (data && data?.success) {
         const providersData: Provider[] = data?.data || [];
@@ -102,7 +105,7 @@ const ProvidersPage: NextPageWithLayout = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [activeTab, currentPage]);
 
   const getStatusBadge = (status: string) => {
     const styles = {

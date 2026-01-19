@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { X, Filter, ChevronDown, Users } from "lucide-react";
 import { User as UserType } from "@/types/users";
 import clsx from "clsx";
+import { useAuth } from "@/context/AuthContext";
 
 interface FilterModalProps {
   isOpen: boolean;
@@ -37,6 +38,7 @@ const FilterModal: React.FC<FilterModalProps> = ({
   onTypeSelect,
   loading = false,
 }) => {
+  const { user } = useAuth();
   const [localAgentId, setLocalAgentId] = useState<string | null>(
     selectedAgentId
   );
@@ -107,33 +109,35 @@ const FilterModal: React.FC<FilterModalProps> = ({
         <div className="flex-1 overflow-y-auto p-4">
           <div className="space-y-6">
             {/* Agent Filter */}
-            <div className="space-y-2">
-              <label className="flex items-center text-sm font-bold text-gray-900">
-                <Users className="w-4 h-4 mr-2" />
-                Assigned Agent
-              </label>
-              <div className="relative">
-                <select
-                  value={localAgentId || ""}
-                  onChange={(e) => setLocalAgentId(e.target.value || null)}
-                  className="w-full px-4 py-3 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all appearance-none bg-white disabled:bg-gray-100 disabled:cursor-not-allowed"
-                  disabled={loading}
-                >
-                  <option value="">All Agents</option>
-                  {agents.map((agent) => (
-                    <option key={agent._id} value={agent._id}>
-                      {agent.name ||
-                        agent.email ||
-                        agent.phone ||
-                        "Unknown Agent"}
-                    </option>
-                  ))}
-                </select>
-                <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                  <ChevronDown size={16} className="text-gray-400" />
+            {user?.role === "clinic" && (
+              <div className="space-y-2">
+                <label className="flex items-center text-sm font-bold text-gray-900">
+                  <Users className="w-4 h-4 mr-2" />
+                  Assigned Agent
+                </label>
+                <div className="relative">
+                  <select
+                    value={localAgentId || ""}
+                    onChange={(e) => setLocalAgentId(e.target.value || null)}
+                    className="w-full px-4 py-3 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all appearance-none bg-white disabled:bg-gray-100 disabled:cursor-not-allowed"
+                    disabled={loading}
+                  >
+                    <option value="">All Agents</option>
+                    {agents.map((agent) => (
+                      <option key={agent._id} value={agent._id}>
+                        {agent.name ||
+                          agent.email ||
+                          agent.phone ||
+                          "Unknown Agent"}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                    <ChevronDown size={16} className="text-gray-400" />
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
 
             {/* Status Filter - Can be enabled later */}
             {onStatusSelect && (

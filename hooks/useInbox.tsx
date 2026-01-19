@@ -23,6 +23,7 @@ import { jwtDecode } from "jwt-decode";
 import useAgents from "./useAgents";
 import { User } from "@/types/users";
 import { Template } from "@/types/templates";
+import { useAuth } from "@/context/AuthContext";
 
 export type VariableType = {
   type: "text";
@@ -70,6 +71,8 @@ export const tags = ["Important", "Follow-up", "Urgent", "Review", "Personal"];
 let socket: Socket | null = null;
 
 const useInbox = () => {
+  const { user } = useAuth();
+  console.log({ user });
   const { providers } = useProvider();
   const { templates } = useTemplate();
   const agents = useAgents()?.state?.agents || [];
@@ -1327,6 +1330,7 @@ const useInbox = () => {
   }, [selectedTemplate]);
 
   const state = {
+    user,
     conversations,
     selectedConversation,
     selectedProvider,

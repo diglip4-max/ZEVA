@@ -227,3 +227,57 @@ export const getTokenByPath = () => {
     return localStorage.getItem("userToken");
   }
 };
+
+// Utility functions for masking sensitive information
+export const maskSensitiveInfo = (info: string): string => {
+  if (!info) return "—";
+
+  if (info.includes("@")) {
+    return maskEmail(info);
+  } else {
+    return maskPhoneNumber(info);
+  }
+};
+
+export const maskPhoneNumber = (phone: string): string => {
+  if (!phone) return "—";
+
+  // Remove all non-digit characters
+  const digits = phone.replace(/\D/g, "");
+
+  if (digits.length <= 4) {
+    return "XXX-XXXX";
+  }
+
+  // Show last 4 digits, mask the rest
+  const lastFour = digits.slice(-4);
+  const maskedPart = "X".repeat(Math.max(0, digits.length - 4));
+
+  // Format based on length
+  if (digits.length >= 10) {
+    // For 10+ digit numbers, show area code pattern
+    return `(${maskedPart.slice(0, 3)}) ${maskedPart.slice(3, 6)}-${lastFour}`;
+  } else {
+    return `${maskedPart}-${lastFour}`;
+  }
+};
+
+export const maskEmail = (email: string): string => {
+  if (!email) return "—";
+
+  const [localPart, domain] = email.split("@");
+  if (!localPart || !domain) return "XXX@XXX.XXX";
+
+  // Keep first character, mask the rest of local part
+  const firstChar = localPart.charAt(0);
+  const maskedLocal = firstChar + "X".repeat(Math.max(0, localPart.length - 1));
+
+  // Mask domain (keep last part of domain like .com)
+  const domainParts = domain.split(".");
+  if (domainParts.length < 2) return `${maskedLocal}@XXX.XXX`;
+
+  const maskedDomain = "X".repeat(Math.max(0, domainParts[0].length));
+  const tld = domainParts.slice(1).join(".");
+
+  return `${maskedLocal}@${maskedDomain}.${tld}`;
+};
