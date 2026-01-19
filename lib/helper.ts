@@ -213,3 +213,17 @@ export const formatScheduledTime = (
     return "Error formatting schedule";
   }
 };
+
+export const getTokenByPath = () => {
+  if (typeof window === "undefined") return null;
+
+  const pathname = window.location.pathname;
+
+  if (pathname?.includes("/clinic")) {
+    return localStorage.getItem("clinicToken");
+  } else if (pathname?.includes("/staff")) {
+    return localStorage.getItem("agentToken");
+  } else {
+    return localStorage.getItem("userToken");
+  }
+};

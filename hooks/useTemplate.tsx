@@ -1,3 +1,4 @@
+import { getTokenByPath } from "@/lib/helper";
 import { Template } from "@/types/templates";
 import axios from "axios";
 import { useEffect, useState } from "react";
@@ -8,20 +9,6 @@ const useTemplate = () => {
   const [smsTemplates, setSmsTemplates] = useState<Template[]>([]);
   const [whatsappTemplates, setWhatsappTemplates] = useState<Template[]>([]);
   const [emailTemplates, setEmailTemplates] = useState<Template[]>([]);
-
-  const getTokenByPath = () => {
-    if (typeof window === "undefined") return null;
-
-    const pathname = window.location.pathname;
-
-    if (pathname === "/clinic/inbox") {
-      return localStorage.getItem("clinicToken");
-    } else if (pathname === "/staff/clinic-inbox") {
-      return localStorage.getItem("agentToken");
-    } else {
-      return localStorage.getItem("userToken");
-    }
-  };
 
   const token = getTokenByPath();
 

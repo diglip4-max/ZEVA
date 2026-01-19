@@ -1,3 +1,4 @@
+import { getTokenByPath } from "@/lib/helper";
 import { Provider } from "@/types/conversations";
 import axios from "axios";
 import { useCallback, useEffect, useState } from "react";
@@ -10,25 +11,11 @@ const useProvider = () => {
   const [emailProviders, setEmailProviders] = useState<Provider[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
-  const getTokenByPath = () => {
-    if (typeof window === "undefined") return null;
-
-    const pathname = window.location.pathname;
-
-    if (pathname === "/clinic/inbox") {
-      return localStorage.getItem("clinicToken");
-    } else if (pathname === "/staff/clinic-inbox") {
-      return localStorage.getItem("agentToken");
-    } else {
-      return localStorage.getItem("userToken");
-    }
-  };
-
   const token = getTokenByPath();
 
   const fetchProviders = useCallback(async () => {
     try {
-      const { data } = await axios.get(`/api/providers`, {
+      const { data } = await axios.get(`/api/providers/all`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (data && data?.success) {
@@ -54,7 +41,7 @@ const useProvider = () => {
         }
       }
     } catch (error) {
-      console.error("Error fetching providers:", error);
+      console.error("Error in fetching all providers:", error);
     } finally {
       setLoading(false);
     }

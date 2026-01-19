@@ -1,5 +1,5 @@
 import React, { ReactElement, useEffect, useRef } from "react";
-import { NextPageWithLayout } from "../_app";
+import { NextPageWithLayout } from "../../_app";
 import ClinicLayout from "@/components/ClinicLayout";
 import withClinicAuth from "@/components/withClinicAuth";
 import { useRouter } from "next/router";
@@ -609,10 +609,10 @@ const TemplateCreateAndEditPage: NextPageWithLayout = () => {
                                   values.headerType === "image"
                                     ? "image/jpeg,image/jpg,image/png"
                                     : values.headerType === "video"
-                                    ? "video/mp4,video/3gp"
-                                    : values.headerType === "document"
-                                    ? ".pdf,.doc,.docx,.pptx,.xlsx"
-                                    : "image/jpeg,image/jpg,image/png"
+                                      ? "video/mp4,video/3gp"
+                                      : values.headerType === "document"
+                                        ? ".pdf,.doc,.docx,.pptx,.xlsx"
+                                        : "image/jpeg,image/jpg,image/png"
                                 }
                                 onChange={handleFileChange}
                                 disabled={loading}
@@ -623,15 +623,15 @@ const TemplateCreateAndEditPage: NextPageWithLayout = () => {
                                   {values.headerType === "image"
                                     ? "an image"
                                     : values.headerType === "video"
-                                    ? "a video"
-                                    : "a document"}
+                                      ? "a video"
+                                      : "a document"}
                                 </div>
                                 <div className="text-xs text-gray-500 mt-1">
                                   {values.headerType === "image"
                                     ? "JPG, PNG up to 5MB"
                                     : values.headerType === "video"
-                                    ? "MP4, 3GP up to 16MB"
-                                    : "PDF, DOC, DOCX up to 100MB"}
+                                      ? "MP4, 3GP up to 16MB"
+                                      : "PDF, DOC, DOCX up to 100MB"}
                                 </div>
                               </div>
                             </label>
@@ -871,8 +871,8 @@ const TemplateCreateAndEditPage: NextPageWithLayout = () => {
                                     button.type === "QUICK_REPLY"
                                       ? "Quick Reply"
                                       : button.type === "URL"
-                                      ? "Visit website"
-                                      : "Call phone number"
+                                        ? "Visit website"
+                                        : "Call phone number"
                                   }
                                 />
 
@@ -1111,8 +1111,8 @@ const TemplateCreateAndEditPage: NextPageWithLayout = () => {
                         values?.templateType === "whatsapp"
                           ? "bg-green-100 text-green-800"
                           : values?.templateType === "sms"
-                          ? "bg-blue-100 text-blue-800"
-                          : "bg-purple-100 text-purple-800"
+                            ? "bg-blue-100 text-blue-800"
+                            : "bg-purple-100 text-purple-800"
                       }`}
                     >
                       {values?.templateType === "whatsapp" && "WhatsApp"}
@@ -1147,10 +1147,10 @@ const TemplateCreateAndEditPage: NextPageWithLayout = () => {
                             {values.category === "marketing"
                               ? "MARKETING"
                               : values.category === "utility"
-                              ? "UTILITY"
-                              : values.category === "authentication"
-                              ? "AUTHENTICATION"
-                              : "TEMPLATE"}
+                                ? "UTILITY"
+                                : values.category === "authentication"
+                                  ? "AUTHENTICATION"
+                                  : "TEMPLATE"}
                           </span>
                         </div>
                       )}

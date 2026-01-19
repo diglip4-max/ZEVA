@@ -75,6 +75,7 @@ const InboxPage: NextPageWithLayout = () => {
     handleAgentSelect,
     handleAgentFilterChange,
     handleApplyFilters,
+    handleRemoveTemplate,
   } = useInbox();
   const {
     conversationRef,
@@ -740,6 +741,7 @@ const InboxPage: NextPageWithLayout = () => {
                     setMediaType={setMediaType}
                     setBodyParameters={setBodyParameters}
                     setHeaderParameters={setHeaderParameters}
+                    handleRemoveTemplate={handleRemoveTemplate}
                   />
 
                   {!isMobileView && (
@@ -1019,8 +1021,8 @@ const InboxPage: NextPageWithLayout = () => {
           attachedFiles?.length > 0
             ? attachedFiles
             : attachedFile
-            ? [attachedFile]
-            : []
+              ? [attachedFile]
+              : []
         }
         loading={sendMsgLoading}
       />
