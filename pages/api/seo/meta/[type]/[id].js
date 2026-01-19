@@ -6,14 +6,14 @@
  * GET /api/seo/meta/doctor/[id]
  */
 
-import dbConnect from '../../../../lib/database';
-import Clinic from '../../../../models/Clinic';
-import DoctorProfile from '../../../../models/DoctorProfile';
-import { decideIndexing } from '../../../../lib/seo/IndexingService';
-import { getRobotsMeta } from '../../../../lib/seo/RobotsService';
-import { generateMeta } from '../../../../lib/seo/MetaService';
-import { getCanonicalUrl } from '../../../../lib/seo/CanonicalService';
-import { generateHeadings } from '../../../../lib/seo/HeadingService';
+import dbConnect from '../../../../../lib/database';
+import Clinic from '../../../../../models/Clinic';
+import DoctorProfile from '../../../../../models/DoctorProfile';
+import { decideIndexing } from '../../../../../lib/seo/IndexingService';
+import { getRobotsMeta } from '../../../../../lib/seo/RobotsService';
+import { generateMeta } from '../../../../../lib/seo/MetaService';
+import { getCanonicalUrl } from '../../../../../lib/seo/CanonicalService';
+import { generateHeadings } from '../../../../../lib/seo/HeadingService';
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {

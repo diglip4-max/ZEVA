@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
-import { getUserFromReq, requireRole } from "../lead-ms/auth";
-import Clinic from "../../../models/Clinic";
+import { getUserFromReq, requireRole } from "../../lead-ms/auth";
+import Clinic from "../../../../models/Clinic";
 import Provider from "../../../../models/Provider";
 
 export default async function handler(req, res) {

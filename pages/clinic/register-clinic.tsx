@@ -597,7 +597,7 @@ const RegisterClinic: React.FC & {
     if (licenseDoc) data.append("licenseDocument", licenseDoc);
 
     try {
-      const response = await axios.post("/api/clinics/register", data);
+       await axios.post("/api/clinics/register", data);
       setShowSuccessPopup(true);
       // Removed toast messages after registration
     } catch (err: any) {

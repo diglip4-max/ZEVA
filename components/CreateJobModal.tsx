@@ -1,7 +1,7 @@
 // components/CreateJobModal.tsx
 import React, { useState } from 'react';
 import JobPostingForm, { JobFormData } from './JobPostingForm';
-import { jobPostingService } from '../services/jobService';
+import { jobPostingService, JobCreationResponse } from '../services/jobService';
 import { X, Plus } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -30,7 +30,7 @@ const CreateJobModal: React.FC<CreateJobModalProps> = ({
 
     setIsSubmitting(true);
     try {
-      let response;
+      let response: JobCreationResponse;
       // Use the appropriate service method based on role
       switch (role) {
         case 'doctor':

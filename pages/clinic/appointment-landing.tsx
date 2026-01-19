@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import Head from "next/head";
 import Link from "next/link";
 import Image from "next/image";
-import { Calendar, Clock, Users, Shield, CheckCircle2, ArrowRight, Star, Zap, FileText, Bell } from "lucide-react";
+import { Calendar, Clock, Users, Shield, CheckCircle2, ArrowRight, Star,FileText, Bell } from "lucide-react";
 
 const SLIDES = ["/image1.png", "/image2.png"] as const;
 

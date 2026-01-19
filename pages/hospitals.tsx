@@ -3,7 +3,6 @@ import Head from 'next/head';
 import Link from 'next/link';
 import {
   Building2,
-  CheckCircle2,
   Users,
   Calendar,
   Shield,
@@ -11,7 +10,6 @@ import {
   ArrowRight,
   Stethoscope,
   Activity,
-  Heart,
 } from 'lucide-react';
 
 const Hospitals: React.FC = () => {

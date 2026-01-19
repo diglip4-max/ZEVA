@@ -19,7 +19,7 @@ import ClinicLayout from "../../components/ClinicLayout";
 import type { NextPageWithLayout } from "../_app";
 import withClinicAuth from "../../components/withClinicAuth";
 import { useAgentPermissions } from '../../hooks/useAgentPermissions';
-import { Toaster, toast } from 'react-hot-toast';
+import { Toaster} from 'react-hot-toast';
 
 interface Enquiry {
   _id: string;
