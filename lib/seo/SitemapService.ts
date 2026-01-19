@@ -256,7 +256,7 @@ export async function updateSitemaps(): Promise<{ success: boolean; files: strin
  * Update sitemap for specific entity
  */
 export async function updateEntitySitemap(
-  entityType: 'clinic' | 'doctor' | 'job' | 'blog'
+  entityType: 'clinic' | 'doctor' | 'job' | 'blog' | 'treatment'
 ): Promise<void> {
   try {
     // Ensure directory exists

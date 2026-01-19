@@ -123,14 +123,19 @@ export default function Home() {
         return imagePath.replace(/\/+/g, '/');
     };
 
+    // Store treatment slug when treatment is selected
+    const [selectedTreatmentSlug, setSelectedTreatmentSlug] = useState(null);
+
     // Update URL with search parameters - ALWAYS use values from input fields
-    const updateURL = (treatment, location) => {
+    const updateURL = (treatment, location, treatmentSlug = null) => {
         // Set flag to prevent useEffect from interfering
         isUpdatingURL.current = true;
        
         const params = new URLSearchParams();
         if (treatment) {
-            params.set('treatment', textToSlug(treatment));
+            // Use treatment slug from database if available, otherwise generate from name
+            const slugToUse = treatmentSlug || selectedTreatmentSlug || textToSlug(treatment);
+            params.set('treatment', slugToUse);
         }
         if (location) {
             // Always use the actual location value from input - no special handling
@@ -333,6 +338,13 @@ export default function Home() {
         loadPersistedState();
     }, []);
 
+    // Recalculate distances when user location becomes available and clinics are already loaded
+    useEffect(() => {
+        if (userCurrentLocation && userCurrentLocation.lat && userCurrentLocation.lng && clinics.length > 0) {
+            recalculateDistancesForClinics(userCurrentLocation.lat, userCurrentLocation.lng);
+        }
+    }, [userCurrentLocation]); // Recalculate when user location changes
+
     // Get user's current location on component mount (for distance calculation)
     useEffect(() => {
         if (typeof window !== "undefined" && navigator.geolocation && !userCurrentLocation) {
@@ -507,6 +519,30 @@ export default function Home() {
         return `${distance}km`;
     };
 
+    // Helper function to recalculate distances for existing clinics when user location is available
+    const recalculateDistancesForClinics = (userLat, userLng) => {
+        if (!userLat || !userLng) return;
+        
+        setClinics(prevClinics => {
+            return prevClinics.map(clinic => {
+                if (
+                    clinic.location &&
+                    clinic.location.coordinates &&
+                    clinic.location.coordinates.length === 2
+                ) {
+                    const clinicLng = clinic.location.coordinates[0];
+                    const clinicLat = clinic.location.coordinates[1];
+                    const distance = calculateDistance(userLat, userLng, clinicLat, clinicLng);
+                    return {
+                        ...clinic,
+                        distance: distance,
+                    };
+                }
+                return clinic;
+            });
+        });
+    };
+
     const fetchSuggestions = async (q) => {
         if (!q.trim()) return setSuggestions([]);
 
@@ -604,7 +640,7 @@ export default function Home() {
         }
        
         // Update URL immediately with values from input fields
-        updateURL(serviceToUse || treatmentValue, locationValue);
+        updateURL(serviceToUse || treatmentValue, locationValue, selectedTreatmentSlug);
        
         // Then proceed with search
         searchByPlace(serviceToUse);
@@ -755,6 +791,7 @@ export default function Home() {
        
         setLoading(true);
         clearPersistedState(); // Clear old state when starting new search
+        
         if (typeof window === "undefined" || !navigator.geolocation) {
             toast.error("Geolocation is not supported in this browser");
             setLoading(false);
@@ -768,9 +805,11 @@ export default function Home() {
        
         // Update URL with values from input fields (if location is empty, use "near-me")
         const locationForURL = locationValue || 'near-me';
-        updateURL(serviceToUse || treatmentValue, locationForURL);
+        updateURL(serviceToUse || treatmentValue, locationForURL, selectedTreatmentSlug);
        
-        const locatingToast = toast.loading("Locating you...");
+        // Request location permission from browser (will show browser's native permission dialog)
+        const locatingToast = toast.loading("Getting your location...");
+        
         navigator.geolocation.getCurrentPosition(
             (pos) => {
                 const { latitude, longitude } = pos.coords;
@@ -778,14 +817,32 @@ export default function Home() {
                 setUserCurrentLocation({ lat: latitude, lng: longitude }); // Store user's current location
                 setHasSearched(true);
                
+                // If clinics are already loaded, recalculate distances with user's current location
+                if (clinics.length > 0) {
+                    recalculateDistancesForClinics(latitude, longitude);
+                }
+               
                 fetchClinics(latitude, longitude);
-                toast.success("Location detected");
+                toast.success("Location access granted! Showing distances from your location.");
                 toast.dismiss(locatingToast);
             },
-            () => {
+            (error) => {
                 toast.dismiss(locatingToast);
-                toast.error("Geolocation permission denied");
+                let errorMessage = "Location access denied";
+                if (error.code === error.PERMISSION_DENIED) {
+                    errorMessage = "Location permission denied. Please enable location access in your browser settings to see distances.";
+                } else if (error.code === error.POSITION_UNAVAILABLE) {
+                    errorMessage = "Unable to detect your location. Please try again.";
+                } else if (error.code === error.TIMEOUT) {
+                    errorMessage = "Location request timed out. Please try again.";
+                }
+                toast.error(errorMessage);
                 setLoading(false);
+            },
+            {
+                enableHighAccuracy: true,
+                timeout: 10000,
+                maximumAge: 0 // Don't use cached location
             }
         );
     };
@@ -836,7 +893,7 @@ export default function Home() {
             const serviceToUse = serviceOverride || selectedService || treatmentValue;
            
             // Update URL with values from input fields - always use actual input values
-            updateURL(serviceToUse || treatmentValue, placeQuery);
+            updateURL(serviceToUse || treatmentValue, placeQuery, selectedTreatmentSlug);
            
             fetchClinics(res.data.lat, res.data.lng, serviceOverride);
         } catch {
@@ -1026,6 +1083,7 @@ export default function Home() {
                     onSuccess={handleAuthSuccess}
                     initialMode={authModalMode}
                 />
+
                 <Toaster
                 position="top-right"
                 toastOptions={{
@@ -1104,10 +1162,18 @@ export default function Home() {
                                                             e.preventDefault();
                                                             e.stopPropagation();
                                                             const serviceValue = s.value;
+                                                            // Use treatment slug from database if available
+                                                            const treatmentSlug = s.slug || null;
                                                             setSelectedService(serviceValue);
+                                                            setSelectedTreatmentSlug(treatmentSlug);
                                                             setQuery(serviceValue);
                                                             setSuggestions([]);
                                                             searchInputRef.current?.blur();
+                                                            // Update URL with treatment slug
+                                                            if (manualPlace.trim() || coords) {
+                                                                const locationForURL = manualPlace.trim() || 'near-me';
+                                                                updateURL(serviceValue, locationForURL, treatmentSlug);
+                                                            }
                                                             // Auto-search if location is already set
                                                             if (manualPlace.trim() || coords) {
                                                                 setTimeout(() => {
@@ -1243,10 +1309,18 @@ export default function Home() {
                                                                 e.preventDefault();
                                                                 e.stopPropagation();
                                                                 const serviceValue = s.value;
+                                                                // Use treatment slug from database if available
+                                                                const treatmentSlug = s.slug || null;
                                                                 setSelectedService(serviceValue);
+                                                                setSelectedTreatmentSlug(treatmentSlug);
                                                                 setQuery(serviceValue);
                                                                 setSuggestions([]);
                                                                 searchInputRef.current?.blur();
+                                                                // Update URL with treatment slug
+                                                                if (manualPlace.trim() || coords) {
+                                                                    const locationForURL = manualPlace.trim() || 'near-me';
+                                                                    updateURL(serviceValue, locationForURL, treatmentSlug);
+                                                                }
                                                                 // Auto-search if location is already set
                                                                 if (manualPlace.trim() || coords) {
                                                                     setTimeout(() => {

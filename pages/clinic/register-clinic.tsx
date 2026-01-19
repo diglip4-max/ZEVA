@@ -1038,14 +1038,35 @@ const RegisterClinic: React.FC & {
                           className="text-gray-900 flex-1 px-3 py-2 border-2 border-gray-200 rounded-lg focus:border-[#00b480] focus:outline-none bg-white text-sm"
                           value={newOther}
                           onChange={(e) => setNewOther(e.target.value)}
-                          onKeyPress={(e) => {
+                          onKeyPress={async (e) => {
                             if (e.key === 'Enter') {
                               e.preventDefault();
-                              if (newOther.trim() && otherTreatments.length < 5) {
-                                if (!otherTreatments.includes(newOther.trim())) {
-                                  setOtherTreatments([...otherTreatments, newOther.trim()]);
-                                  setNewOther("");
-                                  showToastMessage("Custom service added!", "success");
+                              const trimmedService = newOther.trim();
+                              if (trimmedService && otherTreatments.length < 5) {
+                                if (!otherTreatments.includes(trimmedService)) {
+                                  // Check if treatment already exists in database
+                                  try {
+                                    const treatmentsResponse = await axios.get("/api/doctor/getTreatment");
+                                    const allTreatments = treatmentsResponse.data.treatments || [];
+                                    const normalizedService = trimmedService.toLowerCase();
+                                    const existsInDatabase = allTreatments.some((t: any) =>
+                                      t.name?.toLowerCase().trim() === normalizedService
+                                    );
+                                    
+                                    if (existsInDatabase) {
+                                      showToastMessage("Treatment already exist", "error");
+                                      return;
+                                    }
+                                    
+                                    setOtherTreatments([...otherTreatments, trimmedService]);
+                                    setNewOther("");
+                                    showToastMessage("Custom service added!", "success");
+                                  } catch (error) {
+                                    // If check fails, still allow adding locally
+                                    setOtherTreatments([...otherTreatments, trimmedService]);
+                                    setNewOther("");
+                                    showToastMessage("Custom service added!", "success");
+                                  }
                                 } else {
                                   showToastMessage("Service already added", "info");
                                 }
@@ -1057,12 +1078,33 @@ const RegisterClinic: React.FC & {
                         />
                         <button
                           type="button"
-                          onClick={() => {
-                            if (newOther.trim() && otherTreatments.length < 5) {
-                              if (!otherTreatments.includes(newOther.trim())) {
-                                setOtherTreatments([...otherTreatments, newOther.trim()]);
-                                setNewOther("");
-                                showToastMessage("Custom service added!", "success");
+                          onClick={async () => {
+                            const trimmedService = newOther.trim();
+                            if (trimmedService && otherTreatments.length < 5) {
+                              if (!otherTreatments.includes(trimmedService)) {
+                                // Check if treatment already exists in database
+                                try {
+                                  const treatmentsResponse = await axios.get("/api/doctor/getTreatment");
+                                  const allTreatments = treatmentsResponse.data.treatments || [];
+                                  const normalizedService = trimmedService.toLowerCase();
+                                  const existsInDatabase = allTreatments.some((t: any) =>
+                                    t.name?.toLowerCase().trim() === normalizedService
+                                  );
+                                  
+                                  if (existsInDatabase) {
+                                    showToastMessage("Treatment already exist", "error");
+                                    return;
+                                  }
+                                  
+                                  setOtherTreatments([...otherTreatments, trimmedService]);
+                                  setNewOther("");
+                                  showToastMessage("Custom service added!", "success");
+                                } catch (error) {
+                                  // If check fails, still allow adding locally
+                                  setOtherTreatments([...otherTreatments, trimmedService]);
+                                  setNewOther("");
+                                  showToastMessage("Custom service added!", "success");
+                                }
                               } else {
                                 showToastMessage("Service already added", "info");
                               }

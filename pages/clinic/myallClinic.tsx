@@ -312,16 +312,17 @@ const TreatmentManager = ({
       const trimmedSubTreatment = customSubTreatment.trim();
       const normalizedSubTreatment = trimmedSubTreatment.toLowerCase();
      
-      // Check for duplicate sub-treatments (case-insensitive)
-      const isDuplicate = currentTreatment.subTreatments?.some((st) =>
+      // Check for duplicate sub-treatments locally (case-insensitive)
+      const isDuplicateLocal = currentTreatment.subTreatments?.some((st) =>
         st.name?.toLowerCase().trim() === normalizedSubTreatment
       );
      
-      if (isDuplicate) {
+      if (isDuplicateLocal) {
         toast.error(`Sub-treatment "${trimmedSubTreatment}" already exists`);
         return;
       }
-     
+
+      // Create newSubTreatment before try block so it's accessible in fallback
       const newSubTreatment = {
         name: trimmedSubTreatment,
         slug: trimmedSubTreatment.toLowerCase().replace(/\s+/g, "-"),
@@ -335,6 +336,30 @@ const TreatmentManager = ({
           toast.error("You are not authenticated");
           return;
         }
+        
+        // Check if subtreatment already exists in database
+        const treatmentsResponse = await axios.get("/api/doctor/getTreatment", {
+          headers: authHeaders,
+        });
+        const allTreatments = treatmentsResponse.data.treatments || [];
+        const mainTreatmentInDb = allTreatments.find((t: Treatment) =>
+          t.name?.toLowerCase().trim() === currentTreatment.mainTreatment.toLowerCase().trim()
+        );
+        
+        if (mainTreatmentInDb) {
+          const existsInDatabase = mainTreatmentInDb.subcategories?.some((sub: any) =>
+            sub.name?.toLowerCase().trim() === normalizedSubTreatment
+          );
+          
+          if (existsInDatabase) {
+            toast.error("Added treatment is already present");
+            setCustomSubTreatment("");
+            setCustomSubTreatmentPrice("");
+            setShowCustomSubTreatmentInput(null);
+            return;
+          }
+        }
+        
         await axios.post(
           "/api/doctor/add-custom-treatment",
           {
@@ -347,17 +372,40 @@ const TreatmentManager = ({
         );
 
         // Refresh available treatments
-        const treatmentsResponse = await axios.get("/api/doctor/getTreatment", {
+        const updatedTreatmentsResponse = await axios.get("/api/doctor/getTreatment", {
           headers: authHeaders,
         });
-        setAvailableTreatments(treatmentsResponse.data.treatments || []);
+        setAvailableTreatments(updatedTreatmentsResponse.data.treatments || []);
         toast.success("Sub-treatment added to database");
-      } catch (error) {
+        
+        const updatedTreatment = {
+          ...currentTreatment,
+          subTreatments: [
+            ...(currentTreatment.subTreatments || []),
+            newSubTreatment,
+          ],
+        };
+        onUpdateTreatment(mainTreatmentIndex, updatedTreatment);
+        toast.success(`Sub-treatment "${trimmedSubTreatment}" added`);
+        setCustomSubTreatment("");
+        setCustomSubTreatmentPrice("");
+        setShowSubTreatmentInput(null);
+        setShowCustomSubTreatmentInput(null);
+        return; // Return early on success to avoid executing fallback code
+      } catch (error: any) {
         console.error("Error adding custom sub-treatment to database:", error);
+        if (error.response?.status === 409) {
+          toast.error("Added treatment is already present");
+          setCustomSubTreatment("");
+          setCustomSubTreatmentPrice("");
+          setShowCustomSubTreatmentInput(null);
+          return;
+        }
         toast.error("Failed to save sub-treatment to database, but added locally");
         // Continue with local addition even if database call fails
       }
 
+      // Fallback: Add locally if database call failed
       const updatedTreatment = {
         ...currentTreatment,
         subTreatments: [
@@ -367,7 +415,7 @@ const TreatmentManager = ({
       };
 
       onUpdateTreatment(mainTreatmentIndex, updatedTreatment);
-      toast.success(`Sub-treatment "${customSubTreatment.trim()}" added`);
+      toast.success(`Sub-treatment "${trimmedSubTreatment}" added`);
       setCustomSubTreatment("");
       setCustomSubTreatmentPrice("");
       setShowSubTreatmentInput(null);
@@ -1515,18 +1563,35 @@ function ClinicManagementDashboard() {
     // Normalize for comparison: lowercase and trim
     const normalizedTrimmed = trimmed.toLowerCase();
    
-    // Check for duplicates (case-insensitive)
-    const isDuplicate = editForm.treatments?.some((t) =>
+    // Check for duplicates locally (case-insensitive)
+    const isDuplicateLocal = editForm.treatments?.some((t) =>
       t.mainTreatment?.toLowerCase().trim() === normalizedTrimmed
     );
    
-    if (trimmed && !isDuplicate) {
+    if (trimmed && !isDuplicateLocal) {
       try {
         const authHeaders = getAuthHeaders();
         if (!authHeaders) {
           toast.error("You are not authenticated");
           return;
         }
+        
+        // Check if treatment already exists in database
+        const treatmentsResponse = await axios.get("/api/doctor/getTreatment", {
+          headers: authHeaders,
+        });
+        const allTreatments = treatmentsResponse.data.treatments || [];
+        const existsInDatabase = allTreatments.some((t: Treatment) =>
+          t.name?.toLowerCase().trim() === normalizedTrimmed
+        );
+        
+        if (existsInDatabase) {
+          toast.error("Added treatment is already present");
+          setNewTreatment("");
+          setShowCustomTreatmentInput(false);
+          return;
+        }
+        
         const response = await axios.post(
           "/api/doctor/add-custom-treatment",
           {
@@ -1540,13 +1605,19 @@ function ClinicManagementDashboard() {
 
         if (response.data.success) {
           // Refresh available treatments
-          const treatmentsResponse = await axios.get("/api/doctor/getTreatment", {
+          const updatedTreatmentsResponse = await axios.get("/api/doctor/getTreatment", {
             headers: authHeaders,
           });
-          setAvailableTreatments(treatmentsResponse.data.treatments || []);
+          setAvailableTreatments(updatedTreatmentsResponse.data.treatments || []);
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error("Error adding custom treatment to database:", error);
+        if (error.response?.status === 409) {
+          toast.error("Added treatment is already present");
+          setNewTreatment("");
+          setShowCustomTreatmentInput(false);
+          return;
+        }
         // Continue with local addition even if database call fails
       }
 

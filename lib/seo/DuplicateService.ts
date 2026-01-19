@@ -13,6 +13,7 @@ import dbConnect from '../database';
 import Clinic from '../../models/Clinic';
 import DoctorProfile from '../../models/DoctorProfile';
 import JobPosting from '../../models/JobPosting';
+import Treatment from '../../models/Treatment';
 
 export interface DuplicateCheck {
   isDuplicate: boolean;
@@ -398,8 +399,77 @@ export async function checkBlogDuplicates(blog: any): Promise<DuplicateCheck> {
   };
 }
 
+/**
+ * Check for duplicate treatments
+ */
+export async function checkTreatmentDuplicates(treatment: any): Promise<DuplicateCheck> {
+  await dbConnect();
+
+  const similarEntities: Array<{
+    id: string;
+    name: string;
+    slug?: string;
+    similarity: number;
+  }> = [];
+
+  // Check by name similarity
+  const allTreatments = await Treatment.find({
+    _id: { $ne: treatment._id },
+  });
+
+  for (const otherTreatment of allTreatments) {
+    const nameSimilarity = calculateSimilarity(
+      treatment.name?.toLowerCase() || '',
+      otherTreatment.name?.toLowerCase() || ''
+    );
+
+    if (nameSimilarity > 0.8) {
+      similarEntities.push({
+        id: otherTreatment._id.toString(),
+        name: otherTreatment.name,
+        slug: otherTreatment.slug,
+        similarity: nameSimilarity,
+      });
+    }
+  }
+
+  // Check for exact name matches
+  const exactNameMatches = await Treatment.find({
+    _id: { $ne: treatment._id },
+    name: { $regex: new RegExp(`^${treatment.name}$`, 'i') },
+  });
+
+  const isDuplicate = similarEntities.length > 0 || exactNameMatches.length > 0;
+  let confidence: 'high' | 'medium' | 'low' = 'low';
+  let reason = '';
+
+  if (exactNameMatches.length > 0) {
+    confidence = 'high';
+    reason = `Exact name match found: ${exactNameMatches.length} treatment(s) with same name`;
+  } else if (similarEntities.length > 0) {
+    const highestSimilarity = Math.max(...similarEntities.map(e => e.similarity));
+    if (highestSimilarity > 0.9) {
+      confidence = 'high';
+    } else if (highestSimilarity > 0.85) {
+      confidence = 'medium';
+    } else {
+      confidence = 'low';
+    }
+    reason = `Similar treatments found: ${similarEntities.length} treatment(s) with ${(highestSimilarity * 100).toFixed(0)}% similarity`;
+  } else {
+    reason = 'No duplicates detected';
+  }
+
+  return {
+    isDuplicate,
+    confidence,
+    reason,
+    similarEntities: similarEntities.slice(0, 5), // Limit to top 5
+  };
+}
+
 export async function checkDuplicates(
-  entityType: 'clinic' | 'doctor' | 'job' | 'blog',
+  entityType: 'clinic' | 'doctor' | 'job' | 'blog' | 'treatment',
   entity: any,
   user?: any
 ): Promise<DuplicateCheck> {
@@ -409,6 +479,8 @@ export async function checkDuplicates(
     return await checkDoctorDuplicates(entity, user || {});
   } else if (entityType === 'job') {
     return await checkJobDuplicates(entity);
+  } else if (entityType === 'treatment') {
+    return await checkTreatmentDuplicates(entity);
   } else {
     return await checkBlogDuplicates(entity);
   }
