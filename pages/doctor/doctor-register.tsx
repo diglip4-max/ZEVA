@@ -517,7 +517,7 @@ return (
   <>
     {/* Toast Notifications */}
     {toast.show && (
-      <div className="fixed top-4 right-4 z-50 max-w-sm">
+      <div className="fixed top-4 right-4 z-9999 max-w-sm">
         <div className={`bg-white rounded-lg p-4 shadow-lg border-l-4 flex items-center gap-3 ${
           toast.type === 'success' ? 'border-emerald-500 animate-[slideIn_0.3s_ease-out]' :
           toast.type === 'error' ? 'border-red-500 animate-[slideIn_0.3s_ease-out]' : 
@@ -616,7 +616,7 @@ return (
                     <div className="flex items-start gap-2">
                       <div className="flex-1">
                         <p className="text-xs font-semibold text-gray-700 mb-1">
-                          {slugPreview.collision_resolved ? '🔗 Your Unique Doctor URL:' : '🔗 Your Doctor URL:'}
+                          {slugPreview.collision_resolved ? '🔗 Your Unique Doctor URL:' : '🔗 Your Profile URL:' }
                         </p>
                         <a
                           href={slugPreview.url}

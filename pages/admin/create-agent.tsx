@@ -426,17 +426,17 @@ const ManageAgentsPage: NextPageWithLayout = () => {
       
       <div className="max-w-7xl mx-auto space-y-4">
         {/* Header Section */}
-        <div className="bg-white rounded-xl shadow-md border border-gray-200 p-4">
+        <div className="bg-white rounded-xl shadow-md border border-blue-200 p-4">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
             <div className="flex items-start gap-3">
-              <div className="bg-gray-800 p-2.5 rounded-xl shadow-sm">
-                <UserGroupIcon className="w-7 h-7 text-white" />
+              <div className="bg-blue-800 p-2.5 rounded-xl shadow-sm">
+                <UserGroupIcon className="w-7 h-7 text-white " />
               </div>
               <div className="min-w-0 flex-1">
-                <h1 className="text-lg sm:text-xl md:text-xl font-bold text-gray-900 mb-1">
+                <h1 className="text-lg sm:text-xl md:text-xl font-bold text-blue-900 mb-1">
                   Agent Management
                 </h1>
-                <p className="text-sm sm:text-base text-gray-700">
+                <p className="text-sm sm:text-base text-blue-700">
                   Create and manage agent accounts and permissions
                 </p>
               </div>
@@ -484,11 +484,11 @@ const ManageAgentsPage: NextPageWithLayout = () => {
             ].map((stat, index) => {
               const Icon = stat.icon;
               return (
-                <div key={index} className="bg-gray-50 rounded-xl border border-gray-200 p-3 shadow-sm hover:shadow-md transition-shadow">
+                <div key={index} className="bg-gray-50 rounded-xl border border-blue-200 p-3 shadow-sm hover:shadow-md transition-shadow">
                   <div className="flex items-center justify-between">
                     <div className="min-w-0 flex-1">
-                      <p className="text-xs sm:text-sm font-medium text-gray-700 uppercase tracking-wide mb-1 truncate">{stat.title}</p>
-                      <p className="text-lg sm:text-xl font-bold text-gray-900">{stat.value}</p>
+                      <p className="text-xs sm:text-sm font-medium text-blue-700 uppercase tracking-wide mb-1 truncate">{stat.title}</p>
+                      <p className="text-lg sm:text-xl font-bold text-blue-900">{stat.value}</p>
                     </div>
                     <div className={`${stat.color} p-2 sm:p-2.5 rounded-lg text-white shadow-sm flex-shrink-0 ml-2`}>
                       <Icon className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -501,9 +501,9 @@ const ManageAgentsPage: NextPageWithLayout = () => {
         </div>
 
         {/* Tabs and Search */}
-        <div className="bg-white rounded-xl shadow-md border border-gray-200 p-3 sm:p-4">
+        <div className="bg-white rounded-xl shadow-md border border-blue-200 p-3 sm:p-4">
           {/* Tabs with Create Button */}
-          <div className="border-b border-gray-200 mb-3 sm:mb-4 pb-2 sm:pb-3">
+          <div className="border-b border-blue-200 mb-3 sm:mb-4 pb-2 sm:pb-3">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
               <nav className="flex space-x-2 sm:space-x-4 md:space-x-6 flex-shrink-0 overflow-x-auto -mx-3 sm:-mx-0 px-3 sm:px-0 w-full sm:w-auto">
                 <button
@@ -514,8 +514,8 @@ const ManageAgentsPage: NextPageWithLayout = () => {
                   }}
                   className={`py-2 px-2 sm:px-3 border-b-2 font-medium text-sm sm:text-base transition-colors duration-200 whitespace-nowrap flex-shrink-0 ${
                     activeView === 'agents'
-                      ? 'border-gray-800 text-gray-800'
-                      : 'border-transparent text-gray-700 hover:text-gray-900 hover:border-gray-300'
+                      ? 'border-blue-800 text-blue-800'
+                      : 'border-transparent text-blue-700 hover:text-blue-900 hover:border-blue-300'
                   }`}
                 >
                   Agents ({totalAgents})
@@ -563,7 +563,7 @@ const ManageAgentsPage: NextPageWithLayout = () => {
                 return shouldShowAction('create') ? (
                   <button 
                     onClick={() => setIsCreateOpen(true)} 
-                    className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-white text-sm font-medium rounded-lg transition-all shadow-sm hover:shadow-md flex-shrink-0 whitespace-nowrap"
+                    className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-blue-800 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-all shadow-sm hover:shadow-md flex-shrink-0 whitespace-nowrap"
                   >
                     <UserPlusIcon className="w-4 h-4" />
                     Create Agent
@@ -621,8 +621,8 @@ const ManageAgentsPage: NextPageWithLayout = () => {
         {/* Agents Table */}
         <div className="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden">
           <div className="px-3 sm:px-4 py-2 sm:py-3 border-b border-gray-200 bg-gray-50">
-            <h2 className="text-lg sm:text-xl font-semibold text-gray-900">{activeView === 'agents' ? 'Agents' : 'Doctor Staff'}</h2>
-            <p className="text-sm sm:text-base text-gray-700 mt-1">Approve, decline and manage agent accounts</p>
+            <h2 className="text-lg sm:text-xl font-semibold text-blue-900">{activeView === 'agents' ? 'Agents' : 'Doctor Staff'}</h2>
+            <p className="text-sm sm:text-base text-blue-700 mt-1">Approve, decline and manage agent accounts</p>
           </div>
 
           {loading ? (

@@ -323,7 +323,7 @@ const AdminSidebar: FC<AdminSidebarProps> = ({
 
       {/* Desktop Sidebar */}
       <aside className={clsx(
-        'transition-all duration-300 ease-in-out bg-white border-r border-gray-200 shadow-sm flex-col min-h-screen w-64 hidden lg:flex',
+        'transition-all duration-300 ease-in-out bg-white border-r border-blue-200 shadow-sm flex-col min-h-screen w-64 hidden lg:flex',
         {
           'lg:flex': !isDesktopHidden,
           'lg:hidden': isDesktopHidden
@@ -332,18 +332,18 @@ const AdminSidebar: FC<AdminSidebarProps> = ({
       )} style={{ height: '100vh' }}>
         <div className="flex flex-col h-full">
           {/* Desktop Header Section */}
-          <div className="p-4 border-b border-gray-200 flex-shrink-0 relative">
+          <div className="p-4 border-b border-blue-200 flex-shrink-0 relative">
             <Link href="/admin/dashboard-admin">
               <div className="group cursor-pointer">
-                <div className="flex items-center gap-3 p-3 rounded-lg bg-gray-50 group-hover:bg-gray-100 transition-all duration-200 border border-gray-200">
-                  <div className="w-10 h-10 bg-gray-800 rounded-lg flex items-center justify-center">
+                <div className="flex items-center gap-3 p-3 rounded-lg bg-blue-50 group-hover:bg-blue-100 transition-all duration-200 border border-blue-200">
+                  <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
                     <span className="text-white font-bold text-lg">Z</span>
                   </div>
                   <div>
-                    <span className="font-bold text-base text-gray-900 block">
+                    <span className="font-bold text-base text-blue-900 block">
                       ZEVA
                     </span>
-                    <span className="text-xs text-gray-700 font-medium">Admin Panel</span>
+                    <span className="text-xs text-blue-700 font-medium">Admin Panel</span>
                   </div>
                 </div>
               </div>
@@ -352,7 +352,7 @@ const AdminSidebar: FC<AdminSidebarProps> = ({
             {/* Desktop Close Button */}
             <button
               onClick={handleToggleDesktop}
-              className="absolute right-4 top-4 bg-gray-100 text-gray-700 p-1.5 rounded-md hover:bg-gray-200 transition-all duration-200 z-50"
+              className="absolute right-4 top-4 bg-blue-100 text-blue-700 p-1.5 rounded-md hover:bg-blue-200 transition-all duration-200 z-50"
               aria-label="Close sidebar"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -363,7 +363,7 @@ const AdminSidebar: FC<AdminSidebarProps> = ({
 
           {/* Desktop Navigation */}
           <nav className="flex-1 overflow-y-auto custom-scrollbar px-3 py-4 min-h-0">
-            <div className="text-gray-700 text-xs font-semibold uppercase tracking-wider mb-3 px-2">
+            <div className="text-blue-700 text-xs font-semibold uppercase tracking-wider mb-3 px-2">
               Navigation
             </div>
             <div className="space-y-1">
@@ -379,8 +379,8 @@ const AdminSidebar: FC<AdminSidebarProps> = ({
                         className={clsx(
                           "group relative block rounded-lg transition-all duration-200 cursor-pointer p-2.5 touch-manipulation",
                           {
-                            "bg-gray-800 text-white": isDropdownOpen,
-                            "hover:bg-gray-50 text-gray-700": !isDropdownOpen,
+                            "bg-blue-600 text-white": isDropdownOpen,
+                            "hover:bg-blue-50 text-blue-700": !isDropdownOpen,
                           }
                         )}
                         onClick={() => {
@@ -393,7 +393,7 @@ const AdminSidebar: FC<AdminSidebarProps> = ({
                               "p-1.5 rounded-md transition-all duration-200 flex-shrink-0",
                               {
                                 "bg-white/20 text-white": isDropdownOpen,
-                                "text-gray-700 group-hover:text-gray-800 group-hover:bg-gray-100": !isDropdownOpen,
+                                "text-blue-700 group-hover:text-blue-800 group-hover:bg-blue-100": !isDropdownOpen,
                               }
                             )}
                           >
@@ -405,7 +405,7 @@ const AdminSidebar: FC<AdminSidebarProps> = ({
                                 "font-medium text-sm transition-colors duration-200",
                                 {
                                   "text-white": isDropdownOpen,
-                                  "text-gray-900": !isDropdownOpen,
+                                  "text-blue-900": !isDropdownOpen,
                                 }
                               )}
                             >
@@ -416,7 +416,7 @@ const AdminSidebar: FC<AdminSidebarProps> = ({
                             className={clsx(
                               "w-4 h-4 transition-transform duration-200 flex-shrink-0",
                               isDropdownOpen && "rotate-90",
-                              isDropdownOpen ? "text-white" : "text-gray-700"
+                              isDropdownOpen ? "text-white" : "text-blue-700"
                             )}
                             fill="currentColor"
                             viewBox="0 0 20 20"
@@ -442,8 +442,8 @@ const AdminSidebar: FC<AdminSidebarProps> = ({
                                   className={clsx(
                                     "group relative block rounded-lg transition-all duration-200 cursor-pointer p-2 touch-manipulation",
                                     {
-                                      "bg-gray-800 text-white": childActive,
-                                      "hover:bg-gray-50 text-gray-700": !childActive,
+                                      "bg-blue-600 text-white": childActive,
+                                      "hover:bg-blue-50 text-blue-700": !childActive,
                                     }
                                   )}
                                   onClick={handleItemClick}
@@ -454,7 +454,7 @@ const AdminSidebar: FC<AdminSidebarProps> = ({
                                         "p-1 rounded-md transition-all duration-200 flex-shrink-0",
                                         {
                                           "bg-white/20 text-white": childActive,
-                                          "text-gray-700 group-hover:text-gray-800 group-hover:bg-gray-100": !childActive,
+                                          "text-blue-700 group-hover:text-blue-800 group-hover:bg-blue-100": !childActive,
                                         }
                                       )}
                                     >
@@ -466,7 +466,7 @@ const AdminSidebar: FC<AdminSidebarProps> = ({
                                           "font-medium text-sm transition-colors duration-200",
                                           {
                                             "text-white": childActive,
-                                            "text-gray-900": !childActive,
+                                            "text-blue-900": !childActive,
                                           }
                                         )}
                                       >
@@ -490,8 +490,8 @@ const AdminSidebar: FC<AdminSidebarProps> = ({
                     className={clsx(
                       "group relative block rounded-lg transition-all duration-200 cursor-pointer p-2.5 touch-manipulation",
                       {
-                        "bg-gray-800 text-white": isActive,
-                        "hover:bg-gray-50 text-gray-700": !isActive,
+                        "bg-blue-600 text-white": isActive,
+                        "hover:bg-blue-50 text-blue-700": !isActive,
                       }
                     )}
                     onClick={handleRegularItemClick}
@@ -506,7 +506,7 @@ const AdminSidebar: FC<AdminSidebarProps> = ({
                           "p-1.5 rounded-md transition-all duration-200 flex-shrink-0",
                           {
                             "bg-white/20 text-white": isActive,
-                            "text-gray-700 group-hover:text-gray-800 group-hover:bg-gray-100": !isActive,
+                            "text-blue-700 group-hover:text-blue-800 group-hover:bg-blue-100": !isActive,
                           }
                         )}
                       >
@@ -524,7 +524,7 @@ const AdminSidebar: FC<AdminSidebarProps> = ({
                             "font-medium text-sm transition-colors duration-200",
                             {
                               "text-white": isActive,
-                              "text-gray-900": !isActive,
+                              "text-blue-900": !isActive,
                             }
                           )}
                         >
@@ -556,13 +556,13 @@ const AdminSidebar: FC<AdminSidebarProps> = ({
           '-translate-x-full': !isMobileOpen,
         }
       )}>
-        <aside className="w-full max-w-xs h-full bg-white shadow-xl border-r border-gray-200 flex flex-col">
+        <aside className="w-full max-w-xs h-full bg-white shadow-xl border-r border-blue-200 flex flex-col">
           <div className="flex flex-col h-full">
             {/* Mobile Header Section */}
-            <div className="p-4 border-b border-gray-200 relative flex-shrink-0">
+            <div className="p-4 border-b border-blue-200 relative flex-shrink-0">
               <button
                 onClick={handleCloseMobile}
-                className="absolute right-4 top-4 bg-gray-100 text-gray-700 p-2 rounded-lg hover:bg-gray-200 transition-all duration-200 z-10 touch-manipulation"
+                className="absolute right-4 top-4 bg-blue-100 text-blue-700 p-2 rounded-lg hover:bg-blue-200 transition-all duration-200 z-10 touch-manipulation"
                 aria-label="Close sidebar"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -573,15 +573,15 @@ const AdminSidebar: FC<AdminSidebarProps> = ({
               <div className="pr-16">
                 <Link href="/admin/dashboard-admin" onClick={handleItemClick}>
                   <div className="group cursor-pointer">
-                    <div className="flex items-center gap-3 p-3 rounded-lg bg-gray-50 group-hover:bg-gray-100 transition-all duration-200 border border-gray-200">
-                      <div className="w-10 h-10 bg-gray-800 rounded-lg flex items-center justify-center">
+                      <div className="flex items-center gap-3 p-3 rounded-lg bg-blue-50 group-hover:bg-blue-100 transition-all duration-200 border border-blue-200">
+                      <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
                         <span className="text-white font-bold text-lg">Z</span>
                       </div>
                       <div>
-                        <span className="font-bold text-base text-gray-900 block">
+                        <span className="font-bold text-base text-blue-900 block">
                           ZEVA
                         </span>
-                        <span className="text-xs text-gray-700 font-medium">Admin Panel</span>
+                        <span className="text-xs text-blue-700 font-medium">Admin Panel</span>
                       </div>
                     </div>
                   </div>
@@ -591,7 +591,7 @@ const AdminSidebar: FC<AdminSidebarProps> = ({
 
             {/* Mobile Navigation */}
             <nav className="flex-1 overflow-y-auto px-3 py-4 min-h-0">
-              <div className="text-gray-700 text-xs font-semibold uppercase tracking-wider mb-3 px-2">
+              <div className="text-blue-700 text-xs font-semibold uppercase tracking-wider mb-3 px-2">
                 Navigation
               </div>
 
@@ -604,8 +604,8 @@ const AdminSidebar: FC<AdminSidebarProps> = ({
                       className={clsx(
                         'group relative block rounded-lg transition-all duration-200 cursor-pointer p-2.5 touch-manipulation',
                         {
-                          'bg-gray-800 text-white': isActive,
-                          'hover:bg-gray-50 text-gray-700': !isActive,
+                          'bg-blue-600 text-white': isActive,
+                          'hover:bg-blue-50 text-blue-700': !isActive,
                         }
                       )}
                       onClick={handleItemClick}
@@ -620,7 +620,7 @@ const AdminSidebar: FC<AdminSidebarProps> = ({
                             'p-1.5 rounded-md transition-all duration-200 flex-shrink-0',
                             {
                               'bg-white/20 text-white': isActive,
-                              'text-gray-700 group-hover:text-gray-800 group-hover:bg-gray-100': !isActive,
+                              'text-blue-700 group-hover:text-blue-800 group-hover:bg-blue-100': !isActive,
                             }
                           )}
                         >
@@ -638,7 +638,7 @@ const AdminSidebar: FC<AdminSidebarProps> = ({
                               'font-medium text-sm transition-colors duration-200 truncate',
                               {
                                 'text-white': isActive,
-                                'text-gray-900': !isActive,
+                                'text-blue-900': !isActive,
                               }
                             )}
                           >

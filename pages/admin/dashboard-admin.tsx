@@ -517,10 +517,12 @@ const AdminDashboard = () => {
   ] : [];
 
   const userDistributionData = stats ? [
-    { name: 'Regular Users', value: stats.users.total, fill: '#1f2937' },
-    { name: 'Doctors', value: stats.doctors.total, fill: '#374151' },
-    { name: 'Staff', value: stats.staff.total, fill: '#4b5563' },
-    { name: 'Agents', value: stats.agents.total, fill: '#6b7280' },
+    { name: 'Regular Users', value: stats.users.total, fill: '#1e40af' },
+    { name: 'Doctors', value: stats.doctors.total, fill: '#1d4ed8' },
+
+    { name: 'Staff', value: stats.staff.total, fill: '#2563eb' },
+    { name: 'Agents', value: stats.agents.total, fill: '#3b82f6' },
+
   ] : [];
 
   const totalApprovalsData = stats ? [
@@ -631,17 +633,17 @@ const AdminDashboard = () => {
         <div className="max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 py-3 sm:py-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg shadow-sm">
+              <div className="p-2 bg-gradient-to-br from-blue-700 to-blue-800 rounded-lg shadow-sm">
                 <ChartBarIcon className="w-4 h-4 text-white" />
               </div>
               <div>
-                <h1 className="text-lg sm:text-xl font-bold text-gray-900">{getGreeting()}, Admin</h1>
-                <p className="text-[10px] sm:text-[11px] text-gray-600 mt-0.5">Dashboard Overview</p>
+                <h1 className="text-lg sm:text-xl font-bold text-blue-800">{getGreeting()}, Admin</h1>
+                <p className="text-[10px] sm:text-[11px] text-blue-600 mt-0.5">Dashboard Overview</p>
               </div>
             </div>
             <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
               <div className="hidden sm:flex items-center gap-2 text-[11px]">
-                <div className="flex items-center gap-1.5 bg-gradient-to-r from-gray-800 to-gray-900 px-2.5 py-1.5 rounded-lg text-white shadow-sm">
+                <div className="flex items-center gap-1.5 bg-gradient-to-r from-blue-700 to-blue-800 px-2.5 py-1.5 rounded-lg text-white shadow-sm">
                   <span className="text-[10px]">{formatDate(currentDateTime)}</span>
                   <span className="text-gray-400">•</span>
                   <span className="font-semibold text-[10px]">{formatTime(currentDateTime)}</span>
@@ -649,7 +651,7 @@ const AdminDashboard = () => {
               </div>
               <button
                 onClick={fetchStats}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-gray-800 to-gray-900 hover:from-gray-700 hover:to-gray-800 text-white rounded-lg font-medium transition-all shadow-sm hover:shadow-md text-[11px] sm:text-[12px] ml-auto sm:ml-0"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-blue-700 to-blue-800 hover:from-gray-700 hover:to-gray-800 text-white rounded-lg font-medium transition-all shadow-sm hover:shadow-md text-[11px] sm:text-[12px] ml-auto sm:ml-0"
               >
                 <ArrowPathIcon className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">Refresh</span>
@@ -1525,7 +1527,7 @@ const AdminDashboard = () => {
                                   <div className="p-1.5 bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg">
                                     <UserGroupIcon className="w-3.5 h-3.5 text-white" />
                                   </div>
-                                  <h2 className="text-sm font-bold text-gray-900">User Type Distribution</h2>
+                                  <h2 className="text-sm font-bold text-blue-900">User Type Distribution</h2>
                                 </div>
                                 <button
                                   onClick={() => toggleSectionVisibility(`analytics-${moduleId}`)}
@@ -1556,7 +1558,7 @@ const AdminDashboard = () => {
                                       backgroundColor: '#fff', 
                                       border: '1px solid #e5e7eb',
                                       borderRadius: '8px',
-                                      boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
+                                      boxShadow: '0 4px 6px rgba(18, 14, 241, 0.1)'
                                     }} 
                                   />
                                   <Legend wrapperStyle={{ paddingTop: '20px' }} />
