@@ -98,7 +98,7 @@ const InboxPage: NextPageWithLayout = () => {
     sendMsgLoading,
     fetchMsgsLoading,
     messages,
-    showScrollButton,
+    isScrolledToBottom,
     messagesEndRef,
     whatsappRemainingTime,
     selectedMessage,
@@ -442,7 +442,7 @@ const InboxPage: NextPageWithLayout = () => {
             </div>
 
             {/* Scroll to bottom button (positioned relative to chat column, not the scrollable list) */}
-            {showScrollButton && !selectedMessage && (
+            {isScrolledToBottom && !selectedMessage && (
               <button
                 onClick={handleScrollMsgsToBottom}
                 className="absolute right-6 bottom-40 cursor-pointer bg-gray-800 text-white p-3 rounded-full shadow-lg hover:bg-gray-700 transition-all hover:scale-105 hover:shadow-xl z-10"

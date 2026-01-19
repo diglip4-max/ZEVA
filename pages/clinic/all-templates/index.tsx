@@ -791,7 +791,6 @@ const TemplatesPage: NextPageWithLayout = () => {
         </div>
       )}
 
-      {/* Delete Segment Modal */}
       {/* Preview Modal */}
       {showPreviewModal && previewTemplate && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">

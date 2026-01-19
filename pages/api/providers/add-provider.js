@@ -73,6 +73,7 @@ export default async function handler(req, res) {
       secrets,
       emailProviderType,
       emailType,
+      status, // Get status from request body
     } = req.body;
 
     // Validation
@@ -104,6 +105,11 @@ export default async function handler(req, res) {
     }
     console.log({ me });
 
+    // Determine provider status
+    // If status is provided in request (like "approved" from frontend test), use it
+    // Otherwise default to "pending" or whatever your default should be
+    const providerStatus = status || "pending";
+
     const newProvider = new Provider({
       clinicId,
       userId: me?._id,
@@ -113,6 +119,7 @@ export default async function handler(req, res) {
       email: email?.trim() || "",
       type,
       secrets,
+      status: providerStatus, // Add status field
       ...(emailProviderType ? { emailProviderType } : {}),
       ...(emailType ? { emailType } : {}),
     });
