@@ -1,7 +1,7 @@
 import ClinicLayout from "@/components/ClinicLayout";
 import withClinicAuth from "@/components/withClinicAuth";
 import React, { ReactElement, useCallback, useEffect, useState } from "react";
-import { NextPageWithLayout } from "../_app";
+import { NextPageWithLayout } from "../../_app";
 import {
   Search,
   Plus,
@@ -220,7 +220,7 @@ const TemplatesPage: NextPageWithLayout = () => {
     console.log(`${action} template ${templateId}`);
     // Implement actual actions here
     if (action === "edit") {
-      router.push(`/all-templates/${templateId}`);
+      router.push(`/clinic/all-templates/${templateId}`);
       return;
     }
 

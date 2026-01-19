@@ -469,7 +469,7 @@ const SegmentsPage = () => {
                             if (selectedSegment?._id) {
                                 // Navigate to leads page with segment filter
                                 router.push({
-                                    pathname: '/lead/create-lead',
+                                    pathname: '/clinic/create-lead',
                                     query: { segment: selectedSegment._id }
                                 });
                             }
@@ -495,7 +495,7 @@ const SegmentsPage = () => {
                                 <div className="flex items-center gap-2.5">
                                     {permissions.canCreate && (
                                         <Link
-                                            href="/lead/create-lead"
+                                            href="/clinic/create-lead"
                                             className="inline-flex items-center justify-center cursor-pointer gap-1.5 border border-gray-800 text-gray-800 bg-transparent hover:bg-gray-800 hover:text-white px-3 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs sm:text-sm font-medium"
                                         >
                                             <Tag className="h-3.5 w-3.5" />
@@ -918,7 +918,7 @@ const SegmentsPage = () => {
                                                         if (selectedSegment?._id) {
                                                             // Navigate to leads page with segment filter
                                                             router.push({
-                                                                pathname: '/lead/create-lead',
+                                                                pathname: '/clinic/create-lead',
                                                                 query: { segment: selectedSegment._id }
                                                             });
                                                         }
