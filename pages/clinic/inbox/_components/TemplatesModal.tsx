@@ -30,6 +30,7 @@ interface IProps {
   setHeaderParameters: React.Dispatch<SetStateAction<VariableType[]>>;
   //   setTemplates: React.Dispatch<SetStateAction<Template[]>>;
   setSelectedTemplate: React.Dispatch<SetStateAction<Template | null>>;
+  handleRemoveTemplate: () => void;
 }
 
 const TemplatesModal: FC<IProps> = ({
@@ -44,6 +45,7 @@ const TemplatesModal: FC<IProps> = ({
   setHeaderParameters,
   //   setTemplates,
   setSelectedTemplate,
+  handleRemoveTemplate,
 }) => {
   const isBusinessHour = true;
 
@@ -234,8 +236,8 @@ const TemplatesModal: FC<IProps> = ({
       const maxSize = fileType.startsWith("image/")
         ? 5 * 1024 * 1024
         : fileType.startsWith("video/")
-        ? 16 * 1024 * 1024
-        : 100 * 1024 * 1024;
+          ? 16 * 1024 * 1024
+          : 100 * 1024 * 1024;
 
       if (fileSize > maxSize) {
         toast.warning(
@@ -313,15 +315,21 @@ const TemplatesModal: FC<IProps> = ({
           disabled={!isBusinessHour}
           onClick={() => setIsDropdownOpen(!isDropdownOpen)}
           className={`
-            flex items-center cursor-pointer gap-1.5 p-2.5 rounded-lg border transition-all duration-200
+            relative flex items-center cursor-pointer gap-1.5 p-2.5 rounded-lg border transition-all duration-200
             ${
-              !isBusinessHour
-                ? "bg-gray-100 border-gray-300 text-gray-400 cursor-not-allowed"
-                : "bg-white border-gray-300 hover:border-gray-400 hover:shadow-sm text-gray-700"
+              selectedTemplate
+                ? "bg-green-200 border-green-500 hover:border-green-600 text-green-800"
+                : "bg-white border-gray-300 hover:border-gray-400 text-gray-700"
             }
           `}
         >
           <NotepadText className="w-5 h-5" />
+
+          {selectedTemplate && (
+            <span className="absolute -top-2 -right-2 bg-green-500 text-white rounded-full flex items-center justify-center w-4 h-4 text-xs font-semibold">
+              1
+            </span>
+          )}
         </button>
 
         {/* Templates Modal (centered) */}
@@ -380,7 +388,6 @@ const TemplatesModal: FC<IProps> = ({
                       {filteredTemplates?.map((item: Template) => (
                         <div
                           key={item._id}
-                          onClick={() => handleSelectTemplate(item)}
                           className={`
                             p-3 mb-2 rounded-lg border cursor-pointer transition-all duration-200
                             ${
@@ -406,8 +413,8 @@ const TemplatesModal: FC<IProps> = ({
                                     item.templateType === "sms"
                                       ? "bg-blue-100 text-blue-700"
                                       : item.templateType === "whatsapp"
-                                      ? "bg-green-100 text-green-700"
-                                      : "bg-purple-100 text-purple-700"
+                                        ? "bg-green-100 text-green-700"
+                                        : "bg-purple-100 text-purple-700"
                                   }
                                 `}
                                 >
@@ -418,8 +425,24 @@ const TemplatesModal: FC<IProps> = ({
                                 </span>
                               </div>
                             </div>
-                            {selectedTemplate?._id === item._id && (
-                              <Check className="w-5 h-5 text-blue-600" />
+                            {selectedTemplate?._id === item._id ? (
+                              <button
+                                onClick={() => {
+                                  handleRemoveTemplate();
+                                  setIsDropdownOpen(false);
+                                }}
+                                className="ml-2 p-1 rounded-full border border-red-500 bg-white shadow-sm hover:bg-red-50 text-red-500 hover:text-red-600 transition-colors duration-200 cursor-pointer"
+                                title="Remove template"
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            ) : (
+                              <div
+                                className={`h-5 w-5 rounded-full border-2 flex items-center justify-center transition-all
+                                  border-gray-300 cursor-pointer
+                                `}
+                                onClick={() => handleSelectTemplate(item)}
+                              ></div>
                             )}
                           </div>
                         </div>
@@ -486,9 +509,9 @@ const TemplatesModal: FC<IProps> = ({
                                 selectedTemplate?.templateType === "sms"
                                   ? "bg-blue-100 text-blue-700"
                                   : selectedTemplate?.templateType ===
-                                    "whatsapp"
-                                  ? "bg-green-100 text-green-700"
-                                  : "bg-purple-100 text-purple-700"
+                                      "whatsapp"
+                                    ? "bg-green-100 text-green-700"
+                                    : "bg-purple-100 text-purple-700"
                               }
                             `}
                             >
@@ -600,8 +623,8 @@ const TemplatesModal: FC<IProps> = ({
                             {selectedTemplate?.headerType === "image"
                               ? "JPG, PNG up to 5MB"
                               : selectedTemplate?.headerType === "video"
-                              ? "MP4, 3GP up to 16MB"
-                              : "PDF, DOC, PPT up to 100MB"}
+                                ? "MP4, 3GP up to 16MB"
+                                : "PDF, DOC, PPT up to 100MB"}
                           </p>
                           <label className="cursor-pointer">
                             <input
@@ -612,8 +635,8 @@ const TemplatesModal: FC<IProps> = ({
                                 selectedTemplate?.headerType === "image"
                                   ? "image/jpeg,image/jpg,image/png"
                                   : selectedTemplate?.headerType === "video"
-                                  ? "video/mp4,video/3gp"
-                                  : ".pdf,.doc,.docx,.pptx,.xlsx"
+                                    ? "video/mp4,video/3gp"
+                                    : ".pdf,.doc,.docx,.pptx,.xlsx"
                               }
                             />
                             <span className="px-6 py-2.5 bg-gradient-to-r from-gray-600 to-gray-700 text-white font-medium rounded-lg hover:from-gray-700 hover:to-gray-800 transition-all inline-flex items-center gap-2">

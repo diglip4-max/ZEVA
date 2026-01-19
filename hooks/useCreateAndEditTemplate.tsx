@@ -9,7 +9,7 @@ import { useRouter } from "next/router";
 import { useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import useProvider from "./useProvider";
-import { handleError, handleUpload } from "@/lib/helper";
+import { getTokenByPath, handleError, handleUpload } from "@/lib/helper";
 
 export type TemplateHeaderType = "text" | "image" | "video" | "document" | "";
 
@@ -173,8 +173,7 @@ const useCreateAndEditTemplate = () => {
   const [templateButtons, setTemplateButtons] = useState<TemplateButton[]>([]);
   const [isAddBtnOpen, setIsAddBtnOpen] = useState<boolean>(false);
 
-  const token =
-    typeof window !== "undefined" ? localStorage.getItem("clinicToken") : null;
+  const token = getTokenByPath();
 
   useEffect(() => {
     if (!templateId || templateId === "new") return;
@@ -270,13 +269,13 @@ const useCreateAndEditTemplate = () => {
         type === "QUICK_REPLY"
           ? "Quick Reply"
           : type === "URL"
-          ? "Visit website"
-          : "Call phone number",
+            ? "Visit website"
+            : "Call phone number",
       ...(type === "URL"
         ? { url: "" }
         : type === "PHONE_NUMBER"
-        ? { phone_number: "" }
-        : {}),
+          ? { phone_number: "" }
+          : {}),
     };
 
     setTemplateButtons(updatedButtons);
@@ -309,8 +308,8 @@ const useCreateAndEditTemplate = () => {
       const maxSize = fileType.startsWith("image/")
         ? 5 * 1024 * 1024 // 5MB for images
         : fileType.startsWith("video/")
-        ? 16 * 1024 * 1024 // 16MB for videos
-        : 100 * 1024 * 1024; // 100MB for documents
+          ? 16 * 1024 * 1024 // 16MB for videos
+          : 100 * 1024 * 1024; // 100MB for documents
 
       // Validate file size
       if (fileSize > maxSize) {

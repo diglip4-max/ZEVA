@@ -24,12 +24,10 @@ import {
   Eye,
   Search,
   RefreshCw,
-  Activity,
   Globe,
   TestTube,
   Send,
   Bell,
-  AlertTriangle,
   Info,
   Phone,
   Globe as GlobeIcon,
@@ -133,42 +131,6 @@ const ProvidersPage: NextPageWithLayout = () => {
     );
   };
 
-  const getHealthBadge = (isActive: boolean, lastSyncedAt?: string) => {
-    const now = new Date();
-    const lastSynced = lastSyncedAt ? new Date(lastSyncedAt) : null;
-    const isRecent = lastSynced
-      ? now.getTime() - lastSynced.getTime() < 24 * 60 * 60 * 1000 // Within 24 hours
-      : false;
-
-    if (!isActive) {
-      return {
-        style: "bg-gray-100 text-gray-800 border border-gray-200",
-        icon: <WifiOff className="w-3 h-3" />,
-        text: "Offline",
-      };
-    }
-
-    if (isRecent) {
-      return {
-        style: "bg-emerald-100 text-emerald-800 border border-emerald-200",
-        icon: <Activity className="w-3 h-3" />,
-        text: "Excellent",
-      };
-    } else if (lastSynced) {
-      return {
-        style: "bg-yellow-100 text-yellow-800 border border-yellow-200",
-        icon: <AlertTriangle className="w-3 h-3" />,
-        text: "Warning",
-      };
-    } else {
-      return {
-        style: "bg-red-100 text-red-800 border border-red-200",
-        icon: <XCircle className="w-3 h-3" />,
-        text: "Error",
-      };
-    }
-  };
-
   const getTypeIcon = (type: string[]) => {
     if (type.includes("whatsapp")) {
       return <Smartphone className="w-4 h-4 text-green-600" />;
@@ -193,10 +155,10 @@ const ProvidersPage: NextPageWithLayout = () => {
           t === "whatsapp"
             ? "bg-green-50 text-green-700 border border-green-200"
             : t === "sms"
-            ? "bg-blue-50 text-blue-700 border border-blue-200"
-            : t === "email"
-            ? "bg-purple-50 text-purple-700 border border-purple-200"
-            : "bg-orange-50 text-orange-700 border border-orange-200"
+              ? "bg-blue-50 text-blue-700 border border-blue-200"
+              : t === "email"
+                ? "bg-purple-50 text-purple-700 border border-purple-200"
+                : "bg-orange-50 text-orange-700 border border-orange-200"
         }`}
       >
         {getTypeIcon([t])}
@@ -481,10 +443,6 @@ const ProvidersPage: NextPageWithLayout = () => {
           /* Grid View */
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
             {filteredProviders.map((provider) => {
-              const health = getHealthBadge(
-                provider.isActive,
-                provider.lastSyncedAt
-              );
               return (
                 <div
                   key={provider._id}
@@ -599,15 +557,7 @@ const ProvidersPage: NextPageWithLayout = () => {
                             : "Never"}
                         </span>
                       </div>
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-gray-500">Health</span>
-                        <span
-                          className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold ${health.style}`}
-                        >
-                          {health.icon}
-                          {health.text}
-                        </span>
-                      </div>
+
                       <div className="flex items-center justify-between text-sm">
                         <span className="text-gray-500">Type</span>
                         <div className="flex gap-1">
@@ -665,9 +615,7 @@ const ProvidersPage: NextPageWithLayout = () => {
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                       Status
                     </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                      Health
-                    </th>
+
                     <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                       Contact
                     </th>
@@ -681,10 +629,6 @@ const ProvidersPage: NextPageWithLayout = () => {
                 </thead>
                 <tbody className="divide-y divide-gray-200">
                   {filteredProviders.map((provider) => {
-                    const health = getHealthBadge(
-                      provider.isActive,
-                      provider.lastSyncedAt
-                    );
                     return (
                       <tr
                         key={provider._id}
@@ -727,14 +671,7 @@ const ProvidersPage: NextPageWithLayout = () => {
                         <td className="px-6 py-4">
                           {getStatusBadge(provider.status)}
                         </td>
-                        <td className="px-6 py-4">
-                          <span
-                            className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold ${health.style}`}
-                          >
-                            {health.icon}
-                            {health.text}
-                          </span>
-                        </td>
+
                         <td className="px-6 py-4">
                           <div className="text-sm">
                             {provider.phone && (
@@ -808,8 +745,8 @@ const ProvidersPage: NextPageWithLayout = () => {
               {searchQuery
                 ? `No providers match "${searchQuery}"`
                 : activeTab !== "all"
-                ? `No ${activeTab} providers found`
-                : "No communication providers configured yet"}
+                  ? `No ${activeTab} providers found`
+                  : "No communication providers configured yet"}
             </p>
             <button
               onClick={() => setShowAddModal(true)}

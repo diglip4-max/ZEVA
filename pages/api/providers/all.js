@@ -70,54 +70,27 @@ export default async function handler(req, res) {
 
     // ✅TODO: Check permission for reading leads (only for clinic, agent, doctor, and doctorStaff/staff; admin bypasses)
     if (me.role !== "admin" && clinic._id) {
-      // For Get Provider Permissions
+      // For Get Providers Permissions
     }
 
     try {
-      const page = parseInt(req.query.page) || 1;
-      const limit = parseInt(req.query.limit) || 20;
-      const skip = (page - 1) * limit;
-      const search = req.query.search
-        ? req.query.search.trim().toLowerCase()
-        : null;
-
-      let query = { clinicId: clinic._id };
-      if (search) {
-        query.$or = [{ label: { $regex: search, $options: "i" } }];
-      }
-
-      const totalProviders = await Provider.countDocuments(query);
-
-      const providers = await Provider.find(query)
+      const providers = await Provider.find({ clinicId: clinic._id })
         .select("-secrets -_ac -_ct")
-        .sort({ updatedAt: -1 })
-        .skip(skip)
-        .limit(limit)
         .lean();
-
-      const totalPages = Math.ceil(totalProviders / limit);
-      const hasMore = page * limit < totalProviders;
 
       return res.status(200).json({
         success: true,
         message: "Providers fetched successfully",
         data: providers,
-        pagination: {
-          totalResults: totalProviders,
-          totalPages,
-          currentPage: page,
-          limit,
-          hasMore,
-        },
       });
     } catch (error) {
-      console.error("Error fetching provider:", error);
+      console.error("Error in fetching all provider:", error);
       return res
         .status(500)
         .json({ success: false, message: "Failed to fetch providers" });
     }
   } catch (error) {
-    console.error("Get Providers error: ", error);
+    console.error("Get all Providers error: ", error);
     return res.status(500).json({
       success: false,
       message: error?.message || "Internal server error",
