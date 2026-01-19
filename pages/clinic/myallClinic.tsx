@@ -97,10 +97,10 @@ interface ClinicStats {
 }
 
 const LoadingSpinner = () => (
-  <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
-    <div className="bg-white rounded-lg p-8 shadow-sm border border-gray-300 max-w-md w-full">
-      <div className="animate-spin rounded-full h-12 w-12 border-2 border-gray-300 border-t-blue-600 mx-auto mb-4"></div>
-      <p className="text-gray-700 text-center font-medium">Loading Clinic Profile...</p>
+  <div className="min-h-screen bg-blue-50 flex items-center justify-center px-4">
+    <div className="bg-white rounded-lg p-8 shadow-sm border border-blue-300 max-w-md w-full">
+      <div className="animate-spin rounded-full h-12 w-12 border-2 border-blue-300 border-t-blue-600 mx-auto mb-4"></div>
+      <p className="text-blue-700 text-center font-medium">Loading Clinic Profile...</p>
     </div>
   </div>
 );
@@ -121,23 +121,23 @@ const Header = ({
   canUpdate: boolean;
   clinicName?: string;
 }) => (
-  <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+  <div className="bg-white rounded-lg p-4 border border-blue-200 shadow-sm">
     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
       <div className="flex-1">
         <div className="flex items-center gap-2 mb-2">
-          <Building2 className="w-5 h-5 text-gray-700" />
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
+          <Building2 className="w-5 h-5 text-blue-800" />
+          <h1 className="text-xl sm:text-2xl font-bold text-blue-800">
             {clinicName || 'Clinic Profile'}
           </h1>
         </div>
-        <p className="text-xs sm:text-sm text-gray-600">
+        <p className="text-xs sm:text-sm text-blue-700">
           Manage your clinic information and settings
         </p>
       </div>
       {hasClinic && !isEditing && canUpdate && (
         <button
           onClick={onEditClick}
-          className="flex items-center gap-2 px-3 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-900 transition-colors font-medium shadow-sm hover:shadow-md text-sm"
+          className="flex items-center gap-2 px-3 py-2 bg-blue-800 text-white rounded-lg hover:bg-blue-900 transition-colors font-medium shadow-sm hover:shadow-md text-sm"
         >
           <Edit3 className="w-4 h-4" />
           <span>Edit Profile</span>
@@ -166,7 +166,7 @@ const FormInput = ({
   rows,
 }: FormInputProps) => (
   <div className="space-y-2">
-    <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+    <label className="flex items-center gap-2 text-sm font-semibold text-blue-700">
       {icon}
       {label}
     </label>
@@ -174,7 +174,7 @@ const FormInput = ({
       <textarea
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none placeholder-gray-400 text-gray-700 bg-white transition-all"
+        className="w-full px-4 py-3 border border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none placeholder-blue-400 text-blue-700 bg-white transition-all"
         rows={rows || 3}
         placeholder={placeholder}
       />
@@ -183,7 +183,7 @@ const FormInput = ({
         type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 placeholder-gray-400 text-gray-700 bg-white transition-all"
+        className="w-full px-4 py-3 border border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 placeholder-blue-400 text-blue-700 bg-white transition-all"
         placeholder={placeholder}
       />
     )}
@@ -211,7 +211,7 @@ const TagManager = ({
   className,
 }: TagManagerProps) => (
   <div className={`space-y-3 ${className || ""}`}>
-    <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+    <label className="flex items-center gap-2 text-sm font-semibold text-blue-700">
       {icon}
       {label}
     </label>
@@ -220,7 +220,7 @@ const TagManager = ({
         type="text"
         value={newItem}
         onChange={(e) => setNewItem(e.target.value)}
-        className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 placeholder-gray-400 text-gray-700 bg-white transition-all"
+        className="flex-1 px-4 py-2.5 border border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 placeholder-blue-400 text-blue-700 bg-white transition-all"
         placeholder={`Add ${label.toLowerCase()}`}
         onKeyPress={(e) => e.key === "Enter" && onAdd()}
       />
@@ -235,12 +235,12 @@ const TagManager = ({
       {items?.map((item: string, index: number) => (
         <span
           key={index}
-          className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-gray-700 rounded-full text-sm border border-blue-200"
+          className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-full text-sm border border-blue-200"
         >
           {item}
           <button
             onClick={() => onRemove(index)}
-            className="text-gray-500 hover:text-red-600 transition-colors"
+            className="text-blue-500 hover:text-red-600 transition-colors"
           >
             <X className="w-3.5 h-3.5" />
           </button>
@@ -434,7 +434,7 @@ const TreatmentManager = ({
 
   return (
     <div className="space-y-4">
-      <label className="flex items-center gap-3 text-sm font-semibold text-gray-800 sm:text-base">
+      <label className="flex items-center gap-3 text-sm font-semibold text-blue-800 sm:text-base">
         {icon}
         {label}
       </label>
@@ -456,7 +456,7 @@ const TreatmentManager = ({
                   }
                 }
               }}
-              className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-[#2D9AA5] focus:border-[#2D9AA5] text-gray-800 transition-all duration-200 text-sm sm:text-base"
+              className="w-full px-4 py-3 border border-blue-200 rounded-xl bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-[#2D9AA5] focus:border-[#2D9AA5] text-blue-800 transition-all duration-200 text-sm sm:text-base"
               value=""
             >
               <option value="">Select a treatment</option>
@@ -474,7 +474,7 @@ const TreatmentManager = ({
               type="text"
               value={newItem}
               onChange={(e) => setNewItem(e.target.value)}
-              className="flex-1 px-4 py-3 border border-gray-200 rounded-xl bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-[#2D9AA5] focus:border-[#2D9AA5] placeholder-gray-400 text-gray-800 transition-all duration-200 text-sm sm:text-base"
+              className="flex-1 px-4 py-3 border border-blue-200 rounded-xl bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-[#2D9AA5] focus:border-[#2D9AA5] placeholder-blue-400 text-blue-800 transition-all duration-200 text-sm sm:text-base"
               placeholder="Enter custom treatment name"
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
@@ -496,7 +496,7 @@ const TreatmentManager = ({
                   setShowCustomInput(false);
                   setNewItem("");
                 }}
-                className="flex-1 sm:flex-initial px-4 py-3 bg-gray-100 text-gray-600 rounded-xl hover:bg-gray-200 active:bg-gray-300 transition-all duration-200 shadow-sm flex items-center justify-center gap-2"
+                className="flex-1 sm:flex-initial px-4 py-3 bg-blue-100 text-blue-600 rounded-xl hover:bg-blue-200 active:bg-blue-300 transition-all duration-200 shadow-sm flex items-center justify-center gap-2"
               >
                 <X className="w-4 h-4" />
                 <span className="sm:hidden">Cancel</span>
@@ -527,10 +527,10 @@ const TreatmentManager = ({
             return (
               <div
                 key={index}
-                className="bg-white border border-gray-100 rounded-xl p-4 sm:p-5 shadow-sm hover:shadow-md transition-all duration-200"
+                className="bg-white border border-blue-100 rounded-xl p-4 sm:p-5 shadow-sm hover:shadow-md transition-all duration-200"
               >
                 <div className="flex items-start justify-between mb-4 gap-3">
-                  <h3 className="font-semibold text-gray-800 text-sm sm:text-base leading-tight">
+                  <h3 className="font-semibold text-blue-800 text-sm sm:text-base leading-tight">
                     {item.mainTreatment}
                   </h3>
                   <button
@@ -544,7 +544,7 @@ const TreatmentManager = ({
                 {/* Sub-treatment Section */}
                 <div className="space-y-3">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <span className="text-sm font-medium text-gray-600">
+                    <span className="text-sm font-medium text-blue-600">
                       Sub-treatments
                     </span>
                     <button
@@ -557,7 +557,7 @@ const TreatmentManager = ({
 
                   {/* Sub-treatment Input */}
                   {showSubTreatmentInput === index && (
-                    <div className="bg-gray-50 rounded-xl p-4 space-y-3">
+                    <div className="bg-blue-50 rounded-xl p-4 space-y-3">
                       <div className="flex flex-col gap-3 sm:flex-row">
                         <select
                           onChange={(e) => {
@@ -571,7 +571,7 @@ const TreatmentManager = ({
                               );
                             }
                           }}
-                          className="text-black flex-1 px-3 py-2 border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#2D9AA5] focus:border-[#2D9AA5] text-sm transition-all duration-200"
+                          className="text-black flex-1 px-3 py-2 border border-blue-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#2D9AA5] focus:border-[#2D9AA5] text-sm transition-all duration-200"
                           value=""
                         >
                           <option value="">Select sub-treatment</option>
@@ -594,7 +594,7 @@ const TreatmentManager = ({
                             onChange={(e) =>
                               setCustomSubTreatment(e.target.value)
                             }
-                            className="flex-1 px-3 py-2 border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#2D9AA5] focus:border-[#2D9AA5] text-sm placeholder-gray-400 transition-all duration-200"
+                            className="flex-1 px-3 py-2 border border-blue-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#2D9AA5] focus:border-[#2D9AA5] text-sm placeholder-blue-400 transition-all duration-200"
                             placeholder="Custom sub-treatment name"
                             onKeyDown={(e) => {
                               if (e.key === "Enter") {
@@ -610,7 +610,7 @@ const TreatmentManager = ({
                             onChange={(e) => {
                               setCustomSubTreatmentPrice(e.target.value);
                             }}
-                            className="w-32 px-3 py-2 border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#2D9AA5] focus:border-[#2D9AA5] text-sm placeholder-gray-400 transition-all duration-200"
+                            className="w-32 px-3 py-2 border border-blue-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#2D9AA5] focus:border-[#2D9AA5] text-sm placeholder-blue-400 transition-all duration-200"
                             placeholder="Price"
                             onKeyDown={(e) => {
                               if (e.key === "Enter") {
@@ -636,7 +636,7 @@ const TreatmentManager = ({
                             setCustomSubTreatment("");
                             setCustomSubTreatmentPrice("");
                           }}
-                          className="px-4 py-2 bg-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-300 active:bg-gray-400 transition-all duration-200"
+                          className="px-4 py-2 bg-blue-200 text-blue-600 rounded-lg text-sm font-medium hover:bg-blue-300 active:bg-blue-400 transition-all duration-200"
                         >
                           Cancel
                         </button>
@@ -672,7 +672,7 @@ const TreatmentManager = ({
                                 subTreatments: updatedSubTreatments,
                               });
                             }}
-                            className="w-20 px-2 py-1 border border-gray-300 rounded text-xs ml-2"
+                            className="w-20 px-2 py-1 border border-blue-300 rounded text-xs ml-2"
                             placeholder="Price"
                           />
                           <button
@@ -715,13 +715,13 @@ const ClinicCard = ({ clinic, onEdit, getImagePath, canUpdate, stats, statsLoadi
   ) || 0;
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+    <div className="bg-white rounded-lg shadow-sm border border-blue-200 overflow-hidden">
       {/* Profile Header Section with Image in Corner - Compact */}
-      <div className="p-3 sm:p-4 border-b border-gray-200">
+      <div className="p-3 sm:p-4 border-b border-blue-200">
       <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
         {/* Clinic Image - Top Left Corner */}
         <div className="relative flex-shrink-0">
-          <div className="relative w-20 h-20 sm:w-24 sm:h-24 lg:w-28 lg:h-28 rounded-lg overflow-hidden border-2 border-gray-200 shadow-sm bg-gray-50">
+          <div className="relative w-20 h-20 sm:w-24 sm:h-24 lg:w-28 lg:h-28 rounded-lg overflow-hidden border-2 border-blue-200 shadow-sm bg-blue-50">
             {(() => {
               // Get the last photo (most recently uploaded profile picture) instead of first
               const photosArray = clinic.photos || [];
@@ -729,8 +729,8 @@ const ClinicCard = ({ clinic, onEdit, getImagePath, canUpdate, stats, statsLoadi
               
               if (!latestPhoto) {
                 return (
-                  <div key="no-photo" className="w-full h-full bg-gray-100 flex items-center justify-center">
-                    <Camera className="w-8 h-8 sm:w-10 sm:h-10 text-gray-400" />
+                  <div key="no-photo" className="w-full h-full bg-blue-100 flex items-center justify-center">
+                    <Camera className="w-8 h-8 sm:w-10 sm:h-10 text-blue-400" />
                   </div>
                 );
               }
@@ -740,8 +740,8 @@ const ClinicCard = ({ clinic, onEdit, getImagePath, canUpdate, stats, statsLoadi
               // Validate the URL before passing to Image component
               if (!imageSrc || imageSrc === '') {
                 return (
-                  <div key="invalid-src" className="w-full h-full bg-gray-100 flex items-center justify-center">
-                    <Camera className="w-8 h-8 sm:w-10 sm:h-10 text-gray-400" />
+                  <div key="invalid-src" className="w-full h-full bg-blue-100 flex items-center justify-center">
+                    <Camera className="w-8 h-8 sm:w-10 sm:h-10 text-blue-400" />
                   </div>
                 );
               }
@@ -784,7 +784,7 @@ const ClinicCard = ({ clinic, onEdit, getImagePath, canUpdate, stats, statsLoadi
           {canUpdate && (
             <button
               onClick={() => onEdit(clinic)}
-              className="absolute -bottom-1 -right-1 bg-gray-800 text-white p-1.5 rounded-full hover:bg-gray-900 shadow-md hover:shadow-lg transition-all border-2 border-white"
+              className="absolute -bottom-1 -right-1 bg-blue-800 text-white p-1.5 rounded-full hover:bg-blue-900 shadow-md hover:shadow-lg transition-all border-2 border-white"
               title="Edit Profile"
             >
               <Edit3 className="w-3.5 h-3.5" />
@@ -796,11 +796,11 @@ const ClinicCard = ({ clinic, onEdit, getImagePath, canUpdate, stats, statsLoadi
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-3 mb-2">
             <div className="flex-1 min-w-0">
-              <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 mb-1.5 break-words">
+              <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-blue-900 mb-1.5 break-words">
                 {clinic.name}
               </h2>
-              <div className="flex items-start gap-1.5 text-gray-700 text-xs sm:text-sm">
-                <MapPin className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 text-gray-500" />
+              <div className="flex items-start gap-1.5 text-blue-700 text-xs sm:text-sm">
+                <MapPin className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 text-blue-500" />
                 <span className="break-words">{clinic.address}</span>
               </div>
             </div>
@@ -814,8 +814,8 @@ const ClinicCard = ({ clinic, onEdit, getImagePath, canUpdate, stats, statsLoadi
       {/* Statistics Section */}
       <div className="mb-4">
         <div className="flex items-center gap-2 mb-3">
-          <BarChart3 className="w-4 h-4 text-gray-700" />
-          <h3 className="text-base sm:text-lg font-bold text-gray-900">Statistics Overview</h3>
+          <BarChart3 className="w-4 h-4 text-blue-700" />
+          <h3 className="text-base sm:text-lg font-bold text-blue-900">Statistics Overview</h3>
         </div>
         <div className="grid grid-cols-3 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3">
           <StatCard
@@ -877,25 +877,25 @@ const ClinicCard = ({ clinic, onEdit, getImagePath, canUpdate, stats, statsLoadi
 
       {/* Info Cards - Compact */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 mb-3">
-        <div className="flex items-center gap-2 p-2.5 sm:p-3 bg-gray-50 rounded-lg border border-gray-200">
-          <div className="w-8 h-8 bg-gray-800 rounded-lg flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+        <div className="flex items-center gap-2 p-2.5 sm:p-3 bg-blue-50 rounded-lg border border-blue-200">
+          <div className="w-8 h-8 bg-blue-800 rounded-lg flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
             د.إ
           </div>
           <div className="min-w-0 flex-1">
-            <div className="text-[10px] sm:text-xs font-semibold text-gray-600 mb-0.5">Consultation Fee</div>
-            <div className="text-xs sm:text-sm font-bold text-gray-900 truncate">
+            <div className="text-[10px] sm:text-xs font-semibold text-blue-600 mb-0.5">Consultation Fee</div>
+            <div className="text-xs sm:text-sm font-bold text-blue-900 truncate">
               {clinic.pricing || "Contact for pricing"}
             </div>
           </div>
         </div>
        
-        <div className="flex items-center gap-2 p-2.5 sm:p-3 bg-gray-50 rounded-lg border border-gray-200">
-          <div className="w-8 h-8 bg-gray-800 rounded-lg flex items-center justify-center flex-shrink-0">
+        <div className="flex items-center gap-2 p-2.5 sm:p-3 bg-blue-50 rounded-lg border border-blue-200">
+          <div className="w-8 h-8 bg-blue-800 rounded-lg flex items-center justify-center flex-shrink-0">
             <Clock className="w-4 h-4 text-white" />
           </div>
           <div className="min-w-0 flex-1">
-            <div className="text-[10px] sm:text-xs font-semibold text-gray-600 mb-0.5">Timings</div>
-            <div className="text-xs sm:text-sm font-bold text-gray-900 truncate">
+            <div className="text-[10px] sm:text-xs font-semibold text-blue-600 mb-0.5">Timings</div>
+            <div className="text-xs sm:text-sm font-bold text-blue-900 truncate">
               {clinic.timings || "Contact for timings"}
             </div>
           </div>
@@ -905,7 +905,7 @@ const ClinicCard = ({ clinic, onEdit, getImagePath, canUpdate, stats, statsLoadi
       {/* Services - Compact */}
       {clinic.servicesName?.length > 0 && (
         <div className="mb-3">
-          <h3 className="text-xs font-semibold text-gray-700 mb-1.5 flex items-center gap-1.5">
+          <h3 className="text-xs font-semibold text-blue-700 mb-1.5 flex items-center gap-1.5">
             <Leaf className="w-3.5 h-3.5 text-green-600" />
             Services
           </h3>
@@ -913,7 +913,7 @@ const ClinicCard = ({ clinic, onEdit, getImagePath, canUpdate, stats, statsLoadi
             {clinic.servicesName.map((service, idx) => (
               <span
                 key={idx}
-                className="px-2 py-1 bg-gray-100 text-gray-700 rounded-md text-[10px] sm:text-xs font-medium border border-gray-200"
+                className="px-2 py-1 bg-blue-100 text-blue-700 rounded-md text-[10px] sm:text-xs font-medium border border-blue-200"
               >
                 {service}
               </span>
@@ -925,14 +925,14 @@ const ClinicCard = ({ clinic, onEdit, getImagePath, canUpdate, stats, statsLoadi
       {/* Treatments - Compact */}
       {clinic.treatments?.length > 0 && (
         <div className="mb-3">
-          <h3 className="text-xs font-semibold text-gray-700 mb-2 flex items-center gap-1.5">
+          <h3 className="text-xs font-semibold text-blue-700 mb-2 flex items-center gap-1.5">
             <Heart className="w-3.5 h-3.5 text-rose-600" />
             Treatments
           </h3>
           <div className="space-y-2">
             {clinic.treatments.map((treatment, idx) => (
-              <div key={idx} className="border border-gray-200 rounded-lg p-2.5 bg-gray-50">
-                <span className="px-2 py-1 bg-gray-800 text-white rounded-md text-[10px] sm:text-xs font-semibold inline-block mb-1.5">
+              <div key={idx} className="border border-blue-200 rounded-lg p-2.5 bg-blue-50">
+                <span className="px-2 py-1 bg-blue-800 text-white rounded-md text-[10px] sm:text-xs font-semibold inline-block mb-1.5">
                   {treatment.mainTreatment}
                 </span>
                 {treatment.subTreatments &&
@@ -941,7 +941,7 @@ const ClinicCard = ({ clinic, onEdit, getImagePath, canUpdate, stats, statsLoadi
                       {treatment.subTreatments.map((subTreatment, subIdx) => (
                         <span
                           key={subIdx}
-                          className="px-2 py-1 bg-white text-gray-700 rounded-md text-[10px] sm:text-xs font-medium border border-gray-200"
+                          className="px-2 py-1 bg-white text-blue-700 rounded-md text-[10px] sm:text-xs font-medium border border-blue-200"
                         >
                           {subTreatment.name}
                           {typeof subTreatment.price === "number" &&
@@ -949,7 +949,7 @@ const ClinicCard = ({ clinic, onEdit, getImagePath, canUpdate, stats, statsLoadi
                               <>
                                 {" "}
                                 -{" "}
-                                <span className="text-gray-800 font-bold">
+                                <span className="text-blue-800 font-bold">
                                   د.إ{subTreatment.price}
                                 </span>
                               </>
@@ -965,8 +965,8 @@ const ClinicCard = ({ clinic, onEdit, getImagePath, canUpdate, stats, statsLoadi
       )}
 
       {/* Footer - Compact */}
-      <div className="pt-2 border-t border-gray-200">
-        <div className="flex items-center gap-1.5 text-[10px] sm:text-xs text-gray-600">
+      <div className="pt-2 border-t border-blue-200">
+        <div className="flex items-center gap-1.5 text-[10px] sm:text-xs text-blue-600">
           <Calendar className="w-3 h-3" />
           <span className="font-medium">
             Established{" "}
@@ -997,15 +997,15 @@ const StatCard = ({ icon, label, value, color, bgColor, borderColor, loading }: 
   <div className={`bg-white rounded-lg p-2 sm:p-3 border ${borderColor} ${bgColor} shadow-sm hover:shadow-md transition-all`}>
     <div className={`flex items-center gap-2 sm:gap-2.5 mb-1 sm:mb-1.5 ${color}`}>
       <div className="w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4 flex-shrink-0">{icon}</div>
-      <span className="text-[10px] sm:text-xs font-semibold text-gray-700 truncate">{label}</span>
+      <span className="text-[10px] sm:text-xs font-semibold text-blue-700 truncate">{label}</span>
     </div>
     {loading ? (
       <div className="flex items-center gap-1.5">
-        <div className="animate-spin rounded-full h-2.5 w-2.5 sm:h-3 sm:w-3 border-b-2 border-gray-800"></div>
-        <span className="text-[10px] sm:text-xs text-gray-500">Loading...</span>
+        <div className="animate-spin rounded-full h-2.5 w-2.5 sm:h-3 sm:w-3 border-b-2 border-blue-800"></div>
+        <span className="text-[10px] sm:text-xs text-blue-500">Loading...</span>
       </div>
     ) : (
-      <p className="text-base sm:text-lg md:text-xl font-bold text-gray-900">{value}</p>
+      <p className="text-base sm:text-lg md:text-xl font-bold text-blue-900">{value}</p>
     )}
   </div>
 );
@@ -1784,16 +1784,16 @@ function ClinicManagementDashboard() {
   // Show access denied if read permission is false
   if (permissionsLoaded && !permissions.canRead) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-blue-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-lg shadow-lg border border-red-200 p-8 text-center max-w-md">
           <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <Building2 className="w-8 h-8 text-red-600" />
           </div>
-          <h2 className="text-xl font-bold text-gray-900 mb-2">Access Denied</h2>
-          <p className="text-sm text-gray-700 mb-4">
+          <h2 className="text-xl font-bold text-blue-900 mb-2">Access Denied</h2>
+          <p className="text-sm text-blue-700 mb-4">
             You do not have permission to view clinic information.
           </p>
-          <p className="text-xs text-gray-600">
+          <p className="text-xs text-blue-600">
             Please contact your administrator to request access to the Manage Health Center module.
           </p>
         </div>
@@ -1802,7 +1802,7 @@ function ClinicManagementDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-blue-50">
       <Toaster
         position="top-right"
         toastOptions={{
@@ -1841,25 +1841,25 @@ function ClinicManagementDashboard() {
 
         {isEditing ? (
           <div className="max-w-5xl mx-auto">
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-5">
+            <div className="bg-white rounded-lg shadow-sm border border-blue-200 p-4 sm:p-5">
               {/* Header - Compact */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-3">
                 <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 bg-gray-800 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <div className="w-8 h-8 bg-blue-800 rounded-lg flex items-center justify-center flex-shrink-0">
                     <Edit3 className="w-4 h-4 text-white" />
                   </div>
                   <div>
-                    <h2 className="text-lg sm:text-xl font-bold text-gray-900">
+                    <h2 className="text-lg sm:text-xl font-bold text-blue-900">
                       Edit Clinic Profile
                     </h2>
-                    <p className="text-gray-600 text-xs">
+                    <p className="text-blue-600 text-xs">
                       Update your clinic information
                     </p>
                   </div>
                 </div>
                 <button
                   onClick={handleCancel}
-                  className="self-end sm:self-auto p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-all"
+                  className="self-end sm:self-auto p-1.5 text-blue-500 hover:text-blue-700 hover:bg-blue-100 rounded-lg transition-all"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -1965,11 +1965,11 @@ function ClinicManagementDashboard() {
 
                   {/* Photo Upload - Multiple Images */}
                   <div className="space-y-3">
-                    <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                    <label className="flex items-center gap-2 text-sm font-medium text-blue-700">
                       <Camera className="w-4 h-4" />
                       Health Center Photos (Multiple)
                     </label>
-                    <div className="relative border-2 border-dashed border-gray-200 rounded-xl p-6 sm:p-8 text-center hover:border-[#2D9AA5]/50 hover:bg-[#2D9AA5]/5 transition-all">
+                    <div className="relative border-2 border-dashed border-blue-200 rounded-xl p-6 sm:p-8 text-center hover:border-[#2D9AA5]/50 hover:bg-[#2D9AA5]/5 transition-all">
                       <input
                         type="file"
                         accept="image/jpeg,image/jpg,image/png"
@@ -2027,17 +2027,17 @@ function ClinicManagementDashboard() {
                       <div className="w-12 h-12 bg-[#2D9AA5]/10 rounded-lg flex items-center justify-center mx-auto mb-3">
                         <Camera className="w-6 h-6 text-[#2D9AA5]" />
                       </div>
-                      <p className="text-gray-700 font-medium mb-1">
+                      <p className="text-blue-700 font-medium mb-1">
                         Click to upload photos
                       </p>
-                      <p className="text-gray-500 text-sm">
+                      <p className="text-blue-500 text-sm">
                         JPG, PNG up to 1MB each (Multiple files allowed)
                       </p>
                      
                       {/* Display selected files */}
                       {selectedFiles.length > 0 && (
                         <div className="mt-4 space-y-2">
-                          <p className="text-sm font-medium text-gray-700">
+                          <p className="text-sm font-medium text-blue-700">
                             Selected Photos ({selectedFiles.length}):
                           </p>
                           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
@@ -2060,7 +2060,7 @@ function ClinicManagementDashboard() {
                                 <p className="text-[#2D9AA5] text-xs font-medium truncate pr-6">
                                   {file.name}
                                 </p>
-                                <p className="text-gray-500 text-xs">
+                                <p className="text-blue-500 text-xs">
                                   {(file.size / 1024).toFixed(1)} KB
                                 </p>
                               </div>
@@ -2072,7 +2072,7 @@ function ClinicManagementDashboard() {
                       {/* Display existing photos from clinic */}
                       {editForm.photos && editForm.photos.length > 0 && (
                         <div className="mt-4 space-y-2">
-                          <p className="text-sm font-medium text-gray-700">
+                          <p className="text-sm font-medium text-blue-700">
                             Current Profile Picture:
                           </p>
                           <div className="relative group inline-block">
@@ -2083,14 +2083,14 @@ function ClinicManagementDashboard() {
                               
                               if (!latestPhoto) {
                                 return (
-                                  <div className="relative w-full max-w-xs h-48 rounded-lg overflow-hidden border border-gray-200 bg-gray-50 flex items-center justify-center">
-                                    <Camera className="w-6 h-6 text-gray-400" />
+                                  <div className="relative w-full max-w-xs h-48 rounded-lg overflow-hidden border border-blue-200 bg-blue-50 flex items-center justify-center">
+                                    <Camera className="w-6 h-6 text-blue-400" />
                                   </div>
                                 );
                               }
                               
                               return (
-                                <div className="relative w-full max-w-xs h-48 rounded-lg overflow-hidden border border-gray-200 bg-gray-50">
+                                <div className="relative w-full max-w-xs h-48 rounded-lg overflow-hidden border border-blue-200 bg-blue-50">
                                   <img
                                     src={getImagePath(latestPhoto)}
                                     alt="Current clinic profile picture"
@@ -2132,11 +2132,11 @@ function ClinicManagementDashboard() {
               </div>
 
               {/* Action Buttons - Compact */}
-              <div className="flex flex-col sm:flex-row gap-2 pt-4 mt-4 border-t border-gray-200">
+              <div className="flex flex-col sm:flex-row gap-2 pt-4 mt-4 border-t border-blue-200">
                 <button
                   onClick={handleUpdate}
                   disabled={updating}
-                  className="order-2 sm:order-1 px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-900 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 font-medium transition-colors shadow-sm hover:shadow-md text-sm"
+                  className="order-2 sm:order-1 px-4 py-2 bg-blue-800 text-white rounded-lg hover:bg-blue-900 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 font-medium transition-colors shadow-sm hover:shadow-md text-sm"
                 >
                   {updating ? (
                     <>
@@ -2149,7 +2149,7 @@ function ClinicManagementDashboard() {
                 </button>
                 <button
                   onClick={handleCancel}
-                  className="order-1 sm:order-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium transition-colors text-sm"
+                  className="order-1 sm:order-2 px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 font-medium transition-colors text-sm"
                 >
                   Cancel
                 </button>
@@ -2168,18 +2168,18 @@ function ClinicManagementDashboard() {
               // For other roles, check permissions
               if (!permissions.canRead) {
                 return (
-                  <div className="bg-white rounded-lg p-6 sm:p-8 border border-gray-200 shadow-sm">
+                  <div className="bg-white rounded-lg p-6 sm:p-8 border border-blue-200 shadow-sm">
                     <div className="text-center max-w-md mx-auto">
                       <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center mx-auto mb-3">
                         <Building2 className="w-6 h-6 text-red-600" />
                       </div>
-                      <h3 className="text-lg font-bold text-gray-900 mb-2">
+                      <h3 className="text-lg font-bold text-blue-900 mb-2">
                         Access Denied
                       </h3>
-                      <p className="text-sm text-gray-700 mb-3">
+                      <p className="text-sm text-blue-700 mb-3">
                         You do not have permission to view clinic information.
                       </p>
-                      <p className="text-xs text-gray-600">
+                      <p className="text-xs text-blue-600">
                         Please contact your administrator to request access to the Health Center Management module.
                       </p>
                     </div>
@@ -2195,12 +2195,12 @@ function ClinicManagementDashboard() {
                 // Show clinics or empty state
                 if (clinics.length === 0) {
                   return (
-                    <div className="bg-white rounded-lg p-6 sm:p-8 border border-gray-200 shadow-sm">
+                    <div className="bg-white rounded-lg p-6 sm:p-8 border border-blue-200 shadow-sm">
                       <div className="text-center max-w-md mx-auto">
-                        <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center mx-auto mb-3">
-                          <Building2 className="w-6 h-6 text-gray-800" />
+                        <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mx-auto mb-3">
+                          <Building2 className="w-6 h-6 text-blue-800" />
                         </div>
-                        <h3 className="text-lg font-bold text-gray-900 mb-2">
+                        <h3 className="text-lg font-bold text-blue-900 mb-2">
                           No Clinics Found
                         </h3>
                         <p className="text-sm text-gray-700">
@@ -2229,14 +2229,14 @@ function ClinicManagementDashboard() {
                     {clinics.length > 0 && (
                       <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
                         <div className="flex items-center gap-2 mb-3">
-                          <TrendingUp className="w-5 h-5 text-gray-700" />
-                          <h2 className="text-lg sm:text-xl font-bold text-gray-900">Analytics & Insights</h2>
+                          <TrendingUp className="w-5 h-5 text-blue-800" />
+                          <h2 className="text-lg sm:text-xl font-bold text-blue-800">Analytics & Insights</h2>
                         </div>
 
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
                           {/* Bar Chart - Reviews vs Enquiries */}
-                          <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
-                            <h3 className="text-xs font-semibold text-gray-700 mb-2">Reviews & Enquiries</h3>
+                          <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
+                            <h3 className="text-xs font-semibold text-blue-700 mb-2">Reviews & Enquiries</h3>
                             <ResponsiveContainer width="100%" height={180}>
                               <BarChart data={[
                                 { name: 'Reviews', value: clinicStats.totalReviews },
@@ -2262,8 +2262,8 @@ function ClinicManagementDashboard() {
                           </div>
 
                           {/* Column Chart - Services Distribution */}
-                          <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
-                            <h3 className="text-xs font-semibold text-gray-700 mb-2">Services Distribution</h3>
+                          <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
+                            <h3 className="text-xs font-semibold text-blue-700 mb-2">Services Distribution</h3>
                             <ResponsiveContainer width="100%" height={180}>
                               <BarChart
                                 data={[
@@ -2345,15 +2345,15 @@ function ClinicManagementDashboard() {
               // Show clinics or empty state for agent/doctorStaff
               if (clinics.length === 0) {
                 return (
-                  <div className="bg-white rounded-lg p-6 sm:p-8 border border-gray-200 shadow-sm">
+                  <div className="bg-white rounded-lg p-6 sm:p-8 border border-blue-200 shadow-sm">
                     <div className="text-center max-w-md mx-auto">
-                      <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center mx-auto mb-3">
-                        <Building2 className="w-6 h-6 text-gray-800" />
+                      <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mx-auto mb-3">
+                        <Building2 className="w-6 h-6 text-blue-800" />
                       </div>
-                      <h3 className="text-lg font-bold text-gray-900 mb-2">
+                      <h3 className="text-lg font-bold text-blue-900 mb-2">
                         No Clinics Found
                       </h3>
-                      <p className="text-sm text-gray-700">
+                      <p className="text-sm text-blue-700">
                         Start by adding your first clinic
                       </p>
                     </div>
@@ -2377,16 +2377,16 @@ function ClinicManagementDashboard() {
                  
                   {/* Statistics Charts Section - Compact */}
                   {clinics.length > 0 && (
-                    <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                    <div className="bg-white rounded-lg p-4 border border-blue-200 shadow-sm">
                       <div className="flex items-center gap-2 mb-3">
-                        <TrendingUp className="w-5 h-5 text-gray-700" />
-                        <h2 className="text-lg sm:text-xl font-bold text-gray-900">Analytics & Insights</h2>
+                        <TrendingUp className="w-5 h-5 text-blue-700" />
+                        <h2 className="text-lg sm:text-xl font-bold text-blue-900">Analytics & Insights</h2>
                       </div>
 
                       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
                         {/* Bar Chart - Reviews vs Enquiries */}
-                        <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
-                          <h3 className="text-xs font-semibold text-gray-700 mb-2">Reviews & Enquiries</h3>
+                        <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
+                          <h3 className="text-xs font-semibold text-blue-700 mb-2">Reviews & Enquiries</h3>
                           <ResponsiveContainer width="100%" height={180}>
                             <BarChart data={[
                               { name: 'Reviews', value: clinicStats.totalReviews },
@@ -2412,8 +2412,8 @@ function ClinicManagementDashboard() {
                         </div>
 
                         {/* Column Chart - Services Distribution */}
-                        <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
-                          <h3 className="text-xs font-semibold text-gray-700 mb-2">Services Distribution</h3>
+                        <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
+                          <h3 className="text-xs font-semibold text-blue-700 mb-2">Services Distribution</h3>
                           <ResponsiveContainer width="100%" height={180}>
                             <BarChart
                               data={[
@@ -2519,10 +2519,10 @@ interface SummaryCardProps {
 
 const SummaryCard = ({ title, value, icon, color }: SummaryCardProps) => {
   const colorClasses = {
-    blue: "bg-gray-50 border-gray-200 text-gray-800",
-    yellow: "bg-gray-50 border-gray-200 text-gray-800",
-    rose: "bg-gray-50 border-gray-200 text-gray-800",
-    green: "bg-gray-50 border-gray-200 text-gray-800",
+    blue: "bg-blue-50 border-blue-200 text-blue-800",
+    yellow: "bg-blue-50 border-blue-200 text-blue-800",
+    rose: "bg-blue-50 border-blue-200 text-blue-800",
+    green: "bg-blue-50 border-blue-200 text-blue-800",
   };
 
   const [_bgColor, borderColor, textColor] = colorClasses[color].split(' ');
@@ -2531,9 +2531,9 @@ const SummaryCard = ({ title, value, icon, color }: SummaryCardProps) => {
     <div className={`bg-white rounded-lg p-2.5 sm:p-3 border ${borderColor} shadow-sm`}>
       <div className={`flex items-center gap-1.5 mb-1.5 ${textColor}`}>
         {icon}
-        <span className="text-[10px] sm:text-xs font-semibold text-gray-700 truncate">{title}</span>
+        <span className="text-[10px] sm:text-xs font-semibold text-blue-700 truncate">{title}</span>
       </div>
-      <p className="text-base sm:text-lg font-bold text-gray-900">{value}</p>
+      <p className="text-base sm:text-lg font-bold text-blue-900">{value}</p>
     </div>
   );
 };

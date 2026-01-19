@@ -37,10 +37,31 @@ export default async function handler(req, res) {
     }
     // Admin users bypass permission checks
 
-    // Fetch all users where role is 'user'
-    const users = await User.find({ role: "user" }).select("-password");
+    // Pagination parameters
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 9;
+    const skip = (page - 1) * limit;
 
-    return res.status(200).json({ success: true, users });
+    // Fetch total count
+    const totalUsers = await User.countDocuments({ role: "user" });
+
+    // Fetch paginated users where role is 'user' - sorted by name A-Z by default
+    const users = await User.find({ role: "user" })
+      .select("-password")
+      .skip(skip)
+      .limit(limit)
+      .sort({ name: 1 }); // Sort by name A-Z
+
+    return res.status(200).json({ 
+      success: true, 
+      users,
+      pagination: {
+        currentPage: page,
+        totalPages: Math.ceil(totalUsers / limit),
+        totalUsers,
+        limit
+      }
+    });
   } catch (error) {
     console.error("Error fetching users:", error);
     return res

@@ -304,12 +304,14 @@ const RegisterClinic: React.FC & {
       geocoder.geocode({ address: address }, (results, status) => {
         if (status === "OK" && results && results[0]) {
           const location = results[0].geometry.location;
+          const formattedAddress = results[0].formatted_address || address;
           setForm((f) => ({
             ...f,
             latitude: location.lat(),
             longitude: location.lng(),
           }));
-          showToastMessage("Address located on map automatically!", "success");
+          // Automatically populate location field with geocoded address
+          setLocationInput(formattedAddress);
           setErrors((prev) => ({ ...prev, location: undefined }));
         } else {
           // Don't show error message - user can click on map to set location
@@ -597,16 +599,7 @@ const RegisterClinic: React.FC & {
     try {
       const response = await axios.post("/api/clinics/register", data);
       setShowSuccessPopup(true);
-      
-      // Show slug preview message if available
-      if (response.data.slug_preview) {
-        showToastMessage(
-          response.data.slug_preview.user_message || "Clinic registered successfully!",
-          "success"
-        );
-      } else {
-        showToastMessage("Clinic registered successfully!", "success");
-      }
+      // Removed toast messages after registration
     } catch (err: any) {
       const errorMessage = err?.response?.data?.message || "Clinic registration failed";
       // Don't show "Invalid address" error if location is already set
@@ -1114,7 +1107,7 @@ const RegisterClinic: React.FC & {
                       Address * {!emailVerified && <span className="text-gray-500 text-xs">(Verify email first)</span>}
                     </label>
                     <textarea
-                      placeholder="Street, Building, City, State"
+                      placeholder="Enter detailed address: Street, Building, Area, City, State, Pincode"
                       className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 transition-all resize-none text-sm text-black placeholder-black/50 ${
                         emailVerified 
                           ? errors.address
@@ -1127,7 +1120,7 @@ const RegisterClinic: React.FC & {
                         handleAddressChange(e);
                         checkSlugAvailability(form.name, e.target.value);
                       }}
-                      rows={2}
+                      rows={3}
                       disabled={!emailVerified}
                       required
                     />

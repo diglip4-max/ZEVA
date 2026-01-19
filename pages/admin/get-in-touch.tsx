@@ -1,4 +1,4 @@
-import React from "react";
+    import React from "react";
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { useRouter } from "next/router";
 import AdminLayout from '../../components/AdminLayout';
@@ -389,10 +389,10 @@ function LeadsPage() {
 
     if (loading || (isAgent && permissionsLoading)) {
         return (
-            <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+            <div className="min-h-screen bg-blue-50 flex items-center justify-center p-4">
                 <div className="text-center">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-800 mx-auto"></div>
-                    <p className="mt-3 text-sm text-gray-700">Loading requests...</p>
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-800 mx-auto"></div>
+                    <p className="mt-3 text-sm text-blue-700">Loading requests...</p>
                 </div>
             </div>
         );
@@ -400,13 +400,13 @@ function LeadsPage() {
 
     if (isAgent && !hasReadPermission) {
         return (
-            <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+            <div className="min-h-screen bg-blue-50 flex items-center justify-center p-4">
                 <div className="bg-white rounded-lg shadow-sm p-6 max-w-sm w-full text-center">
                     <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-3">
                         <XCircleIcon className="w-6 h-6 text-red-600" />
                     </div>
-                    <h2 className="text-lg font-semibold text-gray-900 mb-2">Access Denied</h2>
-                    <p className="text-sm text-gray-700">
+                    <h2 className="text-lg font-semibold text-blue-900 mb-2">Access Denied</h2>
+                    <p className="text-sm text-blue-700">
                         You do not have permission to view callback requests.
                     </p>
                 </div>
@@ -415,20 +415,20 @@ function LeadsPage() {
     }
 
     return (
-        <div className="min-h-screen bg-gray-50 p-4 sm:p-6">
+        <div className="min-h-screen bg-blue-50 p-4 sm:p-6">
             <ToastContainer toasts={toasts} removeToast={removeToast} />
             
             <div className="max-w-7xl mx-auto space-y-4">
                 {/* Header */}
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+                <div className="bg-white rounded-lg shadow-sm border border-blue-200 p-4">
                     <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                         <div className="flex items-center gap-3">
-                            <div className="bg-gray-800 p-2 rounded-lg">
+                            <div className="bg-blue-800 p-2 rounded-lg">
                                 <PhoneIcon className="w-5 h-5 text-white" />
                             </div>
                             <div>
-                                <h1 className="text-lg font-semibold text-gray-900">Request Call Back</h1>
-                                <p className="text-xs text-gray-700">Manage and track customer callback requests</p>
+                                <h1 className="text-lg font-semibold text-blue-900">Request Call Back</h1>
+                                <p className="text-xs text-blue-700">Manage and track customer callback requests</p>
                             </div>
                         </div>
 
@@ -445,8 +445,8 @@ function LeadsPage() {
                                 }}
                                 className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                                     showFilters
-                                        ? 'bg-gray-800 text-white'
-                                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                        ? 'bg-blue-800 text-white'
+                                        : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
                                 }`}
                             >
                                 <FunnelIcon className="w-4 h-4" />
@@ -461,7 +461,7 @@ function LeadsPage() {
                                         <button
                                             onClick={downloadCSV}
                                             disabled={!filteredAndSortedLeads.length}
-                                            className="flex items-center gap-2 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                            className="flex items-center gap-2 px-3 py-1.5 bg-blue-800 hover:bg-blue-700 text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                         >
                                             <ArrowDownTrayIcon className="w-4 h-4" />
                                             <span className="hidden sm:inline">Export CSV</span>
@@ -475,44 +475,44 @@ function LeadsPage() {
                     </div>
 
                     {/* Stats */}
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4 pt-4 border-t border-gray-200">
-                        <div className="bg-gray-50 rounded-lg p-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4 pt-4 border-t border-blue-200">
+                        <div className="bg-blue-50 rounded-lg p-3">
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <p className="text-xs text-gray-700 mb-1">Total Requests</p>
-                                    <p className="text-xl font-bold text-gray-900">{leads.length}</p>
+                                    <p className="text-xs text-blue-700 mb-1">Total Requests</p>
+                                    <p className="text-xl font-bold text-blue-900">{leads.length}</p>
                                 </div>
-                                <PhoneIcon className="w-6 h-6 text-gray-700" />
+                                <PhoneIcon className="w-6 h-6 text-blue-700" />
                             </div>
                         </div>
 
-                        <div className="bg-gray-50 rounded-lg p-3">
+                        <div className="bg-blue-50 rounded-lg p-3">
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <p className="text-xs text-gray-700 mb-1">This Month</p>
-                                    <p className="text-xl font-bold text-gray-900">{analyticsData.recentRequests}</p>
+                                    <p className="text-xs text-blue-700 mb-1">This Month</p>
+                                    <p className="text-xl font-bold text-blue-900">{analyticsData.recentRequests}</p>
                                     <p className={`text-xs mt-1 ${analyticsData.growthPercentage >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                                         {analyticsData.growthPercentage >= 0 ? '+' : ''}{analyticsData.growthPercentage}%
                                     </p>
                                 </div>
-                                <ClockIcon className="w-6 h-6 text-gray-700" />
+                                <ClockIcon className="w-6 h-6 text-blue-700" />
                             </div>
                         </div>
 
-                        <div className="bg-gray-50 rounded-lg p-3">
+                        <div className="bg-blue-50 rounded-lg p-3">
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <p className="text-xs text-gray-700 mb-1">Locations</p>
-                                    <p className="text-xl font-bold text-gray-900">{uniqueLocations.length}</p>
+                                    <p className="text-xs text-blue-700 mb-1">Locations</p>
+                                    <p className="text-xl font-bold text-blue-900">{uniqueLocations.length}</p>
                                 </div>
-                                <MapPinIcon className="w-6 h-6 text-gray-700" />
+                                <MapPinIcon className="w-6 h-6 text-blue-700" />
                             </div>
                         </div>
                     </div>
 
                     {/* Bar Chart - Month-wise Requests */}
-                    <div className="bg-white rounded-lg border border-gray-200 p-4 mt-4">
-                        <h3 className="text-sm font-semibold text-gray-900 mb-3">Monthly Requests (Last 12 Months)</h3>
+                    <div className="bg-white rounded-lg border border-blue-200 p-4 mt-4">
+                        <h3 className="text-sm font-semibold text-blue-900 mb-3">Monthly Requests (Last 12 Months)</h3>
                         <div className="h-64">
                             <ResponsiveContainer width="100%" height="100%">
                                 <BarChart data={analyticsData.monthWiseData}>
@@ -530,7 +530,7 @@ function LeadsPage() {
                                             backgroundColor: "#fff",
                                             border: "1px solid #e5e7eb",
                                             borderRadius: "8px",
-                                            boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+                                            boxShadow: "0 4px 6px -1px rgba(51, 2, 247, 0.1)",
                                         }}
                                         labelStyle={{ color: "#374151", fontWeight: 600 }}
                                         itemStyle={{ color: "#374151" }}
@@ -544,12 +544,12 @@ function LeadsPage() {
 
                 {/* Filters */}
                 {showFilters && (
-                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+                    <div className="bg-white rounded-lg shadow-sm border border-blue-200 p-4">
                         <div className="flex items-center justify-between mb-3">
-                            <h3 className="text-sm font-semibold text-gray-900">Filters</h3>
+                            <h3 className="text-sm font-semibold text-blue-900">Filters</h3>
                             <button
                                 onClick={clearFilters}
-                                className="flex items-center gap-1 text-xs text-gray-700 hover:text-gray-900 transition-colors"
+                                className="flex items-center gap-1 text-xs text-blue-700 hover:text-blue-900 transition-colors"
                             >
                                 <ArrowPathIcon className="w-3 h-3" />
                                 Clear
@@ -558,12 +558,12 @@ function LeadsPage() {
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                             <div className="relative">
-                                <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-700" />
+                                <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -tranblue-y-1/2 w-4 h-4 text-blue-700" />
                                 <input
                                     ref={searchBarRef}
                                     type="text"
                                     placeholder="Search name, phone, location, or query..."
-                                    className="w-full pl-10 pr-4 py-2 text-sm border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-800"
+                                    className="w-full pl-10 pr-4 py-2 text-sm border border-blue-300 rounded-lg text-blue-900 focus:outline-none focus:ring-1 focus:ring-blue-800"
                                     value={searchTerm}
                                     onChange={(e) => {
                                         setSearchTerm(e.target.value);
@@ -572,9 +572,9 @@ function LeadsPage() {
                                 />
                             </div>
                             <div className="relative">
-                                <MapPinIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-700" />
+                                <MapPinIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-blue-700" />
                                 <select
-                                    className="w-full pl-10 pr-4 py-2 text-sm border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-800"
+                                    className="w-full pl-10 pr-4 py-2 text-sm border border-blue-300 rounded-lg bg-white text-blue-900 focus:outline-none focus:ring-1 focus:ring-blue-800"
                                     value={locationFilter}
                                     onChange={(e) => {
                                         setLocationFilter(e.target.value);
@@ -592,12 +592,12 @@ function LeadsPage() {
                 )}
 
                 {/* Data Table */}
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                <div className="bg-white rounded-lg shadow-sm border border-blue-200 overflow-hidden">
                     {filteredAndSortedLeads.length === 0 ? (
                         <div className="text-center py-12">
-                            <ChatBubbleLeftRightIcon className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                            <h3 className="text-base font-semibold text-gray-900 mb-2">No requests found</h3>
-                            <p className="text-sm text-gray-700">
+                            <ChatBubbleLeftRightIcon className="w-12 h-12 text-blue-400 mx-auto mb-3" />
+                            <h3 className="text-base font-semibold text-blue-900 mb-2">No requests found</h3>
+                            <p className="text-sm text-blue-700">
                                 {leads.length === 0
                                     ? "No callback requests have been submitted yet."
                                     : "Try adjusting your filters to see more results."}
@@ -609,7 +609,7 @@ function LeadsPage() {
                             <div className="hidden lg:block overflow-x-auto">
                                 <table className="w-full">
                                     <thead>
-                                        <tr className="bg-gray-50 border-b border-gray-200">
+                                        <tr className="bg-blue-50 border-b border-blue-200">
                                             {[
                                                 { key: "name" as SortField, label: "Name" },
                                                 { key: "phone" as SortField, label: "Phone" },
@@ -619,7 +619,7 @@ function LeadsPage() {
                                             ].map(({ key, label }) => (
                                                 <th
                                                     key={key}
-                                                    className="text-left p-3 text-xs font-semibold text-gray-900 cursor-pointer hover:bg-gray-100 transition-colors"
+                                                    className="text-left p-3 text-xs font-semibold text-blue-900 cursor-pointer hover:bg-blue-100 transition-colors"
                                                     onClick={() => handleSort(key)}
                                                 >
                                                     <div className="flex items-center gap-1">
@@ -632,32 +632,32 @@ function LeadsPage() {
                                     </thead>
                                     <tbody>
                                         {paginatedLeads.map((lead, index) => (
-                                            <tr key={index} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
+                                            <tr key={index} className="border-b border-blue-100 hover:bg-blue-50 transition-colors">
                                                 <td className="p-3">
-                                                    <div className="text-sm font-medium text-gray-900">{lead.name}</div>
+                                                    <div className="text-sm font-medium text-blue-900">{lead.name}</div>
                                                 </td>
                                                 <td className="p-3">
-                                                    <div className="flex items-center gap-2 text-sm text-gray-700">
-                                                        <PhoneIcon className="w-4 h-4 text-gray-600" />
+                                                    <div className="flex items-center gap-2 text-sm text-blue-700">
+                                                        <PhoneIcon className="w-4 h-4 text-blue-600" />
                                                         {lead.phone}
                                                     </div>
                                                 </td>
                                                 <td className="p-3">
-                                                    <div className="flex items-center gap-2 text-sm text-gray-700">
-                                                        <MapPinIcon className="w-4 h-4 text-gray-600" />
+                                                    <div className="flex items-center gap-2 text-sm text-blue-700">
+                                                        <MapPinIcon className="w-4 h-4 text-blue-600" />
                                                         {lead.location}
                                                     </div>
                                                 </td>
                                                 <td className="p-3">
-                                                    <div className="max-w-xs text-sm text-gray-700 line-clamp-2" title={lead.query}>
+                                                    <div className="max-w-xs text-sm text-blue-700 line-clamp-2" title={lead.query}>
                                                         {lead.query}
                                                     </div>
                                                 </td>
                                                 <td className="p-3">
-                                                    <div className="text-sm text-gray-700">
+                                                    <div className="text-sm text-blue-700">
                                                         {new Date(lead.createdAt).toLocaleDateString()}
                                                     </div>
-                                                    <div className="text-xs text-gray-600">
+                                                    <div className="text-xs text-blue-600">
                                                         {new Date(lead.createdAt).toLocaleTimeString()}
                                                     </div>
                                                 </td>
@@ -670,30 +670,30 @@ function LeadsPage() {
                             {/* Mobile Cards */}
                             <div className="lg:hidden">
                                 {paginatedLeads.map((lead, index) => (
-                                    <div key={index} className="p-4 border-b border-gray-100 last:border-b-0">
+                                    <div key={index} className="p-4 border-b border-blue-100 last:border-b-0">
                                         <div className="flex justify-between items-start mb-3">
-                                            <h3 className="font-semibold text-gray-900 text-sm">{lead.name}</h3>
-                                            <span className="text-xs text-gray-600 bg-gray-100 px-2 py-1 rounded">
+                                            <h3 className="font-semibold text-blue-900 text-sm">{lead.name}</h3>
+                                            <span className="text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded">
                                                 {new Date(lead.createdAt).toLocaleDateString()}
                                             </span>
                                         </div>
 
                                         <div className="space-y-2 mb-3">
-                                            <div className="flex items-center gap-2 text-sm text-gray-700">
-                                                <PhoneIcon className="w-4 h-4 text-gray-600" />
+                                            <div className="flex items-center gap-2 text-sm text-blue-700">
+                                                <PhoneIcon className="w-4 h-4 text-blue-600" />
                                                 <span>{lead.phone}</span>
                                             </div>
 
-                                            <div className="flex items-center gap-2 text-sm text-gray-700">
-                                                <MapPinIcon className="w-4 h-4 text-gray-600" />
+                                            <div className="flex items-center gap-2 text-sm text-blue-700">
+                                                <MapPinIcon className="w-4 h-4 text-blue-600" />
                                                 <span>{lead.location}</span>
                                             </div>
                                         </div>
 
-                                        <div className="bg-gray-50 rounded-lg p-3">
+                                        <div className="bg-blue-50 rounded-lg p-3">
                                             <div className="flex items-start gap-2">
-                                                <ChatBubbleLeftRightIcon className="w-4 h-4 text-gray-600 mt-0.5 flex-shrink-0" />
-                                                <p className="text-sm text-gray-700 leading-relaxed">{lead.query}</p>
+                                                <ChatBubbleLeftRightIcon className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                                                <p className="text-sm text-blue-700 leading-relaxed">{lead.query}</p>
                                             </div>
                                         </div>
                                     </div>
@@ -702,8 +702,8 @@ function LeadsPage() {
 
                             {/* Pagination */}
                             {totalPages > 1 && (
-                                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-4 bg-gray-50 border-t border-gray-200">
-                                    <div className="text-xs text-gray-700">
+                                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-4 bg-blue-50 border-t border-blue-200">
+                                    <div className="text-xs text-blue-700">
                                         Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredAndSortedLeads.length)} of {filteredAndSortedLeads.length} results
                                     </div>
 
@@ -714,7 +714,7 @@ function LeadsPage() {
                                               showToast('Previous page', 'info');
                                             }}
                                             disabled={currentPage === 1}
-                                            className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                            className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-blue-700 bg-white border border-blue-300 rounded-lg hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                                         >
                                             <ChevronLeftIcon className="w-4 h-4" />
                                             Previous
@@ -734,8 +734,8 @@ function LeadsPage() {
                                                         }}
                                                         className={`w-8 h-8 text-xs font-medium rounded-lg transition-colors ${
                                                             currentPage === page
-                                                                ? 'bg-gray-800 text-white'
-                                                                : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                                                                ? 'bg-blue-800 text-white'
+                                                                : 'bg-white text-blue-700 border border-blue-300 hover:bg-blue-50'
                                                         }`}
                                                     >
                                                         {page}
@@ -750,7 +750,7 @@ function LeadsPage() {
                                               showToast('Next page', 'info');
                                             }}
                                             disabled={currentPage === totalPages}
-                                            className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                            className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-blue-700 bg-white border border-blue-300 rounded-lg hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                                         >
                                             Next
                                             <ChevronRightIcon className="w-4 h-4" />

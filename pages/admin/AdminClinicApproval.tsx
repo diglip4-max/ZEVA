@@ -134,7 +134,7 @@ function AdminClinicApproval() {
   // MODIFIED: Also show loading if we're on agent route but haven't determined if user is agent yet
   const permissionsLoading = shouldCheckPermissions ? agentPermissionsData?.loading : false;
 
-  const itemsPerPage = 12;
+  const itemsPerPage = 9;
 
   useEffect(() => {
     if (isAdmin) {
@@ -471,18 +471,18 @@ function AdminClinicApproval() {
         <div className="bg-white/90 mb-5 border border-slate-200 rounded-2xl shadow-sm p-6 backdrop-blur">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
             <div>
-              <p className="text-xs uppercase tracking-[0.2em] text-slate-500">
+              {/* <p className="text-xs uppercase tracking-[0.2em] text-slate-500">
                 Clinic Approvals
-              </p>
-              <h1 className="text-xl font-semibold text-slate-900 mt-2">
+              </p> */}
+              <h1 className="text-xl font-semibold text-blue-800 mt-2">
                 Clinic Management
               </h1>
-              <p className="text-sm text-slate-600 mt-1">
+              <p className="text-sm text-blue-600 mt-1">
                 Review incoming clinics, keep owners informed, and curate a trusted network.
               </p>
             </div>
             <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto items-stretch sm:items-center">
-              <button
+              {/* <button
                 onClick={fetchClinics}
                 className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:border-slate-300 hover:bg-slate-50 transition"
               >
@@ -490,11 +490,8 @@ function AdminClinicApproval() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                 </svg>
                 Refresh Data
-              </button>
-              <div className="flex items-center justify-center gap-2 text-xs font-medium text-slate-500">
-                <span className="inline-flex h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-                Live sync enabled
-              </div>
+              </button> */}
+             
             </div>
           </div>
         </div>
@@ -570,7 +567,7 @@ function AdminClinicApproval() {
                 }}
                 className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition ${
                   activeTab === tab.key
-                    ? "border-slate-800 bg-slate-900 text-white shadow-sm"
+                    ? "border-slate-800 bg-blue-800 text-white shadow-sm"
                     : "border-slate-200 bg-white text-slate-600 hover:text-slate-900"
                 }`}
               >
@@ -652,30 +649,31 @@ function AdminClinicApproval() {
               {paginatedClinics.map((clinic) => (
                 <ClinicCard key={clinic._id} clinic={clinic} />
               ))}
+              {/* Empty placeholder cards to maintain grid structure */}
+              {viewMode === "grid" && paginatedClinics.length < itemsPerPage && 
+                Array.from({ length: itemsPerPage - paginatedClinics.length }).map((_, index) => (
+                  <div key={`empty-${index}`} className="rounded-2xl border border-transparent bg-transparent" aria-hidden="true" />
+                ))
+              }
             </div>
           )}
 
           {totalPages > 1 && (
-            <div className="flex flex-col gap-3 border-t border-slate-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
-              <div className="text-xs text-slate-500">
-                Page {currentPage} of {totalPages}
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                  disabled={currentPage === 1}
-                  className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 hover:border-slate-300 disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  Previous
-                </button>
-                <button
-                  onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-                  disabled={currentPage === totalPages}
-                  className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 hover:border-slate-300 disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  Next
-                </button>
-              </div>
+            <div className="flex items-center justify-center gap-3 mt-4">
+              <button
+                onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                disabled={currentPage === 1}
+                className="px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 bg-white hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Previous
+              </button>
+              <button
+                onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                disabled={currentPage === totalPages}
+                className="px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 bg-white hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                Next
+              </button>
             </div>
           )}
         </div>

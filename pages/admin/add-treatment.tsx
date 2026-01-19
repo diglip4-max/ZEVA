@@ -569,13 +569,13 @@ const AddTreatment: NextPageWithLayout = () => {
     !agentPermissions.canExport
   ) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-blue-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-lg shadow-sm p-6 max-w-sm w-full text-center">
           <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-3">
             <XCircleIcon className="w-6 h-6 text-red-600" />
           </div>
-          <h2 className="text-lg font-semibold text-gray-900 mb-2">Access Denied</h2>
-          <p className="text-sm text-gray-700">
+          <h2 className="text-lg font-semibold text-blue-900 mb-2">Access Denied</h2>
+          <p className="text-sm text-blue-700">
             You do not have permission to view treatments.
           </p>
         </div>
@@ -585,36 +585,36 @@ const AddTreatment: NextPageWithLayout = () => {
 
   if (fetching && treatments.length === 0) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-blue-50 flex items-center justify-center p-4">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-800 mx-auto"></div>
-          <p className="mt-3 text-sm text-gray-700">Loading...</p>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-800 mx-auto"></div>
+          <p className="mt-3 text-sm text-blue-700">Loading...</p>
         </div>
       </div>
     );
   }
 
  return (
-    <div className="min-h-screen bg-gray-50 p-4 sm:p-6">
+    <div className="min-h-screen bg-blue-50 p-4 sm:p-6">
       <ToastContainer toasts={toasts} removeToast={removeToast} />
       
       <div className="max-w-6xl mx-auto sm:pt-1 lg:pt-1 space-y-4">
         {/* Compact Header */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+        <div className="bg-white rounded-lg shadow-sm border border-blue-200 p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="bg-gray-800 p-2 rounded-lg">
+              <div className="bg-blue-800 p-2 rounded-lg">
                 <BeakerIcon className="w-5 h-5 text-white" />
               </div>
               <div>
-                <h1 className="text-lg font-semibold text-gray-900">Treatment Management</h1>
-                <p className="text-xs text-gray-700">Add and manage treatments</p>
+                <h1 className="text-lg font-semibold text-blue-800">Treatment Management</h1>
+                <p className="text-xs text-blue-600">Add and manage treatments</p>
               </div>
             </div>
             {/* <button
               onClick={fetchTreatments}
               disabled={fetching}
-              className="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-50"
+              className="px-3 py-1.5 bg-blue-800 hover:bg-blue-700 text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-50"
             >
               {fetching ? 'Loading...' : 'Refresh'}
             </button> */}
@@ -624,17 +624,17 @@ const AddTreatment: NextPageWithLayout = () => {
          {/* Compact Stats - hidden for read-only agents */}
          {(!isAgentReadOnly || isAdmin) && (
            <div className="grid grid-cols-3 gap-3">
-             <div className="bg-white rounded-lg border border-gray-200 p-3">
-               <p className="text-xs text-gray-700 mb-1">Main</p>
-               <p className="text-xl font-bold text-gray-900">{treatments.length}</p>
+             <div className="bg-white rounded-lg border border-blue-200 p-3">
+               <p className="text-xs text-blue-700 mb-1">Main</p>
+               <p className="text-xl font-bold text-blue-800">{treatments.length}</p>
              </div>
-             <div className="bg-white rounded-lg border border-gray-200 p-3">
-               <p className="text-xs text-gray-700 mb-1">Sub</p>
-               <p className="text-xl font-bold text-gray-900">{totalSubTreatments}</p>
+             <div className="bg-white rounded-lg border border-blue-200 p-3">
+               <p className="text-xs text-blue-700 mb-1">Sub</p>
+               <p className="text-xl font-bold text-blue-800">{totalSubTreatments}</p>
              </div>
-             <div className="bg-white rounded-lg border border-gray-200 p-3">
-               <p className="text-xs text-gray-700 mb-1">Total</p>
-               <p className="text-xl font-bold text-gray-900">{treatments.length + totalSubTreatments}</p>
+             <div className="bg-white rounded-lg border border-blue-200 p-3">
+               <p className="text-xs text-blue-700 mb-1">Total</p>
+               <p className="text-xl font-bold text-blue-800">{treatments.length + totalSubTreatments}</p>
              </div>
            </div>
          )}
@@ -645,8 +645,8 @@ const AddTreatment: NextPageWithLayout = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           
           {/* Add Treatment Form */}
-          <div className="bg-white rounded-lg border border-gray-200 p-4">
-            <h2 className="text-sm font-semibold text-gray-900 mb-4">Add Treatment</h2>
+          <div className="bg-white rounded-lg border border-blue-200 p-4">
+            <h2 className="text-sm font-semibold text-blue-900 mb-4">Add Treatment</h2>
 
             {/* Show Access Denied if agent/doctorStaff doesn't have create permission */}
             {hasNoCreatePermission ? (
@@ -654,8 +654,8 @@ const AddTreatment: NextPageWithLayout = () => {
                 <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mb-3">
                   <XCircleIcon className="w-6 h-6 text-red-600" />
                 </div>
-                <h3 className="text-base font-semibold text-gray-900 mb-2">Access Denied</h3>
-                <p className="text-sm text-gray-700 text-center">
+                <h3 className="text-base font-semibold text-blue-900 mb-2">Access Denied</h3>
+                <p className="text-sm text-blue-700 text-center">
                   You do not have permission to create treatments.
                 </p>
               </div>
@@ -663,7 +663,7 @@ const AddTreatment: NextPageWithLayout = () => {
               <div className="space-y-4">
                 {/* Main Treatment */}
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1.5">
+                  <label className="block text-xs font-medium text-blue-700 mb-1.5">
                     Main Treatment
                   </label>
               
@@ -671,7 +671,7 @@ const AddTreatment: NextPageWithLayout = () => {
                   <select
                     value={selectedMainTreatment}
                     onChange={(e) => handleMainTreatmentSelect(e.target.value)}
-                    className="w-full mt-3 px-3 py-1.5 text-sm border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-800"
+                    className="w-full mt-3 px-3 py-1.5 text-sm border border-blue-300 rounded-lg bg-white text-blue-900 focus:outline-none focus:ring-1 focus:ring-blue-800"
                   >
                     <option value="">Select main treatment</option>
                     {treatments.map((treatment) => (
@@ -688,7 +688,7 @@ const AddTreatment: NextPageWithLayout = () => {
                       setNewMainTreatment(e.target.value);
                     }}
                     placeholder="Enter name"
-                    className="w-full px-3 mt-2 py-1.5 text-sm border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-800"
+                    className="w-full px-3 mt-2 py-1.5 text-sm border border-blue-300 rounded-lg text-blue-900 focus:outline-none focus:ring-1 focus:ring-blue-800"
                   />
                   {/* Custom Main Treatments Boxes */}
                   {customMainTreatments.length > 0 && (
@@ -696,12 +696,12 @@ const AddTreatment: NextPageWithLayout = () => {
                       {customMainTreatments.map((custom) => (
                         <div
                           key={custom.id}
-                          className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-gray-100 border border-gray-300 rounded-lg text-sm text-gray-900"
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-blue-100 border border-blue-300 rounded-lg text-sm text-blue-900"
                         >
                           <span>{custom.name}</span>
                           <button
                             onClick={() => handleRemoveCustomMainTreatment(custom.id)}
-                            className="text-gray-500 hover:text-red-600 transition-colors"
+                            className="text-blue-500 hover:text-red-600 transition-colors"
                             aria-label="Remove"
                           >
                             <XMarkIcon className="w-4 h-4" />
@@ -713,8 +713,8 @@ const AddTreatment: NextPageWithLayout = () => {
                 </div>
 
                 {/* Divider */}
-                <div className="border-t border-gray-200 pt-4">
-                  <label className="block text-xs font-medium text-gray-700 mb-1.5">
+                <div className="border-t border-blue-200 pt-4">
+                  <label className="block text-xs font-medium text-blue-700 mb-1.5">
                     Sub-Treatment
                   </label>
                   
@@ -722,7 +722,7 @@ const AddTreatment: NextPageWithLayout = () => {
                   {selectedMainTreatment && availableSubTreatments.length > 0 && (
                     <select
                       onChange={(e) => handleSubTreatmentSelect(e.target.value)}
-                      className="w-full mb-2 px-3 py-1.5 text-sm border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-800"
+                      className="w-full mb-2 px-3 py-1.5 text-sm border border-blue-300 rounded-lg bg-white text-blue-900 focus:outline-none focus:ring-1 focus:ring-blue-800"
                     >
                       <option value="">Select sub-treatment</option>
                       {availableSubTreatments.map((sub, index) => (
@@ -741,7 +741,7 @@ const AddTreatment: NextPageWithLayout = () => {
                       setNewSubTreatment(e.target.value);
                     }}
                     placeholder="Enter sub-treatment name"
-                    className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-800"
+                    className="w-full px-3 py-1.5 text-sm border border-blue-300 rounded-lg text-blue-900 focus:outline-none focus:ring-1 focus:ring-blue-800"
                   />
                   
                   {/* Custom Sub-Treatments Boxes */}
@@ -750,12 +750,12 @@ const AddTreatment: NextPageWithLayout = () => {
                       {customSubTreatments.map((custom) => (
                         <div
                           key={custom.id}
-                          className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-gray-100 border border-gray-300 rounded-lg text-sm text-gray-900"
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-blue-100 border border-blue-300 rounded-lg text-sm text-blue-900"
                         >
                           <span>{custom.name}</span>
                           <button
                             onClick={() => handleRemoveCustomSubTreatment(custom.id)}
-                            className="text-gray-500 hover:text-red-600 transition-colors"
+                            className="text-blue-500 hover:text-red-600 transition-colors"
                             aria-label="Remove"
                           >
                             <XMarkIcon className="w-4 h-4" />
@@ -770,7 +770,7 @@ const AddTreatment: NextPageWithLayout = () => {
                     <button
                       onClick={handleAddBoth}
                       disabled={loading || (!newMainTreatment.trim() && !newSubTreatment.trim())}
-                      className="w-full mt-4 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="w-full mt-4 px-4 py-2 bg-blue-800 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {loading ? 'Adding...' : 'Add Treatment'}
                     </button>
@@ -782,10 +782,10 @@ const AddTreatment: NextPageWithLayout = () => {
 
            {/* Treatment List - hidden for read-only agents */}
            {(!isAgentReadOnly || isAdmin) && (
-             <div className="bg-white rounded-lg border border-gray-200 p-4">
+             <div className="bg-white rounded-lg border border-blue-200 p-4">
                <div className="flex items-center justify-between mb-4">
-                 <h2 className="text-sm font-semibold text-gray-900">All Treatments</h2>
-                 <span className="text-xs text-gray-700 bg-gray-100 px-2 py-0.5 rounded">
+                 <h2 className="text-sm font-semibold text-blue-900">All Treatments</h2>
+                 <span className="text-xs text-blue-700 bg-blue-100 px-2 py-0.5 rounded">
                    {treatments.length}
                  </span>
                </div>
@@ -793,8 +793,8 @@ const AddTreatment: NextPageWithLayout = () => {
                <div className="max-h-[500px] overflow-y-auto space-y-2">
                  {treatments.length === 0 ? (
                    <div className="text-center py-8">
-                     <BeakerIcon className="w-10 h-10 text-gray-400 mx-auto mb-2" />
-                     <p className="text-xs text-gray-700">No treatments yet</p>
+                     <BeakerIcon className="w-10 h-10 text-blue-400 mx-auto mb-2" />
+                     <p className="text-xs text-blue-700">No treatments yet</p>
                    </div>
                  ) : (
                    treatments.map((treatment, index) => {
@@ -803,15 +803,15 @@ const AddTreatment: NextPageWithLayout = () => {
                      return (
                        <div
                          key={treatment._id}
-                         className="bg-gray-50 rounded-lg p-3 border border-gray-200 hover:border-gray-300 transition-colors"
+                         className="bg-blue-50 rounded-lg p-3 border border-blue-200 hover:border-blue-300 transition-colors"
                        >
                          <div className="flex items-start justify-between gap-2">
                            <div className="flex items-start gap-2 flex-1 min-w-0">
-                             <span className="text-xs text-gray-700 font-medium pt-0.5">
+                             <span className="text-xs text-blue-700 font-medium pt-0.5">
                                {index + 1}.
                              </span>
                              <div className="flex-1 min-w-0">
-                               <h4 className="text-sm font-medium text-gray-900 mb-1">
+                               <h4 className="text-sm font-medium text-blue-900 mb-1">
                                  {treatment.name}
                                </h4>
                                {treatment.subcategories && treatment.subcategories.length > 0 && (
@@ -819,7 +819,7 @@ const AddTreatment: NextPageWithLayout = () => {
                                    {treatment.subcategories.map((sub, subIndex) => (
                                      <span
                                        key={subIndex}
-                                       className="text-xs text-gray-700 bg-white border border-gray-300 px-2 py-0.5 rounded"
+                                       className="text-xs text-blue-700 bg-white border border-blue-300 px-2 py-0.5 rounded"
                                      >
                                        {sub.name}
                                      </span>
@@ -861,14 +861,14 @@ const AddTreatment: NextPageWithLayout = () => {
               <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-3">
                 <XCircleIcon className="w-6 h-6 text-red-600" />
               </div>
-              <h3 className="text-base font-semibold text-gray-900 mb-1">
+              <h3 className="text-base font-semibold text-blue-900 mb-1">
                 Delete Treatment?
               </h3>
-              <p className="text-xs text-gray-700 mb-3">
+              <p className="text-xs text-blue-700 mb-3">
                 This action cannot be undone.
               </p>
-              <div className="bg-gray-50 rounded px-3 py-2">
-                <p className="text-sm font-medium text-gray-900">
+              <div className="bg-blue-50 rounded px-3 py-2">
+                <p className="text-sm font-medium text-blue-900">
                   &quot;{treatmentToDelete?.name}&quot;
                 </p>
               </div>
@@ -878,7 +878,7 @@ const AddTreatment: NextPageWithLayout = () => {
               <button
                 onClick={handleDeleteCancel}
                 disabled={isDeleting}
-                className="flex-1 px-3 py-2 text-sm text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium transition-colors disabled:opacity-50"
+                className="flex-1 px-3 py-2 text-sm text-blue-700 bg-blue-100 hover:bg-blue-200 rounded-lg font-medium transition-colors disabled:opacity-50"
               >
                 Cancel
               </button>
@@ -894,26 +894,26 @@ const AddTreatment: NextPageWithLayout = () => {
         </div>
       )}
  {/* Graphical Overview */}
-      <div className="bg-white rounded-lg mt-5 border border-gray-200 p-4">
+      <div className="bg-white rounded-lg mt-5 border border-blue-200 p-4">
           <div className="flex items-center justify-between mb-3">
             <div>
-              <p className="text-sm font-semibold text-gray-900">Treatment Distribution</p>
-              <p className="text-xs text-gray-600">Share of sub-treatments by top mains</p>
+              <p className="text-sm font-semibold text-blue-900">Treatment Distribution</p>
+              <p className="text-xs text-blue-600">Share of sub-treatments by top mains</p>
             </div>
-            <span className="text-xs text-gray-600 bg-gray-100 px-2 py-0.5 rounded">
+            <span className="text-xs text-blue-600 bg-blue-100 px-2 py-0.5 rounded">
               {totalSubTreatments} sub treatments
             </span>
           </div>
           {topTreatments.length === 0 || totalSubTreatments === 0 ? (
-            <div className="py-6 text-center text-xs text-gray-500">No data yet</div>
+            <div className="py-6 text-center text-xs text-blue-500">No data yet</div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="relative flex items-center justify-center">
                 <svg viewBox="0 0 220 220" className="w-48 h-48">
                   <defs>
                     <radialGradient id="innerCircle" cx="50%" cy="50%" r="50%">
-                      <stop offset="70%" stopColor="#111827" />
-                      <stop offset="100%" stopColor="#0f172a" />
+                      <stop offset="70%" stopColor="#3b82f6" />
+                      <stop offset="100%" stopColor="#2563eb" />
                     </radialGradient>
                     <linearGradient id="donutColor1" x1="0%" y1="0%" x2="100%" y2="100%">
                       <stop offset="0%" stopColor="#fb7185" />
@@ -970,8 +970,8 @@ const AddTreatment: NextPageWithLayout = () => {
                   <circle cx="110" cy="110" r="40" fill="url(#innerCircle)" />
                 </svg>
                 <div className="absolute text-center">
-                  <p className="text-xs text-gray-500">Total</p>
-                  <p className="text-lg font-semibold text-gray-900">{totalSubTreatments}</p>
+                  <p className="text-xs text-white">Total</p>
+                  <p className="text-lg font-semibold text-white">{totalSubTreatments}</p>
                 </div>
               </div>
               <div className="space-y-2 text-xs">
@@ -987,22 +987,22 @@ const AddTreatment: NextPageWithLayout = () => {
                   return (
                     <div
                       key={treatment._id}
-                      className="flex items-center justify-between border border-gray-100 rounded-lg px-3 py-2"
+                      className="flex items-center justify-between border border-blue-100 rounded-lg px-3 py-2"
                     >
                       <div className="flex items-center gap-2">
                         <span className={`font-bold ${legendColors[index % legendColors.length]}`}>
                           {percent}%
                         </span>
-                        <span className="font-medium text-gray-900 truncate">{treatment.name}</span>
+                        <span className="font-medium text-blue-900 truncate">{treatment.name}</span>
                       </div>
-                      <span className="text-gray-500 font-semibold">{treatment.subCount} sub</span>
+                      <span className="text-blue-500 font-semibold">{treatment.subCount} sub</span>
                     </div>
                   );
                 })}
               </div>
             </div>
           )}
-          <div className="mt-4 flex items-center justify-between text-xs text-gray-600">
+          <div className="mt-4 flex items-center justify-between text-xs text-blue-600">
             <span>Main with sub treatments: {treatmentsWithSub}</span>
             <span>
               Avg sub/main:{" "}
@@ -1013,52 +1013,52 @@ const AddTreatment: NextPageWithLayout = () => {
 
  {/* Coverage & Activity Visualization */}
          <div className="grid grid-cols-1 mt-5 md:grid-cols-2 gap-4">
-          <div className="bg-white rounded-lg border border-gray-200 p-4 flex items-center gap-4">
+          <div className="bg-white rounded-lg border border-blue-200 p-4 flex items-center gap-4">
             <div
               className="w-24 h-24 rounded-full flex items-center justify-center relative"
               style={{
-                background: `conic-gradient(#111 ${subCoveragePercent}%, #e5e7eb ${subCoveragePercent}% 100%)`,
+                background: `conic-gradient(#3b82f6 ${subCoveragePercent}%, #e5e7eb ${subCoveragePercent}% 100%)`,
               }}
             >
               <div className="absolute w-16 h-16 bg-white rounded-full flex items-center justify-center">
-                <span className="text-lg font-semibold text-gray-900">
+                <span className="text-lg font-semibold text-blue-800">
                   {subCoveragePercent}%
                 </span>
               </div>
             </div>
             <div>
-              <p className="text-sm font-semibold text-gray-900">Coverage</p>
-              <p className="text-xs text-gray-600 mb-2">
+              <p className="text-sm font-semibold text-blue-900">Coverage</p>
+              <p className="text-xs text-blue-600 mb-2">
                 Main treatments with at least one sub-treatment
               </p>
-              <p className="text-sm text-gray-700">
+              <p className="text-sm text-blue-700">
                 {treatmentsWithSub} of {treatments.length || 0} mains
               </p>
             </div>
           </div>
 
-          <div className="bg-white rounded-lg border border-gray-200 p-4 flex items-center gap-4">
+          <div className="bg-white rounded-lg border border-blue-200 p-4 flex items-center gap-4">
             <div
               className="w-24 h-24 rounded-full flex items-center justify-center relative"
               style={{
-                background: `conic-gradient(#4b5563 ${Math.min(
+                background: `conic-gradient(#3b82f6 ${Math.min(
                   (avgSubsPerMain / 5) * 100,
                   100
                 )}%, #e5e7eb ${Math.min((avgSubsPerMain / 5) * 100, 100)}% 100%)`,
               }}
             >
               <div className="absolute w-16 h-16 bg-white rounded-full flex items-center justify-center">
-                <span className="text-lg font-semibold text-gray-900">
+                <span className="text-lg font-semibold text-blue-900">
                   {avgSubsPerMain}
                 </span>
               </div>
             </div>
             <div>
-              <p className="text-sm font-semibold text-gray-900">Avg. Sub Count</p>
-              <p className="text-xs text-gray-600 mb-2">
+              <p className="text-sm font-semibold text-blue-900">Avg. Sub Count</p>
+              <p className="text-xs text-blue-600 mb-2">
                 Average sub-treatments per main (target 5+)
               </p>
-              <p className="text-sm text-gray-700">
+              <p className="text-sm text-blue-700">
                 {totalSubTreatments} subs / {treatments.length || 0} mains
               </p>
             </div>
