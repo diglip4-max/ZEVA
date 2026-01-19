@@ -256,7 +256,7 @@ export async function generateBlogMeta(
 }
 
 export async function generateMeta(
-  entityType: 'clinic' | 'doctor' | 'job' | 'blog',
+  entityType: 'clinic' | 'doctor' | 'job' | 'blog' | 'treatment',
   entity: any,
   decision: IndexingDecision
 ): Promise<MetaTags> {
@@ -267,8 +267,22 @@ export async function generateMeta(
     return await generateDoctorMeta(entity, user, decision);
   } else if (entityType === 'job') {
     return await generateJobMeta(entity, decision);
-  } else {
+  } else if (entityType === 'blog') {
     return await generateBlogMeta(entity, decision);
+  } else {
+    // Treatment meta tags
+    const subTreatments = entity.subcategories || [];
+    const subTreatmentNames = subTreatments.map((sub: any) => sub.name).join(', ');
+    const keywords = [entity.name];
+    if (subTreatmentNames) {
+      keywords.push(...subTreatments.map((sub: any) => sub.name));
+    }
+    
+    return {
+      title: `${entity.name}${subTreatments.length > 0 ? ` - ${subTreatments.length} Sub-treatments` : ''} | Zeva360`,
+      description: `Find ${entity.name}${subTreatments.length > 0 ? ` and related sub-treatments like ${subTreatmentNames}` : ''} at Zeva360.`,
+      keywords: keywords.slice(0, 10),
+    };
   }
 }
 

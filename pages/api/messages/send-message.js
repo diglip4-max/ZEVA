@@ -294,19 +294,19 @@ export default async function handler(req, res) {
     await Promise.all([newMessage.save(), conversation.save()]);
 
     const findMessage = await Message.findById(newMessage._id)
-      .populate("senderId", "firstName lastName email phone profilePicture")
-      .populate("recipientId", "name email phoneNumber")
+      .populate("senderId", "name email phone")
+      .populate("recipientId", "name email phone")
       .populate({
         path: "replyToMessageId",
         select: "content mediaType mediaUrl channel direction", // Fields of the reply message
         populate: [
           {
             path: "senderId",
-            select: "firstName lastName email phone", // Specific fields of sender in the reply
+            select: "name email phone", // Specific fields of sender in the reply
           },
           {
             path: "recipientId",
-            select: "name email phoneNumber", // Specific fields of recipient in the reply
+            select: "name email phone", // Specific fields of recipient in the reply
           },
         ],
       });

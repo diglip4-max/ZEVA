@@ -8,7 +8,7 @@ import { getWhatsappMediaUrl } from "../../../services/whatsapp";
 import {
   emitIncomingMessageToUser,
   emitMessageStatusUpdateToUser,
-} from "../messages/socketio";
+} from "../../../services/socket-emitter";
 
 // Utility: normalize phone number by removing leading + and non-digit chars
 const getWithoutPlusNumber = (num) => {
@@ -151,22 +151,58 @@ const processWhatsAppWebhook = async (req) => {
 
         // ✅ INCOMING MESSAGE FILTER
         if (message.from && !message.status) {
-          if (message.type === "reaction") {
-            const findMessage = await Message.findOne({
-              providerMessageId: message?.reaction?.message_id,
-            });
-            if (findMessage) {
-              findMessage.emoji = message?.reaction?.emoji;
-              await findMessage.save();
-              continue;
-            }
-          }
           const from = message.from;
           const withoutPlusFromNumber = getWithoutPlusNumber(from);
           let findLead = await Lead.findOne({
             clinicId,
             phone: { $in: [withoutPlusFromNumber, from] },
           });
+
+          if (message.type === "reaction") {
+            // Find the message that was reacted to
+            const findMessage = await Message.findOne({
+              providerMessageId: message?.reaction?.message_id,
+            });
+
+            if (findMessage) {
+              // Check if this lead already reacted to this message
+              const existingEmojiIndex = findMessage.emojis?.findIndex(
+                (e) => e?.lead?.toString() === findLead?._id?.toString()
+              );
+
+              const reactionEmoji = message?.reaction?.emoji;
+
+              // If emoji is empty string, it means reaction was removed
+              if (reactionEmoji === "") {
+                // Remove the lead's reaction if it exists
+                if (existingEmojiIndex > -1) {
+                  findMessage.emojis.splice(existingEmojiIndex, 1);
+                }
+              } else {
+                if (existingEmojiIndex > -1) {
+                  // Update existing reaction
+                  findMessage.emojis[existingEmojiIndex].emoji = reactionEmoji;
+                  findMessage.emojis[existingEmojiIndex].addedAt = new Date();
+                } else {
+                  // Add new reaction
+                  findMessage.emojis.push({
+                    emoji: reactionEmoji,
+                    lead: findLead?._id,
+                    addedAt: new Date(),
+                  });
+                }
+              }
+
+              // Update the single emoji field (for backward compatibility)
+              // Find if there's any emoji from leads
+              const leadReaction = findMessage.emojis.find((e) => e.lead);
+              findMessage.emoji = leadReaction?.emoji || "";
+
+              await findMessage.save();
+              continue;
+            }
+          }
+
           if (!findLead) {
             // console.log(`Lead not found for number: ${from}`);
             if (!leadName) leadName = from;

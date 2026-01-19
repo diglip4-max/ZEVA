@@ -23,7 +23,7 @@ import { generateHeadings } from './HeadingService';
 
 export interface SEOResult {
   success: boolean;
-  entityType: 'clinic' | 'doctor' | 'job' | 'blog';
+  entityType: 'clinic' | 'doctor' | 'job' | 'blog' | 'treatment';
   entityId: string;
   indexing?: {
     shouldIndex: boolean;
@@ -61,7 +61,7 @@ export interface SEOResult {
  * Run full SEO pipeline for an entity
  */
 export async function runSEOPipeline(
-  entityType: 'clinic' | 'doctor' | 'job' | 'blog',
+  entityType: 'clinic' | 'doctor' | 'job' | 'blog' | 'treatment',
   entityId: string,
   entity?: any,
   user?: any
@@ -117,6 +117,9 @@ export async function runSEOPipeline(
           } else if (entityType === 'blog') {
             const Blog = (await import('../../models/Blog')).default;
             entity = await Blog.findById(entityId).populate('postedBy');
+          } else if (entityType === 'treatment') {
+            const Treatment = (await import('../../models/Treatment')).default;
+            entity = await Treatment.findById(entityId);
           }
         }
 
@@ -256,7 +259,7 @@ export async function runSEOPipeline(
  * Quick SEO check (lightweight, no sitemap/ping)
  */
 export async function quickSEOCheck(
-  entityType: 'clinic' | 'doctor' | 'job' | 'blog',
+  entityType: 'clinic' | 'doctor' | 'job' | 'blog' | 'treatment',
   entityId: string
 ): Promise<SEOResult> {
   const indexingDecision = await decideIndexing(entityType, entityId);

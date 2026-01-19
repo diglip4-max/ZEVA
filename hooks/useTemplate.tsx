@@ -9,8 +9,21 @@ const useTemplate = () => {
   const [whatsappTemplates, setWhatsappTemplates] = useState<Template[]>([]);
   const [emailTemplates, setEmailTemplates] = useState<Template[]>([]);
 
-  const token =
-    typeof window !== "undefined" ? localStorage.getItem("clinicToken") : null;
+  const getTokenByPath = () => {
+    if (typeof window === "undefined") return null;
+
+    const pathname = window.location.pathname;
+
+    if (pathname === "/clinic/inbox") {
+      return localStorage.getItem("clinicToken");
+    } else if (pathname === "/staff/clinic-inbox") {
+      return localStorage.getItem("agentToken");
+    } else {
+      return localStorage.getItem("userToken");
+    }
+  };
+
+  const token = getTokenByPath();
 
   useEffect(() => {
     const fetchAllTemplates = async () => {

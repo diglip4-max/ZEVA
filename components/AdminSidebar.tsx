@@ -117,6 +117,13 @@ const navItems: NavItem[] = [
     description: 'Approve or decline job'
   },
   {
+    label: 'Audit SEO',
+    path: '/admin/seo-audit',
+    icon: BriefcaseIcon,
+    iconSolid: BriefcaseIconSolid,
+    description: 'Audit SEO'
+  },
+  {
     label: "Staff Management",
     icon: UserGroupIcon,
     iconSolid: UserGroupIconSolid,

@@ -2,11 +2,24 @@ import { User } from "@/types/users";
 import React from "react";
 
 const useAgents = () => {
-  const token =
-    typeof window !== "undefined" ? localStorage.getItem("clinicToken") : null;
-
   const [agents, setAgents] = React.useState<User[]>([]);
   const [loading, setLoading] = React.useState<boolean>(false);
+
+  const getTokenByPath = () => {
+    if (typeof window === "undefined") return null;
+
+    const pathname = window.location.pathname;
+
+    if (pathname === "/clinic/inbox") {
+      return localStorage.getItem("clinicToken");
+    } else if (pathname === "/staff/clinic-inbox") {
+      return localStorage.getItem("agentToken");
+    } else {
+      return localStorage.getItem("userToken");
+    }
+  };
+
+  const token = getTokenByPath();
 
   const fetchAgents = React.useCallback(async (token: string) => {
     setLoading(true);

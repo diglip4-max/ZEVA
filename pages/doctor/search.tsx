@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/router";
 import Head from "next/head";
 import axios from "axios";
-import { toast } from "react-hot-toast";
+import { Toaster, toast } from "react-hot-toast";
 import {
   MapPin,
   Search,
@@ -259,6 +259,13 @@ export default function FindDoctor() {
     }
   }, []);
 
+  // Recalculate distances when user location becomes available and doctors are already loaded
+  useEffect(() => {
+    if (userCurrentLocation && userCurrentLocation.lat && userCurrentLocation.lng && doctors.length > 0) {
+      recalculateDistancesForDoctors(userCurrentLocation.lat, userCurrentLocation.lng);
+    }
+  }, [userCurrentLocation]); // Recalculate when user location changes
+
   // Get user's current location on component mount (for distance calculation)
   useEffect(() => {
     if (typeof window !== "undefined" && navigator.geolocation && !userCurrentLocation) {
@@ -451,6 +458,30 @@ export default function FindDoctor() {
     return `${distance}km`;
   };
 
+  // Helper function to recalculate distances for existing doctors when user location is available
+  const recalculateDistancesForDoctors = (userLat: number, userLng: number) => {
+    if (!userLat || !userLng) return;
+    
+    setDoctors(prevDoctors => {
+      return prevDoctors.map(doctor => {
+        if (
+          doctor.location &&
+          doctor.location.coordinates &&
+          doctor.location.coordinates.length === 2
+        ) {
+          const doctorLng = doctor.location.coordinates[0];
+          const doctorLat = doctor.location.coordinates[1];
+          const distance = calculateDistance(userLat, userLng, doctorLat, doctorLng);
+          return {
+            ...doctor,
+            distance: distance,
+          };
+        }
+        return doctor;
+      });
+    });
+  };
+
   const fetchSuggestions = async (q: string) => {
     if (!q.trim()) return setSuggestions([]);
 
@@ -560,26 +591,57 @@ export default function FindDoctor() {
     }
 
     clearPersistedState(); // Clear old state when starting new search
+    
+    if (typeof window === "undefined" || !navigator.geolocation) {
+      toast.error("Geolocation is not supported in this browser");
+      setLoading(false);
+      return;
+    }
+
+    // Get values from input fields
+    const treatmentValue = query.trim();
+    const locationValue = manualPlace.trim();
+    const serviceToUse = selectedService || treatmentValue;
+    
+    // Update URL with values from input fields (if location is empty, use "near-me")
+    const locationForURL = locationValue || 'near-me';
+    updateURL(serviceToUse || treatmentValue, locationForURL);
+
+    // Request location permission from browser (will show browser's native permission dialog)
+    const locatingToast = toast.loading("Getting your location...");
+    
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const { latitude, longitude } = pos.coords;
         setCoords({ lat: latitude, lng: longitude });
         setUserCurrentLocation({ lat: latitude, lng: longitude }); // Store user's current location
-       
-        // Get values from input fields
-        const treatmentValue = query.trim();
-        const locationValue = manualPlace.trim();
-        const serviceToUse = selectedService || treatmentValue;
-       
-        // Update URL with values from input fields (if location is empty, use "near-me")
-        const locationForURL = locationValue || 'near-me';
-        updateURL(serviceToUse || treatmentValue, locationForURL);
-       
+        
+        // If doctors are already loaded, recalculate distances with user's current location
+        if (doctors.length > 0) {
+          recalculateDistancesForDoctors(latitude, longitude);
+        }
+        
         fetchDoctors(latitude, longitude, selectedService);
+        toast.success("Location access granted! Showing distances from your location.");
+        toast.dismiss(locatingToast);
       },
-      () => {
-        alert("Geolocation permission denied");
+      (error) => {
+        toast.dismiss(locatingToast);
+        let errorMessage = "Location access denied";
+        if (error.code === error.PERMISSION_DENIED) {
+          errorMessage = "Location permission denied. Please enable location access in your browser settings to see distances.";
+        } else if (error.code === error.POSITION_UNAVAILABLE) {
+          errorMessage = "Unable to detect your location. Please try again.";
+        } else if (error.code === error.TIMEOUT) {
+          errorMessage = "Location request timed out. Please try again.";
+        }
+        toast.error(errorMessage);
         setLoading(false);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0 // Don't use cached location
       }
     );
   };
@@ -1131,6 +1193,14 @@ export default function FindDoctor() {
         onClose={handleAuthModalClose}
         onSuccess={handleAuthSuccess}
         initialMode={authModalMode}
+      />
+
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          duration: 4000,
+          style: { fontSize: "0.9rem" },
+        }}
       />
 
       {showCalendarModal && selectedDoctor && (

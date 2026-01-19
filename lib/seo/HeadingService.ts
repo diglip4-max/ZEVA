@@ -158,7 +158,7 @@ export function generateBlogHeadings(blog: any): HeadingPlan {
  * Generate heading plan for entity
  */
 export function generateHeadings(
-  entityType: 'clinic' | 'doctor' | 'job' | 'blog',
+  entityType: 'clinic' | 'doctor' | 'job' | 'blog' | 'treatment',
   entity: any
 ): HeadingPlan {
   if (entityType === 'clinic') {
@@ -168,6 +168,15 @@ export function generateHeadings(
     return generateDoctorHeadings(entity, user);
   } else if (entityType === 'blog') {
     return generateBlogHeadings(entity);
+  } else if (entityType === 'treatment') {
+    const subTreatments = entity.subcategories || [];
+    const h2Headings = subTreatments.length > 0 
+      ? subTreatments.map((sub: any) => sub.name)
+      : ['Treatment Details'];
+    return {
+      h1: entity.name || 'Treatment',
+      h2: h2Headings,
+    };
   } else {
     // Default for job or unknown types
     return {
