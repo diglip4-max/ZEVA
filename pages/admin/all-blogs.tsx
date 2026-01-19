@@ -71,7 +71,9 @@ const AdminBlogs = () => {
   const [showReadMoreModal, setShowReadMoreModal] = useState(false);
   const [selectedBlog, setSelectedBlog] = useState<Blog | null>(null);
   const [loading, setLoading] = useState(true);
-  const blogsPerPage = 20;
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalBlogs, setTotalBlogs] = useState(0);
+  const blogsPerPage = 6;
 
   // Toast helper function using react-hot-toast
   const showToast = useCallback((message: string, type: 'success' | 'error' | 'info' | 'warning' = 'info') => {
@@ -144,14 +146,16 @@ const AdminBlogs = () => {
     // MODIFIED: Prevent multiple simultaneous calls
     setLoading(true);
     try {
-      const res = await axios.get<{ blogs: Blog[] }>("/api/admin/get-blogs", {
+      const res = await axios.get<{ blogs: Blog[]; pagination?: any }>("/api/admin/get-blogs", {
         headers: { Authorization: `Bearer ${token}` },
+        params: { page: currentPage, limit: blogsPerPage }
       });
       const processedBlogs = processBlogs(res.data.blogs);
       setBlogs(processedBlogs);
       setFilteredBlogs(processedBlogs);
-      if (processedBlogs.length > 0) {
-        showToast(`Loaded ${processedBlogs.length} blog(s)`, 'success');
+      if (res.data.pagination) {
+        setTotalPages(res.data.pagination.totalPages);
+        setTotalBlogs(res.data.pagination.totalBlogs);
       }
     } catch (err: any) {
       console.error("Error fetching blogs:", err);
@@ -174,7 +178,7 @@ const AdminBlogs = () => {
         fetchingRef.current = false;
       });
     }
-  }, [isAdmin, isAgent, permissionsLoading, fetchBlogs]);
+  }, [isAdmin, isAgent, permissionsLoading, currentPage, fetchBlogs]);
 
   // MODIFIED: Hide duplicate toaster containers - ensure only one toaster shows
   // Optimized to run less frequently to avoid performance issues
@@ -310,13 +314,9 @@ const AdminBlogs = () => {
     setSelectedBlog(null);
   };
 
-  // Pagination logic
-  const indexOfLastBlog = currentPage * blogsPerPage;
-  const indexOfFirstBlog = indexOfLastBlog - blogsPerPage;
-  const currentBlogs = filteredBlogs.slice(indexOfFirstBlog, indexOfLastBlog);
-  const totalPages = Math.ceil(filteredBlogs.length / blogsPerPage);
+  // Pagination logic - use backend pagination
+  const currentBlogs = filteredBlogs;
 
-  const paginate = (pageNumber: number) => setCurrentPage(pageNumber);
 
   // Helper function to extract text from HTML
   const extractTextFromHTML = (html: string, maxLength: number = 150) => {
@@ -351,41 +351,35 @@ const AdminBlogs = () => {
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className="bg-gray-800 p-2 rounded-lg">
+              <div className="bg-blue-800 p-2 rounded-lg">
                 <DocumentTextIcon className="w-5 h-5 text-white" />
               </div>
               <div>
-                <h1 className="text-lg font-semibold text-gray-900">Published Blogs</h1>
-                <p className="text-xs text-gray-700">Manage and view all blog posts</p>
+                <h1 className="text-lg font-semibold text-blue-800">Published Blogs</h1>
+                <p className="text-xs text-blue-600">Manage and view all blog posts</p>
               </div>
             </div>
-            <button
-              onClick={fetchBlogs}
-              disabled={loading}
-              className="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-50"
-            >
-              {loading ? 'Loading...' : 'Refresh'}
-            </button>
+          
           </div>
         </div>
 
         {/* Search Bar */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+        <div className="bg-white rounded-lg shadow-sm border border-blue-200 p-4">
           <div className="relative">
-            <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-700" />
+            <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-blue-700" />
             <input
               type="text"
               placeholder="Search by title or author..."
               value={searchTerm}
               onChange={(e) => handleSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 text-sm border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-800"
+              className="w-full pl-10 pr-4 py-2 text-sm border border-blue-300 rounded-lg text-blue-900 focus:outline-none focus:ring-1 focus:ring-blue-800"
             />
           </div>
         </div>
 
         {/* Blog Count */}
-        <div className="text-xs text-gray-700">
-          Showing {indexOfFirstBlog + 1}-{Math.min(indexOfLastBlog, filteredBlogs.length)} of {filteredBlogs.length} blogs
+        <div className="text-xs text-blue-800">
+          Showing {filteredBlogs.length === 0 ? 0 : (currentPage - 1) * blogsPerPage + 1}-{Math.min(currentPage * blogsPerPage, totalBlogs)} of {totalBlogs} blogs
         </div>
 
         {/* Loading State */}
@@ -480,7 +474,7 @@ const AdminBlogs = () => {
 
                     {/* Blog Details */}
                     <div className="p-4">
-                      <h2 className="text-sm font-semibold text-gray-900 mb-2 line-clamp-2">
+                      <h2 className="text-sm font-semibold text-blue-800 mb-2 line-clamp-2">
                         {blog.title}
                       </h2>
 
@@ -500,7 +494,7 @@ const AdminBlogs = () => {
                       <div className="flex gap-2 pt-3 border-t border-gray-200">
                         <button
                           onClick={() => handleReadMoreClick(blog)}
-                          className="flex-1 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-white text-xs font-medium rounded-lg transition-colors flex items-center justify-center gap-1"
+                          className="flex-1 px-3 py-1.5 bg-blue-700 hover:bg-blue-800 text-white text-xs font-medium rounded-lg transition-colors flex items-center justify-center gap-1"
                         >
                           <EyeIcon className="w-3 h-3" />
                           View
@@ -528,10 +522,10 @@ const AdminBlogs = () => {
             </div>
 
             {/* Pagination */}
-            {totalPages > 1 && (
-              <div className="flex flex-wrap justify-center gap-2">
+            {totalBlogs > blogsPerPage && (
+              <div className="flex flex-wrap justify-center gap-2 mt-4">
                 <button
-                  onClick={() => paginate(currentPage - 1)}
+                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                   disabled={currentPage === 1}
                   className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                     currentPage === 1
@@ -542,22 +536,34 @@ const AdminBlogs = () => {
                   Previous
                 </button>
 
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map((number) => (
-                  <button
-                    key={number}
-                    onClick={() => paginate(number)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                      currentPage === number
-                        ? 'bg-gray-800 text-white'
-                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                    }`}
-                  >
-                    {number}
-                  </button>
-                ))}
+                {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
+                  let pageNum;
+                  if (totalPages <= 7) {
+                    pageNum = i + 1;
+                  } else if (currentPage <= 4) {
+                    pageNum = i + 1;
+                  } else if (currentPage >= totalPages - 3) {
+                    pageNum = totalPages - 6 + i;
+                  } else {
+                    pageNum = currentPage - 3 + i;
+                  }
+                  return (
+                    <button
+                      key={pageNum}
+                      onClick={() => setCurrentPage(pageNum)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                        currentPage === pageNum
+                          ? 'bg-gray-800 text-white'
+                          : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                      }`}
+                    >
+                      {pageNum}
+                    </button>
+                  );
+                })}
 
                 <button
-                  onClick={() => paginate(currentPage + 1)}
+                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
                   disabled={currentPage === totalPages}
                   className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                     currentPage === totalPages
@@ -574,7 +580,7 @@ const AdminBlogs = () => {
 
         {/* Delete Confirmation Modal */}
         {showDeleteModal && selectedBlog && typeof window !== 'undefined' && createPortal(
-          <div className="fixed inset-0 backdrop-blur-sm bg-black/20 flex items-center justify-center z-[9999] p-4" style={{ zIndex: 9999 }}>
+          <div className="fixed inset-0 backdrop-blur-sm bg-black/20 flex items-center justify-center z-[99999] p-4" style={{ zIndex: 99999 }}>
             <div className="bg-white rounded-lg shadow-xl p-5 max-w-sm w-full">
               <div className="text-center mb-4">
                 <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-3">
@@ -613,11 +619,11 @@ const AdminBlogs = () => {
 
         {/* Read More Modal with All Images */}
         {showReadMoreModal && selectedBlog && typeof window !== 'undefined' && createPortal(
-          <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-[9999] p-4" style={{ zIndex: 9999 }}>
+          <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-[99999] p-4" style={{ zIndex: 99999 }}>
             <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
               {/* Modal Header */}
               <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200 flex-shrink-0">
-                <h3 className="text-base sm:text-lg font-semibold text-gray-900 pr-4 flex-1 min-w-0 line-clamp-2 break-words">
+                <h3 className="text-base sm:text-lg font-semibold text-blue-900 pr-4 flex-1 min-w-0 line-clamp-2 break-words">
                   {selectedBlog.title}
                 </h3>
                 <button

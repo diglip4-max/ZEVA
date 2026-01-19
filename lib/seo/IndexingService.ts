@@ -14,6 +14,7 @@ import dbConnect from '../database';
 import Clinic from '../../models/Clinic';
 import DoctorProfile from '../../models/DoctorProfile';
 import JobPosting from '../../models/JobPosting';
+import Treatment from '../../models/Treatment';
 
 export interface IndexingDecision {
   shouldIndex: boolean;
@@ -135,7 +136,7 @@ async function isJobComplete(job: any): Promise<boolean> {
  * Decide if entity should be indexed
  */
 export async function decideIndexing(
-  entityType: 'clinic' | 'doctor' | 'job' | 'blog',
+  entityType: 'clinic' | 'doctor' | 'job' | 'blog' | 'treatment',
   entityId: string
 ): Promise<IndexingDecision> {
   await dbConnect();
@@ -395,6 +396,47 @@ export async function decideIndexing(
       shouldIndex = true;
       reason = 'Blog published and complete';
       priority = 'high';
+    } else if (entityType === 'treatment') {
+      const treatment = await Treatment.findById(entityId);
+      if (!treatment) {
+        return {
+          shouldIndex: false,
+          reason: 'Treatment not found',
+          priority: 'low',
+          warnings: [],
+        };
+      }
+
+      // Check slug
+      if (!treatment.slug) {
+        return {
+          shouldIndex: false,
+          reason: 'Slug not generated',
+          priority: 'low',
+          warnings: [],
+        };
+      }
+
+      // Check if treatment has name
+      if (!treatment.name || !treatment.name.trim()) {
+        return {
+          shouldIndex: false,
+          reason: 'Treatment name missing',
+          priority: 'low',
+          warnings: [],
+        };
+      }
+
+      // Treatment is complete - index it
+      shouldIndex = true;
+      reason = 'Treatment complete with slug';
+      priority = 'high';
+      
+      // Warn if no subcategories
+      if (!treatment.subcategories || treatment.subcategories.length === 0) {
+        warnings.push('Treatment has no subcategories');
+        priority = 'medium';
+      }
     }
 
     return {

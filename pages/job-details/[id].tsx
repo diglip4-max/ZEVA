@@ -116,7 +116,7 @@ const JobDetail: React.FC = () => {
     console.log("🔍 Fetching job by slug:", slug);
     
     try {
-      // Use the new slug-based API (Next.js handles URL encoding automatically)
+      // Use the new slug-based API
       const res = await axios.get<{ success: boolean; job: Job }>(`/api/jobs/by-slug/${slug}`);
       
       if (res.data.success && res.data.job) {
@@ -128,13 +128,6 @@ const JobDetail: React.FC = () => {
       }
     } catch (error: any) {
       console.error("Error fetching job by slug:", error);
-      console.error("Error details:", {
-        message: error.message,
-        status: error.response?.status,
-        statusText: error.response?.statusText,
-        url: error.config?.url
-      });
-      
       // If slug API fails, try fallback to ID extraction (for backward compatibility)
       const jobId = extractJobIdFromSlug(slug);
       if (jobId) {
@@ -153,7 +146,6 @@ const JobDetail: React.FC = () => {
             router.push('/job-listings');
           }
         } catch (fallbackError) {
-          console.error("Fallback error:", fallbackError);
           router.push('/job-listings');
         }
       } else {

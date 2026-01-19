@@ -19,7 +19,7 @@ import DoctorProfile from '../../models/DoctorProfile';
 import JobPosting from '../../models/JobPosting';
 
 export interface SEOHealthFlags {
-  entityType: 'clinic' | 'doctor' | 'job' | 'blog';
+  entityType: 'clinic' | 'doctor' | 'job' | 'blog' | 'treatment';
   entityId: string;
   overallHealth: 'healthy' | 'warning' | 'critical';
   score: number; // 0-100
@@ -42,7 +42,7 @@ export interface SEOIssue {
  * Check for missing meta tags
  */
 async function checkMissingMeta(
-  entityType: 'clinic' | 'doctor' | 'job' | 'blog',
+  entityType: 'clinic' | 'doctor' | 'job' | 'blog' | 'treatment',
   entity: any,
   decision: IndexingDecision
 ): Promise<SEOIssue[]> {
@@ -158,7 +158,7 @@ async function checkMissingMeta(
  * Check for canonical conflicts
  */
 async function checkCanonicalConflicts(
-  entityType: 'clinic' | 'doctor' | 'job' | 'blog',
+  entityType: 'clinic' | 'doctor' | 'job' | 'blog' | 'treatment',
   entity: any
 ): Promise<SEOIssue[]> {
   const issues: SEOIssue[] = [];
@@ -279,7 +279,7 @@ async function checkCanonicalConflicts(
  * Check for indexing violations
  */
 async function checkIndexingViolations(
-  _entityType: 'clinic' | 'doctor' | 'job' | 'blog',
+  _entityType: 'clinic' | 'doctor' | 'job' | 'blog' | 'treatment',
   _entityId: string,
   decision: IndexingDecision
 ): Promise<SEOIssue[]> {
@@ -352,7 +352,7 @@ async function checkIndexingViolations(
  * Check for missing robots meta tag
  */
 function checkMissingRobots(
-  _entityType: 'clinic' | 'doctor' | 'job' | 'blog',
+  _entityType: 'clinic' | 'doctor' | 'job' | 'blog' | 'treatment',
   decision: IndexingDecision
 ): SEOIssue[] {
   const issues: SEOIssue[] = [];
@@ -443,7 +443,7 @@ function generateRecommendations(issues: SEOIssue[]): string[] {
  * Run comprehensive SEO health check
  */
 export async function checkSEOHealth(
-  entityType: 'clinic' | 'doctor' | 'job' | 'blog',
+  entityType: 'clinic' | 'doctor' | 'job' | 'blog' | 'treatment',
   entityId: string
 ): Promise<SEOHealthFlags> {
   console.log(`\n🔍 [SEO Health Service] Starting health check`);
@@ -464,6 +464,9 @@ export async function checkSEOHealth(
       entity = await DoctorProfile.findById(entityId).populate('user');
     } else if (entityType === 'job') {
       entity = await JobPosting.findById(entityId);
+    } else if (entityType === 'treatment') {
+      const Treatment = (await import('../../models/Treatment')).default;
+      entity = await Treatment.findById(entityId);
     } else {
       const Blog = (await import('../../models/Blog')).default;
       entity = await Blog.findById(entityId);
@@ -603,7 +606,7 @@ export async function checkSEOHealth(
  * Batch check SEO health for multiple entities
  */
 export async function batchCheckSEOHealth(
-  entityType: 'clinic' | 'doctor' | 'job' | 'blog',
+  entityType: 'clinic' | 'doctor' | 'job' | 'blog' | 'treatment',
   entityIds: string[]
 ): Promise<SEOHealthFlags[]> {
   console.log(`\n📦 [SEO Health Service] Starting batch health check`);

@@ -73,8 +73,16 @@ export function getBlogCanonical(blog: any, baseUrl: string = ''): string {
   return `${baseUrl}/blogs/${slug}`;
 }
 
+export function getTreatmentCanonical(treatment: any, baseUrl: string = ''): string {
+  if (!treatment || !treatment.slug) {
+    return '';
+  }
+  const slugRoute = getEntityRoute('treatment', treatment.slug);
+  return baseUrl ? `${baseUrl}${slugRoute}` : slugRoute;
+}
+
 export function getCanonicalUrl(
-  entityType: 'clinic' | 'doctor' | 'job' | 'blog',
+  entityType: 'clinic' | 'doctor' | 'job' | 'blog' | 'treatment',
   entity: any,
   baseUrl?: string
 ): string {
@@ -87,8 +95,10 @@ export function getCanonicalUrl(
     return getDoctorCanonical(entity, url);
   } else if (entityType === 'job') {
     return getJobCanonical(entity, url);
-  } else {
+  } else if (entityType === 'blog') {
     return getBlogCanonical(entity, url);
+  } else {
+    return getTreatmentCanonical(entity, url);
   }
 }
 
@@ -96,7 +106,7 @@ export function getCanonicalUrl(
  * Check if URL is canonical
  */
 export function isCanonicalUrl(
-  entityType: 'clinic' | 'doctor' | 'job' | 'blog',
+  entityType: 'clinic' | 'doctor' | 'job' | 'blog' | 'treatment',
   entity: any,
   currentUrl: string
 ): boolean {
@@ -108,7 +118,7 @@ export function isCanonicalUrl(
  * Resolve canonical URL (redirect if needed)
  */
 export function resolveCanonical(
-  entityType: 'clinic' | 'doctor' | 'job' | 'blog',
+  entityType: 'clinic' | 'doctor' | 'job' | 'blog' | 'treatment',
   entity: any,
   currentUrl: string
 ): { isCanonical: boolean; canonicalUrl: string; shouldRedirect: boolean } {
@@ -118,7 +128,7 @@ export function resolveCanonical(
   return {
     isCanonical,
     canonicalUrl,
-    shouldRedirect: !isCanonical && entity.slug && entity.slugLocked,
+    shouldRedirect: !isCanonical && entity.slug && (entity.slugLocked || entityType === 'treatment'),
   };
 }
 

@@ -30,7 +30,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    let { slug } = req.query;
+    const { slug } = req.query;
 
     if (!slug) {
       return res.status(400).json({
@@ -39,33 +39,15 @@ export default async function handler(req, res) {
       });
     }
 
-    // Handle array case (shouldn't happen, but just in case)
-    if (Array.isArray(slug)) {
-      slug = slug[0];
-    }
-
-    // Decode the slug in case it was URL encoded (safely handle already decoded slugs)
-    try {
-      slug = decodeURIComponent(slug);
-    } catch (e) {
-      // Slug is already decoded or invalid, use as-is
-      console.log("Slug decoding skipped (already decoded):", slug);
-    }
-
-    console.log("🔍 API: Fetching job by slug:", slug);
-
     // Use central slug service to find job by slug
     const job = await findBySlug('job', slug);
 
     if (!job) {
-      console.log("❌ API: Job not found for slug:", slug);
       return res.status(404).json({
         success: false,
         message: "Job not found",
       });
     }
-
-    console.log("✅ API: Found job:", job._id);
 
     // Populate postedBy field
     const populatedJob = await JobPosting.findById(job._id)

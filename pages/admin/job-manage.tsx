@@ -135,7 +135,7 @@ const ToastContainer = ({ toasts, removeToast }: { toasts: Toast[]; removeToast:
   </div>
 );
 
-const JOBS_PER_PAGE = 12;
+const JOBS_PER_PAGE = 9;
 
 function AdminJobs() {
   const router = useRouter();
@@ -156,6 +156,8 @@ function AdminJobs() {
 
   const [activeTab, setActiveTab] = useState<"pending" | "approved" | "declined">("pending");
   const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalJobs, setTotalJobs] = useState(0);
   const [filters, setFilters] = useState<Filters>({
     search: "",
     jobType: "",
@@ -247,8 +249,8 @@ function AdminJobs() {
     }
   }, []);
 
-  // Fetch jobs function with filter support
-  const fetchJobs = useCallback(async (filterParams?: Filters) => {
+  // Fetch jobs function with filter and pagination support
+  const fetchJobs = useCallback(async (filterParams?: Filters, pageNum?: number) => {
     try {
       const adminToken = typeof window !== 'undefined' ? localStorage.getItem('adminToken') : null;
       const agentToken = typeof window !== 'undefined' ? localStorage.getItem('agentToken') : null;
@@ -273,11 +275,19 @@ function AdminJobs() {
         if (filterParams.salaryMax) queryParams.append('salaryMax', filterParams.salaryMax);
       }
       
+      // Add pagination for approved section only
+      if (activeTab === 'approved') {
+        const pageToUse = pageNum !== undefined ? pageNum : currentPage;
+        queryParams.append('page', pageToUse.toString());
+        queryParams.append('limit', JOBS_PER_PAGE.toString());
+        queryParams.append('status', 'approved');
+      }
+      
       const url = `/api/admin/job-manage${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
       
       console.log('🔍 Fetching jobs with filters:', filterParams, 'URL:', url);
       
-      const res = await axios.get<{ success: boolean; pending: Job[]; approved: Job[]; declined: Job[] }>(url, {
+      const res = await axios.get<{ success: boolean; pending: Job[]; approved: Job[]; declined: Job[]; pagination?: any }>(url, {
         headers: { Authorization: `Bearer ${token}` },
       }).catch(err => {
         if (err.response?.status === 403) {
@@ -294,6 +304,17 @@ function AdminJobs() {
         declined: res.data?.declined || [],
       };
       
+      // Update pagination info if available (for approved section)
+      if (activeTab === 'approved' && res.data && 'pagination' in res.data && res.data.pagination) {
+        setTotalPages(res.data.pagination.totalPages);
+        setTotalJobs(res.data.pagination.totalJobs);
+      } else if (activeTab !== 'approved') {
+        // For other tabs, calculate pagination client-side
+        const tabJobs = jobsData[activeTab] || [];
+        setTotalPages(Math.ceil(tabJobs.length / JOBS_PER_PAGE));
+        setTotalJobs(tabJobs.length);
+      }
+      
       console.log('📦 Jobs data received:', jobsData);
       setJobs(jobsData);
       
@@ -302,11 +323,14 @@ function AdminJobs() {
         setAllJobsForFilters(jobsData);
       }
       
-      const totalJobs = (jobsData.pending?.length || 0) + (jobsData.approved?.length || 0) + (jobsData.declined?.length || 0);
-      if (filterParams && Object.values(filterParams).some(f => f)) {
-        showToast(`Found ${totalJobs} jobs matching your filters`, 'success');
-      } else {
-        showToast(`Loaded ${totalJobs} jobs successfully`, 'success');
+      // Don't show toast on pagination change
+      if (!pageNum) {
+        const totalJobs = (jobsData.pending?.length || 0) + (jobsData.approved?.length || 0) + (jobsData.declined?.length || 0);
+        if (filterParams && Object.values(filterParams).some(f => f)) {
+          showToast(`Found ${totalJobs} jobs matching your filters`, 'success');
+        } else {
+          showToast(`Loaded ${totalJobs} jobs successfully`, 'success');
+        }
       }
     } catch (error: any) {
       console.error('Failed to fetch jobs:', error);
@@ -318,17 +342,27 @@ function AdminJobs() {
     } finally {
       setIsLoading(false);
     }
-  }, [showToast]);
+  }, [showToast, activeTab, currentPage]);
 
   useEffect(() => {
     if (isAdmin) {
-      fetchJobs();
+      // On initial load, fetch without pagination to get all jobs for filter options
+      // Then if on approved tab, fetch with pagination
+      if (activeTab === 'approved') {
+        fetchJobs(filters, currentPage);
+      } else {
+        fetchJobs();
+      }
       fetchAllJobsForFilters(); // Also fetch all jobs for filter options
       initialLoadDone.current = true;
     } else if (isAgent) {
       if (!permissionsLoading) {
         if (agentPermissions && (agentPermissions.canRead === true || agentPermissions.canAll === true)) {
-          fetchJobs();
+          if (activeTab === 'approved') {
+            fetchJobs(filters, currentPage);
+          } else {
+            fetchJobs();
+          }
           fetchAllJobsForFilters(); // Also fetch all jobs for filter options
           initialLoadDone.current = true;
         } else {
@@ -338,7 +372,7 @@ function AdminJobs() {
     } else {
       setIsLoading(false);
     }
-  }, [isAdmin, isAgent, permissionsLoading, agentPermissions, fetchJobs, fetchAllJobsForFilters]);
+  }, [isAdmin, isAgent, permissionsLoading, agentPermissions, fetchJobs, fetchAllJobsForFilters, activeTab, currentPage, filters]);
 
   // Removed auto-apply - filters will only be applied when "Apply Filters" button is clicked
 
@@ -483,14 +517,48 @@ function AdminJobs() {
   }, [jobs, activeTab]);
 
   // Pagination logic
-  const totalPages = Math.ceil(filteredJobs.length / JOBS_PER_PAGE);
+  // For approved section, use backend pagination (jobs already paginated)
+  // For other sections, use client-side pagination
   const startIndex = (currentPage - 1) * JOBS_PER_PAGE;
-  const paginatedJobs = filteredJobs.slice(startIndex, startIndex + JOBS_PER_PAGE);
+  const paginatedJobs = useMemo(() => {
+    if (activeTab === 'approved') {
+      // Backend already paginated, use directly
+      return filteredJobs;
+    } else {
+      // Client-side pagination for pending/declined
+      return filteredJobs.slice(startIndex, startIndex + JOBS_PER_PAGE);
+    }
+  }, [filteredJobs, activeTab, startIndex]);
 
-  // Reset pagination when filters change
+  // Track previous filters and tab to detect changes
+  const prevFiltersRef = useRef<string>(JSON.stringify(filters));
+  const prevActiveTabRef = useRef<string>(activeTab);
+  
+  // Reset pagination when filters or tab changes (but not when page changes)
   useEffect(() => {
-    setCurrentPage(1);
-  }, [filters, activeTab]);
+    const filtersChanged = prevFiltersRef.current !== JSON.stringify(filters);
+    const tabChanged = prevActiveTabRef.current !== activeTab;
+    
+    if (filtersChanged || tabChanged) {
+      setCurrentPage(1);
+      // Recalculate pagination for non-approved tabs
+      if (activeTab !== 'approved') {
+        const tabJobs = jobs[activeTab] || [];
+        setTotalPages(Math.ceil(tabJobs.length / JOBS_PER_PAGE));
+        setTotalJobs(tabJobs.length);
+      }
+      prevFiltersRef.current = JSON.stringify(filters);
+      prevActiveTabRef.current = activeTab;
+    }
+  }, [filters, activeTab, jobs]);
+  
+  // Fetch jobs when page changes for approved section ONLY (don't reset page)
+  useEffect(() => {
+    if (activeTab === 'approved' && initialLoadDone.current) {
+      // Only fetch if page actually changed, not if filters/tab changed
+      fetchJobs(filters, currentPage);
+    }
+  }, [currentPage]);
 
   const handleFilterChange = (key: keyof Filters, value: string | undefined) => {
     setFilters(prev => ({ ...prev, [key]: value || "" }));
@@ -560,10 +628,10 @@ function AdminJobs() {
 
   if (isLoading || (isAgent && permissionsLoading)) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-blue-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-800 mx-auto"></div>
-          <p className="mt-4 text-gray-700">Loading jobs...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-800 mx-auto"></div>
+          <p className="mt-4 text-blue-700">Loading jobs...</p>
         </div>
       </div>
     );
@@ -571,13 +639,13 @@ function AdminJobs() {
 
   if (isAgent && !hasReadPermission) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-blue-50 flex items-center justify-center p-4">
         <div className="text-center max-w-md mx-auto p-6">
           <div className="bg-red-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
             <XCircleIcon className="w-8 h-8 text-red-600" />
           </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Access Denied</h2>
-          <p className="text-gray-700 mb-4">
+          <h2 className="text-2xl font-bold text-blue-900 mb-2">Access Denied</h2>
+          <p className="text-blue-700 mb-4">
             You do not have permission to view job management. Please contact your administrator to request access.
           </p>
         </div>
@@ -586,25 +654,25 @@ function AdminJobs() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 pt-2 sm:pt-3 lg:pt-4 px-4 sm:px-6 lg:px-8 pb-4 sm:pb-6 lg:pb-8">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 pt-2 sm:pt-3 lg:pt-4 px-4 sm:px-6 lg:px-8 pb-4 sm:pb-6 lg:pb-8">
       <ToastContainer toasts={toasts} removeToast={removeToast} />
       
       <div className="max-w-7xl mx-auto space-y-4">
         {/* Header Section */}
-        <div className="bg-white/95 backdrop-blur-sm rounded-xl shadow-sm border border-gray-200/50 p-4">
+        <div className="bg-white/95 backdrop-blur-sm rounded-xl shadow-sm border border-blue-200/50 p-4">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
             <div className="flex items-start gap-3">
-              <div className="bg-gradient-to-br from-gray-800 to-gray-900 p-2.5 rounded-xl shadow-md">
+              <div className="bg-gradient-to-br from-blue-800 to-blue-900 p-2.5 rounded-xl shadow-md">
                 <BriefcaseIcon className="w-6 h-6 text-white" />
               </div>
               <div>
                 <div className="flex items-center gap-2 mb-1">
-                  <h1 className="text-lg font-bold text-gray-900">
+                  <h1 className="text-lg font-bold text-blue-900">
                     Job Management
                   </h1>
                   <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 text-xs font-semibold rounded-full">New</span>
                 </div>
-                <p className="text-sm text-gray-600">
+                <p className="text-sm text-blue-600">
                   Manage and review job listings across different statuses
                 </p>
               </div>
@@ -617,24 +685,24 @@ function AdminJobs() {
                 }}
                 className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                   showFilters
-                    ? 'bg-gray-800 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    ? 'bg-blue-800 text-white'
+                    : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
                 }`}
               >
                 <FunnelIcon className="w-4 h-4" />
                 Filters
               </button>
 
-              <div className="flex items-center gap-2 border border-gray-300 rounded-lg overflow-hidden">
+              <div className="flex items-center gap-2 border border-blue-300 rounded-lg overflow-hidden">
                 <button
                   onClick={() => setViewMode("grid")}
-                  className={`p-2 ${viewMode === "grid" ? "bg-gray-800 text-white" : "text-gray-700 hover:bg-gray-100"}`}
+                  className={`p-2 ${viewMode === "grid" ? "bg-blue-800 text-white" : "text-blue-700 hover:bg-blue-100"}`}
                 >
                   <GridIcon className="w-4 h-4" />
                 </button>
                 <button
                   onClick={() => setViewMode("list")}
-                  className={`p-2 ${viewMode === "list" ? "bg-gray-800 text-white" : "text-gray-700 hover:bg-gray-100"}`}
+                  className={`p-2 ${viewMode === "list" ? "bg-blue-800 text-white" : "text-blue-700 hover:bg-blue-100"}`}
                 >
                   <ListIcon className="w-4 h-4" />
                 </button>
@@ -643,7 +711,7 @@ function AdminJobs() {
           </div>
 
           {/* Stats Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4 pt-4 border-t border-gray-200">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4 pt-4 border-t border-blue-200">
             {[
               { title: 'Pending', value: jobs.pending.length, icon: ClockIcon, color: 'bg-amber-500', bgColor: 'bg-amber-50', textColor: 'text-amber-700', borderColor: 'border-amber-200' },
               { title: 'Approved', value: jobs.approved.length, icon: CheckCircleIcon, color: 'bg-emerald-500', bgColor: 'bg-emerald-50', textColor: 'text-emerald-700', borderColor: 'border-emerald-200' },
@@ -655,7 +723,7 @@ function AdminJobs() {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className={`text-xs font-medium ${stat.textColor} uppercase tracking-wide mb-0.5`}>{stat.title}</p>
-                      <p className="text-xl font-bold text-gray-900">{stat.value}</p>
+                      <p className="text-xl font-bold text-blue-900">{stat.value}</p>
                     </div>
                     <div className={`${stat.color} p-2 rounded-lg text-white shadow-sm`}>
                       <Icon className="w-5 h-5" />
@@ -668,8 +736,8 @@ function AdminJobs() {
         </div>
 
         {/* Tab Navigation */}
-        <div className="bg-white/95 backdrop-blur-sm rounded-xl shadow-sm border border-gray-200/50 p-4">
-          <nav className="flex space-x-4 border-b border-gray-200">
+        <div className="bg-white/95 backdrop-blur-sm rounded-xl shadow-sm border border-blue-200/50 p-4">
+          <nav className="flex space-x-4 border-b border-blue-200">
             {(['pending', 'approved', 'declined'] as const).map((tab) => (
               <button
                 key={tab}
@@ -680,8 +748,8 @@ function AdminJobs() {
                 }}
                 className={`py-1.5 px-2 border-b-2 font-medium text-xs capitalize transition-colors duration-200 ${
                   activeTab === tab
-                    ? 'border-gray-800 text-gray-800'
-                    : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
+                    ? 'border-blue-800 text-blue-800'
+                    : 'border-transparent text-blue-600 hover:text-blue-900 hover:border-blue-300'
                   }`}
               >
                 {tab} ({getTabCount(tab)})
@@ -692,38 +760,38 @@ function AdminJobs() {
 
         {/* Filters */}
         {showFilters && (
-          <div className="bg-white/95 backdrop-blur-sm rounded-xl shadow-sm border border-gray-200/50 p-3">
+          <div className="bg-white/95 backdrop-blur-sm rounded-xl shadow-sm border border-blue-200/50 p-3">
           <div className="mb-2">
-            <h3 className="text-sm font-semibold text-gray-900">Filters & Search</h3>
+            <h3 className="text-sm font-semibold text-blue-900">Filters & Search</h3>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
             {/* Search */}
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Search</label>
+              <label className="block text-xs font-medium text-blue-700 mb-1">Search</label>
                 <div className="relative">
-                  <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-700" />
+                  <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-blue-700" />
               <input
                 type="text"
                 value={filters.search}
                 onChange={(e) => handleFilterChange('search', e.target.value)}
                 placeholder="Job title, company, department..."
-                    className="w-full pl-10 pr-3 py-2 text-sm border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-800 focus:border-transparent"
+                    className="w-full pl-10 pr-3 py-2 text-sm border border-blue-300 rounded-lg text-blue-900 focus:outline-none focus:ring-1 focus:ring-blue-800 focus:border-transparent"
               />
                 </div>
             </div>
 
             {/* Job Type Filter */}
             <div className="custom-select relative">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Job Type</label>
+              <label className="block text-sm font-medium text-blue-700 mb-1">Job Type</label>
               <button
                 type="button"
                 onClick={() => setOpenSelect(openSelect === 'jobType' ? null : 'jobType')}
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-800 focus:border-transparent flex items-center justify-between"
+                className="w-full px-3 py-2 text-sm border border-blue-300 rounded-lg bg-white text-blue-900 focus:outline-none focus:ring-1 focus:ring-blue-800 focus:border-transparent flex items-center justify-between"
               >
                 <span className="truncate">{filters.jobType || "All Types"}</span>
                 <svg
-                  className={`w-4 h-4 text-gray-500 transition-transform ${openSelect === 'jobType' ? 'rotate-180' : ''}`}
+                  className={`w-4 h-4 text-blue-500 transition-transform ${openSelect === 'jobType' ? 'rotate-180' : ''}`}
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -732,14 +800,14 @@ function AdminJobs() {
                 </svg>
               </button>
               {openSelect === 'jobType' && (
-                <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-56 overflow-y-auto overscroll-contain">
+                <div className="absolute z-20 w-full mt-1 bg-white border border-blue-200 rounded-lg shadow-lg max-h-56 overflow-y-auto overscroll-contain">
                   <button
                     type="button"
                     onClick={() => {
                       handleFilterChange('jobType', "");
                       setOpenSelect(null);
                     }}
-                    className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-100 transition-colors ${filters.jobType === "" ? "bg-blue-50 text-blue-600" : "text-gray-900"}`}
+                    className={`w-full px-3 py-2 text-left text-sm hover:bg-blue-100 transition-colors ${filters.jobType === "" ? "bg-blue-50 text-blue-600" : "text-blue-900"}`}
                   >
                     All Types
                   </button>
@@ -751,7 +819,7 @@ function AdminJobs() {
                         handleFilterChange('jobType', type);
                         setOpenSelect(null);
                       }}
-                      className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-100 transition-colors ${filters.jobType === type ? "bg-blue-50 text-blue-600" : "text-gray-900"}`}
+                      className={`w-full px-3 py-2 text-left text-sm hover:bg-blue-100 transition-colors ${filters.jobType === type ? "bg-blue-50 text-blue-600" : "text-blue-900"}`}
                     >
                       {type}
                     </button>
@@ -762,15 +830,15 @@ function AdminJobs() {
 
             {/* Location Filter */}
             <div className="custom-select relative">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
+              <label className="block text-sm font-medium text-blue-700 mb-1">Location</label>
               <button
                 type="button"
                 onClick={() => setOpenSelect(openSelect === 'location' ? null : 'location')}
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-800 focus:border-transparent flex items-center justify-between"
+                className="w-full px-3 py-2 text-sm border border-blue-300 rounded-lg bg-white text-blue-900 focus:outline-none focus:ring-1 focus:ring-blue-800 focus:border-transparent flex items-center justify-between"
               >
                 <span className="truncate">{filters.location || "All Locations"}</span>
                 <svg
-                  className={`w-4 h-4 text-gray-500 transition-transform ${openSelect === 'location' ? 'rotate-180' : ''}`}
+                  className={`w-4 h-4 text-blue-500 transition-transform ${openSelect === 'location' ? 'rotate-180' : ''}`}
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -779,14 +847,14 @@ function AdminJobs() {
                 </svg>
               </button>
               {openSelect === 'location' && (
-                <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-56 overflow-y-auto overscroll-contain">
+                <div className="absolute z-20 w-full mt-1 bg-white border border-blue-200 rounded-lg shadow-lg max-h-56 overflow-y-auto overscroll-contain">
                   <button
                     type="button"
                     onClick={() => {
                       handleFilterChange('location', "");
                       setOpenSelect(null);
                     }}
-                    className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-100 transition-colors ${filters.location === "" ? "bg-blue-50 text-blue-600" : "text-gray-900"}`}
+                    className={`w-full px-3 py-2 text-left text-sm hover:bg-blue-100 transition-colors ${filters.location === "" ? "bg-blue-50 text-blue-600" : "text-blue-900"}`}
                   >
                     All Locations
                   </button>
@@ -798,7 +866,7 @@ function AdminJobs() {
                         handleFilterChange('location', location);
                         setOpenSelect(null);
                       }}
-                      className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-100 transition-colors ${filters.location === location ? "bg-blue-50 text-blue-600" : "text-gray-900"}`}
+                      className={`w-full px-3 py-2 text-left text-sm hover:bg-blue-100 transition-colors ${filters.location === location ? "bg-blue-50 text-blue-600" : "text-blue-900"}`}
                     >
                       {location}
                     </button>
@@ -809,15 +877,15 @@ function AdminJobs() {
 
             {/* Department Filter */}
             <div className="custom-select relative">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
+              <label className="block text-sm font-medium text-blue-700 mb-1">Department</label>
               <button
                 type="button"
                 onClick={() => setOpenSelect(openSelect === 'department' ? null : 'department')}
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-800 focus:border-transparent flex items-center justify-between"
+                className="w-full px-3 py-2 text-sm border border-blue-300 rounded-lg bg-white text-blue-900 focus:outline-none focus:ring-1 focus:ring-blue-800 focus:border-transparent flex items-center justify-between"
               >
                 <span className="truncate">{filters.department || "All Departments"}</span>
                 <svg
-                  className={`w-4 h-4 text-gray-500 transition-transform ${openSelect === 'department' ? 'rotate-180' : ''}`}
+                  className={`w-4 h-4 text-blue-500 transition-transform ${openSelect === 'department' ? 'rotate-180' : ''}`}
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -826,14 +894,14 @@ function AdminJobs() {
                 </svg>
               </button>
               {openSelect === 'department' && (
-                <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-56 overflow-y-auto overscroll-contain">
+                <div className="absolute z-20 w-full mt-1 bg-white border border-blue-200 rounded-lg shadow-lg max-h-56 overflow-y-auto overscroll-contain">
                   <button
                     type="button"
                     onClick={() => {
                       handleFilterChange('department', "");
                       setOpenSelect(null);
                     }}
-                    className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-100 transition-colors ${filters.department === "" ? "bg-blue-50 text-blue-600" : "text-gray-900"}`}
+                    className={`w-full px-3 py-2 text-left text-sm hover:bg-blue-100 transition-colors ${filters.department === "" ? "bg-blue-50 text-blue-600" : "text-blue-900"}`}
                   >
                     All Departments
                   </button>
@@ -845,7 +913,7 @@ function AdminJobs() {
                         handleFilterChange('department', department);
                         setOpenSelect(null);
                       }}
-                      className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-100 transition-colors ${filters.department === department ? "bg-blue-50 text-blue-600" : "text-gray-900"}`}
+                      className={`w-full px-3 py-2 text-left text-sm hover:bg-blue-100 transition-colors ${filters.department === department ? "bg-blue-50 text-blue-600" : "text-blue-900"}`}
                     >
                       {department}
                     </button>
@@ -856,7 +924,7 @@ function AdminJobs() {
 
             {/* Salary Range */}
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Salary Range</label>
+              <label className="block text-sm font-medium text-blue-700 mb-1">Salary Range</label>
               <div className="flex items-end gap-10">
                 <div className="flex space-x-2 flex-1">
                   <input
@@ -864,20 +932,20 @@ function AdminJobs() {
                     value={filters.salaryMin}
                     onChange={(e) => handleFilterChange('salaryMin', e.target.value)}
                     placeholder="Min salary"
-                      className="flex-1 px-2 py-2 text-sm border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-800 focus:border-transparent"
+                      className="flex-1 px-2 py-2 text-sm border border-blue-300 rounded-lg text-blue-900 focus:outline-none focus:ring-1 focus:ring-blue-800 focus:border-transparent"
                   />
-                    <span className="flex items-center text-gray-700">to</span>
+                    <span className="flex items-center text-blue-700">to</span>
                   <input
                     type="number"
                     value={filters.salaryMax}
                     onChange={(e) => handleFilterChange('salaryMax', e.target.value)}
                     placeholder="Max salary"
-                      className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-800 focus:border-transparent"
+                      className="flex-1 px-3 py-2 text-sm border border-blue-300 rounded-lg text-blue-900 focus:outline-none focus:ring-1 focus:ring-blue-800 focus:border-transparent"
                   />
                 </div>
                 <button
                   onClick={applyFilters}
-                  className="flex items-center px-3 py-2 bg-gray-800 hover:bg-gray-700 text-white text-sm font-medium rounded-lg transition-colors duration-200 whitespace-nowrap"
+                  className="flex items-center px-3 py-2 bg-blue-800 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors duration-200 whitespace-nowrap"
                 >
                   Apply Filters
                 </button>
@@ -888,22 +956,22 @@ function AdminJobs() {
         )}
 
         {/* Results Summary */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-          <p className="text-sm text-gray-700">
-            Showing {startIndex + 1}-{Math.min(startIndex + JOBS_PER_PAGE, filteredJobs.length)} of {filteredJobs.length} {activeTab} job{filteredJobs.length !== 1 ? 's' : ''}
+        <div className="bg-white rounded-lg shadow-sm border border-blue-200 p-4">
+          <p className="text-sm text-blue-700">
+            Showing {paginatedJobs.length === 0 ? 0 : startIndex + 1}-{Math.min(startIndex + JOBS_PER_PAGE, activeTab === 'approved' ? totalJobs : filteredJobs.length)} of {activeTab === 'approved' ? totalJobs : filteredJobs.length} {activeTab} job{(activeTab === 'approved' ? totalJobs : filteredJobs.length) !== 1 ? 's' : ''}
             {Object.values(filters).some(filter => filter) && ' (filtered)'}
           </p>
         </div>
 
         {/* Job Cards */}
           {paginatedJobs.length > 0 ? (
-          <div className={viewMode === "grid" ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" : "space-y-4"}>
+          <div className={viewMode === "grid" ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 min-h-[600px]" : "space-y-4"}>
             {paginatedJobs.map((job) => (
-              <div key={job._id} className="bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden">
+              <div key={job._id} className="bg-white border border-blue-200 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden">
                 {/* Compact Header */}
-                <div className="p-4 border-b border-gray-100">
+                <div className="p-4 border-b border-blue-100">
                   <div className="flex items-start justify-between gap-2 mb-2">
-                    <h3 className="text-base font-semibold text-gray-900 line-clamp-2 flex-1">{job.jobTitle}</h3>
+                    <h3 className="text-base font-semibold text-blue-900 line-clamp-2 flex-1">{job.jobTitle}</h3>
                     {job.status && (
                       <span className={`px-2 py-1 rounded-full text-xs font-medium whitespace-nowrap ${
                         job.status === 'approved' ? 'bg-green-100 text-green-800' :
@@ -914,7 +982,7 @@ function AdminJobs() {
                         </span>
                     )}
                       </div>
-                  <div className="flex items-center gap-3 text-xs text-gray-700">
+                  <div className="flex items-center gap-3 text-xs text-blue-700">
                     <div className="flex items-center gap-1">
                       <BuildingOfficeIcon className="w-3 h-3" />
                       <span className="truncate">{job.companyName}</span>
@@ -936,7 +1004,7 @@ function AdminJobs() {
                         </div>
                       )}
                     <div className="flex items-center gap-1 text-gray-700">
-                      <ClockIcon className="w-3 h-3 text-blue-600" />
+                      <ClockIcon className="w-3 h-3 text-green-600" />
                       <span className="truncate">{job.jobType}</span>
                           </div>
                     {job.noOfOpenings !== undefined && (
@@ -947,7 +1015,7 @@ function AdminJobs() {
                       )}
                     {job.department && (
                       <div className="flex items-center gap-1 text-gray-700">
-                        <BriefcaseIcon className="w-3 h-3 text-gray-600" />
+                        <BriefcaseIcon className="w-3 h-3 text-purple-600" />
                         <span className="truncate">{job.department}</span>
                     </div>
                     )}
@@ -974,7 +1042,7 @@ function AdminJobs() {
                       setSelectedJob(job);
                       setShowJobDetails(true);
                     }}
-                    className="w-full px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-medium rounded-lg transition-colors duration-200 flex items-center justify-center gap-1"
+                    className="w-full px-3 py-1.5 bg-blue-100 hover:bg-blue-200 text-blue-700 text-xs font-medium rounded-lg transition-colors duration-200 flex items-center justify-center gap-1"
                   >
                     <InformationCircleIcon className="w-3 h-3" />
                     See Full Details
@@ -1016,7 +1084,7 @@ function AdminJobs() {
                                 {shouldShowAction('approve') && (
                                   <button
                                     onClick={() => openConfirmationModal('approve', job._id, job.jobTitle)}
-                                className="flex-1 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-white text-xs font-medium rounded-lg transition-colors duration-200 flex items-center justify-center gap-1"
+                                className="flex-1 px-3 py-1.5 bg-blue-800 hover:bg-blue-700 text-white text-xs font-medium rounded-lg transition-colors duration-200 flex items-center justify-center gap-1"
                                   >
                                 <CheckCircleIcon className="w-3 h-3" />
                                     Approve
@@ -1067,7 +1135,7 @@ function AdminJobs() {
                                 {shouldShowAction('approve') && (
                                   <button
                                     onClick={() => openConfirmationModal('approve', job._id, job.jobTitle)}
-                                className="flex-1 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-white text-xs font-medium rounded-lg transition-colors duration-200 flex items-center justify-center gap-1"
+                                className="flex-1 px-3 py-1.5 bg-blue-800 hover:bg-blue-700 text-white text-xs font-medium rounded-lg transition-colors duration-200 flex items-center justify-center gap-1"
                                   >
                                 <CheckCircleIcon className="w-3 h-3" />
                                     Approve
@@ -1089,12 +1157,18 @@ function AdminJobs() {
                     </div>
                   </div>
             ))}
+            {/* Empty placeholder cards to maintain grid layout when cards are less than 9 */}
+            {viewMode === "grid" && paginatedJobs.length < JOBS_PER_PAGE && 
+              Array.from({ length: JOBS_PER_PAGE - paginatedJobs.length }).map((_, index) => (
+                <div key={`empty-${index}`} className="bg-transparent border-0" aria-hidden="true"></div>
+              ))
+            }
                 </div>
         ) : (
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
+          <div className="bg-white rounded-lg shadow-sm border border-blue-200 p-12 text-center">
             <BriefcaseIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">No jobs found</h3>
-            <p className="text-gray-700 mb-4">
+            <p className="text-blue-700 mb-4">
                 {Object.values(filters).some(filter => filter)
                   ? "Try adjusting your filters or search terms"
                   : `No ${activeTab} jobs available`}
@@ -1102,7 +1176,7 @@ function AdminJobs() {
               {Object.values(filters).some(filter => filter) && (
                 <button
                   onClick={clearFilters}
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-gray-800 hover:bg-gray-700 transition-colors duration-200"
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-800 hover:bg-blue-700 transition-colors duration-200"
                 >
                   Clear Filters
                 </button>
@@ -1110,39 +1184,34 @@ function AdminJobs() {
             </div>
           )}
 
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-              <div className="text-sm text-gray-700">
-                Page {currentPage} of {totalPages}
-              </div>
-              <div className="flex items-center gap-2">
+        {/* Pagination - Fixed position, only Next/Previous */}
+        {(activeTab === 'approved' ? totalJobs > JOBS_PER_PAGE : totalPages > 1) && (
+          <div className="bg-white rounded-lg shadow-sm border border-blue-200 p-4 mt-4">
+            <div className="flex items-center justify-center gap-3">
               <button
                 onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
                 disabled={currentPage === 1}
-                  className="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-2 border border-blue-300 rounded-lg text-sm font-medium text-blue-700 bg-white hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 Previous
               </button>
               <button
                 onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
                 disabled={currentPage === totalPages}
-                  className="px-4 py-2 border border-gray-300 rounded-lg text-sm text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-2 border border-blue-300 rounded-lg text-sm font-medium text-blue-700 bg-white hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 Next
               </button>
             </div>
-              </div>
           </div>
         )}
 
         {/* Job Details Modal */}
         {showJobDetails && selectedJob && typeof window !== 'undefined' && createPortal(
           <div className="fixed inset-0 backdrop-blur-sm bg-black/20 flex items-center justify-center z-[9999] p-4" style={{ zIndex: 9999 }}>
-            <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="bg-white rounded-2xl shadow-2xl border border-blue-100 max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
               {/* Header */}
-              <div className="bg-gray-800 rounded-t-2xl p-4 sm:p-6 text-white relative overflow-hidden flex-shrink-0">
+              <div className="bg-blue-800 rounded-t-2xl p-4 sm:p-6 text-white relative overflow-hidden flex-shrink-0">
                 <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-16 translate-x-16"></div>
                 <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/10 rounded-full translate-y-12 -translate-x-12"></div>
                 <div className="relative flex items-start justify-between gap-4 min-w-0">
@@ -1195,35 +1264,35 @@ function AdminJobs() {
                 {/* Key Details Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {selectedJob.salary && (
-                    <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                    <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg">
                       <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
                         <CurrencyDollarIcon className="w-5 h-5 text-green-600" />
                       </div>
                       <div>
-                        <div className="text-xs text-gray-700 font-medium uppercase tracking-wider">Salary</div>
-                        <div className="font-semibold text-gray-900">{selectedJob.salary} {selectedJob.salaryType || ''}</div>
+                        <div className="text-xs text-blue-700 font-medium uppercase tracking-wider">Salary</div>
+                        <div className="font-semibold text-blue-900">{selectedJob.salary} {selectedJob.salaryType || ''}</div>
                       </div>
                     </div>
                   )}
 
-                  <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                  <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg">
                     <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
                       <ClockIcon className="w-5 h-5 text-blue-600" />
                     </div>
                     <div>
-                      <div className="text-xs text-gray-700 font-medium uppercase tracking-wider">Job Type</div>
-                      <div className="font-semibold text-gray-900">{selectedJob.jobType}</div>
+                      <div className="text-xs text-blue-700 font-medium uppercase tracking-wider">Job Type</div>
+                      <div className="font-semibold text-blue-900">{selectedJob.jobType}</div>
                     </div>
                   </div>
 
                   {selectedJob.noOfOpenings !== undefined && (
-                    <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                    <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg">
                       <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
                         <UserGroupIcon className="w-5 h-5 text-purple-600" />
                       </div>
                       <div>
-                        <div className="text-xs text-gray-700 font-medium uppercase tracking-wider">Openings</div>
-                        <div className="font-semibold text-gray-900">{selectedJob.noOfOpenings}</div>
+                        <div className="text-xs text-blue-700 font-medium uppercase tracking-wider">Openings</div>
+                        <div className="font-semibold text-blue-900">{selectedJob.noOfOpenings}</div>
                       </div>
                     </div>
                   )}
@@ -1232,58 +1301,58 @@ function AdminJobs() {
                 {/* Detailed Information */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-3">
-                    <div className="flex justify-between py-2 border-b border-gray-200">
-                      <span className="text-sm font-medium text-gray-700">Department</span>
-                      <span className="text-sm text-gray-900">{selectedJob.department}</span>
+                    <div className="flex justify-between py-2 border-b border-blue-200">
+                      <span className="text-sm font-medium text-blue-700">Department</span>
+                      <span className="text-sm text-blue-900">{selectedJob.department}</span>
                     </div>
-                    <div className="flex justify-between py-2 border-b border-gray-200">
-                      <span className="text-sm font-medium text-gray-700">Qualification</span>
-                      <span className="text-sm text-gray-900">{selectedJob.qualification}</span>
+                    <div className="flex justify-between py-2 border-b border-blue-200">
+                      <span className="text-sm font-medium text-blue-700">Qualification</span>
+                      <span className="text-sm text-blue-900">{selectedJob.qualification}</span>
                     </div>
                     {selectedJob.experience && (
-                      <div className="flex justify-between py-2 border-b border-gray-200">
-                        <span className="text-sm font-medium text-gray-700">Experience</span>
-                        <span className="text-sm text-gray-900">{selectedJob.experience}</span>
+                      <div className="flex justify-between py-2 border-b border-blue-200">
+                        <span className="text-sm font-medium text-blue-700">Experience</span>
+                        <span className="text-sm text-blue-900">{selectedJob.experience}</span>
                       </div>
                     )}
                     {selectedJob.establishment && (
-                      <div className="flex justify-between py-2 border-b border-gray-200">
-                        <span className="text-sm font-medium text-gray-700">Established</span>
-                        <span className="text-sm text-gray-900">{selectedJob.establishment}</span>
+                      <div className="flex justify-between py-2 border-b border-blue-200">
+                        <span className="text-sm font-medium text-blue-700">Established</span>
+                        <span className="text-sm text-blue-900">{selectedJob.establishment}</span>
                       </div>
                     )}
                   </div>
                   <div className="space-y-3">
                     {selectedJob.workingDays && (
-                      <div className="flex justify-between py-2 border-b border-gray-200">
-                        <span className="text-sm font-medium text-gray-700">Working Days</span>
-                        <span className="text-sm text-gray-900">{selectedJob.workingDays}</span>
+                      <div className="flex justify-between py-2 border-b border-blue-200">
+                        <span className="text-sm font-medium text-blue-700">Working Days</span>
+                        <span className="text-sm text-blue-900">{selectedJob.workingDays}</span>
                       </div>
                     )}
                     {selectedJob.jobTiming && (
-                      <div className="flex justify-between py-2 border-b border-gray-200">
-                        <span className="text-sm font-medium text-gray-700">Timing</span>
-                        <span className="text-sm text-gray-900">{selectedJob.jobTiming}</span>
+                      <div className="flex justify-between py-2 border-b border-blue-200">
+                        <span className="text-sm font-medium text-blue-700">Timing</span>
+                        <span className="text-sm text-blue-900">{selectedJob.jobTiming}</span>
                       </div>
                     )}
                     {selectedJob.isActive !== undefined && (
-                      <div className="flex justify-between py-2 border-b border-gray-200">
-                        <span className="text-sm font-medium text-gray-700">Active</span>
+                      <div className="flex justify-between py-2 border-b border-blue-200">
+                        <span className="text-sm font-medium text-blue-700">Active</span>
                         <span className={`text-sm font-medium ${selectedJob.isActive ? 'text-green-600' : 'text-red-600'}`}>
                           {selectedJob.isActive ? 'Yes' : 'No'}
                         </span>
                       </div>
                     )}
                     {selectedJob.createdAt && (
-                      <div className="flex justify-between py-2 border-b border-gray-200">
-                        <span className="text-sm font-medium text-gray-700">Created</span>
-                        <span className="text-sm text-gray-900">{new Date(selectedJob.createdAt).toLocaleDateString()}</span>
+                      <div className="flex justify-between py-2 border-b border-blue-200">
+                        <span className="text-sm font-medium text-blue-700">Created</span>
+                        <span className="text-sm text-blue-900">{new Date(selectedJob.createdAt).toLocaleDateString()}</span>
                       </div>
                     )}
                     {selectedJob.updatedAt && (
-                      <div className="flex justify-between py-2 border-b border-gray-200">
-                        <span className="text-sm font-medium text-gray-700">Updated</span>
-                        <span className="text-sm text-gray-900">{new Date(selectedJob.updatedAt).toLocaleDateString()}</span>
+                      <div className="flex justify-between py-2 border-b border-blue-200">
+                        <span className="text-sm font-medium text-blue-700">Updated</span>
+                        <span className="text-sm text-blue-900">{new Date(selectedJob.updatedAt).toLocaleDateString()}</span>
                       </div>
                     )}
                   </div>
@@ -1291,9 +1360,9 @@ function AdminJobs() {
 
                 {/* Posted By */}
                 {selectedJob.postedBy && (
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <h4 className="text-sm font-semibold text-gray-900 mb-2">Posted By</h4>
-                    <div className="space-y-1 text-sm text-gray-700">
+                  <div className="bg-blue-50 rounded-lg p-4">
+                    <h4 className="text-sm font-semibold text-blue-900 mb-2">Posted By</h4>
+                    <div className="space-y-1 text-sm text-blue-700">
                       <div><span className="font-medium">Name:</span> {selectedJob.postedBy.name}</div>
                       <div><span className="font-medium">Email:</span> {selectedJob.postedBy.email}</div>
                       <div><span className="font-medium">Role:</span> {selectedJob.postedBy.role}</div>
@@ -1304,7 +1373,7 @@ function AdminJobs() {
                 {/* Skills */}
                 {(selectedJob.skills?.length || 0) > 0 && (
                   <div>
-                    <h4 className="text-sm font-semibold text-gray-900 mb-2">Skills Required</h4>
+                    <h4 className="text-sm font-semibold text-blue-900 mb-2">Skills Required</h4>
                     <div className="flex flex-wrap gap-2">
                       {(selectedJob.skills || []).map((skill, index) => (
                         <span key={index} className="px-3 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded-full">
@@ -1318,7 +1387,7 @@ function AdminJobs() {
                 {/* Perks */}
                 {(selectedJob.perks?.length || 0) > 0 && (
                   <div>
-                    <h4 className="text-sm font-semibold text-gray-900 mb-2">Perks & Benefits</h4>
+                    <h4 className="text-sm font-semibold text-blue-900 mb-2">Perks & Benefits</h4>
                     <div className="flex flex-wrap gap-2">
                       {(selectedJob.perks || []).map((perk, index) => (
                         <span key={index} className="px-3 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full">
@@ -1332,7 +1401,7 @@ function AdminJobs() {
                 {/* Languages */}
                 {(selectedJob.languagesPreferred?.length || 0) > 0 && (
                   <div>
-                    <h4 className="text-sm font-semibold text-gray-900 mb-2">Languages Preferred</h4>
+                    <h4 className="text-sm font-semibold text-blue-900 mb-2">Languages Preferred</h4>
                     <div className="flex flex-wrap gap-2">
                       {(selectedJob.languagesPreferred || []).map((language, index) => (
                         <span key={index} className="px-3 py-1 bg-purple-100 text-purple-800 text-xs font-medium rounded-full">
@@ -1346,8 +1415,8 @@ function AdminJobs() {
                 {/* Description */}
                 {selectedJob.description && (
                   <div>
-                    <h4 className="text-sm font-semibold text-gray-900 mb-2">Job Description</h4>
-                    <div className="text-sm text-gray-700 bg-gray-50 p-4 rounded-lg leading-relaxed whitespace-pre-wrap">
+                    <h4 className="text-sm font-semibold text-blue-900 mb-2">Job Description</h4>
+                    <div className="text-sm text-blue-700 bg-blue-50 p-4 rounded-lg leading-relaxed whitespace-pre-wrap">
                       {selectedJob.description}
                     </div>
                   </div>
@@ -1355,7 +1424,7 @@ function AdminJobs() {
               </div>
 
               {/* Footer with Actions */}
-              <div className="border-t border-gray-200 p-6 bg-gray-50">
+              <div className="border-t border-blue-200 p-6 bg-blue-50">
                 <div className="flex flex-wrap gap-2 justify-end">
                   {(() => {
                     const adminTokenExists = typeof window !== 'undefined' ? !!localStorage.getItem('adminToken') : false;
@@ -1393,7 +1462,7 @@ function AdminJobs() {
                                   setShowJobDetails(false);
                                   openConfirmationModal('approve', selectedJob._id, selectedJob.jobTitle);
                                 }}
-                                className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white text-sm font-medium rounded-lg transition-colors duration-200 flex items-center gap-2"
+                                className="px-4 py-2 bg-blue-800 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors duration-200 flex items-center gap-2"
                               >
                                 <CheckCircleIcon className="w-4 h-4" />
                                 Approve
@@ -1461,7 +1530,7 @@ function AdminJobs() {
                                   setShowJobDetails(false);
                                   openConfirmationModal('approve', selectedJob._id, selectedJob.jobTitle);
                                 }}
-                                className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white text-sm font-medium rounded-lg transition-colors duration-200 flex items-center gap-2"
+                                className="px-4 py-2 bg-blue-800 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors duration-200 flex items-center gap-2"
                               >
                                 <CheckCircleIcon className="w-4 h-4" />
                                 Approve
@@ -1486,7 +1555,7 @@ function AdminJobs() {
                             setShowJobDetails(false);
                             setSelectedJob(null);
                           }}
-                          className="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 text-sm font-medium rounded-lg transition-colors duration-200"
+                          className="px-4 py-2 bg-blue-200 hover:bg-blue-300 text-blue-700 text-sm font-medium rounded-lg transition-colors duration-200"
                         >
                           Close
                         </button>
@@ -1503,7 +1572,7 @@ function AdminJobs() {
         {/* Confirmation Modal */}
         {confirmationModal.isOpen && typeof window !== 'undefined' && createPortal(
           <div className="fixed inset-0 backdrop-blur-sm bg-black/20 flex items-center justify-center z-[9999] p-4" style={{ zIndex: 9999 }}>
-            <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 p-8 max-w-md w-full transform transition-all duration-300 ease-out">
+            <div className="bg-white rounded-2xl shadow-2xl border border-blue-100 p-8 max-w-md w-full transform transition-all duration-300 ease-out">
               <div className="text-center">
                 <div className="mx-auto mb-4 w-16 h-16 rounded-full flex items-center justify-center">
                   {confirmationModal.type === "approve" && (
@@ -1523,11 +1592,11 @@ function AdminJobs() {
                       )}
                     </div>
 
-                <h2 className="text-2xl font-bold text-gray-900 mb-2 capitalize">
+                <h2 className="text-2xl font-bold text-blue-900 mb-2 capitalize">
                   Confirm {confirmationModal.type}
                 </h2>
 
-                <p className="text-base text-gray-700 mb-8 leading-relaxed">
+                <p className="text-base text-blue-700 mb-8 leading-relaxed">
                   Are you sure you want to {confirmationModal.type} this job?
                   {confirmationModal.type === "delete" && (
                     <span className="block mt-2 text-red-600 font-medium text-sm">
@@ -1539,7 +1608,7 @@ function AdminJobs() {
                 <div className="flex gap-3">
                   <button
                     onClick={closeConfirmationModal}
-                    className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 px-6 py-3 rounded-xl font-medium text-base transition-all duration-200 hover:shadow-md"
+                    className="flex-1 bg-blue-100 hover:bg-blue-200 text-blue-700 px-6 py-3 rounded-xl font-medium text-base transition-all duration-200 hover:shadow-md"
                   >
                     Cancel
                   </button>
@@ -1547,7 +1616,7 @@ function AdminJobs() {
                     onClick={handleConfirmAction}
                     className={`flex-1 text-white px-6 py-3 rounded-xl font-medium text-base transition-all duration-200 hover:shadow-md ${
                       confirmationModal.type === "approve"
-                        ? "bg-gray-800 hover:bg-gray-700"
+                        ? "bg-blue-800 hover:bg-blue-700"
                         : confirmationModal.type === "decline"
                           ? "bg-yellow-500 hover:bg-yellow-600"
                           : "bg-red-500 hover:bg-red-600"

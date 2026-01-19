@@ -2600,10 +2600,10 @@ const ClinicDashboard: NextPageWithLayout = () => {
         <div className="mb-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-1">
+              <h1 className="text-2xl sm:text-3xl font-bold text-blue-800 mb-1">
                     {clinicInfo.name || 'Clinic Dashboard'}
                   </h1>
-              <div className="flex items-center gap-3 text-sm text-gray-600">
+              <div className="flex items-center gap-3 text-sm text-blue-600">
                 <div className="flex items-center gap-1.5">
                   <User className="w-4 h-4" />
                   <span>{clinicInfo.ownerName || clinicUser?.name || 'N/A'}</span>
@@ -2857,7 +2857,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                     return (
                                       <SortableChart key={chart.id} chart={chart}>
                 <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4 overflow-hidden">
-                  <h3 className="text-sm font-semibold text-gray-900 mb-4">Appointment Status</h3>
+                  <h3 className="text-sm font-semibold text-blue-800 mb-4">Appointment Status</h3>
                   <div className="h-56">
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart margin={{ top: 10, right: 20, bottom: 40, left: 20 }}>
@@ -2897,7 +2897,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                     return (
                                       <SortableChart key={chart.id} chart={chart}>
                 <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4 overflow-hidden">
-                  <h3 className="text-sm font-semibold text-gray-900 mb-4">Lead Status</h3>
+                  <h3 className="text-sm font-semibold text-blue-800 mb-4">Lead Status</h3>
                   <div className="h-56">
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart margin={{ top: 10, right: 20, bottom: 40, left: 20 }}>
@@ -2937,7 +2937,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                     return (
                                       <SortableChart key={chart.id} chart={chart}>
                 <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4 overflow-hidden">
-                  <h3 className="text-sm font-semibold text-gray-900 mb-4">Offer Status</h3>
+                  <h3 className="text-sm font-semibold text-blue-800 mb-4">Offer Status</h3>
                   <div className="h-56">
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart margin={{ top: 10, right: 20, bottom: 40, left: 20 }}>
@@ -2984,7 +2984,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                         }
                         return (
           <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 mb-6">
-            <h3 className="text-base font-semibold text-gray-900 mb-6">Analytics Overview</h3>
+            <h3 className="text-base font-semibold text-blue-800 mb-6">Analytics Overview</h3>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
               <div className="h-80">
                 <h4 className="text-sm font-medium text-gray-700 mb-2">Appointments, Leads, Offers & Jobs</h4>
@@ -3077,7 +3077,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
               </div>
             </div>
             <div className="h-80">
-              <h3 className="text-base font-semibold text-gray-900 mb-4">Active vs Inactive</h3>
+              <h3 className="text-base font-semibold text-blue-800 mb-4">Active vs Inactive</h3>
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart 
                   data={[
@@ -3140,7 +3140,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                 <Crown className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h3 className="text-lg font-bold text-gray-900">Subscription Status</h3>
+                <h3 className="text-lg font-bold text-blue-800">Subscription Status</h3>
                 <p className="text-xs text-gray-500">Manage your module access</p>
               </div>
             </div>
@@ -3225,9 +3225,9 @@ const ClinicDashboard: NextPageWithLayout = () => {
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <Activity className="w-5 h-5 text-gray-600" />
-                <span className="text-sm font-semibold text-gray-900">Module Summary</span>
+                <span className="text-sm font-semibold text-blue-800">Module Summary</span>
               </div>
-              <span className="text-lg font-bold text-gray-900">{subscriptionSummary.totalModules} Total</span>
+              <span className="text-lg font-bold text-blue-800">{subscriptionSummary.totalModules} Total</span>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="text-center p-3 bg-green-50 rounded-lg border border-green-100">
@@ -3299,7 +3299,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                 <div className="bg-white rounded-lg border-2 border-teal-500 shadow-xl p-4 opacity-90">
                                   <div className="flex items-center gap-2">
                                     <GripVertical className="w-4 h-4 text-teal-500" />
-                                    <span className="text-sm font-semibold text-gray-700">
+                                    <span className="text-sm font-semibold text-blue-800">
                                       {sortedStatsSections.find(s => s.id === activeStatsSectionId)?.title || 'Section'}
                                     </span>
                                   </div>
@@ -3381,7 +3381,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                         <div className="bg-white rounded-lg border-2 border-indigo-500 shadow-xl p-4 opacity-90 min-w-[200px]">
                           <div className="flex items-center gap-2">
                             <GripVertical className="w-5 h-5 text-indigo-500" />
-                            <span className="text-sm font-semibold text-gray-700">{draggedPackage.title}</span>
+                            <span className="text-sm font-semibold text-blue-800">{draggedPackage.title}</span>
                           </div>
                         </div>
                       );
