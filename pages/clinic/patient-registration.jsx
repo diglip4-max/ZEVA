@@ -186,12 +186,13 @@ function PatientImportModal({ onClose, onSuccess }) {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadResult, setUploadResult] = useState(null);
   const [step, setStep] = useState(1); // 1: Upload, 2: Mapping, 3: Result
+  const [showErrorModal, setShowErrorModal] = useState(false);
 
   const fieldLabels = {
     invoiceNumber: "Invoice Number (Auto-generated - will be ignored)",
     firstName: "First Name *",
     lastName: "Last Name",
-    gender: "Gender *",
+    gender: "Gender",
     email: "Email",
     mobileNumber: "Mobile Number *",
     emrNumber: "EMR Number (Auto-generated - will be ignored)",
@@ -235,19 +236,49 @@ function PatientImportModal({ onClose, onSuccess }) {
 
         // Auto-map columns if names match
         const autoMapping = {};
+        
+        // Common column name mappings for better auto-detection
+        const commonMappings = {
+          'name': 'firstName',
+          'patient name': 'firstName',
+          'full name': 'firstName',
+          'first name': 'firstName',
+          'phone': 'mobileNumber',
+          'mobile': 'mobileNumber',
+          'mobile number': 'mobileNumber',
+          'phone number': 'mobileNumber',
+          'contact': 'mobileNumber',
+          'contact number': 'mobileNumber',
+          'email': 'email',
+          'email address': 'email',
+          'gender': 'gender',
+          'sex': 'gender',
+          'last name': 'lastName',
+          'surname': 'lastName',
+        };
+        
         columns.forEach((col) => {
           const colLower = col.toLowerCase().trim();
-          Object.keys(fieldLabels).forEach((field) => {
-            const fieldWithSpaces = field.replace(/([A-Z])/g, ' $1').toLowerCase().trim();
-            if (colLower === field.toLowerCase() || 
-                colLower === fieldWithSpaces ||
-                colLower.includes(field.toLowerCase()) ||
-                field.toLowerCase().includes(colLower)) {
-              if (!autoMapping[col]) {
-                autoMapping[col] = field;
-              }
+          
+          // First check common mappings
+          if (commonMappings[colLower]) {
+            if (!autoMapping[col]) {
+              autoMapping[col] = commonMappings[colLower];
             }
-          });
+          } else {
+            // Then check field labels
+            Object.keys(fieldLabels).forEach((field) => {
+              const fieldWithSpaces = field.replace(/([A-Z])/g, ' $1').toLowerCase().trim();
+              if (colLower === field.toLowerCase() || 
+                  colLower === fieldWithSpaces ||
+                  colLower.includes(field.toLowerCase()) ||
+                  field.toLowerCase().includes(colLower)) {
+                if (!autoMapping[col]) {
+                  autoMapping[col] = field;
+                }
+              }
+            });
+          }
         });
         setColumnMapping(autoMapping);
         setStep(2);
@@ -343,7 +374,11 @@ function PatientImportModal({ onClose, onSuccess }) {
           data: response.data.data,
         });
         setStep(3);
-        if (onSuccess) {
+        // Show error modal if there are errors, even if some patients were imported
+        if (response.data.data && response.data.data.errors && response.data.data.errors.length > 0) {
+          setShowErrorModal(true);
+        } else if (onSuccess) {
+          // Only auto-refresh if no errors
           setTimeout(() => {
             onSuccess();
           }, 2000);
@@ -355,6 +390,10 @@ function PatientImportModal({ onClose, onSuccess }) {
           data: response.data.data,
         });
         setStep(3);
+        // Show error modal if there are errors
+        if (response.data.data && response.data.data.errors && response.data.data.errors.length > 0) {
+          setShowErrorModal(true);
+        }
       }
     } catch (error) {
       console.error("Import error:", error);
@@ -364,8 +403,25 @@ function PatientImportModal({ onClose, onSuccess }) {
         data: error.response?.data?.data,
       });
       setStep(3);
+      // Show error modal if there are errors
+      if (error.response?.data?.data && error.response?.data?.data.errors && error.response?.data?.data.errors.length > 0) {
+        setShowErrorModal(true);
+      } else {
+        // Show modal even if no specific errors array, but there's an error
+        setShowErrorModal(true);
+      }
     } finally {
       setIsUploading(false);
+    }
+  };
+
+  const handleErrorModalOk = () => {
+    setShowErrorModal(false);
+    // Refresh the page to reload data
+    if (onSuccess) {
+      onSuccess();
+    } else {
+      window.location.reload();
     }
   };
 
@@ -393,7 +449,10 @@ function PatientImportModal({ onClose, onSuccess }) {
                     <ul className="text-xs text-blue-800 space-y-1 list-disc list-inside">
                       <li>Upload a CSV or Excel file (.csv, .xlsx, .xls)</li>
                       <li>Maximum file size: 5MB</li>
-                      <li>Required fields: First Name, Mobile Number, Gender</li>
+                      <li>Required fields: First Name and Mobile Number</li>
+                      <li>Optional fields: Email, Gender, and all other fields</li>
+                      <li>Duplicate patients (same mobile number or email within your clinic) will be skipped</li>
+                      <li>Same patient can exist across different clinics</li>
                       <li>EMR Number and Invoice Number are automatically generated sequentially (ignore any values in your file)</li>
                       <li>Download the sample file to see the correct format</li>
                     </ul>
@@ -438,7 +497,7 @@ function PatientImportModal({ onClose, onSuccess }) {
                   <div className="flex-1">
                     <h3 className="text-sm font-semibold text-yellow-900 mb-1">Map Your Columns</h3>
                     <p className="text-xs text-yellow-800">
-                      Match your file columns to the patient fields. Fields marked with * are required.
+                      Match your file columns to the patient fields. Fields marked with * (First Name and Mobile Number) are required. All other fields are optional.
                     </p>
                   </div>
                 </div>
@@ -597,6 +656,74 @@ function PatientImportModal({ onClose, onSuccess }) {
           )}
         </div>
       </div>
+
+      {/* Error Modal */}
+      {showErrorModal && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-2 sm:p-4 overflow-y-auto bg-black/60 backdrop-blur-sm">
+          <div className="relative bg-white rounded-lg sm:rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto flex flex-col">
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-4 sm:px-6 py-4 flex items-center justify-between z-10">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
+                  <XCircle className="w-6 h-6 text-red-600" />
+                </div>
+                <h2 className="text-lg sm:text-xl font-bold text-gray-900">Import Errors</h2>
+              </div>
+              <button
+                onClick={() => setShowErrorModal(false)}
+                className="p-1 hover:bg-gray-100 rounded-lg text-gray-500 hover:text-gray-700 transition-colors flex-shrink-0"
+                aria-label="Close modal"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-4 sm:p-6 flex-1 overflow-y-auto">
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+                <p className="text-sm text-red-800 font-medium mb-2">
+                  {uploadResult?.data?.failed || 0} patient(s) could not be imported. Please review the errors below and fix them in your CSV file.
+                </p>
+                {uploadResult?.data && (
+                  <div className="text-xs text-red-700">
+                    <p>
+                      Total: {uploadResult.data.total} | 
+                      Imported: {uploadResult.data.imported || 0} | 
+                      Failed: {uploadResult.data.failed || 0}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {uploadResult?.data?.errors && uploadResult.data.errors.length > 0 && (
+                <div className="space-y-2">
+                  <h3 className="text-sm font-semibold text-gray-900 mb-3">Error Details:</h3>
+                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 max-h-96 overflow-y-auto">
+                    <ul className="space-y-2">
+                      {uploadResult.data.errors.map((error, idx) => (
+                        <li key={idx} className="text-xs sm:text-sm text-gray-800 bg-white p-3 rounded border border-gray-200">
+                          {error}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              )}
+
+              {uploadResult?.message && (
+                <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                  <p className="text-xs sm:text-sm text-yellow-800">{uploadResult.message}</p>
+                </div>
+              )}
+            </div>
+            <div className="sticky bottom-0 bg-white border-t border-gray-200 px-4 sm:px-6 py-4 flex items-center justify-end gap-3">
+              <button
+                onClick={handleErrorModalOk}
+                className="px-6 py-2.5 text-sm font-medium text-white bg-gray-800 hover:bg-gray-900 rounded-lg transition-colors shadow-sm hover:shadow-md"
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
