@@ -16,6 +16,8 @@ import {
   BadgeIndianRupee,
   Clock,
   HeartPulse,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import AuthModal from "../../components/AuthModal";
 import dayjs from "dayjs";
@@ -99,6 +101,9 @@ export default function FindDoctor() {
   const [reviewsLoading, setReviewsLoading] = useState<{
     [key: string]: boolean;
   }>({});
+  const [specialties, setSpecialties] = useState<string[]>([]);
+  const [specialtiesLoading, setSpecialtiesLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
 
   // Add ref for results section
   const resultsRef = useRef<HTMLDivElement>(null);
@@ -204,8 +209,33 @@ export default function FindDoctor() {
     }
   }, [doctors, loading]);
 
+  // Reset pagination when filters or search changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedService, query, starFilter, priceRange, sortBy, selectedTimes]);
+
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const suggestionsDropdownRef = useRef<HTMLDivElement | null>(null);
+
+  // Fetch specialties on component mount
+  useEffect(() => {
+    const fetchSpecialties = async () => {
+      try {
+        setSpecialtiesLoading(true);
+        const res = await axios.get("/api/doctor/specialties");
+        if (res.data.success && res.data.specialties) {
+          setSpecialties(res.data.specialties);
+        }
+      } catch (error) {
+        console.error("Error fetching specialties:", error);
+        // Fallback to empty array or default specialties if API fails
+        setSpecialties([]);
+      } finally {
+        setSpecialtiesLoading(false);
+      }
+    };
+    fetchSpecialties();
+  }, []);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -324,6 +354,22 @@ export default function FindDoctor() {
         setTimeout(() => {
           locateMe();
         }, 300);
+      } else if (treatmentText && !locationText) {
+        hasSearchedFromURL.current = true;
+        setQuery(treatmentText);
+        setSelectedService(treatmentText);
+        setLoading(true);
+        setDoctors([]);
+        axios
+          .get("/api/doctor/searchByTreatment", { params: { treatment: treatmentText } })
+          .then((res) => {
+            const docs = Array.isArray(res.data?.doctors) ? res.data.doctors : [];
+            setDoctors(docs);
+            docs.forEach((d: any) => {
+              if (d._id) fetchDoctorReviews(d._id);
+            });
+          })
+          .finally(() => setLoading(false));
       }
     }
   }, [router.isReady, router.query.treatment, router.query.location]);
@@ -1237,21 +1283,109 @@ export default function FindDoctor() {
 
           {/* Professional Search Interface */}
           <div className="w-full max-w-6xl mx-auto" style={{ position: 'relative', zIndex: 100 }}>
-            {/* Quick Filter Chips */}
-            <div className="mb-3 flex flex-wrap gap-2">
-              {['General Physician', 'Cardiologist', 'Dermatologist', 'Orthopedic', 'Pediatrician', 'Gynecologist'].map((specialty) => (
-                <button
-                  key={specialty}
-                  onClick={() => {
-                    setQuery(specialty);
-                    fetchSuggestions(specialty);
-                  }}
-                  className="px-3 py-1.5 text-[10px] font-medium rounded-full bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 text-blue-700 hover:from-blue-100 hover:to-purple-100 hover:border-blue-300 transition-all shadow-sm hover:shadow"
-                >
-                  {specialty}
-                </button>
-              ))}
-            </div>
+            {/* Quick Filter Chips - Dynamic Specialties */}
+            {specialties.length > 0 && (
+              <div className="mb-3 flex flex-wrap gap-2">
+                {specialties.map((specialty) => (
+                  <button
+                    key={specialty}
+                    onClick={async () => {
+                      // If clicking the same specialty again, don't change location
+                      const isSameSpecialty = selectedService === specialty;
+                      
+                      // If clicking a different specialty, clear previous selection
+                      if (!isSameSpecialty && selectedService) {
+                        setDoctors([]);
+                        setManualPlace("");
+                        clearPersistedState();
+                      }
+                      
+                      setQuery(specialty);
+                      setSelectedService(specialty);
+                      fetchSuggestions(specialty);
+                      
+                      // Automatically search for doctors with this specialty from DoctorProfile
+                      try {
+                        setLoading(true);
+                        
+                        // Only clear results if selecting a different specialty
+                        if (!isSameSpecialty) {
+                          setDoctors([]);
+                          clearPersistedState();
+                        }
+                        
+                        // Search doctors by treatment directly from DoctorProfile (no location required)
+                        const res = await axios.get("/api/doctor/searchByTreatment", {
+                          params: { treatment: specialty },
+                        });
+
+                        if (res.data.success && res.data.doctors) {
+                          // Calculate distances if user location is available
+                          const doctorsWithDistance = res.data.doctors.map((doctor: Doctor) => {
+                            if (doctor.location?.coordinates?.length === 2 && userCurrentLocation) {
+                              const doctorLng = doctor.location.coordinates[0];
+                              const doctorLat = doctor.location.coordinates[1];
+                              const distance = calculateDistance(
+                                userCurrentLocation.lat,
+                                userCurrentLocation.lng,
+                                doctorLat,
+                                doctorLng
+                              );
+                              return { ...doctor, distance };
+                            }
+                            return { ...doctor, distance: null };
+                          });
+
+                          // Sort by distance if available, otherwise keep original order
+                          doctorsWithDistance.sort((a: Doctor, b: Doctor) => {
+                            if (a.distance === null && b.distance === null) return 0;
+                            if (a.distance === null) return 1;
+                            if (b.distance === null) return -1;
+                            return (a.distance || 0) - (b.distance || 0);
+                          });
+
+                          setDoctors(doctorsWithDistance);
+
+                          // Do not auto-fill location from doctor address
+
+                          // Fetch reviews for all doctors
+                          doctorsWithDistance.forEach((doctor: Doctor) => {
+                            if (doctor._id) {
+                              fetchDoctorReviews(doctor._id);
+                            }
+                          });
+
+                          // Update URL using only manualPlace if provided
+                          updateURL(specialty, manualPlace.trim());
+                        } else {
+                          // No doctors found
+                          setDoctors([]);
+                          updateURL(specialty, 'all-doctors');
+                        }
+                      } catch (error) {
+                        console.error("Error searching doctors:", error);
+                        setDoctors([]);
+                      } finally {
+                        setLoading(false);
+                      }
+                    }}
+                    className={`px-3 py-1.5 text-[10px] font-medium rounded-full border transition-all shadow-sm hover:shadow ${
+                      selectedService === specialty
+                        ? 'bg-gradient-to-r from-blue-100 to-purple-100 border-blue-400 text-blue-800'
+                        : 'bg-gradient-to-r from-blue-50 to-purple-50 border-blue-200 text-blue-700 hover:from-blue-100 hover:to-purple-100 hover:border-blue-300'
+                    }`}
+                    // className="px-3 py-1.5 text-[10px] font-medium rounded-full bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 text-blue-700 hover:from-blue-100 hover:to-purple-100 hover:border-blue-300 transition-all shadow-sm hover:shadow"
+                  >
+                    {specialty}
+                  </button>
+                ))}
+              </div>
+            )}
+            {specialtiesLoading && (
+              <div className="mb-3 flex flex-wrap gap-2">
+                <div className="px-3 py-1.5 text-[10px] text-gray-500">Loading specialties...</div>
+              </div>
+            )}
            
             <div className="rounded-2xl p-4 sm:p-5 shadow-lg border border-[#e2e8f0] bg-white backdrop-blur-sm mb-6" style={{ position: 'relative', zIndex: 100 }}>
                 {/* Desktop Layout */}
@@ -1285,18 +1419,82 @@ export default function FindDoctor() {
                             <div
                               key={i}
                               className="flex items-center px-3 py-2.5 hover:bg-[#f0f7ff] cursor-pointer transition-colors border-b border-[#f1f5f9] last:border-b-0 rounded group"
-                              onClick={(e) => {
+                              onClick={async (e) => {
                                 e.preventDefault();
                                 e.stopPropagation();
-                                clearPersistedState();
-                                setSelectedService(s.value);
-                                setQuery(s.value);
-                                setSuggestions([]);
+                                
+                                // Extract main treatment name if it's in format "Sub Treatment (Main Treatment)"
+                                let treatmentValue = s.value;
+                                const match = s.value.match(/^(.+?)\s*\((.+?)\)$/);
+                                if (match) {
+                                  // If format is "Sub (Main)", use main treatment
+                                  treatmentValue = match[2].trim();
+                                }
+                                
+                                // Auto-fill the search field and close dropdown immediately
+                                setQuery(treatmentValue);
+                                setSelectedService(treatmentValue);
+                                setSuggestions([]); // Close dropdown immediately
                                 searchInputRef.current?.blur();
-                                if (coords) {
-                                  fetchDoctors(coords.lat, coords.lng, s.value);
-                                } else if (manualPlace.trim()) {
-                                  searchByPlace();
+                                
+                                clearPersistedState();
+                                
+                                // Search doctors by treatment directly from DoctorProfile (no location required)
+                                try {
+                                  setLoading(true);
+                                  setDoctors([]);
+                                  
+                                  const res = await axios.get("/api/doctor/searchByTreatment", {
+                                    params: { treatment: treatmentValue },
+                                  });
+
+                                  if (res.data.success && res.data.doctors) {
+                                    // Calculate distances if user location is available
+                                    const doctorsWithDistance = res.data.doctors.map((doctor: Doctor) => {
+                                      if (doctor.location?.coordinates?.length === 2 && userCurrentLocation) {
+                                        const doctorLng = doctor.location.coordinates[0];
+                                        const doctorLat = doctor.location.coordinates[1];
+                                        const distance = calculateDistance(
+                                          userCurrentLocation.lat,
+                                          userCurrentLocation.lng,
+                                          doctorLat,
+                                          doctorLng
+                                        );
+                                        return { ...doctor, distance };
+                                      }
+                                      return { ...doctor, distance: null };
+                                    });
+
+                                    // Sort by distance if available
+                                    doctorsWithDistance.sort((a: Doctor, b: Doctor) => {
+                                      if (a.distance === null && b.distance === null) return 0;
+                                      if (a.distance === null) return 1;
+                                      if (b.distance === null) return -1;
+                                      return (a.distance || 0) - (b.distance || 0);
+                                    });
+
+                                    setDoctors(doctorsWithDistance);
+
+                                    // Do not auto-fill location from doctor address
+
+                                    // Fetch reviews for all doctors
+                                    doctorsWithDistance.forEach((doctor: Doctor) => {
+                                      if (doctor._id) {
+                                        fetchDoctorReviews(doctor._id);
+                                      }
+                                    });
+
+                                    // Update URL using only manualPlace if provided
+                                    updateURL(treatmentValue, manualPlace.trim());
+                                  } else {
+                                    setDoctors([]);
+                                    updateURL(treatmentValue, 'all-doctors');
+                                  }
+                                } catch (error) {
+                                  console.error("Error searching doctors:", error);
+                                  setDoctors([]);
+                                } finally {
+                                  setLoading(false);
                                 }
                               }}
                             >
@@ -1384,21 +1582,85 @@ export default function FindDoctor() {
                         >
                           <div className="p-1">
                             {suggestions.map((s, i) => (
-                              <div
-                                key={i}
+                            <div
+                              key={i}
                               className="flex items-center px-3 py-2.5 hover:bg-[#f0f7ff] cursor-pointer transition-colors border-b border-[#f1f5f9] last:border-b-0 rounded group"
-                              onClick={(e) => {
+                              onClick={async (e) => {
                                 e.preventDefault();
                                 e.stopPropagation();
-                                  clearPersistedState();
-                                  setSelectedService(s.value);
-                                  setQuery(s.value);
-                                  setSuggestions([]);
+                                
+                                // Extract main treatment name if it's in format "Sub Treatment (Main Treatment)"
+                                let treatmentValue = s.value;
+                                const match = s.value.match(/^(.+?)\s*\((.+?)\)$/);
+                                if (match) {
+                                  // If format is "Sub (Main)", use main treatment
+                                  treatmentValue = match[2].trim();
+                                }
+                                
+                                // Auto-fill the search field and close dropdown immediately
+                                setQuery(treatmentValue);
+                                setSelectedService(treatmentValue);
+                                setSuggestions([]); // Close dropdown immediately
                                 searchInputRef.current?.blur();
-                                if (coords) {
-                                    fetchDoctors(coords.lat, coords.lng, s.value);
-                                } else if (manualPlace.trim()) {
-                                  searchByPlace();
+                                
+                                clearPersistedState();
+                                
+                                // Search doctors by treatment directly from DoctorProfile (no location required)
+                                try {
+                                  setLoading(true);
+                                  setDoctors([]);
+                                  
+                                  const res = await axios.get("/api/doctor/searchByTreatment", {
+                                    params: { treatment: treatmentValue },
+                                  });
+
+                                  if (res.data.success && res.data.doctors) {
+                                    // Calculate distances if user location is available
+                                    const doctorsWithDistance = res.data.doctors.map((doctor: Doctor) => {
+                                      if (doctor.location?.coordinates?.length === 2 && userCurrentLocation) {
+                                        const doctorLng = doctor.location.coordinates[0];
+                                        const doctorLat = doctor.location.coordinates[1];
+                                        const distance = calculateDistance(
+                                          userCurrentLocation.lat,
+                                          userCurrentLocation.lng,
+                                          doctorLat,
+                                          doctorLng
+                                        );
+                                        return { ...doctor, distance };
+                                      }
+                                      return { ...doctor, distance: null };
+                                    });
+
+                                    // Sort by distance if available
+                                    doctorsWithDistance.sort((a: Doctor, b: Doctor) => {
+                                      if (a.distance === null && b.distance === null) return 0;
+                                      if (a.distance === null) return 1;
+                                      if (b.distance === null) return -1;
+                                      return (a.distance || 0) - (b.distance || 0);
+                                    });
+
+                                    setDoctors(doctorsWithDistance);
+
+                                    // Do not auto-fill location from doctor address
+
+                                    // Fetch reviews for all doctors
+                                    doctorsWithDistance.forEach((doctor: Doctor) => {
+                                      if (doctor._id) {
+                                        fetchDoctorReviews(doctor._id);
+                                      }
+                                    });
+
+                                    // Update URL using only manualPlace if provided
+                                    updateURL(treatmentValue, manualPlace.trim());
+                                  } else {
+                                    setDoctors([]);
+                                    updateURL(treatmentValue, 'all-doctors');
+                                  }
+                                } catch (error) {
+                                  console.error("Error searching doctors:", error);
+                                  setDoctors([]);
+                                } finally {
+                                  setLoading(false);
                                 }
                               }}
                             >
@@ -1782,8 +2044,16 @@ Verified Doctors – Every doctor is thoroughly verified with proper certificati
                     </div>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {filteredDoctors.map((doctor, index) => {
+                <>
+                  {(() => {
+                    const pageSize = 6;
+                    const totalPages = Math.ceil(filteredDoctors.length / pageSize);
+                    const paginatedDoctors = filteredDoctors.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+                    
+                    return (
+                      <>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                          {paginatedDoctors.map((doctor, index) => {
                     const hasRating = doctorReviews[doctor._id]?.totalReviews > 0;
                     const reviewsLoaded = doctorReviews[doctor._id] !== undefined;
                     const isLoadingReviews = reviewsLoading[doctor._id];
@@ -1903,7 +2173,7 @@ Verified Doctors – Every doctor is thoroughly verified with proper certificati
                                     className="w-8 h-8 flex items-center justify-center bg-teal-800 text-white rounded-full hover:bg-teal-900 transition-all shadow-sm"
                                     title="Get Directions"
                                   >
-                                    <Navigation className="w-4 h-4" />
+                                    <MapPin className="w-4 h-4" />
                                   </a>
                                 ) : null;
                               })()}
@@ -1921,8 +2191,50 @@ Verified Doctors – Every doctor is thoroughly verified with proper certificati
                         </div>
                       </div>
                     );
-                  })}
-                </div>
+                          })}
+                        </div>
+
+                        {/* Pagination Controls - Arrow Icons Only */}
+                        {totalPages > 1 && (
+                          <div className="flex items-center justify-center gap-2 mt-6 pb-6">
+                            <button
+                              onClick={() => {
+                                setCurrentPage(prev => Math.max(1, prev - 1));
+                                if (resultsRef.current) {
+                                  resultsRef.current.scrollIntoView({ 
+                                    behavior: 'smooth', 
+                                    block: 'start' 
+                                  });
+                                }
+                              }}
+                              disabled={currentPage === 1}
+                              className="p-2 rounded-full border border-gray-200 bg-white hover:bg-cyan-50 hover:border-cyan-300 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:border-gray-200 transition-all"
+                              title="Previous"
+                            >
+                              <ChevronLeft className="w-4 h-4 text-gray-600" />
+                            </button>
+                            <button
+                              onClick={() => {
+                                setCurrentPage(prev => Math.min(totalPages, prev + 1));
+                                if (resultsRef.current) {
+                                  resultsRef.current.scrollIntoView({ 
+                                    behavior: 'smooth', 
+                                    block: 'start' 
+                                  });
+                                }
+                              }}
+                              disabled={currentPage === totalPages}
+                              className="p-2 rounded-full border border-gray-200 bg-white hover:bg-cyan-50 hover:border-cyan-300 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:border-gray-200 transition-all"
+                              title="Next"
+                            >
+                              <ChevronRight className="w-4 h-4 text-gray-600" />
+                            </button>
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
+                </>
               )}
             </div>
           </div>
@@ -2174,13 +2486,7 @@ Take control of your healthcare today. Enter your location, use the “Near Me�
                   <Navigation className="w-4 h-4 mr-2" />
                   Use Near Me
                 </button>
-                <button
-                  type="button"
-                  onClick={() => searchInputRef.current?.focus()}
-                  className="px-6 py-3 rounded-xl border-2 border-[#e2e8f0] text-[#475569] text-sm font-semibold hover:bg-[#f8fafc] hover:border-[#cbd5e1] transition-all"
-                >
-                  Start Searching
-                </button>
+                
               </div>
             </div>
           )}

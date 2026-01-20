@@ -182,8 +182,8 @@ const HealthCalculatorApp = () => {
                 <Activity className="text-white" size={24} strokeWidth={2} />
               </div>
               <div>
-                <h2 className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight" style={{ fontFamily: "'Playfair Display', serif" }}>Health Calculators</h2>
-                <p className="text-gray-600 mt-0.5 text-xs sm:text-sm" style={{ fontFamily: "'Playfair Display', serif" }}>Professional wellness tools</p>
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight" >Health Calculators</h2>
+                <p className="text-gray-600 mt-0.5 font-normal text-xs sm:text-sm">Professional wellness tools</p>
               </div>
             </div>
             <Link 
@@ -271,8 +271,8 @@ const HealthCalculatorApp = () => {
                 <Gamepad2 className="text-white" size={24} strokeWidth={2} />
               </div>
               <div>
-                <h2 className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight" style={{ fontFamily: "'Playfair Display', serif" }}>Health Games</h2>
-                <p className="text-gray-600 mt-0.5 text-xs sm:text-sm" style={{ fontFamily: "'Playfair Display', serif" }}>Learn through interactive play</p>
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight" >Health Games</h2>
+                <p className="text-gray-600 mt-0.5 font-normal text-xs sm:text-sm" >Learn through interactive play</p>
               </div>
             </div>
             <Link 

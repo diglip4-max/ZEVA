@@ -26,7 +26,7 @@ const ClinicLayout = ({ children, hideSidebar = false, hideHeader = false }: Cli
   }
 
   return (
-    <div className="flex min-h-screen bg-gray-100" role="application">
+    <div className="flex min-h-screen bg-teal-100" role="application">
       {/* Mobile Overlay - Shows when mobile sidebar is open */}
       {!hideSidebar && isMobileOpen && (
         <div

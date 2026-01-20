@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
+import HomeSearchSection from './HomeSearchSection';
 import {
     Calendar,
     Heart,
@@ -11,15 +12,9 @@ import {
 
 const ZevaHealthPlatform = () => {
     const router = useRouter();
-    const [showComingSoon, setShowComingSoon] = useState(false);
     const [count, setCount] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-
-    const handleBookAppointment = () => {
-        setShowComingSoon(true);
-        setTimeout(() => setShowComingSoon(false), 3000);
-    };
 
     const formatCount = (num) => {
         if (num === null || num === undefined || isNaN(num)) return "0";
@@ -55,6 +50,7 @@ const ZevaHealthPlatform = () => {
     return (
         <main className="w-full bg-gradient-to-br from-blue-50 via-blue-50 to-blue-100">
             <section className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-12 lg:py-16">
+             
                 <div className="grid lg:grid-cols-2 gap-10 items-center">
                     {/* Left Column */}
                     <div className="space-y-6">
@@ -80,7 +76,7 @@ const ZevaHealthPlatform = () => {
                                     <p className="text-xs tracking-wide text-blue-500 font-semibold uppercase">Find & Search Doctor</p>
                                     <h2 className="text-lg font-bold text-gray-900">Schedule a visit in under a minute</h2>
                                 </div>
-                                <span className="text-xs font-semibold text-gray-500">Live data</span>
+                                {/* <span className="text-xs font-semibold text-gray-500">Live data</span> */}
                             </div>
                             <div className="pt-4 space-y-6 text-sm text-gray-600">
                                 <p>
@@ -188,11 +184,11 @@ const ZevaHealthPlatform = () => {
                                     <p className="text-lg font-semibold text-teal-700">Need guidance on programs?</p>
                                 </div>
                                 <button
-                                    onClick={handleBookAppointment}
-                                    className="inline-flex items-center gap-2 rounded-2xl bg-teal-600 hover:bg-teal-700 px-4 py-2 text-sm font-semibold text-white transition"
+                                    onClick={() => router.push('/contact')}
+                                    className="inline-flex items-center gap-2 rounded-2xl bg-yellow-400 hover:bg-yellow-600 px-4 py-2 text-sm font-semibold text-white transition"
                                 >
                                     <Calendar className="w-4 h-4" />
-                                    {showComingSoon ? 'Coming soon' : 'Talk to us'}
+                                    Talk to us
                                 </button>
                             </div>
                         </div>

@@ -528,7 +528,7 @@ function ClinicReviews() {
     return Array.from({ length: 5 }, (_, index) => (
       <Star
         key={index}
-        className={`w-3 h-3 sm:w-3.5 sm:h-3.5 ${index < rating ? "fill-yellow-400 text-yellow-400" : "text-blue-300"
+        className={`w-3 h-3 sm:w-3.5 sm:h-3.5 ${index < rating ? "fill-yellow-400 text-yellow-400" : "text-teal-300"
           }`}
       />
     ));
@@ -555,8 +555,8 @@ function ClinicReviews() {
     return (
       <div className="w-full p-4 flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <div className="w-8 h-8 border-3 border-blue-200 rounded-full animate-spin mx-auto" style={{ borderTopColor: '#3b82f6' }}></div>
-          <p className="text-blue-600 mt-3 text-sm animate-pulse">Loading reviews...</p>
+          <div className="w-8 h-8 border-3 border-teal-200 rounded-full animate-spin mx-auto" style={{ borderTopColor: '#3b82f6' }}></div>
+          <p className="text-teal-600 mt-3 text-sm animate-pulse">Loading reviews...</p>
         </div>
       </div>
     );
@@ -565,16 +565,16 @@ function ClinicReviews() {
   // Show full-page access denied message when read permission is false
   if (permissionsLoaded && !permissions.canRead) {
     return (
-      <div className="min-h-screen bg-blue-50 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-teal-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-lg shadow-lg border border-red-200 p-8 text-center max-w-md">
           <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <MessageSquare className="w-8 h-8 text-red-600" />
           </div>
-          <h2 className="text-xl font-bold text-blue-900 mb-2">Access Denied</h2>
-          <p className="text-sm text-blue-700 mb-4">
+          <h2 className="text-xl font-bold text-teal-900 mb-2">Access Denied</h2>
+          <p className="text-sm text-teal-700 mb-4">
             You do not have permission to view clinic reviews.
           </p>
-          <p className="text-xs text-blue-600">
+          <p className="text-xs text-teal-600">
             Please contact your administrator to request access to the Reviews module.
           </p>
         </div>
@@ -583,17 +583,17 @@ function ClinicReviews() {
   }
 
   return (
-    <div className="w-full max-w-full space-y-3 overflow-x-auto bg-blue-50 min-h-screen p-3 sm:p-4">
+    <div className="w-full max-w-full space-y-3 overflow-x-auto bg-teal-50 min-h-screen p-3 sm:p-4">
       {/* Compact Header */}
-      <div className="bg-white rounded-lg shadow-sm border border-blue-200 p-3 sm:p-4">
+      <div className="bg-white rounded-lg shadow-sm border border-teal-200 p-3 sm:p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-blue-800 rounded-lg flex items-center justify-center shadow-sm">
+            <div className="w-8 h-8 bg-teal-800 rounded-lg flex items-center justify-center shadow-sm">
               <MessageSquare className="w-4 h-4 text-white" />
             </div>
             <div>
-              <h1 className="text-lg sm:text-xl font-bold text-blue-900">Patient Reviews</h1>
-              <p className="text-[10px] sm:text-xs text-blue-500 mt-0.5">Monitor and manage feedback</p>
+              <h1 className="text-lg sm:text-xl font-bold text-teal-900">Patient Reviews</h1>
+              <p className="text-[10px] sm:text-xs text-teal-500 mt-0.5">Monitor and manage feedback</p>
             </div>
           </div>
         </div>
@@ -609,38 +609,38 @@ function ClinicReviews() {
       {/* Compact Stats Grid */}
       {reviews.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
-          <div className="bg-white rounded-lg shadow-sm p-2.5 sm:p-3 border border-blue-200">
+          <div className="bg-white rounded-lg shadow-sm p-2.5 sm:p-3 border border-teal-200">
             <div className="flex items-center gap-1.5 mb-1">
-              <MessageSquare className="w-3.5 h-3.5 text-blue-800" />
-              <p className="text-[10px] sm:text-xs text-blue-600 font-medium">Total</p>
+              <MessageSquare className="w-3.5 h-3.5 text-teal-800" />
+              <p className="text-[10px] sm:text-xs text-teal-600 font-medium">Total</p>
             </div>
-            <p className="text-lg sm:text-xl font-bold text-blue-900">{reviews.length}</p>
+            <p className="text-lg sm:text-xl font-bold text-teal-900">{reviews.length}</p>
           </div>
-          <div className="bg-white rounded-lg shadow-sm p-2.5 sm:p-3 border border-blue-200">
+          <div className="bg-white rounded-lg shadow-sm p-2.5 sm:p-3 border border-teal-200">
             <div className="flex items-center gap-1.5 mb-1">
               <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
-              <p className="text-[10px] sm:text-xs text-blue-600 font-medium">Average</p>
+              <p className="text-[10px] sm:text-xs text-teal-600 font-medium">Average</p>
             </div>
             <div className="flex items-center gap-1">
-              <p className="text-lg sm:text-xl font-bold text-blue-900">{getAverageRating()}</p>
+              <p className="text-lg sm:text-xl font-bold text-teal-900">{getAverageRating()}</p>
               <div className="flex gap-0.5">
                 {renderStars(Math.round(parseFloat(getAverageRating())))}
               </div>
             </div>
           </div>
-          <div className="bg-white rounded-lg shadow-sm p-2.5 sm:p-3 border border-blue-200">
+          <div className="bg-white rounded-lg shadow-sm p-2.5 sm:p-3 border border-teal-200">
             <div className="flex items-center gap-1.5 mb-1">
-              <TrendingUp className="w-3.5 h-3.5 text-blue-800" />
-              <p className="text-[10px] sm:text-xs text-blue-600 font-medium">5★</p>
+              <TrendingUp className="w-3.5 h-3.5 text-teal-800" />
+              <p className="text-[10px] sm:text-xs text-teal-600 font-medium">5★</p>
             </div>
-            <p className="text-lg sm:text-xl font-bold text-blue-900">{stats[5] || 0}</p>
+            <p className="text-lg sm:text-xl font-bold text-teal-900">{stats[5] || 0}</p>
           </div>
-          <div className="bg-white rounded-lg shadow-sm p-2.5 sm:p-3 border border-blue-200">
+          <div className="bg-white rounded-lg shadow-sm p-2.5 sm:p-3 border border-teal-200">
             <div className="flex items-center gap-1.5 mb-1">
-              <Calendar className="w-3.5 h-3.5 text-blue-800" />
-              <p className="text-[10px] sm:text-xs text-blue-600 font-medium">This Month</p>
+              <Calendar className="w-3.5 h-3.5 text-teal-800" />
+              <p className="text-[10px] sm:text-xs text-teal-600 font-medium">This Month</p>
             </div>
-            <p className="text-lg sm:text-xl font-bold text-blue-900">
+            <p className="text-lg sm:text-xl font-bold text-teal-900">
               {reviews.filter((r) => {
                 const d = new Date(r.createdAt);
                 const now = new Date();
@@ -652,23 +652,23 @@ function ClinicReviews() {
       )}
 
       {/* Compact Search + Filter */}
-      <div className="bg-white rounded-lg shadow-sm border border-blue-200 p-2.5 sm:p-3 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+      <div className="bg-white rounded-lg shadow-sm border border-teal-200 p-2.5 sm:p-3 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
         <div className="relative flex-1">
-          <Search className="absolute left-2 top-2 w-3.5 h-3.5 text-blue-600" />
+          <Search className="absolute left-2 top-2 w-3.5 h-3.5 text-teal-600" />
           <input
             type="text"
             placeholder="Search reviews..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="text-blue-900 w-full pl-8 pr-2.5 py-1.5 border border-blue-200 rounded-md text-xs sm:text-sm focus:ring-2 focus:ring-blue-800/20 focus:border-blue-800 transition-all bg-white"
+            className="text-teal-900 w-full pl-8 pr-2.5 py-1.5 border border-teal-200 rounded-md text-xs sm:text-sm focus:ring-2 focus:ring-teal-800/20 focus:border-teal-800 transition-all bg-white"
           />
         </div>
         <div className="flex items-center gap-1.5">
-          <Filter className="w-3.5 h-3.5 text-blue-800" />
+          <Filter className="w-3.5 h-3.5 text-teal-800" />
           <select
             value={selectedRating}
             onChange={(e) => setSelectedRating(e.target.value)}
-            className="text-blue-900 border border-blue-200 rounded-md px-2.5 py-1.5 text-xs sm:text-sm focus:ring-2 focus:ring-blue-800/20 focus:border-blue-800 bg-white transition-all"
+            className="text-teal-900 border border-teal-200 rounded-md px-2.5 py-1.5 text-xs sm:text-sm focus:ring-2 focus:ring-teal-800/20 focus:border-teal-800 bg-white transition-all"
           >
             <option value="all">All Ratings</option>
             {[5, 4, 3, 2, 1].map((r) => (
@@ -682,12 +682,12 @@ function ClinicReviews() {
 
       {/* Compact Reviews Grid */}
       {filteredReviews.length === 0 ? (
-        <div className="bg-white p-4 sm:p-6 rounded-lg shadow-sm border border-blue-200 text-center">
-          <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-2">
-            <User className="w-5 h-5 text-blue-800" />
+        <div className="bg-white p-4 sm:p-6 rounded-lg shadow-sm border border-teal-200 text-center">
+          <div className="w-10 h-10 bg-teal-100 rounded-full flex items-center justify-center mx-auto mb-2">
+            <User className="w-5 h-5 text-teal-800" />
           </div>
-          <p className="text-blue-700 font-medium text-xs sm:text-sm">No reviews found</p>
-          <p className="text-blue-500 text-[10px] sm:text-xs mt-1">Try adjusting your filters</p>
+          <p className="text-teal-700 font-medium text-xs sm:text-sm">No reviews found</p>
+          <p className="text-teal-500 text-[10px] sm:text-xs mt-1">Try adjusting your filters</p>
         </div>
       ) : (
         <>
@@ -695,15 +695,15 @@ function ClinicReviews() {
           {paginatedReviews.map((r) => (
             <div
               key={r._id}
-              className="bg-white rounded-lg shadow-sm border border-blue-200 p-2.5 sm:p-3 hover:shadow-md transition-all duration-200 hover:border-blue-800 hover:-translate-y-0.5 flex flex-col justify-between group"
+              className="bg-white rounded-lg shadow-sm border border-teal-200 p-2.5 sm:p-3 hover:shadow-md transition-all duration-200 hover:border-teal-800 hover:-translate-y-0.5 flex flex-col justify-between group"
             >
               {/* User name and rating */}
               <div className="flex items-start justify-between mb-1.5">
                 <div className="flex items-center gap-1.5 flex-1 min-w-0">
-                  <div className="w-6 h-6 bg-blue-800 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm">
+                  <div className="w-6 h-6 bg-teal-800 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm">
                     <User className="w-3 h-3 text-white" />
                   </div>
-                  <p className="font-semibold text-blue-800 truncate text-[10px] sm:text-xs">
+                  <p className="font-semibold text-teal-800 truncate text-[10px] sm:text-xs">
                     {r.userId?.name || "Anonymous"}
                   </p>
                 </div>
@@ -711,7 +711,7 @@ function ClinicReviews() {
                   <div className="flex gap-0.5">
                     {renderStars(r.rating)}
                   </div>
-                  <span className="ml-0.5 text-[10px] sm:text-xs font-bold text-blue-800">
+                  <span className="ml-0.5 text-[10px] sm:text-xs font-bold text-teal-800">
                     {r.rating}
                   </span>
                 </div>
@@ -719,8 +719,8 @@ function ClinicReviews() {
               
               {/* Date */}
               <div className="flex items-center gap-1 mb-2">
-                <Calendar className="w-2.5 h-2.5 text-blue-400" />
-                <p className="text-[10px] sm:text-xs text-blue-500">
+                <Calendar className="w-2.5 h-2.5 text-teal-400" />
+                <p className="text-[10px] sm:text-xs text-teal-500">
                   {formatDate(r.createdAt)}
                 </p>
               </div>
@@ -729,7 +729,7 @@ function ClinicReviews() {
               <div className="mt-auto">
                 {r.comment ? (
                   <button
-                    className="w-full bg-blue-800 text-white text-[10px] sm:text-xs font-medium py-1.5 px-2 rounded-md hover:bg-blue-900 transition-all duration-200 shadow-sm hover:shadow"
+                    className="w-full bg-teal-800 text-white text-[10px] sm:text-xs font-medium py-1.5 px-2 rounded-md hover:bg-teal-900 transition-all duration-200 shadow-sm hover:shadow"
                     onClick={() => {
                       setModalComment(r.comment || "");
                       setShowModal(true);
@@ -738,7 +738,7 @@ function ClinicReviews() {
                     View Comment
                   </button>
                 ) : (
-                  <div className="w-full bg-blue-50 text-blue-400 text-[10px] sm:text-xs font-medium py-1.5 px-2 rounded-md text-center border border-blue-200">
+                  <div className="w-full bg-teal-50 text-teal-400 text-[10px] sm:text-xs font-medium py-1.5 px-2 rounded-md text-center border border-teal-200">
                     No comment
                   </div>
                 )}
@@ -751,7 +751,7 @@ function ClinicReviews() {
         {totalPages > 1 && (
           <div className="flex justify-center items-center gap-1.5 mt-3">
             <button
-              className="px-2.5 py-1.5 rounded-md border border-blue-200 bg-white text-blue-700 disabled:opacity-50 hover:bg-blue-800 hover:text-white hover:border-blue-800 transition-all duration-200 text-xs sm:text-sm font-medium"
+              className="px-2.5 py-1.5 rounded-md border border-teal-200 bg-white text-teal-700 disabled:opacity-50 hover:bg-teal-800 hover:text-white hover:border-teal-800 transition-all duration-200 text-xs sm:text-sm font-medium"
               onClick={() => handlePageChange(currentPage - 1)}
               disabled={currentPage === 1}
             >
@@ -773,8 +773,8 @@ function ClinicReviews() {
                   key={i}
                   className={`px-2.5 py-1.5 rounded-md border text-xs sm:text-sm font-medium transition-all duration-200 ${
                     currentPage === pageNum 
-                      ? 'bg-blue-800 text-white border-blue-800 shadow-sm' 
-                      : 'bg-white text-blue-700 border-blue-200 hover:bg-blue-800 hover:text-white hover:border-blue-800'
+                      ? 'bg-teal-800 text-white border-teal-800 shadow-sm' 
+                      : 'bg-white text-teal-700 border-teal-200 hover:bg-teal-800 hover:text-white hover:border-teal-800'
                   }`}
                   onClick={() => handlePageChange(pageNum)}
                 >
@@ -783,7 +783,7 @@ function ClinicReviews() {
               );
             })}
             <button
-              className="px-2.5 py-1.5 rounded-md border border-blue-200 bg-white text-blue-700 disabled:opacity-50 hover:bg-blue-800 hover:text-white hover:border-blue-800 transition-all duration-200 text-xs sm:text-sm font-medium"
+              className="px-2.5 py-1.5 rounded-md border border-teal-200 bg-white text-teal-700 disabled:opacity-50 hover:bg-teal-800 hover:text-white hover:border-teal-800 transition-all duration-200 text-xs sm:text-sm font-medium"
               onClick={() => handlePageChange(currentPage + 1)}
               disabled={currentPage === totalPages}
             >
@@ -795,17 +795,17 @@ function ClinicReviews() {
         {/* Compact Modal */}
         {showModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm bg-black/30 p-3 sm:p-4">
-            <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full border border-blue-200">
-              <div className="p-3 sm:p-4 border-b border-blue-200">
+            <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full border border-teal-200">
+              <div className="p-3 sm:p-4 border-b border-teal-200">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 bg-blue-800 rounded-lg flex items-center justify-center shadow-sm">
+                    <div className="w-7 h-7 bg-teal-800 rounded-lg flex items-center justify-center shadow-sm">
                       <MessageSquare className="w-3.5 h-3.5 text-white" />
                     </div>
-                    <h3 className="text-base sm:text-lg font-bold text-blue-900">Patient Comment</h3>
+                    <h3 className="text-base sm:text-lg font-bold text-teal-900">Patient Comment</h3>
                   </div>
                   <button
-                    className="w-6 h-6 flex items-center justify-center rounded-md hover:bg-blue-100 text-blue-500 hover:text-blue-700 transition-colors text-sm"
+                    className="w-6 h-6 flex items-center justify-center rounded-md hover:bg-teal-100 text-teal-500 hover:text-teal-700 transition-colors text-sm"
                     onClick={() => setShowModal(false)}
                     aria-label="Close"
                   >
@@ -814,7 +814,7 @@ function ClinicReviews() {
                 </div>
               </div>
               <div className="p-3 sm:p-4">
-                <div className="text-blue-700 break-words whitespace-pre-line max-h-96 overflow-y-auto leading-relaxed bg-blue-50 rounded-md p-2.5 sm:p-3 border border-blue-200 text-xs sm:text-sm">
+                <div className="text-teal-700 break-words whitespace-pre-line max-h-96 overflow-y-auto leading-relaxed bg-teal-50 rounded-md p-2.5 sm:p-3 border border-teal-200 text-xs sm:text-sm">
                   {modalComment}
                 </div>
               </div>
@@ -828,10 +828,10 @@ function ClinicReviews() {
       {reviews.length > 0 && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
           {/* Trend Graph - Ratings Over Time */}
-          <div className="bg-white rounded-lg shadow-sm border border-blue-200 p-3">
+          <div className="bg-white rounded-lg shadow-sm border border-teal-200 p-3">
             <div className="flex items-center gap-2 mb-2">
-              <Activity className="w-4 h-4 text-blue-800" />
-              <h3 className="text-xs sm:text-sm font-semibold text-blue-900">Ratings Trend</h3>
+              <Activity className="w-4 h-4 text-teal-800" />
+              <h3 className="text-xs sm:text-sm font-semibold text-teal-900">Ratings Trend</h3>
             </div>
             <ResponsiveContainer width="100%" height={180}>
               <AreaChart data={monthlyTrendData} margin={{ top: 5, right: 10, left: 0, bottom: 30 }}>
@@ -905,10 +905,10 @@ function ClinicReviews() {
           </div>
 
           {/* Sentiment Distribution - Donut Chart */}
-          <div className="bg-white rounded-lg shadow-sm border border-blue-200 p-3">
+          <div className="bg-white rounded-lg shadow-sm border border-teal-200 p-3">
             <div className="flex items-center gap-2 mb-2">
-              <BarChart3 className="w-4 h-4 text-blue-800" />
-              <h3 className="text-xs sm:text-sm font-semibold text-blue-900">Sentiment Distribution</h3>
+              <BarChart3 className="w-4 h-4 text-teal-800" />
+              <h3 className="text-xs sm:text-sm font-semibold text-teal-900">Sentiment Distribution</h3>
             </div>
             <ResponsiveContainer width="100%" height={180}>
               <PieChart>
@@ -945,8 +945,8 @@ function ClinicReviews() {
               {sentimentData.map((item, idx) => (
                 <div key={idx} className="flex items-center gap-1">
                   <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }}></div>
-                  <span className="text-blue-600">{item.name.split(' ')[0]}</span>
-                  <span className="font-semibold text-blue-900">{item.percentage}%</span>
+                  <span className="text-teal-600">{item.name.split(' ')[0]}</span>
+                  <span className="font-semibold text-teal-900">{item.percentage}%</span>
                 </div>
               ))}
             </div>

@@ -92,7 +92,7 @@ export default function BlogList() {
             (a, b) =>
               new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
           );
-          setBlogs(sorted.slice(0, 6));
+          setBlogs(sorted);
         } else {
           setError("Failed to fetch blogs");
         }

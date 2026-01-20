@@ -9,21 +9,18 @@ export default async function handler(req, res) {
 
   const regex = new RegExp(q, "i");
   const results = await Treatment.find({
-    $or: [{ name: regex }, { "subcategories.name": regex }],
+    name: regex, // Only search main treatments, not sub-treatments
   })
     .limit(10)
     .lean();
 
-  // Map results to return formatted treatment names
+  // Map results to return only main treatment names (no sub-treatments)
   const treatments = results
     .map((t) => {
-      if (t.subcategories && t.subcategories.length > 0) {
-        // Return sub-treatment names with main treatment in parentheses
-        return t.subcategories.map((sub) => `${sub.name} (${t.name})`);
-      }
+      // Only return main treatment name, ignore sub-treatments
       return t.name;
     })
-    .flat();
+    .filter(Boolean); // Remove any null/undefined values
 
   res.status(200).json({ success: true, treatments });
 }

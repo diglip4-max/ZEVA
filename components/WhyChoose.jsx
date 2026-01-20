@@ -93,10 +93,10 @@ export default function WhyChooseZeva() {
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="text-center mb-5 sm:mb-8">
-          <h2 className="text-2xl sm:text-3xl font-bold text-blue-700 mb-3" style={{ fontFamily: "'Playfair Display', serif" }}>
+          <h2 className="text-2xl sm:text-3xl font-bold text-blue-700 mb-3">
             Why Choose ZEVA
           </h2>
-          <p className="text-base font-semibold sm:text-base text-gray-600 max-w-2xl mx-auto leading-relaxed" style={{ fontFamily: "'Playfair Display', serif" }}>
+          <p className="text-base font-normal sm:text-base text-gray-600 max-w-2xl mx-auto leading-relaxed" >
           ZEVA is your all-in-one healthcare platform, designed to simplify your health, wellness, and lifestyle needs. From trusted doctors to verified clinics, ZEVA brings together everything you need for a seamless healthcare experience.
           </p>
         </div>

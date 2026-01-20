@@ -299,10 +299,10 @@ const FeaturedClinicsDoctors: React.FC = () => {
     <section className="bg-white py-10">
       <div className="max-w-6xl mx-auto px-4">
         <div>
-          <div className="justify-center text-center  text-teal-700 text-2xl font-bold" style={{ fontFamily: "'Playfair Display', serif" }}>
+          <div className="justify-center text-center  text-teal-700 text-2xl font-bold">
             Featured Clinics & Doctors
           </div>
-          <div className="text-base font-semibold text-gray-600  mt-1 text-center" style={{ fontFamily: "'Playfair Display', serif" }}>
+          <div className="text-base font-normal text-gray-600  mt-1 text-center" >
             Top-rated healthcare providers near you
           </div>
         </div>

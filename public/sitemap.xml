@@ -2,31 +2,18 @@
 <sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <sitemap>
     <loc>http://localhost:3000/sitemap-clinics.xml</loc>
-    <lastmod>2026-01-17T07:09:20.673Z</lastmod>
+    <lastmod>2026-01-20T06:11:47.066Z</lastmod>
   </sitemap>
   <sitemap>
     <loc>http://localhost:3000/sitemap-doctors.xml</loc>
-    <lastmod>2026-01-17T07:09:20.673Z</lastmod>
+    <lastmod>2026-01-20T06:11:47.066Z</lastmod>
   </sitemap>
   <sitemap>
     <loc>http://localhost:3000/sitemap-jobs.xml</loc>
-    <lastmod>2026-01-17T07:09:20.673Z</lastmod>
+    <lastmod>2026-01-20T06:11:47.066Z</lastmod>
   </sitemap>
   <sitemap>
     <loc>http://localhost:3000/sitemap-blogs.xml</loc>
-    <lastmod>2026-01-17T07:09:20.673Z</lastmod>
-    <lastmod>2026-01-17T07:32:42.959Z</lastmod>
-  </sitemap>
-  <sitemap>
-    <loc>http://localhost:3000/sitemap-doctors.xml</loc>
-    <lastmod>2026-01-17T07:32:42.959Z</lastmod>
-  </sitemap>
-  <sitemap>
-    <loc>http://localhost:3000/sitemap-jobs.xml</loc>
-    <lastmod>2026-01-17T07:32:42.959Z</lastmod>
-  </sitemap>
-  <sitemap>
-    <loc>http://localhost:3000/sitemap-blogs.xml</loc>
-    <lastmod>2026-01-17T07:32:42.959Z</lastmod>
+    <lastmod>2026-01-20T06:11:47.066Z</lastmod>
   </sitemap>
 </sitemapindex>

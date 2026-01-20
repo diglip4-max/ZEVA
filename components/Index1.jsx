@@ -4,7 +4,7 @@ import CalculatorGames from './CalculatorGames';
 import WhyChoose from './WhyChoose';
 import OnePlatformSection from './OnePlatformSection';
 import FeaturedClinicsDoctors from './FeaturedClinicsDoctors';
-// import HealthToolsPage from './HealthToolsPage';
+import HomeSearchSection from './HomeSearchSection';
 import SocialProofPage from './SocialProofPage';
 import Career from './Career';
 import HealthCare from './HealthCare';
@@ -17,6 +17,11 @@ const HealthRiskComponent = () => {
         <div className="w-full bg-white py-8 px-4">
             <div className="max-w-6xl mx-auto">
                 {/* 1. Platform Introduction - Show what ZEVA is */}
+                 <div className="w-full mb-8">
+                    <HomeSearchSection />
+                </div>
+                
+                
                 <div className="w-full mb-8">
                     <OnePlatformSection embedded />
                 </div>

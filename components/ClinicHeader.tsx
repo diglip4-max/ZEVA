@@ -151,7 +151,7 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
   };
 
   return (
-    <header className="w-full bg-white border-b border-gray-200 shadow-sm z-[49] backdrop-blur-sm bg-white/95">
+    <header className="w-full bg-white border-b border-teal-200 shadow-sm z-[49] backdrop-blur-sm bg-white/95">
       <div className="px-3 py-2.5 sm:px-4 sm:py-3 lg:px-6">
         <div className="flex items-center justify-between gap-2 sm:gap-3 lg:gap-4">
           {/* Left: Hamburger buttons - Always visible, priority positioning */}
@@ -160,12 +160,12 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
             {handleToggleMobile && (
               <button
                 onClick={handleToggleMobile}
-                className="p-2 rounded-lg bg-white hover:bg-gray-100 transition-all duration-200 lg:hidden shadow-sm border border-gray-200 relative z-[51] flex-shrink-0"
+                className="p-2 rounded-lg bg-white hover:bg-teal-100 transition-all duration-200 lg:hidden shadow-sm border border-teal-200 relative z-[51] flex-shrink-0"
                 aria-label={isMobileOpen ? "Close sidebar" : "Open sidebar"}
               >
                 {isMobileOpen ? (
                   <svg
-                    className="w-5 h-5 text-gray-700 transition-transform duration-300"
+                    className="w-5 h-5 text-teal-700 transition-transform duration-300"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -174,7 +174,7 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
                   </svg>
                 ) : (
                   <svg
-                    className="w-5 h-5 text-gray-700 transition-transform duration-300"
+                    className="w-5 h-5 text-teal-700 transition-transform duration-300"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -189,11 +189,11 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
             {handleToggleDesktop && isDesktopHidden && (
               <button
                 onClick={handleToggleDesktop}
-                className="hidden lg:inline-flex p-2 rounded-lg bg-white hover:bg-gray-100 transition-colors duration-200 shadow-sm border border-gray-200 relative z-[51] flex-shrink-0"
+                className="hidden lg:inline-flex p-2 rounded-lg bg-white hover:bg-teal-100 transition-colors duration-200 shadow-sm border border-teal-200 relative z-[51] flex-shrink-0"
                 aria-label="Toggle sidebar"
               >
                 <svg
-                  className="w-5 h-5 text-gray-700 transition-transform duration-300"
+                  className="w-5 h-5 text-teal-700 transition-transform duration-300"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -209,7 +209,7 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <svg
-                  className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400"
+                  className="h-4 w-4 sm:h-5 sm:w-5 text-teal-400"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -228,18 +228,18 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
                 onChange={handleSearchChange}
                 onFocus={() => searchResults.length > 0 && setShowSearchResults(true)}
                 placeholder="Search sidebar options..."
-                className="block w-full pl-9 sm:pl-10 pr-3 py-1.5 sm:py-2 border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                className="block w-full pl-9 sm:pl-10 pr-3 py-1.5 sm:py-2 border border-teal-300 rounded-lg leading-5 bg-white placeholder-teal-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-sm"
               />
             </div>
 
             {/* Search Results Dropdown */}
             {showSearchResults && searchResults.length > 0 && (
-              <div className="absolute z-50 mt-1 w-full bg-white rounded-lg shadow-lg border border-gray-200 max-h-60 overflow-auto">
+              <div className="absolute z-50 mt-1 w-full bg-white rounded-lg shadow-lg border border-teal-200 max-h-60 overflow-auto">
                 {searchResults.map((result, index) => (
                   <button
                     key={index}
                     onClick={() => handleSearchResultClick(result.path)}
-                    className="w-full text-left px-4 py-2 hover:bg-gray-50 transition-colors duration-150 text-sm text-gray-700 border-b border-gray-100 last:border-b-0"
+                    className="w-full text-left px-4 py-2 hover:bg-teal-50 transition-colors duration-150 text-sm text-teal-700 border-b border-teal-100 last:border-b-0"
                   >
                     <div className="font-medium">{result.label}</div>
                   </button>
@@ -253,10 +253,10 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
 
             {/* Profile Text - Hidden on mobile, shown on larger screens */}
             <div className="hidden md:block text-right min-w-0">
-              <div className="text-sm font-semibold text-gray-900 truncate max-w-[140px] lg:max-w-[180px]">
+              <div className="text-sm font-semibold text-teal-900 truncate max-w-[140px] lg:max-w-[180px]">
                 {clinicUser?.name || clinicName || 'Clinic User'}
               </div>
-              <div className="text-xs text-gray-600 truncate max-w-[140px] lg:max-w-[180px]">
+              <div className="text-xs text-teal-600 truncate max-w-[140px] lg:max-w-[180px]">
                 {clinicUser?.email || ''}
               </div>
             </div>
@@ -271,7 +271,7 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
             {/* Logout Button - Icon only on mobile, text on larger screens */}
             <button
               onClick={handleLogout}
-              className="p-1.5 sm:px-3 sm:py-1.5 text-sm font-medium text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-red-200 flex-shrink-0"
+              className="p-1.5 sm:px-3 sm:py-1.5 text-sm font-medium text-teal-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-red-200 flex-shrink-0"
               aria-label="Logout"
             >
               <div className="flex items-center gap-1.5 sm:gap-2">

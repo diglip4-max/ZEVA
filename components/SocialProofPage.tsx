@@ -153,11 +153,11 @@ export default function SocialProofPage() {
           Social Proof
         </span> */}
 
-        <h2 className="mt-2 text-xl md:text-3xl font-bold text-blue-700" style={{ fontFamily: "'Playfair Display', serif" }}>
+        <h2 className="mt-2 text-2xl md:text-3xl font-bold text-blue-700" >
           Trusted by Patients & Healthcare Providers
         </h2>
 
-        <p className="mt-2 md:mt-3 text-base font-semibold text-gray-600" style={{ fontFamily: "'Playfair Display', serif" }}>
+        <p className="mt-2 md:mt-3 text-base font-normal text-gray-600" >
           Join thousands who trust ZEVA for their healthcare needs
         </p>
 

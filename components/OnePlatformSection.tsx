@@ -81,10 +81,10 @@ const OnePlatformSection: React.FC<{ embedded?: boolean }> = ({ embedded = false
     <section className={embedded ? "w-full py-6" : "w-full bg-white py-10"}>
       <div className={embedded ? "w-full" : "max-w-6xl mx-auto px-4"}>
         <div className="text-center mb-8">
-          <p className="text-blue-700 font-bold text-2xl" style={{ fontFamily: "'Playfair Display', serif" }}>
+          <p className="text-blue-700 font-bold text-2xl">
             Everything You Need in One Platform
           </p>
-          <p className="text-gray-600 text-base font-semibold mt-2" style={{ fontFamily: "'Playfair Display', serif" }}>
+          <p className="text-gray-600 text-base font-normal mt-2" >
             Comprehensive healthcare services designed for your convenience and peace of
             mind
           </p>

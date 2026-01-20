@@ -1,6 +1,7 @@
 import dbConnect from "../../../lib/database";
 import Clinic from "../../../models/Clinic";
 import Treatment from "../../../models/Treatment";
+import User from "../../../models/Users";
 import axios from "axios";
 
 // Helper to get base URL
@@ -26,6 +27,7 @@ export default async function handler(req, res) {
 
   const query = {
     isApproved: true,
+    declined: { $ne: true }, // Ensure not declined
     location: {
       $near: {
         $geometry: {
@@ -134,26 +136,79 @@ export default async function handler(req, res) {
   }
 
   try {
+    console.log("=== NEARBY CLINICS API CALL ===");
+    console.log("Request params:", { lat: latitude, lng: longitude, service });
     console.log("Final query:", JSON.stringify(query, null, 2));
 
     // First, let's test if we can find any clinics at all
     const allClinics = await Clinic.find({ isApproved: true }).limit(5).lean();
-    console.log("Total approved clinics found:", allClinics.length);
+    console.log("Total approved clinics in database:", allClinics.length);
     if (allClinics.length > 0) {
-      console.log("Sample clinic treatments:", allClinics[0].treatments);
+      console.log("Sample clinic:", {
+        name: allClinics[0].name,
+        hasLocation: !!allClinics[0].location,
+        location: allClinics[0].location,
+        treatments: allClinics[0].treatments?.length || 0,
+        ownerId: allClinics[0].owner
+      });
     }
 
     let clinics = await Clinic.find(query)
+      .populate({
+        path: "owner",
+        model: User,
+        select: "name email phone isApproved declined role",
+      })
       .select(
-        "name address treatments servicesName location pricing timings photos phone rating reviews verified slug slugLocked"
+        "name address treatments servicesName location pricing timings photos phone rating reviews verified slug slugLocked owner"
       )
       .limit(locationInfo.isInternational ? 100 : 50)
       .lean();
 
-    console.log("Found clinics count:", clinics.length);
+    console.log("Clinics found before filtering:", clinics.length);
+    if (clinics.length > 0) {
+      console.log("Sample clinic before filter:", {
+        name: clinics[0].name,
+        owner: clinics[0].owner ? {
+          isApproved: clinics[0].owner.isApproved,
+          declined: clinics[0].owner.declined,
+          role: clinics[0].owner.role
+        } : "NO OWNER"
+      });
+    }
 
-    // If no clinics found and we have a service, try without location constraint
-    if (clinics.length === 0 && service) {
+    // Filter only active and registered clinics
+    // Show clinics that are approved, only filter out if owner is declined or doesn't exist
+    const clinicsBeforeFilter = clinics.length;
+    clinics = clinics.filter(
+      (clinic) => {
+        // Clinic must be approved (already filtered in query)
+        // Owner must exist and not be declined
+        // Don't require owner.isApproved === true, just check they're not declined
+        if (!clinic.owner) {
+          return false; // No owner = exclude
+        }
+        if (clinic.owner.declined === true) {
+          return false; // Owner declined = exclude
+        }
+        if (clinic.owner.role !== "clinic") {
+          return false; // Wrong role = exclude
+        }
+        // Include clinic if owner exists, not declined, and has clinic role
+        return true;
+      }
+    );
+
+    console.log("Clinics after owner filter:", clinics.length, "(filtered out:", clinicsBeforeFilter - clinics.length, ")");
+    if (clinics.length === 0 && clinicsBeforeFilter > 0) {
+      console.log("⚠️ WARNING: Clinics were found but filtered out due to owner status!");
+      console.log("Sample filtered clinic owner:", {
+        hasOwner: !!clinicsBeforeFilter > 0 ? (await Clinic.find(query).limit(1).populate("owner").lean())[0]?.owner : null
+      });
+    }
+
+    // If no clinics found, try without location constraint (with or without service)
+    if (clinics.length === 0) {
       console.log(
         "No clinics found with location constraint, trying without location..."
       );
@@ -166,24 +221,50 @@ export default async function handler(req, res) {
         JSON.stringify(queryWithoutLocation, null, 2)
       );
       const clinicsWithoutLocation = await Clinic.find(queryWithoutLocation)
+        .populate({
+          path: "owner",
+          model: User,
+          select: "name email phone isApproved declined role",
+        })
         .select(
-          "name address treatments servicesName location pricing timings photos phone rating reviews verified"
+          "name address treatments servicesName location pricing timings photos phone rating reviews verified slug slugLocked owner"
         )
         .limit(10)
         .lean();
 
+      // Filter only active and registered clinics
+      // Show clinics that are approved, only filter out if owner is declined or doesn't exist
+      const filteredClinicsWithoutLocation = clinicsWithoutLocation.filter(
+        (clinic) => {
+          // Clinic must be approved (already filtered in query)
+          // Owner must exist and not be declined
+          // Don't require owner.isApproved === true, just check they're not declined
+          if (!clinic.owner) {
+            return false; // No owner = exclude
+          }
+          if (clinic.owner.declined === true) {
+            return false; // Owner declined = exclude
+          }
+          if (clinic.owner.role !== "clinic") {
+            return false; // Wrong role = exclude
+          }
+          // Include clinic if owner exists, not declined, and has clinic role
+          return true;
+        }
+      );
+
       console.log(
         "Clinics found without location constraint:",
-        clinicsWithoutLocation.length
+        filteredClinicsWithoutLocation.length
       );
-      if (clinicsWithoutLocation.length > 0) {
+      if (filteredClinicsWithoutLocation.length > 0) {
         console.log(
           "Sample clinic without location:",
-          clinicsWithoutLocation[0].name,
-          clinicsWithoutLocation[0].treatments
+          filteredClinicsWithoutLocation[0].name,
+          filteredClinicsWithoutLocation[0].treatments
         );
-        // Use these results instead
-        clinics = clinicsWithoutLocation;
+        // Use these filtered results instead
+        clinics = filteredClinicsWithoutLocation;
       }
 
       // Test: Check if the specific clinic exists and has location
@@ -352,13 +433,28 @@ export default async function handler(req, res) {
       );
 
       if (!ramacareClinic) {
-        ramacareClinic = await Clinic.findOne({
+        const foundClinic = await Clinic.findOne({
           name: {
             $regex:
               /ramacare|rama care|ramacare polyclinic|rama care polyclinic/i,
           },
           address: { $regex: /dubai/i },
-        }).lean();
+          isApproved: true,
+          declined: { $ne: true },
+        })
+        .populate({
+          path: "owner",
+          model: User,
+          select: "name email phone isApproved declined role",
+        })
+        .lean();
+        
+        // Only use if owner exists, not declined, and has clinic role
+        if (foundClinic && foundClinic.owner && 
+            foundClinic.owner.declined !== true &&
+            foundClinic.owner.role === "clinic") {
+          ramacareClinic = foundClinic;
+        }
       }
 
       if (ramacareClinic) {
@@ -409,6 +505,28 @@ export default async function handler(req, res) {
     }
 
     clinics = clinics.slice(0, locationInfo.isInternational ? 30 : 20);
+
+    console.log("=== FINAL RESULT ===");
+    console.log("Returning clinics count:", clinics.length);
+    if (clinics.length > 0) {
+      console.log("✅ Sample returned clinic:", {
+        name: clinics[0].name,
+        address: clinics[0].address,
+        hasLocation: !!clinics[0].location,
+        owner: clinics[0].owner ? {
+          isApproved: clinics[0].owner.isApproved,
+          declined: clinics[0].owner.declined,
+          role: clinics[0].owner.role
+        } : "NO OWNER"
+      });
+    } else {
+      console.log("❌ NO CLINICS TO RETURN!");
+      console.log("This means:");
+      console.log("1. No clinics found in database with isApproved=true");
+      console.log("2. OR all clinics were filtered out due to owner status");
+      console.log("3. OR location constraint too strict");
+    }
+    console.log("===================");
 
     res.status(200).json({ success: true, clinics });
   } catch (error) {

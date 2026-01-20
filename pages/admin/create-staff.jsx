@@ -317,7 +317,7 @@ function UserCard({ user, onAction, addToast }) {
         </div>
         <span className={`px-3 py-1 rounded-full text-xs font-medium ${
           user.role === "doctorStaff" 
-            ? "bg-purple-100 text-purple-700" 
+            ? "bg-blue-100 text-blue-700" 
             : "bg-blue-100 text-blue-700"
         }`}>
           {user.role === "doctorStaff" ? "Doctor" : "Staff"}
@@ -498,14 +498,14 @@ function CreateUser() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Staff Management</h1>
-              <p className="text-sm text-gray-600 mt-1">Manage your team members and doctors</p>
+              <h1 className="text-2xl font-bold text-blue-800">Staff Management</h1>
+              <p className="text-sm text-blue-600 mt-1">Manage your team members and doctors</p>
             </div>
             <button
               onClick={() => setIsModalOpen(true)}
-              className="flex items-center gap-2 bg-blue-600 text-white px-5 py-2.5 rounded-lg hover:bg-blue-700 transition-colors shadow-sm font-medium"
+              className="flex items-center gap-2 bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 transition-colors shadow-sm font-medium"
             >
-              <Plus className="w-5 h-5" />
+              <Plus className="w-3 h-3" />
               Add User
             </button>
           </div>
@@ -520,19 +520,19 @@ function CreateUser() {
               onClick={() => setActiveTab("doctors")}
               className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${
                 activeTab === "doctors"
-                  ? "bg-white text-purple-700 shadow-sm"
+                  ? "bg-white text-blue-700 shadow-sm"
                   : "text-gray-600 hover:text-gray-900"
               }`}
             >
               <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                activeTab === "doctors" ? "bg-purple-100" : "bg-transparent"
+                activeTab === "doctors" ? "bg-blue-100" : "bg-transparent"
               }`}>
                 <Users className="w-5 h-5" />
               </div>
               Doctors
               <span className={`px-2.5 py-0.5 rounded-full text-sm font-medium ${
                 activeTab === "doctors"
-                  ? "bg-purple-100 text-purple-700"
+                  ? "bg-blue-100 text-blue-700"
                   : "bg-gray-200 text-gray-600"
               }`}>
                 {doctorTotal}
@@ -579,7 +579,7 @@ function CreateUser() {
                 }
               }}
               className={`text-gray-700 w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 ${
-                activeTab === "doctors" ? "focus:ring-purple-500" : "focus:ring-blue-500"
+                activeTab === "doctors" ? "focus:ring-blue-500" : "focus:ring-blue-500"
               } focus:border-transparent`}
             />
           </div>
@@ -589,7 +589,7 @@ function CreateUser() {
           <section>
             {loading ? (
               <div className="text-center py-12">
-                <div className="inline-block w-8 h-8 border-4 border-purple-600 border-t-transparent rounded-full animate-spin" />
+                <div className="inline-block w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
               </div>
             ) : staffList.length > 0 ? (
               <>

@@ -567,11 +567,11 @@ const SEOAudit = () => {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-800">SEO Audit</h1>
-            <p className="text-gray-600 mt-1">
-              Track SEO health for all {entityType}s
+            <h1 className="text-xl font-bold ml-4 mt-3 text-blue-600">SEO Health Report</h1>
+            <p className="text-sm ml-4  text-blue-500">
+              Simple Google visibility report
               {lastUpdated && (
-                <span className="text-sm text-gray-500 ml-2">
+                <span className="text-xs text-blue-400 ml-2">
                   (Last updated: {new Date(lastUpdated).toLocaleString()})
                 </span>
               )}
@@ -580,71 +580,71 @@ const SEOAudit = () => {
           <button
             onClick={() => fetchAuditData(entityType, currentPage)}
             disabled={loading}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="flex items-center mr-3 mt-2 rounded gap-2 px-3 py-2 bg-blue-600 text-white rounded text-sm"
           >
-            <ArrowPathIcon className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
+            <ArrowPathIcon className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
             Refresh
           </button>
         </div>
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-          <div className="bg-white p-6 rounded-lg shadow border border-gray-200">
+        <div className="grid grid-cols-1 ml-3 mr-3 md:grid-cols-5 gap-3">
+          <div className="bg-white p-3 rounded-lg shadow border border-gray-200">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Total {entityType.charAt(0).toUpperCase() + entityType.slice(1)}s</p>
-                <p className="text-2xl font-bold text-gray-800 mt-1">{summary.total}</p>
+                <p className="text-xs text-gray-600">Total {entityType.charAt(0).toUpperCase() + entityType.slice(1)}s</p>
+                <p className="text-xl font-bold text-gray-800 mt-1">{summary.total}</p>
               </div>
-              <ChartBarIcon className="w-8 h-8 text-gray-400" />
+              <ChartBarIcon className="w-6 h-6 text-gray-400" />
             </div>
           </div>
 
-          <div className="bg-white p-6 rounded-lg shadow border border-green-200">
+          <div className="bg-white p-3 rounded-lg shadow border border-green-200">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Healthy</p>
-                <p className="text-2xl font-bold text-green-600 mt-1">{summary.healthy}</p>
+                <p className="text-xs text-gray-600">Healthy</p>
+                <p className="text-xl font-bold text-green-600 mt-1">{summary.healthy}</p>
               </div>
-              <CheckCircleIcon className="w-8 h-8 text-green-400" />
+              <CheckCircleIcon className="w-6 h-6 text-green-400" />
             </div>
           </div>
 
-          <div className="bg-white p-6 rounded-lg shadow border border-yellow-200">
+          <div className="bg-white p-3 rounded-lg shadow border border-yellow-200">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Warning</p>
-                <p className="text-2xl font-bold text-yellow-600 mt-1">{summary.warning}</p>
+                <p className="text-xs text-gray-600">Warning</p>
+                <p className="text-xl font-bold text-yellow-600 mt-1">{summary.warning}</p>
               </div>
-              <ExclamationTriangleIcon className="w-8 h-8 text-yellow-400" />
+              <ExclamationTriangleIcon className="w-6 h-6 text-yellow-400" />
             </div>
           </div>
 
-          <div className="bg-white p-6 rounded-lg shadow border border-red-200">
+          <div className="bg-white p-3 rounded-lg shadow border border-red-200">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Critical</p>
-                <p className="text-2xl font-bold text-red-600 mt-1">{summary.critical}</p>
+                <p className="text-xs text-gray-600">Critical</p>
+                <p className="text-xl font-bold text-red-600 mt-1">{summary.critical}</p>
               </div>
-              <XCircleIcon className="w-8 h-8 text-red-400" />
+              <XCircleIcon className="w-6 h-6 text-red-400" />
             </div>
           </div>
 
-          <div className="bg-white p-6 rounded-lg shadow border border-blue-200">
+          <div className="bg-white p-3 rounded-lg shadow border border-blue-200">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Avg Score</p>
-                <p className={`text-2xl font-bold mt-1 ${getScoreColor(summary.averageScore)}`}>
+                <p className="text-xs text-gray-600">Avg Score</p>
+                <p className={`text-xl font-bold mt-1 ${getScoreColor(summary.averageScore)}`}>
                   {summary.averageScore}/100
                 </p>
               </div>
-              <ChartBarIcon className="w-8 h-8 text-blue-400" />
+              <ChartBarIcon className="w-6 h-6 text-blue-400" />
             </div>
           </div>
         </div>
 
         {/* Entity Type Tabs */}
-        <div className="bg-white p-4 rounded-lg shadow border border-gray-200">
-          <div className="flex gap-2 mb-4">
+        <div className="bg-white p-3 rounded-lg mr-3 ml-3 shadow border border-gray-200">
+          <div className="flex gap-2 mb-2">
             {[
               { id: 'clinic', label: 'Clinics', icon: '🏥' },
               { id: 'doctor', label: 'Doctors', icon: '👨‍⚕️' },
@@ -658,7 +658,7 @@ const SEOAudit = () => {
                   setSearchTerm('');
                   setFilter('all');
                 }}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                className={`flex items-center gap-2 px-3 py-1.5 text-xs rounded-lg transition-colors ${
                   entityType === tab.id
                     ? 'bg-blue-600 text-white'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -672,22 +672,22 @@ const SEOAudit = () => {
         </div>
 
         {/* Filters and Search */}
-        <div className="bg-white p-4 rounded-lg shadow border border-gray-200">
-          <div className="flex flex-col md:flex-row gap-4">
+        <div className="bg-white p-4 ml-3 mr-3 rounded-lg shadow border border-gray-200">
+          <div className="flex flex-col md:flex-row gap-3">
             <div className="flex-1 relative">
-              <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input
                 type="text"
                 placeholder={`Search ${entityType}s by name, address, or location...`}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full pl-9 pr-3 py-1.5 text-xs border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
             <div className="flex gap-2">
               <button
                 onClick={() => setFilter('all')}
-                className={`px-4 py-2 rounded-lg transition-colors ${
+                className={`px-3 py-1.5 text-xs rounded-lg transition-colors ${
                   filter === 'all'
                     ? 'bg-blue-600 text-white'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -697,7 +697,7 @@ const SEOAudit = () => {
               </button>
               <button
                 onClick={() => setFilter('healthy')}
-                className={`px-4 py-2 rounded-lg transition-colors ${
+                className={`px-3 py-1.5 text-xs rounded-lg transition-colors ${
                   filter === 'healthy'
                     ? 'bg-green-600 text-white'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -707,7 +707,7 @@ const SEOAudit = () => {
               </button>
               <button
                 onClick={() => setFilter('warning')}
-                className={`px-4 py-2 rounded-lg transition-colors ${
+                className={`px-3 py-1.5 text-xs rounded-lg transition-colors ${
                   filter === 'warning'
                     ? 'bg-yellow-600 text-white'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -717,7 +717,7 @@ const SEOAudit = () => {
               </button>
               <button
                 onClick={() => setFilter('critical')}
-                className={`px-4 py-2 rounded-lg transition-colors ${
+                className={`px-3 py-1.5 text-xs rounded-lg transition-colors ${
                   filter === 'critical'
                     ? 'bg-red-600 text-white'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -763,11 +763,11 @@ const SEOAudit = () => {
                 return (
                   <div
                     key={entity._id}
-                    className="bg-white rounded-lg shadow border border-gray-200 overflow-hidden"
+                    className="bg-white rounded-lg shadow border border-gray-200 overflow-hidden mx-2"
                   >
                     {/* Entity Header */}
                     <div
-                      className={`p-6 border-b border-gray-200 cursor-pointer hover:bg-gray-50 transition-colors ${
+                      className={`p-3 border-b border-gray-200 cursor-pointer hover:bg-gray-50 transition-colors ${
                         health ? getHealthColor(health.overallHealth) : 'bg-gray-50'
                       }`}
                       onClick={() => toggleExpanded(entity._id)}
@@ -776,7 +776,7 @@ const SEOAudit = () => {
                         <div className="flex-1">
                           <div className="flex items-center gap-3">
                             {health && getHealthIcon(health.overallHealth)}
-                            <h3 className="text-lg font-semibold text-gray-800">{getEntityDisplayName(entity)}</h3>
+                            <h3 className="text-base font-semibold text-gray-800">{getEntityDisplayName(entity)}</h3>
                             {health && (
                               <span
                                 className={`px-2 py-1 text-xs font-medium rounded ${
@@ -791,7 +791,7 @@ const SEOAudit = () => {
                               </span>
                             )}
                           </div>
-                          <div className="mt-2 flex flex-wrap gap-4 text-sm text-gray-600">
+                          <div className="mt-1 flex flex-wrap gap-4 text-xs text-gray-600">
                             {getEntityDisplayLocation(entity) && (
                               <span>📍 {getEntityDisplayLocation(entity)}</span>
                             )}
@@ -806,7 +806,7 @@ const SEOAudit = () => {
                         <div className="flex items-center gap-4">
                           {health && (
                             <div className="text-right">
-                              <p className={`text-2xl font-bold ${getScoreColor(health.score)}`}>
+                              <p className={`text-xl font-bold ${getScoreColor(health.score)}`}>
                                 {health.score}/100
                               </p>
                               <p className="text-xs text-gray-500 mt-1">
@@ -819,7 +819,7 @@ const SEOAudit = () => {
                             className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
                             title="View detailed SEO audit"
                           >
-                            <EyeIcon className="w-5 h-5 text-blue-600 hover:text-blue-700" />
+                            <EyeIcon className="w-4 h-4 text-blue-600 hover:text-blue-700" />
                           </button>
                         </div>
                       </div>
@@ -1682,11 +1682,11 @@ const SEOAudit = () => {
             
             {/* Modal */}
             <div className="fixed inset-0 flex items-center justify-center p-4">
-              <div className="bg-white rounded-lg shadow-xl w-full max-w-7xl h-[90vh] flex flex-col overflow-hidden">
+              <div className="bg-white rounded-lg shadow-xl w-full max-w-5xl h-[90vh] flex flex-col overflow-hidden">
                 {/* Modal Header */}
                 <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gray-50">
                   <div>
-                  <h2 className="text-2xl font-bold text-gray-800">
+                  <h2 className="text-2xl font-bold text-blue-800">
                     Detailed SEO Audit
                   </h2>
                   {detailedAudit && (() => {
@@ -1694,7 +1694,7 @@ const SEOAudit = () => {
                     const displayName = entityData.name || entityData.title || entityData.jobTitle || 'Unknown';
                     const displayLocation = entityData.address || entityData.location || '';
                     return displayLocation ? (
-                      <p className="text-sm text-gray-600 mt-1">
+                      <p className="text-sm text-blue-600 mt-1">
                         {displayName} • {displayLocation}
                       </p>
                     ) : (
@@ -1716,41 +1716,8 @@ const SEOAudit = () => {
                 </div>
 
                 {/* Modal Content */}
-                <div className="flex flex-1 overflow-hidden">
-                  {/* Sidebar Navigation */}
-                  <div className="w-64 bg-gray-50 border-r border-gray-200 overflow-y-auto">
-                    <div className="p-4">
-                      <h3 className="text-sm font-semibold text-gray-700 mb-3 uppercase tracking-wide">
-                        SEO Services
-                      </h3>
-                      <nav className="space-y-1">
-                        {[
-                          { id: 'indexing', label: '1. Indexing Decision Service', icon: '📊' },
-                          { id: 'robots', label: '2. Robots Meta Service', icon: '🌐' },
-                          { id: 'meta', label: '3. Meta Tags Service', icon: '🏷️' },
-                          { id: 'canonical', label: '4. Canonical URL Service', icon: '🔗' },
-                          { id: 'duplicate', label: '5. Duplicate Content Service', icon: '📋' },
-                          { id: 'headings', label: '6. Heading Service', icon: '📄' },
-                          { id: 'sitemap', label: '7. Sitemap Service', icon: '🗺️' },
-                          { id: 'ping', label: '8. Sitemap Ping Service', icon: '🔔' },
-                          { id: 'health', label: 'SEO Health Check Summary', icon: '🏥' },
-                        ].map((item) => (
-                          <button
-                            key={item.id}
-                            onClick={() => scrollToSection(item.id)}
-                            className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
-                              activeSection === item.id
-                                ? 'bg-blue-100 text-blue-700 font-medium'
-                                : 'text-gray-700 hover:bg-gray-100'
-                            }`}
-                          >
-                            <span className="mr-2">{item.icon}</span>
-                            {item.label}
-                          </button>
-                        ))}
-                      </nav>
-                    </div>
-                  </div>
+                <div className="flex flex-1 overflow-hidden bg-blue-50/10">
+                  {/* Sidebar Removed as per request */}
 
                   {/* Main Content Area */}
                   <div className="flex-1 overflow-y-auto p-6">
@@ -1762,14 +1729,14 @@ const SEOAudit = () => {
                         </div>
                       </div>
                     ) : detailedAudit ? (
-                      <div className="space-y-6">
+                      <div className="space-y-6 max-w-5xl mx-auto">
                         {/* SEO Pipeline Overview */}
                         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-                          <h4 className="text-lg font-semibold text-gray-800 mb-2">
-                            📊 SEO Pipeline Results
+                          <h4 className="text-lg font-semibold text-blue-800 mb-2">
+                            📊 SEO Audit Results
                           </h4>
-                          <p className="text-sm text-gray-600">
-                            Full SEO pipeline execution results for this clinic
+                          <p className="text-sm text-blue-600">
+                            Here are the simple results of your clinic's visibility check.
                           </p>
                         </div>
 
@@ -1778,15 +1745,15 @@ const SEOAudit = () => {
                           <div id="indexing" className="scroll-mt-4">
                             {(() => {
                               const section = (
-                                <div className="bg-white border border-gray-200 rounded-lg p-5">
+                                <div className="bg-white border border-blue-100 rounded-lg p-5">
                                   <div className="flex items-center gap-2 mb-3">
                                     <ChartBarIcon className="w-5 h-5 text-blue-600" />
-                                    <h5 className="font-semibold text-gray-800">1. Indexing Decision Service</h5>
+                                    <h5 className="font-semibold text-blue-800">1. Can Google Find This? (Indexing)</h5>
                                   </div>
                                   <p className="text-sm text-gray-600 mb-3">
-                                    Determines if the clinic should be indexed by search engines based on completeness, duplicates, and content quality.
+                                    Checks if this page is allowed to be shown in Google search results.
                                   </p>
-                                  <div className="bg-gray-50 rounded-lg p-4 space-y-2">
+                                  <div className="bg-blue-50/50 rounded-lg p-4 space-y-2">
                                     <div className="flex items-center gap-2">
                                       <span className="font-medium text-gray-700">Should Index:</span>
                                       <span className={`px-2 py-1 rounded text-xs font-medium ${
@@ -1827,9 +1794,9 @@ const SEOAudit = () => {
                                   {/* Human-readable explanation */}
                                   {explainIndexingDecision(detailedAudit.seoPipeline.indexing) && (
                                     <div className="mt-4 space-y-3">
-                                      <h6 className="text-sm font-semibold text-gray-700 mb-2">📖 What This Means:</h6>
+                                      <h6 className="text-sm font-semibold text-blue-700 mb-2">📖 What This Means:</h6>
                                       {explainIndexingDecision(detailedAudit.seoPipeline.indexing).map((explanation, idx) => (
-                                        <div key={idx} className={`${getColorClasses(explanation.color)} rounded-lg p-4`}>
+                                        <div key={idx} className={`${getColorClasses(explanation.color).replace('bg-gray', 'bg-blue').replace('border-gray', 'border-blue')} rounded-lg p-4 bg-opacity-30`}>
                                           <div className="flex items-start gap-3">
                                             <span className="text-xl">{explanation.icon}</span>
                                             <div className="flex-1">
@@ -1858,18 +1825,18 @@ const SEOAudit = () => {
                         {/* 2. Robots Meta Service */}
                         {detailedAudit.seoPipeline?.robots && (
                           <div id="robots" className="scroll-mt-4">
-                            <div className="bg-white border border-gray-200 rounded-lg p-5">
+                            <div className="bg-white border border-blue-100 rounded-lg p-5">
                               <div className="flex items-center gap-2 mb-3">
-                                <GlobeAltIcon className="w-5 h-5 text-purple-600" />
-                                <h5 className="font-semibold text-gray-800">2. Robots Meta Service</h5>
+                                <GlobeAltIcon className="w-5 h-5 text-blue-600" />
+                                <h5 className="font-semibold text-blue-800">2. Search Engine Instructions (Robots)</h5>
                               </div>
                               <p className="text-sm text-gray-600 mb-3">
-                                Generates meta robots tags to control how search engines crawl and index the page.
+                                Technical rules for search robots (like 'Allowed' or 'Blocked').
                               </p>
-                              <div className="bg-gray-50 rounded-lg p-4 space-y-2">
+                              <div className="bg-blue-50/50 rounded-lg p-4 space-y-2">
                                 <div>
                                   <span className="font-medium text-gray-700">Content:</span>
-                                  <code className="ml-2 px-2 py-1 bg-gray-200 rounded text-sm">
+                                  <code className="ml-2 px-2 py-1 bg-blue-100 rounded text-sm text-blue-800">
                                     {detailedAudit.seoPipeline.robots.content}
                                   </code>
                                 </div>
@@ -1879,23 +1846,23 @@ const SEOAudit = () => {
                                       ? 'bg-red-100 text-red-700'
                                       : 'bg-green-100 text-green-700'
                                   }`}>
-                                    {detailedAudit.seoPipeline.robots.noindex ? 'NOINDEX' : 'INDEX'}
+                                    {detailedAudit.seoPipeline.robots.noindex ? 'NOINDEX (Hidden)' : 'INDEX (Visible)'}
                                   </span>
                                   <span className={`px-2 py-1 rounded text-xs font-medium ${
                                     detailedAudit.seoPipeline.robots.nofollow
                                       ? 'bg-red-100 text-red-700'
                                       : 'bg-green-100 text-green-700'
                                   }`}>
-                                    {detailedAudit.seoPipeline.robots.nofollow ? 'NOFOLLOW' : 'FOLLOW'}
+                                    {detailedAudit.seoPipeline.robots.nofollow ? 'NOFOLLOW (Ignore Links)' : 'FOLLOW (Follow Links)'}
                                   </span>
                                 </div>
                               </div>
                               {/* Human-readable explanation */}
                               {explainRobotsMeta(detailedAudit.seoPipeline.robots) && (
                                 <div className="mt-4 space-y-3">
-                                  <h6 className="text-sm font-semibold text-gray-700 mb-2">📖 What This Means:</h6>
+                                  <h6 className="text-sm font-semibold text-blue-700 mb-2">📖 What This Means:</h6>
                                   {explainRobotsMeta(detailedAudit.seoPipeline.robots).map((explanation, idx) => (
-                                    <div key={idx} className={`${getColorClasses(explanation.color)} rounded-lg p-4`}>
+                                    <div key={idx} className={`${getColorClasses(explanation.color)} rounded-lg p-4 bg-opacity-30`}>
                                       <div className="flex items-start gap-3">
                                         <span className="text-xl">{explanation.icon}</span>
                                         <div className="flex-1">
@@ -1914,18 +1881,18 @@ const SEOAudit = () => {
                         {/* 3. Meta Tags Service */}
                         {detailedAudit.seoPipeline?.meta && (
                           <div id="meta" className="scroll-mt-4">
-                            <div className="bg-white border border-gray-200 rounded-lg p-5">
+                            <div className="bg-white border border-blue-100 rounded-lg p-5">
                               <div className="flex items-center gap-2 mb-3">
-                                <TagIcon className="w-5 h-5 text-indigo-600" />
-                                <h5 className="font-semibold text-gray-800">3. Meta Tags Service</h5>
+                                <TagIcon className="w-5 h-5 text-blue-600" />
+                                <h5 className="font-semibold text-blue-800">3. Page Title & Description</h5>
                               </div>
                               <p className="text-sm text-gray-600 mb-3">
-                                Generates SEO-optimized meta title, description, and keywords for search engine results.
+                                How your page looks in search results (Title and Description).
                               </p>
-                              <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+                              <div className="bg-blue-50/50 rounded-lg p-4 space-y-3">
                                 <div>
-                                  <span className="font-medium text-gray-700">Title:</span>
-                                  <p className="mt-1 text-gray-800">{detailedAudit.seoPipeline.meta.title}</p>
+                                  <span className="font-medium text-gray-700">Title (Headline):</span>
+                                  <p className="mt-1 text-gray-800 bg-white p-2 rounded border border-blue-100">{detailedAudit.seoPipeline.meta.title}</p>
                                   <p className="text-xs text-gray-500 mt-1">
                                     Length: {detailedAudit.seoPipeline.meta.title.length} characters
                                     {detailedAudit.seoPipeline.meta.title.length < 50 && ' (Too short)'}
@@ -1934,8 +1901,8 @@ const SEOAudit = () => {
                                   </p>
                                 </div>
                                 <div>
-                                  <span className="font-medium text-gray-700">Description:</span>
-                                  <p className="mt-1 text-gray-800">{detailedAudit.seoPipeline.meta.description}</p>
+                                  <span className="font-medium text-gray-700">Description (Summary):</span>
+                                  <p className="mt-1 text-gray-800 bg-white p-2 rounded border border-blue-100">{detailedAudit.seoPipeline.meta.description}</p>
                                   <p className="text-xs text-gray-500 mt-1">
                                     Length: {detailedAudit.seoPipeline.meta.description.length} characters
                                     {detailedAudit.seoPipeline.meta.description.length < 120 && ' (Too short)'}
@@ -1959,9 +1926,9 @@ const SEOAudit = () => {
                               {/* Human-readable explanation */}
                               {explainMetaTags(detailedAudit.seoPipeline.meta) && (
                                 <div className="mt-4 space-y-3">
-                                  <h6 className="text-sm font-semibold text-gray-700 mb-2">📖 What This Means:</h6>
+                                  <h6 className="text-sm font-semibold text-blue-700 mb-2">📖 What This Means:</h6>
                                   {explainMetaTags(detailedAudit.seoPipeline.meta).map((explanation, idx) => (
-                                    <div key={idx} className={`${getColorClasses(explanation.color)} rounded-lg p-4`}>
+                                    <div key={idx} className={`${getColorClasses(explanation.color)} rounded-lg p-4 bg-opacity-30`}>
                                       <div className="flex items-start gap-3">
                                         <span className="text-xl">{explanation.icon}</span>
                                         <div className="flex-1">
@@ -1969,7 +1936,7 @@ const SEOAudit = () => {
                                           <p className="text-sm text-gray-600">{explanation.description}</p>
                                           {explanation.length !== undefined && (
                                             <p className={`text-xs mt-2 ${explanation.optimal ? 'text-green-700' : 'text-yellow-700'}`}>
-                                              {explanation.optimal ? '✓ Length is optimal for SEO' : `⚠ Length: ${explanation.length} characters (${explanation.length < 50 || explanation.length < 120 ? 'too short' : 'too long'})`}
+                                              {explanation.optimal ? '✓ Length is good' : `⚠ Length: ${explanation.length} characters (${explanation.length < 50 || explanation.length < 120 ? 'too short' : 'too long'})`}
                                             </p>
                                           )}
                                         </div>
@@ -1985,15 +1952,15 @@ const SEOAudit = () => {
                         {/* 4. Canonical URL Service */}
                         {detailedAudit.seoPipeline?.canonical && (
                           <div id="canonical" className="scroll-mt-4">
-                            <div className="bg-white border border-gray-200 rounded-lg p-5">
+                            <div className="bg-white border border-blue-100 rounded-lg p-5">
                               <div className="flex items-center gap-2 mb-3">
-                                <LinkIcon className="w-5 h-5 text-teal-600" />
-                                <h5 className="font-semibold text-gray-800">4. Canonical URL Service</h5>
+                                <LinkIcon className="w-5 h-5 text-blue-600" />
+                                <h5 className="font-semibold text-blue-800">Is This The Original Link? (Canonical)</h5>
                               </div>
                               <p className="text-sm text-gray-600 mb-3">
-                                Resolves the canonical URL to prevent duplicate content issues and ensure search engines know the preferred version.
+                                We checked if this is the main link that search engines should show.
                               </p>
-                              <div className="bg-gray-50 rounded-lg p-4">
+                              <div className="bg-blue-50 rounded-lg p-4">
                                 <div>
                                   <span className="font-medium text-gray-700">Canonical URL:</span>
                                   <p className="mt-1 text-blue-600 break-all">{detailedAudit.seoPipeline.canonical}</p>
@@ -2002,7 +1969,7 @@ const SEOAudit = () => {
                               {/* Human-readable explanation */}
                               {explainCanonicalUrl(detailedAudit.seoPipeline.canonical) && (
                                 <div className="mt-4">
-                                  <h6 className="text-sm font-semibold text-gray-700 mb-2">📖 What This Means:</h6>
+                                  <h6 className="text-sm font-semibold text-blue-700 mb-2">📖 What This Means:</h6>
                                   <div className={`${getColorClasses(explainCanonicalUrl(detailedAudit.seoPipeline.canonical).color)} rounded-lg p-4`}>
                                     <div className="flex items-start gap-3">
                                       <span className="text-xl">{explainCanonicalUrl(detailedAudit.seoPipeline.canonical).icon}</span>
@@ -2021,15 +1988,15 @@ const SEOAudit = () => {
                         {/* 5. Duplicate Content Service */}
                         {detailedAudit.seoPipeline?.duplicateCheck && (
                           <div id="duplicate" className="scroll-mt-4">
-                            <div className="bg-white border border-gray-200 rounded-lg p-5">
+                            <div className="bg-white border border-blue-100 rounded-lg p-5">
                               <div className="flex items-center gap-2 mb-3">
-                                <DocumentDuplicateIcon className="w-5 h-5 text-orange-600" />
-                                <h5 className="font-semibold text-gray-800">5. Duplicate Content Service</h5>
+                                <DocumentDuplicateIcon className="w-5 h-5 text-blue-600" />
+                                <h5 className="font-semibold text-blue-800">Is This Content Unique? (Duplicate Check)</h5>
                               </div>
                               <p className="text-sm text-gray-600 mb-3">
-                                Checks for duplicate or similar content across other clinics to prevent SEO penalties.
+                                We checked if your content is original. Search engines prefer unique content.
                               </p>
-                              <div className="bg-gray-50 rounded-lg p-4 space-y-2">
+                              <div className="bg-blue-50 rounded-lg p-4 space-y-2">
                                 <div className="flex items-center gap-2">
                                   <span className="font-medium text-gray-700">Is Duplicate:</span>
                                   <span className={`px-2 py-1 rounded text-xs font-medium ${
@@ -2060,7 +2027,7 @@ const SEOAudit = () => {
                               {/* Human-readable explanation */}
                               {explainDuplicateCheck(detailedAudit.seoPipeline.duplicateCheck) && (
                                 <div className="mt-4 space-y-3">
-                                  <h6 className="text-sm font-semibold text-gray-700 mb-2">📖 What This Means:</h6>
+                                  <h6 className="text-sm font-semibold text-blue-700 mb-2">📖 What This Means:</h6>
                                   {explainDuplicateCheck(detailedAudit.seoPipeline.duplicateCheck).map((explanation, idx) => (
                                     <div key={idx} className={`${getColorClasses(explanation.color)} rounded-lg p-4`}>
                                       <div className="flex items-start gap-3">
@@ -2081,15 +2048,15 @@ const SEOAudit = () => {
                         {/* 6. Heading Service */}
                         {detailedAudit.seoPipeline?.headings && (
                           <div id="headings" className="scroll-mt-4">
-                            <div className="bg-white border border-gray-200 rounded-lg p-5">
+                            <div className="bg-white border border-blue-100 rounded-lg p-5">
                               <div className="flex items-center gap-2 mb-3">
-                                <DocumentTextIcon className="w-5 h-5 text-pink-600" />
-                                <h5 className="font-semibold text-gray-800">6. Heading Service</h5>
+                                <DocumentTextIcon className="w-5 h-5 text-blue-600" />
+                                <h5 className="font-semibold text-blue-800">Are Headings Correct? (Structure)</h5>
                               </div>
                               <p className="text-sm text-gray-600 mb-3">
-                                Generates structured heading plan (H1, H2, H3) to prevent duplicate headings and improve SEO structure.
+                                We checked your page titles and subtitles to make sure they are organized correctly.
                               </p>
-                              <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+                              <div className="bg-blue-50 rounded-lg p-4 space-y-3">
                                 <div>
                                   <span className="font-medium text-gray-700">H1:</span>
                                   <p className="mt-1 text-gray-800 font-semibold">{detailedAudit.seoPipeline.headings.h1}</p>
@@ -2118,7 +2085,7 @@ const SEOAudit = () => {
                               {/* Human-readable explanation */}
                               {explainHeadings(detailedAudit.seoPipeline.headings) && (
                                 <div className="mt-4 space-y-3">
-                                  <h6 className="text-sm font-semibold text-gray-700 mb-2">📖 What This Means:</h6>
+                                  <h6 className="text-sm font-semibold text-blue-700 mb-2">📖 What This Means:</h6>
                                   {explainHeadings(detailedAudit.seoPipeline.headings).map((explanation, idx) => (
                                     <div key={idx} className={`${getColorClasses(explanation.color)} rounded-lg p-4`}>
                                       <div className="flex items-start gap-3">
@@ -2146,15 +2113,15 @@ const SEOAudit = () => {
                         {/* 7. Sitemap Service */}
                         {detailedAudit.seoPipeline?.sitemapUpdated !== undefined && (
                           <div id="sitemap" className="scroll-mt-4">
-                            <div className="bg-white border border-gray-200 rounded-lg p-5">
+                            <div className="bg-white border border-blue-100 rounded-lg p-5">
                               <div className="flex items-center gap-2 mb-3">
-                                <MapIcon className="w-5 h-5 text-green-600" />
-                                <h5 className="font-semibold text-gray-800">7. Sitemap Service</h5>
+                                <MapIcon className="w-5 h-5 text-blue-600" />
+                                <h5 className="font-semibold text-blue-800">Is It Listed? (Sitemap)</h5>
                               </div>
                               <p className="text-sm text-gray-600 mb-3">
-                                Updates the XML sitemap to include this clinic for search engine discovery.
+                                We checked if your page is listed in the map that search engines use to find your site.
                               </p>
-                              <div className="bg-gray-50 rounded-lg p-4">
+                              <div className="bg-blue-50 rounded-lg p-4">
                                 <div className="flex items-center gap-2">
                                   <span className="font-medium text-gray-700">Sitemap Updated:</span>
                                   <span className={`px-2 py-1 rounded text-xs font-medium ${
@@ -2174,7 +2141,7 @@ const SEOAudit = () => {
                               {/* Human-readable explanation */}
                               {explainSitemap(detailedAudit.seoPipeline.sitemapUpdated) && (
                                 <div className="mt-4">
-                                  <h6 className="text-sm font-semibold text-gray-700 mb-2">📖 What This Means:</h6>
+                                  <h6 className="text-sm font-semibold text-blue-700 mb-2">📖 What This Means:</h6>
                                   <div className={`${getColorClasses(explainSitemap(detailedAudit.seoPipeline.sitemapUpdated).color)} rounded-lg p-4`}>
                                     <div className="flex items-start gap-3">
                                       <span className="text-xl">{explainSitemap(detailedAudit.seoPipeline.sitemapUpdated).icon}</span>
@@ -2193,15 +2160,15 @@ const SEOAudit = () => {
                         {/* 8. Sitemap Ping Service */}
                         {detailedAudit.seoPipeline?.pinged !== undefined && (
                           <div id="ping" className="scroll-mt-4">
-                            <div className="bg-white border border-gray-200 rounded-lg p-5">
+                            <div className="bg-white border border-blue-100 rounded-lg p-5">
                               <div className="flex items-center gap-2 mb-3">
-                                <BellIcon className="w-5 h-5 text-cyan-600" />
-                                <h5 className="font-semibold text-gray-800">8. Sitemap Ping Service</h5>
+                                <BellIcon className="w-5 h-5 text-blue-600" />
+                                <h5 className="font-semibold text-blue-800">Did We Tell Google? (Ping)</h5>
                               </div>
                               <p className="text-sm text-gray-600 mb-3">
-                                Notifies Google and Bing search engines about sitemap updates for faster indexing.
+                                We notified search engines that your page exists or has been updated.
                               </p>
-                              <div className="bg-gray-50 rounded-lg p-4">
+                              <div className="bg-blue-50 rounded-lg p-4">
                                 <div className="flex items-center gap-2">
                                   <span className="font-medium text-gray-700">Search Engines Pinged:</span>
                                   <span className={`px-2 py-1 rounded text-xs font-medium ${
@@ -2216,7 +2183,7 @@ const SEOAudit = () => {
                               {/* Human-readable explanation */}
                               {explainPing(detailedAudit.seoPipeline.pinged) && (
                                 <div className="mt-4">
-                                  <h6 className="text-sm font-semibold text-gray-700 mb-2">📖 What This Means:</h6>
+                                  <h6 className="text-sm font-semibold text-blue-700 mb-2">📖 What This Means:</h6>
                                   <div className={`${getColorClasses(explainPing(detailedAudit.seoPipeline.pinged).color)} rounded-lg p-4`}>
                                     <div className="flex items-start gap-3">
                                       <span className="text-xl">{explainPing(detailedAudit.seoPipeline.pinged).icon}</span>

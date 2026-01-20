@@ -365,13 +365,13 @@ const AdminPatientClaims = () => {
             <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
               <div className="flex items-center gap-3 flex-1 min-w-0">
                 <div className="bg-white p-2 rounded-lg shadow-sm border border-gray-200">
-                  <ClipboardList className="w-5 h-5 text-gray-800" />
+                  <ClipboardList className="w-5 h-5 text-blue-800" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h2 className="text-base sm:text-lg md:text-xl font-bold text-gray-800 truncate">
+                  <h2 className="text-base sm:text-lg md:text-xl font-bold text-blue-800 truncate">
                     Patient Claims Dashboard
                   </h2>
-                  <p className="text-xs sm:text-sm text-gray-500 mt-0.5">
+                  <p className="text-xs sm:text-sm text-blue-600 mt-0.5">
                     Manage and monitor patient claims
                   </p>
                 </div>
@@ -385,7 +385,7 @@ const AdminPatientClaims = () => {
                 <select
                   value={statusFilter}
                   onChange={handleFilterChange}
-                  className="text-gray-800 w-full xs:w-auto min-w-[140px] border border-gray-300 rounded-lg px-3 py-1.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white shadow-sm hover:border-gray-400"
+                  className="text-blue-800 w-full xs:w-auto min-w-[140px] border border-gray-300 rounded-lg px-3 py-1.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white shadow-sm hover:border-gray-400"
                 >
                   <option value="">All Claims</option>
                   <option value="Pending">Pending</option>
@@ -484,7 +484,7 @@ const AdminPatientClaims = () => {
         </div>
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3 mb-3 sm:mb-4">
+        <div className="grid grid-cols-2 text-blue-800 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3 mb-3 sm:mb-4">
           {[
             { label: "Pending", value: summary.pending || 0, icon: Clock },
             { label: "Released", value: summary.released || 0, icon: CheckCircle },
@@ -497,7 +497,7 @@ const AdminPatientClaims = () => {
             return (
               <div
                 key={idx}
-                className="bg-white rounded-lg shadow-sm hover:shadow-md transition-all duration-200 p-3 border border-gray-200 hover:border-gray-300"
+                className="bg-white rounded-lg shadow-sm hover:shadow-md transition-all duration-200 p-3 border border-blue-200 hover:border-gray-300"
               >
                 <div className="flex items-center justify-between mb-2">
                   <div className="bg-white p-2 rounded-lg shadow-sm border border-gray-200">

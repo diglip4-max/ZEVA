@@ -105,16 +105,16 @@ function ClinicPatientRegistration() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-2 sm:p-3">
+    <div className="min-h-screen bg-teal-50 p-2 sm:p-3">
       {/* Register Patient Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 overflow-y-auto bg-black/50 backdrop-blur-sm">
           <div className="relative bg-white rounded-lg sm:rounded-xl shadow-2xl w-full max-w-7xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto flex flex-col">
-            <div className="sticky top-0 bg-white border-b border-gray-200 px-2 sm:px-3 py-2 flex items-center justify-between z-10">
-              <h2 className="text-sm sm:text-base font-bold text-gray-900">Register New Patient</h2>
+            <div className="sticky top-0 bg-white border-b border-teal-200 px-2 sm:px-3 py-2 flex items-center justify-between z-10">
+              <h2 className="text-sm sm:text-base font-bold text-teal-900">Register New Patient</h2>
               <button
                 onClick={handleCloseModal}
-                className="p-1 hover:bg-gray-100 rounded-lg text-gray-500 hover:text-gray-700 transition-colors flex-shrink-0"
+                className="p-1 hover:bg-teal-100 rounded-lg text-teal-500 hover:text-teal-700 transition-colors flex-shrink-0"
                 aria-label="Close modal"
               >
                 <X className="w-4 h-4" />
@@ -148,11 +148,11 @@ function ClinicPatientRegistration() {
       {editPatientId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 overflow-y-auto bg-black/50 backdrop-blur-sm">
           <div className="relative w-full max-w-6xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto bg-white rounded-lg sm:rounded-xl shadow-2xl flex flex-col">
-            <div className="sticky top-0 bg-white border-b border-gray-200 px-2 sm:px-3 py-2 flex items-center justify-between z-10">
-              <h2 className="text-sm sm:text-base font-bold text-gray-900">Edit Patient</h2>
+            <div className="sticky top-0 bg-white border-b border-teal-200 px-2 sm:px-3 py-2 flex items-center justify-between z-10">
+              <h2 className="text-sm sm:text-base font-bold text-teal-900">Edit Patient</h2>
               <button
                 onClick={() => handleCloseEditModal(false)}
-                className="p-1 hover:bg-gray-100 rounded-lg text-gray-500 hover:text-gray-700 transition-colors flex-shrink-0"
+                className="p-1 hover:bg-teal-100 rounded-lg text-teal-500 hover:text-teal-700 transition-colors flex-shrink-0"
                 aria-label="Close edit modal"
               >
                 <X className="w-4 h-4" />
@@ -372,11 +372,11 @@ function PatientImportModal({ onClose, onSuccess }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 overflow-y-auto bg-black/50 backdrop-blur-sm">
       <div className="relative bg-white rounded-lg sm:rounded-xl shadow-2xl w-full max-w-4xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto flex flex-col">
-        <div className="sticky top-0 bg-white border-b border-gray-200 px-2 sm:px-3 py-2 flex items-center justify-between z-10">
-          <h2 className="text-sm sm:text-base font-bold text-gray-900">Import Patients</h2>
+        <div className="sticky top-0 bg-white border-b border-teal-200 px-2 sm:px-3 py-2 flex items-center justify-between z-10">
+          <h2 className="text-sm sm:text-base font-bold text-teal-900">Import Patients</h2>
           <button
             onClick={onClose}
-            className="p-1 hover:bg-gray-100 rounded-lg text-gray-500 hover:text-gray-700 transition-colors flex-shrink-0"
+            className="p-1 hover:bg-teal-100 rounded-lg text-teal-500 hover:text-teal-700 transition-colors flex-shrink-0"
             aria-label="Close modal"
           >
             <X className="w-4 h-4" />
@@ -404,17 +404,17 @@ function PatientImportModal({ onClose, onSuccess }) {
               <div className="flex items-center justify-between gap-2">
                 <button
                   onClick={handleDownloadSample}
-                  className="inline-flex items-center gap-2 px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs font-medium transition-colors"
+                  className="inline-flex items-center gap-2 px-3 py-2 bg-teal-100 hover:bg-teal-200 text-teal-700 rounded-lg text-xs font-medium transition-colors"
                 >
                   <Download className="w-4 h-4" />
                   Download Sample CSV
                 </button>
               </div>
 
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-                <Upload className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+              <div className="border-2 border-dashed border-teal-300 rounded-lg p-6 text-center">
+                <Upload className="w-12 h-12 text-teal-400 mx-auto mb-3" />
                 <label className="cursor-pointer">
-                  <span className="text-sm font-medium text-gray-700">Choose file to upload</span>
+                  <span className="text-sm font-medium text-teal-700">Choose file to upload</span>
                   <input
                     type="file"
                     accept=".csv,.xlsx,.xls"
@@ -422,7 +422,7 @@ function PatientImportModal({ onClose, onSuccess }) {
                     className="hidden"
                   />
                 </label>
-                <p className="text-xs text-gray-500 mt-2">CSV or Excel files only</p>
+                <p className="text-xs text-teal-500 mt-2">CSV or Excel files only</p>
                 {file && (
                   <p className="text-xs text-green-600 mt-2 font-medium">{file.name}</p>
                 )}
@@ -445,14 +445,14 @@ function PatientImportModal({ onClose, onSuccess }) {
               </div>
 
               {filePreview && filePreview.length > 0 && (
-                <div className="bg-gray-50 rounded-lg p-3 mb-4">
-                  <p className="text-xs font-semibold text-gray-700 mb-2">File Preview (first 5 rows):</p>
+                <div className="bg-teal-50 rounded-lg p-3 mb-4">
+                  <p className="text-xs font-semibold text-teal-700 mb-2">File Preview (first 5 rows):</p>
                   <div className="overflow-x-auto">
-                    <table className="min-w-full text-xs border border-gray-200">
+                    <table className="min-w-full text-xs border border-teal-200">
                       <thead>
-                        <tr className="bg-gray-100">
+                        <tr className="bg-teal-100">
                           {availableColumns.map((col) => (
-                            <th key={col} className="px-2 py-1 border border-gray-300 text-left font-semibold">
+                            <th key={col} className="px-2 py-1 border border-teal-300 text-left font-semibold">
                               {col}
                             </th>
                           ))}
@@ -462,7 +462,7 @@ function PatientImportModal({ onClose, onSuccess }) {
                         {filePreview.map((row, idx) => (
                           <tr key={idx}>
                             {availableColumns.map((col) => (
-                              <td key={col} className="px-2 py-1 border border-gray-300">
+                              <td key={col} className="px-2 py-1 border border-teal-300">
                                 {String(row[col] || "").substring(0, 20)}
                               </td>
                             ))}
@@ -483,7 +483,7 @@ function PatientImportModal({ onClose, onSuccess }) {
                   
                   return (
                     <div key={field} className="flex items-center gap-3">
-                      <label className="flex-1 text-xs font-medium text-gray-700 min-w-[200px]">
+                      <label className="flex-1 text-xs font-medium text-teal-700 min-w-[200px]">
                         {label}
                       </label>
                       <select
@@ -502,7 +502,7 @@ function PatientImportModal({ onClose, onSuccess }) {
                           }
                           setColumnMapping(newMapping);
                         }}
-                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="flex-1 px-3 py-2 border border-teal-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
                       >
                         <option value="">-- Select Column --</option>
                         {availableColumns.map((col) => (
@@ -519,14 +519,14 @@ function PatientImportModal({ onClose, onSuccess }) {
               <div className="flex items-center justify-end gap-2 pt-4 border-t">
                 <button
                   onClick={() => setStep(1)}
-                  className="px-4 py-2 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                  className="px-4 py-2 text-xs font-medium text-teal-700 bg-teal-100 hover:bg-teal-200 rounded-lg transition-colors"
                 >
                   Back
                 </button>
                 <button
                   onClick={handleSubmit}
                   disabled={isUploading}
-                  className="px-4 py-2 text-xs font-medium text-white bg-gray-800 hover:bg-gray-900 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-4 py-2 text-xs font-medium text-white bg-teal-800 hover:bg-teal-900 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isUploading ? "Importing..." : "Import Patients"}
                 </button>
@@ -588,7 +588,7 @@ function PatientImportModal({ onClose, onSuccess }) {
               <div className="flex items-center justify-end gap-2 pt-4 border-t">
                 <button
                   onClick={onClose}
-                  className="px-4 py-2 text-xs font-medium text-white bg-gray-800 hover:bg-gray-900 rounded-lg transition-colors"
+                  className="px-4 py-2 text-xs font-medium text-white bg-teal-800 hover:bg-teal-900 rounded-lg transition-colors"
                 >
                   Close
                 </button>
@@ -804,8 +804,8 @@ function PatientInformationWithButton({ onRegisterClick, onImportClick, refreshK
   // Don't render until permissions are loaded
   if (!permissionsLoaded) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-2 border-gray-300 border-t-blue-600"></div>
+      <div className="min-h-screen bg-teal-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-2 border-teal-300 border-t-blue-600"></div>
       </div>
     );
   }
@@ -813,16 +813,16 @@ function PatientInformationWithButton({ onRegisterClick, onImportClick, refreshK
   // If both canRead and canCreate are false, show access denied message
   if (!permissions.canRead && !permissions.canCreate) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-teal-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-lg shadow-lg border border-red-200 p-8 text-center max-w-md">
           <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <UserPlus className="w-8 h-8 text-red-600" />
           </div>
-          <h2 className="text-xl font-bold text-gray-900 mb-2">Access Denied</h2>
-          <p className="text-sm text-gray-700 mb-4">
+          <h2 className="text-xl font-bold text-teal-900 mb-2">Access Denied</h2>
+          <p className="text-sm text-teal-700 mb-4">
             You do not have permission to view or register patients.
           </p>
-          <p className="text-xs text-gray-600">
+          <p className="text-xs text-teal-600">
             Please contact your administrator to request access to the Patient Registration module.
           </p>
         </div>
@@ -833,12 +833,12 @@ function PatientInformationWithButton({ onRegisterClick, onImportClick, refreshK
   return (
     <div>
       {/* Header with Register Button - Matching clinic dashboard theme */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-2">
+      <div className="bg-white rounded-lg shadow-sm border border-teal-200 mb-2">
         <div className="max-w-7xl mx-auto px-2 sm:px-3 py-2">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <div>
-              <h1 className="text-sm sm:text-base font-bold text-gray-900">Patient Management</h1>
-              <p className="text-[10px] sm:text-xs text-gray-700 mt-0.5">View and manage all patient records</p>
+              <h1 className="text-sm sm:text-base font-bold text-teal-900">Patient Management</h1>
+              <p className="text-[10px] sm:text-xs text-teal-700 mt-0.5">View and manage all patient records</p>
             </div>
             {permissions.canCreate && (
               <div className="flex items-center gap-2">
@@ -853,14 +853,14 @@ function PatientInformationWithButton({ onRegisterClick, onImportClick, refreshK
                 </button>
                 <button
                   onClick={onImportClick}
-                  className="inline-flex items-center justify-center gap-1 bg-white hover:bg-gray-50 text-gray-800 border border-gray-300 px-2.5 py-1.5 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-[10px] sm:text-xs font-medium"
+                  className="inline-flex items-center justify-center gap-1 bg-white hover:bg-teal-50 text-teal-800 border border-teal-300 px-2.5 py-1.5 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-[10px] sm:text-xs font-medium"
                 >
                   <Upload className="h-3 w-3"/>
                   <span>Import Patients</span>
                 </button>
                 <button
                   onClick={onRegisterClick}
-                  className="inline-flex items-center justify-center gap-1 bg-gray-800 hover:bg-gray-900 text-white px-2.5 py-1.5 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-[10px] sm:text-xs font-medium"
+                  className="inline-flex items-center justify-center gap-1 bg-teal-800 hover:bg-teal-900 text-white px-2.5 py-1.5 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-[10px] sm:text-xs font-medium"
                 >
                   <UserPlus className="h-3 w-3"/>
                   <span>Register Patient</span>
@@ -873,18 +873,18 @@ function PatientInformationWithButton({ onRegisterClick, onImportClick, refreshK
 
       {/* Patient Information Content - Show access denied if canRead is false, otherwise show patient list */}
       {!permissions.canRead ? (
-        <div className="bg-white rounded-lg p-6 sm:p-8 border border-gray-200 shadow-sm">
+        <div className="bg-white rounded-lg p-6 sm:p-8 border border-teal-200 shadow-sm">
           <div className="text-center max-w-md mx-auto">
             <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center mx-auto mb-3">
               <UserPlus className="w-6 h-6 text-red-600" />
             </div>
-            <h3 className="text-lg font-bold text-gray-900 mb-2">
+            <h3 className="text-lg font-bold text-teal-900 mb-2">
               Access Denied
             </h3>
-            <p className="text-sm text-gray-700 mb-3">
+            <p className="text-sm text-teal-700 mb-3">
               You do not have permission to view patient information.
             </p>
-            <p className="text-xs text-gray-600">
+            <p className="text-xs text-teal-600">
               Please contact your administrator to request access to view patients.
             </p>
           </div>

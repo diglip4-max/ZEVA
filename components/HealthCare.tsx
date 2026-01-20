@@ -74,10 +74,10 @@ export default function HealthcareAccount() {
         {/* Header */}
         <div className="text-center mb-8">
          
-          <h2 className="text-2xl md:text-3xl font-semibold mt-10 text-blue-700 mb-2" style={{ fontFamily: "'Playfair Display', serif" }}>
+          <h2 className="text-2xl md:text-3xl font-semibold mt-10 text-blue-700 mb-2">
             Your Personal Healthcare Hub
           </h2>
-          <p className="text-base font-semibold text-gray-700 max-w-2xl mx-auto" style={{ fontFamily: "'Playfair Display', serif" }}>
+          <p className="text-base font-normal text-gray-700 max-w-2xl mx-auto">
             Create a free account and unlock powerful features to manage your health journey
           </p>
         </div>
