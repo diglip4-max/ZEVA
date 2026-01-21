@@ -225,6 +225,7 @@ export default async function handler(req, res) {
     for (let i = 0; i < jsonArray.length; i++) {
       const row = jsonArray[i];
       const errors = [];
+      let patientName = ""; // For user-friendly error messages
 
       try {
         // Map columns
@@ -233,36 +234,134 @@ export default async function handler(req, res) {
           mapped[ourField] = row[excelCol];
         });
 
-        // Validate required fields
-        if (!mapped.firstName || String(mapped.firstName).trim() === "") {
-          errors.push("First name is required");
+        // Extract patient name early for error messages (try firstName or name field)
+        const nameValue = mapped.firstName || mapped.name || row['name'] || row['Name'] || row['NAME'] || "";
+        patientName = String(nameValue).trim() || `Row ${i + 2}`;
+
+        // Handle full name splitting if name field contains both first and last name
+        let firstName = mapped.firstName || "";
+        let lastName = mapped.lastName || "";
+        
+        // If we have a "name" field but no firstName, try to split it
+        if (!firstName && mapped.name) {
+          const nameParts = String(mapped.name).trim().split(/\s+/);
+          firstName = nameParts[0] || "";
+          lastName = nameParts.slice(1).join(" ") || "";
         }
-        if (!mapped.mobileNumber || String(mapped.mobileNumber).trim() === "") {
-          errors.push("Mobile number is required");
+        
+        // Also check raw row data for common column names
+        if (!firstName) {
+          const nameCol = row['name'] || row['Name'] || row['NAME'] || row['patient name'] || row['Patient Name'] || "";
+          if (nameCol) {
+            const nameParts = String(nameCol).trim().split(/\s+/);
+            firstName = nameParts[0] || "";
+            lastName = nameParts.slice(1).join(" ") || "";
+          }
         }
-        if (!mapped.gender || String(mapped.gender).trim() === "") {
-          errors.push("Gender is required");
+
+        // Update mapped values
+        mapped.firstName = firstName;
+        if (lastName) {
+          mapped.lastName = lastName;
+        }
+
+        // Update patient name for error messages
+        patientName = firstName || `Row ${i + 2}`;
+
+        // Validate required fields - firstName and mobileNumber are mandatory
+        if (!firstName || firstName.trim() === "") {
+          errors.push(`Patient name is missing. Please provide the patient's first name.`);
+        }
+        
+        // Check mobileNumber in mapped data first, then check raw row for common column names
+        let mobileNumber = mapped.mobileNumber || "";
+        if (!mobileNumber) {
+          // Try various common column name variations
+          mobileNumber = row['phone'] || row['Phone'] || row['PHONE'] || 
+                        row['mobile'] || row['Mobile'] || row['MOBILE'] ||
+                        row['mobile number'] || row['Mobile Number'] || row['MOBILE NUMBER'] ||
+                        row['phone number'] || row['Phone Number'] || row['PHONE NUMBER'] ||
+                        row['contact'] || row['Contact'] || row['CONTACT'] ||
+                        row['contact number'] || row['Contact Number'] || "";
+        }
+        
+        // Update mapped value for consistency
+        if (mobileNumber) {
+          mapped.mobileNumber = mobileNumber;
+        }
+        
+        if (!mobileNumber || String(mobileNumber).trim() === "") {
+          const errorMsg = patientName !== `Row ${i + 2}`
+            ? `Phone number is missing for ${patientName}. Please provide a 10-digit phone number (e.g., 9876543210).`
+            : `Phone number is missing. Please provide a 10-digit phone number.`;
+          errors.push(errorMsg);
         }
 
         if (errors.length > 0) {
           results.failed++;
-          results.errors.push(`Row ${i + 2}: ${errors.join(", ")}`);
+          const errorMsg = patientName !== `Row ${i + 2}` 
+            ? `❌ ${patientName}: ${errors.join(" ")}`
+            : `Row ${i + 2}: ${errors.join(", ")}`;
+          results.errors.push(errorMsg);
           continue;
         }
 
-        // Validate and normalize phone number
-        const patientPhone = String(mapped.mobileNumber).trim().replace(/\D/g, "");
+        // Normalize and validate phone number (required)
+        const patientPhone = String(mobileNumber).trim().replace(/\D/g, "");
         if (patientPhone.length !== 10) {
           results.failed++;
-          results.errors.push(`Row ${i + 2}: Invalid phone number. Must be exactly 10 digits.`);
+          const errorMsg = patientName !== `Row ${i + 2}`
+            ? `❌ ${patientName}: Phone number "${mobileNumber}" is invalid. Please provide exactly 10 digits (e.g., 9876543210).`
+            : `Row ${i + 2}: Invalid phone number. Must be exactly 10 digits.`;
+          results.errors.push(errorMsg);
           continue;
         }
 
-        // Validate gender
-        const gender = String(mapped.gender).trim();
-        if (!["Male", "Female", "Other"].includes(gender)) {
+        // Validate gender if provided (optional)
+        let gender = "";
+        if (mapped.gender) {
+          gender = String(mapped.gender).trim();
+          if (!["Male", "Female", "Other"].includes(gender)) {
+            results.failed++;
+            const errorMsg = patientName !== `Row ${i + 2}`
+              ? `❌ ${patientName}: Gender "${mapped.gender}" is invalid. Please use: Male, Female, or Other.`
+              : `Row ${i + 2}: Invalid gender. Must be Male, Female, or Other.`;
+            results.errors.push(errorMsg);
+            continue;
+          }
+        }
+
+        // Normalize email if provided (optional)
+        const patientEmail = mapped.email ? String(mapped.email).trim().toLowerCase() : "";
+
+        // Check for duplicate patient by mobileNumber (primary) or email (secondary)
+        // Scoped to userId (clinic) to allow same patient across different clinics
+        const duplicateQuery = {
+          userId: user._id,
+          $or: [
+            { mobileNumber: patientPhone } // Primary identifier
+          ]
+        };
+
+        // Add email as secondary check if provided
+        if (patientEmail) {
+          duplicateQuery.$or.push({ email: patientEmail });
+        }
+
+        const existingPatient = await PatientRegistration.findOne(duplicateQuery);
+        if (existingPatient) {
+          const duplicateFields = [];
+          if (existingPatient.mobileNumber === patientPhone) {
+            duplicateFields.push("phone number");
+          }
+          if (patientEmail && existingPatient.email === patientEmail) {
+            duplicateFields.push("email address");
+          }
           results.failed++;
-          results.errors.push(`Row ${i + 2}: Invalid gender. Must be Male, Female, or Other.`);
+          const errorMsg = patientName !== `Row ${i + 2}`
+            ? `❌ ${patientName}: This patient already exists in your clinic with the same ${duplicateFields.join(" or ")}. Existing patient EMR: ${existingPatient.emrNumber || "N/A"}. Please check if this is a duplicate or use a different phone number/email.`
+            : `Row ${i + 2}: Patient already exists with same ${duplicateFields.join(" or ")}. EMR: ${existingPatient.emrNumber || "N/A"}`;
+          results.errors.push(errorMsg);
           continue;
         }
 
@@ -282,7 +381,10 @@ export default async function handler(req, res) {
           }
           if (attempts >= 100) {
             results.failed++;
-            results.errors.push(`Row ${i + 2}: Could not generate unique invoice number. Please try again.`);
+            const errorMsg = patientName !== `Row ${i + 2}`
+              ? `❌ ${patientName}: System error - Could not generate unique invoice number. Please try importing again or contact support.`
+              : `Row ${i + 2}: Could not generate unique invoice number. Please try again.`;
+            results.errors.push(errorMsg);
             continue;
           }
         }
@@ -291,17 +393,18 @@ export default async function handler(req, res) {
         const emrNumber = await generateEmrNumber();
 
         // Prepare patient data
+        // Note: gender is required by model, so we provide default if not provided
         const patientData = {
           invoiceNumber: invoiceNumber,
           invoicedDate: mapped.invoicedDate ? new Date(mapped.invoicedDate) : new Date(),
           invoicedBy: computedInvoicedBy,
           userId: user._id,
           emrNumber: emrNumber,
-          firstName: String(mapped.firstName).trim(),
-          lastName: mapped.lastName ? String(mapped.lastName).trim() : "",
-          gender: gender,
-          email: mapped.email ? String(mapped.email).trim().toLowerCase() : "",
-          mobileNumber: patientPhone,
+          firstName: String(firstName).trim(),
+          lastName: lastName ? String(lastName).trim() : "",
+          gender: gender || "Other", // Default to "Other" if not provided
+          email: patientEmail, // Optional - already normalized above
+          mobileNumber: patientPhone, // Required - validated above
           referredBy: mapped.referredBy ? String(mapped.referredBy).trim() : "",
           patientType: mapped.patientType && ["New", "Old"].includes(String(mapped.patientType).trim()) 
             ? String(mapped.patientType).trim() 
@@ -328,31 +431,68 @@ export default async function handler(req, res) {
           await PatientRegistration.create(patientData);
           results.imported++;
         } catch (patientError) {
-          // Handle validation errors more gracefully
+          // Handle validation errors more gracefully with user-friendly messages
+          let errorMsg = "";
           if (patientError.name === 'ValidationError') {
-            const validationErrors = Object.values(patientError.errors).map(e => e.message).join(", ");
-            results.failed++;
-            results.errors.push(`Row ${i + 2}: Patient validation failed: ${validationErrors}`);
+            const validationErrors = Object.values(patientError.errors).map(e => {
+              const fieldName = e.path || "field";
+              const message = e.message || "Invalid value";
+              // Convert technical field names to user-friendly names
+              const friendlyNames = {
+                'mobileNumber': 'phone number',
+                'firstName': 'first name',
+                'email': 'email address',
+                'gender': 'gender'
+              };
+              const friendlyField = friendlyNames[fieldName] || fieldName;
+              return `${friendlyField}: ${message}`;
+            }).join(". ");
+            errorMsg = patientName !== `Row ${i + 2}`
+              ? `❌ ${patientName}: ${validationErrors}`
+              : `Row ${i + 2}: Patient validation failed: ${validationErrors}`;
           } else if (patientError.code === 11000) {
             const field = Object.keys(patientError.keyPattern)[0];
-            results.failed++;
-            results.errors.push(`Row ${i + 2}: ${field} already exists`);
+            const friendlyNames = {
+              'mobileNumber': 'phone number',
+              'email': 'email address',
+              'invoiceNumber': 'invoice number'
+            };
+            const friendlyField = friendlyNames[field] || field;
+            errorMsg = patientName !== `Row ${i + 2}`
+              ? `❌ ${patientName}: A patient with this ${friendlyField} already exists in the system. Please check for duplicates.`
+              : `Row ${i + 2}: ${field} already exists`;
           } else {
-            results.failed++;
-            results.errors.push(`Row ${i + 2}: Failed to create patient: ${patientError.message || "Unknown error"}`);
+            const errorMessage = patientError.message || "Unknown error occurred";
+            errorMsg = patientName !== `Row ${i + 2}`
+              ? `❌ ${patientName}: Unable to save patient. ${errorMessage}. Please check the data and try again.`
+              : `Row ${i + 2}: Failed to create patient: ${errorMessage}`;
           }
+          results.failed++;
+          results.errors.push(errorMsg);
         }
       } catch (error) {
         results.failed++;
         // Format error message to be more user-friendly
-        let errorMessage = "Unknown error";
+        let errorMessage = "An unexpected error occurred while processing this patient.";
         if (error.name === 'ValidationError') {
-          const validationErrors = Object.values(error.errors).map(e => e.message).join(", ");
-          errorMessage = `Validation failed: ${validationErrors}`;
+          const validationErrors = Object.values(error.errors).map(e => {
+            const fieldName = e.path || "field";
+            const friendlyNames = {
+              'mobileNumber': 'phone number',
+              'firstName': 'first name',
+              'email': 'email address'
+            };
+            const friendlyField = friendlyNames[fieldName] || fieldName;
+            return `${friendlyField}: ${e.message || "Invalid value"}`;
+          }).join(". ");
+          errorMessage = `Validation error: ${validationErrors}`;
         } else if (error.message) {
           errorMessage = error.message;
         }
-        results.errors.push(`Row ${i + 2}: ${errorMessage}`);
+        const errorMsg = patientName && patientName !== `Row ${i + 2}`
+          ? `❌ ${patientName}: ${errorMessage}`
+          : `Row ${i + 2}: ${errorMessage}`;
+        results.errors.push(errorMsg);
       }
     }
 

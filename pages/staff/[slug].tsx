@@ -156,6 +156,8 @@ const routeMap: { [key: string]: () => Promise<any> } = {
   
   // Inbox
   'clinic-inbox': () => import('../clinic/inbox'),
+'clinic-all-templates': () => import('../clinic/all-templates'),
+'clinic-providers': () => import('../clinic/providers'),
   
  
 };
