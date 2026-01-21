@@ -25,6 +25,9 @@ interface ModulePermission {
     read: boolean;
     update: boolean;
     delete: boolean;
+    print?: boolean;
+    export?: boolean;
+    approve?: boolean;
   };
 }
 
@@ -457,9 +460,44 @@ const AgentPermissionModal: React.FC<AgentPermissionModalProps> = ({
       setSaving(true);
       setSaveStatus('saving');
       try {
+        // Sanitize and ensure module-level actions are included
+        const sanitizedPermissions = sanitizePermissions(permissionsToSave);
+        
+        // Ensure every module has actions object with all required fields
+        const finalPermissions = sanitizedPermissions.map(perm => {
+          // Ensure actions object exists and has all required fields
+          const actions = perm.actions || {
+            all: false,
+            create: false,
+            read: false,
+            update: false,
+            delete: false
+          };
+          
+          // Ensure all action fields are present (even if false)
+          const completeActions = {
+            all: Boolean(actions.all),
+            create: Boolean(actions.create),
+            read: Boolean(actions.read),
+            update: Boolean(actions.update),
+            delete: Boolean(actions.delete),
+            print: Boolean((actions as any).print || false),
+            export: Boolean((actions as any).export || false),
+            approve: Boolean((actions as any).approve || false)
+          };
+          
+          return {
+            module: perm.module,
+            actions: completeActions,
+            subModules: perm.subModules || []
+          };
+        });
+
+        console.log('[AgentPermissionModal] Saving permissions:', JSON.stringify(finalPermissions, null, 2));
+
         const { data } = await axios.post(
           '/api/agent/permissions',
-          { agentId, permissions: permissionsToSave },
+          { agentId, permissions: finalPermissions },
           { headers: { Authorization: `Bearer ${token}` } }
         );
 

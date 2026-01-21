@@ -11,6 +11,7 @@ import CustomAsyncSelect from "@/components/shared/CustomAsyncSelect";
 import { loadSegmentOptions } from "@/lib/helper";
 import { useRouter } from "next/router";
 import useSegment from "@/hooks/useSegment";
+import { useAgentPermissions } from "@/hooks/useAgentPermissions";
 
 function LeadsPage() {
   const router = useRouter();
@@ -51,35 +52,194 @@ function LeadsPage() {
     null
   );
 
-  const token = typeof window !== "undefined" ? localStorage.getItem("clinicToken") : null;
+  // Detect route context - check if this is a staff route
+  const [routeContext, setRouteContext] = useState("clinic");
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const isStaffRoute = window.location.pathname?.startsWith("/staff/") ?? false;
+    setRouteContext(isStaffRoute ? "staff" : "clinic");
+  }, []);
 
-  // Fetch permissions
-  const fetchPermissions = async () => {
-    if (!token) return;
-
+  // Get user role from token
+  const getUserRole = () => {
+    if (typeof window === "undefined") return null;
     try {
-      const res = await axios.get("/api/clinic/permissions", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = res.data;
-      if (data.success && data.data) {
-        // Find "create_lead" module permission (not submodule)
-        const modulePermission = data.data.permissions?.find(
-          (p) => {
-            const moduleKey = p.module || "";
-            // Check for "create_lead" module (with or without prefix)
-            const normalizedModule = moduleKey.replace(/^(admin|clinic|doctor|agent)_/, "");
-            return normalizedModule === "create_lead" || moduleKey === "create_lead" ||
-              moduleKey === "clinic_create_lead" || moduleKey === "doctor_create_lead";
+      // Check tokens in priority order to get role
+      const TOKEN_PRIORITY = ["clinicToken", "doctorToken", "agentToken", "userToken", "adminToken"];
+      for (const key of TOKEN_PRIORITY) {
+        const token = window.localStorage.getItem(key) || window.sessionStorage.getItem(key);
+        if (token) {
+          try {
+            const payload = JSON.parse(atob(token.split('.')[1]));
+            return payload.role || null;
+          } catch (e) {
+            continue;
           }
-        );
+        }
+      }
+    } catch (error) {
+      console.error("Error getting user role:", error);
+    }
+    return null;
+  };
+
+  // Get token based on user role and route context
+  const getToken = () => {
+    if (typeof window === "undefined") return null;
+    
+    const userRole = getUserRole();
+    const isStaffRoute = routeContext === "staff";
+    
+    // For agent role: use agentToken (especially on staff routes)
+    if (userRole === "agent") {
+      const agentToken = localStorage.getItem("agentToken") || sessionStorage.getItem("agentToken");
+      if (agentToken) return agentToken;
+    }
+    
+    // For doctorStaff role: use userToken
+    if (userRole === "doctorStaff") {
+      const userToken = localStorage.getItem("userToken") || sessionStorage.getItem("userToken");
+      if (userToken) return userToken;
+    }
+    
+    // For staff routes, check agentToken and userToken (for agent and doctorStaff)
+    if (isStaffRoute) {
+      const agentToken = localStorage.getItem("agentToken") || sessionStorage.getItem("agentToken");
+      if (agentToken) return agentToken;
+      const userToken = localStorage.getItem("userToken") || sessionStorage.getItem("userToken");
+      if (userToken) return userToken;
+    }
+    
+    // For other roles, use standard priority
+    const TOKEN_PRIORITY = ["clinicToken", "doctorToken", "agentToken", "userToken", "adminToken"];
+    for (const key of TOKEN_PRIORITY) {
+      const token = localStorage.getItem(key) || sessionStorage.getItem(key);
+      if (token) return token;
+    }
+    return null;
+  };
+
+  const token = getToken();
+
+  // Use agent permissions hook for staff routes (agent and doctorStaff)
+  const isStaffRoute = routeContext === "staff";
+  const userRole = getUserRole();
+  const isAgentOrDoctorStaff = userRole === "agent" || userRole === "doctorStaff";
+  
+  // Use hook only for agent/doctorStaff on staff routes
+  // Try clinic_create_lead first (as that's what's saved in permissions), fallback to clinic_lead
+  const agentPermissionsResult = useAgentPermissions(
+    (isStaffRoute && isAgentOrDoctorStaff) ? "clinic_create_lead" : null
+  );
+  const agentPermissions = agentPermissionsResult?.permissions || {
+    canCreate: false,
+    canRead: false,
+    canUpdate: false,
+    canDelete: false,
+    canApprove: false,
+    canPrint: false,
+    canExport: false,
+    canAll: false,
+  };
+  const agentPermissionsLoading = agentPermissionsResult?.loading || false;
+
+  // Handle agent/doctorStaff permissions from useAgentPermissions hook (for staff routes)
+  useEffect(() => {
+    if (!isStaffRoute || !isAgentOrDoctorStaff) return;
+    if (agentPermissionsLoading) return;
+    
+    // Set permissions from agent permissions hook (same logic for both agent and doctorStaff)
+    const newPermissions = {
+      canCreate: Boolean(agentPermissions.canAll || agentPermissions.canCreate),
+      canUpdate: Boolean(agentPermissions.canAll || agentPermissions.canUpdate),
+      canDelete: Boolean(agentPermissions.canAll || agentPermissions.canDelete),
+      canRead: Boolean(agentPermissions.canAll || agentPermissions.canRead),
+      canAssign: Boolean(agentPermissions.canAll || agentPermissions.canUpdate),
+    };
+    
+    console.log('[create-lead] Setting permissions from agentPermissions:', {
+      userRole,
+      agentPermissions,
+      newPermissions,
+      hasAnyPermission: newPermissions.canCreate || newPermissions.canRead || newPermissions.canUpdate || newPermissions.canDelete
+    });
+    
+    setPermissions(newPermissions);
+    setPermissionsLoaded(true);
+  }, [isStaffRoute, isAgentOrDoctorStaff, agentPermissions, agentPermissionsLoading, userRole]);
+
+  // Fetch clinic/admin level permissions for clinic routes
+  // Also handle agent/doctorStaff on clinic routes (not staff routes)
+  useEffect(() => {
+    // Skip if staff route with agent/doctorStaff (handled by useAgentPermissions hook)
+    if (isStaffRoute && isAgentOrDoctorStaff) return;
+    
+    const fetchPermissions = async () => {
+      try {
+        const authToken = getToken();
+        if (!authToken) {
+          setPermissions({
+            canCreate: false,
+            canUpdate: false,
+            canDelete: false,
+            canRead: false,
+            canAssign: false,
+          });
+          setPermissionsLoaded(true);
+          return;
+        }
+
+        const currentUserRole = getUserRole();
+        
+        // For admin role, grant full access (bypass permission checks)
+        if (userRole === "admin") {
+          setPermissions({
+            canCreate: true,
+            canRead: true,
+            canUpdate: true,
+            canDelete: true,
+            canAssign: true,
+          });
+          setPermissionsLoaded(true);
+          return;
+        }
+
+        // For clinic and doctor roles, fetch admin-level permissions from /api/clinic/sidebar-permissions
+        if (currentUserRole === "clinic" || currentUserRole === "doctor") {
+          try {
+            const res = await axios.get("/api/clinic/sidebar-permissions", {
+              headers: { Authorization: `Bearer ${authToken}` },
+            });
+
+            if (res.data.success) {
+              // Check if permissions array exists and is not null
+              // If permissions is null, admin hasn't set any restrictions yet - allow full access (backward compatibility)
+              if (res.data.permissions === null || !Array.isArray(res.data.permissions) || res.data.permissions.length === 0) {
+                // No admin restrictions set yet - default to full access for backward compatibility
+                setPermissions({
+                  canCreate: true,
+                  canRead: true,
+                  canUpdate: true,
+                  canDelete: true,
+                  canAssign: true,
+                });
+              } else {
+                // Admin has set permissions - check the clinic_lead or clinic_create_lead module
+                const modulePermission = res.data.permissions.find((p) => {
+                  if (!p?.module) return false;
+                  // Check for clinic_lead or clinic_create_lead module
+                  const moduleKey = p.module || "";
+                  const normalizedModule = moduleKey.replace(/^(admin|clinic|doctor|agent)_/, "");
+                  return normalizedModule === "lead" || 
+                         normalizedModule === "create_lead" ||
+                         moduleKey === "clinic_lead" || 
+                         moduleKey === "clinic_create_lead" ||
+                         moduleKey === "create_lead" ||
+                         moduleKey === "lead";
+                });
 
         if (modulePermission) {
           const actions = modulePermission.actions || {};
-          console.log('[create-lead] Module permission found:', {
-            module: modulePermission.module,
-            actions: actions,
-          });
 
           // Helper function to check if a permission value is true (handles boolean and string)
           const isTrue = (value) => {
@@ -89,55 +249,138 @@ function LeadsPage() {
             return false;
           };
 
-          // Module-level permissions - check each action independently
-          // If user only has "create", they can ONLY create, not read/update/delete
+                  // Check if "all" is true, which grants all permissions
           const moduleAll = isTrue(actions.all);
           const moduleCreate = isTrue(actions.create);
+                  const moduleRead = isTrue(actions.read);
           const moduleUpdate = isTrue(actions.update);
           const moduleDelete = isTrue(actions.delete);
-          const moduleRead = isTrue(actions.read);
 
-          console.log('[create-lead] Permission checks:', {
-            moduleAll,
-            moduleRead,
-            moduleCreate,
-            moduleUpdate,
-            moduleDelete
-          });
+                  setPermissions({
+                    canCreate: moduleAll || moduleCreate,
+                    canRead: moduleAll || moduleRead,
+                    canUpdate: moduleAll || moduleUpdate,
+                    canDelete: moduleAll || moduleDelete,
+                    canAssign: moduleAll || moduleUpdate,
+                  });
+                } else {
+                  // Module permission not found in the permissions array - default to read-only
+                  setPermissions({
+                    canCreate: false,
+                    canRead: true, // Clinic/doctor can always read their own data
+                    canUpdate: false,
+                    canDelete: false,
+                    canAssign: false,
+                  });
+                }
+              }
+            } else {
+              // API response doesn't have permissions, default to full access (backward compatibility)
+              setPermissions({
+                canCreate: true,
+                canRead: true,
+                canUpdate: true,
+                canDelete: true,
+                canAssign: true,
+              });
+            }
+          } catch (err) {
+            console.error("Error fetching clinic sidebar permissions:", err);
+            // On error, default to full access (backward compatibility)
+            setPermissions({
+              canCreate: true,
+              canRead: true,
+              canUpdate: true,
+              canDelete: true,
+              canAssign: true,
+            });
+          }
+          setPermissionsLoaded(true);
+          return;
+        }
 
-          // CRUD permissions based on module-level actions
-          // If "all" is true, grant everything
-          // Otherwise, check each action independently
-          setPermissions({
-            // Create: Module "all" OR module "create"
+        // For agent/doctorStaff roles on clinic routes (not staff routes), check agent permissions
+        if (currentUserRole === "agent" || currentUserRole === "doctorStaff") {
+          try {
+            // For agent: use agentToken, for doctorStaff: use userToken
+            let agentStaffToken = null;
+            if (currentUserRole === "agent") {
+              agentStaffToken = 
+                localStorage.getItem("agentToken") || 
+                sessionStorage.getItem("agentToken");
+            } else if (currentUserRole === "doctorStaff") {
+              agentStaffToken = 
+                localStorage.getItem("userToken") || 
+                sessionStorage.getItem("userToken");
+            }
+            
+            if (!agentStaffToken) {
+              setPermissions({
+                canCreate: false,
+                canUpdate: false,
+                canDelete: false,
+                canRead: false,
+                canAssign: false,
+              });
+              setPermissionsLoaded(true);
+              return;
+            }
+
+            // Use agent permissions API (same for both agent and doctorStaff)
+            // Try clinic_create_lead first (as that's what's saved in permissions), fallback to clinic_lead
+            let res = null;
+            try {
+              res = await axios.get("/api/agent/get-module-permissions", {
+                params: { moduleKey: "clinic_create_lead" },
+                headers: { Authorization: `Bearer ${agentStaffToken}` },
+              });
+            } catch (err) {
+              // If clinic_create_lead not found, try clinic_lead
+              try {
+                res = await axios.get("/api/agent/get-module-permissions", {
+                  params: { moduleKey: "clinic_lead" },
+                  headers: { Authorization: `Bearer ${agentStaffToken}` },
+                });
+              } catch (err2) {
+                console.error("Error fetching agent permissions:", err2);
+                res = null;
+              }
+            }
+
+            if (res.data.success && res.data.permissions) {
+              const actions = res.data.permissions.actions || {};
+              const isTrue = (value) => {
+                if (value === true) return true;
+                if (value === "true") return true;
+                if (String(value).toLowerCase() === "true") return true;
+                return false;
+              };
+
+              const moduleAll = isTrue(actions.all);
+              const moduleCreate = isTrue(actions.create);
+              const moduleRead = isTrue(actions.read);
+              const moduleUpdate = isTrue(actions.update);
+              const moduleDelete = isTrue(actions.delete);
+
+              setPermissions({
             canCreate: moduleAll || moduleCreate,
-            // Update: Module "all" OR module "update" (independent of create)
+                canRead: moduleAll || moduleRead,
             canUpdate: moduleAll || moduleUpdate,
-            // Delete: Module "all" OR module "delete" (independent of create)
             canDelete: moduleAll || moduleDelete,
-            // Read: Module "all" OR module "read" (independent of create)
-            canRead: moduleAll || moduleRead,
-            // Assign: Module "all" OR module "update" (assigning is an update operation)
             canAssign: moduleAll || moduleUpdate,
           });
         } else {
-          // No permissions found for create_lead module
-          console.log('[create-lead] No create_lead module permission found. Available modules:',
-            data.data.permissions?.map(p => p.module) || []
-          );
-          // If no permissions are set up at all, allow access (backward compatibility)
-          // Otherwise, deny access
-          const hasAnyPermissions = data.data.permissions && data.data.permissions.length > 0;
+              // No permissions found
           setPermissions({
-            canCreate: !hasAnyPermissions, // Allow if no permissions set up
-            canUpdate: !hasAnyPermissions,
-            canDelete: !hasAnyPermissions,
-            canRead: !hasAnyPermissions, // Allow if no permissions set up
-            canAssign: !hasAnyPermissions,
-          });
-        }
-      } else {
-        // API failed, default to false
+                canCreate: false,
+                canUpdate: false,
+                canDelete: false,
+                canRead: false,
+                canAssign: false,
+              });
+            }
+          } catch (err) {
+            console.error("Error fetching agent permissions:", err);
         setPermissions({
           canCreate: false,
           canUpdate: false,
@@ -146,20 +389,34 @@ function LeadsPage() {
           canAssign: false,
         });
       }
-      setPermissionsLoaded(true);
-    } catch (err) {
-      console.error("Error fetching permissions:", err);
-      // On error, default to false
-      setPermissions({
-        canCreate: false,
-        canUpdate: false,
-        canDelete: false,
-        canRead: false,
-        canAssign: false,
-      });
-      setPermissionsLoaded(true);
-    }
-  };
+          setPermissionsLoaded(true);
+          return;
+        }
+
+        // For other roles, deny access
+        setPermissions({
+          canCreate: false,
+          canUpdate: false,
+          canDelete: false,
+          canRead: false,
+          canAssign: false,
+        });
+        setPermissionsLoaded(true);
+      } catch (err) {
+        console.error("Error fetching permissions:", err);
+        setPermissions({
+          canCreate: false,
+          canUpdate: false,
+          canDelete: false,
+          canRead: false,
+          canAssign: false,
+        });
+        setPermissionsLoaded(true);
+      }
+    };
+
+    fetchPermissions();
+  }, [isStaffRoute, isAgentOrDoctorStaff, routeContext]);
 
   const fetchLeads = async () => {
     if (!token) return;
@@ -257,9 +514,7 @@ function LeadsPage() {
 
   }, [segment])
 
-  useEffect(() => {
-    fetchPermissions();
-  }, [token]);
+  // Permissions are now handled in the useEffect hooks above
 
   useEffect(() => {
     // Fetch leads and agents after permissions are loaded
@@ -365,8 +620,14 @@ function LeadsPage() {
 
               {permissions.canCreate && (
                 <button
-                  onClick={() => setImportModalOpen(true)}
-                  className="inline-flex items-center justify-center cursor-pointer gap-1.5 bg-teal-800 hover:bg-teal-900 text-white px-3 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs sm:text-sm font-medium"
+                  onClick={() => {
+                    if (!permissions.canCreate) {
+                      alert("You do not have permission to import leads");
+                      return;
+                    }
+                    setImportModalOpen(true);
+                  }}
+                  className="inline-flex items-center justify-center cursor-pointer gap-1.5 bg-gray-800 hover:bg-gray-900 text-white px-3 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs sm:text-sm font-medium"
                 >
                   <PlusCircle className="h-3.5 w-3.5" />
                   <span>Import New Lead</span>
