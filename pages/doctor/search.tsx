@@ -9,7 +9,6 @@ import {
   MapPin,
   Search,
   Star,
-  Phone,
   Navigation,
   Shield,
   X,
@@ -98,7 +97,7 @@ export default function FindDoctor() {
   const [doctorReviews, setDoctorReviews] = useState<{
     [key: string]: ReviewData;
   }>({});
-  const [reviewsLoading, setReviewsLoading] = useState<{
+  const [_reviewsLoading, setReviewsLoading] = useState<{
     [key: string]: boolean;
   }>({});
   const [specialties, setSpecialties] = useState<string[]>([]);
@@ -593,34 +592,6 @@ export default function FindDoctor() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const renderStars = (rating: number) => {
-    const stars = [];
-    const fullStars = Math.floor(rating);
-    const hasHalfStar = rating % 1 !== 0;
-
-    for (let i = 0; i < fullStars; i++) {
-      stars.push(
-        <Star key={i} className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-      );
-    }
-
-    if (hasHalfStar) {
-      stars.push(
-        <Star
-          key="half"
-          className="w-4 h-4 fill-yellow-400/50 text-yellow-400"
-        />
-      );
-    }
-
-    const emptyStars = 5 - Math.ceil(rating);
-    for (let i = 0; i < emptyStars; i++) {
-      stars.push(<Star key={`empty-${i}`} className="w-4 h-4 text-gray-300" />);
-    }
-
-    return stars;
   };
 
   // Update locateMe to pass selectedService
@@ -2056,7 +2027,6 @@ Verified Doctors – Every doctor is thoroughly verified with proper certificati
                           {paginatedDoctors.map((doctor, index) => {
                     const hasRating = doctorReviews[doctor._id]?.totalReviews > 0;
                     const reviewsLoaded = doctorReviews[doctor._id] !== undefined;
-                    const isLoadingReviews = reviewsLoading[doctor._id];
 
                     return (
                       <div

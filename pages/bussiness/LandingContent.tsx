@@ -161,28 +161,70 @@ export default function LandingContent({ includeHead = true, embedded = false }:
               <div className="rounded-[24px] border border-gray-200/70 bg-white shadow-[0_22px_50px_-30px_rgba(0,0,0,0.26)]">
                 <div className="p-5 sm:p-8">
                   {/* Header row */}
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="grid h-10 w-10 place-items-center rounded-full bg-emerald-700 text-white">
-                        <span className="text-base font-extrabold">Z</span>
-                      </div>
-                      <div>
-                        <div className="text-base font-extrabold text-gray-900">Your Dashboard</div>
-                        <div className="text-xs text-gray-500 sm:text-sm">Welcome back, Admin</div>
-                      </div>
-                    </div>
+                <div className="w-full max-w-none overflow-visible">
 
-                    <div className="flex items-center gap-2">
-                      <div className="h-7 w-7 rounded-full bg-gray-100" />
-                      <div className="h-7 w-7 rounded-full bg-gray-100" />
-                      <div className="h-7 w-7 rounded-full bg-emerald-100" />
-                    </div>
-                  </div>
+  {/* Header */}
+ {/* <div className="w-screen max-w-none mx-0 px-0 overflow-x-hidden"> */}
 
-                  <div className="mt-5 h-px w-full bg-gray-200/70" />
+  {/* Header */}
+  <div className="flex items-start justify-between px-4 md:px-6">
+    <div className="flex items-center gap-3">
+      <div className="grid h-10 w-10 place-items-center rounded-full bg-emerald-700 text-white">
+        <span className="text-base font-extrabold">Z</span>
+      </div>
+      <div>
+        <div className="text-base font-extrabold text-gray-900">
+          Your Dashboard
+        </div>
+        <div className="text-xs text-gray-500 sm:text-sm">
+          Welcome back, Admin
+        </div>
+      </div>
+    </div>
+
+    <div className="flex items-center gap-2">
+      <div className="h-7 w-7 rounded-full bg-gray-100" />
+      <div className="h-7 w-7 rounded-full bg-gray-100" />
+      <div className="h-7 w-7 rounded-full bg-emerald-100" />
+    </div>
+  </div>
+
+  <div className="mt-2 h-px w-full bg-gray-200/70" />
+
+  {/* Images Section */}
+  <div className="relative mt-4 flex w-full flex-col md:flex-row items-center md:items-start">
+
+    {/* Left Dashboard Image */}
+    <div className="w-full md:w-[300%] h-[260px] md:h-[480px]">
+      <img
+        src="/admin.png"
+        alt="admin"
+        className="w-full h-full object-cover rounded-none md:rounded-xl shadow-md"
+      />
+    </div>
+
+    {/* Right Mobile Image */}
+    <div
+      className="
+        absolute md:static
+        bottom-4 right-4
+        w-[120px] h-[300px]
+        md:w-[320px] md:h-[480px]
+      "
+    >
+      <img
+        src="/image.png"
+        alt="mobile"
+        className="w-full h-full object-contain rounded-xl shadow-xl bg-white p-2"
+      />
+    </div>
+
+  </div>
+</div>
+
 
                   {/* Top stats */}
-                  <div className="mt-6 grid gap-3 sm:grid-cols-3">
+                  {/* <div className="mt-6 grid gap-3 sm:grid-cols-3">
                     <div className="rounded-xl border border-gray-200 bg-white p-4">
                       <div className="flex items-start gap-3">
                         <div className="grid h-9 w-9 place-items-center rounded-lg bg-emerald-50 text-emerald-700">
@@ -228,10 +270,10 @@ export default function LandingContent({ includeHead = true, embedded = false }:
                         </div>
                       </div>
                     </div>
-                  </div>
+                  </div> */}
 
                   {/* Secondary chips */}
-                  <div className="mt-5 grid gap-2.5 sm:grid-cols-4">
+                  {/* <div className="mt-5 grid gap-2.5 sm:grid-cols-4">
                     <div className="flex items-center gap-2.5 rounded-xl border border-gray-200 bg-white px-3 py-2.5">
                       <span className="grid h-8 w-8 place-items-center rounded-lg bg-emerald-50 text-emerald-700">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-4 w-4" aria-hidden="true">
@@ -276,10 +318,10 @@ export default function LandingContent({ includeHead = true, embedded = false }:
                       </span>
                       <span className="text-xs font-semibold text-gray-800">Team Management</span>
                     </div>
-                  </div>
+                  </div> */}
 
                   {/* Revenue overview */}
-                  <div className="mt-5 rounded-xl border border-gray-200 bg-white p-5">
+                  {/* <div className="mt-5 rounded-xl border border-gray-200 bg-white p-5">
                     <div className="flex items-center justify-between">
                       <div className="text-xs font-extrabold text-gray-900">Revenue Overview</div>
                       <div className="text-base font-extrabold text-emerald-800">+42%</div>
@@ -295,7 +337,7 @@ export default function LandingContent({ includeHead = true, embedded = false }:
                       <div className="h-[72px] rounded-lg bg-gray-200/70" />
                       <div className="h-20 rounded-lg bg-emerald-700" />
                     </div>
-                  </div>
+                  </div> */}
                 </div>
               </div>
 

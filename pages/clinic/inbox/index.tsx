@@ -28,7 +28,13 @@ import { FaWhatsapp } from "react-icons/fa";
 import TemplatesModal from "./_components/TemplatesModal";
 import Message from "./_components/Message";
 import AttachmentModal from "@/components/shared/AttachmentModal";
-import { capitalize, getFormatedTime } from "@/lib/helper";
+import {
+  capitalize,
+  getFormatedTime,
+  maskEmail,
+  maskPhoneNumber,
+  maskSensitiveInfo,
+} from "@/lib/helper";
 import WhatsappTimer from "./_components/WhatsappTimer";
 import EmojiPickerModal from "@/components/shared/EmojiPickerModal";
 import CollapsibleWrapper from "@/components/shared/CollapsibleWrapper";
@@ -75,8 +81,10 @@ const InboxPage: NextPageWithLayout = () => {
     handleAgentSelect,
     handleAgentFilterChange,
     handleApplyFilters,
+    handleRemoveTemplate,
   } = useInbox();
   const {
+    user,
     conversationRef,
     searchConvInput,
     conversations,
@@ -98,7 +106,7 @@ const InboxPage: NextPageWithLayout = () => {
     sendMsgLoading,
     fetchMsgsLoading,
     messages,
-    showScrollButton,
+    isScrolledToBottom,
     messagesEndRef,
     whatsappRemainingTime,
     selectedMessage,
@@ -442,7 +450,7 @@ const InboxPage: NextPageWithLayout = () => {
             </div>
 
             {/* Scroll to bottom button (positioned relative to chat column, not the scrollable list) */}
-            {showScrollButton && !selectedMessage && (
+            {isScrolledToBottom && !selectedMessage && (
               <button
                 onClick={handleScrollMsgsToBottom}
                 className="absolute right-6 bottom-40 cursor-pointer bg-gray-800 text-white p-3 rounded-full shadow-lg hover:bg-gray-700 transition-all hover:scale-105 hover:shadow-xl z-10"
@@ -740,6 +748,7 @@ const InboxPage: NextPageWithLayout = () => {
                     setMediaType={setMediaType}
                     setBodyParameters={setBodyParameters}
                     setHeaderParameters={setHeaderParameters}
+                    handleRemoveTemplate={handleRemoveTemplate}
                   />
 
                   {!isMobileView && (
@@ -845,33 +854,37 @@ const InboxPage: NextPageWithLayout = () => {
                     {selectedConversation?.leadId?.name}
                   </div>
                   <div className="text-sm text-gray-500">
-                    {selectedConversation?.leadId?.phone ||
-                      selectedConversation?.leadId?.email}
+                    {user?.role === "agent"
+                      ? maskSensitiveInfo(
+                          selectedConversation?.leadId?.phone ||
+                            selectedConversation?.leadId?.email ||
+                            ""
+                        )
+                      : selectedConversation?.leadId?.phone ||
+                        selectedConversation?.leadId?.email}
                   </div>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 gap-2">
-                <div className="p-3 bg-gray-50 rounded-lg border border-gray-100">
-                  <div className="flex items-center justify-between text-sm text-gray-600">
-                    <div className="flex items-center gap-2">
-                      <Phone className="h-4 w-4" />
-                      Phone
-                    </div>
-                    <div className="font-medium text-gray-800">
-                      {selectedConversation?.leadId?.phone || "—"}
-                    </div>
+                <div className="flex flex-col text-sm text-gray-500">
+                  <div className="flex items-center gap-2">Phone</div>
+                  <div className="font-medium text-gray-800">
+                    {user?.role === "agent"
+                      ? maskPhoneNumber(selectedConversation?.leadId?.phone)
+                      : selectedConversation?.leadId?.phone || "—"}
                   </div>
                 </div>
-                <div className="p-3 bg-gray-50 rounded-lg border border-gray-100">
-                  <div className="flex items-center justify-between text-sm text-gray-600">
-                    <div className="flex items-center gap-2">
-                      <Mail className="h-4 w-4" />
-                      Email
-                    </div>
-                    <div className="font-medium text-gray-800">
-                      {selectedConversation?.leadId?.email || "—"}
-                    </div>
+
+                <div className="flex flex-col text-sm text-gray-500">
+                  <div className="flex items-center gap-2">Email</div>
+                  <div className="font-medium text-gray-800">
+                    {user?.role === "agent"
+                      ? maskEmail(
+                          selectedConversation?.leadId?.email ||
+                            "bajuddinkhan0786@gmail.com"
+                        )
+                      : selectedConversation?.leadId?.email || "—"}
                   </div>
                 </div>
               </div>
@@ -1019,8 +1032,8 @@ const InboxPage: NextPageWithLayout = () => {
           attachedFiles?.length > 0
             ? attachedFiles
             : attachedFile
-            ? [attachedFile]
-            : []
+              ? [attachedFile]
+              : []
         }
         loading={sendMsgLoading}
       />

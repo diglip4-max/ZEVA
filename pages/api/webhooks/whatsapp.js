@@ -1,3 +1,4 @@
+import User from "../../../models/Users";
 import Message from "../../../models/Message";
 import Provider from "../../../models/Provider";
 import Template from "../../../models/Template";
@@ -224,23 +225,42 @@ const processWhatsAppWebhook = async (req) => {
             leadId: findLead?._id,
           });
           if (!conversation) {
-            // const findSetting = await Setting.findOne({ teamId });
-            // let assignUserId = null; // it means manuall asign
-            // if (
-            //   findSetting?.message?.conversationAssignment?.basedOnSenderOwner
-            // ) {
-            //   assignUserId = userId;
-            // } else if (
-            //   findSetting?.message?.conversationAssignment?.basedOnRecordOwner
-            // ) {
-            //   assignUserId = findContact?.userId;
-            // }
+            let query = {
+              role: "agent",
+              isApproved: true,
+              clinicId: clinicId,
+            };
 
+            // Get eligible users
+            const users = await User.find(query);
+
+            let ownerId = null;
+
+            // Random conversation assignment
+            if (users.length > 0) {
+              // Generate random index
+              const randomIndex = Math.floor(Math.random() * users.length);
+              const randomUser = users[randomIndex];
+              ownerId = randomUser._id;
+
+              console.log(
+                `Randomly assigned to user: ${randomUser.name} (${randomUser.role}) - ID: ${randomUser._id}`
+              );
+            } else {
+              console.log("No eligible users found for assignment");
+              // You might want to handle this case differently
+              // e.g., assign to clinic admin or leave unassigned
+            }
+
+            // Create new conversation
             conversation = new Conversation({
               clinicId,
               leadId: findLead?._id,
+              ownerId, // This will be null if no users found
             });
+
             await conversation.save();
+            console.log(`Created new conversation: ${conversation._id}`);
           }
 
           let mediaType = "";

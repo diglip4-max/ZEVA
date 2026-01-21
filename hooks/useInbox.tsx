@@ -13,6 +13,7 @@ import {
   formatFileSize,
   getMediaTypeFromFile,
   getMediaTypeFromMime,
+  getTokenByPath,
   handleError,
   handleUpload,
 } from "@/lib/helper";
@@ -22,6 +23,7 @@ import { jwtDecode } from "jwt-decode";
 import useAgents from "./useAgents";
 import { User } from "@/types/users";
 import { Template } from "@/types/templates";
+import { useAuth } from "@/context/AuthContext";
 
 export type VariableType = {
   type: "text";
@@ -69,6 +71,8 @@ export const tags = ["Important", "Follow-up", "Urgent", "Review", "Personal"];
 let socket: Socket | null = null;
 
 const useInbox = () => {
+  const { user } = useAuth();
+  console.log({ user });
   const { providers } = useProvider();
   const { templates } = useTemplate();
   const agents = useAgents()?.state?.agents || [];
@@ -112,7 +116,6 @@ const useInbox = () => {
   const [isScrolledToBottom, setIsScrolledToBottom] = useState<boolean>(false);
 
   const [searchConvInput, setSearchConvInput] = useState<string>("");
-  const [showScrollButton, setShowScrollButton] = useState<boolean>(false);
   const [whatsappRemainingTime, setWhatsappRemainingTime] =
     useState<string>("");
 
@@ -164,20 +167,6 @@ const useInbox = () => {
   const previousScrollTopRef = React.useRef<number | null>(0); // Track previous scroll position for messages to stop fetching when scroll top to bottom
   const messageRef = React.useRef<HTMLDivElement | null>(null);
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
-
-  const getTokenByPath = () => {
-    if (typeof window === "undefined") return null;
-
-    const pathname = window.location.pathname;
-
-    if (pathname === "/clinic/inbox") {
-      return localStorage.getItem("clinicToken");
-    } else if (pathname === "/staff/clinic-inbox") {
-      return localStorage.getItem("agentToken");
-    } else {
-      return localStorage.getItem("userToken");
-    }
-  };
 
   const token = getTokenByPath();
 
@@ -345,8 +334,8 @@ const useInbox = () => {
       attachedFiles && attachedFiles.length
         ? attachedFiles
         : attachedFile
-        ? [attachedFile]
-        : [];
+          ? [attachedFile]
+          : [];
     console.log("Attachments to use:", attachmentsFilesToUse);
     setSendMsgLoading(true);
 
@@ -601,8 +590,8 @@ const useInbox = () => {
       attachedFiles && attachedFiles.length
         ? attachedFiles
         : attachedFile
-        ? [attachedFile]
-        : [];
+          ? [attachedFile]
+          : [];
     console.log("Attachments to use:", attachmentsFilesToUse);
     setSendMsgLoading(true);
 
@@ -863,22 +852,6 @@ const useInbox = () => {
     }
   };
 
-  // Infinite scroll handler
-  const handleMsgScroll = () => {
-    const el = messageRef.current;
-    if (!el) return;
-
-    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
-    const nearBottom = distanceFromBottom <= 60; // 60px threshold
-
-    // Toggle the scroll-to-bottom button: show when user is not near bottom
-    setShowScrollButton(!nearBottom);
-
-    // Pagination: only load more when near bottom and there are more messages
-    if (nearBottom && hasMoreMessages) {
-      setCurrentMsgPage((p) => p + 1);
-    }
-  };
   const handleScrollMessages = () => {
     if (!scrollMsgsRef.current || fetchMsgsLoading || !hasMoreMessages) {
       return;
@@ -1082,6 +1055,18 @@ const useInbox = () => {
     setCurrentConvPage(1);
   };
 
+  const handleRemoveTemplate = () => {
+    setSelectedTemplate(null);
+    setMediaUrl("");
+    setMediaType("");
+    setAttachedFile(null);
+    setAttachedFiles([]);
+    setBodyParameters([]);
+    setHeaderParameters([]);
+    setSubject("");
+    setMessage("");
+  };
+
   // select agent by default based on selected conversation
   useEffect(() => {
     if (selectedConversation && agents?.length > 0) {
@@ -1092,6 +1077,22 @@ const useInbox = () => {
       else setSelectedAgent(null);
     }
   }, [agents, selectedConversation]);
+
+  // Reset inbox area if select a different conversation
+  useEffect(() => {
+    if (selectedConversation) {
+      setSelectedTemplate(null);
+      setMediaUrl("");
+      setMediaType("");
+      setAttachedFile(null);
+      setAttachedFiles([]);
+      setBodyParameters([]);
+      setHeaderParameters([]);
+      setSubject("");
+      setMessage("");
+      setSelectedMessage(null);
+    }
+  }, [selectedConversation]);
 
   // Check viewport on mount and window resize
   useEffect(() => {
@@ -1170,8 +1171,8 @@ const useInbox = () => {
             a._id === message.conversationId
               ? -1
               : b._id === message.conversationId
-              ? 1
-              : 0
+                ? 1
+                : 0
           );
           return updatedConversations;
         });
@@ -1309,15 +1310,6 @@ const useInbox = () => {
     }
   }, [messages, currentMsgPage]);
 
-  // Add scroll event listener
-  useEffect(() => {
-    const container = messageRef.current;
-    if (container) {
-      container.addEventListener("scroll", handleMsgScroll);
-      return () => container.removeEventListener("scroll", handleMsgScroll);
-    }
-  }, []);
-
   useEffect(() => {
     if (!selectedConversation) return;
     checkWhatsappAvailabilityWindow();
@@ -1338,6 +1330,7 @@ const useInbox = () => {
   }, [selectedTemplate]);
 
   const state = {
+    user,
     conversations,
     selectedConversation,
     selectedProvider,
@@ -1370,7 +1363,6 @@ const useInbox = () => {
     headerParameters,
     isLiveChatSelected,
     searchConvInput,
-    showScrollButton,
     whatsappRemainingTime,
     selectedMessage,
     conversationStatusOptions,
@@ -1408,7 +1400,6 @@ const useInbox = () => {
     setHeaderParameters,
     setIsLiveChatSelected,
     setSearchConvInput,
-    setShowScrollButton,
     setSelectedMessage,
     setConversationStatusOptions,
     // conversation filters
@@ -1437,6 +1428,7 @@ const useInbox = () => {
     handleAgentFilterChange,
     handleApplyFilters,
     handleScheduleMessage,
+    handleRemoveTemplate,
   };
 };
 

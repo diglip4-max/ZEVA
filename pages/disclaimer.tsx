@@ -1,7 +1,7 @@
 import React from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
-import { AlertTriangle, FileText, ArrowLeft, Info } from 'lucide-react';
+import { AlertTriangle,ArrowLeft, Info } from 'lucide-react';
 
 const Disclaimer: React.FC = () => {
   const disclaimers = [

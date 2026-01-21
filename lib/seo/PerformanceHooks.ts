@@ -44,9 +44,9 @@ const cache = new Map<string, { data: any; expires: number; tags: string[] }>();
  */
 export function validateImageSize(
   imageUrl: string,
-  maxSizeKB: number = 500,
-  maxWidth: number = 2000,
-  maxHeight: number = 2000,
+  _maxSizeKB: number = 500,
+  _maxWidth: number = 2000,
+  _maxHeight: number = 2000,
   allowedFormats: string[] = ['jpg', 'jpeg', 'png', 'webp']
 ): ImageValidationResult {
   const result: ImageValidationResult = {

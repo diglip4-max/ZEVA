@@ -20,34 +20,24 @@ const HomeSearchSection = () => {
         .replace(/[^a-z0-9-]/g, "")
         .replace(/-+/g, "-");
 
-    const treatmentSlug = searchQuery ? toSlug(searchQuery) : "";
-    const locationSlug = location ? toSlug(location) : "";
-
     const query = {};
-    if (treatmentSlug) query.treatment = treatmentSlug;
-    if (locationSlug) query.location = locationSlug;
+    if (searchQuery) query.treatment = toSlug(searchQuery);
+    if (location) query.location = toSlug(location);
 
-    // 🔹 Route based on tab
     if (activeTab === "clinic") {
-      router.push({
-        pathname: "/clinic/findclinic",
-        query,
-      });
+      router.push({ pathname: "/clinic/findclinic", query });
     } else {
-      router.push({
-        pathname: "/doctor/search",
-        query,
-      });
+      router.push({ pathname: "/doctor/search", query });
     }
   };
 
   return (
-    <div className="w-full max-w-4xl mx-auto px-3 mt-10">
+    <div className="w-full max-w-4xl mx-auto px-3 mt-8">
 
       {/* Trust Badge */}
       <div className="flex justify-center mb-4">
-        <div className="flex items-center gap-2 px-4 py-2 rounded-full border border-gray-200 bg-white shadow-sm text-sm text-gray-700">
-          <span className="text-blue-600 text-lg">✦</span>
+        <div className="flex items-center gap-2 px-3 py-1 rounded-full border border-gray-200 bg-white shadow-sm text-sm text-gray-700">
+          <span className="text-yellow-400 text-lg">✦</span>
           <span>
             Trusted by <strong>2M+</strong> patients across India
           </span>
@@ -56,12 +46,12 @@ const HomeSearchSection = () => {
 
       {/* Heading */}
       <div className="text-center mb-6">
-        <h1 className="text-xl sm:text-2xl font-semibold text-blue-700 mb-2">
+        <p className="text-[15px] font-medium mt-7 text-blue-700 mb-2">
           Book Trusted Clinics, Doctors & Wellness Services Near You
-        </h1>
-        <p className="text-gray-600 text-sm sm:text-base">
-          Appointments, teleconsultation, health records, and more — all in one place.
         </p>
+        <h1 className="text-gray-600 text-[20px] sm:text-[22px] font-normal leading-relaxed mt-2">
+          Appointments, teleconsultation, health records, and more — all in one place.
+        </h1>
       </div>
 
       {/* Doctor / Clinic Tabs */}
@@ -72,21 +62,17 @@ const HomeSearchSection = () => {
               key={tab}
               type="button"
               onClick={() => setActiveTab(tab)}
-              className={`relative pb-2 text-base font-medium transition-colors
-                ${
-                  activeTab === tab
-                    ? "text-blue-600"
-                    : "text-gray-500 hover:text-blue-600"
-                }`}
+              className={`relative pb-2 text-base font-medium transition-colors ${
+                activeTab === tab
+                  ? "text-blue-600"
+                  : "text-gray-500 hover:text-blue-600"
+              }`}
             >
               {tab === "doctor" ? "Doctor" : "Clinic"}
               <span
-                className={`absolute left-0 -bottom-0.5 h-[2px] w-full transition-all
-                  ${
-                    activeTab === tab
-                      ? "bg-blue-600"
-                      : "bg-transparent group-hover:bg-blue-400"
-                  }`}
+                className={`absolute left-0 -bottom-0.5 h-[2px] w-full ${
+                  activeTab === tab ? "bg-blue-600" : "bg-transparent"
+                }`}
               />
             </button>
           ))}
@@ -94,12 +80,12 @@ const HomeSearchSection = () => {
       </div>
 
       {/* Search Card */}
-      <div className="bg-white rounded-2xl shadow-xl border border-gray-200 p-4">
-        <form onSubmit={handleSearch} className="space-y-5">
+      <div className="bg-white rounded-2xl shadow-xl border border-gray-200 p-14">
+        <form onSubmit={handleSearch} className="space-y-8">
 
           {/* Search Input */}
           <div>
-            <label className="block text-sm  font-bold text-gray-500 mb-1">
+            <label className="block text-sm font-bold text-gray-500 mb-1">
               Search for
             </label>
             <div className="relative">
@@ -108,19 +94,19 @@ const HomeSearchSection = () => {
                 type="text"
                 placeholder={
                   activeTab === "doctor"
-                    ? "Doctor, Specialty, or Treatment"
-                    : "Clinic name or Treatment"
+                    ? "Treatment Name"
+                    : "Clinic or Treatment Name"
                 }
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-12 pr-4 py-3 rounded-xl border border-gray-200 bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                className="w-full pl-12 pr-4 py-6 rounded-xl border border-gray-100 bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
               />
             </div>
           </div>
 
           {/* Location Input */}
           <div>
-            <label className="block text-sm  font-bold text-gray-500 mb-1">
+            <label className="block text-sm font-bold text-gray-500 mb-1">
               Location
             </label>
             <div className="relative">
@@ -130,7 +116,7 @@ const HomeSearchSection = () => {
                 placeholder="City or Area"
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
-                className="w-full pl-12 pr-4 py-3 rounded-xl border border-gray-200 bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                className="w-full pl-12 pr-4 py-6 rounded-xl border border-gray-100 bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
               />
             </div>
           </div>
@@ -138,12 +124,46 @@ const HomeSearchSection = () => {
           {/* Search Button */}
           <button
             type="submit"
-            className="w-full bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-semibold py-3 rounded-xl text-base flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all"
+            className="w-full bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-semibold py-4 rounded-xl text-base flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all"
           >
             Search <span className="text-xl">→</span>
           </button>
         </form>
       </div>
+
+      {/* Bottom CTA + Features */}
+      <div className="mt-10 flex flex-col items-center gap-6">
+
+        {/* Features */}
+        <div className="flex flex-wrap justify-center gap-6 text-sm text-gray-700">
+          {["Instant Booking", "Verified Doctors", "Secure Payments", "Digital Reports"].map(
+            (item) => (
+              <div key={item} className="flex items-center gap-2">
+                <span className="text-teal-600 text-lg">✔</span>
+                <span>{item}</span>
+              </div>
+            )
+          )}
+        </div>
+
+        {/* CTA Buttons */}
+        <div className="flex flex-col sm:flex-row gap-6 mt-2">
+          <button
+            onClick={() => router.push("/")}
+            className="bg-yellow-400 hover:bg-yellow-500 text-gray-900 px-5 py-3 rounded-xl text-lg font-medium shadow-lg flex items-center gap-3"
+          >
+            Book Appointment Now <span className="text-xl">→</span>
+          </button>
+
+          <button
+            onClick={() => router.push("/clinic/findclinic")}
+            className="border-2 border-blue-700 text-blue-700 px-5 py-3 rounded-2xl text-lg font-medium hover:bg-blue-50 transition"
+          >
+            Explore Clinics
+          </button>
+        </div>
+      </div>
+
     </div>
   );
 };

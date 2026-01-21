@@ -11,6 +11,7 @@ import Clinic from '../../../models/Clinic';
 import DoctorProfile from '../../../models/DoctorProfile';
 import Blog from '../../../models/Blog';
 import JobPosting from '../../../models/JobPosting';
+import Treatment from '../../../models/Treatment';
 import { getUserFromReq } from '../lead-ms/auth';
 import { runSEOPipeline } from '../../../lib/seo/SEOOrchestrator';
 import { checkSEOHealth } from '../../../lib/seo/SEOHealthService';
@@ -77,10 +78,17 @@ export default async function handler(req, res) {
         }
         break;
 
+      case 'treatment':
+        entity = await Treatment.findById(entityId);
+        if (!entity) {
+          return res.status(404).json({ success: false, message: 'Treatment not found' });
+        }
+        break;
+
       default:
         return res.status(400).json({
           success: false,
-          message: 'Invalid entity type. Must be: clinic, doctor, blog, or job',
+          message: 'Invalid entity type. Must be: clinic, doctor, blog, job, or treatment',
         });
     }
 
@@ -129,6 +137,13 @@ export default async function handler(req, res) {
         slugLocked: entity.slugLocked,
         status: entity.status,
         isActive: entity.isActive,
+      };
+    } else if (entityType === 'treatment') {
+      entityData = {
+        _id: entity._id,
+        name: entity.name,
+        slug: entity.slug,
+        subcategories: entity.subcategories || [],
       };
     }
 

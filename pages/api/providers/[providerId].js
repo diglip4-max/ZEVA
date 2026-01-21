@@ -1,13 +1,12 @@
-import mongoose from "mongoose";
-import { getUserFromReq, requireRole } from "../../lead-ms/auth";
-import Clinic from "../../../../models/Clinic";
-import Provider from "../../../../models/Provider";
+import { getUserFromReq, requireRole } from "../lead-ms/auth";
+import Clinic from "../../../models/Clinic";
+import Provider from "../../../models/Provider";
 
 export default async function handler(req, res) {
   await dbConnect();
 
-  if (req.method !== "PUT") {
-    res.setHeader("Allow", ["PUT"]);
+  if (req.method !== "GET") {
+    res.setHeader("Allow", ["GET"]);
     return res.status(405).end(`Method ${req.method} Not Allowed`);
   }
 
@@ -64,73 +63,24 @@ export default async function handler(req, res) {
 
   try {
     const { providerId } = req.query;
-    const { name, label, phone, email, status, type, secrets } = req.body;
 
-    // Validation
-    if (!name || !name.trim()) {
-      return res.status(400).json({
-        success: false,
-        message: "Name is required",
-      });
-    }
-
-    if (type?.includes("email") && !email) {
-      return res.status(400).json({
-        success: false,
-        message: "Email is required for email providers",
-      });
-    }
-    if ((type?.includes("sms") || type?.includes("whatsapp")) && !phone) {
-      return res.status(400).json({
-        success: false,
-        message: "Phone is required for sms/whatsapp providers",
-      });
-    }
-
-    if (!secrets || Object.keys(secrets).length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "Secrets are required for provider configuration",
-      });
-    }
-
-    const provider = await Provider.findById(providerId);
+    const provider = await Provider.findOne({ _id: providerId, clinicId });
     if (!provider) {
       return res.status(404).json({
         success: false,
-        message: "Provider not found",
+        message: "Provider not found or you can't do this action",
       });
     }
-
-    if (name) provider.name = name.trim();
-    if (label) provider.label = label.trim();
-    if (phone) provider.phone = phone.trim();
-    if (email) provider.email = email.trim();
-    if (status) provider.status = status;
-    if (type) provider.type = type;
-
-    if (secrets && typeof secrets === "object") {
-      const existingSecrets = provider.secrets || {};
-      const mergedSecrets = { ...existingSecrets, ...secrets };
-      // Remove keys with empty string values
-      Object.keys(mergedSecrets).forEach((key) => {
-        if (!mergedSecrets[key]) {
-          delete mergedSecrets[key];
-        }
-      });
-      provider.secrets = mergedSecrets;
-    }
-    await provider.save();
 
     const findProvider = await Provider.findById(provider._id).lean();
 
     return res.status(201).json({
       success: true,
-      message: "Provider updated successfully",
+      message: "Provider fetched successfully",
       data: findProvider,
     });
   } catch (err) {
-    console.error("Error update provider:", err);
+    console.error("Error in getting provider:", err);
 
     if (err.name === "ValidationError") {
       return res.status(400).json({

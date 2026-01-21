@@ -6,7 +6,6 @@ import Message from "../../../models/Message";
 import { getUserFromReq, requireRole } from "../lead-ms/auth";
 
 export default async function handler(req, res) {
-  
   if (req.method !== "GET") {
     return res
       .status(405)
@@ -72,7 +71,6 @@ export default async function handler(req, res) {
 
     // ✅TODO: Check permission for reading leads (only for clinic, agent, doctor, and doctorStaff/staff; admin bypasses)
     if (me.role !== "admin" && clinic._id) {
-      // For Get Segments Permissions
     }
 
     try {
@@ -104,11 +102,11 @@ export default async function handler(req, res) {
       }
 
       // if role is agent then only show assigned conversations
-      if (me.role === "agent"){
+      if (me.role === "agent" || me.role === "doctorStaff") {
         query.ownerId = me._id;
       }
 
-      console.log({meUser:me})
+      console.log({ meUser: me });
 
       // Search by contact name or phone number
       let leadIdsFromSearch = null;
@@ -120,7 +118,6 @@ export default async function handler(req, res) {
 
         leadIdsFromSearch = matchingLeads.map((c) => c._id).filter(Boolean);
       }
-
 
       // Ensure leadId actually references an existing Lead in this clinic.
       const existingLeadIds = await Lead.find({

@@ -9,8 +9,6 @@ import {
   Award,
   ArrowRight,
   Star,
-  Building2,
-  Heart,
 } from 'lucide-react';
 
 const Partners: React.FC = () => {

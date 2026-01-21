@@ -298,7 +298,7 @@ function AdminDoctors() {
         }
       }
 
-      const response = await axios.post("/api/admin/action", { userId, action }, {
+      await axios.post("/api/admin/action", { userId, action }, {
         headers: { Authorization: `Bearer ${token}` }
       });
       

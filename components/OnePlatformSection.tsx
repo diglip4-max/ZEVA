@@ -81,13 +81,20 @@ const OnePlatformSection: React.FC<{ embedded?: boolean }> = ({ embedded = false
     <section className={embedded ? "w-full py-6" : "w-full bg-white py-10"}>
       <div className={embedded ? "w-full" : "max-w-6xl mx-auto px-4"}>
         <div className="text-center mb-8">
-          <p className="text-blue-700 font-bold text-2xl">
+           <div className="flex justify-center mt-8 mb-4">
+        <div className="flex text-2xl items-center gap-2 px-5 py-2 rounded-full border border-gray-200 bg-white shadow-sm text-sm text-teal-700">
+          <span>
+            All-in-One Platform
+          </span>
+        </div>
+      </div>
+          <p className="text-blue-700 text-[15px] font-medium text-4xl mt-6">
             Everything You Need in One Platform
           </p>
-          <p className="text-gray-600 text-base font-normal mt-2" >
+          <h1 className="text-gray-600 text-[20px] text-base font-normal mt-3" >
             Comprehensive healthcare services designed for your convenience and peace of
-            mind
-          </p>
+            mind  
+          </h1>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">

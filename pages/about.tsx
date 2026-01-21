@@ -1,7 +1,7 @@
 import React from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
-import { Heart, Users, MapPin, Calculator, Gamepad2, FileText, Briefcase, Shield, Award, Zap, ChevronRight, Star, Stethoscope, Activity, Brain, Pill, Microscope, Thermometer, Siren, UserCheck, Globe, Lock, Smartphone, TrendingUp } from 'lucide-react';
+import { Heart, Users, MapPin, Calculator, Gamepad2, Briefcase, Shield, Award, Zap, ChevronRight, Star, Globe, Lock } from 'lucide-react';
 
 const About: React.FC = () => {
   const features = [

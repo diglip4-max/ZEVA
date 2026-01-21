@@ -1,7 +1,7 @@
 import ClinicLayout from "@/components/ClinicLayout";
 import withClinicAuth from "@/components/withClinicAuth";
 import React, { ReactElement, useCallback, useEffect, useState } from "react";
-import { NextPageWithLayout } from "../_app";
+import { NextPageWithLayout } from "../../_app";
 import {
   Search,
   Plus,
@@ -220,7 +220,7 @@ const TemplatesPage: NextPageWithLayout = () => {
     console.log(`${action} template ${templateId}`);
     // Implement actual actions here
     if (action === "edit") {
-      router.push(`/all-templates/${templateId}`);
+      router.push(`/clinic/all-templates/${templateId}`);
       return;
     }
 
@@ -362,7 +362,7 @@ const TemplatesPage: NextPageWithLayout = () => {
               <RefreshCcw className="h-5 w-5" />
               {!isSyncing ? "Sync Templates" : "Syncing..."}
             </button>
-            <Link href="/all-templates/new">
+            <Link href="/clinic/all-templates/new">
               <button className="inline-flex items-center justify-center cursor-pointer gap-1.5 bg-gray-800 hover:bg-gray-900 text-white px-3 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs sm:text-sm font-medium">
                 <Plus className="h-5 w-5" />
                 Create Template
@@ -791,7 +791,6 @@ const TemplatesPage: NextPageWithLayout = () => {
         </div>
       )}
 
-      {/* Delete Segment Modal */}
       {/* Preview Modal */}
       {showPreviewModal && previewTemplate && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">

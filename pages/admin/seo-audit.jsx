@@ -28,7 +28,7 @@ import {
 } from '@heroicons/react/24/outline';
 
 const SEOAudit = () => {
-  const [entityType, setEntityType] = useState('clinic'); // clinic, doctor, blog, job
+  const [entityType, setEntityType] = useState('clinic'); // clinic, doctor, blog, job, treatment
   const [entities, setEntities] = useState([]);
   const [summary, setSummary] = useState({
     total: 0,
@@ -207,6 +207,18 @@ const SEOAudit = () => {
     return colorMap[color] || 'bg-gray-50 border-gray-200';
   };
 
+  // Helper function to get entity type name
+  const getEntityTypeName = () => {
+    const entityNames = {
+      clinic: 'clinic',
+      doctor: 'doctor',
+      blog: 'blog',
+      job: 'job',
+      treatment: 'treatment',
+    };
+    return entityNames[entityType] || 'entity';
+  };
+
   // Helper function to format location (handle GeoJSON objects)
   const formatLocation = (location) => {
     if (!location) return '';
@@ -225,20 +237,22 @@ const SEOAudit = () => {
   const explainIndexingDecision = (indexing) => {
     if (!indexing) return null;
     
+    const entityName = getEntityTypeName();
+    const entityNameCapitalized = entityName.charAt(0).toUpperCase() + entityName.slice(1);
     const explanations = [];
     
     if (indexing.shouldIndex) {
       explanations.push({
         icon: '✅',
-        title: 'This clinic WILL appear in Google search results',
-        description: 'The clinic profile is complete and meets all requirements for search engine indexing. Patients will be able to find this clinic when searching on Google, Bing, and other search engines.',
+        title: `This ${entityName} WILL appear in Google search results`,
+        description: `The ${entityName} profile is complete and meets all requirements for search engine indexing. Users will be able to find this ${entityName} when searching on Google, Bing, and other search engines.`,
         color: 'green'
       });
     } else {
       explanations.push({
         icon: '❌',
-        title: 'This clinic will NOT appear in Google search results',
-        description: 'The clinic profile needs to be completed before it can be indexed. This helps ensure only quality, complete profiles appear in search results.',
+        title: `This ${entityName} will NOT appear in Google search results`,
+        description: `The ${entityName} profile needs to be completed before it can be indexed. This helps ensure only quality, complete profiles appear in search results.`,
         color: 'red'
       });
     }
@@ -252,9 +266,9 @@ const SEOAudit = () => {
 
     if (indexing.priority) {
       const priorityExplanations = {
-        high: 'This clinic has high priority for indexing, meaning it will be crawled and indexed quickly by search engines.',
-        medium: 'This clinic has medium priority for indexing, meaning it will be processed in normal time.',
-        low: 'This clinic has low priority for indexing, meaning it may take longer to appear in search results.'
+        high: `This ${entityName} has high priority for indexing, meaning it will be crawled and indexed quickly by search engines.`,
+        medium: `This ${entityName} has medium priority for indexing, meaning it will be processed in normal time.`,
+        low: `This ${entityName} has low priority for indexing, meaning it may take longer to appear in search results.`
       };
       explanations.push({
         icon: '⭐',
@@ -281,20 +295,21 @@ const SEOAudit = () => {
   const explainRobotsMeta = (robots) => {
     if (!robots) return null;
 
+    const entityName = getEntityTypeName();
     const explanations = [];
     
     if (robots.noindex) {
       explanations.push({
         icon: '🚫',
         title: 'Search engines are told NOT to index this page',
-        description: 'This means the clinic page will not appear in search results. This is typically set when a profile is incomplete or needs review.',
+        description: `This means the ${entityName} page will not appear in search results. This is typically set when a profile is incomplete or needs review.`,
         color: 'red'
       });
     } else {
       explanations.push({
         icon: '✅',
         title: 'Search engines are allowed to index this page',
-        description: 'Google, Bing, and other search engines can crawl and include this clinic in their search results.',
+        description: `Google, Bing, and other search engines can crawl and include this ${entityName} in their search results.`,
         color: 'green'
       });
     }
@@ -303,7 +318,7 @@ const SEOAudit = () => {
       explanations.push({
         icon: '🔗',
         title: 'Search engines are told NOT to follow links on this page',
-        description: 'Any links on this page will not pass SEO value to other pages. This is rarely used for clinic pages.',
+        description: `Any links on this page will not pass SEO value to other pages. This is rarely used for ${entityName} pages.`,
         color: 'yellow'
       });
     } else {
@@ -318,7 +333,7 @@ const SEOAudit = () => {
     explanations.push({
       icon: '📝',
       title: `Meta Tag Content: "${robots.content}"`,
-      description: 'This is the exact HTML meta tag that will be added to the clinic page. It tells search engines how to handle this page.',
+      description: `This is the exact HTML meta tag that will be added to the ${entityName} page. It tells search engines how to handle this page.`,
       color: 'blue'
     });
 
@@ -329,12 +344,13 @@ const SEOAudit = () => {
   const explainMetaTags = (meta) => {
     if (!meta) return null;
 
+    const entityName = getEntityTypeName();
     const explanations = [];
     
     explanations.push({
       icon: '📄',
       title: 'Page Title',
-      description: `"${meta.title}" - This is what appears as the clickable headline in Google search results. It should be clear, descriptive, and include the clinic name.`,
+      description: `"${meta.title}" - This is what appears as the clickable headline in Google search results. It should be clear, descriptive, and include the ${entityName} name.`,
       color: 'blue',
       length: meta.title.length,
       optimal: meta.title.length >= 50 && meta.title.length <= 60
@@ -343,7 +359,7 @@ const SEOAudit = () => {
     explanations.push({
       icon: '📝',
       title: 'Page Description',
-      description: `"${meta.description}" - This appears below the title in search results. It should summarize what the clinic offers and encourage users to click.`,
+      description: `"${meta.description}" - This appears below the title in search results. It should summarize what the ${entityName} offers and encourage users to click.`,
       color: 'blue',
       length: meta.description.length,
       optimal: meta.description.length >= 120 && meta.description.length <= 160
@@ -353,7 +369,7 @@ const SEOAudit = () => {
       explanations.push({
         icon: '🏷️',
         title: 'Keywords',
-        description: `These keywords help search engines understand what this clinic offers: ${meta.keywords.join(', ')}. While less important than before, they still help with SEO.`,
+        description: `These keywords help search engines understand what this ${entityName} offers: ${meta.keywords.join(', ')}. While less important than before, they still help with SEO.`,
         color: 'purple'
       });
     }
@@ -365,10 +381,11 @@ const SEOAudit = () => {
   const explainCanonicalUrl = (canonical) => {
     if (!canonical) return null;
 
+    const entityName = getEntityTypeName();
     return {
       icon: '🔗',
       title: 'Canonical URL',
-      description: `This is the official, preferred URL for this clinic: ${canonical}. If there are multiple URLs pointing to the same clinic, search engines will use this one as the primary version. This prevents duplicate content issues.`,
+      description: `This is the official, preferred URL for this ${entityName}: ${canonical}. If there are multiple URLs pointing to the same ${entityName}, search engines will use this one as the primary version. This prevents duplicate content issues.`,
       color: 'teal'
     };
   };
@@ -377,20 +394,21 @@ const SEOAudit = () => {
   const explainDuplicateCheck = (duplicateCheck) => {
     if (!duplicateCheck) return null;
 
+    const entityName = getEntityTypeName();
     const explanations = [];
     
     if (duplicateCheck.isDuplicate) {
       explanations.push({
         icon: '⚠️',
         title: 'Potential Duplicate Content Detected',
-        description: 'This clinic appears to be very similar to other clinics in the system. This could cause SEO issues if not addressed.',
+        description: `This ${entityName} appears to be very similar to other ${entityName}s in the system. This could cause SEO issues if not addressed.`,
         color: 'red'
       });
     } else {
       explanations.push({
         icon: '✅',
         title: 'No Duplicate Content Found',
-        description: 'This clinic is unique and does not appear to duplicate content from other clinics. This is good for SEO.',
+        description: `This ${entityName} is unique and does not appear to duplicate content from other ${entityName}s. This is good for SEO.`,
         color: 'green'
       });
     }
@@ -426,11 +444,12 @@ const SEOAudit = () => {
 
     const explanations = [];
     
+    const entityName = getEntityTypeName();
     if (headings.h1) {
       explanations.push({
         icon: '📌',
         title: 'Main Heading (H1)',
-        description: `"${headings.h1}" - This is the main heading that appears at the top of the clinic page. There should only be one H1 per page for SEO best practices.`,
+        description: `"${headings.h1}" - This is the main heading that appears at the top of the ${entityName} page. There should only be one H1 per page for SEO best practices.`,
         color: 'pink'
       });
     }
@@ -505,6 +524,11 @@ const SEOAudit = () => {
   };
 
   const getEntityDisplayLocation = (entity) => {
+    if (entityType === 'treatment') {
+      return entity.subcategories?.length > 0 
+        ? `${entity.subcategories.length} sub-treatment(s)` 
+        : 'No sub-treatments';
+    }
     return entity.displayLocation || entity.address || entity.location || '';
   };
 
@@ -650,6 +674,7 @@ const SEOAudit = () => {
               { id: 'doctor', label: 'Doctors', icon: '👨‍⚕️' },
               { id: 'blog', label: 'Blogs', icon: '📝' },
               { id: 'job', label: 'Jobs', icon: '💼' },
+              { id: 'treatment', label: 'Treatments', icon: '💊' },
             ].map((tab) => (
               <button
                 key={tab.id}

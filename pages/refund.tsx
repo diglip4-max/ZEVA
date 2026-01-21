@@ -1,7 +1,7 @@
 import React from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
-import { DollarSign, Clock, CheckCircle2, ArrowLeft, AlertCircle } from 'lucide-react';
+import { DollarSign,CheckCircle2, ArrowLeft} from 'lucide-react';
 
 const Refund: React.FC = () => {
   const refundPolicy = [

@@ -6,8 +6,6 @@ import {
   CheckCircle2,
   Users,
   Calendar,
-  Shield,
-  TrendingUp,
   ArrowRight,
   BarChart3,
   CreditCard,

@@ -9,10 +9,6 @@ import {
   Shield,
   TrendingUp,
   ArrowRight,
-  Star,
-  MapPin,
-  Phone,
-  Mail,
 } from 'lucide-react';
 
 const ListClinic: React.FC = () => {

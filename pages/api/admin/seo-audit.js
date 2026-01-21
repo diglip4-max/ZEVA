@@ -11,6 +11,7 @@ import Clinic from '../../../models/Clinic';
 import DoctorProfile from '../../../models/DoctorProfile';
 import Blog from '../../../models/Blog';
 import JobPosting from '../../../models/JobPosting';
+import Treatment from '../../../models/Treatment';
 import { getUserFromReq } from '../lead-ms/auth';
 import { batchCheckSEOHealth } from '../../../lib/seo/SEOHealthService';
 
@@ -33,7 +34,7 @@ export default async function handler(req, res) {
       return res.status(403).json({ message: 'Access denied. Admin role required' });
     }
 
-    const { entityType = 'clinic', page = '1', limit = '7' } = req.query; // clinic, doctor, blog, job
+    const { entityType = 'clinic', page = '1', limit = '7' } = req.query; // clinic, doctor, blog, job, treatment
     
     // Parse pagination parameters
     const pageNumber = parseInt(page, 10) || 1;
@@ -355,10 +356,43 @@ export default async function handler(req, res) {
         entityTypeForHealth = 'job';
         break;
 
+      case 'treatment':
+        // Get total count
+        const treatmentCountResult = await Treatment.aggregate([
+          {
+            $count: 'total',
+          },
+        ]);
+        totalCount = treatmentCountResult[0]?.total || 0;
+
+        // Get paginated entities
+        entities = await Treatment.aggregate([
+          {
+            $project: {
+              _id: 1,
+              name: 1,
+              slug: 1,
+              subcategories: 1,
+              createdAt: 1,
+            },
+          },
+          {
+            $sort: { createdAt: -1 },
+          },
+          {
+            $skip: skip,
+          },
+          {
+            $limit: pageSize,
+          },
+        ]);
+        entityTypeForHealth = 'treatment';
+        break;
+
       default:
         return res.status(400).json({
           success: false,
-          message: 'Invalid entity type. Must be: clinic, doctor, blog, or job',
+          message: 'Invalid entity type. Must be: clinic, doctor, blog, job, or treatment',
         });
     }
 
@@ -417,6 +451,11 @@ export default async function handler(req, res) {
       } else if (entityType === 'job') {
         displayName = entityObj.jobTitle;
         displayLocation = entityObj.location;
+      } else if (entityType === 'treatment') {
+        displayName = entityObj.name;
+        displayLocation = entityObj.subcategories?.length > 0 
+          ? `${entityObj.subcategories.length} sub-treatment(s)` 
+          : 'No sub-treatments';
       }
 
       return {

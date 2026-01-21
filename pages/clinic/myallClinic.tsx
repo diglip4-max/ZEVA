@@ -1075,7 +1075,7 @@ function ClinicManagementDashboard() {
     useState(false);
   const [geocodingStatus, setGeocodingStatus] = useState<string>("");
   const addressDebounceTimer = useRef<NodeJS.Timeout | null>(null);
-  const [photoError, setPhotoError] = useState("");
+  const [_photoError, setPhotoError] = useState("");
  
   // Permission state
   const [permissions, setPermissions] = useState({
@@ -2050,7 +2050,6 @@ function ClinicManagementDashboard() {
                             const files = Array.from(e.target.files);
                             const validFiles: File[] = [];
                             const invalidFiles: string[] = [];
-                            let hasError = false;
                            
                             files.forEach((file) => {
                               // Check if file is JPG or PNG format
@@ -2062,10 +2061,8 @@ function ClinicManagementDashboard() {
                               if (!isValidFormat) {
                                 const extUpper = fileExtension.toUpperCase() || 'UNKNOWN';
                                 invalidFiles.push(`${file.name} (${extUpper})`);
-                                hasError = true;
                               } else if (file.size > 1024 * 1024) {
                                 invalidFiles.push(`${file.name} (Size: ${(file.size / 1024 / 1024).toFixed(2)}MB)`);
-                                hasError = true;
                               } else {
                                 validFiles.push(file);
                               }
