@@ -95,7 +95,7 @@ const HomeSearchSection = () => {
                 placeholder={
                   activeTab === "doctor"
                     ? "Treatment Name"
-                    : "Clinic or Treatment Name"
+                    : "Treatment Name"
                 }
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
