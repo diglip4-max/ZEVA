@@ -528,19 +528,35 @@ export default function FindDoctor() {
   };
 
   const fetchSuggestions = async (q: string) => {
-    if (!q.trim()) return setSuggestions([]);
+    if (!q.trim()) {
+      setSuggestions([]);
+      return;
+    }
 
     try {
       const response = await axios.get(`/api/doctor/search?q=${q}`);
-      const treatmentSuggestions = response.data.treatments.map(
-        (t: string) => ({
-          type: "treatment",
-          value: t,
-        })
-      );
-      setSuggestions(treatmentSuggestions);
-    } catch {
-      // console.error("Error fetching suggestions:", err);
+      // API returns array of objects with { type: 'treatment' | 'subcategory', value: string }
+      if (response.data.treatments && Array.isArray(response.data.treatments)) {
+        // Handle both old format (strings) and new format (objects)
+        const treatmentSuggestions = response.data.treatments.map((t: any) => {
+          // If it's already an object with type and value, use it as-is
+          if (typeof t === 'object' && t !== null && 'type' in t && 'value' in t) {
+            return { type: t.type, value: t.value };
+          }
+          // If it's a string (old format), wrap it
+          if (typeof t === 'string') {
+            return { type: 'treatment', value: t };
+          }
+          // Fallback
+          return { type: 'treatment', value: String(t) };
+        });
+        setSuggestions(treatmentSuggestions);
+      } else {
+        setSuggestions([]);
+      }
+    } catch (error) {
+      console.error("Error fetching suggestions:", error);
+      setSuggestions([]);
     }
   };
 
@@ -1394,13 +1410,8 @@ export default function FindDoctor() {
                                 e.preventDefault();
                                 e.stopPropagation();
                                 
-                                // Extract main treatment name if it's in format "Sub Treatment (Main Treatment)"
-                                let treatmentValue = s.value;
-                                const match = s.value.match(/^(.+?)\s*\((.+?)\)$/);
-                                if (match) {
-                                  // If format is "Sub (Main)", use main treatment
-                                  treatmentValue = match[2].trim();
-                                }
+                                // Use the full value (subcategory or treatment) as displayed
+                                const treatmentValue = s.value;
                                 
                                 // Auto-fill the search field and close dropdown immediately
                                 setQuery(treatmentValue);
@@ -1560,13 +1571,8 @@ export default function FindDoctor() {
                                 e.preventDefault();
                                 e.stopPropagation();
                                 
-                                // Extract main treatment name if it's in format "Sub Treatment (Main Treatment)"
-                                let treatmentValue = s.value;
-                                const match = s.value.match(/^(.+?)\s*\((.+?)\)$/);
-                                if (match) {
-                                  // If format is "Sub (Main)", use main treatment
-                                  treatmentValue = match[2].trim();
-                                }
+                                // Use the full value (subcategory or treatment) as displayed
+                                const treatmentValue = s.value;
                                 
                                 // Auto-fill the search field and close dropdown immediately
                                 setQuery(treatmentValue);

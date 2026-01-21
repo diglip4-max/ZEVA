@@ -1,29 +1,48 @@
-import dbConnect from "../../../lib/database";
-import Treatment from "../../../models/Treatment";
+// pages/api/clinics/search.ts
+import dbConnect from '../../../lib/database';
+import Treatment from '../../../models/Treatment';
 
 export default async function handler(req, res) {
   await dbConnect();
   const { q } = req.query;
 
-  if (!q) return res.status(400).json({ message: "Query is required" });
+  if (!q) return res.status(400).json({ message: 'Query is required' });
 
-  const regex = new RegExp(q, "i");
-  const results = await Treatment.find({
-    $or: [{ name: regex }, { "subcategories.name": regex }],
-  })
-    .limit(10)
-    .lean();
+  const regex = new RegExp(q, 'i');
 
-  // Map results to return formatted treatment names
-  const treatments = results
-    .map((t) => {
-      if (t.subcategories && t.subcategories.length > 0) {
-        // Return sub-treatment names with main treatment in parentheses
-        return t.subcategories.map((sub) => `${sub.name} (${t.name})`);
+  try {
+    const treatments = await Treatment.find({
+      $or: [
+        { name: regex }, // main treatment
+        { 'subcategories.name': regex }, // subcategories
+      ],
+    }).lean();
+
+    const suggestions = [];
+
+    treatments.forEach((treatment) => {
+      // Check main name
+      if (regex.test(treatment.name)) {
+        suggestions.push({
+          type: 'treatment',
+          value: treatment.name,
+        });
       }
-      return t.name;
-    })
-    .flat();
 
-  res.status(200).json({ success: true, treatments });
+      // Check subcategories
+      (treatment.subcategories || []).forEach((sub) => {
+        if (regex.test(sub.name)) {
+          suggestions.push({
+            type: 'subcategory',
+            value: `${sub.name} (${treatment.name})`,
+          });
+        }
+      });
+    });
+
+    return res.status(200).json({ treatments: suggestions });
+  } catch (err) {
+    console.error("Treatment search error:", err);
+    return res.status(500).json({ message: 'Server error while fetching treatments' });
+  }
 }
