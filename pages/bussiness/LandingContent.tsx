@@ -193,31 +193,13 @@ export default function LandingContent({ includeHead = true, embedded = false }:
 
   {/* Images Section */}
   <div className="relative mt-4 flex w-full flex-col md:flex-row items-center md:items-start">
+    <img 
+      src="/admin.png"
+      alt="admin"
+      className="w-full h-full object-cover rounded-none md:rounded-xl shadow-md"
+    />
 
-    {/* Left Dashboard Image */}
-    <div className="w-full md:w-[300%] h-[260px] md:h-[480px]">
-      <img
-        src="/admin.png"
-        alt="admin"
-        className="w-full h-full object-cover rounded-none md:rounded-xl shadow-md"
-      />
-    </div>
-
-    {/* Right Mobile Image */}
-    <div
-      className="
-        absolute md:static
-        bottom-4 right-4
-        w-[120px] h-[300px]
-        md:w-[320px] md:h-[480px]
-      "
-    >
-      <img
-        src="/image.png"
-        alt="mobile"
-        className="w-full h-full object-contain rounded-xl shadow-xl bg-white p-2"
-      />
-    </div>
+   
 
   </div>
 </div>

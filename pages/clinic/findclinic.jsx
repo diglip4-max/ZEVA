@@ -607,10 +607,7 @@ export default function Home() {
         if (!q.trim()) return setSuggestions([]);
 
         try {
-            const [treatRes, clinicRes] = await Promise.all([
-                axios.get("/api/clinics/search?q=" + encodeURIComponent(q)),
-                axios.get("/api/clinics/searchByClinic?q=" + encodeURIComponent(q)),
-            ]);
+            const treatRes = await axios.get("/api/clinics/search?q=" + encodeURIComponent(q));
 
             const treatmentSuggestions = (treatRes.data.treatments || []).map(
                 (t) => ({
@@ -619,14 +616,7 @@ export default function Home() {
                 })
             );
 
-            const clinicSuggestions = (clinicRes.data.clinics || []).map(
-                (c) => ({
-                    type: "clinic",
-                    value: c.name,
-                })
-            );
-
-            setSuggestions([...treatmentSuggestions, ...clinicSuggestions]);
+            setSuggestions(treatmentSuggestions);
         } catch (err) {
             // console.error("Error fetching suggestions:", err);
             setSuggestions([]);
@@ -1312,7 +1302,7 @@ export default function Home() {
                                     </div>
                                     <input
                                         type="text"
-                                        placeholder="Search treatments, specialists, or clinic names..."
+                                        placeholder="Search treatments, specialists"
                                         value={query}
                                         onChange={(e) => {
                                             setQuery(e.target.value);
@@ -1333,7 +1323,7 @@ export default function Home() {
                                     {/* Suggestions Dropdown */}
                                     {suggestions.length > 0 && (
                                         <div
-                                            className="absolute top-full left-0 right-0 z-50 mt-1 rounded-lg shadow-lg max-h-64 overflow-y-auto border border-[#e2e8f0] bg-white"
+                                            className="absolute top-full left-0 right-0 z-50 mt-1 rounded-lg shadow-lg max-h-64 overflow-y-auto border border-[#e2e8f0] bg-white custom-scrollbar"
                                             ref={suggestionsDropdownRef}
                                         >
                                             <div className="p-1">
@@ -1524,7 +1514,7 @@ export default function Home() {
                                         {/* Mobile Suggestions */}
                                         {suggestions.length > 0 && (
                                             <div
-                                                className="absolute top-full left-0 right-0 z-50 mt-1 rounded-lg shadow-lg max-h-64 overflow-y-auto border border-[#e2e8f0] bg-white"
+                                                className="absolute top-full left-0 right-0 z-50 mt-1 rounded-lg shadow-lg max-h-64 overflow-y-auto border border-[#e2e8f0] bg-white custom-scrollbar"
                                                 ref={suggestionsDropdownRef}
                                             >
                                                 <div className="p-1">

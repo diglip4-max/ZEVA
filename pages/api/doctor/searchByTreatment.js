@@ -42,24 +42,35 @@ export default async function handler(req, res) {
       .lean();
 
     // Filter only registered and available doctors
-    const availableDoctors = doctorProfiles.filter(
-      (profile) =>
-        profile.user &&
-        profile.user.isApproved === true &&
-        profile.user.declined !== true &&
-        profile.user.role === "doctor"
-    );
+    const availableDoctors = doctorProfiles.filter((profile) => {
+      // Owner/user must exist, not be declined, and have doctor role
+      if (!profile.user) return false;
+      if (profile.user.declined === true) return false;
+      if (profile.user.role !== "doctor") return false;
+      return true;
+    });
 
-    // Filter doctors that have the specified treatment (case-insensitive match on main treatment)
+    // Filter doctors that have the specified treatment (case-insensitive match on main or sub-treatment)
     const matchingDoctors = availableDoctors.filter((doctor) => {
       if (!doctor.treatments || !Array.isArray(doctor.treatments)) {
         return false;
       }
 
-      // Check if any treatment's mainTreatment matches (case-insensitive)
+      // Check if any treatment's mainTreatment or any subTreatment matches (case-insensitive)
       return doctor.treatments.some((treatment) => {
         const mainTreatment = treatment.mainTreatment?.trim() || "";
-        return mainTreatment.toLowerCase() === treatmentQuery.toLowerCase();
+        // Match main treatment
+        if (mainTreatment.toLowerCase() === treatmentQuery.toLowerCase()) {
+          return true;
+        }
+        // Match sub-treatments
+        if (treatment.subTreatments && Array.isArray(treatment.subTreatments)) {
+          return treatment.subTreatments.some((sub) => {
+            const subName = sub.name?.trim() || "";
+            return subName.toLowerCase() === treatmentQuery.toLowerCase();
+          });
+        }
+        return false;
       });
     });
 

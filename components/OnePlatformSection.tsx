@@ -84,7 +84,7 @@ const OnePlatformSection: React.FC<{ embedded?: boolean }> = ({ embedded = false
            <div className="flex justify-center mt-8 mb-4">
         <div className="flex text-2xl items-center gap-2 px-5 py-2 rounded-full border border-gray-200 bg-white shadow-sm text-sm text-teal-700">
           <span>
-            All-in-One Platform
+            All-In-One Platform
           </span>
         </div>
       </div>

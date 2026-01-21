@@ -71,12 +71,12 @@ type HealthcareCardProps = {
   icon: ReactElement;
   title: string;
   subtitle: string;
-  price: string;
+  // price: string;
   items: string[];
   delayMs?: number;
 };
 
-function HealthcareCard({ icon, title, subtitle, price, items, delayMs = 0 }: HealthcareCardProps): ReactElement {
+function HealthcareCard({ icon, title, subtitle, items, delayMs = 0 }: HealthcareCardProps): ReactElement {
   return (
     <div
       style={{ animationDelay: `${delayMs}ms` }}
@@ -91,14 +91,6 @@ function HealthcareCard({ icon, title, subtitle, price, items, delayMs = 0 }: He
           <div className="grid h-12 w-12 place-items-center rounded-2xl bg-red-50">
             <div className="grid h-9 w-9 place-items-center rounded-xl bg-red-100 text-red-600">
               {icon}
-            </div>
-          </div>
-
-          <div className="text-right">
-            <div className="text-[11px] font-bold tracking-wide text-gray-500">FROM</div>
-            <div className="text-xl font-extrabold text-blue-700">
-              {price}
-              <span className="text-xs font-semibold text-gray-500">/mo</span>
             </div>
           </div>
         </div>
@@ -124,7 +116,7 @@ function HealthcareCard({ icon, title, subtitle, price, items, delayMs = 0 }: He
             "border-red-500 bg-white text-red-600 hover:bg-red-600 hover:text-white",
           ].join(" ")}
         >
-          Learn More <ArrowRightIcon className="h-4 w-4" />
+      Coming Soon 
         </button>
       </div>
     </div>
@@ -153,7 +145,7 @@ export default function HealthcareSection(): ReactElement {
             icon={<FolderIcon className="h-6 w-6" />}
             title="Patient Records"
             subtitle="Secure digital records"
-            price="$69"
+            // price="$69"
             items={["HIPAA compliant", "Encrypted storage", "Quick search", "History tracking"]}
           />
 
@@ -162,7 +154,7 @@ export default function HealthcareSection(): ReactElement {
             icon={<HeartIcon className="h-6 w-6" />}
             title="Insurance Integration"
             subtitle="Streamline claims"
-            price="$79"
+            // price="$79"
             items={["Auto claims", "Eligibility checks", "EOB tracking", "Denial management"]}
           />
 
@@ -171,7 +163,7 @@ export default function HealthcareSection(): ReactElement {
             icon={<VideoIcon className="h-6 w-6" />}
             title="Telemedicine"
             subtitle="Virtual consultations"
-            price="$89"
+            // price="$89"
             items={["HD video calls", "Screen sharing", "Recording", "Prescription integration"]}
           />
 
@@ -180,7 +172,7 @@ export default function HealthcareSection(): ReactElement {
             icon={<CubeIcon className="h-6 w-6" />}
             title="Inventory"
             subtitle="Track supplies & equipment"
-            price="$49"
+            // price="$49"
             items={["Low-stock alerts", "Batch tracking", "Vendor ordering", "Usage reports"]}
           />
 
@@ -189,7 +181,7 @@ export default function HealthcareSection(): ReactElement {
             icon={<LabIcon className="h-6 w-6" />}
             title="Lab Integrations"
             subtitle="Orders & results in one place"
-            price="$—"
+            // price="$—"
             items={["Lab orders", "Result imports", "Abnormal flags", "Patient notifications"]}
           />
 
@@ -198,7 +190,7 @@ export default function HealthcareSection(): ReactElement {
             icon={<RxIcon className="h-6 w-6" />}
             title="e-Prescriptions"
             subtitle="Prescribe faster, safer"
-            price="$—"
+            // price="$—"
             items={["Drug interaction checks", "Refill requests", "Pharmacy routing", "Audit logs"]}
           />
         </div>

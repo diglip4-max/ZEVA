@@ -938,8 +938,8 @@ export default function FindDoctor() {
         setSuggestions([]);
       }
     }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener("click", handleClickOutside);
+    return () => document.removeEventListener("click", handleClickOutside);
   }, [suggestions]);
 
   // Helper function to label slot dates as Today, Tomorrow, or the actual date
@@ -1368,7 +1368,7 @@ export default function FindDoctor() {
                     </div>
                     <input
                       type="text"
-                    placeholder="Search doctors, specialties, or treatments..."
+                    placeholder="Specialties, or treatments..."
                       value={query}
                       onChange={(e) => {
                         setQuery(e.target.value);
@@ -1381,7 +1381,7 @@ export default function FindDoctor() {
                     {/* Desktop Suggestions Dropdown */}
                     {suggestions.length > 0 && (
                       <div
-                      className="absolute top-full left-0 right-0 mt-1 bg-white border border-[#e2e8f0] rounded-lg shadow-lg max-h-64 overflow-y-auto"
+                      className="absolute top-full left-0 right-0 mt-1 bg-white border border-[#e2e8f0] rounded-lg shadow-lg max-h-64 overflow-y-auto custom-scrollbar"
                         ref={suggestionsDropdownRef}
                         style={{ position: 'absolute', zIndex: 10002 }}
                       >
@@ -1547,7 +1547,7 @@ export default function FindDoctor() {
                       {/* Mobile Suggestions Dropdown */}
                       {suggestions.length > 0 && (
                         <div
-                        className="absolute top-full left-0 right-0 mt-1 bg-white border border-[#e2e8f0] rounded-lg shadow-lg max-h-64 overflow-y-auto"
+                          className="absolute top-full left-0 right-0 mt-1 bg-white border border-[#e2e8f0] rounded-lg shadow-lg max-h-64 overflow-y-auto custom-scrollbar"
                           ref={suggestionsDropdownRef}
                           style={{ position: 'absolute', zIndex: 10002 }}
                         >
