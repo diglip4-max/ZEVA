@@ -1,6 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/router";
-import { Search, MapPin } from "lucide-react";
+import { Search, MapPin, HeartPulse } from "lucide-react";
 
 const HomeSearchSection = () => {
   const router = useRouter();
@@ -8,6 +8,49 @@ const HomeSearchSection = () => {
   const [activeTab, setActiveTab] = useState("doctor");
   const [searchQuery, setSearchQuery] = useState("");
   const [location, setLocation] = useState("");
+  const [searchResults, setSearchResults] = useState([]);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const searchRef = useRef(null);
+
+  useEffect(() => {
+    const fetchTreatments = async () => {
+      if (!searchQuery || searchQuery.length < 1) {
+        setSearchResults([]);
+        setShowDropdown(false);
+        return;
+      }
+
+      try {
+        const res = await fetch(`/api/doctor/search?q=${searchQuery}`);
+        const data = await res.json();
+        if (data.success) {
+          setSearchResults(data.treatments);
+          setShowDropdown(true);
+        }
+      } catch (error) {
+        console.error("Error fetching treatments:", error);
+      }
+    };
+
+    const timeoutId = setTimeout(() => {
+      fetchTreatments();
+    }, 300);
+
+    return () => clearTimeout(timeoutId);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (searchRef.current && !searchRef.current.contains(event.target)) {
+        setShowDropdown(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
 
   const handleSearch = (e) => {
     e.preventDefault();
@@ -84,7 +127,7 @@ const HomeSearchSection = () => {
         <form onSubmit={handleSearch} className="space-y-8">
 
           {/* Search Input */}
-          <div>
+          <div ref={searchRef} className="relative">
             <label className="block text-sm font-bold text-gray-500 mb-1">
               Search for
             </label>
@@ -99,9 +142,45 @@ const HomeSearchSection = () => {
                 }
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
+                onFocus={() => {
+                  if (searchQuery.length > 0 && searchResults.length > 0) {
+                    setShowDropdown(true);
+                  }
+                }}
                 className="w-full pl-12 pr-4 py-6 rounded-xl border border-gray-100 bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
               />
             </div>
+
+            {/* Dropdown Results */}
+            {showDropdown && searchResults.length > 0 && (
+              <div className="absolute z-50 w-full mt-2 bg-white rounded-xl shadow-2xl border border-gray-100 max-h-80 overflow-y-auto custom-scrollbar">
+                {searchResults.map((treatment, index) => (
+                  <button
+                    key={index}
+                    type="button"
+                    onClick={() => {
+                      // If suggestion is in format "Sub (Main)", keep sub-treatment in input
+                      const match = treatment.match(/^(.+?)\s*\((.+?)\)$/);
+                      if (match) {
+                        setSearchQuery(match[1].trim());
+                      } else {
+                        setSearchQuery(treatment);
+                      }
+                      setShowDropdown(false);
+                    }}
+                    className="w-full text-left px-4 py-3 hover:bg-gray-50 flex items-center gap-3 transition-colors border-b border-gray-50 last:border-0"
+                  >
+                    <div className="h-10 w-10 rounded-full bg-purple-50 flex items-center justify-center shrink-0">
+                      <HeartPulse className="w-5 h-5 text-purple-600" />
+                    </div>
+                    <div>
+                      <div className="font-medium text-gray-900">{treatment}</div>
+                      <div className="text-xs text-gray-500">Treatment</div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Location Input */}
