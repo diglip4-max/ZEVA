@@ -16,6 +16,8 @@ type ProviderCard = {
   totalReviews: number;
   tags: string[];
   __isPremium?: boolean;
+  slug?: string | null;
+  slugLocked?: boolean;
 };
 
 type ApiResponse = {
@@ -41,10 +43,18 @@ const slugify = (s: string) =>
     .replace(/-+/g, "-");
 
 const ProviderHref = (p: ProviderCard) => {
-  const slug = slugify(p.name);
-  return p.type === "clinic"
-    ? `/clinics/${slug}?c=${p._id}`
-    : `/doctor/${slug}?d=${p._id}`;
+  if (p.type === "clinic") {
+    const slug = slugify(p.name);
+    return `/clinics/${slug}?c=${p._id}`;
+  } else {
+    // For doctors, use the same logic as doctor/search page
+    // If slug exists and is locked, use slug-based URL, otherwise use _id
+    if (p.slug && p.slugLocked) {
+      return `/doctor/${p.slug}`;
+    } else {
+      return `/doctor/${p._id}`;
+    }
+  }
 };
 
 const DEFAULT_IMG = "/image1.png";
