@@ -1335,13 +1335,8 @@ export default function Home() {
                                                             e.preventDefault();
                                                             e.stopPropagation();
                                                             
-                                                            // Extract main treatment name if it's in format "Sub Treatment (Main Treatment)"
-                                                            let treatmentValue = s.value;
-                                                            const match = s.value.match(/^(.+?)\s*\((.+?)\)$/);
-                                                            if (match) {
-                                                                // If format is "Sub (Main)", use main treatment
-                                                                treatmentValue = match[2].trim();
-                                                            }
+                                                            // Use the full value (subcategory or treatment) as displayed
+                                                            const treatmentValue = s.value;
                                                             
                                                             // Auto-fill the search field and close dropdown immediately
                                                             setQuery(treatmentValue);
@@ -1526,13 +1521,8 @@ export default function Home() {
                                                                 e.preventDefault();
                                                                 e.stopPropagation();
                                                                 
-                                                                // Extract main treatment name if it's in format "Sub Treatment (Main Treatment)"
-                                                                let treatmentValue = s.value;
-                                                                const match = s.value.match(/^(.+?)\s*\((.+?)\)$/);
-                                                                if (match) {
-                                                                    // If format is "Sub (Main)", use main treatment
-                                                                    treatmentValue = match[2].trim();
-                                                                }
+                                                                // Use the full value (subcategory or treatment) as displayed
+                                                                const treatmentValue = s.value;
                                                                 
                                                                 // Auto-fill the search field and close dropdown immediately
                                                                 setQuery(treatmentValue);
