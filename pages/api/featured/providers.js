@@ -213,6 +213,8 @@ export default async function handler(req, res) {
             name: "$user.name",
             averageRating: 1,
             totalReviews: 1,
+            slug: 1,
+            slugLocked: 1,
           },
         },
       ]);
@@ -259,6 +261,8 @@ export default async function handler(req, res) {
           averageRating: round1(d.averageRating),
           totalReviews: d.totalReviews || 0,
           tags,
+          slug: d.slug || null,
+          slugLocked: d.slugLocked || false,
         };
       });
     }
