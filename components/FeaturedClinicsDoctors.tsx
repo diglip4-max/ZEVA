@@ -308,16 +308,19 @@ const FeaturedClinicsDoctors: React.FC = () => {
   return (
     <section className="bg-white py-10">
       <div className="max-w-6xl mx-auto px-4">
-        <div>
-          <div className="justify-center text-center  text-teal-700 text-2xl font-bold">
-            Featured Clinics & Doctors
-          </div>
-          <div className="text-base font-normal text-gray-600  mt-1 text-center" >
-            Top-rated healthcare providers near you
-          </div>
+        <div className="text-center">
+                        <span className="inline-block rounded-full bg-teal-50 px-5 py-2 text-sm font-medium text-teal-700">
+       Verified Partners
+        </span>
+         
+          <p className="text-blue-700 text-[20px] font-medium text-4xl mt-6">
+  Featured Clinics & Doctors
+          </p>
+           <h1 className="text-gray-600 text-[24px] text-base font-normal mt-4 " >
+           Top-rated healthcare providers near you
+          </h1>
         </div>
-
-        <div className="mt-6  flex gap-3">
+        <div className="mt-6 flex gap-3">
           <TabButton active={tab === "all"} onClick={() => setTab("all")}>
             All Specialities
           </TabButton>

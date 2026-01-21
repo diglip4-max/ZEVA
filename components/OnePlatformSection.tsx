@@ -88,10 +88,10 @@ const OnePlatformSection: React.FC<{ embedded?: boolean }> = ({ embedded = false
           </span>
         </div>
       </div>
-          <p className="text-blue-700 text-[15px] font-medium text-4xl mt-6">
+          <p className="text-blue-700 text-[20px] font-medium text-4xl mt-6">
             Everything You Need in One Platform
           </p>
-          <h1 className="text-gray-600 text-[20px] text-base font-normal mt-3" >
+          <h1 className="text-gray-600 text-[24px] text-base font-normal mt-3" >
             Comprehensive healthcare services designed for your convenience and peace of
             mind  
           </h1>

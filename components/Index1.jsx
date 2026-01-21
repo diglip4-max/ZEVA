@@ -52,12 +52,17 @@ const HealthRiskComponent = () => {
 
                 {/* 8. Social Proof - Testimonials, stats, and trust indicators */}
                <SocialProofPage />
-
+              <div className="w-full mt-18 mb-8">
+                <Career />
+               </div>
+             <div className="w-full mt-10 mb-8">
+                <HealthCare />
+               </div>
                 {/* 9. Latest Jobs - Career opportunities */}
              
 
                 {/* 10. Ready to Get Started - Final CTA for account creation */}
-                <div className="w-full mb-8">
+                <div className="w-full  mb-8">
                     <ReadyGet />
                 </div>
             </div>
