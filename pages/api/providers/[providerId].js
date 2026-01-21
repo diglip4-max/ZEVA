@@ -1,6 +1,7 @@
 import { getUserFromReq, requireRole } from "../lead-ms/auth";
 import Clinic from "../../../models/Clinic";
 import Provider from "../../../models/Provider";
+import dbConnect from "../../../lib/database";
 
 export default async function handler(req, res) {
   await dbConnect();
@@ -47,7 +48,7 @@ export default async function handler(req, res) {
     }
     clinicId = me.clinicId;
   } else if (me.role === "admin") {
-    clinicId = req.body.clinicId;
+    clinicId = req.query.clinicId; // Changed from body to query for GET request
     if (!clinicId) {
       return res.status(400).json({
         success: false,
@@ -64,20 +65,52 @@ export default async function handler(req, res) {
   try {
     const { providerId } = req.query;
 
-    const provider = await Provider.findOne({ _id: providerId, clinicId });
-    if (!provider) {
-      return res.status(404).json({
+    if (!providerId) {
+      return res.status(400).json({
         success: false,
-        message: "Provider not found or you can't do this action",
+        message: "providerId is required",
       });
     }
 
-    const findProvider = await Provider.findById(provider._id).lean();
+    // Fetch provider WITHOUT lean() to get mongoose document with decryption
+    const provider = await Provider.findOne({ _id: providerId, clinicId });
 
-    return res.status(201).json({
+    if (!provider) {
+      return res.status(404).json({
+        success: false,
+        message: "Provider not found or you don't have permission to access it",
+      });
+    }
+
+    // Convert to plain object AFTER decryption happens
+    const providerData = provider.toObject ? provider.toObject() : provider;
+
+    // Format the response properly
+    const responseData = {
+      _id: providerData._id,
+      clinicId: providerData.clinicId,
+      userId: providerData.userId,
+      name: providerData.name,
+      label: providerData.label,
+      phone: providerData.phone || "",
+      email: providerData.email || "",
+      status: providerData.status,
+      type: providerData.type,
+      createdAt: providerData.createdAt,
+      updatedAt: providerData.updatedAt,
+      secrets: providerData.secrets || {}, // This should now be decrypted
+    };
+
+    // Remove any encryption metadata fields
+    delete responseData._ct;
+    delete responseData._ac;
+    delete responseData.__v;
+
+    return res.status(200).json({
+      // Changed from 201 to 200 for GET
       success: true,
       message: "Provider fetched successfully",
-      data: findProvider,
+      data: responseData,
     });
   } catch (err) {
     console.error("Error in getting provider:", err);
@@ -90,6 +123,13 @@ export default async function handler(req, res) {
           Object.values(err.errors)
             .map((e) => e.message)
             .join(", "),
+      });
+    }
+
+    if (err.name === "CastError") {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid provider ID format",
       });
     }
 

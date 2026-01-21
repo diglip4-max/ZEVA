@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import { getUserFromReq, requireRole } from "../../lead-ms/auth";
 import Clinic from "../../../../models/Clinic";
 import Provider from "../../../../models/Provider";
+import dbConnect from "../../../../lib/database";
 
 export default async function handler(req, res) {
   await dbConnect();

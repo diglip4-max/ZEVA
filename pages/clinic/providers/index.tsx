@@ -11,13 +11,9 @@ import {
   CheckCircle,
   Clock,
   XCircle,
-  Settings,
-  MoreVertical,
   BarChart3,
   Shield,
   Zap,
-  Wifi,
-  WifiOff,
   Grid,
   Table,
   Edit,
@@ -25,7 +21,6 @@ import {
   Search,
   RefreshCw,
   Globe,
-  TestTube,
   Send,
   Bell,
   Info,
@@ -33,29 +28,17 @@ import {
   Globe as GlobeIcon,
   Hash,
   Mailbox,
+  Trash2,
 } from "lucide-react";
 import axios from "axios";
 import { Provider } from "@/types/conversations";
 import AddWhatsappProvider from "./_components/AddWhatsappProvider";
+import { getTokenByPath } from "@/lib/helper";
+import EditWhatsappProvider from "./_components/EditWhatsappProvider";
+import DeleteProviderModal from "./_components/DeleteProviderModal";
+import toast from "react-hot-toast";
 
 const ProvidersPage: NextPageWithLayout = () => {
-  const getTokenByPath = () => {
-    if (typeof window === "undefined") return null;
-
-    const pathname = window.location.pathname;
-    console.log("path: ", pathname, {
-      ct: localStorage.getItem("clinicToken"),
-    });
-
-    if (pathname?.includes("/clinic/")) {
-      return localStorage.getItem("clinicToken");
-    } else if (pathname?.includes("/staff")) {
-      return localStorage.getItem("agentToken");
-    } else {
-      return localStorage.getItem("userToken");
-    }
-  };
-
   const token = getTokenByPath();
   const [showAddModal, setShowAddModal] = useState(false);
   const [showWhatsappModal, setShowWhatsappModal] = useState<boolean>(false);
@@ -63,12 +46,19 @@ const ProvidersPage: NextPageWithLayout = () => {
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedType, setSelectedType] = useState<string>("all");
-  const [selectedStatus, setSelectedStatus] = useState<string>("all");
   const [providers, setProviders] = useState<Provider[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [totalPages, setTotalPages] = useState<number>(1);
   const [totalProviders, setTotalProviders] = useState<number>(0);
+
+  const [isOpenEditWhatsappModal, setIsOpenEditWhatsappModal] =
+    useState<boolean>(false);
+  const [isOpenDeleteModal, setIsOpenDeleteModal] = useState<boolean>(false);
+  const [selectedProvider, setSelectedProvider] = useState<Provider | null>(
+    null,
+  );
+  const [isDeleting, setIsDeleting] = useState<boolean>(false);
 
   const [permissions, _setPermissions] = useState({
     canCreate: false,
@@ -82,16 +72,16 @@ const ProvidersPage: NextPageWithLayout = () => {
 
   useEffect(() => {
     fetchAllProviders();
-  }, [activeTab, currentPage]);
+  }, [activeTab, currentPage, selectedType, searchQuery]);
 
   const fetchAllProviders = useCallback(async () => {
     try {
       setLoading(true);
       const { data } = await axios.get(
-        `/api/providers?status=${activeTab}&page=${currentPage}&limit=${providersPerPage}`,
+        `/api/providers?status=${activeTab}&page=${currentPage}&limit=${providersPerPage}&type=${selectedType}&search=${searchQuery}`,
         {
           headers: { Authorization: `Bearer ${token}` },
-        }
+        },
       );
 
       if (data && data?.success) {
@@ -105,7 +95,35 @@ const ProvidersPage: NextPageWithLayout = () => {
     } finally {
       setLoading(false);
     }
-  }, [activeTab, currentPage]);
+  }, [activeTab, currentPage, selectedType, searchQuery]);
+
+  const handleDeleteProvider = async () => {
+    if (!selectedProvider) return;
+    try {
+      setIsDeleting(true);
+      const { data } = await axios.delete(
+        `/api/providers/delete-provider/${selectedProvider?._id}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      );
+      if (data && data?.success) {
+        const updatedproviders = providers?.filter(
+          (p) => p?._id !== selectedProvider?._id,
+        );
+        setProviders(updatedproviders);
+        setSelectedProvider(null);
+        setIsOpenDeleteModal(false);
+        toast.success(data?.message || "Provider deleted successfully");
+      }
+    } catch (error: any) {
+      console.log("Error in deleting a provider: ", error?.message);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   const getStatusBadge = (status: string) => {
     const styles = {
@@ -198,29 +216,11 @@ const ProvidersPage: NextPageWithLayout = () => {
     }
   };
 
-  const filteredProviders = providers.filter((provider) => {
-    const matchesSearch =
-      provider.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      provider.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      provider.phone?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      provider.email?.toLowerCase().includes(searchQuery.toLowerCase());
-
-    const matchesStatus =
-      selectedStatus === "all" || provider.status === selectedStatus;
-
-    const matchesType =
-      selectedType === "all" || provider.type.includes(selectedType as any);
-
-    const matchesTab = activeTab === "all" || provider.status === activeTab;
-
-    return matchesSearch && matchesStatus && matchesType && matchesTab;
-  });
-
   const stats = {
     total: providers.length,
     active: providers.filter((p) => p.isActive).length,
     pending: providers.filter(
-      (p) => p.status === "pending" || p.status === "in-progress"
+      (p) => p.status === "pending" || p.status === "in-progress",
     ).length,
     approved: providers.filter((p) => p.status === "approved").length,
     whatsapp: providers.filter((p) => p.type.includes("whatsapp")).length,
@@ -251,7 +251,7 @@ const ProvidersPage: NextPageWithLayout = () => {
           <div className="flex flex-col sm:flex-row gap-3">
             <button
               onClick={() => fetchAllProviders()}
-              className="inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-white text-gray-700 rounded-lg border border-gray-300 hover:bg-gray-50 hover:border-gray-400 transition-all duration-200 shadow-sm text-xs sm:text-sm font-medium"
+              className="cursor-pointer inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-white text-gray-700 rounded-lg border border-gray-300 hover:bg-gray-50 hover:border-gray-400 transition-all duration-200 shadow-sm text-xs sm:text-sm font-medium"
             >
               <RefreshCw className="w-5 h-5" />
               Refresh
@@ -259,7 +259,7 @@ const ProvidersPage: NextPageWithLayout = () => {
 
             <button
               onClick={() => setShowAddModal(true)}
-              className="inline-flex items-center justify-center cursor-pointer gap-1.5 bg-gray-800 hover:bg-gray-900 text-white px-3 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs sm:text-sm font-medium"
+              className="cursor-pointer inline-flex items-center justify-center gap-1.5 bg-gray-800 hover:bg-gray-900 text-white px-3 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs sm:text-sm font-medium"
             >
               <Plus className="h-5 w-5" />
               Add Provider
@@ -364,7 +364,7 @@ const ProvidersPage: NextPageWithLayout = () => {
                     >
                       {tab.charAt(0).toUpperCase() + tab.slice(1)}
                     </button>
-                  )
+                  ),
                 )}
               </div>
 
@@ -402,7 +402,7 @@ const ProvidersPage: NextPageWithLayout = () => {
                   placeholder="Search providers..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 pr-4 py-2.5 text-gray-600 w-full sm:w-64 bg-gray-50 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="pl-10 pr-4 py-2.5 text-gray-600 text-sm w-full sm:w-64 bg-gray-50 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
 
@@ -419,18 +419,6 @@ const ProvidersPage: NextPageWithLayout = () => {
                   <option value="email">Email</option>
                   <option value="voice">Voice</option>
                 </select>
-
-                <select
-                  value={selectedStatus}
-                  onChange={(e) => setSelectedStatus(e.target.value)}
-                  className="px-3 py-2.5 text-gray-600 bg-gray-50 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                >
-                  <option value="all">All Status</option>
-                  <option value="approved">Approved</option>
-                  <option value="pending">Pending</option>
-                  <option value="in-progress">In Progress</option>
-                  <option value="rejected">Rejected</option>
-                </select>
               </div>
             </div>
           </div>
@@ -445,7 +433,7 @@ const ProvidersPage: NextPageWithLayout = () => {
         ) : viewMode === "grid" ? (
           /* Grid View */
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-            {filteredProviders.map((provider) => {
+            {providers?.map((provider) => {
               return (
                 <div
                   key={provider._id}
@@ -474,11 +462,6 @@ const ProvidersPage: NextPageWithLayout = () => {
                             )}
                           </div>
                         </div>
-                      </div>
-                      <div className="relative">
-                        <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
-                          <MoreVertical className="w-5 h-5 text-gray-400" />
-                        </button>
                       </div>
                     </div>
 
@@ -512,21 +495,7 @@ const ProvidersPage: NextPageWithLayout = () => {
                   <div className="p-6">
                     {/* Status Row */}
                     <div className="flex items-center justify-between mb-6">
-                      <div className="flex items-center gap-2">
-                        {provider.isActive ? (
-                          <div className="flex items-center gap-1.5 text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-lg">
-                            <Wifi className="w-4 h-4" />
-                            <span className="text-sm font-medium">Active</span>
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-1.5 text-gray-500 bg-gray-50 px-3 py-1.5 rounded-lg">
-                            <WifiOff className="w-4 h-4" />
-                            <span className="text-sm font-medium">
-                              Inactive
-                            </span>
-                          </div>
-                        )}
-                      </div>
+                      <span className="text-gray-500">Status</span>
                       {getStatusBadge(provider.status)}
                     </div>
 
@@ -578,22 +547,26 @@ const ProvidersPage: NextPageWithLayout = () => {
                       </div>
                       <div className="flex items-center gap-2">
                         <button
-                          className="p-2 hover:bg-white rounded-lg transition-colors"
-                          title="Test Connection"
-                        >
-                          <TestTube className="w-4 h-4 text-gray-500" />
-                        </button>
-                        <button
-                          className="p-2 hover:bg-white rounded-lg transition-colors"
+                          className="cursor-pointer p-2 border border-inherit hover:bg-white hover:border hover:border-gray-300 rounded-lg transition-colors"
                           title="Edit"
+                          onClick={() => {
+                            if (provider?.type?.includes("whatsapp")) {
+                              setIsOpenEditWhatsappModal(true);
+                              setSelectedProvider(provider);
+                            }
+                          }}
                         >
                           <Edit className="w-4 h-4 text-gray-500" />
                         </button>
                         <button
-                          className="p-2 hover:bg-white rounded-lg transition-colors"
-                          title="Configure"
+                          className="cursor-pointer p-2 border border-inherit hover:bg-white hover:border hover:border-gray-300 rounded-lg transition-colors"
+                          title="Delete"
+                          onClick={() => {
+                            setIsOpenDeleteModal(true);
+                            setSelectedProvider(provider);
+                          }}
                         >
-                          <Settings className="w-4 h-4 text-gray-500" />
+                          <Trash2 className="w-4 h-4 text-gray-500" />
                         </button>
                       </div>
                     </div>
@@ -631,7 +604,7 @@ const ProvidersPage: NextPageWithLayout = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {filteredProviders.map((provider) => {
+                  {providers?.map((provider) => {
                     return (
                       <tr
                         key={provider._id}
@@ -710,20 +683,25 @@ const ProvidersPage: NextPageWithLayout = () => {
                             <button
                               className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
                               title="Edit"
+                              onClick={() => {
+                                if (provider?.type?.includes("whatsapp")) {
+                                  setIsOpenEditWhatsappModal(true);
+                                  setSelectedProvider(provider);
+                                }
+                              }}
                             >
                               <Edit className="w-4 h-4 text-blue-500" />
                             </button>
+
                             <button
                               className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                              title="Test"
+                              title="Delete"
+                              onClick={() => {
+                                setIsOpenDeleteModal(true);
+                                setSelectedProvider(provider);
+                              }}
                             >
-                              <TestTube className="w-4 h-4 text-yellow-500" />
-                            </button>
-                            <button
-                              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                              title="Configure"
-                            >
-                              <Settings className="w-4 h-4 text-purple-500" />
+                              <Trash2 className="w-4 h-4 text-purple-500" />
                             </button>
                           </div>
                         </td>
@@ -736,15 +714,15 @@ const ProvidersPage: NextPageWithLayout = () => {
           </div>
         )}
 
-        {filteredProviders.length === 0 && !loading && (
+        {providers?.length === 0 && !loading && (
           <div className="text-center py-20 bg-white rounded-2xl border border-gray-200 shadow-sm">
             <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full flex items-center justify-center">
               <MessageSquare className="w-12 h-12 text-gray-400" />
             </div>
-            <h3 className="text-2xl font-bold text-gray-900 mb-2">
+            <h3 className="text-xl font-bold text-gray-900 mb-2">
               No providers found
             </h3>
-            <p className="text-gray-600 max-w-md mx-auto mb-8">
+            <p className="text-gray-600 text-sm max-w-md mx-auto mb-8">
               {searchQuery
                 ? `No providers match "${searchQuery}"`
                 : activeTab !== "all"
@@ -753,7 +731,7 @@ const ProvidersPage: NextPageWithLayout = () => {
             </p>
             <button
               onClick={() => setShowAddModal(true)}
-              className="inline-flex items-center gap-2 px-6 py-3.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-semibold rounded-xl hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200 shadow-lg shadow-blue-500/30"
+              className="inline-flex items-center justify-center cursor-pointer gap-1.5 bg-gray-800 hover:bg-gray-900 text-white px-3 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs sm:text-sm font-medium"
             >
               <Plus className="w-5 h-5" />
               Add Your First Provider
@@ -899,8 +877,35 @@ const ProvidersPage: NextPageWithLayout = () => {
       <AddWhatsappProvider
         isOpen={showWhatsappModal}
         onClose={() => setShowWhatsappModal(false)}
-        onSuccess={() => {}}
+        onSuccess={() => {
+          fetchAllProviders();
+          setShowAddModal(false);
+        }}
         token={token as string}
+      />
+
+      <EditWhatsappProvider
+        providerId={selectedProvider!?._id}
+        isOpen={isOpenEditWhatsappModal}
+        onClose={() => setIsOpenEditWhatsappModal(false)}
+        onUpdate={() => {
+          fetchAllProviders();
+          setSelectedProvider(null);
+        }}
+        token={token as string}
+      />
+
+      {/* Delete Provider Modal */}
+      <DeleteProviderModal
+        isOpen={isOpenDeleteModal}
+        onClose={() => setIsOpenDeleteModal(false)}
+        onConfirm={handleDeleteProvider}
+        providerName={
+          selectedProvider?.label ||
+          selectedProvider?.phone ||
+          selectedProvider?.email
+        }
+        loading={isDeleting}
       />
     </div>
   );
@@ -917,7 +922,7 @@ ProvidersPage.getLayout = function getLayout(page: ReactElement) {
 
 // Export protected page with auth
 const ProtectedProvidersPage = withClinicAuth(
-  ProvidersPage
+  ProvidersPage,
 ) as NextPageWithLayout;
 ProtectedProvidersPage.getLayout = ProvidersPage.getLayout;
 
