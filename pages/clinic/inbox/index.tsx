@@ -45,7 +45,6 @@ import ScheduleMessage from "./_components/ScheduleMessage";
 import ConversationSkeleton from "./_components/ConversationSkeleton";
 import MessageSkeleton from "./_components/MessageSkeleton";
 import FilterModal from "./_components/FilterModal";
-// import EmojiPickerModal from "@/components/shared/EmojiPickerModal";
 
 const InboxPage: NextPageWithLayout = () => {
   const {

@@ -350,13 +350,13 @@ const ProvidersPage: NextPageWithLayout = () => {
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
             <div className="flex items-center gap-4">
               {/* Tabs */}
-              <div className="flex space-x-1 bg-gray-100 p-1 rounded-xl">
+              <div className="flex overflow-x-auto pb-2 -mx-2 px-2 bg-gray-100 p-1 rounded-xl">
                 {["all", "approved", "pending", "in-progress", "rejected"].map(
                   (tab) => (
                     <button
                       key={tab}
                       onClick={() => setActiveTab(tab)}
-                      className={`px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
+                      className={`flex-shrink-0 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium rounded-lg transition-all duration-200 whitespace-nowrap mx-1 ${
                         activeTab === tab
                           ? "bg-white text-blue-600 shadow-sm"
                           : "text-gray-600 hover:text-gray-900 hover:bg-gray-200"
@@ -417,7 +417,6 @@ const ProvidersPage: NextPageWithLayout = () => {
                   <option value="whatsapp">WhatsApp</option>
                   <option value="sms">SMS</option>
                   <option value="email">Email</option>
-                  <option value="voice">Voice</option>
                 </select>
               </div>
             </div>
