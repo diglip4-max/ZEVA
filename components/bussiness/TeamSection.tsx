@@ -1,4 +1,5 @@
 import type { ReactElement } from "react";
+import Link from "next/link";
 
 function UsersIcon(props: { className?: string }) {
   return (
@@ -66,12 +67,12 @@ type TeamCardProps = {
   icon: ReactElement;
   title: string;
   subtitle: string;
-  price: string;
   items: string[];
   delayMs?: number;
+  link?: string;
 };
 
-function TeamCard({ icon, title, subtitle, price, items, delayMs = 0 }: TeamCardProps): ReactElement {
+function TeamCard({ icon, title, subtitle, items, delayMs = 0, link = "/bussiness" }: TeamCardProps): ReactElement {
   return (
     <div
       style={{ animationDelay: `${delayMs}ms` }}
@@ -86,14 +87,6 @@ function TeamCard({ icon, title, subtitle, price, items, delayMs = 0 }: TeamCard
           <div className="grid h-12 w-12 place-items-center rounded-2xl bg-blue-50">
             <div className="grid h-9 w-9 place-items-center rounded-xl bg-blue-100 text-blue-700">
               {icon}
-            </div>
-          </div>
-
-          <div className="text-right">
-            <div className="text-[11px] font-bold tracking-wide text-gray-500">FROM</div>
-            <div className="text-xl font-extrabold text-blue-700">
-              {price}
-              <span className="text-xs font-semibold text-gray-500">/mo</span>
             </div>
           </div>
         </div>
@@ -112,15 +105,15 @@ function TeamCard({ icon, title, subtitle, price, items, delayMs = 0 }: TeamCard
           ))}
         </ul>
 
-        <button
-          type="button"
+        <Link
+          href={link}
           className={[
             "mt-5 flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-bold transition-colors",
             "border-blue-700 bg-white text-blue-700 hover:bg-blue-700 hover:text-white",
           ].join(" ")}
         >
           Learn More <ArrowRightIcon className="h-4 w-4" />
-        </button>
+        </Link>
       </div>
     </div>
   );
@@ -148,8 +141,8 @@ export default function TeamSection(): ReactElement {
             icon={<UsersIcon className="h-6 w-6" />}
             title="HR & Staff"
             subtitle="Manage your team efficiently"
-            price="$49"
             items={["Employee profiles", "Time tracking", "Performance reviews", "Document management"]}
+            link="/"
           />
 
           <TeamCard
@@ -157,8 +150,8 @@ export default function TeamSection(): ReactElement {
             icon={<BriefcaseIcon className="h-6 w-6" />}
             title="Jobs & Hiring"
             subtitle="Find the right talent"
-            price="$39"
             items={["Job postings", "Applicant tracking", "Interview scheduling", "Offer management"]}
+            link="/job-listings"
           />
 
           <TeamCard
@@ -166,8 +159,8 @@ export default function TeamSection(): ReactElement {
             icon={<DollarIcon className="h-6 w-6" />}
             title="Commission Module"
             subtitle="Automate staff incentives"
-            price="$29"
             items={["Custom rules", "Auto calculations", "Performance tracking", "Payout automation"]}
+            link="/"
           />
 
           <TeamCard
@@ -175,8 +168,8 @@ export default function TeamSection(): ReactElement {
             icon={<CalendarIcon className="h-6 w-6" />}
             title="Shifts & Scheduling"
             subtitle="Plan shifts without chaos"
-            price="$—"
             items={["Shift templates", "Availability rules", "Swap requests", "Overtime alerts"]}
+            link="/"
           />
 
           <TeamCard
@@ -184,8 +177,8 @@ export default function TeamSection(): ReactElement {
             icon={<ShieldIcon className="h-6 w-6" />}
             title="Roles & Permissions"
             subtitle="Access control for every role"
-            price="$—"
             items={["Role-based access", "Audit logs", "Approvals", "HIPAA-ready settings"]}
+            link="/"
           />
 
           <TeamCard
@@ -193,8 +186,8 @@ export default function TeamSection(): ReactElement {
             icon={<UsersIcon className="h-6 w-6" />}
             title="Training & SOPs"
             subtitle="Onboard faster, stay consistent"
-            price="$—"
             items={["SOP library", "Checklists", "Quizzes & tracking", "Team announcements"]}
+            link="/"
           />
         </div>
       </div>

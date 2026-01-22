@@ -601,14 +601,14 @@
 
     const getStatusBadgeColor = (status: string) => {
       const statusLower = status.toLowerCase();
-      if (statusLower === "discharged") return "bg-gray-100 text-gray-800";
+      if (statusLower === "discharged") return "bg-teal-100 text-teal-800";
       if (statusLower === "invoiced") return "bg-purple-100 text-purple-800";
       if (statusLower === "booked") return "bg-green-100 text-green-800";
       if (statusLower === "enquiry") return "bg-yellow-100 text-yellow-800";
       if (statusLower === "cancelled") return "bg-red-100 text-red-800";
       if (statusLower === "arrived") return "bg-indigo-100 text-indigo-800";
-      if (statusLower === "consultation") return "bg-gray-100 text-gray-800";
-      return "bg-gray-100 text-gray-800";
+      if (statusLower === "consultation") return "bg-teal-100 text-teal-800";
+      return "bg-teal-100 text-teal-800";
     };
 
     const getGenderIcon = (gender: string) => {
@@ -702,16 +702,16 @@
           </div>
         ) : null}
 
-        <div className="bg-gray-50" style={{ width: '100%', padding: '0', margin: '0' }}>
+        <div className="bg-teal-50" style={{ width: '100%', padding: '0', margin: '0' }}>
           <div className="p-1 sm:p-2 md:p-3" style={{ width: '100%', minWidth: '100%' }}>
             <div className="w-full" style={{ width: '100%', overflowX: 'visible' }}>
               {/* Header - Matching clinic dashboard theme */}
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-2 sm:mb-3">
+              <div className="bg-white rounded-lg shadow-sm border border-teal-200 mb-2 sm:mb-3">
                 <div className="max-w-7xl mx-auto px-2 sm:px-3 md:px-4 py-2 sm:py-3">
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 mb-2 sm:mb-3">
                     <div>
-                      <h1 className="text-base sm:text-lg md:text-xl font-bold text-gray-900">All Appointments</h1>
-                      <p className="text-[10px] sm:text-xs md:text-sm text-gray-700 mt-0.5 hidden sm:block">View and manage all appointment records</p>
+                      <h1 className="text-base sm:text-lg md:text-xl font-bold text-teal-900">All Appointments</h1>
+                      <p className="text-[10px] sm:text-xs md:text-sm text-teal-700 mt-0.5 hidden sm:block">View and manage all appointment records</p>
                     </div>
                     <div className="flex items-center gap-2">
                       <button
@@ -723,7 +723,7 @@
                       </button>
                       <button
                         onClick={() => setShowFilters(!showFilters)}
-                        className="inline-flex items-center justify-center gap-1 sm:gap-1.5 bg-gray-800 hover:bg-gray-900 text-white px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-[10px] sm:text-xs md:text-sm font-medium"
+                        className="inline-flex items-center justify-center gap-1 sm:gap-1.5 bg-teal-800 hover:bg-teal-900 text-white px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-[10px] sm:text-xs md:text-sm font-medium"
                       >
                         <Filter className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                         <span className="hidden xs:inline">{showFilters ? "Hide Filters" : "Show Filters"}</span>
@@ -734,7 +734,7 @@
 
               {/* Quick Search */}
               <div className="relative">
-                      <Search className="absolute left-2 sm:left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5" />
+                      <Search className="absolute left-2 sm:left-3 top-1/2 transform -translate-y-1/2 text-teal-400 w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5" />
                 <input
                   type="text"
                   placeholder="Search by patient name, mobile, visit ID..."
@@ -747,7 +747,7 @@
                       fetchAppointments();
                     }
                   }}
-                        className="w-full pl-7 sm:pl-9 md:pl-10 pr-2 sm:pr-3 md:pr-4 py-1.5 sm:py-2 text-[11px] sm:text-xs md:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 outline-none text-gray-900"
+                        className="w-full pl-7 sm:pl-9 md:pl-10 pr-2 sm:pr-3 md:pr-4 py-1.5 sm:py-2 text-[11px] sm:text-xs md:text-sm border border-teal-300 rounded-lg focus:ring-2 focus:ring-teal-900 focus:border-teal-900 outline-none text-teal-900"
                 />
                     </div>
                   </div>
@@ -755,13 +755,13 @@
 
               {/* Advanced Filters */}
               {showFilters && (
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-2 sm:mb-3">
+                <div className="bg-white rounded-lg shadow-sm border border-teal-200 mb-2 sm:mb-3">
                   <div className="max-w-7xl mx-auto px-2 sm:px-3 md:px-4 py-2 sm:py-3">
-                    <div className="p-2 sm:p-3 md:p-4 bg-gray-50 rounded-lg border border-gray-200">
+                    <div className="p-2 sm:p-3 md:p-4 bg-teal-50 rounded-lg border border-teal-200">
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-3 md:gap-4">
                     {/* EMR Number */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-sm font-medium text-teal-700 mb-1">
                         EMR Number
                       </label>
                       <input
@@ -769,45 +769,45 @@
                         value={filters.emrNumber}
                         onChange={(e) => handleFilterChange("emrNumber", e.target.value)}
                         placeholder="Enter EMR number"
-                            className="w-full px-3 py-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 outline-none text-gray-900"
+                            className="w-full px-3 py-2 text-xs sm:text-sm border border-teal-300 rounded-lg focus:ring-2 focus:ring-teal-900 focus:border-teal-900 outline-none text-teal-900"
                       />
                     </div>
 
                     {/* From Date */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-sm font-medium text-teal-700 mb-1">
                         From Date
                       </label>
                       <input
                         type="date"
                         value={filters.fromDate}
                         onChange={(e) => handleFilterChange("fromDate", e.target.value)}
-                            className="w-full px-3 py-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 outline-none text-gray-900"
+                            className="w-full px-3 py-2 text-xs sm:text-sm border border-teal-300 rounded-lg focus:ring-2 focus:ring-teal-900 focus:border-teal-900 outline-none text-teal-900"
                       />
                     </div>
 
                     {/* To Date */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-sm font-medium text-teal-700 mb-1">
                         To Date
                       </label>
                       <input
                         type="date"
                         value={filters.toDate}
                         onChange={(e) => handleFilterChange("toDate", e.target.value)}
-                            className="w-full px-3 py-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 outline-none text-gray-900"
+                            className="w-full px-3 py-2 text-xs sm:text-sm border border-teal-300 rounded-lg focus:ring-2 focus:ring-teal-900 focus:border-teal-900 outline-none text-teal-900"
                       />
                     </div>
 
                     {/* Doctor */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-sm font-medium text-teal-700 mb-1">
                         Doctor
                       </label>
                       <select
                         value={filters.doctorId}
                         onChange={(e) => handleFilterChange("doctorId", e.target.value)}
-                            className="w-full px-3 py-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 outline-none text-gray-900"
+                            className="w-full px-3 py-2 text-xs sm:text-sm border border-teal-300 rounded-lg focus:ring-2 focus:ring-teal-900 focus:border-teal-900 outline-none text-teal-900"
                       >
                         <option value="">All Doctors</option>
                         {doctors.map((doc) => (
@@ -820,13 +820,13 @@
 
                     {/* Room */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-sm font-medium text-teal-700 mb-1">
                         Room
                       </label>
                       <select
                         value={filters.roomId}
                         onChange={(e) => handleFilterChange("roomId", e.target.value)}
-                            className="w-full px-3 py-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 outline-none text-gray-900"
+                            className="w-full px-3 py-2 text-xs sm:text-sm border border-teal-300 rounded-lg focus:ring-2 focus:ring-teal-900 focus:border-teal-900 outline-none text-teal-900"
                       >
                         <option value="">All Rooms</option>
                         {rooms.map((room) => (
@@ -839,13 +839,13 @@
 
                     {/* Status */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-sm font-medium text-teal-700 mb-1">
                         Status
                       </label>
                       <select
                         value={filters.status}
                         onChange={(e) => handleFilterChange("status", e.target.value)}
-                            className="w-full px-3 py-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 outline-none text-gray-900"
+                            className="w-full px-3 py-2 text-xs sm:text-sm border border-teal-300 rounded-lg focus:ring-2 focus:ring-teal-900 focus:border-teal-900 outline-none text-teal-900"
                       >
                         <option value="">All Status</option>
                         {APPOINTMENT_STATUS_OPTIONS.map((opt) => (
@@ -858,13 +858,13 @@
 
                     {/* Follow Type */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-sm font-medium text-teal-700 mb-1">
                         Follow Type
                       </label>
                       <select
                         value={filters.followType}
                         onChange={(e) => handleFilterChange("followType", e.target.value)}
-                            className="w-full px-3 py-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 outline-none text-gray-900"
+                            className="w-full px-3 py-2 text-xs sm:text-sm border border-teal-300 rounded-lg focus:ring-2 focus:ring-teal-900 focus:border-teal-900 outline-none text-teal-900"
                       >
                         <option value="">All Types</option>
                         <option value="first time">First Time</option>
@@ -875,13 +875,13 @@
 
                     {/* Referral */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                      <label className="block text-sm font-medium text-teal-700 mb-1">
                         Source
                       </label>
                       <select
                         value={filters.referral}
                         onChange={(e) => handleFilterChange("referral", e.target.value)}
-                            className="w-full px-3 py-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 outline-none text-gray-900"
+                            className="w-full px-3 py-2 text-xs sm:text-sm border border-teal-300 rounded-lg focus:ring-2 focus:ring-teal-900 focus:border-teal-900 outline-none text-teal-900"
                       >
                         <option value="">All Sources</option>
                         <option value="direct">Direct</option>
@@ -894,7 +894,7 @@
                   <div className="mt-3 sm:mt-4 flex justify-end">
                     <button
                       onClick={clearFilters}
-                          className="px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 text-[10px] sm:text-xs md:text-sm text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition font-medium"
+                          className="px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 text-[10px] sm:text-xs md:text-sm text-teal-700 bg-white border border-teal-300 rounded-lg hover:bg-teal-50 transition font-medium"
                     >
                       Clear All Filters
                     </button>
@@ -905,48 +905,48 @@
               )}
 
             {/* Results Count */}
-              <div className="mb-2 sm:mb-3 text-[10px] sm:text-xs md:text-sm text-gray-700">
+              <div className="mb-2 sm:mb-3 text-[10px] sm:text-xs md:text-sm text-teal-700">
               Showing {appointments.length} of {total} appointments
             </div>
 
             {/* Table */}
             {!permissionsLoaded ? (
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-800 mx-auto"></div>
-                  <p className="mt-4 text-sm text-gray-700">Loading permissions...</p>
+                <div className="bg-white rounded-lg shadow-sm border border-teal-200 p-12 text-center">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-800 mx-auto"></div>
+                  <p className="mt-4 text-sm text-teal-700">Loading permissions...</p>
               </div>
             ) : !permissions.canRead ? (
-                <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+                <div className="min-h-screen bg-teal-50 flex items-center justify-center p-4">
                   <div className="bg-white rounded-lg shadow-lg border border-red-200 p-8 text-center max-w-md">
                     <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
                       <AlertTriangle className="w-8 h-8 text-red-600" />
                     </div>
-                    <h2 className="text-xl font-bold text-gray-900 mb-2">Access Denied</h2>
-                    <p className="text-sm text-gray-700 mb-4">
+                    <h2 className="text-xl font-bold text-teal-900 mb-2">Access Denied</h2>
+                    <p className="text-sm text-teal-700 mb-4">
                       You do not have permission to view scheduled appointments.
                     </p>
-                    <p className="text-xs text-gray-600">
+                    <p className="text-xs text-teal-600">
                       Please contact your administrator to request access to the Scheduled Appointment module.
                     </p>
                   </div>
                 </div>
             ) : loading ? (
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-800 mx-auto"></div>
-                  <p className="mt-4 text-sm text-gray-700">Loading appointments...</p>
+                <div className="bg-white rounded-lg shadow-sm border border-teal-200 p-12 text-center">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-800 mx-auto"></div>
+                  <p className="mt-4 text-sm text-teal-700">Loading appointments...</p>
               </div>
             ) : error ? (
                 <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700 text-sm">
                 {error}
               </div>
             ) : appointments.length === 0 ? (
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
-                  <p className="text-sm text-gray-700">No appointments found</p>
+                <div className="bg-white rounded-lg shadow-sm border border-teal-200 p-12 text-center">
+                  <p className="text-sm text-teal-700">No appointments found</p>
               </div>
             ) : (
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200" style={{ width: '100%', overflow: 'visible' }}>
+                <div className="bg-white rounded-lg shadow-sm border border-teal-200" style={{ width: '100%', overflow: 'visible' }}>
                 {/* Horizontal Scroll Indicator */}
-                <div className="px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 bg-gray-50 border-b border-gray-200 text-[10px] sm:text-xs text-gray-700 flex items-center justify-center gap-1 sm:gap-2">
+                <div className="px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 bg-teal-50 border-b border-teal-200 text-[10px] sm:text-xs text-teal-700 flex items-center justify-center gap-1 sm:gap-2">
                   <span className="hidden md:inline">← Scroll horizontally to view all columns →</span>
                   <span className="hidden sm:inline md:hidden">← Scroll to view all →</span>
                   <span className="sm:hidden">← Swipe →</span>
@@ -968,14 +968,14 @@
                   }}
                 >
                   <table 
-                    className="min-w-full divide-y divide-gray-200" 
+                    className="min-w-full divide-y divide-teal-200" 
                     style={{ 
                       minWidth: '1400px',
                       tableLayout: 'auto',
                       display: 'table'
                     }}
                   >
-                      <thead className="bg-gray-900 text-white">
+                      <thead className="bg-teal-900 text-white">
                         <tr>
                           <th className="px-1 py-1.5 text-left text-[8px] sm:text-[9px] font-semibold uppercase tracking-wider whitespace-nowrap w-[30px]">
                             <input
@@ -1032,9 +1032,9 @@
                           </th>
                         </tr>
                       </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
+                      <tbody className="bg-white divide-y divide-teal-200">
                         {appointments.map((apt) => (
-                          <tr key={apt._id} className="hover:bg-gray-50 transition-colors">
+                          <tr key={apt._id} className="hover:bg-teal-50 transition-colors">
                             <td className="px-2 sm:px-3 py-2 sm:py-4 whitespace-nowrap">
                             <input
                               type="checkbox"
@@ -1052,46 +1052,46 @@
                             />
                           </td>
                             <td className="px-2 sm:px-3 py-2 sm:py-4 whitespace-nowrap">
-                              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gray-200 flex items-center justify-center">
-                                <User className="w-4 h-4 sm:w-6 sm:h-6 text-gray-700" />
+                              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-teal-200 flex items-center justify-center">
+                                <User className="w-4 h-4 sm:w-6 sm:h-6 text-teal-700" />
                               </div>
                             </td>
                             <td className="px-2 sm:px-3 py-2 sm:py-4 whitespace-nowrap">
-                              <span className="px-1.5 sm:px-2 py-0.5 sm:py-1 bg-gray-100 text-gray-800 rounded-full text-[10px] sm:text-xs font-semibold">
+                              <span className="px-1.5 sm:px-2 py-0.5 sm:py-1 bg-teal-100 text-teal-800 rounded-full text-[10px] sm:text-xs font-semibold">
                                 {apt.visitId}
                               </span>
                             </td>
                             <td className="px-1 py-1.5 whitespace-nowrap text-[8px] sm:text-[9px]">
                             <div className="space-y-0.5">
                               <div>
-                                <span className="text-gray-700">Reg: </span>
-                                <span className="font-medium text-gray-900">{formatDate(apt.registeredDate)}</span>
+                                <span className="text-teal-700">Reg: </span>
+                                <span className="font-medium text-teal-900">{formatDate(apt.registeredDate)}</span>
                                 {apt.registeredTime && (
                                   <span className="text-red-600 ml-0.5 text-[7px]">{apt.registeredTime}</span>
                                 )}
                               </div>
                               <div>
-                                <span className="text-gray-700">Inv: </span>
-                                <span className="font-medium text-gray-900">{formatDate(apt.invoicedDate)}</span>
-                                {apt.invoicedTime && <span className="text-gray-700 ml-0.5 text-[7px]">{apt.invoicedTime}</span>}
+                                <span className="text-teal-700">Inv: </span>
+                                <span className="font-medium text-teal-900">{formatDate(apt.invoicedDate)}</span>
+                                {apt.invoicedTime && <span className="text-teal-700 ml-0.5 text-[7px]">{apt.invoicedTime}</span>}
                               </div>
                             </div>
                           </td>
                             <td className="px-1 py-1.5 text-[8px] sm:text-[9px]">
                               <div className="space-y-0.5">
-                                <div className="font-semibold text-gray-900">{apt.patientName}</div>
+                                <div className="font-semibold text-teal-900">{apt.patientName}</div>
                                 <div className="flex items-center gap-0.5 sm:gap-1 flex-wrap">
                                   <span className="px-0.5 py-0.5 bg-purple-100 text-purple-800 rounded text-[7px] sm:text-[8px]">
                                     ID: {apt.patientId.slice(-4) || "N/A"}
                                   </span>
-                                  <span className="text-gray-700 text-[7px] sm:text-[8px]">{apt.patientNumber}</span>
+                                  <span className="text-teal-700 text-[7px] sm:text-[8px]">{apt.patientNumber}</span>
                                   {apt.gender && (
-                                    <span className="px-0.5 py-0.5 bg-gray-100 text-gray-800 rounded text-[7px] sm:text-[8px] flex items-center gap-0.5">
+                                    <span className="px-0.5 py-0.5 bg-teal-100 text-teal-800 rounded text-[7px] sm:text-[8px] flex items-center gap-0.5">
                                       {getGenderIcon(apt.gender)} {apt.gender}
                                     </span>
                                   )}
                                   {apt.emrNumber && (
-                                    <span className="px-0.5 py-0.5 bg-gray-100 text-gray-800 rounded text-[7px] sm:text-[8px]">
+                                    <span className="px-0.5 py-0.5 bg-teal-100 text-teal-800 rounded text-[7px] sm:text-[8px]">
                                       DOB: {apt.emrNumber}
                                     </span>
                                   )}
@@ -1104,25 +1104,25 @@
                             <td className="px-1 py-1.5 text-[8px] sm:text-[9px]">
                               <div className="space-y-0.5">
                                 <div className="flex items-center gap-0.5">
-                                  <div className="w-1 h-1 bg-gray-700 rounded-full"></div>
-                                  <span className="font-medium text-gray-900">{apt.doctorName}</span>
+                                  <div className="w-1 h-1 bg-teal-700 rounded-full"></div>
+                                  <span className="font-medium text-teal-900">{apt.doctorName}</span>
                                 </div>
-                                <div className="text-gray-700 text-[7px] sm:text-[8px] truncate">{apt.doctorEmail}</div>
+                                <div className="text-teal-700 text-[7px] sm:text-[8px] truncate">{apt.doctorEmail}</div>
                               </div>
                             </td>
-                            <td className="px-1 py-1.5 whitespace-nowrap text-[8px] sm:text-[9px] text-gray-900 truncate max-w-[90px]">
+                            <td className="px-1 py-1.5 whitespace-nowrap text-[8px] sm:text-[9px] text-teal-900 truncate max-w-[90px]">
                               {apt.roomName || "-"}
                             </td>
-                            <td className="px-1 py-1.5 whitespace-nowrap text-[8px] sm:text-[9px] text-gray-900">
+                            <td className="px-1 py-1.5 whitespace-nowrap text-[8px] sm:text-[9px] text-teal-900">
                               <span className="capitalize">{apt.followType || "-"}</span>
                             </td>
-                            <td className="px-1 py-1.5 whitespace-nowrap text-[8px] sm:text-[9px] text-gray-900">
+                            <td className="px-1 py-1.5 whitespace-nowrap text-[8px] sm:text-[9px] text-teal-900">
                               <span className="capitalize">{apt.referral || "Direct"}</span>
                             </td>
-                            <td className="px-1 py-1.5 whitespace-nowrap text-[8px] sm:text-[9px] text-gray-900">
+                            <td className="px-1 py-1.5 whitespace-nowrap text-[8px] sm:text-[9px] text-teal-900">
                               <span>Cash [DHA]</span>
                             </td>
-                            <td className="px-1 py-1.5 whitespace-nowrap text-[8px] sm:text-[9px] max-w-[100px] truncate text-gray-900">
+                            <td className="px-1 py-1.5 whitespace-nowrap text-[8px] sm:text-[9px] max-w-[100px] truncate text-teal-900">
                               {apt.notes || "No Remarks"}
                             </td>
                             <td className="px-2 sm:px-3 py-2 sm:py-4 whitespace-nowrap">
@@ -1197,9 +1197,9 @@
                                   }
                                   setOpenActionMenu(openActionMenu === apt._id ? null : apt._id);
                                   }}
-                                  className="p-0.5 hover:bg-gray-200 rounded transition"
+                                  className="p-0.5 hover:bg-teal-200 rounded transition"
                                 >
-                                  <MoreVertical className="w-3.5 h-3.5 text-gray-700" />
+                                  <MoreVertical className="w-3.5 h-3.5 text-teal-700" />
                                 </button>
                               )}
                               
@@ -1218,7 +1218,7 @@
                                   
                                   {/* Dropdown Content - Fixed positioning to prevent scrolling issues */}
                                   <div 
-                                    className="fixed w-48 bg-white rounded-lg shadow-xl border border-gray-200 z-50"
+                                    className="fixed w-48 bg-white rounded-lg shadow-xl border border-teal-200 z-50"
                                     style={{
                                       top: menuPositionRefs.current[apt._id]?.top,
                                       bottom: menuPositionRefs.current[apt._id]?.bottom,
@@ -1244,7 +1244,7 @@
                                             e.preventDefault();
                                             e.stopPropagation();
                                           }}
-                                          className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2 transition cursor-pointer"
+                                          className="w-full px-4 py-2 text-left text-sm text-teal-700 hover:bg-teal-100 flex items-center gap-2 transition cursor-pointer"
                                         >
                                           <Edit className="w-4 h-4" />
                                           Edit
@@ -1264,7 +1264,7 @@
                                           e.preventDefault();
                                           e.stopPropagation();
                                         }}
-                                        className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2 transition cursor-pointer"
+                                        className="w-full px-4 py-2 text-left text-sm text-teal-700 hover:bg-teal-100 flex items-center gap-2 transition cursor-pointer"
                                       >
                                         <History className="w-4 h-4" />
                                         Appointment History
@@ -1283,7 +1283,7 @@
                                             e.preventDefault();
                                             e.stopPropagation();
                                           }}
-                                          className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2 transition cursor-pointer"
+                                          className="w-full px-4 py-2 text-left text-sm text-teal-700 hover:bg-teal-100 flex items-center gap-2 transition cursor-pointer"
                                         >
                                           <FileText className="w-4 h-4" />
                                           Report
@@ -1303,7 +1303,7 @@
                                             e.preventDefault();
                                             e.stopPropagation();
                                           }}
-                                          className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2 transition cursor-pointer"
+                                          className="w-full px-4 py-2 text-left text-sm text-teal-700 hover:bg-teal-100 flex items-center gap-2 transition cursor-pointer"
                                         >
                                           <Receipt className="w-4 h-4" />
                                           Billing
@@ -1341,22 +1341,22 @@
 
                 {/* Pagination */}
                 {totalPages > 1 && (
-                  <div className="px-2 sm:px-3 md:px-4 py-2 sm:py-3 bg-gray-50 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-2 sm:gap-3">
-                    <div className="text-[10px] sm:text-xs md:text-sm text-gray-700">
+                  <div className="px-2 sm:px-3 md:px-4 py-2 sm:py-3 bg-teal-50 border-t border-teal-200 flex flex-col sm:flex-row items-center justify-between gap-2 sm:gap-3">
+                    <div className="text-[10px] sm:text-xs md:text-sm text-teal-700">
                       Page {page} of {totalPages}
                     </div>
                     <div className="flex gap-1.5 sm:gap-2">
                       <button
                         onClick={() => setPage((p) => Math.max(1, p - 1))}
                         disabled={page === 1}
-                        className="px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs md:text-sm border border-gray-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100 transition"
+                        className="px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs md:text-sm border border-teal-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-teal-100 transition"
                       >
                         Previous
                       </button>
                       <button
                         onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                         disabled={page === totalPages}
-                        className="px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs md:text-sm border border-gray-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100 transition"
+                        className="px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs md:text-sm border border-teal-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-teal-100 transition"
                       >
                         Next
                       </button>
@@ -1448,21 +1448,21 @@
                 <div className="flex items-center justify-center w-16 h-16 mx-auto mb-4 bg-red-100 rounded-full">
                   <AlertTriangle className="w-8 h-8 text-red-600" />
                 </div>
-                <h2 className="text-2xl font-bold text-gray-900 text-center mb-2">
+                <h2 className="text-2xl font-bold text-teal-900 text-center mb-2">
                   Delete Appointment
                 </h2>
-                <p className="text-gray-700 text-center mb-6">
+                <p className="text-teal-700 text-center mb-6">
                   Are you sure you want to delete this appointment?
                 </p>
                 {appointmentToDelete && (
-                  <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-6">
-                    <p className="text-sm text-gray-700 mb-1">
+                  <div className="bg-teal-50 border border-teal-200 rounded-lg p-4 mb-6">
+                    <p className="text-sm text-teal-700 mb-1">
                       <span className="font-semibold">Patient:</span> {appointmentToDelete.patientName}
                     </p>
-                    <p className="text-sm text-gray-700 mb-1">
+                    <p className="text-sm text-teal-700 mb-1">
                       <span className="font-semibold">Visit ID:</span> {appointmentToDelete.visitId}
                     </p>
-                    <p className="text-sm text-gray-700">
+                    <p className="text-sm text-teal-700">
                       <span className="font-semibold">Date:</span> {formatDate(appointmentToDelete.startDate)} {appointmentToDelete.fromTime}
                     </p>
                   </div>
@@ -1478,7 +1478,7 @@
                       setAppointmentToDelete(null);
                     }}
                     disabled={deleting}
-                    className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-4 py-2 text-teal-700 bg-white border border-teal-300 rounded-lg hover:bg-teal-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Cancel
                   </button>

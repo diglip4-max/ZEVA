@@ -576,36 +576,36 @@ function OffersPage() {
           },
         }}
       />
-    <div className="min-h-screen bg-gray-50 p-3 sm:p-4">
+    <div className="min-h-screen bg-teal-50 p-3 sm:p-4">
       <div className="max-w-7xl mx-auto space-y-3">
         {!permissionsLoaded ? (
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 text-center">
-            <p className="text-xs sm:text-sm text-gray-700 font-medium">Loading permissions...</p>
+          <div className="bg-white rounded-lg shadow-sm border border-teal-200 p-4 text-center">
+            <p className="text-xs sm:text-sm text-teal-700 font-medium">Loading permissions...</p>
           </div>
         ) : !finalCanRead && !finalCanCreate ? (
-          <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+          <div className="min-h-screen bg-teal-50 flex items-center justify-center p-4">
             <div className="bg-white rounded-lg shadow-lg border border-red-200 p-8 text-center max-w-md">
               <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Package className="w-8 h-8 text-red-600" />
               </div>
-              <h2 className="text-xl font-bold text-gray-900 mb-2">Access Denied</h2>
-              <p className="text-sm text-gray-700 mb-4">
+              <h2 className="text-xl font-bold text-teal-900 mb-2">Access Denied</h2>
+              <p className="text-sm text-teal-700 mb-4">
                 You do not have permission to view or create clinic offers.
               </p>
-              <p className="text-xs text-gray-600">
+              <p className="text-xs text-teal-600">
                 Please contact your administrator to request access to the Offers module.
               </p>
             </div>
           </div>
         ) : !finalCanRead && finalCanCreate ? (
-          <div className="min-h-screen bg-gray-50 p-3 sm:p-4">
+          <div className="min-h-screen bg-teal-50 p-3 sm:p-4">
             <div className="max-w-7xl mx-auto space-y-3">
               {/* Compact Header Section */}
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 sm:p-4">
+              <div className="bg-white rounded-lg shadow-sm border border-teal-200 p-3 sm:p-4">
                 <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2">
                   <div>
-                    <h1 className="text-lg sm:text-xl font-bold text-gray-900 mb-0.5">Offers Management</h1>
-                    <p className="text-[10px] sm:text-xs text-gray-600">Create promotional offers for your clinic</p>
+                    <h1 className="text-lg sm:text-xl font-bold text-teal-900 mb-0.5">Offers Management</h1>
+                    <p className="text-[10px] sm:text-xs text-teal-600">Create promotional offers for your clinic</p>
                   </div>
                   <div className="flex gap-2">
                     {finalCanCreate === true && (
@@ -615,7 +615,7 @@ function OffersPage() {
                           setEditingOfferData(null);
                           setModalOpen(true);
                         }}
-                        className="inline-flex items-center justify-center gap-1.5 bg-gray-800 hover:bg-gray-900 text-white px-2 py-1 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs font-medium"
+                        className="inline-flex items-center justify-center gap-1.5 bg-teal-800 hover:bg-teal-900 text-white px-2 py-1 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs font-medium"
                       >
                         <PlusCircle className="h-3 w-3" />
                         <span>Create New Offer</span>
@@ -637,13 +637,13 @@ function OffersPage() {
                 <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-3">
                   <Package className="w-6 h-6 text-amber-600" />
                 </div>
-                <h3 className="text-lg font-bold text-gray-900 mb-2">
+                <h3 className="text-lg font-bold text-teal-900 mb-2">
                   Limited Access
                 </h3>
-                <p className="text-sm text-gray-700 mb-3">
+                <p className="text-sm text-teal-700 mb-3">
                   You can create new offers, but you don't have permission to view existing offers.
                 </p>
-                <p className="text-xs text-gray-600">
+                <p className="text-xs text-teal-600">
                   Use the "Create New Offer" button above to add a new offer.
                 </p>
               </div>
@@ -652,11 +652,11 @@ function OffersPage() {
         ) : (
           <>
             {/* Compact Header Section */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 sm:p-4">
+            <div className="bg-white rounded-lg shadow-sm border border-teal-200 p-3 sm:p-4">
               <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2">
                 <div>
-                  <h1 className="text-lg sm:text-xl font-bold text-gray-900 mb-0.5">Offers Management</h1>
-                  <p className="text-[10px] sm:text-xs text-gray-600">Create and manage promotional offers for your clinic</p>
+                  <h1 className="text-lg sm:text-xl font-bold text-teal-900 mb-0.5">Offers Management</h1>
+                  <p className="text-[10px] sm:text-xs text-teal-600">Create and manage promotional offers for your clinic</p>
                 </div>
                 <div className="flex gap-2">
                   {finalCanCreate === true && (
@@ -666,7 +666,7 @@ function OffersPage() {
                         setEditingOfferData(null);
                         setModalOpen(true);
                       }}
-                      className="inline-flex items-center justify-center gap-1.5 bg-gray-800 hover:bg-gray-900 text-white px-3 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs sm:text-sm font-medium"
+                      className="inline-flex items-center justify-center gap-1.5 bg-teal-800 hover:bg-teal-900 text-white px-3 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs sm:text-sm font-medium"
                     >
                       <PlusCircle className="h-3.5 w-3.5" />
                       <span>Create New Offer</span>
@@ -685,14 +685,14 @@ function OffersPage() {
 
             {/* Enhanced Stats Cards - Compact */}
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-2 sm:gap-3">
-              <div className="bg-white rounded-lg shadow-sm border-l-4 border-gray-800 p-2.5 sm:p-3">
+              <div className="bg-white rounded-lg shadow-sm border-l-4 border-teal-800 p-2.5 sm:p-3">
                 <div className="flex items-center gap-2 mb-1">
-                  <div className="w-6 h-6 bg-gray-800 rounded-lg flex items-center justify-center">
+                  <div className="w-6 h-6 bg-teal-800 rounded-lg flex items-center justify-center">
                     <Package className="h-3.5 w-3.5 text-white" />
                   </div>
-                  <p className="text-[10px] font-semibold text-gray-600 uppercase">Total</p>
+                  <p className="text-[10px] font-semibold text-teal-600 uppercase">Total</p>
                 </div>
-                <p className="text-lg sm:text-xl font-bold text-gray-900">{offers.length}</p>
+                <p className="text-lg sm:text-xl font-bold text-teal-900">{offers.length}</p>
               </div>
 
               <div className="bg-white rounded-lg shadow-sm border-l-4 border-green-600 p-2.5 sm:p-3">
@@ -700,19 +700,19 @@ function OffersPage() {
                   <div className="w-6 h-6 bg-green-600 rounded-lg flex items-center justify-center">
                     <TrendingUp className="h-3.5 w-3.5 text-white" />
                   </div>
-                  <p className="text-[10px] font-semibold text-gray-600 uppercase">Active</p>
+                  <p className="text-[10px] font-semibold text-teal-600 uppercase">Active</p>
                 </div>
                 <p className="text-lg sm:text-xl font-bold text-green-600">{activeOffers}</p>
               </div>
 
-              <div className="bg-white rounded-lg shadow-sm border-l-4 border-gray-500 p-2.5 sm:p-3">
+              <div className="bg-white rounded-lg shadow-sm border-l-4 border-teal-500 p-2.5 sm:p-3">
                 <div className="flex items-center gap-2 mb-1">
-                  <div className="w-6 h-6 bg-gray-500 rounded-lg flex items-center justify-center">
+                  <div className="w-6 h-6 bg-teal-500 rounded-lg flex items-center justify-center">
                     <Package className="h-3.5 w-3.5 text-white" />
                   </div>
-                  <p className="text-[10px] font-semibold text-gray-600 uppercase">Inactive</p>
+                  <p className="text-[10px] font-semibold text-teal-600 uppercase">Inactive</p>
                 </div>
-                <p className="text-lg sm:text-xl font-bold text-gray-700">{inactiveOffers}</p>
+                <p className="text-lg sm:text-xl font-bold text-teal-700">{inactiveOffers}</p>
               </div>
 
               <div className="bg-white rounded-lg shadow-sm border-l-4 border-blue-600 p-2.5 sm:p-3">
@@ -720,7 +720,7 @@ function OffersPage() {
                   <div className="w-6 h-6 bg-blue-600 rounded-lg flex items-center justify-center">
                     <span className="text-[10px] font-bold text-white">%</span>
                   </div>
-                  <p className="text-[10px] font-semibold text-gray-600 uppercase">Percent</p>
+                  <p className="text-[10px] font-semibold text-teal-600 uppercase">Percent</p>
                 </div>
                 <p className="text-lg sm:text-xl font-bold text-blue-600">{percentageOffers}</p>
               </div>
@@ -730,7 +730,7 @@ function OffersPage() {
                   <div className="w-6 h-6 bg-purple-600 rounded-lg flex items-center justify-center">
                     <span className="text-[8px] font-bold text-white">د.إ</span>
                   </div>
-                  <p className="text-[10px] font-semibold text-gray-600 uppercase">Fixed</p>
+                  <p className="text-[10px] font-semibold text-teal-600 uppercase">Fixed</p>
                 </div>
                 <p className="text-lg sm:text-xl font-bold text-purple-600">{fixedOffers}</p>
               </div>
@@ -740,7 +740,7 @@ function OffersPage() {
                   <div className="w-6 h-6 bg-amber-600 rounded-lg flex items-center justify-center">
                     <Calendar className="h-3.5 w-3.5 text-white" />
                   </div>
-                  <p className="text-[10px] font-semibold text-gray-600 uppercase">Expiring</p>
+                  <p className="text-[10px] font-semibold text-teal-600 uppercase">Expiring</p>
                 </div>
                 <p className="text-lg sm:text-xl font-bold text-amber-600">{expiringSoon}</p>
               </div>
@@ -750,19 +750,19 @@ function OffersPage() {
                   <div className="w-6 h-6 bg-indigo-600 rounded-lg flex items-center justify-center">
                     <span className="text-[8px] font-bold text-white">د.إ</span>
                   </div>
-                  <p className="text-[10px] font-semibold text-gray-600 uppercase">Avg Value</p>
+                  <p className="text-[10px] font-semibold text-teal-600 uppercase">Avg Value</p>
                 </div>
                 <p className="text-base sm:text-lg font-bold text-indigo-600">د.إ{Math.round(averageDiscount)}</p>
               </div>
             </div>
 
             {/* Compact Offers Table */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-              <div className="px-3 py-2.5 border-b border-gray-200 bg-gray-50">
+            <div className="bg-white rounded-lg shadow-sm border border-teal-200 overflow-hidden">
+              <div className="px-3 py-2.5 border-b border-teal-200 bg-teal-50">
                 <div className="flex items-center gap-2">
-                  <Package className="h-4 w-4 text-gray-800" />
-                  <h2 className="text-sm sm:text-base font-bold text-gray-900">All Offers</h2>
-                  <span className="ml-auto text-[10px] text-gray-600 bg-gray-100 px-2 py-0.5 rounded-md">
+                  <Package className="h-4 w-4 text-teal-800" />
+                  <h2 className="text-sm sm:text-base font-bold text-teal-900">All Offers</h2>
+                  <span className="ml-auto text-[10px] text-teal-600 bg-teal-100 px-2 py-0.5 rounded-md">
                     {offers.length} {offers.length === 1 ? 'offer' : 'offers'}
                   </span>
                 </div>
@@ -771,14 +771,14 @@ function OffersPage() {
               <div className="p-2.5 sm:p-3">
                 {offers.length === 0 ? (
                   <div className="text-center py-8">
-                    <div className="inline-flex items-center justify-center w-10 h-10 bg-gray-100 rounded-lg mb-2">
-                      <Package className="h-5 w-5 text-gray-800" />
+                    <div className="inline-flex items-center justify-center w-10 h-10 bg-teal-100 rounded-lg mb-2">
+                      <Package className="h-5 w-5 text-teal-800" />
                     </div>
-                    <h3 className="text-sm font-bold text-gray-900 mb-1">No offers yet</h3>
+                    <h3 className="text-sm font-bold text-teal-900 mb-1">No offers yet</h3>
                     {finalCanRead === true ? (
-                      <p className="text-gray-600 text-xs mb-3">Get started by creating your first promotional offer</p>
+                      <p className="text-teal-600 text-xs mb-3">Get started by creating your first promotional offer</p>
                     ) : (
-                      <p className="text-gray-600 text-xs mb-3">You don't have permission to view offers, but you can create new ones</p>
+                      <p className="text-teal-600 text-xs mb-3">You don't have permission to view offers, but you can create new ones</p>
                     )}
                     {finalCanCreate === true && (
                       <button
@@ -787,7 +787,7 @@ function OffersPage() {
                           setEditingOfferData(null);
                           setModalOpen(true);
                         }}
-                        className="inline-flex items-center gap-1.5 bg-gray-800 hover:bg-gray-900 text-white px-3 py-1.5 rounded-lg text-xs transition-colors font-medium"
+                        className="inline-flex items-center gap-1.5 bg-teal-800 hover:bg-teal-900 text-white px-3 py-1.5 rounded-lg text-xs transition-colors font-medium"
                       >
                         <PlusCircle className="h-3.5 w-3.5" />
                         <span>Create Your First Offer</span>
@@ -801,59 +801,59 @@ function OffersPage() {
                   <div className="overflow-x-auto">
                     <table className="w-full">
                       <thead>
-                        <tr className="border-b border-gray-200">
-                          <th className="px-2 py-2 text-left text-[10px] font-semibold text-gray-700 uppercase tracking-wider">
+                        <tr className="border-b border-teal-200">
+                          <th className="px-2 py-2 text-left text-[10px] font-semibold text-teal-700 uppercase tracking-wider">
                             Offer Details
                           </th>
-                          <th className="px-2 py-2 text-left text-[10px] font-semibold text-gray-700 uppercase tracking-wider">
+                          <th className="px-2 py-2 text-left text-[10px] font-semibold text-teal-700 uppercase tracking-wider">
                             Type
                           </th>
-                          <th className="px-2 py-2 text-left text-[10px] font-semibold text-gray-700 uppercase tracking-wider">
+                          <th className="px-2 py-2 text-left text-[10px] font-semibold text-teal-700 uppercase tracking-wider">
                             Value
                           </th>
-                          <th className="px-2 py-2 text-left text-[10px] font-semibold text-gray-700 uppercase tracking-wider">
+                          <th className="px-2 py-2 text-left text-[10px] font-semibold text-teal-700 uppercase tracking-wider">
                             Validity
                           </th>
-                          <th className="px-2 py-2 text-left text-[10px] font-semibold text-gray-700 uppercase tracking-wider">
+                          <th className="px-2 py-2 text-left text-[10px] font-semibold text-teal-700 uppercase tracking-wider">
                             Status
                           </th>
-                          <th className="px-2 py-2 text-right text-[10px] font-semibold text-gray-700 uppercase tracking-wider">
+                          <th className="px-2 py-2 text-right text-[10px] font-semibold text-teal-700 uppercase tracking-wider">
                             Actions
                           </th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-gray-100">
+                      <tbody className="divide-y divide-teal-100">
                         {offers.map((offer) => {
                           const isExpiringSoon = offer.endsAt && offer.status === "active" && 
                             new Date(offer.endsAt) <= new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) &&
                             new Date(offer.endsAt) >= new Date();
                           
                           return (
-                            <tr key={offer._id} className="hover:bg-gray-50 transition-colors">
+                            <tr key={offer._id} className="hover:bg-teal-50 transition-colors">
                               <td className="px-2 py-2">
                                 <div className="flex items-center gap-2">
-                                  <div className="w-6 h-6 bg-gray-800 rounded-lg flex items-center justify-center flex-shrink-0">
+                                  <div className="w-6 h-6 bg-teal-800 rounded-lg flex items-center justify-center flex-shrink-0">
                                     <Package className="h-3 w-3 text-white" />
                                   </div>
                                   <div className="min-w-0">
-                                    <p className="font-bold text-gray-900 text-xs truncate">{offer.title}</p>
-                                    <p className="text-[10px] text-gray-500">ID: {offer._id.slice(-6)}</p>
+                                    <p className="font-bold text-teal-900 text-xs truncate">{offer.title}</p>
+                                    <p className="text-[10px] text-teal-500">ID: {offer._id.slice(-6)}</p>
                                   </div>
                                 </div>
                               </td>
                               <td className="px-2 py-2">
-                                <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-gray-100 text-gray-800 capitalize">
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-teal-100 text-teal-800 capitalize">
                                   {offer.type}
                                 </span>
                               </td>
                               <td className="px-2 py-2">
-                                <span className="text-xs sm:text-sm font-bold text-gray-900">
+                                <span className="text-xs sm:text-sm font-bold text-teal-900">
                                   {offer.type === "percentage" ? `${offer.value}%` : `د.إ${offer.value}`}
                                 </span>
                               </td>
                               <td className="px-2 py-2">
-                                <div className="flex items-center gap-1 text-gray-700">
-                                  <Calendar className="h-3 w-3 text-gray-400 flex-shrink-0" />
+                                <div className="flex items-center gap-1 text-teal-700">
+                                  <Calendar className="h-3 w-3 text-teal-400 flex-shrink-0" />
                                   <span className="text-[10px] sm:text-xs">
                                     {offer.endsAt
                                       ? new Date(offer.endsAt).toLocaleDateString("en-US", {
@@ -875,12 +875,12 @@ function OffersPage() {
                                   className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold ${
                                     offer.status === "active"
                                       ? "bg-green-100 text-green-700"
-                                      : "bg-gray-200 text-gray-700"
+                                      : "bg-teal-200 text-teal-700"
                                   }`}
                                 >
                                   <span
                                     className={`w-1.5 h-1.5 rounded-full mr-1 ${
-                                      offer.status === "active" ? "bg-green-500" : "bg-gray-500"
+                                      offer.status === "active" ? "bg-green-500" : "bg-teal-500"
                                     }`}
                                   ></span>
                                   {offer.status}
@@ -891,7 +891,7 @@ function OffersPage() {
                                   {finalCanUpdate === true && (
                                     <button
                                       onClick={() => openEditModal(offer._id)}
-                                      className="inline-flex items-center justify-center w-6 h-6 rounded bg-gray-100 text-gray-800 hover:bg-gray-200 transition-colors"
+                                      className="inline-flex items-center justify-center w-6 h-6 rounded bg-teal-100 text-teal-800 hover:bg-teal-200 transition-colors"
                                       title="Edit offer"
                                     >
                                       <Edit className="h-3 w-3" />
@@ -907,7 +907,7 @@ function OffersPage() {
                                     </button>
                                   )}
                                   {!finalCanUpdate && !finalCanDelete && (
-                                    <span className="text-[10px] text-gray-400">—</span>
+                                    <span className="text-[10px] text-teal-400">—</span>
                                   )}
                                 </div>
                               </td>
@@ -955,14 +955,14 @@ function OffersPage() {
             className="bg-white rounded-lg shadow-xl max-w-md w-full overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between bg-red-50">
+            <div className="px-4 py-3 border-b border-teal-200 flex items-center justify-between bg-red-50">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-lg bg-red-100 flex items-center justify-center">
                   <Trash2 className="w-4 h-4 text-red-600" />
                 </div>
                 <div>
-                  <p className="text-sm font-bold text-gray-900">Delete Offer</p>
-                  <p className="text-[10px] text-gray-700 truncate max-w-[200px]">"{confirmModal.offerTitle}"</p>
+                  <p className="text-sm font-bold text-teal-900">Delete Offer</p>
+                  <p className="text-[10px] text-teal-700 truncate max-w-[200px]">"{confirmModal.offerTitle}"</p>
                 </div>
               </div>
               <button
@@ -970,15 +970,15 @@ function OffersPage() {
                   setConfirmModal({ isOpen: false, offerId: null, offerTitle: "" });
                   toast("Deletion cancelled", { duration: 2000, icon: "ℹ️" });
                 }}
-                className="p-1 rounded-lg hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-500 text-gray-500 hover:text-gray-700"
+                className="p-1 rounded-lg hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-500 text-teal-500 hover:text-teal-700"
                 aria-label="Close confirmation dialog"
               >
                 ×
               </button>
             </div>
-            <div className="p-4 text-xs sm:text-sm text-gray-700 space-y-1.5">
+            <div className="p-4 text-xs sm:text-sm text-teal-700 space-y-1.5">
               <p>Are you sure you want to delete this offer? This action cannot be undone.</p>
-              <p className="text-[10px] text-gray-600">All references to this offer will be removed.</p>
+              <p className="text-[10px] text-teal-600">All references to this offer will be removed.</p>
             </div>
             <div className="flex gap-2 px-4 pb-4">
               <button
@@ -986,7 +986,7 @@ function OffersPage() {
                   setConfirmModal({ isOpen: false, offerId: null, offerTitle: "" });
                   toast("Deletion cancelled", { duration: 2000, icon: "ℹ️" });
                 }}
-                className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-xs sm:text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                className="flex-1 px-3 py-2 border border-teal-200 rounded-lg text-xs sm:text-sm font-medium text-teal-700 hover:bg-teal-50 transition-colors"
               >
                 Cancel
               </button>

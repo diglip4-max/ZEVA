@@ -1,4 +1,3 @@
-// pages/api/clinics/search.ts
 import dbConnect from '../../../lib/database';
 import Treatment from '../../../models/Treatment';
 
@@ -26,8 +25,6 @@ export default async function handler(req, res) {
         suggestions.push({
           type: 'treatment',
           value: treatment.name,
-          slug: treatment.slug || treatment.name.toLowerCase().replace(/\s+/g, '-'),
-          treatmentId: treatment._id.toString(),
         });
       }
 
@@ -37,9 +34,6 @@ export default async function handler(req, res) {
           suggestions.push({
             type: 'subcategory',
             value: `${sub.name} (${treatment.name})`,
-            slug: sub.slug || sub.name.toLowerCase().replace(/\s+/g, '-'),
-            treatmentId: treatment._id.toString(),
-            mainTreatmentSlug: treatment.slug || treatment.name.toLowerCase().replace(/\s+/g, '-'),
           });
         }
       });

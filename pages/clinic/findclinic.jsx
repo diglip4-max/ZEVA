@@ -34,6 +34,10 @@ export default function Home() {
     const [ratingFilter, setRatingFilter] = useState(0);
     const [manualPlace, setManualPlace] = useState("");
     const [loading, setLoading] = useState(false);
+    const [clinicNames, setClinicNames] = useState([]);
+    const [clinicNamesLoading, setClinicNamesLoading] = useState(true);
+    const [specialties, setSpecialties] = useState([]);
+    const [specialtiesLoading, setSpecialtiesLoading] = useState(true);
 
     // Auth Modal states
     const [showAuthModal, setShowAuthModal] = useState(false);
@@ -286,6 +290,48 @@ export default function Home() {
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, [suggestions]);
 
+    // Fetch clinic specialties on component mount
+    useEffect(() => {
+        const fetchSpecialties = async () => {
+            try {
+                setSpecialtiesLoading(true);
+                const res = await axios.get("/api/clinic/specialties");
+                if (res.data && res.data.success && res.data.specialties && Array.isArray(res.data.specialties)) {
+                    setSpecialties(res.data.specialties);
+                } else {
+                    setSpecialties([]);
+                }
+            } catch (error) {
+                console.error("Error fetching clinic specialties:", error);
+                setSpecialties([]);
+            } finally {
+                setSpecialtiesLoading(false);
+            }
+        };
+        fetchSpecialties();
+    }, []);
+
+    // Fetch clinic names on component mount
+    useEffect(() => {
+        const fetchClinicNames = async () => {
+            try {
+                setClinicNamesLoading(true);
+                const res = await axios.get("/api/clinic/list");
+                if (res.data.success && res.data.clinics) {
+                    // Extract just the names for quick access
+                    const names = res.data.clinics.map(clinic => clinic.name).filter(Boolean);
+                    setClinicNames(names);
+                }
+            } catch (error) {
+                console.error("Error fetching clinic names:", error);
+                setClinicNames([]);
+            } finally {
+                setClinicNamesLoading(false);
+            }
+        };
+        fetchClinicNames();
+    }, []);
+
     // Load persisted search state from localStorage on component mount
     useEffect(() => {
         if (typeof window !== "undefined") {
@@ -407,6 +453,20 @@ export default function Home() {
                 setTimeout(() => {
                     locateMe();
                 }, 300);
+            } else if (treatmentText && !locationText) {
+                hasSearchedFromURL.current = true;
+                setQuery(treatmentText);
+                setSelectedService(treatmentText);
+                setLoading(true);
+                setClinics([]);
+                axios
+                    .get("/api/clinic/searchByTreatment", { params: { treatment: treatmentText } })
+                    .then((res) => {
+                        const list = Array.isArray(res.data?.clinics) ? res.data.clinics : [];
+                        setClinics(list);
+                        setHasSearched(true);
+                    })
+                    .finally(() => setLoading(false));
             }
         }
     }, [router.isReady, router.query.treatment, router.query.location]);
@@ -547,10 +607,7 @@ export default function Home() {
         if (!q.trim()) return setSuggestions([]);
 
         try {
-            const [treatRes, clinicRes] = await Promise.all([
-                axios.get("/api/clinics/search?q=" + encodeURIComponent(q)),
-                axios.get("/api/clinics/searchByClinic?q=" + encodeURIComponent(q)),
-            ]);
+            const treatRes = await axios.get("/api/clinics/search?q=" + encodeURIComponent(q));
 
             const treatmentSuggestions = (treatRes.data.treatments || []).map(
                 (t) => ({
@@ -559,14 +616,7 @@ export default function Home() {
                 })
             );
 
-            const clinicSuggestions = (clinicRes.data.clinics || []).map(
-                (c) => ({
-                    type: "clinic",
-                    value: c.name,
-                })
-            );
-
-            setSuggestions([...treatmentSuggestions, ...clinicSuggestions]);
+            setSuggestions(treatmentSuggestions);
         } catch (err) {
             // console.error("Error fetching suggestions:", err);
             setSuggestions([]);
@@ -593,7 +643,7 @@ export default function Home() {
         }
         // Clear URL parameters
         updateURL("", "");
-        toast("Search cleared", { icon: "🧹" });
+        toast("Search cleared", { icon: "" });
     };
 
     const validateSearchInputs = () => {
@@ -678,6 +728,12 @@ export default function Home() {
     }, [priceRange, ratingFilter, selectedTimes, quickFilters]);
 
     const fetchClinics = async (lat, lng, serviceOverride = null) => {
+        console.log("=== FETCH CLINICS CALLED ===");
+        console.log("Location:", { lat, lng });
+        console.log("Service override:", serviceOverride);
+        console.log("Selected service:", selectedService);
+        console.log("Query:", query);
+        
         setLoading(true);
         if (loadingToastId.current) {
             toast.dismiss(loadingToastId.current);
@@ -686,14 +742,34 @@ export default function Home() {
         try {
             // Use serviceOverride if provided, otherwise use selectedService, otherwise use query
             const serviceToSearch = serviceOverride || selectedService || query.trim();
+            console.log("Service to search:", serviceToSearch || "(none)");
+            
             const res = await axios.get("/api/clinics/nearby", {
                 params: { lat, lng, service: serviceToSearch },
             });
+            
+            console.log("API Response:", {
+                success: res.data.success,
+                clinicsCount: res.data.clinics?.length || 0,
+                hasClinics: !!res.data.clinics && Array.isArray(res.data.clinics) && res.data.clinics.length > 0
+            });
+           
+            // Check if clinics array exists and is not empty
+            if (!res.data || !res.data.clinics || !Array.isArray(res.data.clinics) || res.data.clinics.length === 0) {
+                console.log("❌ NO CLINICS IN RESPONSE!");
+                console.log("Response data:", res.data);
+                setClinics([]);
+                setHasSearched(true);
+                toast("No clinics found for this search", { icon: "🔍" });
+                return;
+            }
+            
+            console.log("✅ Found", res.data.clinics.length, "clinics in response");
            
             // Use user's current location for distance calculation if available, otherwise use searched location
             const distanceLat = userCurrentLocation?.lat || lat;
             const distanceLng = userCurrentLocation?.lng || lng;
-           
+            
             const clinicsWithDistance = res.data.clinics.map((clinic) => {
                 // Normalize photos array if it exists
                 const normalizedPhotos = clinic.photos?.map(photo => normalizeImagePath(photo)) || clinic.photos;
@@ -774,8 +850,11 @@ export default function Home() {
             } else {
                 toast.success(`Found ${clinicsWithDistance.length} clinics`);
             }
-        } catch {
+        } catch (error) {
+            console.error("Error fetching clinics:", error);
             toast.error("Unable to fetch clinics right now. Please try again.");
+            setClinics([]);
+            setHasSearched(true);
         } finally {
             if (loadingToastId.current) {
                 toast.dismiss(loadingToastId.current);
@@ -823,7 +902,6 @@ export default function Home() {
                 }
                
                 fetchClinics(latitude, longitude);
-                toast.success("Location access granted! Showing distances from your location.");
                 toast.dismiss(locatingToast);
             },
             (error) => {
@@ -1118,7 +1196,102 @@ export default function Home() {
                     </div>
 
                     {/* Professional Search Interface */}
-                    <div className="w-full max-w-6xl mx-auto">
+                    <div className="w-full max-w-6xl mx-auto" style={{ position: 'relative', zIndex: 100 }}>
+                        {/* Quick Filter Chips - Dynamic Specialties */}
+                        {specialtiesLoading ? (
+                            <div className="mb-3 flex flex-wrap gap-2">
+                                <div className="px-3 py-1.5 text-[10px] text-gray-500">Loading specialties...</div>
+                            </div>
+                        ) : specialties.length > 0 ? (
+                            <div className="mb-3 flex flex-wrap gap-2">
+                                {specialties.map((specialty) => (
+                                    <button
+                                        key={specialty}
+                                        onClick={async () => {
+                                            // If clicking the same specialty again, don't change location
+                                            const isSameSpecialty = selectedService === specialty;
+                                            
+                                            // If clicking a different specialty, clear previous selection
+                                            if (!isSameSpecialty && selectedService) {
+                                                setClinics([]);
+                                                setManualPlace("");
+                                                clearPersistedState();
+                                            }
+                                            
+                                            setQuery(specialty);
+                                            setSelectedService(specialty);
+                                            
+                                            // Automatically search for clinics with this specialty from Clinic model
+                                            try {
+                                                setLoading(true);
+                                                
+                                                // Only clear results if selecting a different specialty
+                                                if (!isSameSpecialty) {
+                                                    setClinics([]);
+                                                    clearPersistedState();
+                                                }
+                                                
+                                                // Search clinics by treatment directly from Clinic (no location required)
+                                                const res = await axios.get("/api/clinic/searchByTreatment", {
+                                                    params: { treatment: specialty },
+                                                });
+
+                                                if (res.data.success && res.data.clinics) {
+                                                    // Calculate distances if user location is available
+                                                    const clinicsWithDistance = res.data.clinics.map((clinic) => {
+                                                        if (clinic.location?.coordinates?.length === 2 && userCurrentLocation) {
+                                                            const clinicLng = clinic.location.coordinates[0];
+                                                            const clinicLat = clinic.location.coordinates[1];
+                                                            const distance = calculateDistance(
+                                                                userCurrentLocation.lat,
+                                                                userCurrentLocation.lng,
+                                                                clinicLat,
+                                                                clinicLng
+                                                            );
+                                                            return { ...clinic, distance };
+                                                        }
+                                                        return { ...clinic, distance: null };
+                                                    });
+
+                                                    // Sort by distance if available, otherwise keep original order
+                                                    clinicsWithDistance.sort((a, b) => {
+                                                        if (a.distance === null && b.distance === null) return 0;
+                                                        if (a.distance === null) return 1;
+                                                        if (b.distance === null) return -1;
+                                                        return (a.distance || 0) - (b.distance || 0);
+                                                    });
+
+                                                    setClinics(clinicsWithDistance);
+                                                    setHasSearched(true);
+
+                                                    // Do not auto-fill or clear location based on results
+
+                                                    // Update URL using only manualPlace if provided
+                                                    updateURL(specialty, manualPlace.trim());
+                                                } else {
+                                                    // No clinics found
+                                                    setClinics([]);
+                                                    setHasSearched(true);
+                                                    updateURL(specialty, 'all-clinics');
+                                                }
+                                            } catch (error) {
+                                                console.error("Error searching clinics:", error);
+                                                setClinics([]);
+                                            } finally {
+                                                setLoading(false);
+                                            }
+                                        }}
+                                        className={`px-3 py-1.5 text-[10px] font-medium rounded-full border transition-all shadow-sm hover:shadow ${
+                                            selectedService === specialty
+                                                ? 'bg-gradient-to-r from-blue-100 to-purple-100 border-blue-400 text-blue-800'
+                                                : 'bg-gradient-to-r from-blue-50 to-purple-50 border-blue-200 text-blue-700 hover:from-blue-100 hover:to-purple-100 hover:border-blue-300'
+                                        }`}
+                                    >
+                                        {specialty}
+                                    </button>
+                                ))}
+                            </div>
+                        ) : null}
                         <div className={`rounded-2xl p-4 sm:p-5 shadow-lg border border-[#e2e8f0] bg-white backdrop-blur-sm ${hasResults ? "mb-3" : "mb-6"}`}>
                             {/* Desktop Layout */}
                             <div className="hidden md:flex gap-3 items-center">
@@ -1129,7 +1302,7 @@ export default function Home() {
                                     </div>
                                     <input
                                         type="text"
-                                        placeholder="Search treatments, specialists, or clinic names..."
+                                        placeholder="Search treatments, specialists"
                                         value={query}
                                         onChange={(e) => {
                                             setQuery(e.target.value);
@@ -1150,7 +1323,7 @@ export default function Home() {
                                     {/* Suggestions Dropdown */}
                                     {suggestions.length > 0 && (
                                         <div
-                                            className="absolute top-full left-0 right-0 z-50 mt-1 rounded-lg shadow-lg max-h-64 overflow-y-auto border border-[#e2e8f0] bg-white"
+                                            className="absolute top-full left-0 right-0 z-50 mt-1 rounded-lg shadow-lg max-h-64 overflow-y-auto border border-[#e2e8f0] bg-white custom-scrollbar"
                                             ref={suggestionsDropdownRef}
                                         >
                                             <div className="p-1">
@@ -1158,33 +1331,72 @@ export default function Home() {
                                                     <div
                                                         key={i}
                                                         className="flex items-center px-2 py-1.5 hover:bg-[#f0f7ff] cursor-pointer transition-colors border-b border-[#f1f5f9] last:border-b-0 rounded group"
-                                                        onClick={(e) => {
+                                                        onClick={async (e) => {
                                                             e.preventDefault();
                                                             e.stopPropagation();
-                                                            const serviceValue = s.value;
-                                                            // Use treatment slug from database if available
-                                                            const treatmentSlug = s.slug || null;
-                                                            setSelectedService(serviceValue);
-                                                            setSelectedTreatmentSlug(treatmentSlug);
-                                                            setQuery(serviceValue);
-                                                            setSuggestions([]);
+                                                            
+                                                            // Use the full value (subcategory or treatment) as displayed
+                                                            const treatmentValue = s.value;
+                                                            
+                                                            // Auto-fill the search field and close dropdown immediately
+                                                            setQuery(treatmentValue);
+                                                            setSelectedService(treatmentValue);
+                                                            setSuggestions([]); // Close dropdown immediately
                                                             searchInputRef.current?.blur();
-                                                            // Update URL with treatment slug
-                                                            if (manualPlace.trim() || coords) {
-                                                                const locationForURL = manualPlace.trim() || 'near-me';
-                                                                updateURL(serviceValue, locationForURL, treatmentSlug);
-                                                            }
-                                                            // Auto-search if location is already set
-                                                            if (manualPlace.trim() || coords) {
-                                                                setTimeout(() => {
-                                                                    if (coords) {
-                                                                        // Use the service value directly
-                                                                        fetchClinics(coords.lat, coords.lng, serviceValue);
-                                                                    } else if (manualPlace.trim()) {
-                                                                        // Trigger search which will use the updated selectedService
-                                                                        handleSearch();
-                                                                    }
-                                                                }, 100);
+                                                            
+                                                            clearPersistedState();
+                                                            
+                                                            // Search clinics by treatment directly from Clinic (no location required)
+                                                            try {
+                                                                setLoading(true);
+                                                                setClinics([]);
+                                                                
+                                                                const res = await axios.get("/api/clinic/searchByTreatment", {
+                                                                    params: { treatment: treatmentValue },
+                                                                });
+
+                                                                if (res.data.success && res.data.clinics) {
+                                                                    // Calculate distances if user location is available
+                                                                    const clinicsWithDistance = res.data.clinics.map((clinic) => {
+                                                                        if (clinic.location?.coordinates?.length === 2 && userCurrentLocation) {
+                                                                            const clinicLng = clinic.location.coordinates[0];
+                                                                            const clinicLat = clinic.location.coordinates[1];
+                                                                            const distance = calculateDistance(
+                                                                                userCurrentLocation.lat,
+                                                                                userCurrentLocation.lng,
+                                                                                clinicLat,
+                                                                                clinicLng
+                                                                            );
+                                                                            return { ...clinic, distance };
+                                                                        }
+                                                                        return { ...clinic, distance: null };
+                                                                    });
+
+                                                                    // Sort by distance if available
+                                                                    clinicsWithDistance.sort((a, b) => {
+                                                                        if (a.distance === null && b.distance === null) return 0;
+                                                                        if (a.distance === null) return 1;
+                                                                        if (b.distance === null) return -1;
+                                                                        return (a.distance || 0) - (b.distance || 0);
+                                                                    });
+
+                                                                    setClinics(clinicsWithDistance);
+                                                                    setHasSearched(true);
+
+                                                                    // Do not auto-fill or clear location based on results
+
+                                                                    // Update URL using only manualPlace if provided
+                                                                    updateURL(treatmentValue, manualPlace.trim());
+                                                                } else {
+                                                                    setClinics([]);
+                                                                    setHasSearched(true);
+                                                                    updateURL(treatmentValue, 'all-clinics');
+                                                                }
+                                                            } catch (error) {
+                                                                console.error("Error searching clinics:", error);
+                                                                setClinics([]);
+                                                            } finally {
+                                                                setLoading(false);
                                                             }
                                                         }}
                                                         onMouseDown={(e) => {
@@ -1212,7 +1424,7 @@ export default function Home() {
                                         </div>
                                     )}
                                     {formErrors.service && (
-                                        <p className="mt-1 text-xs text-[#dc2626]">
+                                        <p className="mt-1 text-xs text-[#0284c7]">
                                             {formErrors.service}
                                         </p>
                                     )}
@@ -1297,7 +1509,7 @@ export default function Home() {
                                         {/* Mobile Suggestions */}
                                         {suggestions.length > 0 && (
                                             <div
-                                                className="absolute top-full left-0 right-0 z-50 mt-1 rounded-lg shadow-lg max-h-64 overflow-y-auto border border-[#e2e8f0] bg-white"
+                                                className="absolute top-full left-0 right-0 z-50 mt-1 rounded-lg shadow-lg max-h-64 overflow-y-auto border border-[#e2e8f0] bg-white custom-scrollbar"
                                                 ref={suggestionsDropdownRef}
                                             >
                                                 <div className="p-1">
@@ -1305,33 +1517,88 @@ export default function Home() {
                                                         <div
                                                             key={i}
                                                             className="flex items-center px-2 py-1.5 hover:bg-[#f0f7ff] cursor-pointer transition-colors border-b border-[#f1f5f9] last:border-b-0 rounded group"
-                                                            onClick={(e) => {
+                                                            onClick={async (e) => {
                                                                 e.preventDefault();
                                                                 e.stopPropagation();
-                                                                const serviceValue = s.value;
-                                                                // Use treatment slug from database if available
-                                                                const treatmentSlug = s.slug || null;
-                                                                setSelectedService(serviceValue);
-                                                                setSelectedTreatmentSlug(treatmentSlug);
-                                                                setQuery(serviceValue);
-                                                                setSuggestions([]);
+                                                                
+                                                                // Use the full value (subcategory or treatment) as displayed
+                                                                const treatmentValue = s.value;
+                                                                
+                                                                // Auto-fill the search field and close dropdown immediately
+                                                                setQuery(treatmentValue);
+                                                                setSelectedService(treatmentValue);
+                                                                setSuggestions([]); // Close dropdown immediately
                                                                 searchInputRef.current?.blur();
-                                                                // Update URL with treatment slug
-                                                                if (manualPlace.trim() || coords) {
-                                                                    const locationForURL = manualPlace.trim() || 'near-me';
-                                                                    updateURL(serviceValue, locationForURL, treatmentSlug);
-                                                                }
-                                                                // Auto-search if location is already set
-                                                                if (manualPlace.trim() || coords) {
-                                                                    setTimeout(() => {
-                                                                        if (coords) {
-                                                                            // Use the service value directly
-                                                                            fetchClinics(coords.lat, coords.lng, serviceValue);
-                                                                        } else if (manualPlace.trim()) {
-                                                                            // Trigger search which will use the updated selectedService
-                                                                            handleSearch();
+                                                                
+                                                                clearPersistedState();
+                                                                
+                                                                // Search clinics by treatment directly from Clinic (no location required)
+                                                                try {
+                                                                    setLoading(true);
+                                                                    setClinics([]);
+                                                                    
+                                                                    const res = await axios.get("/api/clinic/searchByTreatment", {
+                                                                        params: { treatment: treatmentValue },
+                                                                    });
+
+                                                                    if (res.data.success && res.data.clinics) {
+                                                                        // Calculate distances if user location is available
+                                                                        const clinicsWithDistance = res.data.clinics.map((clinic) => {
+                                                                            if (clinic.location?.coordinates?.length === 2 && userCurrentLocation) {
+                                                                                const clinicLng = clinic.location.coordinates[0];
+                                                                                const clinicLat = clinic.location.coordinates[1];
+                                                                                const distance = calculateDistance(
+                                                                                    userCurrentLocation.lat,
+                                                                                    userCurrentLocation.lng,
+                                                                                    clinicLat,
+                                                                                    clinicLng
+                                                                                );
+                                                                                return { ...clinic, distance };
+                                                                            }
+                                                                            return { ...clinic, distance: null };
+                                                                        });
+
+                                                                        // Sort by distance if available
+                                                                        clinicsWithDistance.sort((a, b) => {
+                                                                            if (a.distance === null && b.distance === null) return 0;
+                                                                            if (a.distance === null) return 1;
+                                                                            if (b.distance === null) return -1;
+                                                                            return (a.distance || 0) - (b.distance || 0);
+                                                                        });
+
+                                                                        setClinics(clinicsWithDistance);
+                                                                        setHasSearched(true);
+
+                                                                        // Auto-fill location field ONLY if exactly 1 clinic found
+                                                                        // If more than 1 clinic, don't auto-fill location
+                                                                        if (clinicsWithDistance.length === 1 && !manualPlace.trim()) {
+                                                                            const clinicWithAddress = clinicsWithDistance.find(
+                                                                                (clinic) => clinic.address && clinic.address.trim()
+                                                                            );
+                                                                            if (clinicWithAddress?.address) {
+                                                                                setManualPlace(clinicWithAddress.address.trim());
+                                                                            }
+                                                                        } else if (clinicsWithDistance.length > 1) {
+                                                                            // More than 1 clinic - clear location field
+                                                                            setManualPlace("");
                                                                         }
-                                                                    }, 100);
+
+                                                                        // Update URL with location from clinic's address or current manualPlace
+                                                                        const locationForURL = manualPlace.trim() || 
+                                                                            (clinicsWithDistance.length > 0 && clinicsWithDistance[0]?.address 
+                                                                                ? clinicsWithDistance[0].address.trim() 
+                                                                                : 'all-clinics');
+                                                                        updateURL(treatmentValue, locationForURL);
+                                                                    } else {
+                                                                        setClinics([]);
+                                                                        setHasSearched(true);
+                                                                        updateURL(treatmentValue, 'all-clinics');
+                                                                    }
+                                                                } catch (error) {
+                                                                    console.error("Error searching clinics:", error);
+                                                                    setClinics([]);
+                                                                } finally {
+                                                                    setLoading(false);
                                                                 }
                                                             }}
                                                             onMouseDown={(e) => {
@@ -1361,7 +1628,7 @@ export default function Home() {
                                             </div>
                                         )}
                                         {formErrors.service && (
-                                            <p className="mt-1 text-xs text-[#dc2626]">
+                                            <p className="mt-1 text-xs text-[#0284c7]">
                                                 {formErrors.service}
                                             </p>
                                         )}
@@ -1615,54 +1882,6 @@ export default function Home() {
                                 )}
                             </div>
 
-                            <div className="mb-3 space-y-2">
-                                <div className="flex flex-wrap items-center gap-1.5">
-                                    <span className="text-xs text-[#64748b] font-medium">
-                                        Filters:
-                                    </span>
-                                    {Object.entries(quickFilterMeta).map(([key, meta]) => {
-                                        const IconComponent = meta.icon;
-                                        const isActive = quickFilters[key];
-                                        return (
-                                            <button
-                                                key={key}
-                                                type="button"
-                                                onClick={() => toggleQuickFilter(key)}
-                                                className={`flex items-center px-2 py-1 rounded-full border text-xs font-medium transition-all ${
-                                                    isActive
-                                                        ? "bg-[#f0f7ff] border-[#0284c7] text-[#0284c7]"
-                                                        : "bg-white border-[#e2e8f0] text-[#475569] hover:border-[#cbd5e1]"
-                                                }`}
-                                                title={meta.description}
-                                            >
-                                                <IconComponent
-                                                    className={`w-3 h-3 mr-1 ${isActive ? "text-[#0284c7]" : "text-[#94a3b8]"}`}
-                                                />
-                                                {meta.label}
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                                {activeFilters.length > 0 && (
-                                    <div className="flex flex-wrap items-center gap-1.5">
-                                        {activeFilters.map((chip) => (
-                                            <span
-                                                key={chip}
-                                                className="px-2 py-0.5 rounded-full bg-[#f8fafc] border border-[#e2e8f0] text-xs text-[#475569]"
-                                            >
-                                                {chip}
-                                            </span>
-                                        ))}
-                                        <button
-                                            type="button"
-                                            onClick={clearFilters}
-                                            className="text-xs font-medium text-[#0284c7] hover:text-[#0369a1]"
-                                        >
-                                            Reset
-                                        </button>
-                                    </div>
-                                )}
-                            </div>
 
                             {loading ? (
                                 <div className="flex items-center justify-center py-8">
@@ -1917,7 +2136,7 @@ export default function Home() {
                                                                         className="w-8 h-8 flex items-center justify-center bg-teal-800 text-white rounded-full hover:bg-teal-900 transition-all shadow-sm"
                                                                         title="Get Directions"
                                                                     >
-                                                                        <Navigation className="w-4 h-4" />
+                                                                        <MapPin className="w-4 h-4" />
                                                                     </a>
                                                                 ) : null;
                                                             })()}
@@ -1938,58 +2157,40 @@ export default function Home() {
                                     })}
                                 </div>
 
-                                {/* Pagination Controls */}
+                                {/* Pagination Controls - Arrow Icons Only */}
                                 {totalPages > 1 && (
-                                    <div className="mt-8 flex justify-center items-center gap-4 pb-10">
+                                    <div className="flex items-center justify-center gap-2 mt-6 pb-6">
                                         <button
                                             onClick={() => {
-                                                setCurrentPage(prev => Math.max(prev - 1, 1));
-                                                resultsRef.current?.scrollIntoView({ behavior: 'smooth' });
+                                                setCurrentPage(prev => Math.max(1, prev - 1));
+                                                if (resultsRef.current) {
+                                                    resultsRef.current.scrollIntoView({ 
+                                                        behavior: 'smooth', 
+                                                        block: 'start' 
+                                                    });
+                                                }
                                             }}
                                             disabled={currentPage === 1}
-                                            className={`flex items-center gap-2 px-4 py-2 rounded-xl border-2 transition-all ${
-                                                currentPage === 1
-                                                    ? 'bg-gray-50 border-gray-200 text-gray-300 cursor-not-allowed'
-                                                    : 'bg-white border-teal-800 text-teal-800 hover:bg-teal-50'
-                                            }`}
+                                            className="p-2 rounded-full border border-gray-200 bg-white hover:bg-cyan-50 hover:border-cyan-300 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:border-gray-200 transition-all"
+                                            title="Previous"
                                         >
-                                            <ChevronLeft className="w-4 h-4" />
-                                            <span>Previous</span>
+                                            <ChevronLeft className="w-4 h-4 text-gray-600" />
                                         </button>
-
-                                        <div className="flex gap-2">
-                                            {Array.from({ length: totalPages }).map((_, i) => (
-                                                <button
-                                                    key={i}
-                                                    onClick={() => {
-                                                        setCurrentPage(i + 1);
-                                                        resultsRef.current?.scrollIntoView({ behavior: 'smooth' });
-                                                    }}
-                                                    className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold transition-all ${
-                                                        currentPage === i + 1
-                                                            ? 'bg-teal-800 text-white shadow-lg'
-                                                            : 'bg-white border-2 border-gray-200 text-gray-600 hover:border-teal-800 hover:text-teal-800'
-                                                    }`}
-                                                >
-                                                    {i + 1}
-                                                </button>
-                                            ))}
-                                        </div>
-
                                         <button
                                             onClick={() => {
-                                                setCurrentPage(prev => Math.min(prev + 1, totalPages));
-                                                resultsRef.current?.scrollIntoView({ behavior: 'smooth' });
+                                                setCurrentPage(prev => Math.min(totalPages, prev + 1));
+                                                if (resultsRef.current) {
+                                                    resultsRef.current.scrollIntoView({ 
+                                                        behavior: 'smooth', 
+                                                        block: 'start' 
+                                                    });
+                                                }
                                             }}
                                             disabled={currentPage === totalPages}
-                                            className={`flex items-center gap-2 px-4 py-2 rounded-xl border-2 transition-all ${
-                                                currentPage === totalPages
-                                                    ? 'bg-gray-50 border-gray-200 text-gray-300 cursor-not-allowed'
-                                                    : 'bg-white border-teal-800 text-teal-800 hover:bg-teal-50'
-                                            }`}
+                                            className="p-2 rounded-full border border-gray-200 bg-white hover:bg-cyan-50 hover:border-cyan-300 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:border-gray-200 transition-all"
+                                            title="Next"
                                         >
-                                            <span>Next</span>
-                                            <ChevronRight className="w-4 h-4" />
+                                            <ChevronRight className="w-4 h-4 text-gray-600" />
                                         </button>
                                     </div>
                                 )}
@@ -2242,13 +2443,7 @@ export default function Home() {
                                 <Navigation className="w-4 h-4 mr-2" />
                                 Use Near Me
                             </button>
-                            <button
-                                type="button"
-                                onClick={() => searchInputRef.current?.focus()}
-                                className="px-6 py-3 rounded-xl border-2 border-[#e2e8f0] text-[#475569] text-sm font-semibold hover:bg-[#f8fafc] hover:border-[#cbd5e1] transition-all"
-                            >
-                                Start Searching
-                            </button>
+                           
                         </div>
                     </div>
                 )}

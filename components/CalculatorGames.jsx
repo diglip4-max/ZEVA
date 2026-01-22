@@ -3,8 +3,7 @@ import {
   Droplet, Dumbbell, Scale, Activity, Wind, Apple, ArrowRight,
   ChevronLeft, ChevronRight, Gamepad2, Target, Brain, Heart, BookOpen
 } from 'lucide-react';
-import Career from './Career';
-import HealthCare from './HealthCare';
+
 
 
 const Link = ({ href, onClick, className, children }) => (
@@ -176,23 +175,18 @@ const HealthCalculatorApp = () => {
         
         {/* Calculators Section */}
         <section ref={sectionRef} id="games-section" className="mb-12 sm:mb-16">
-          <div className="flex items-center justify-between mb-6 sm:mb-8">
-            <div className="flex items-center gap-3">
-              <div className="bg-teal-600 rounded-xl p-2.5 shadow-sm">
-                <Activity className="text-white" size={24} strokeWidth={2} />
-              </div>
-              <div>
-                <h2 className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight" style={{ fontFamily: "'Playfair Display', serif" }}>Health Calculators</h2>
-                <p className="text-gray-600 mt-0.5 text-xs sm:text-sm" style={{ fontFamily: "'Playfair Display', serif" }}>Professional wellness tools</p>
-              </div>
-            </div>
-            <Link 
-              href="/calculator/allcalc#games-section" 
-              className="hidden md:flex items-center gap-1.5 text-xs font-medium text-gray-700 hover:text-gray-900 transition-colors group"
-            >
-              View All 
-              <ArrowRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
-            </Link>
+          <div className="text-center mb-6 sm:mb-8">
+           
+             <span className="inline-block rounded-full bg-teal-50 px-5 py-2 text-sm font-medium text-teal-700">
+          Free Health Tools
+        </span>
+
+       <p className="text-blue-700 text-[20px] font-medium text-4xl mt-6">
+         Health Tools & Calculators
+          </p>
+        <h1 className="text-gray-600 text-[24px] text-base font-normal mt-4 " >
+            Free wellness tools to track and improve your health journey
+          </h1>
           </div>
 
           <div className="relative">
@@ -218,33 +212,19 @@ const HealthCalculatorApp = () => {
               {calculators.map((calc) => {
                 const IconComponent = calc.icon;
                 return (
-                  <div key={calc.id} className="flex-shrink-0 w-[280px] sm:w-[calc((100%-16px)/2)] md:w-[calc((100%-32px)/3)] lg:w-[calc((100%-48px)/4)] snap-start">
-                    <div className="bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-200 border border-gray-200 p-5 h-full group hover:border-gray-300 overflow-hidden">
-                      
-                      {/* Icon and Category */}
-                      <div className="flex items-start justify-between mb-4">
-                        <div className={`${calc.bgColor} rounded-lg p-3 shadow-sm group-hover:scale-105 transition-transform`}>
-                          <IconComponent className="text-white" size={24} strokeWidth={2} />
-                        </div>
-                        <span className="text-xs font-medium text-gray-600 uppercase tracking-wide">{calc.category}</span>
+                  <Link
+                    key={calc.id}
+                    href={`/calculator/${calc.id}#games-section`}
+                    className="flex-shrink-0 w-[280px] sm:w-[calc((100%-16px)/2)] md:w-[calc((100%-32px)/3)] lg:w-[calc((100%-48px)/4)] snap-start"
+                  >
+                    <div className="bg-white rounded-2xl shadow-sm hover:shadow-md transition-all duration-200 border border-gray-200 p-6 min-h-[220px] h-full group hover:border-gray-300 overflow-hidden cursor-pointer flex flex-col items-center text-center">
+                      <div className="h-14 w-14 rounded-xl bg-teal-50 flex items-center justify-center mb-3">
+                        <IconComponent className="text-teal-700" size={24} strokeWidth={2} />
                       </div>
-
-                      {/* Title */}
-                      <h3 className="font-bold text-gray-900 text-base mb-2 leading-tight line-clamp-2">{calc.title}</h3>
-
-                      {/* Description */}
-                      <p className="text-gray-600 text-xs leading-relaxed mb-5 line-clamp-2">{calc.description}</p>
-
-                      {/* Button */}
-                      <Link 
-                        href={`/calculator/${calc.id}#games-section`} 
-                        className="w-full inline-flex items-center justify-center bg-teal-600 text-white px-4 py-2.5 rounded-lg text-xs font-medium hover:bg-teal-700 transition-all group/btn"
-                      >
-                        Calculate 
-                        <ArrowRight size={14} className="ml-1.5 group-hover/btn:translate-x-0.5 transition-transform" />
-                      </Link>
+                      <h3 className="font-semibold text-gray-900 text-base mb-1 leading-tight line-clamp-2">{calc.title}</h3>
+                      <p className="text-gray-600 text-xs leading-relaxed line-clamp-2">{calc.description}</p>
                     </div>
-                  </div>
+                  </Link>
                 );
               })}
             </div>
@@ -260,28 +240,20 @@ const HealthCalculatorApp = () => {
             </Link>
           </div>
         </section>
-<Career/>
-<HealthCare />
 
         {/* Games Section */}
         <section className="mb-12 mt-9 sm:mb-16">
-          <div className="flex items-center justify-between mb-6 sm:mb-8">
-            <div className="flex items-center gap-3">
-              <div className="bg-teal-600 rounded-xl p-2.5 shadow-sm">
-                <Gamepad2 className="text-white" size={24} strokeWidth={2} />
-              </div>
-              <div>
-                <h2 className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight" style={{ fontFamily: "'Playfair Display', serif" }}>Health Games</h2>
-                <p className="text-gray-600 mt-0.5 text-xs sm:text-sm" style={{ fontFamily: "'Playfair Display', serif" }}>Learn through interactive play</p>
-              </div>
-            </div>
-            <Link 
-              href="/games/allgames#games-section" 
-              className="hidden md:flex items-center gap-1.5 text-xs font-medium text-gray-700 hover:text-gray-900 transition-colors group"
-            >
-              View All 
-              <ArrowRight size={14} className="group-hover:translate-x-0.5 transition-transform" />
-            </Link>
+          <div className="text-center mb-6 sm:mb-8">
+                     <span className="inline-block rounded-full bg-teal-50 px-5 py-2 text-sm font-medium text-teal-700">
+          Health Games
+        </span>
+
+       <p className="text-blue-700 text-[20px] font-medium text-4xl mt-6">
+        Learn through interactive play
+          </p>
+        <h1 className="text-gray-600 text-[24px] text-base font-normal mt-4 " >
+           Discover healthy habits with fun interactive experiences
+          </h1>
           </div>
 
           <div className="relative">
@@ -294,33 +266,19 @@ const HealthCalculatorApp = () => {
               {games.map((game) => {
                 const IconComponent = game.icon;
                 return (
-                  <div key={game.id} className="flex-shrink-0 w-[280px] sm:w-[calc((100%-16px)/2)] md:w-[calc((100%-32px)/3)] lg:w-[calc((100%-48px)/4)] snap-start">
-                    <div className="bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-200 border border-gray-200 p-5 h-full group hover:border-gray-300 overflow-hidden">
-                      
-                      {/* Icon and Category */}
-                      <div className="flex items-start justify-between mb-4">
-                        <div className={`${game.bgColor} rounded-lg p-3 shadow-sm group-hover:scale-105 transition-transform`}>
-                          <IconComponent className="text-white" size={24} strokeWidth={2} />
-                        </div>
-                        <span className="text-xs font-medium text-gray-600 uppercase tracking-wide">{game.category}</span>
+                  <Link
+                    key={game.id}
+                    href={`/games/${game.id}#games-section`}
+                    className="flex-shrink-0 w-[280px] sm:w-[calc((100%-16px)/2)] md:w-[calc((100%-32px)/3)] lg:w-[calc((100%-48px)/4)] snap-start"
+                  >
+                    <div className="bg-white rounded-2xl shadow-sm hover:shadow-md transition-all duration-200 border border-gray-200 p-6 min-h-[220px] h-full group hover:border-gray-300 overflow-hidden cursor-pointer flex flex-col items-center text-center">
+                      <div className="h-14 w-14 rounded-xl bg-teal-50 flex items-center justify-center mb-3">
+                        <IconComponent className="text-teal-700" size={24} strokeWidth={2} />
                       </div>
-
-                      {/* Title */}
-                      <h3 className="font-bold text-gray-900 text-base mb-2 leading-tight line-clamp-2">{game.title}</h3>
-
-                      {/* Description */}
-                      <p className="text-gray-600 text-xs leading-relaxed mb-5 line-clamp-2">{game.description}</p>
-
-                      {/* Button */}
-                      <Link 
-                        href={`/games/${game.id}#games-section`} 
-                        className="w-full inline-flex items-center justify-center bg-teal-600 text-white px-4 py-2.5 rounded-lg text-xs font-medium hover:bg-teal-700 transition-all group/btn"
-                      >
-                        <Gamepad2 size={14} className="mr-1.5" /> 
-                        Play Now
-                      </Link>
+                      <h3 className="font-semibold text-gray-900 text-base mb-1 leading-tight line-clamp-2">{game.title}</h3>
+                      <p className="text-gray-600 text-xs leading-relaxed line-clamp-2">{game.description}</p>
                     </div>
-                  </div>
+                  </Link>
                 );
               })}
             </div>

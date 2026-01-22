@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/router';
 
 interface AdminHeaderProps {
   sidebarItems?: Array<{
@@ -22,6 +23,7 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
   onToggleDesktop,
   onToggleMobile,
 }) => {
+  const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Array<{ label: string; path?: string }>>([]);
   const [showSearchResults, setShowSearchResults] = useState(false);
@@ -102,7 +104,7 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
 
   const handleSearchResultClick = (path?: string) => {
     if (path) {
-      window.location.href = path;
+      router.push(path);
     }
     setSearchQuery('');
     setSearchResults([]);
@@ -220,7 +222,7 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
                 {storedUser?.name || 'Admin User'}
               </div>
               <div className="text-xs text-gray-600 truncate max-w-[140px] lg:max-w-[180px]">
-                {email || 'diglip4@gmail.com'}
+                {email || 'admin@zeva.com'}
               </div>
             </div>
 

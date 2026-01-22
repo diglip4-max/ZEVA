@@ -54,9 +54,9 @@ const ZevaHealthPlatform = () => {
 
     return (
         <main className="w-full bg-gradient-to-br from-blue-50 via-blue-50 to-blue-100">
-            <section className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-12 lg:py-16">
+            {/* <section className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-12 lg:py-16">
                 <div className="grid lg:grid-cols-2 gap-10 items-center">
-                    {/* Left Column */}
+                    
                     <div className="space-y-6">
                         <div className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-white/80 px-4 py-1 text-xs font-semibold text-blue-700">
                             <Sparkles className="w-4 h-4 text-blue-500" />
@@ -73,7 +73,7 @@ const ZevaHealthPlatform = () => {
                             </p>
                         </div>
 
-                        {/* Find & Search Module */}
+                    
                         <div className="rounded-3xl bg-white shadow-xl border border-blue-100 p-5">
                             <div className="flex items-center justify-between pb-4 border-b border-gray-100">
                                 <div>
@@ -122,7 +122,7 @@ const ZevaHealthPlatform = () => {
                             </div>
                         </div>
 
-                        {/* Quick Stats */}
+            
                         <div className="flex flex-wrap gap-4 text-sm">
                             <div className="flex-1 min-w-[120px] rounded-2xl bg-white/80 px-4 py-3 shadow">
                                 <p className="text-xs uppercase text-gray-500">Active users</p>
@@ -139,7 +139,7 @@ const ZevaHealthPlatform = () => {
                         </div>
                     </div>
 
-                    {/* Right Column */}
+                
                     <div className="space-y-4">
                         <div className="rounded-[28px] overflow-hidden bg-white/60 shadow-2xl border border-white/60">
                             <img
@@ -154,7 +154,7 @@ const ZevaHealthPlatform = () => {
                                 <p className="text-sm text-gray-700">
                                     “Zeva lets me blend traditional Ayurveda with modern monitoring tools. Patients love how effortless booking feels.”
                                 </p>
-                                {/* <p className="text-xs font-semibold text-gray-500">Dr. Aditi Rao — Lead Panchakarma Specialist</p> */}
+                                
                             </div>
                         </div>
 
@@ -198,7 +198,7 @@ const ZevaHealthPlatform = () => {
                         </div>
                     </div>
                 </div>
-            </section>
+            </section> */}
         </main>
     );
 };

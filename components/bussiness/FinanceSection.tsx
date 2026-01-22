@@ -63,12 +63,12 @@ type FinanceCardProps = {
   icon: ReactElement;
   title: string;
   subtitle: string;
-  price: string;
+  // price: string;
   items: string[];
   delayMs?: number;
 };
 
-function FinanceCard({ icon, title, subtitle, price, items, delayMs = 0 }: FinanceCardProps): ReactElement {
+function FinanceCard({ icon, title, subtitle, items, delayMs = 0 }: FinanceCardProps): ReactElement {
   return (
     <div
       style={{ animationDelay: `${delayMs}ms` }}
@@ -85,15 +85,16 @@ function FinanceCard({ icon, title, subtitle, price, items, delayMs = 0 }: Finan
               {icon}
             </div>
           </div>
+          </div>
 
-          <div className="text-right">
+          {/* <div className="text-right">
             <div className="text-[11px] font-bold tracking-wide text-gray-500">FROM</div>
             <div className="text-xl font-extrabold text-blue-700">
               {price}
               <span className="text-xs font-semibold text-gray-500">/mo</span>
             </div>
-          </div>
-        </div>
+          </div> */}
+        {/* </div> */}
 
         <div className="mt-5">
           <div className="text-lg font-extrabold text-gray-900">{title}</div>
@@ -113,10 +114,10 @@ function FinanceCard({ icon, title, subtitle, price, items, delayMs = 0 }: Finan
           type="button"
           className={[
             "mt-5 flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-bold transition-colors",
-            "border-purple-700 bg-white text-purple-700 hover:bg-purple-700 hover:text-white",
+            "border-purple-700 bg-purple-600 text-gray-900 hover:bg-purple-700 hover:text-white",
           ].join(" ")}
         >
-          Learn More <ArrowRightIcon className="h-4 w-4" />
+      Coming Soon 
         </button>
       </div>
     </div>
@@ -146,7 +147,8 @@ export default function FinanceSection(): ReactElement {
               icon={<DocIcon className="h-6 w-6" />}
               title="Billing & Invoices"
               subtitle="Professional invoicing"
-              price="$39"
+              // price="
+              // $39"
               items={["Custom templates", "Auto billing", "Payment tracking", "Receipt generation"]}
             />
 
@@ -155,7 +157,7 @@ export default function FinanceSection(): ReactElement {
               icon={<ClockIcon className="h-6 w-6" />}
               title="VAT & Tax Filing"
               subtitle="Stay compliant"
-              price="$49"
+              // price="$49"
               items={["Auto calculations", "Tax reports", "Filing assistance", "Audit trails"]}
             />
 
@@ -164,7 +166,7 @@ export default function FinanceSection(): ReactElement {
               icon={<DocIcon className="h-6 w-6" />}
               title="Reports & Analytics"
               subtitle="Real-time insights"
-              price="$59"
+              // price="$59"
               items={["Custom dashboards", "Financial reports", "Performance metrics", "Export tools"]}
             />
 
@@ -173,7 +175,7 @@ export default function FinanceSection(): ReactElement {
               icon={<BankIcon className="h-6 w-6" />}
               title="Clinic Financing"
               subtitle="Flexible payment options"
-              price="$99"
+              // price="$99"
               items={["Installment plans", "Patient financing", "Eligibility checks", "Auto reminders"]}
             />
 
@@ -182,7 +184,7 @@ export default function FinanceSection(): ReactElement {
               icon={<DocIcon className="h-6 w-6" />}
               title="Compliance Center"
               subtitle="Policies & documentation"
-              price="$—"
+              // price="$—"
               items={["Policy templates", "Consent forms", "Document vault", "Renewal alerts"]}
             />
 
@@ -191,7 +193,7 @@ export default function FinanceSection(): ReactElement {
               icon={<ChartIcon className="h-6 w-6" />}
               title="Revenue Optimization"
               subtitle="Increase margins"
-              price="$—"
+              // price="$—"
               items={["Pricing insights", "Charge capture", "Forecasting", "Growth tracking"]}
             />
           </div>

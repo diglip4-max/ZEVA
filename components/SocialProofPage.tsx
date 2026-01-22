@@ -42,30 +42,30 @@ const StatsSection = () => {
   ];
 
   return (
-    <div className="mb-4">
+    <div className="mb-12">
       <div className="max-w-6xl mx-auto px-4">
-        <div className="relative bg-white rounded-[32px] border border-gray-200 shadow-xl px-6 py-14">
-          
+        <div className="relative rounded-[28px] border border-gray-200 bg-white px-6 py-14 shadow-xl">
+
           {/* Badge */}
           <div className="absolute -top-5 left-1/2 -translate-x-1/2">
-            <span className="inline-flex items-center gap-2 px-5 py-2 rounded-full bg-amber-50 text-amber-600 text-sm font-medium">
+            <span className="inline-flex items-center gap-2 rounded-full bg-amber-50 px-5 py-2 text-sm font-medium text-amber-600">
               📈 Growing Every Day
             </span>
           </div>
 
           {/* Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-10 text-center mt-6">
+          <div className="mt-6 grid grid-cols-1 gap-10 text-center md:grid-cols-4">
             {stats.map((item, i) => (
               <div key={i} className="relative">
-                <div className="text-4xl md:text-5xl font-bold text-amber-400 transition-all">
+                <div className="text-4xl font-bold text-amber-400 md:text-5xl">
                   {item.value}
                 </div>
-                <div className="mt-2 text-gray-800 font-medium">
+                <div className="mt-2 font-medium text-gray-800">
                   {item.label}
                 </div>
 
                 {i !== stats.length - 1 && (
-                  <span className="hidden md:block absolute right-0 top-1/2 -translate-y-1/2 h-12 w-px bg-gray-200" />
+                  <span className="absolute right-0 top-1/2 hidden h-12 w-px -translate-y-1/2 bg-gray-200 md:block" />
                 )}
               </div>
             ))}
@@ -77,10 +77,10 @@ const StatsSection = () => {
   );
 };
 
-/* -------------------- REVIEWS -------------------- */
+/* -------------------- REVIEWS DATA -------------------- */
 const allReviews = [
   {
-    text: "ZEVA made it so easy to find a specialist near me. Booked my appointment in under 2 minutes.",
+    text: "ZEVA made it so easy to find a specialist near me. Booked my appointment in under 2 minutes!",
     name: "Priya Sharma",
     role: "Patient · Mumbai",
     initials: "PS",
@@ -92,7 +92,7 @@ const allReviews = [
     initials: "RK",
   },
   {
-    text: "The telemedicine feature saved me so much time.",
+    text: "The telemedicine feature saved me so much time. Got consultation from home easily.",
     name: "Anita Desai",
     role: "Patient · Bangalore",
     initials: "AD",
@@ -116,14 +116,8 @@ const allReviews = [
     initials: "SP",
   },
 ];
-// const partneredWith = [
-//     { name: "Apollo Hospitals" },
-//     { name: "Fortis Healthcare" },
-//     { name: "Max Healthcare" },
-//     { name: "Manipal Hospitals" },
-//     { name: "AIIMS" },
-//   ];
-/* -------------------- MAIN PAGE -------------------- */
+
+/* -------------------- MAIN COMPONENT -------------------- */
 export default function SocialProofPage() {
   const [index, setIndex] = useState(0);
 
@@ -145,65 +139,59 @@ export default function SocialProofPage() {
   }, [shuffledReviews.length]);
 
   return (
-    <section className="w-full bg-white py-8">
+    <section className="w-full bg-white py-16">
       <StatsSection />
 
-      <div className="max-w-6xl mt-20 mx-auto px-4 text-center">
-        {/* <span className="inline-block text-sm font-medium px-5 py-2 rounded-full bg-teal-50 text-teal-700">
+      <div className="mx-auto mt-16 max-w-6xl px-4 text-center">
+        <span className="inline-block rounded-full bg-teal-50 px-5 py-2 text-sm font-medium text-teal-700">
           Social Proof
-        </span> */}
+        </span>
 
-        <h2 className="mt-2 text-xl md:text-3xl font-bold text-blue-700" style={{ fontFamily: "'Playfair Display', serif" }}>
-          Trusted by Patients & Healthcare Providers
-        </h2>
+       <p className="text-blue-700 text-[20px] font-medium text-4xl mt-6">
+         Trusted by Patients & Healthcare Providers
+          </p>
+        <h1 className="text-gray-600 text-[24px] text-base font-normal mt-4 " >
+            Join thousands who trust ZEVA for their healthcare needs
+          </h1>
 
-        <p className="mt-2 md:mt-3 text-base font-semibold text-gray-600" style={{ fontFamily: "'Playfair Display', serif" }}>
-          Join thousands who trust ZEVA for their healthcare needs
-        </p>
-
-        <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* Reviews */}
+        <div className="mt-10 grid grid-cols-1 gap-10 md:grid-cols-3">
           {visibleReviews.map((review) => (
             <div
               key={review.name}
-              className="border border-gray-200 rounded-2xl p-6 text-left bg-white shadow-sm animate-fade"
+              className="rounded-2xl border border-gray-200 bg-white p-8 text-left shadow-sm transition hover:shadow-md"
             >
-              <div className="flex mb-4">
+              {/* Stars */}
+              <div className="mb-5 flex gap-1">
                 {Array.from({ length: 5 }).map((_, i) => (
-                  <Star key={i} className="w-4 h-4 text-yellow-400 fill-yellow-400" />
+                  <Star
+                    key={i}
+                    className="h-5 w-5 fill-yellow-400 text-yellow-400"
+                  />
                 ))}
               </div>
 
-              <p className="text-sm text-gray-600">“{review.text}”</p>
+              {/* Quote */}
+              <p className="text-[17px] leading-relaxed text-gray-700">
+                “{review.text}”
+              </p>
 
-              <div className="mt-6 flex items-center gap-3">
-                <div className="w-9 h-9 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs font-semibold">
+              <div className="mt-8 h-px w-full bg-gray-200" />
+
+              {/* User */}
+              <div className="mt-6 flex items-center gap-4">
+                <div className="flex h-11 w-11 items-center justify-center rounded-full bg-blue-600 text-sm font-semibold text-white">
                   {review.initials}
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-gray-900">{review.name}</p>
-                  <p className="text-xs text-gray-500">{review.role}</p>
+                  <p className="font-medium text-gray-900">{review.name}</p>
+                  <p className="text-sm text-gray-500">{review.role}</p>
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
-        </div>
-      {/* Partners Section (BOTTOM) */}
-      {/* <div className="mt-24 max-w-6xl mx-auto px-4 ">
-      <div className="border border-gray-200 mt-2 rounded-2xl shadow-sm bg-white py-12 px-6 text-center">
-      <h2 className="mt-2 text-lg font-semibold text-blue-700">
-          Partnered with leading healthcare institutions
-        </h2>
-
-        <div className="mt-10 grid grid-cols-2 md:grid-cols-5 gap-8 items-center">
-          {partneredWith.map(partner => (
-            <div key={partner.name} className="flex justify-center">
-             <span className="text-gray-600 hover:text-blue-700 cursor-pointer text-sm">{partner.name}</span>
             </div>
           ))}
         </div>
       </div>
-      </div> */}
     </section>
   );
 }

@@ -107,10 +107,10 @@ export default async function handler(req, res) {
       jobs = jobs.filter(
         job => job.location && normalize(job.location).includes(normalizedQuery)
       );
-      console.log(`✅ After location filter: ${beforeCount} → ${jobs.length} jobs`);
+      
     }
 
-    console.log(`📈 Final jobs count: ${jobs.length} (from ${initialCount} initial)`);
+    
 
     // ✅ Experience filter (range based, now AFTER jobs are fetched)
    // ✅ Experience filter (range + "Fresher")

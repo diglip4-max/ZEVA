@@ -39,6 +39,8 @@ type Job = {
   department?: string;
   experience?: string;
   jobTitle?: string;
+  slug?: string;
+  slugLocked?: boolean;
 };
 
 type Filters = {
@@ -421,7 +423,10 @@ export default function Career() {
                         >
                         {pageJobs.map((job) => {
                           const Icon = getDepartmentIcon(job.department || job.role);
-                          const jobSlug = createJobSlug(job.jobTitle || job.role, job._id);
+                          // Use database slug if available and locked, otherwise fallback to generated slug
+                          const jobSlug = (job.slug && job.slugLocked) 
+                            ? job.slug 
+                            : createJobSlug(job.jobTitle || job.role, job._id);
                           
                           return (
                             <Link
@@ -483,7 +488,10 @@ export default function Career() {
                     <div className="flex-shrink-0 w-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 px-2">
                       {jobs.map((job) => {
                         const Icon = getDepartmentIcon(job.department || job.role);
-                        const jobSlug = createJobSlug(job.jobTitle || job.role, job._id);
+                        // Use database slug if available and locked, otherwise fallback to generated slug
+                        const jobSlug = (job.slug && job.slugLocked) 
+                          ? job.slug 
+                          : createJobSlug(job.jobTitle || job.role, job._id);
                         
                         return (
                           <Link
