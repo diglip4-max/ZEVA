@@ -93,14 +93,38 @@ export default async function handler(req, res) {
 
   try {
     // For agent creation: Allow admin, clinic, doctor, and agent roles
-    // For doctorStaff creation: Allow admin, clinic, and doctor roles (same as agents)
+    // For doctorStaff creation: Allow admin, clinic, doctor, agent, and doctorStaff roles (permission checks already done above)
+    console.log('CREATE Agent - Role Check:', { 
+      creatingRole: role, 
+      currentUserRole: me.role,
+      currentUserId: me._id.toString()
+    });
+    
     if (role === "agent") {
       if (!requireRole(me, ["admin", "clinic", "doctor", "agent"])) {
+        console.log('CREATE Agent - Access denied for agent creation:', me.role);
         return res.status(403).json({ success: false, message: "Access denied" });
       }
     } else if (role === "doctorStaff") {
-      if (!requireRole(me, ["admin", "clinic", "doctor"])) {
-        return res.status(403).json({ success: false, message: "Access denied. Admin, clinic, or doctor only for doctorStaff creation" });
+      // Allow admin, clinic, doctor, agent, and doctorStaff roles
+      // Permission checks for agent and doctorStaff are already done above (lines 43-69)
+      const allowedRoles = ["admin", "clinic", "doctor", "agent", "doctorStaff"];
+      const hasRole = requireRole(me, allowedRoles);
+      console.log('CREATE Agent - doctorStaff creation check:', { 
+        currentUserRole: me.role, 
+        allowedRoles, 
+        hasRole 
+      });
+      
+      if (!hasRole) {
+        console.log('CREATE Agent - Access denied for doctorStaff creation:', { 
+          currentUserRole: me.role, 
+          allowedRoles 
+        });
+        return res.status(403).json({ 
+          success: false, 
+          message: "Access denied. Admin, clinic, doctor, agent, or doctorStaff only for doctorStaff creation" 
+        });
       }
     }
 
@@ -124,17 +148,23 @@ export default async function handler(req, res) {
         // Setting it helps with filtering
       }
     } else if (me.role === "agent") {
-      // Agent creating another agent - use their clinicId
+      // Agent creating another agent or doctorStaff - use their clinicId
       clinicId = me.clinicId;
       if (!clinicId) {
         return res
           .status(400)
           .json({ success: false, message: "Clinic not found for this agent" });
       }
-      // Only agents can be created by agents, not doctorStaff
-      if (role === "doctorStaff") {
-        return res.status(403).json({ success: false, message: "Agents cannot create doctorStaff" });
+      // Agents can create both agents and doctorStaff (permission checks already done above)
+    } else if (me.role === "doctorStaff") {
+      // doctorStaff creating another doctorStaff or agent - use their clinicId
+      clinicId = me.clinicId;
+      if (!clinicId) {
+        return res
+          .status(400)
+          .json({ success: false, message: "Clinic not found for this doctorStaff" });
       }
+      // doctorStaff can create both agents and doctorStaff (permission checks already done above)
     } else if (me.role === "doctor") {
       // Doctor creating agent or doctorStaff - use their clinicId if they have one
       clinicId = me.clinicId || null;
