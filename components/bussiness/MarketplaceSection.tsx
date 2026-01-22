@@ -70,7 +70,7 @@ function MarketplaceCard({ title, subtitle,  items, delayMs = 0 }: MarketplaceCa
           type="button"
           className={[
             "mt-5 flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-bold transition-colors",
-            "border-yellow-500/40 bg-white text-gray-700 hover:bg-yellow-500 hover:text-gray-900",
+            "border-yellow-500/40 bg-yellow-500 text-gray-900 hover:bg-yellow-500 hover:text-gray-900",
           ].join(" ")}
         >
             Coming Soon 

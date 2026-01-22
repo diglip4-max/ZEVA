@@ -109,11 +109,11 @@ const HomeSearchSection = () => {
 
       {/* Heading */}
       <div className="text-center mb-6">
-        <p className="text-[15px] font-medium mt-7 text-blue-700 mb-2">
+        <p className="text-[20px] font-medium mt-7 text-blue-700 mb-2">
           Book Trusted Clinics, Doctors & Wellness Services Near You
         </p>
-        <h1 className="text-gray-600 text-[20px] sm:text-[22px] font-normal leading-relaxed mt-2">
-          Appointments, teleconsultation, health records, and more — all in one place.
+        <h1 className="text-gray-600 text-[24px] sm:text-[26px] font-normal leading-relaxed mt-2">
+          Appointments, teleconsultation, health records & more — all in one place.
         </h1>
       </div>
 

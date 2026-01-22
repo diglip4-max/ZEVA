@@ -2322,8 +2322,8 @@ function ClinicManagementDashboard() {
                                   }}
                                 />
                                 <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-                                  <Cell fill="#1f2937" />
-                                  <Cell fill="#6b7280" />
+                                  <Cell fill="#115e59" />
+                                  <Cell fill="#4d8c88ff" />
                                 </Bar>
                               </BarChart>
                             </ResponsiveContainer>
@@ -2344,17 +2344,17 @@ function ClinicManagementDashboard() {
                                 <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                                 <XAxis
                                   dataKey="name"
-                                  stroke="#6b7280"
+                                  stroke="#115e59"
                                   fontSize={10}
-                                  tick={{ fill: '#6b7280' }}
+                                  tick={{ fill: '#4d8c88ff' }}
                                   angle={-15}
                                   textAnchor="end"
                                   height={40}
                                 />
                                 <YAxis
-                                  stroke="#6b7280"
+                                  stroke="#4d8c88ff"
                                   fontSize={11}
-                                  tick={{ fill: '#6b7280' }}
+                                  tick={{ fill: '#4d8c88ff' }}
                                 />
                                 <Tooltip
                                   contentStyle={{
@@ -2365,9 +2365,9 @@ function ClinicManagementDashboard() {
                                   }}
                                 />
                                 <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-                                  <Cell fill="#1f2937" />
-                                  <Cell fill="#6b7280" />
-                                  <Cell fill="#9ca3af" />
+                                  <Cell fill="#115e59" />
+                                  <Cell fill="#4d8c88ff" />
+                                  <Cell fill="#8baeacff" />
                                 </Bar>
                               </BarChart>
                             </ResponsiveContainer>
@@ -2461,8 +2461,8 @@ function ClinicManagementDashboard() {
                               { name: 'Enquiries', value: clinicStats.totalEnquiries },
                             ]}>
                               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                              <XAxis dataKey="name" stroke="#6b7280" fontSize={11} />
-                              <YAxis stroke="#6b7280" fontSize={11} />
+                              <XAxis dataKey="name" stroke="#115e59" fontSize={11} />
+                              <YAxis stroke="#86afacff" fontSize={11} />
                               <Tooltip
                                 contentStyle={{
                                   backgroundColor: '#fff',
@@ -2472,8 +2472,8 @@ function ClinicManagementDashboard() {
                                 }}
                               />
                               <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-                                <Cell fill="#1f2937" />
-                                <Cell fill="#6b7280" />
+                                <Cell fill="#115e59" />
+                                <Cell fill="#79b5b1ff" />
                               </Bar>
                             </BarChart>
                           </ResponsiveContainer>

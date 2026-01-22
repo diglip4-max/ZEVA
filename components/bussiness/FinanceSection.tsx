@@ -114,7 +114,7 @@ function FinanceCard({ icon, title, subtitle, items, delayMs = 0 }: FinanceCardP
           type="button"
           className={[
             "mt-5 flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-bold transition-colors",
-            "border-purple-700 bg-white text-purple-700 hover:bg-purple-700 hover:text-white",
+            "border-purple-700 bg-purple-600 text-gray-900 hover:bg-purple-700 hover:text-white",
           ].join(" ")}
         >
       Coming Soon 

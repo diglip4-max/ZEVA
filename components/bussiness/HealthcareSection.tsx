@@ -113,7 +113,7 @@ function HealthcareCard({ icon, title, subtitle, items, delayMs = 0 }: Healthcar
           type="button"
           className={[
             "mt-5 flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-bold transition-colors",
-            "border-red-500 bg-white text-red-600 hover:bg-red-600 hover:text-white",
+            "border-red-500 bg-red-500 text-gray-900 hover:bg-red-600 hover:text-white",
           ].join(" ")}
         >
       Coming Soon 
