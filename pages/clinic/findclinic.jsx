@@ -173,6 +173,7 @@ export default function Home() {
     const loadingToastId = useRef(null);
     const hasSearchedFromURL = useRef(false);
     const isUpdatingURL = useRef(false); // Flag to prevent useEffect from interfering during URL updates
+    const [photoIndexByClinic, setPhotoIndexByClinic] = useState({});
 
     // Add the clearFilters function
     const clearFilters = () => {
@@ -2015,11 +2016,11 @@ export default function Home() {
                                                         <div className="relative w-full h-full">
                                                             {(() => {
                                                                 const photos = (clinic.photos || []).filter(photo => photo);
-                                                                const latestPhoto = photos.length > 0 ? photos[photos.length - 1] : null;
-                                                                
-                                                                return latestPhoto ? (
+                                                                const currentIndex = photoIndexByClinic[clinic._id] !== undefined ? photoIndexByClinic[clinic._id] : (photos.length > 0 ? photos.length - 1 : 0);
+                                                                const currentPhoto = photos.length > 0 ? photos[currentIndex] : null;
+                                                                return currentPhoto ? (
                                                                     <img
-                                                                        src={normalizeImagePath(latestPhoto)}
+                                                                        src={normalizeImagePath(currentPhoto)}
                                                                         alt={clinic.name || "Clinic Image"}
                                                                         className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                                                                         style={{
@@ -2060,14 +2061,51 @@ export default function Home() {
                                                     )}
                                                     
                                                     {/* Badge Overlay */}
-                                                    <span className="absolute top-3 left-3 bg-amber-300 px-3 py-1 rounded-full text-xs font-semibold">
+                                                    {/* <span className="absolute top-3 left-3 bg-amber-300 px-3 py-1 rounded-full text-xs font-semibold">
                                                         {clinicReviews[clinic._id]?.averageRating >= 4.8 ? "Top Rated" : clinic.isDubaiPrioritized ? "Premium" : "Most Booked"}
-                                                    </span>
+                                                    </span> */}
 
                                                     {/* Verified Overlay */}
                                                     <span className="absolute top-3 right-3 w-8 h-8 bg-teal-800 text-white rounded-full flex items-center justify-center z-20">
                                                         <Shield className="w-4 h-4" />
                                                     </span>
+
+                                                    {clinic.photos && clinic.photos.length > 1 && (
+                                                        <>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    const photos = (clinic.photos || []).filter(p => p);
+                                                                    if (photos.length > 1) {
+                                                                        const currentIndex = photoIndexByClinic[clinic._id] !== undefined ? photoIndexByClinic[clinic._id] : (photos.length - 1);
+                                                                        const prevIndex = (currentIndex - 1 + photos.length) % photos.length;
+                                                                        setPhotoIndexByClinic(prev => ({ ...prev, [clinic._id]: prevIndex }));
+                                                                    }
+                                                                }}
+                                                                className="absolute left-3 top-1/2 -translate-y-1/2 bg-white/80 backdrop-blur-sm text-[#1e293b] hover:bg-white text-xs rounded-full p-2 shadow-md z-20"
+                                                                aria-label="Previous photo"
+                                                                title="Previous photo"
+                                                            >
+                                                                <ChevronLeft className="w-4 h-4" />
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    const photos = (clinic.photos || []).filter(p => p);
+                                                                    if (photos.length > 1) {
+                                                                        const currentIndex = photoIndexByClinic[clinic._id] !== undefined ? photoIndexByClinic[clinic._id] : (photos.length - 1);
+                                                                        const nextIndex = (currentIndex + 1) % photos.length;
+                                                                        setPhotoIndexByClinic(prev => ({ ...prev, [clinic._id]: nextIndex }));
+                                                                    }
+                                                                }}
+                                                                className="absolute right-3 top-1/2 -translate-y-1/2 bg-white/80 backdrop-blur-sm text-[#1e293b] hover:bg-white text-xs rounded-full p-2 shadow-md z-20"
+                                                                aria-label="Next photo"
+                                                                title="Next photo"
+                                                            >
+                                                                <ChevronRight className="w-4 h-4" />
+                                                            </button>
+                                                        </>
+                                                    )}
 
                                                     {/* Distance Overlay */}
                                                     {clinic.distance && (
@@ -2191,6 +2229,7 @@ export default function Home() {
                                             title="Next"
                                         >
                                             <ChevronRight className="w-4 h-4 text-gray-600" />
+                                            <ChevronLeft className="w-4 h-4 text-gray-600" />
                                         </button>
                                     </div>
                                 )}

@@ -591,13 +591,13 @@ function LeadsPage() {
               <p className="text-[10px] sm:text-xs text-teal-500">Filter, review, and assign leads to your team</p>
             </div>
             <div className="flex items-center gap-2.5">
-              <button
+              {/* <button
                 onClick={exportLeadsToCSV}
                 className="inline-flex items-center justify-center gap-1.5 bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs sm:text-sm font-medium"
               >
                 <Download className="h-3.5 w-3.5" />
                 <span>Export</span>
-              </button>
+              </button> */}
               {permissions.canCreate && (
                 <Link
                   href="/lead/segments"

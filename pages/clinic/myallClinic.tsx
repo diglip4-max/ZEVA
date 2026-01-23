@@ -21,6 +21,8 @@ import {
   BarChart3,
   Users,
   Activity,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import Image from "next/image";
 import { Toaster, toast } from "react-hot-toast";
@@ -1067,6 +1069,7 @@ function ClinicManagementDashboard() {
   const [newService, setNewService] = useState("");
   const [newTreatment, setNewTreatment] = useState("");
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [currentPhotoIndex, setCurrentPhotoIndex] = useState<number>(0);
   const [updating, setUpdating] = useState(false);
   const [availableTreatments, setAvailableTreatments] = useState<Treatment[]>(
     []
@@ -1454,11 +1457,14 @@ function ClinicManagementDashboard() {
           // Fetch reviews for average rating
           let averageRating = 0;
           try {
-            const reviewsRes = await axios.get(`/api/clinics/reviews/${currentClinic?._id}`, {
-              headers: authHeaders,
-            });
-            if (reviewsRes.data.success && reviewsRes.data.data) {
-              averageRating = reviewsRes.data.data.averageRating || 0;
+            const clinicId = currentClinic?._id;
+            if (typeof clinicId === "string" && clinicId.length === 24) {
+              const reviewsRes = await axios.get(`/api/clinics/reviews/${clinicId}`, {
+                headers: authHeaders,
+              });
+              if (reviewsRes.data?.success && reviewsRes.data?.data) {
+                averageRating = reviewsRes.data.data.averageRating || 0;
+              }
             }
           } catch (error) {
             console.error("Error fetching reviews:", error);
@@ -1486,6 +1492,14 @@ function ClinicManagementDashboard() {
       setStatsLoading(false);
     }
   }, [clinics, permissionsLoaded, permissions.canRead]);
+  useEffect(() => {
+    const count = editForm.photos?.length || 0;
+    if (count > 0) {
+      setCurrentPhotoIndex(count - 1);
+    } else {
+      setCurrentPhotoIndex(0);
+    }
+  }, [isEditing, editForm.photos]);
 
   const handleEdit = (clinic: unknown) => {
     // Check permission before allowing edit
@@ -1494,12 +1508,27 @@ function ClinicManagementDashboard() {
       return;
     }
 
+    const flattenPhotos = (photos: unknown): string[] => {
+      if (!photos || !Array.isArray(photos)) return [];
+      const out: string[] = [];
+      (photos as unknown[]).forEach((p) => {
+        if (!p) return;
+        String(p)
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean)
+          .forEach((s) => out.push(s));
+      });
+      return out;
+    };
+
     setIsEditing(true);
     setEditingClinicId((clinic as Clinic)._id);
     setEditForm({
       ...(clinic as Clinic),
       treatments: (clinic as Clinic).treatments || [],
       servicesName: (clinic as Clinic).servicesName || [],
+      photos: flattenPhotos((clinic as Clinic).photos),
     });
   };
 
@@ -1523,6 +1552,31 @@ function ClinicManagementDashboard() {
     setNewService("");
     setNewTreatment("");
     setShowCustomTreatmentInput(false);
+  };
+
+  const persistExistingPhotos = async (updatedPhotos: string[]) => {
+    if (!editingClinicId) return;
+    const authHeaders = getAuthHeaders();
+    if (!authHeaders) {
+      toast.error("You are not authenticated");
+      return;
+    }
+    const formData = new FormData();
+    formData.append("existingPhotos", JSON.stringify(updatedPhotos || []));
+    try {
+      const config = { headers: { ...authHeaders } };
+      const response = await axios.put(`/api/clinics/${editingClinicId}`, formData, config);
+      if (response.data?.success && response.data?.clinic) {
+        setClinics((prev) =>
+          prev.map((c) => (c._id === editingClinicId ? response.data.clinic : c))
+        );
+        toast.success("Photos updated");
+      } else {
+        toast.error(response.data?.message || "Failed to update photos");
+      }
+    } catch (e: any) {
+      toast.error(e.response?.data?.message || "Error updating photos");
+    }
   };
 
   const handleInputChange = (field: string, value: string) => {
@@ -1741,10 +1795,13 @@ function ClinicManagementDashboard() {
           key === "location"
         ) {
           formData.append(key, JSON.stringify(editForm[key as keyof Clinic]));
+        } else if (key === "photos") {
         } else if (editForm[key as keyof Clinic] !== undefined) {
           formData.append(key, String(editForm[key as keyof Clinic]));
         }
       });
+
+      formData.append("existingPhotos", JSON.stringify(editForm.photos || []));
 
       // Append all selected files
       selectedFiles.forEach((file) => {
@@ -2109,15 +2166,61 @@ function ClinicManagementDashboard() {
                             Selected Photos ({selectedFiles.length}):
                           </p>
                           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                            {selectedFiles.map((file, index) => (
+                            {selectedFiles.map((file, index) => {
+                              const previewUrl = URL.createObjectURL(file);
+                              return (
+                                <div
+                                  key={index}
+                                  className="relative p-2 bg-[#2D9AA5]/10 rounded-lg border border-[#2D9AA5]/20"
+                                >
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
+                                      toast.success("Photo removed");
+                                    }}
+                                    className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
+                                    title="Remove photo"
+                                  >
+                                    <X className="w-3 h-3" />
+                                  </button>
+                                  <img
+                                    src={previewUrl}
+                                    alt={file.name}
+                                    className="w-full h-24 object-cover rounded"
+                                    onLoad={() => URL.revokeObjectURL(previewUrl)}
+                                  />
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                      {editForm.photos && editForm.photos.length > 0 && (
+                        <div className="mt-3 space-y-2">
+                          <p className="text-sm font-medium text-teal-700">
+                            All Photos:
+                          </p>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                            {(editForm.photos || []).map((p, idx) => (
                               <div
-                                key={index}
+                                key={idx}
                                 className="relative p-2 bg-[#2D9AA5]/10 rounded-lg border border-[#2D9AA5]/20"
                               >
                                 <button
                                   type="button"
                                   onClick={() => {
-                                    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
+                                    setEditForm((prev) => {
+                                      const arr = prev.photos || [];
+                                      const updated = arr.filter((_, i) => i !== idx);
+                                      return { ...prev, photos: updated };
+                                    });
+                                    setCurrentPhotoIndex((prev) => {
+                                      const len = (editForm.photos?.length || 1) - 1;
+                                      if (len <= 0) return 0;
+                                      if (idx < prev) return prev - 1;
+                                      return Math.min(prev, len - 1);
+                                    });
                                     toast.success("Photo removed");
                                   }}
                                   className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
@@ -2125,12 +2228,16 @@ function ClinicManagementDashboard() {
                                 >
                                   <X className="w-3 h-3" />
                                 </button>
-                                <p className="text-[#2D9AA5] text-xs font-medium truncate pr-6">
-                                  {file.name}
-                                </p>
-                                <p className="text-teal-500 text-xs">
-                                  {(file.size / 1024).toFixed(1)} KB
-                                </p>
+                                <img
+                                  src={getImagePath(p)}
+                                  alt={`Clinic photo ${idx + 1}`}
+                                  className="w-full h-24 object-cover rounded"
+                                  onError={(e) => {
+                                    const img = e.currentTarget as HTMLImageElement;
+                                    img.onerror = null;
+                                    img.src = PLACEHOLDER_DATA_URI;
+                                  }}
+                                />
                               </div>
                             ))}
                           </div>
@@ -2141,15 +2248,15 @@ function ClinicManagementDashboard() {
                       {editForm.photos && editForm.photos.length > 0 && (
                         <div className="mt-4 space-y-2">
                           <p className="text-sm font-medium text-teal-700">
-                            Current Profile Picture:
+                            Current Photo:
                           </p>
                           <div className="relative group inline-block">
                             {(() => {
-                              // Get only the latest photo (most recently uploaded profile picture)
                               const photosArray = editForm.photos || [];
-                              const latestPhoto = photosArray.length > 0 ? photosArray[photosArray.length - 1] : null;
-                              
-                              if (!latestPhoto) {
+                              const safeIndex = Math.min(Math.max(currentPhotoIndex, 0), photosArray.length - 1);
+                              const viewingPhoto = photosArray.length > 0 ? photosArray[safeIndex] : null;
+                             
+                              if (!viewingPhoto) {
                                 return (
                                   <div className="relative w-full max-w-xs h-48 rounded-lg overflow-hidden border border-teal-200 bg-teal-50 flex items-center justify-center">
                                     <Camera className="w-6 h-6 text-teal-400" />
@@ -2160,8 +2267,8 @@ function ClinicManagementDashboard() {
                               return (
                                 <div className="relative w-full max-w-xs h-48 rounded-lg overflow-hidden border border-teal-200 bg-teal-50">
                                   <img
-                                    src={getImagePath(latestPhoto)}
-                                    alt="Current clinic profile picture"
+                                    src={getImagePath(viewingPhoto)}
+                                    alt="Current clinic photo"
                                     className="w-full h-full object-cover"
                                     onError={(e) => {
                                       const img = e.currentTarget as HTMLImageElement;
@@ -2172,17 +2279,43 @@ function ClinicManagementDashboard() {
                                   <button
                                     type="button"
                                     onClick={() => {
+                                      setCurrentPhotoIndex((prev) => Math.max(prev - 1, 0));
+                                    }}
+                                    className="absolute top-1/2 -translate-y-1/2 left-2 bg-teal-800 text-white rounded-full p-2 hover:bg-teal-900 transition-colors opacity-0 group-hover:opacity-100 shadow-lg z-10 disabled:opacity-50"
+                                    title="Previous photo"
+                                    disabled={safeIndex <= 0}
+                                  >
+                                    <ChevronLeft className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setCurrentPhotoIndex((prev) => Math.min(prev + 1, photosArray.length - 1));
+                                    }}
+                                    className="absolute top-1/2 -translate-y-1/2 right-2 bg-teal-800 text-white rounded-full p-2 hover:bg-teal-900 transition-colors opacity-0 group-hover:opacity-100 shadow-lg z-10 disabled:opacity-50"
+                                    title="Next photo"
+                                    disabled={safeIndex >= photosArray.length - 1}
+                                  >
+                                    <ChevronRight className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
                                       setEditForm((prev) => {
-                                        const updatedPhotos = prev.photos?.slice(0, -1) || [];
-                                        return {
-                                          ...prev,
-                                          photos: updatedPhotos,
-                                        };
+                                        const arr = prev.photos || [];
+                                        const idx = Math.min(Math.max(currentPhotoIndex, 0), arr.length - 1);
+                                        const updated = arr.filter((_, i) => i !== idx);
+                                        return { ...prev, photos: updated };
                                       });
-                                      toast.success("Profile picture removed. Please upload a new one.");
+                                      setCurrentPhotoIndex((prev) => {
+                                        const nextLen = (editForm.photos?.length || 1) - 1;
+                                        if (nextLen <= 0) return 0;
+                                        return Math.min(prev, nextLen - 1);
+                                      });
+                                      toast.success("Photo removed");
                                     }}
                                     className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-2 hover:bg-red-600 transition-colors opacity-0 group-hover:opacity-100 shadow-lg z-10"
-                                    title="Remove profile picture"
+                                    title="Remove photo"
                                   >
                                     <X className="w-4 h-4" />
                                   </button>
