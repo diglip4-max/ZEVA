@@ -21,25 +21,25 @@ const paymentHistorySchema = new mongoose.Schema({
 const patientRegistrationSchema = new mongoose.Schema(
   {
     // Auto-generated fields
-    invoiceNumber: { type: String, required: true, unique: true, trim: true },
+    invoiceNumber: { type: String, unique: true, trim: true },
     invoicedDate: { type: Date, default: Date.now },
-    invoicedBy: { type: String, required: true, trim: true },
+    invoicedBy: { type: String, trim: true },
     userId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
 
     // Patient Details
     emrNumber: { type: String, trim: true },
     firstName: { type: String, required: true, trim: true },
     lastName: { type: String, trim: true },
-    gender: { type: String, enum: ["Male", "Female", "Other"], required: true },
+    gender: { type: String, enum: ["Male", "Female", "Other"] },
     email: { type: String, trim: true, lowercase: true },
     mobileNumber: { 
       type: String, 
-      required: true, 
+      required: true,
       validate: {
         validator: function(v) {
-          return /^[0-9]{10}$/.test(v);
+          return /^[0-9]{}$/.test(v);
         },
-        message: "Enter valid 10-digit number"
+        message: "Enter valid mobile number"
       }
     },
     referredBy: { type: String, trim: true },
@@ -89,5 +89,7 @@ patientRegistrationSchema.index({ invoiceNumber: 1 });
 patientRegistrationSchema.index({ firstName: 1, lastName: 1 });
 patientRegistrationSchema.index({ mobileNumber: 1 });
 
-export default mongoose.models.PatientRegistration ||
-  mongoose.model("PatientRegistration", patientRegistrationSchema);
+if (mongoose.models.PatientRegistration) {
+  delete mongoose.models.PatientRegistration;
+}
+export default mongoose.model("PatientRegistration", patientRegistrationSchema);

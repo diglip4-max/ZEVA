@@ -714,13 +714,13 @@
                       <p className="text-[10px] sm:text-xs md:text-sm text-teal-700 mt-0.5 hidden sm:block">View and manage all appointment records</p>
                     </div>
                     <div className="flex items-center gap-2">
-                      <button
+                      {/* <button
                         onClick={exportAppointmentsToCSV}
                         className="inline-flex items-center justify-center gap-1 sm:gap-1.5 bg-green-600 hover:bg-green-700 text-white px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-[10px] sm:text-xs md:text-sm font-medium"
                       >
                         <Download className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                         <span className="hidden xs:inline">Export</span>
-                      </button>
+                      </button> */}
                       <button
                         onClick={() => setShowFilters(!showFilters)}
                         className="inline-flex items-center justify-center gap-1 sm:gap-1.5 bg-teal-800 hover:bg-teal-900 text-white px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-[10px] sm:text-xs md:text-sm font-medium"
