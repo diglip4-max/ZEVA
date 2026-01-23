@@ -91,7 +91,7 @@ export default function HealthcareAccount() {
        
 
         {/* Feature Cards */}
-        <div className="grid grid-cols-1 ml-9 mr-9 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-5">
+        <div className="grid grid-cols-1 ml-9 mr-9 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-9">
           {features.map((item, index) => (
             <div
               key={index}

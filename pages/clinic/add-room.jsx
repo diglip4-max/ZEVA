@@ -1266,14 +1266,14 @@ function AddRoomPage({ contextOverride = null }) {
                   <Package className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                   <span className="whitespace-nowrap">Packages</span>
                 </button>
-                <button
+                {/* <button
                   onClick={exportAllData}
                   className="inline-flex items-center gap-1.5 bg-green-600 hover:bg-green-700 text-white px-2.5 py-1.5 rounded-lg text-xs transition-colors font-medium shadow-sm hover:shadow-md"
                   title="Export all data to CSV"
                 >
                   <Download className="h-3 w-3" />
                   <span>Export</span>
-                </button>
+                </button> */}
               </div>
             </div>
           </div>

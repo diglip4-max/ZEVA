@@ -2659,14 +2659,14 @@ const ClinicDashboard: NextPageWithLayout = () => {
                 </>
               ) : (
                 <>
-            <div className="bg-gray-900 text-white px-4 py-2 rounded-lg">
+            <div className="bg-yellow-400 text-white px-4 py-2 rounded-lg">
               <p className="text-sm font-medium">{getGreeting()}</p>
             </div>
                   <button
                     onClick={() => setIsEditMode(true)}
                     className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors shadow-sm"
                   >
-                    <Edit2 className="w-4 h-4" />
+                    <Edit2 className="w-3 h-3" />
                     <span>Customize</span>
                   </button>
                 </>

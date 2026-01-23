@@ -672,13 +672,13 @@ function OffersPage() {
                       <span>Create New Offer</span>
                     </button>
                   )}
-                  <button
+                  {/* <button
                     onClick={exportOffersToCSV}
                     className="inline-flex items-center justify-center gap-1.5 bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs sm:text-sm font-medium"
                   >
                     <Download className="h-3.5 w-3.5" />
                     <span>Export</span>
-                  </button>
+                  </button> */}
                 </div>
               </div>
             </div>

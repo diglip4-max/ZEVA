@@ -65,6 +65,13 @@ function ClinicPatientRegistration() {
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [editPatientId, setEditPatientId] = useState(null);
+  const [showSavePopup, setShowSavePopup] = useState(false);
+  useEffect(() => {
+    if (showSavePopup) {
+      const t = setTimeout(() => setShowSavePopup(false), 2500);
+      return () => clearTimeout(t);
+    }
+  }, [showSavePopup]);
 
   const handleOpenModal = () => {
     setIsModalOpen(true);
@@ -78,6 +85,7 @@ function ClinicPatientRegistration() {
     setIsModalOpen(false);
     // Trigger refresh of patient information
     setRefreshKey(prev => prev + 1);
+    setShowSavePopup(true);
   };
 
   const handleOpenEditModal = (patientId) => {
@@ -123,6 +131,7 @@ function ClinicPatientRegistration() {
             <div className="p-2 sm:p-3 flex-1 overflow-y-auto">
               <PatientRegistrationWrapper 
                 onSuccess={handleRegistrationSuccess}
+                isCompact
               />
             </div>
           </div>
@@ -147,7 +156,7 @@ function ClinicPatientRegistration() {
 
       {editPatientId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 overflow-y-auto bg-black/50 backdrop-blur-sm">
-          <div className="relative w-full max-w-6xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto bg-white rounded-lg sm:rounded-xl shadow-2xl flex flex-col">
+          <div className="relative w-full max-w-6xl max-h-[95vh] sm:max-h-[90vh] bg-white rounded-lg sm:rounded-xl shadow-2xl flex flex-col">
             <div className="sticky top-0 bg-white border-b border-teal-200 px-2 sm:px-3 py-2 flex items-center justify-between z-10">
               <h2 className="text-sm sm:text-base font-bold text-teal-900">Edit Patient</h2>
               <button
@@ -168,13 +177,38 @@ function ClinicPatientRegistration() {
           </div>
         </div>
       )}
+
+      {showSavePopup && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-6 bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl min-h-[220px] p-6 border border-teal-200">
+            <div className="flex flex-col items-center mb-4">
+              <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center mb-3">
+                <CheckCircle className="w-6 h-6 text-green-600" />
+              </div>
+              <h3 className="text-xl font-bold text-slate-900 text-center">Patient Saved Successfully</h3>
+            </div>
+            <p className="text-base text-gray-700 text-center mb-6">
+              Patient registration has been saved successfully.
+            </p>
+            <div className="flex">
+              <button
+                type="button"
+                onClick={() => setShowSavePopup(false)}
+                className="w-full px-6 py-2 text-sm bg-slate-900 hover:bg-slate-800 text-white rounded-lg shadow-sm"
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
 // Wrapper component for PatientRegistration to handle success callback
-const PatientRegistrationWrapper = ({ onSuccess }) => {
-  return <PatientRegistration onSuccess={onSuccess} />;
+const PatientRegistrationWrapper = ({ onSuccess, isCompact }) => {
+  return <PatientRegistration onSuccess={onSuccess} isCompact={!!isCompact} />;
 };
 
 // Patient Import Modal Component
@@ -960,7 +994,7 @@ function PatientInformationWithButton({ onRegisterClick, onImportClick, refreshK
   return (
     <div>
       {/* Header with Register Button - Matching clinic dashboard theme */}
-      <div className="bg-white rounded-lg shadow-sm border border-teal-200 mb-2">
+      <div className="bg-white ml-6 mr-6 rounded-lg shadow-sm border border-teal-200 mt-1">
         <div className="max-w-7xl mx-auto px-2 sm:px-3 py-2">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <div>
@@ -971,11 +1005,9 @@ function PatientInformationWithButton({ onRegisterClick, onImportClick, refreshK
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => {
-                    // Find the export button in PatientInformation and click it? 
-                    // No, better to just trigger it if we had a ref.
-                    // But for now, since it's in PatientInformation, it's already there.
+                    
                   }}
-                  className="hidden" // Just a placeholder if needed
+                  className="hidden" 
                 >
                 </button>
                 <button
