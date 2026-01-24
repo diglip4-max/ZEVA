@@ -154,10 +154,43 @@ const InvoiceManagementSystem = ({ onSuccess, isCompact = false }) => {
       .catch(() => showToast("Failed to fetch user details", "error"));
   }, [showToast]);
 
-  // Auto-generate EMR number when modal opens (for clinic route) - via API
+  // Auto-generate EMR number when modal opens (for clinic route only) - via API
   useEffect(() => {
+    // Only generate EMR for clinic route, not for agent/doctorStaff routes
     const isClinicRoute = typeof window !== 'undefined' && window.location.pathname?.startsWith('/clinic/');
-    if (isClinicRoute && isCompact && !formData.emrNumber) {
+    const isStaffRoute = typeof window !== 'undefined' && window.location.pathname?.startsWith('/staff/');
+    
+    // Get user role to check if it's clinic or agent/doctorStaff
+    const getUserRole = () => {
+      if (typeof window === "undefined") return null;
+      try {
+        const TOKEN_PRIORITY = ["clinicToken", "doctorToken", "agentToken", "userToken", "adminToken"];
+        for (const key of TOKEN_PRIORITY) {
+          const token = window.localStorage.getItem(key) || window.sessionStorage.getItem(key);
+          if (token) {
+            try {
+              const payload = JSON.parse(atob(token.split('.')[1]));
+              return payload.role || null;
+            } catch (e) {
+              continue;
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Error getting user role:", error);
+      }
+      return null;
+    };
+    
+    const userRole = getUserRole();
+    const isClinicUser = userRole === "clinic" || userRole === "doctor";
+    
+    // Only generate EMR if:
+    // 1. It's a clinic route (not staff route)
+    // 2. User is clinic/doctor role (not agent/doctorStaff)
+    // 3. Modal is open (isCompact)
+    // 4. EMR number is not already set
+    if (isClinicRoute && !isStaffRoute && isClinicUser && isCompact && !formData.emrNumber) {
       const headers = getAuthHeaders();
       if (headers) {
         fetch("/api/clinic/generate-emr", { headers })
@@ -287,21 +320,23 @@ const InvoiceManagementSystem = ({ onSuccess, isCompact = false }) => {
     const newErrors = {};
     const { invoiceNumber, emrNumber, firstName, lastName, email, mobileNumber, gender, patientType, insurance, advanceGivenAmount, coPayPercent } = formData;
     
-    // Check if we're in clinic route (compact modal mode)
-    const isClinicRoute = typeof window !== 'undefined' && window.location.pathname?.startsWith('/clinic/');
-    
     if (!invoiceNumber.trim()) newErrors.invoiceNumber = "Required";
     if (!emrNumber.trim()) newErrors.emrNumber = "Required";
     else if (usedEMRNumbers.has(emrNumber)) newErrors.emrNumber = "Already exists";
+
+    // Unified validation: Only First Name and Mobile Number are mandatory for all roles
+    if (!firstName.trim()) newErrors.firstName = "Required";
+    if (!mobileNumber.trim()) newErrors.mobileNumber = "Required";
     
-    // For clinic route: only firstName and mobileNumber are required
+    // Optional fields validation if provided
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) newErrors.email = "Invalid email";
+
+    /* Previous strict validation for reference:
     if (isClinicRoute && isCompact) {
       if (!firstName.trim()) newErrors.firstName = "Required";
       if (!mobileNumber.trim()) newErrors.mobileNumber = "Required";
-      // Optional fields validation
       if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) newErrors.email = "Invalid email";
     } else {
-      // Original validation for staff route
       if (!firstName.trim()) newErrors.firstName = "Required";
       if (!lastName.trim()) newErrors.lastName = "Required";
       if (!email.trim()) newErrors.email = "Required";
@@ -310,6 +345,7 @@ const InvoiceManagementSystem = ({ onSuccess, isCompact = false }) => {
       if (!gender) newErrors.gender = "Required";
       if (!patientType) newErrors.patientType = "Required";
     }
+    */
     
     if (insurance === "Yes" && formData.insuranceType === "Advance") {
       if (!coPayPercent || parseFloat(coPayPercent) < 0 || parseFloat(coPayPercent) > 100) newErrors.coPayPercent = "0-100 required";
@@ -573,15 +609,14 @@ return (
               </h2>
               <div className={`flex flex-wrap gap-2 items-end`}>
                 {(() => {
-                  const isClinicRoute = typeof window !== 'undefined' && window.location.pathname?.startsWith('/clinic/');
                   const baseFields = [
                     { name: "emrNumber", label: "EMR Number", required: true },
                     { name: "firstName", label: "First Name", required: true },
-                    { name: "lastName", label: "Last Name", required: !isClinicRoute || !isCompact },
-                    { name: "email", label: "Email", type: "email", required: !isClinicRoute || !isCompact },
+                    { name: "lastName", label: "Last Name", required: false },
+                    { name: "email", label: "Email", type: "email", required: false },
                     { name: "mobileNumber", label: canViewMobile ? "Mobile Number" : "Mobile (Restricted)", type: "tel", required: true },
-                    { name: "gender", label: "Gender", type: "select", options: ["Male", "Female", "Other"], required: !isClinicRoute || !isCompact },
-                    { name: "patientType", label: "Patient Type", type: "select", options: ["New", "Old"], required: !isClinicRoute || !isCompact },
+                    { name: "gender", label: "Gender", type: "select", options: ["Male", "Female", "Other"], required: false },
+                    { name: "patientType", label: "Patient Type", type: "select", options: ["New", "Old"], required: false },
                     { name: "referredBy", label: "Referred By" }
                   ];
                   return baseFields;

@@ -66,19 +66,67 @@ export default async function handler(req, res) {
 
       const { emrNumber, invoiceNumber, name, phone, claimStatus, applicationStatus } = req.query;
 
-      const query = { userId: user._id };
+      // Build query based on user role - CRITICAL: userId filter must be applied first
+      let query = {};
+      
+      // For clinic role: show all patients belonging to the clinic (clinic owner + all agents/doctorStaff linked to clinic)
+      if (user.role === 'clinic') {
+        const Clinic = (await import("../../../models/Clinic")).default;
+        const clinic = await Clinic.findOne({ owner: user._id });
+        if (clinic) {
+          // Find all users belonging to this clinic (clinic owner + agents + doctorStaff)
+          const User = (await import("../../../models/Users")).default;
+          const clinicUsers = await User.find({
+            $or: [
+              { _id: user._id }, // Clinic owner
+              { clinicId: clinic._id } // Agents and doctorStaff linked to clinic
+            ]
+          }).select("_id");
+          
+          const clinicUserIds = clinicUsers.map(u => u._id);
+          query.userId = { $in: clinicUserIds };
+        } else {
+          // Fallback: only show clinic owner's patients
+          query.userId = user._id;
+        }
+      } 
+      // For agent/doctorStaff: STRICTLY only show their own patients (NOT clinic's patients)
+      else if (user.role === 'agent' || user.role === 'doctorStaff') {
+        // IMPORTANT: Only show patients created by this specific agent/doctorStaff
+        query.userId = user._id;
+      }
+      // For other roles: show their own patients
+      else {
+        query.userId = user._id;
+      }
 
-      if (emrNumber) query.emrNumber = { $regex: emrNumber, $options: "i" };
-      if (invoiceNumber) query.invoiceNumber = { $regex: invoiceNumber, $options: "i" };
-      if (phone) query.mobileNumber = { $regex: phone, $options: "i" };
-      if (claimStatus) query.advanceClaimStatus = claimStatus;
-      if (applicationStatus) query.status = applicationStatus;
-
+      // Handle name search - if name filter exists, use $and to combine with userId filter
       if (name) {
-        query.$or = [
-          { firstName: { $regex: name, $options: "i" } },
-          { lastName: { $regex: name, $options: "i" } },
-        ];
+        const nameFilter = {
+          $or: [
+            { firstName: { $regex: name, $options: "i" } },
+            { lastName: { $regex: name, $options: "i" } },
+          ]
+        };
+        // Store userId filter before reconstructing query
+        const userIdFilter = { userId: query.userId };
+        // Reconstruct query with $and to ensure userId filter is preserved
+        query = {
+          $and: [userIdFilter, nameFilter]
+        };
+        // Add other filters to the $and array
+        if (emrNumber) query.$and.push({ emrNumber: { $regex: emrNumber, $options: "i" } });
+        if (invoiceNumber) query.$and.push({ invoiceNumber: { $regex: invoiceNumber, $options: "i" } });
+        if (phone) query.$and.push({ mobileNumber: { $regex: phone, $options: "i" } });
+        if (claimStatus) query.$and.push({ advanceClaimStatus: claimStatus });
+        if (applicationStatus) query.$and.push({ status: applicationStatus });
+      } else {
+        // Apply additional filters normally when no name filter
+        if (emrNumber) query.emrNumber = { $regex: emrNumber, $options: "i" };
+        if (invoiceNumber) query.invoiceNumber = { $regex: invoiceNumber, $options: "i" };
+        if (phone) query.mobileNumber = { $regex: phone, $options: "i" };
+        if (claimStatus) query.advanceClaimStatus = claimStatus;
+        if (applicationStatus) query.status = applicationStatus;
       }
 
       // Fetch patients without populate first

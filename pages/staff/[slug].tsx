@@ -153,6 +153,7 @@ const routeMap: { [key: string]: () => Promise<any> } = {
   'permission': () => import('../agent/lead/permission'),
   'create-lead': () => import('../agent/lead-create-lead'),
   'create-offer': () => import('../agent/lead-create-offer'),
+  'clinic-patient-registration': () => import('../clinic/patient-registration'),
   
   // Inbox
   'clinic-inbox': () => import('../clinic/inbox'),
