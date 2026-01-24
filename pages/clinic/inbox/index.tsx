@@ -45,7 +45,6 @@ import ScheduleMessage from "./_components/ScheduleMessage";
 import ConversationSkeleton from "./_components/ConversationSkeleton";
 import MessageSkeleton from "./_components/MessageSkeleton";
 import FilterModal from "./_components/FilterModal";
-// import EmojiPickerModal from "@/components/shared/EmojiPickerModal";
 
 const InboxPage: NextPageWithLayout = () => {
   const {
@@ -237,7 +236,7 @@ const InboxPage: NextPageWithLayout = () => {
                         setFilters((prev) => ({ ...prev, status: opt.value }));
                         setConversationStatusOptions((prev) => {
                           const selIndex = prev.findIndex(
-                            (o) => o.value === opt.value
+                            (o) => o.value === opt.value,
                           );
                           if (selIndex === -1) return prev;
                           const selectedOption = prev[selIndex];
@@ -247,13 +246,13 @@ const InboxPage: NextPageWithLayout = () => {
 
                           // Remove selected from list
                           const withoutSelected = prev.filter(
-                            (o) => o.value !== opt.value
+                            (o) => o.value !== opt.value,
                           );
 
                           // Insert selectedOption at index 3 (4th position)
                           const insertIndex = Math.min(
                             3,
-                            withoutSelected.length
+                            withoutSelected.length,
                           );
                           let updatedOptions = [
                             ...withoutSelected.slice(0, insertIndex),
@@ -267,7 +266,7 @@ const InboxPage: NextPageWithLayout = () => {
                             originalThird.value !== opt.value
                           ) {
                             const idx = updatedOptions.findIndex(
-                              (o) => o.value === originalThird.value
+                              (o) => o.value === originalThird.value,
                             );
                             if (idx > -1) {
                               updatedOptions.splice(idx, 1);
@@ -362,7 +361,7 @@ const InboxPage: NextPageWithLayout = () => {
                     <span>
                       Last seen{" "}
                       {getFormatedTime(
-                        selectedConversation?.recentMessage?.createdAt
+                        selectedConversation?.recentMessage?.createdAt,
                       ) || "recently"}
                     </span>
                   </div>
@@ -512,7 +511,7 @@ const InboxPage: NextPageWithLayout = () => {
                               {selectedProvider?.type?.includes("sms") ? (
                                 <Phone className="h-5 w-5 text-blue-500" />
                               ) : selectedProvider?.type?.includes(
-                                  "whatsapp"
+                                  "whatsapp",
                                 ) ? (
                                 <FaWhatsapp className="h-5 w-5 text-green-600" />
                               ) : selectedProvider?.type?.includes("email") ? (
@@ -853,12 +852,23 @@ const InboxPage: NextPageWithLayout = () => {
                   <div className="font-semibold text-gray-800">
                     {selectedConversation?.leadId?.name}
                   </div>
-                  <div className="text-sm text-gray-500">
+                  <div
+                    style={{
+                      userSelect: "none",
+                      WebkitUserSelect: "none",
+                      MozUserSelect: "none",
+                      msUserSelect: "none",
+                    }}
+                    onCopy={(e) => e.preventDefault()}
+                    onDragStart={(e) => e.preventDefault()}
+                    onContextMenu={(e) => e.preventDefault()}
+                    className="text-sm text-gray-500 select-none"
+                  >
                     {user?.role === "agent"
                       ? maskSensitiveInfo(
                           selectedConversation?.leadId?.phone ||
                             selectedConversation?.leadId?.email ||
-                            ""
+                            "",
                         )
                       : selectedConversation?.leadId?.phone ||
                         selectedConversation?.leadId?.email}
@@ -869,7 +879,18 @@ const InboxPage: NextPageWithLayout = () => {
               <div className="grid grid-cols-1 gap-2">
                 <div className="flex flex-col text-sm text-gray-500">
                   <div className="flex items-center gap-2">Phone</div>
-                  <div className="font-medium text-gray-800">
+                  <div
+                    style={{
+                      userSelect: "none",
+                      WebkitUserSelect: "none",
+                      MozUserSelect: "none",
+                      msUserSelect: "none",
+                    }}
+                    onCopy={(e) => e.preventDefault()}
+                    onDragStart={(e) => e.preventDefault()}
+                    onContextMenu={(e) => e.preventDefault()}
+                    className="font-medium text-gray-800 select-none"
+                  >
                     {user?.role === "agent"
                       ? maskPhoneNumber(selectedConversation?.leadId?.phone)
                       : selectedConversation?.leadId?.phone || "—"}
@@ -878,11 +899,22 @@ const InboxPage: NextPageWithLayout = () => {
 
                 <div className="flex flex-col text-sm text-gray-500">
                   <div className="flex items-center gap-2">Email</div>
-                  <div className="font-medium text-gray-800">
+                  <div
+                    style={{
+                      userSelect: "none",
+                      WebkitUserSelect: "none",
+                      MozUserSelect: "none",
+                      msUserSelect: "none",
+                    }}
+                    onCopy={(e) => e.preventDefault()}
+                    onDragStart={(e) => e.preventDefault()}
+                    onContextMenu={(e) => e.preventDefault()}
+                    className="font-medium text-gray-800 select-none"
+                  >
                     {user?.role === "agent"
                       ? maskEmail(
                           selectedConversation?.leadId?.email ||
-                            "bajuddinkhan0786@gmail.com"
+                            "bajuddinkhan0786@gmail.com",
                         )
                       : selectedConversation?.leadId?.email || "—"}
                   </div>
@@ -951,7 +983,7 @@ const InboxPage: NextPageWithLayout = () => {
                         onClick={() =>
                           handleRemoveTagFromConversation(
                             selectedConversation._id,
-                            tag
+                            tag,
                           )
                         }
                         className={`

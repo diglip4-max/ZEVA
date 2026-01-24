@@ -9,7 +9,6 @@ import DOMPurify from "dompurify";
 import AvatarComponent from "@/components/shared/AvatarComponent";
 import {
   Smile,
-  ChevronDown,
   Plus,
   Reply,
   Eye,
@@ -60,7 +59,7 @@ const Message: React.FC<IProps> = ({
     const popup = window.open(
       "",
       "popupWindow",
-      "width=800,height=600,left=200,top=100"
+      "width=800,height=600,left=200,top=100",
     );
     if (popup) {
       popup.document.write(html);
@@ -89,7 +88,7 @@ const Message: React.FC<IProps> = ({
           headers: {
             Authorization: `Bearer ${token}`,
           },
-        }
+        },
       );
 
       if (response.data.success) {
@@ -122,7 +121,7 @@ const Message: React.FC<IProps> = ({
     if (selectedEmoji) {
       // Check if user already reacted
       const userReactionIndex = allEmojis.findIndex(
-        (e) => e?.user === currentUserId
+        (e) => e?.user === currentUserId,
       );
 
       if (userReactionIndex > -1) {
@@ -261,7 +260,7 @@ const Message: React.FC<IProps> = ({
                       __html: DOMPurify.sanitize(
                         message.replyToMessageId.content.length > 200
                           ? message.replyToMessageId.content.slice(0, 199)
-                          : message.replyToMessageId.content
+                          : message.replyToMessageId.content,
                       ),
                     }}
                   />
@@ -306,10 +305,10 @@ const Message: React.FC<IProps> = ({
                             message?.attachments?.[0]?.mimeType || "";
                           const isDoc =
                             /pdf|word|msword|officedocument|text|sheet|presentation/i.test(
-                              mime
+                              mime,
                             ) ||
                             /\.pdf$|\.docx?$|\.xlsx?$|\.pptx?$/i.test(
-                              message?.mediaUrl || ""
+                              message?.mediaUrl || "",
                             );
                           return isDoc ? (
                             <FileText size={20} />
@@ -378,7 +377,7 @@ const Message: React.FC<IProps> = ({
                 className="text-sm text-gray-800 leading-relaxed break-words"
                 dangerouslySetInnerHTML={{
                   __html: DOMPurify.sanitize(
-                    message?.content?.replace(/\n/g, "<br />") || ""
+                    message?.content?.replace(/\n/g, "<br />") || "",
                   ),
                 }}
               />
@@ -417,26 +416,40 @@ const Message: React.FC<IProps> = ({
             )} */}
             {renderEmojiReactions()}
 
-            {/* Reaction Dropdown */}
-            <div className="absolute -right-10 top-1/2 z-50 transform -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-              <div className="relative">
+            {/* Reply and Emoji Buttons */}
+            <div className="absolute -right-20 top-1/2 z-50 transform -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex space-x-1">
+              <div className="relative flex space-x-1">
+                <button
+                  onClick={() => {
+                    if (onSelectMessage) {
+                      onSelectMessage(message);
+                    }
+                  }}
+                  className="p-2 bg-white hover:bg-gray-50 rounded-full shadow-md border border-gray-200 transition-all hover:scale-105"
+                  title="Reply"
+                >
+                  <Reply size={16} className="text-gray-500" />
+                </button>
+
                 <button
                   onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                   className="p-2 bg-white hover:bg-gray-50 rounded-full shadow-md border border-gray-200 transition-all hover:scale-105"
+                  title="Add reaction"
                 >
-                  <div className="flex items-center">
-                    <Smile size={16} className="text-gray-500" />
-                    <ChevronDown size={14} className="text-gray-400 ml-0.5" />
-                  </div>
+                  <Smile size={16} className="text-gray-500" />
                 </button>
 
+                {/* Emoji Picker Dropdown */}
                 {isDropdownOpen && (
-                  <div className="absolute left-full top-0 ml-2 bg-white rounded-xl shadow-lg border border-gray-200 p-3 z-50 min-w-[200px]">
+                  <div className="absolute right-0 top-10 ml-2 bg-white rounded-xl shadow-lg border border-gray-200 p-3 z-50 min-w-[200px]">
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-xs font-medium text-gray-500">
                         Add reaction
                       </span>
-                      <button className="p-1 hover:bg-gray-100 rounded-full">
+                      <button
+                        onClick={() => setIsDropdownOpen(false)}
+                        className="p-1 hover:bg-gray-100 rounded-full"
+                      >
                         <Plus size={14} className="text-gray-500" />
                       </button>
                     </div>
@@ -451,20 +464,6 @@ const Message: React.FC<IProps> = ({
                         </button>
                       ))}
                     </div>
-                    <button
-                      onClick={() => {
-                        if (onSelectMessage) {
-                          onSelectMessage(message);
-                        }
-                        setIsDropdownOpen(false);
-                      }}
-                      className="flex items-center justify-center w-full py-2 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors"
-                    >
-                      <Reply size={16} className="text-gray-500 mr-2" />
-                      <span className="text-sm font-medium text-gray-700">
-                        Reply
-                      </span>
-                    </button>
                   </div>
                 )}
               </div>
@@ -513,7 +512,7 @@ const Message: React.FC<IProps> = ({
                       __html: DOMPurify.sanitize(
                         message.replyToMessageId.content.length > 200
                           ? message.replyToMessageId.content.slice(0, 199)
-                          : message.replyToMessageId.content
+                          : message.replyToMessageId.content,
                       ),
                     }}
                   />
@@ -558,10 +557,10 @@ const Message: React.FC<IProps> = ({
                             message?.attachments?.[0]?.mimeType || "";
                           const isDoc =
                             /pdf|word|msword|officedocument|text|sheet|presentation/i.test(
-                              mime
+                              mime,
                             ) ||
                             /\.pdf$|\.docx?$|\.xlsx?$|\.pptx?$/i.test(
-                              message?.mediaUrl || ""
+                              message?.mediaUrl || "",
                             );
                           return isDoc ? (
                             <FileText size={20} />
@@ -630,7 +629,7 @@ const Message: React.FC<IProps> = ({
                 className="text-sm text-gray-800 leading-relaxed break-words"
                 dangerouslySetInnerHTML={{
                   __html: DOMPurify.sanitize(
-                    message?.content?.replace(/\n/g, "<br />") || ""
+                    message?.content?.replace(/\n/g, "<br />") || "",
                   ),
                 }}
               />
@@ -653,7 +652,7 @@ const Message: React.FC<IProps> = ({
                         ? `scheduled: ${formatScheduledTime(
                             message?.schedule?.date,
                             message?.schedule?.time,
-                            message?.schedule?.timezone
+                            message?.schedule?.timezone,
                           )}`
                         : `${message?.status}`}
                     </span>
@@ -677,26 +676,39 @@ const Message: React.FC<IProps> = ({
             )} */}
             {renderEmojiReactions()}
 
-            {/* Reaction Dropdown */}
-            <div className="absolute -left-10 top-1/2 z-50 transform -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-              <div className="relative">
+            {/* Reply and Emoji Buttons */}
+            <div className="absolute -left-20 top-1/2 z-50 transform -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex space-x-1">
+              <div className="relative flex space-x-1">
+                <button
+                  onClick={() => {
+                    if (onSelectMessage) {
+                      onSelectMessage(message);
+                    }
+                  }}
+                  className="p-2 bg-white hover:bg-gray-50 rounded-full shadow-md border border-gray-200 transition-all hover:scale-105"
+                  title="Reply"
+                >
+                  <Reply size={16} className="text-gray-500" />
+                </button>
                 <button
                   onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                   className="p-2 bg-white hover:bg-gray-50 rounded-full shadow-md border border-gray-200 transition-all hover:scale-105"
+                  title="Add reaction"
                 >
-                  <div className="flex items-center">
-                    <ChevronDown size={14} className="text-gray-400 mr-0.5" />
-                    <Smile size={16} className="text-gray-500" />
-                  </div>
+                  <Smile size={16} className="text-gray-500" />
                 </button>
 
+                {/* Emoji Picker Dropdown */}
                 {isDropdownOpen && (
-                  <div className="absolute right-full top-0 mr-2 bg-white rounded-xl shadow-lg border border-gray-200 p-3 z-50 min-w-[200px]">
+                  <div className="absolute left-0 top-10 mr-2 bg-white rounded-xl shadow-lg border border-gray-200 p-3 z-50 min-w-[200px]">
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-xs font-medium text-gray-500">
                         Add reaction
                       </span>
-                      <button className="p-1 hover:bg-gray-100 rounded-full">
+                      <button
+                        onClick={() => setIsDropdownOpen(false)}
+                        className="p-1 hover:bg-gray-100 rounded-full"
+                      >
                         <Plus size={14} className="text-gray-500" />
                       </button>
                     </div>
@@ -711,20 +723,6 @@ const Message: React.FC<IProps> = ({
                         </button>
                       ))}
                     </div>
-                    <button
-                      onClick={() => {
-                        if (onSelectMessage) {
-                          onSelectMessage(message);
-                        }
-                        setIsDropdownOpen(false);
-                      }}
-                      className="flex items-center justify-center w-full py-2 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors"
-                    >
-                      <Reply size={16} className="text-gray-500 mr-2" />
-                      <span className="text-sm font-medium text-gray-700">
-                        Reply
-                      </span>
-                    </button>
                   </div>
                 )}
               </div>

@@ -1,13 +1,15 @@
+import mongoose from "mongoose";
 import { getUserFromReq, requireRole } from "../lead-ms/auth";
 import Clinic from "../../../models/Clinic";
 import Provider from "../../../models/Provider";
 import dbConnect from "../../../lib/database";
+import Campaign from "../../../models/Campaign";
 
 export default async function handler(req, res) {
   await dbConnect();
 
-  if (req.method !== "GET") {
-    res.setHeader("Allow", ["GET"]);
+  if (req.method !== "POST") {
+    res.setHeader("Allow", ["POST"]);
     return res.status(405).end(`Method ${req.method} Not Allowed`);
   }
 
@@ -48,7 +50,7 @@ export default async function handler(req, res) {
     }
     clinicId = me.clinicId;
   } else if (me.role === "admin") {
-    clinicId = req.query.clinicId; // Changed from body to query for GET request
+    clinicId = req.body.clinicId;
     if (!clinicId) {
       return res.status(400).json({
         success: false,
@@ -63,57 +65,32 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { providerId } = req.query;
+    const { name, description, type } = req.body;
 
-    if (!providerId) {
+    // Validation
+    if (!name || !name.trim()) {
       return res.status(400).json({
         success: false,
-        message: "providerId is required",
+        message: "Name is required",
       });
     }
 
-    // Fetch provider WITHOUT lean() to get mongoose document with decryption
-    const provider = await Provider.findOne({ _id: providerId, clinicId });
+    const newCampaign = new Campaign({
+      clinicId,
+      userId: me._id,
+      name,
+      description,
+      type,
+    });
+    await newCampaign.save();
 
-    if (!provider) {
-      return res.status(404).json({
-        success: false,
-        message: "Provider not found or you don't have permission to access it",
-      });
-    }
-
-    // Convert to plain object AFTER decryption happens
-    const providerData = provider.toObject ? provider.toObject() : provider;
-
-    // Format the response properly
-    const responseData = {
-      _id: providerData._id,
-      clinicId: providerData.clinicId,
-      userId: providerData.userId,
-      name: providerData.name,
-      label: providerData.label,
-      phone: providerData.phone || "",
-      email: providerData.email || "",
-      status: providerData.status,
-      type: providerData.type,
-      createdAt: providerData.createdAt,
-      updatedAt: providerData.updatedAt,
-      secrets: providerData.secrets || {}, // This should now be decrypted
-    };
-
-    // Remove any encryption metadata fields
-    delete responseData._ct;
-    delete responseData._ac;
-    delete responseData.__v;
-
-    return res.status(200).json({
-      // Changed from 201 to 200 for GET
+    return res.status(201).json({
       success: true,
-      message: "Provider fetched successfully",
-      data: responseData,
+      message: "Campaign created successfully",
+      data: newCampaign,
     });
   } catch (err) {
-    console.error("Error in getting provider:", err);
+    console.error("Error in creating campaign:", err);
 
     if (err.name === "ValidationError") {
       return res.status(400).json({
@@ -123,13 +100,6 @@ export default async function handler(req, res) {
           Object.values(err.errors)
             .map((e) => e.message)
             .join(", "),
-      });
-    }
-
-    if (err.name === "CastError") {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid provider ID format",
       });
     }
 

@@ -81,14 +81,23 @@ export default async function handler(req, res) {
         ? req.query.search.trim().toLowerCase()
         : null;
       const status = req.query.status || "all";
+      const type = req.query.type || "all";
 
       let query = { clinicId: clinic._id };
       if (search) {
-        query.$or = [{ label: { $regex: search, $options: "i" } }];
+        query.$or = [
+          { label: { $regex: search, $options: "i" } },
+          { phone: { $regex: search, $options: "i" } },
+          { email: { $regex: search, $options: "i" } },
+        ];
       }
 
       if (status !== "all") {
         query.status = status;
+      }
+
+      if (type !== "all") {
+        query.type = { $in: [type] };
       }
 
       const totalProviders = await Provider.countDocuments(query);

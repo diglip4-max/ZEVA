@@ -50,7 +50,7 @@ const TemplatesPage: NextPageWithLayout = () => {
   const [showDeleteTemplateModal, setShowDeleteTemplateModal] =
     useState<boolean>(false);
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(
-    null
+    null,
   );
   const [deleteTemplateLoading, setDeleteTemplateLoading] =
     useState<boolean>(false);
@@ -72,7 +72,7 @@ const TemplatesPage: NextPageWithLayout = () => {
           limit: templatesPerPage,
           search: searchQuery,
           statuses: JSON.stringify(
-            filterStatus === "all" ? [] : [filterStatus]
+            filterStatus === "all" ? [] : [filterStatus],
           ),
           types: JSON.stringify(filterType === "all" ? [] : [filterType]),
         },
@@ -111,7 +111,7 @@ const TemplatesPage: NextPageWithLayout = () => {
         {},
         {
           headers: { Authorization: `Bearer ${token}` },
-        }
+        },
       );
       if (res?.data?.success) {
         fetchTemplates();
@@ -234,78 +234,6 @@ const TemplatesPage: NextPageWithLayout = () => {
     }
   };
 
-  // Replace variables in content with sample values for preview
-  const fillSampleValues = (content: string, template: Template) => {
-    if (!content) return "";
-    let result = content;
-    (template.variables || []).forEach((v, idx) => {
-      const sample = template.bodyVariableSampleValues?.[idx] || ``;
-      const regex = new RegExp(`{{\\s*${v}\\s*}}`, "g");
-      result = result.replace(regex, sample);
-    });
-    return result;
-  };
-
-  const renderPreviewBody = (template: Template) => {
-    const filled = fillSampleValues(template.content || "", template);
-
-    if (template.templateType === "email") {
-      return (
-        <div className="border rounded-lg overflow-hidden shadow-sm bg-white">
-          {template.headerFileUrl ? (
-            <img
-              src={template.headerFileUrl}
-              alt="header"
-              className="w-full h-40 object-cover"
-            />
-          ) : (
-            <div className="w-full h-12 bg-gray-50 flex items-center justify-center text-sm text-gray-500">
-              {template.headerText || ""}
-            </div>
-          )}
-          <div className="p-6">
-            <h4 className="text-sm text-gray-500 mb-1">{template.subject}</h4>
-            <p className="text-xs text-gray-400 mb-3">{template.preheader}</p>
-            <div className="prose max-w-none text-sm text-gray-700 whitespace-pre-wrap">
-              {filled}
-            </div>
-          </div>
-          {template.footer && (
-            <div className="p-4 bg-gray-50 text-xs text-gray-500">
-              {template.footer}
-            </div>
-          )}
-        </div>
-      );
-    }
-
-    // WhatsApp / SMS style bubble
-    return (
-      <div className="p-4">
-        <div className="max-w-md">
-          <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-100">
-            <div className="text-sm text-gray-800 whitespace-pre-wrap">
-              {filled}
-            </div>
-            {template.templateButtons &&
-              template.templateButtons.length > 0 && (
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {template.templateButtons.map((b, i) => (
-                    <button
-                      key={i}
-                      className="px-3 py-1.5 bg-gray-800 text-white text-xs rounded"
-                    >
-                      {b.text || b.type}
-                    </button>
-                  ))}
-                </div>
-              )}
-          </div>
-        </div>
-      </div>
-    );
-  };
-
   const handleDeleteTemplate = async (templateId: string | undefined) => {
     if (!token || !templateId) return;
     try {
@@ -314,7 +242,7 @@ const TemplatesPage: NextPageWithLayout = () => {
         `/api/all-templates/delete-template/${templateId}`,
         {
           headers: { Authorization: `Bearer ${token}` },
-        }
+        },
       );
       if (res?.data?.success) {
         const filteredTemplates = templates.filter((t) => t._id !== templateId);
@@ -793,103 +721,514 @@ const TemplatesPage: NextPageWithLayout = () => {
 
       {/* Preview Modal */}
       {showPreviewModal && previewTemplate && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          {/* Backdrop */}
           <div
-            className="absolute inset-0 bg-black/50"
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
             onClick={() => setShowPreviewModal(false)}
           />
-          <div className="relative z-10 w-full max-w-5xl mx-4">
-            <div className="bg-white rounded-xl shadow-xl overflow-hidden max-h-[90vh]">
-              <div className="flex items-center justify-between p-4 border-b">
+
+          {/* Modal Container */}
+          <div className="relative z-10 w-full max-w-5xl">
+            <div className="bg-white rounded-xl shadow-xl overflow-hidden flex flex-col h-full">
+              {/* Header */}
+              <div
+                className={`bg-gradient-to-r ${previewTemplate?.templateType === "whatsapp" ? "from-green-600 to-green-700" : previewTemplate?.templateType === "sms" ? "from-blue-600 to-blue-700" : previewTemplate?.templateType === "email" ? "from-red-600 to-red-700" : ""} text-white px-6 py-4 flex justify-between items-center`}
+              >
                 <div className="flex items-center gap-3">
-                  <div className="p-2 bg-gray-100 rounded-lg">
+                  <div className="p-2 bg-white backdrop-blur-sm rounded-lg">
                     {getTemplateTypeIcon(previewTemplate.templateType)}
                   </div>
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-900">
+                    <h3 className="text-xl font-bold text-white">
                       {previewTemplate.name}
                     </h3>
-                    <p className="text-xs text-gray-500">
+                    <p className="text-white/80 text-sm">
+                      Preview Template •{" "}
                       {previewTemplate.uniqueName || previewTemplate.templateId}
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setShowPreviewModal(false)}
-                    className="text-sm text-gray-600 px-3 py-1 rounded hover:bg-gray-100"
-                  >
-                    Close
-                  </button>
-                </div>
+                <button
+                  onClick={() => setShowPreviewModal(false)}
+                  className="text-white hover:bg-white/20 rounded-lg p-2 transition-colors"
+                  aria-label="Close preview"
+                >
+                  <X className="w-5 h-5" />
+                </button>
               </div>
 
-              <div className="p-4 grid grid-cols-1 lg:grid-cols-3 gap-4">
-                <div className="lg:col-span-2">
-                  {renderPreviewBody(previewTemplate)}
-                </div>
+              {/* Main Content */}
+              <div className="max-h-[75vh] overflow-y-auto p-6">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  {/* Preview Content (Left - 2/3 width) */}
+                  <div className="lg:col-span-2 space-y-4">
+                    {/* Header Preview */}
+                    {previewTemplate?.isHeader && (
+                      <div className="relative">
+                        {previewTemplate?.headerType === "text" &&
+                          previewTemplate?.headerText && (
+                            <div className="bg-gradient-to-r from-green-600 to-green-700 text-white p-4 rounded-t-lg">
+                              <div className="font-medium text-sm">
+                                {previewTemplate.headerText}
+                              </div>
+                            </div>
+                          )}
 
-                <div className="lg:col-span-1 border-l pl-4">
-                  <div className="mb-3">
-                    <div className="text-xs text-gray-500 mb-1">Status</div>
-                    {getStatusBadge(previewTemplate.status)}
-                  </div>
+                        {previewTemplate?.headerType !== "text" &&
+                          previewTemplate?.headerFileUrl && (
+                            <div className="relative rounded-t-lg overflow-hidden bg-gray-100">
+                              {previewTemplate.headerType === "image" ? (
+                                <img
+                                  src={previewTemplate.headerFileUrl}
+                                  alt="Template header"
+                                  className="w-full h-48 object-cover"
+                                />
+                              ) : previewTemplate.headerType === "video" ? (
+                                <div className="relative h-48 bg-black">
+                                  <video
+                                    className="w-full h-full object-cover"
+                                    controls
+                                  >
+                                    <source
+                                      src={previewTemplate.headerFileUrl}
+                                      type={`video/${previewTemplate.headerType}`}
+                                    />
+                                  </video>
+                                </div>
+                              ) : (
+                                <div className="h-48 flex flex-col items-center justify-center p-6 bg-gray-50">
+                                  <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mb-3">
+                                    <svg
+                                      className="w-8 h-8 text-gray-400"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      viewBox="0 0 24 24"
+                                    >
+                                      <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={2}
+                                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                                      />
+                                    </svg>
+                                  </div>
+                                  <div className="text-center">
+                                    <div className="font-medium text-gray-900">
+                                      Document Attachment
+                                    </div>
+                                    <div className="text-sm text-gray-600 mt-1">
+                                      File will be sent with message
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                      </div>
+                    )}
 
-                  <div className="mb-3">
-                    <div className="text-xs text-gray-500 mb-1">Category</div>
-                    {previewTemplate.category &&
-                      getCategoryBadge(previewTemplate.category)}
-                  </div>
+                    {/* Message Body Preview */}
+                    <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                      <div className="p-4">
+                        {/* Variable Placeholders */}
+                        {previewTemplate?.variables &&
+                          previewTemplate.variables.length > 0 && (
+                            <div className="mb-3">
+                              <div className="text-xs font-medium text-gray-500 mb-2">
+                                Variables will appear as:
+                              </div>
+                              <div className="flex flex-wrap gap-2">
+                                {previewTemplate?.variables?.map(
+                                  (variable: string, index: number) => (
+                                    <span
+                                      key={index}
+                                      className="inline-flex items-center px-2 py-1 rounded-md bg-blue-50 text-blue-700 text-xs font-medium"
+                                    >
+                                      {variable}
+                                    </span>
+                                  ),
+                                )}
+                              </div>
+                            </div>
+                          )}
 
-                  <div className="mb-3">
-                    <div className="text-xs text-gray-500 mb-1">Language</div>
-                    <div className="text-sm text-gray-700">
-                      {previewTemplate.language.toUpperCase()}
+                        {previewTemplate?.subject && (
+                          <div className="text-gray-800 whitespace-pre-wrap leading-relaxed">
+                            <span className="font-semibold text-gray-900">
+                              Subject
+                            </span>{" "}
+                            : {previewTemplate?.subject}
+                          </div>
+                        )}
+                        {previewTemplate?.preheader && (
+                          <div className="text-gray-800 whitespace-pre-wrap leading-relaxed">
+                            <span className="font-semibold text-gray-900">
+                              Preheader
+                            </span>{" "}
+                            : {previewTemplate?.preheader}
+                          </div>
+                        )}
+
+                        {/* Content Preview */}
+                        <div className="text-gray-800 whitespace-pre-wrap leading-relaxed">
+                          {previewTemplate?.content}
+                        </div>
+                      </div>
+
+                      {/* Footer Preview */}
+                      {previewTemplate?.isFooter && previewTemplate?.footer && (
+                        <div className="border-t border-gray-100 p-4 bg-gray-50">
+                          <div className="text-sm text-gray-600">
+                            {previewTemplate.footer}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Buttons Preview */}
+                      {previewTemplate?.isButton &&
+                        previewTemplate?.templateButtons?.length > 0 && (
+                          <div className="border-t border-gray-100">
+                            {previewTemplate?.templateButtons
+                              ?.slice(0, 2)
+                              .map((button, index) => (
+                                <div
+                                  key={index}
+                                  className={`flex items-center gap-3 px-4 py-3 ${
+                                    index > 0 ? "border-t border-gray-100" : ""
+                                  } hover:bg-gray-50 transition-colors`}
+                                >
+                                  {button?.type === "QUICK_REPLY" && (
+                                    <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
+                                      <svg
+                                        className="w-4 h-4 text-green-600"
+                                        fill="currentColor"
+                                        viewBox="0 0 24 24"
+                                      >
+                                        <path d="M10 9V5l-7 7 7 7v-4.1c5 0 8.5 1.6 11 5.1-1-5-4-10-11-11z" />
+                                      </svg>
+                                    </div>
+                                  )}
+                                  {button?.type === "URL" && (
+                                    <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
+                                      <svg
+                                        className="w-4 h-4 text-blue-600"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        viewBox="0 0 24 24"
+                                      >
+                                        <path
+                                          strokeLinecap="round"
+                                          strokeLinejoin="round"
+                                          strokeWidth={2}
+                                          d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                                        />
+                                      </svg>
+                                    </div>
+                                  )}
+                                  {button?.type === "PHONE_NUMBER" && (
+                                    <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center">
+                                      <svg
+                                        className="w-4 h-4 text-purple-600"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        viewBox="0 0 24 24"
+                                      >
+                                        <path
+                                          strokeLinecap="round"
+                                          strokeLinejoin="round"
+                                          strokeWidth={2}
+                                          d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"
+                                        />
+                                      </svg>
+                                    </div>
+                                  )}
+                                  <div className="flex-1">
+                                    <div className="font-medium text-gray-900">
+                                      {button?.text}
+                                    </div>
+                                    {button?.type === "URL" && (
+                                      <div className="text-xs text-gray-500">
+                                        Tap to open link
+                                      </div>
+                                    )}
+                                    {button?.type === "PHONE_NUMBER" && (
+                                      <div className="text-xs text-gray-500">
+                                        Call phone number
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+
+                            {previewTemplate?.templateButtons &&
+                              previewTemplate.templateButtons.length >= 3 && (
+                                <div className="border-t border-gray-100 px-4 py-3 bg-gray-50">
+                                  <div className="flex items-center gap-3 text-gray-600">
+                                    <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center">
+                                      <svg
+                                        className="w-4 h-4 text-gray-500"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        viewBox="0 0 24 24"
+                                      >
+                                        <path
+                                          strokeLinecap="round"
+                                          strokeLinejoin="round"
+                                          strokeWidth={2}
+                                          d="M4 6h16M4 12h16M4 18h16"
+                                        />
+                                      </svg>
+                                    </div>
+                                    <div className="text-sm font-medium">
+                                      +
+                                      {previewTemplate?.templateButtons
+                                        ?.length! - 2}{" "}
+                                      more options
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                          </div>
+                        )}
                     </div>
                   </div>
 
-                  {previewTemplate.variables &&
-                    previewTemplate.variables.length > 0 && (
-                      <div className="mb-3">
-                        <div className="text-xs text-gray-500 mb-1">
-                          Variables
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                          {previewTemplate.variables.map((v, i) => (
-                            <span
-                              key={i}
-                              className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded"
-                            >
-                              {v}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
+                  {/* Template Info (Right - 1/3 width) */}
+                  <div className="lg:col-span-1 space-y-4">
+                    {/* Template Details Card */}
+                    <div className="bg-gradient-to-br from-gray-50 to-white border border-gray-200 rounded-lg p-4">
+                      <h4 className="font-bold text-gray-800 mb-3 flex items-center gap-2">
+                        <svg
+                          className="w-4 h-4 text-gray-600"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                          />
+                        </svg>
+                        Template Details
+                      </h4>
 
-                  {previewTemplate.templateButtons &&
-                    previewTemplate.templateButtons.length > 0 && (
-                      <div className="mb-3">
-                        <div className="text-xs text-gray-500 mb-1">
-                          Buttons
+                      <div className="space-y-4">
+                        {/* Template ID */}
+                        <div>
+                          <div className="text-xs text-gray-500 mb-1">
+                            Template ID
+                          </div>
+                          <div className="text-gray-500 text-xs">
+                            {previewTemplate?.templateId ||
+                              previewTemplate?._id}
+                          </div>
                         </div>
-                        <div className="flex flex-col gap-2">
-                          {previewTemplate.templateButtons.map((b, i) => (
-                            <div
-                              key={i}
-                              className="flex items-center justify-between text-sm"
-                            >
-                              <div className="text-gray-700">
-                                {b.text || b.type}
-                              </div>
-                              <div className="text-xs text-gray-400">
-                                {b.type}
-                              </div>
+                        {/* Status */}
+                        <div>
+                          <div className="text-xs text-gray-500 mb-1">
+                            Status
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {getStatusBadge(previewTemplate.status)}
+                            <span className="text-xs text-gray-500">
+                              {previewTemplate.status === "approved"
+                                ? "✓ Ready to send"
+                                : previewTemplate.status === "pending"
+                                  ? "⏳ Awaiting review"
+                                  : previewTemplate.status === "rejected"
+                                    ? "✗ Needs revision"
+                                    : ""}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Category */}
+                        <div>
+                          <div className="text-xs text-gray-500 mb-1">
+                            Category
+                          </div>
+                          {previewTemplate.category ? (
+                            <div className="flex items-center gap-2">
+                              {getCategoryBadge(previewTemplate.category)}
                             </div>
-                          ))}
+                          ) : (
+                            <div className="text-sm text-gray-400 italic">
+                              Not categorized
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Language */}
+                        <div>
+                          <div className="text-xs text-gray-500 mb-1">
+                            Language
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm text-gray-700">
+                              {previewTemplate.language.toUpperCase()}
+                            </span>
+                            <span className="text-xs text-gray-500">
+                              ({previewTemplate.language})
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Template Type */}
+                        <div>
+                          <div className="text-xs text-gray-500 mb-1">
+                            Template Type
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {previewTemplate.templateType === "email" && (
+                              <span className="text-xs bg-orange-100 text-orange-800 px-2 py-0.5 rounded-full">
+                                Email
+                              </span>
+                            )}
+                            {previewTemplate.templateType === "sms" && (
+                              <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">
+                                SMS
+                              </span>
+                            )}
+                            {previewTemplate.templateType === "whatsapp" && (
+                              <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full">
+                                WhatsApp
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
-                    )}
+                    </div>
+
+                    {/* Variables Card */}
+                    {previewTemplate?.variables &&
+                      previewTemplate.variables.length > 0 && (
+                        <div className="bg-gradient-to-br from-blue-50 to-white border border-blue-100 rounded-lg p-4">
+                          <h4 className="font-bold text-gray-800 mb-3 flex items-center gap-2">
+                            <svg
+                              className="w-4 h-4 text-blue-600"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+                              />
+                            </svg>
+                            Variables ({previewTemplate.variables.length})
+                          </h4>
+                          <div className="space-y-2">
+                            {previewTemplate.variables.map((v, i) => (
+                              <div
+                                key={i}
+                                className="flex items-center justify-between text-sm"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <div className="w-6 h-6 rounded bg-blue-100 flex items-center justify-center">
+                                    <span className="text-xs font-bold text-blue-700">
+                                      {i + 1}
+                                    </span>
+                                  </div>
+                                  <span className="text-gray-700 font-medium">
+                                    {v}
+                                  </span>
+                                </div>
+                                <div className="text-xs text-gray-500">
+                                  Required
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                          <div className="mt-3 pt-3 border-t border-blue-100">
+                            <p className="text-xs text-gray-600">
+                              These variables must be provided when sending this
+                              template.
+                            </p>
+                          </div>
+                        </div>
+                      )}
+
+                    {/* Buttons Card */}
+                    {previewTemplate?.templateButtons &&
+                      previewTemplate.templateButtons.length > 0 && (
+                        <div className="bg-gradient-to-br from-green-50 to-white border border-green-100 rounded-lg p-4">
+                          <h4 className="font-bold text-gray-800 mb-3 flex items-center gap-2">
+                            <svg
+                              className="w-4 h-4 text-green-600"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M4 6h16M4 12h16m-7 6h7"
+                              />
+                            </svg>
+                            Buttons ({previewTemplate.templateButtons.length})
+                          </h4>
+                          <div className="space-y-4">
+                            {previewTemplate.templateButtons.map((b, i) => (
+                              <div
+                                key={i}
+                                className="flex items-center justify-between text-sm"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <div
+                                    className={`w-6 h-6 rounded flex items-center justify-center ${
+                                      b.type === "QUICK_REPLY"
+                                        ? "bg-green-100"
+                                        : b.type === "URL"
+                                          ? "bg-blue-100"
+                                          : b.type === "PHONE_NUMBER"
+                                            ? "bg-purple-100"
+                                            : "bg-gray-100"
+                                    }`}
+                                  >
+                                    <span className="text-xs font-bold text-gray-700">
+                                      {i + 1}
+                                    </span>
+                                  </div>
+                                  <div>
+                                    <div className="text-gray-700 font-medium">
+                                      {b.text}
+                                    </div>
+                                    <div className="text-xs text-gray-500 capitalize">
+                                      {b.type.replace("_", " ").toLowerCase()}
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="text-xs text-gray-500">
+                                  {b.type === "URL"
+                                    ? "Link"
+                                    : b.type === "PHONE_NUMBER"
+                                      ? "Phone"
+                                      : "Quick Reply"}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="border-t border-gray-200 bg-gray-50 px-6 py-4 flex justify-end items-center">
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setShowPreviewModal(false)}
+                    className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 text-sm font-medium hover:bg-gray-100 transition-colors"
+                  >
+                    Close
+                  </button>
                 </div>
               </div>
             </div>
@@ -918,7 +1257,7 @@ TemplatesPage.getLayout = function getLayout(page: ReactElement) {
 
 // ✅ Wrap page with auth HOC
 const ProtectedTemplatesPage = withClinicAuth(
-  TemplatesPage
+  TemplatesPage,
 ) as NextPageWithLayout;
 
 // ✅ Re-attach layout

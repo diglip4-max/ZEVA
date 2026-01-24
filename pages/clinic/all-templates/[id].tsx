@@ -71,7 +71,7 @@ const InputField = React.memo(
         className={`w-full px-4 py-3 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed bg-white ${className}`}
       />
     </div>
-  )
+  ),
 );
 
 const TemplateCreateAndEditPage: NextPageWithLayout = () => {
@@ -103,6 +103,8 @@ const TemplateCreateAndEditPage: NextPageWithLayout = () => {
     textAreaRef,
     // fileInputRef,
     whatsappProviders,
+    smsProviders,
+    emailProviders,
     content,
     values,
     loading,
@@ -370,7 +372,14 @@ const TemplateCreateAndEditPage: NextPageWithLayout = () => {
                       disabled={loading || !!template}
                     >
                       <option value="">Select provider</option>
-                      {whatsappProviders.map((provider) => (
+                      {(values?.templateType === "whatsapp"
+                        ? whatsappProviders
+                        : values?.templateType === "sms"
+                          ? smsProviders
+                          : values?.templateType === "email"
+                            ? emailProviders
+                            : []
+                      ).map((provider) => (
                         <option key={provider._id} value={provider._id}>
                           {provider.label || provider.phone}
                         </option>
@@ -452,7 +461,7 @@ const TemplateCreateAndEditPage: NextPageWithLayout = () => {
                             ...prev,
                             uniqueName: getUniqueName(e.target.value)?.slice(
                               0,
-                              512
+                              512,
                             ),
                           }))
                         }
@@ -586,7 +595,7 @@ const TemplateCreateAndEditPage: NextPageWithLayout = () => {
                                 }))
                               }
                               disabled={/\{\{\d+\}\}/.test(
-                                values?.headerText || ""
+                                values?.headerText || "",
                               )}
                               className="text-xs"
                             >
@@ -662,7 +671,7 @@ const TemplateCreateAndEditPage: NextPageWithLayout = () => {
                               onChange={(e) => {
                                 const updatedValues =
                                   headerVariableSampleValues.map((val, idx) =>
-                                    idx === index ? e.target.value : val
+                                    idx === index ? e.target.value : val,
                                   );
                                 setHeaderVariableSampleValues(updatedValues);
                               }}
@@ -671,7 +680,7 @@ const TemplateCreateAndEditPage: NextPageWithLayout = () => {
                               required
                               showCharCount
                             />
-                          )
+                          ),
                         )}
                       </div>
                     </div>
@@ -721,7 +730,7 @@ const TemplateCreateAndEditPage: NextPageWithLayout = () => {
                             onChange={(e) => {
                               const updatedValues = variableSampleValues.map(
                                 (val, idx) =>
-                                  idx === index ? e.target.value : val
+                                  idx === index ? e.target.value : val,
                               );
                               setVariableSampleValues(updatedValues);
                             }}
@@ -808,11 +817,11 @@ const TemplateCreateAndEditPage: NextPageWithLayout = () => {
                                   const disabled =
                                     (option.type === "URL" &&
                                       templateButtons.filter(
-                                        (t: any) => t.type === "URL"
+                                        (t: any) => t.type === "URL",
                                       ).length >= 2) ||
                                     (option.type === "PHONE_NUMBER" &&
                                       templateButtons.filter(
-                                        (t: any) => t.type === "PHONE_NUMBER"
+                                        (t: any) => t.type === "PHONE_NUMBER",
                                       ).length >= 1);
 
                                   return (
@@ -864,7 +873,7 @@ const TemplateCreateAndEditPage: NextPageWithLayout = () => {
                                     handleButtonInputChange(
                                       index,
                                       "text",
-                                      e.target.value
+                                      e.target.value,
                                     )
                                   }
                                   placeholder={
@@ -885,7 +894,7 @@ const TemplateCreateAndEditPage: NextPageWithLayout = () => {
                                         handleButtonInputChange(
                                           index,
                                           "url",
-                                          e.target.value
+                                          e.target.value,
                                         )
                                       }
                                       placeholder="https://example.com"
@@ -902,7 +911,7 @@ const TemplateCreateAndEditPage: NextPageWithLayout = () => {
                                         handleButtonInputChange(
                                           index,
                                           "phone_number",
-                                          e.target.value
+                                          e.target.value,
                                         )
                                       }
                                       placeholder="+1234567890"
@@ -1221,7 +1230,7 @@ const TemplateCreateAndEditPage: NextPageWithLayout = () => {
                                     </div>
                                     <div className="text-sm text-gray-600 mt-1">
                                       {(headerFile.size / 1024 / 1024).toFixed(
-                                        2
+                                        2,
                                       )}{" "}
                                       MB
                                     </div>
@@ -1252,7 +1261,7 @@ const TemplateCreateAndEditPage: NextPageWithLayout = () => {
                                       >
                                         {variable}
                                       </span>
-                                    )
+                                    ),
                                   )}
                                 </div>
                               </div>
@@ -1571,7 +1580,7 @@ TemplateCreateAndEditPage.getLayout = function getLayout(page: ReactElement) {
 
 // Wrap page with auth HOC
 const ProtectedTemplateCreateAndEditPage = withClinicAuth(
-  TemplateCreateAndEditPage
+  TemplateCreateAndEditPage,
 ) as NextPageWithLayout;
 
 // Re-attach layout

@@ -28,7 +28,7 @@ export type Template = {
   preheader: string;
   subject: string;
   uniqueName: string;
-  category: "marketing";
+  category: "marketing" | "utility" | "authentication";
   language: string;
   content: string;
   designJson: object;

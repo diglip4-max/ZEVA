@@ -37,7 +37,8 @@
     "components/blog.jsx",
     "components/Index1.jsx",
     "components/Footer.jsx",
-    "components/CalculatorGames.jsx"
-, "pages/lead/segments.jsx"  ],
+    "components/CalculatorGames.jsx",
+    "pages/clinic/segments.jsx"
+  ],
   "exclude": ["node_modules"]
 }

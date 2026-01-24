@@ -135,7 +135,7 @@ export interface TemplateButton {
 const useCreateAndEditTemplate = () => {
   const router = useRouter();
   const { id: templateId } = router.query;
-  const { whatsappProviders } = useProvider();
+  const { whatsappProviders, smsProviders, emailProviders } = useProvider();
   const textAreaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [template, setTemplate] = useState<Template | null>(null);
@@ -162,7 +162,7 @@ const useCreateAndEditTemplate = () => {
   const [variables, setVariables] = useState<string[]>([]);
   const [headerVariables, setHeaderVariables] = useState<string[]>([]);
   const [variableSampleValues, setVariableSampleValues] = useState<string[]>(
-    []
+    [],
   );
   const [headerVariableSampleValues, setHeaderVariableSampleValues] = useState<
     string[]
@@ -283,7 +283,7 @@ const useCreateAndEditTemplate = () => {
 
   const handleRemoveButton = (index: number) => {
     setTemplateButtons((prevButtons) =>
-      prevButtons.filter((_, i) => i !== index)
+      prevButtons.filter((_, i) => i !== index),
     );
   };
 
@@ -291,7 +291,7 @@ const useCreateAndEditTemplate = () => {
   const handleButtonInputChange = (
     index: number,
     field: keyof TemplateButton,
-    value: string
+    value: string,
   ) => {
     const updatedButtons = [...templateButtons];
     updatedButtons[index] = { ...updatedButtons[index], [field]: value };
@@ -314,7 +314,7 @@ const useCreateAndEditTemplate = () => {
       // Validate file size
       if (fileSize > maxSize) {
         toast.error(
-          `File size exceeds the limit of ${maxSize / (1024 * 1024)}MB`
+          `File size exceeds the limit of ${maxSize / (1024 * 1024)}MB`,
         );
         e.target.value = ""; // Reset file input
         return;
@@ -359,7 +359,7 @@ const useCreateAndEditTemplate = () => {
       setTimeout(() => {
         textAreaRef.current?.setSelectionRange(
           start + variable.length,
-          start + variable.length
+          start + variable.length,
         );
       }, 0);
     }
@@ -368,7 +368,7 @@ const useCreateAndEditTemplate = () => {
   //   TODO: Update template function
   const handleUpdateTemplate = async (
     templateId: string,
-    redirectPath: string
+    redirectPath: string,
   ) => {
     console.log("Update template:", { templateId, redirectPath });
     setLoading(true);
@@ -435,12 +435,12 @@ const useCreateAndEditTemplate = () => {
     formData.append("variables", JSON.stringify(variables || []));
     formData.append(
       "bodyVariableSampleValues",
-      JSON.stringify(variableSampleValues)
+      JSON.stringify(variableSampleValues),
     );
     formData.append("headerVariables", JSON.stringify(headerVariables || []));
     formData.append(
       "headerVariableSampleValues",
-      JSON.stringify(headerVariableSampleValues)
+      JSON.stringify(headerVariableSampleValues),
     );
     if (templateButtons.length > 0) {
       formData.append("templateButtons", JSON.stringify(templateButtons));
@@ -463,7 +463,7 @@ const useCreateAndEditTemplate = () => {
           headers: {
             Authorization: `Bearer ${token}`,
           },
-        }
+        },
       );
 
       if (data && data.success) {
@@ -576,12 +576,12 @@ const useCreateAndEditTemplate = () => {
     formData.append("variables", JSON.stringify(variables || []));
     formData.append(
       "bodyVariableSampleValues",
-      JSON.stringify(variableSampleValues)
+      JSON.stringify(variableSampleValues),
     );
     formData.append("headerVariables", JSON.stringify(headerVariables || []));
     formData.append(
       "headerVariableSampleValues",
-      JSON.stringify(headerVariableSampleValues)
+      JSON.stringify(headerVariableSampleValues),
     );
     if (templateButtons.length > 0) {
       formData.append("templateButtons", JSON.stringify(templateButtons));
@@ -606,7 +606,7 @@ const useCreateAndEditTemplate = () => {
             "Content-Type": "multipart/form-data",
             Authorization: `Bearer ${token}`,
           },
-        }
+        },
       );
 
       toast.success(data.message);
@@ -646,7 +646,7 @@ const useCreateAndEditTemplate = () => {
 
   useEffect(() => {
     const matchedVariables = Array.from(
-      new Set(content.match(/{{\d+}}/g) || []) // Safely return empty array if match is null
+      new Set(content.match(/{{\d+}}/g) || []), // Safely return empty array if match is null
     ).sort((a, b) => {
       const numA = a.match(/\d+/)?.[0];
       const numB = b.match(/\d+/)?.[0];
@@ -684,6 +684,8 @@ const useCreateAndEditTemplate = () => {
     fileInputRef,
     // providers,
     whatsappProviders,
+    smsProviders,
+    emailProviders,
     loading,
     content,
     values,

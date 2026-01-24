@@ -86,22 +86,22 @@ function LeadsPage() {
   // Get token based on user role and route context
   const getToken = () => {
     if (typeof window === "undefined") return null;
-    
+
     const userRole = getUserRole();
     const isStaffRoute = routeContext === "staff";
-    
+
     // For agent role: use agentToken (especially on staff routes)
     if (userRole === "agent") {
       const agentToken = localStorage.getItem("agentToken") || sessionStorage.getItem("agentToken");
       if (agentToken) return agentToken;
     }
-    
+
     // For doctorStaff role: use userToken
     if (userRole === "doctorStaff") {
       const userToken = localStorage.getItem("userToken") || sessionStorage.getItem("userToken");
       if (userToken) return userToken;
     }
-    
+
     // For staff routes, check agentToken and userToken (for agent and doctorStaff)
     if (isStaffRoute) {
       const agentToken = localStorage.getItem("agentToken") || sessionStorage.getItem("agentToken");
@@ -109,7 +109,7 @@ function LeadsPage() {
       const userToken = localStorage.getItem("userToken") || sessionStorage.getItem("userToken");
       if (userToken) return userToken;
     }
-    
+
     // For other roles, use standard priority
     const TOKEN_PRIORITY = ["clinicToken", "doctorToken", "agentToken", "userToken", "adminToken"];
     for (const key of TOKEN_PRIORITY) {
@@ -125,7 +125,7 @@ function LeadsPage() {
   const isStaffRoute = routeContext === "staff";
   const userRole = getUserRole();
   const isAgentOrDoctorStaff = userRole === "agent" || userRole === "doctorStaff";
-  
+
   // Use hook only for agent/doctorStaff on staff routes
   // Try clinic_create_lead first (as that's what's saved in permissions), fallback to clinic_lead
   const agentPermissionsResult = useAgentPermissions(
@@ -147,7 +147,7 @@ function LeadsPage() {
   useEffect(() => {
     if (!isStaffRoute || !isAgentOrDoctorStaff) return;
     if (agentPermissionsLoading) return;
-    
+
     // Set permissions from agent permissions hook (same logic for both agent and doctorStaff)
     const newPermissions = {
       canCreate: Boolean(agentPermissions.canAll || agentPermissions.canCreate),
@@ -156,14 +156,14 @@ function LeadsPage() {
       canRead: Boolean(agentPermissions.canAll || agentPermissions.canRead),
       canAssign: Boolean(agentPermissions.canAll || agentPermissions.canUpdate),
     };
-    
+
     console.log('[create-lead] Setting permissions from agentPermissions:', {
       userRole,
       agentPermissions,
       newPermissions,
       hasAnyPermission: newPermissions.canCreate || newPermissions.canRead || newPermissions.canUpdate || newPermissions.canDelete
     });
-    
+
     setPermissions(newPermissions);
     setPermissionsLoaded(true);
   }, [isStaffRoute, isAgentOrDoctorStaff, agentPermissions, agentPermissionsLoading, userRole]);
@@ -173,7 +173,7 @@ function LeadsPage() {
   useEffect(() => {
     // Skip if staff route with agent/doctorStaff (handled by useAgentPermissions hook)
     if (isStaffRoute && isAgentOrDoctorStaff) return;
-    
+
     const fetchPermissions = async () => {
       try {
         const authToken = getToken();
@@ -190,7 +190,7 @@ function LeadsPage() {
         }
 
         const currentUserRole = getUserRole();
-        
+
         // For admin role, grant full access (bypass permission checks)
         if (userRole === "admin") {
           setPermissions({
@@ -230,31 +230,31 @@ function LeadsPage() {
                   // Check for clinic_lead or clinic_create_lead module
                   const moduleKey = p.module || "";
                   const normalizedModule = moduleKey.replace(/^(admin|clinic|doctor|agent)_/, "");
-                  return normalizedModule === "lead" || 
-                         normalizedModule === "create_lead" ||
-                         moduleKey === "clinic_lead" || 
-                         moduleKey === "clinic_create_lead" ||
-                         moduleKey === "create_lead" ||
-                         moduleKey === "lead";
+                  return normalizedModule === "lead" ||
+                    normalizedModule === "create_lead" ||
+                    moduleKey === "clinic_lead" ||
+                    moduleKey === "clinic_create_lead" ||
+                    moduleKey === "create_lead" ||
+                    moduleKey === "lead";
                 });
 
-        if (modulePermission) {
-          const actions = modulePermission.actions || {};
+                if (modulePermission) {
+                  const actions = modulePermission.actions || {};
 
-          // Helper function to check if a permission value is true (handles boolean and string)
-          const isTrue = (value) => {
-            if (value === true) return true;
-            if (value === "true") return true;
-            if (String(value).toLowerCase() === "true") return true;
-            return false;
-          };
+                  // Helper function to check if a permission value is true (handles boolean and string)
+                  const isTrue = (value) => {
+                    if (value === true) return true;
+                    if (value === "true") return true;
+                    if (String(value).toLowerCase() === "true") return true;
+                    return false;
+                  };
 
                   // Check if "all" is true, which grants all permissions
-          const moduleAll = isTrue(actions.all);
-          const moduleCreate = isTrue(actions.create);
+                  const moduleAll = isTrue(actions.all);
+                  const moduleCreate = isTrue(actions.create);
                   const moduleRead = isTrue(actions.read);
-          const moduleUpdate = isTrue(actions.update);
-          const moduleDelete = isTrue(actions.delete);
+                  const moduleUpdate = isTrue(actions.update);
+                  const moduleDelete = isTrue(actions.delete);
 
                   setPermissions({
                     canCreate: moduleAll || moduleCreate,
@@ -305,15 +305,15 @@ function LeadsPage() {
             // For agent: use agentToken, for doctorStaff: use userToken
             let agentStaffToken = null;
             if (currentUserRole === "agent") {
-              agentStaffToken = 
-                localStorage.getItem("agentToken") || 
+              agentStaffToken =
+                localStorage.getItem("agentToken") ||
                 sessionStorage.getItem("agentToken");
             } else if (currentUserRole === "doctorStaff") {
-              agentStaffToken = 
-                localStorage.getItem("userToken") || 
+              agentStaffToken =
+                localStorage.getItem("userToken") ||
                 sessionStorage.getItem("userToken");
             }
-            
+
             if (!agentStaffToken) {
               setPermissions({
                 canCreate: false,
@@ -363,15 +363,15 @@ function LeadsPage() {
               const moduleDelete = isTrue(actions.delete);
 
               setPermissions({
-            canCreate: moduleAll || moduleCreate,
+                canCreate: moduleAll || moduleCreate,
                 canRead: moduleAll || moduleRead,
-            canUpdate: moduleAll || moduleUpdate,
-            canDelete: moduleAll || moduleDelete,
-            canAssign: moduleAll || moduleUpdate,
-          });
-        } else {
+                canUpdate: moduleAll || moduleUpdate,
+                canDelete: moduleAll || moduleDelete,
+                canAssign: moduleAll || moduleUpdate,
+              });
+            } else {
               // No permissions found
-          setPermissions({
+              setPermissions({
                 canCreate: false,
                 canUpdate: false,
                 canDelete: false,
@@ -381,14 +381,14 @@ function LeadsPage() {
             }
           } catch (err) {
             console.error("Error fetching agent permissions:", err);
-        setPermissions({
-          canCreate: false,
-          canUpdate: false,
-          canDelete: false,
-          canRead: false,
-          canAssign: false,
-        });
-      }
+            setPermissions({
+              canCreate: false,
+              canUpdate: false,
+              canDelete: false,
+              canRead: false,
+              canAssign: false,
+            });
+          }
           setPermissionsLoaded(true);
           return;
         }
@@ -600,8 +600,8 @@ function LeadsPage() {
               </button> */}
               {permissions.canCreate && (
                 <Link
-                  href="/lead/segments"
-                  className="inline-flex items-center justify-center cursor-pointer gap-1.5 border border-teal-800 text-teal-800 bg-transparent hover:bg-teal-800 hover:text-white px-3 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs sm:text-sm font-medium"
+                  href="/clinic/segments"
+                  className="inline-flex items-center justify-center cursor-pointer gap-1.5 border border-gray-800 text-gray-800 bg-transparent hover:bg-gray-800 hover:text-white px-3 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs sm:text-sm font-medium"
                 >
                   <Tag className="h-3.5 w-3.5" />
                   <span>Manage Segments</span>

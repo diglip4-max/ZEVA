@@ -16,6 +16,7 @@ interface EmojiPickerModalProps {
   autoPosition?: boolean;
   maxHeight?: string;
   onOpenChange?: (open: boolean) => void;
+  onPickEmoji?: (emoji: string) => void;
 }
 
 type Placement =
@@ -154,7 +155,7 @@ const EmojiPickerModal: React.FC<EmojiPickerModalProps> = ({
       setTimeout(() => {
         input.setSelectionRange(
           start + emojiChar.length,
-          start + emojiChar.length
+          start + emojiChar.length,
         );
         input.focus();
       }, 0);
