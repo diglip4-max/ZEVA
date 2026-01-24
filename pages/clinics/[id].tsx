@@ -131,7 +131,6 @@ export default function ClinicDetail() {
   const shouldNavigateAfterLogin = useRef(false);
   const pendingClinicData = useRef<{ clinic: Clinic } | null>(null);
   const navigateToReview = useRef(false);
-  const [profilePhotoIndex, setProfilePhotoIndex] = useState(0);
 
   useEffect(() => {
     if (!router.isReady || !slug) return;
@@ -232,15 +231,6 @@ export default function ClinicDetail() {
     };
     fetchReviews();
   }, [clinic?._id]);
-
-  useEffect(() => {
-    const photos = clinic?.photos || [];
-    if (photos.length > 0) {
-      setProfilePhotoIndex(photos.length - 1);
-    } else {
-      setProfilePhotoIndex(0);
-    }
-  }, [clinic?.photos]);
 
   // Navigate to enquiry or review form after successful login
   useEffect(() => {
@@ -378,7 +368,7 @@ export default function ClinicDetail() {
             <div className="flex flex-col lg:flex-row gap-6 items-start">
               {(() => {
                 const photosArray = clinic.photos || [];
-                const latestPhoto = photosArray.length > 0 ? photosArray[profilePhotoIndex % photosArray.length] : null;
+                const latestPhoto = photosArray.length > 0 ? photosArray[photosArray.length - 1] : null;
                 
                 return latestPhoto && (
                 <div className="w-full max-w-sm lg:max-w-xs flex-shrink-0">
@@ -391,21 +381,6 @@ export default function ClinicDetail() {
                       sizes="(max-width: 1024px) 80vw, 320px"
                       priority
                     />
-                    {photosArray.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (photosArray.length > 1) {
-                            setProfilePhotoIndex((prev) => (prev + 1) % photosArray.length);
-                          }
-                        }}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 bg-white/80 backdrop-blur-sm text-[#1e293b] hover:bg-white text-xs rounded-full p-2 shadow-md"
-                        aria-label="More photos"
-                        title="More photos"
-                      >
-                        <ChevronRight className="w-4 h-4" />
-                      </button>
-                    )}
                   </div>
                 </div>
                 );

@@ -8,6 +8,7 @@ import type { NextPageWithLayout } from "../_app";
 import { Loader2, Calendar, Clock, X, Upload } from "lucide-react";
 import AppointmentBookingModal from "../../components/AppointmentBookingModal";
 import ImportAppointmentsModal from "../../components/ImportAppointmentsModal";
+import EditAppointmentModal from "../../components/EditAppointmentModal";
 import { Toaster, toast } from "react-hot-toast";
 import { useAgentPermissions } from '../../hooks/useAgentPermissions';
 
@@ -288,6 +289,16 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
   const lastSavedValuesRef = useRef<{ useCustomTimeSlots: boolean; customStartTime: string; customEndTime: string } | null>(null);
   const [customTimeSlotModalOpen, setCustomTimeSlotModalOpen] = useState<boolean>(false);
   const [importModalOpen, setImportModalOpen] = useState<boolean>(false);
+  const [editModalOpen, setEditModalOpen] = useState<boolean>(false);
+  const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
+  const appointmentRef = useRef<Appointment | null>(null);
+  
+  // Sync ref with state
+  useEffect(() => {
+    if (selectedAppointment) {
+      appointmentRef.current = selectedAppointment;
+    }
+  }, [selectedAppointment]);
   const [bookingModal, setBookingModal] = useState<{
     isOpen: boolean;
     doctorId: string;
@@ -2895,13 +2906,21 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                                     }}
                                     title={permissions.canUpdate ? "Drag to move appointment to another doctor or time slot" : "Appointment (no permission to move)"}
                                   >
-                                    <div className="h-full flex flex-col justify-between p-1">
+                                    <div className="h-full flex flex flex-col justify-between p-1">
                                       <div className="flex items-start gap-1 min-w-0">
                                         <div className="flex-shrink-0 mt-0.5">
                                           <div className={`w-1 h-1 rounded-full ${statusColor.bg} ${statusColor.border} border`} />
                                         </div>
                                         <div className="flex-1 min-w-0">
-                                          <p className="truncate font-bold text-[10px] sm:text-xs leading-tight">{apt.patientName}</p>
+                                          <p className="truncate font-bold text-[10px] sm:text-xs leading-tight cursor-pointer hover:underline" onClick={(e) => {
+                                            e.stopPropagation();
+                                            // Open edit modal directly on appointment page
+                                            if (permissions.canUpdate) {
+                                              appointmentRef.current = apt;
+                                              setSelectedAppointment(apt);
+                                              setEditModalOpen(true);
+                                            }
+                                          }}>{apt.patientName}</p>
                                           {!isShortAppointment && apt.patientEmrNumber && (
                                             <p className="truncate text-[9px] opacity-85 mt-0.5 font-medium">EMR: {apt.patientEmrNumber}</p>
                                           )}
@@ -3108,7 +3127,11 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                                           <div className={`w-1 h-1 rounded-full ${statusColor.bg} ${statusColor.border} border`} />
                                         </div>
                                         <div className="flex-1 min-w-0">
-                                          <p className="truncate font-bold text-[10px] sm:text-xs leading-tight text-gray-900 dark:text-gray-900">{apt.patientName}</p>
+                                          <p className="truncate font-bold text-[10px] sm:text-xs leading-tight text-gray-900 dark:text-gray-900 cursor-pointer hover:underline" onClick={(e) => {
+                                            e.stopPropagation();
+                                            // Navigate to all-appointment page and open edit modal
+                                            window.location.href = `/clinic/all-appointment#edit-${apt._id}`;
+                                          }}>{apt.patientName}</p>
                                           {!isShortAppointment && apt.patientEmrNumber && (
                                             <p className="truncate text-[9px] opacity-85 dark:opacity-85 mt-0.5 font-medium text-gray-700 dark:text-gray-800">EMR: {apt.patientEmrNumber}</p>
                                           )}
@@ -3336,6 +3359,26 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
           getAuthHeaders={getAuthHeaders}
         />
       )}
+
+      {/* Edit Appointment Modal */}
+      <EditAppointmentModal
+        isOpen={editModalOpen && (selectedAppointment !== null || appointmentRef.current !== null)}
+        onClose={() => {
+          setEditModalOpen(false);
+          setSelectedAppointment(null);
+          appointmentRef.current = null;
+        }}
+        onSuccess={() => {
+          loadAppointments();
+          setEditModalOpen(false);
+          setSelectedAppointment(null);
+          appointmentRef.current = null;
+        }}
+        appointment={selectedAppointment || appointmentRef.current}
+        rooms={rooms}
+        doctors={doctorStaff}
+        getAuthHeaders={getAuthHeaders}
+      />
 
       {activeDoctorTooltip && (
         <div

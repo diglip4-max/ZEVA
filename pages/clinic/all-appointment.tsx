@@ -147,6 +147,7 @@
     const [deleting, setDeleting] = useState(false);
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
     const appointmentRef = useRef<Appointment | null>(null);
+    const [initialEditId, setInitialEditId] = useState<string | null>(null); // For handling edit from URL hash
 
 
     // Sync ref with state
@@ -155,6 +156,40 @@
         appointmentRef.current = selectedAppointment;
       }
     }, [selectedAppointment]);
+
+    // Handle URL hash for opening edit modal
+    useEffect(() => {
+      const handleHashChange = () => {
+        const hash = window.location.hash;
+        if (hash.startsWith('#edit-')) {
+          const appointmentId = hash.substring(6); // Remove '#edit-' prefix
+          setInitialEditId(appointmentId);
+        }
+      };
+
+      // Check hash on initial load
+      handleHashChange();
+
+      // Listen for hash changes
+      window.addEventListener('hashchange', handleHashChange);
+
+      return () => {
+        window.removeEventListener('hashchange', handleHashChange);
+      };
+    }, []);
+
+    // Open edit modal when initialEditId is set and appointments are loaded
+    useEffect(() => {
+      if (initialEditId && appointments.length > 0) {
+        const appointmentToEdit = appointments.find(apt => apt._id === initialEditId);
+        if (appointmentToEdit) {
+          setSelectedAppointment(appointmentToEdit);
+          setEditModalOpen(true);
+          // Clear the initial edit ID to prevent reopening
+          setInitialEditId(null);
+        }
+      }
+    }, [initialEditId, appointments]);
 
     // Add custom scrollbar styles and ensure horizontal scrolling works
     useEffect(() => {
@@ -1079,7 +1114,18 @@
                           </td>
                             <td className="px-1 py-1.5 text-[8px] sm:text-[9px]">
                               <div className="space-y-0.5">
-                                <div className="font-semibold text-teal-900">{apt.patientName}</div>
+                                <div 
+                                  className="font-semibold text-teal-900 cursor-pointer hover:text-teal-700 hover:underline transition-colors"
+                                  onClick={() => {
+                                    if (permissions.canUpdate) {
+                                      appointmentRef.current = apt;
+                                      setSelectedAppointment(apt);
+                                      setEditModalOpen(true);
+                                    }
+                                  }}
+                                >
+                                  {apt.patientName}
+                                </div>
                                 <div className="flex items-center gap-0.5 sm:gap-1 flex-wrap">
                                   <span className="px-0.5 py-0.5 bg-purple-100 text-purple-800 rounded text-[7px] sm:text-[8px]">
                                     ID: {apt.patientId.slice(-4) || "N/A"}
