@@ -2031,7 +2031,7 @@ Verified Doctors – Every doctor is thoroughly verified with proper certificati
                       <>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                           {paginatedDoctors.map((doctor, index) => {
-                    const hasRating = doctorReviews[doctor._id]?.totalReviews > 0;
+                    // const hasRating = doctorReviews[doctor._id]?.totalReviews > 0;
                     const reviewsLoaded = doctorReviews[doctor._id] !== undefined;
 
                     return (

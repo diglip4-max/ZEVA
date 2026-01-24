@@ -19,7 +19,6 @@
     XCircle,
     X,
     Receipt,
-    Download,
   } from "lucide-react";
   import EditAppointmentModal from "../../components/EditAppointmentModal";
   import AppointmentHistoryModal from "../../components/AppointmentHistoryModal";
@@ -576,62 +575,6 @@
         emergency: "",
       });
       setPage(1);
-    };
-
-    const exportAppointmentsToCSV = () => {
-      if (appointments.length === 0) {
-        alert("No appointments to export");
-        return;
-      }
-
-      const headers = [
-        "Visit ID",
-        "EMR Number",
-        "Patient Name",
-        "Patient Number",
-        "Patient Email",
-        "Doctor",
-        "Room",
-        "Status",
-        "Follow Type",
-        "Referral",
-        "Emergency",
-        "Registered Date",
-        "Registered Time",
-        "Invoice Number",
-        "Created At"
-      ];
-
-      const csvContent = [
-        headers.join(","),
-        ...appointments.map(app => [
-          `"${(app.visitId || "").replace(/"/g, '""')}"`,
-          `"${(app.emrNumber || "").replace(/"/g, '""')}"`,
-          `"${(app.patientName || "").replace(/"/g, '""')}"`,
-          `"${(app.patientNumber || "").replace(/"/g, '""')}"`,
-          `"${(app.patientEmail || "").replace(/"/g, '""')}"`,
-          `"${(app.doctorName || "").replace(/"/g, '""')}"`,
-          `"${(app.roomName || "").replace(/"/g, '""')}"`,
-          `"${(app.status || "").replace(/"/g, '""')}"`,
-          `"${(app.followType || "").replace(/"/g, '""')}"`,
-          `"${(app.referral || "").replace(/"/g, '""')}"`,
-          `"${(app.emergency || "").replace(/"/g, '""')}"`,
-          `"${(app.registeredDate || "")}"`,
-          `"${(app.registeredTime || "")}"`,
-          `"${(app.invoiceNumber || "").replace(/"/g, '""')}"`,
-          `"${app.createdAt ? new Date(app.createdAt).toLocaleString() : ""}"`
-        ].join(","))
-      ].join("\n");
-
-      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.setAttribute("href", url);
-      link.setAttribute("download", `appointments_export_${new Date().toISOString().split("T")[0]}.csv`);
-      link.style.visibility = "hidden";
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
     };
 
     const getStatusBadgeColor = (status: string) => {

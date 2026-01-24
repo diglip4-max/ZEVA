@@ -1554,31 +1554,6 @@ function ClinicManagementDashboard() {
     setShowCustomTreatmentInput(false);
   };
 
-  const persistExistingPhotos = async (updatedPhotos: string[]) => {
-    if (!editingClinicId) return;
-    const authHeaders = getAuthHeaders();
-    if (!authHeaders) {
-      toast.error("You are not authenticated");
-      return;
-    }
-    const formData = new FormData();
-    formData.append("existingPhotos", JSON.stringify(updatedPhotos || []));
-    try {
-      const config = { headers: { ...authHeaders } };
-      const response = await axios.put(`/api/clinics/${editingClinicId}`, formData, config);
-      if (response.data?.success && response.data?.clinic) {
-        setClinics((prev) =>
-          prev.map((c) => (c._id === editingClinicId ? response.data.clinic : c))
-        );
-        toast.success("Photos updated");
-      } else {
-        toast.error(response.data?.message || "Failed to update photos");
-      }
-    } catch (e: any) {
-      toast.error(e.response?.data?.message || "Error updating photos");
-    }
-  };
-
   const handleInputChange = (field: string, value: string) => {
     setEditForm((prev) => ({ ...prev, [field]: value }));
   };

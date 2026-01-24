@@ -8,24 +8,6 @@ import MarketplaceSection from "../../components/bussiness/MarketplaceSection";
 import TeamSection from "../../components/bussiness/TeamSection";
 import FinanceSection from "../../components/bussiness/FinanceSection";
 
-/* ================= ICONS ================= */
-
-function SparklesIcon(props: { className?: string }) {
-  return (
-    <svg
-      className={props.className}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-    >
-      <path strokeLinecap="round" strokeLinejoin="round" d="M12 2l1.2 3.6L17 7l-3.8 1.4L12 12l-1.2-3.6L7 7l3.8-1.4L12 2z" />
-      <path strokeLinecap="round" strokeLinejoin="round" d="M19 11l.9 2.7L23 15l-3.1 1.3L19 19l-.9-2.7L15 15l3.1-1.3L19 11z" />
-      <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.5l.8 2.4L8 16l-2.7 1.1-.8 2.4-.8-2.4L1 16l2.7-1.1.8-2.4z" />
-    </svg>
-  );
-}
-
 /* ================= PAGE ================= */
 
 export default function BussinessLandingPage(): ReactElement {

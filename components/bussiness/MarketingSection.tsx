@@ -61,14 +61,14 @@ function MessageIcon(props: { className?: string }) {
   );
 }
 
-function ArrowRightIcon(props: { className?: string }) {
-  return (
-    <svg className={props.className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14" />
-      <path strokeLinecap="round" strokeLinejoin="round" d="M13 6l6 6-6 6" />
-    </svg>
-  );
-}
+// function ArrowRightIcon(props: { className?: string }) {
+//   return (
+//     <svg className={props.className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+//       <path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14" />
+//       <path strokeLinecap="round" strokeLinejoin="round" d="M13 6l6 6-6 6" />
+//     </svg>
+//   );
+// }
 
 type MarketingCardProps = {
   icon: ReactElement;

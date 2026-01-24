@@ -1356,11 +1356,40 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
     setDragOverDoctorId(null);
   };
 
+  // Drop handler for room columns
+  const handleRoomColumnDrop = async (e: React.DragEvent, roomId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    // ✅ Check permission before allowing drop
+    if (!permissions.canUpdate) {
+      showErrorToast("You do not have permission to move appointments");
+      return;
+    }
+    
+    if (!draggedAppointmentId) return;
+
+    const appointment = appointments.find(apt => apt._id === draggedAppointmentId);
+    if (!appointment) return;
+
+    // If dropped on same room, do nothing
+    if (appointment.roomId === roomId) {
+      setDraggedAppointmentId(null);
+      return;
+    }
+
+    // Update room
+    await updateAppointment(draggedAppointmentId, { roomId });
+    
+    setDraggedAppointmentId(null);
+  };
+
   // Drop handler for time slots
   const handleTimeSlotDrop = async (
     e: React.DragEvent,
-    doctorId: string,
-    slotMinutes: number
+    targetId: string,  // Could be doctorId or roomId
+    slotMinutes: number,
+    isRoomDrop: boolean = false  // Flag to indicate if this is a room drop
   ) => {
     e.preventDefault();
     e.stopPropagation();
@@ -1379,19 +1408,35 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
     // Calculate new time
     const newFromTime = `${String(Math.floor(slotMinutes / 60)).padStart(2, "0")}:${String(slotMinutes % 60).padStart(2, "0")}`;
     
-    // Check if dropping on the same doctor and same time
-    const currentFromMinutes = timeStringToMinutes(appointment.fromTime);
-    if (appointment.doctorId === doctorId && currentFromMinutes === slotMinutes) {
-      setDraggedAppointmentId(null);
-      setDragOverTimeSlot(null);
-      return;
+    // Determine what to update based on the type of drop
+    const updates: {
+      doctorId?: string;
+      roomId?: string;
+      fromTime?: string;
+    } = {
+      fromTime: newFromTime
+    };
+
+    if (isRoomDrop) {
+      // This is a room time slot drop
+      if (appointment.roomId === targetId && timeStringToMinutes(appointment.fromTime) === slotMinutes) {
+        setDraggedAppointmentId(null);
+        setDragOverTimeSlot(null);
+        return;
+      }
+      updates.roomId = targetId;
+    } else {
+      // This is a doctor time slot drop
+      if (appointment.doctorId === targetId && timeStringToMinutes(appointment.fromTime) === slotMinutes) {
+        setDraggedAppointmentId(null);
+        setDragOverTimeSlot(null);
+        return;
+      }
+      updates.doctorId = targetId;
     }
     
-    // Update both doctor and time
-    await updateAppointment(draggedAppointmentId, {
-      doctorId,
-      fromTime: newFromTime,
-    });
+    // Update the appointment
+    await updateAppointment(draggedAppointmentId, updates);
     
     setDraggedAppointmentId(null);
     setDragOverTimeSlot(null);
@@ -1418,6 +1463,32 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
     e.stopPropagation();
     if (draggedAppointmentId) {
       setDragOverTimeSlot({ doctorId, minutes: slotMinutes });
+      if (e.dataTransfer) {
+        e.dataTransfer.dropEffect = "move";
+      }
+    }
+  };
+
+  const handleRoomTimeSlotDragOver = (
+    e: React.DragEvent,
+    roomId: string,
+    slotMinutes: number
+  ) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (draggedAppointmentId) {
+      // Set the drag over time slot with the room ID to track room-specific drops
+      setDragOverTimeSlot({ doctorId: roomId, minutes: slotMinutes }); // Use doctorId field to store roomId for room time slot drops
+      if (e.dataTransfer) {
+        e.dataTransfer.dropEffect = "move";
+      }
+    }
+  };
+
+  const handleRoomColumnDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (draggedAppointmentId) {
       if (e.dataTransfer) {
         e.dataTransfer.dropEffect = "move";
       }
@@ -2789,7 +2860,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                                   onDragLeave={handleDragLeave}
                                   onDrop={(e) => {
                                     if (permissions.canUpdate && draggedAppointmentId && canBookSlot) {
-                                      handleTimeSlotDrop(e, doctor._id, subStartMinutes);
+                                      handleTimeSlotDrop(e, doctor._id, subStartMinutes, false); // false indicates this is not a room drop
                                     }
                                   }}
                                   onMouseDown={(e) => {
@@ -2958,6 +3029,17 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                           className={`flex-1 min-w-[90px] sm:min-w-[100px] ${isLastColumn ? '' : 'border-r'} border-gray-200 dark:border-gray-300 border-b border-gray-100 dark:border-gray-300 relative bg-white dark:bg-gray-50`}
                           style={{ height: ROW_HEIGHT_PX }}
                           data-room-id={room._id}
+                          onDragOver={(e) => {
+                            if (permissions.canUpdate && draggedAppointmentId) {
+                              handleRoomColumnDragOver(e);
+                            }
+                          }}
+                          onDragLeave={handleDragLeave}
+                          onDrop={(e) => {
+                            if (permissions.canUpdate) {
+                              handleRoomColumnDrop(e, room._id);
+                            }
+                          }}
                         >
                           <div className="absolute left-0 right-0 top-1/2 border-t border-gray-200 dark:border-gray-700 pointer-events-none" />
                           <div className="flex flex-col h-full">
@@ -3010,6 +3092,17 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                                   onMouseDown={(e) => {
                                     if (canBookSlot && !draggedAppointmentId) {
                                       handleRoomSlotMouseDown(e, room._id, subStartMinutes);
+                                    }
+                                  }}
+                                  onDragOver={(e) => {
+                                    if (permissions.canUpdate && draggedAppointmentId && canBookSlot) {
+                                      handleRoomTimeSlotDragOver(e, room._id, subStartMinutes);
+                                    }
+                                  }}
+                                  onDragLeave={handleDragLeave}
+                                  onDrop={(e) => {
+                                    if (permissions.canUpdate && draggedAppointmentId && canBookSlot) {
+                                      handleTimeSlotDrop(e, room._id, subStartMinutes, true); // true indicates this is a room drop
                                     }
                                   }}
                                   onClick={(_e) => {
@@ -3129,8 +3222,12 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                                         <div className="flex-1 min-w-0">
                                           <p className="truncate font-bold text-[10px] sm:text-xs leading-tight text-gray-900 dark:text-gray-900 cursor-pointer hover:underline" onClick={(e) => {
                                             e.stopPropagation();
-                                            // Navigate to all-appointment page and open edit modal
-                                            window.location.href = `/clinic/all-appointment#edit-${apt._id}`;
+                                            // Open edit modal directly on appointment page (same as doctor column)
+                                            if (permissions.canUpdate) {
+                                              appointmentRef.current = apt;
+                                              setSelectedAppointment(apt);
+                                              setEditModalOpen(true);
+                                            }
                                           }}>{apt.patientName}</p>
                                           {!isShortAppointment && apt.patientEmrNumber && (
                                             <p className="truncate text-[9px] opacity-85 dark:opacity-85 mt-0.5 font-medium text-gray-700 dark:text-gray-800">EMR: {apt.patientEmrNumber}</p>
