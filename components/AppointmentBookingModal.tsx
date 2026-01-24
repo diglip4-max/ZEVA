@@ -22,7 +22,6 @@ interface AppointmentBookingModalProps {
   doctorStaff: Array<{ _id: string; name: string; email?: string }>;
   getAuthHeaders: () => Record<string, string>;
   preSelectedPatient?: Patient | null; // Pre-selected patient from drag operation
-  isDragOperation?: boolean; // Flag to indicate if this is a drag operation
 }
 
 interface Patient {
@@ -70,7 +69,6 @@ export default function AppointmentBookingModal({
   doctorStaff,
   getAuthHeaders,
   preSelectedPatient,
-  isDragOperation = false, // Default to false
 }: AppointmentBookingModalProps) {
   // Debug: Log when component receives props
   console.log("AppointmentBookingModal - Received props:", {
@@ -143,9 +141,6 @@ export default function AppointmentBookingModal({
   const [doctorDepartments, setDoctorDepartments] = useState<DoctorDepartment[]>([]);
   const [doctorDeptLoading, setDoctorDeptLoading] = useState(false);
   const [doctorDeptError, setDoctorDeptError] = useState("");
-  
-  // State to track if the form should auto-submit
-  const [shouldAutoSubmit, setShouldAutoSubmit] = useState(false);
 
   // Whenever the selected slot changes (or modal reopens), sync the times
   useEffect(() => {
@@ -496,6 +491,7 @@ export default function AppointmentBookingModal({
     setFieldErrors({});
   };
 
+  if (!isOpen) return null;
   const selectedDoctor = doctorStaff.find((doc) => doc._id === selectedDoctorId);
   const departmentNames =
     doctorDepartments.length > 0 ? doctorDepartments.map((dept) => dept.name).filter(Boolean) : [];
@@ -512,18 +508,6 @@ export default function AppointmentBookingModal({
     toTime &&
     !loading
   );
-
-  // Auto-submit the form when all required fields are filled and it's a drag operation
-  useEffect(() => {
-    if (isDragOperation && isOpen && isFormValid && !loading && shouldAutoSubmit) {
-      // Submit the form
-      handleSubmit(new Event('submit') as unknown as React.FormEvent);
-      // Reset the auto-submit flag to prevent repeated submissions
-      setShouldAutoSubmit(false);
-    }
-  }, [isDragOperation, isOpen, isFormValid, loading, shouldAutoSubmit, handleSubmit]);
-
-  if (!isOpen) return null;
 
   return (
     <div 

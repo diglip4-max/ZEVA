@@ -1,6 +1,8 @@
 import type { ReactElement, ReactNode } from "react";
 
 import Head from "next/head";
+import Header from "../../components/Header";
+import Footer from "../../components/Footer";
 
 import FinanceSection from "../../components/bussiness/FinanceSection";
 
@@ -15,7 +17,9 @@ export default function FinancePage(): ReactElement {
         />
       </Head>
 
+      <Header />
       <FinanceSection />
+      <Footer />
     </>
   );
 }

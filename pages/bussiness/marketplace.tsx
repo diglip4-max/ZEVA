@@ -1,6 +1,8 @@
 import type { ReactElement, ReactNode } from "react";
 
 import Head from "next/head";
+import Header from "../../components/Header";
+import Footer from "../../components/Footer";
 
 import MarketplaceSection from "../../components/bussiness/MarketplaceSection";
 import TeamSection from "../../components/bussiness/TeamSection";
@@ -16,10 +18,12 @@ export default function MarketplacePage(): ReactElement {
         />
       </Head>
 
+      <Header />
       <MarketplaceSection />
 
       {/* Merge Team & Workforce at the bottom of Marketplace */}
       <TeamSection />
+      <Footer />
     </>
   );
 }
