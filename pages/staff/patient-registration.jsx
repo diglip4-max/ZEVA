@@ -338,8 +338,8 @@ const handleSubmit = useCallback(async () => {
 
   setConfirmModal({
     isOpen: true,
-    title: "Save Invoice",
-    message: "Are you sure you want to save this invoice? Please verify all details are correct.",
+    title: "Save",
+    message: "Are you sure you want to Register this patient? Please verify all details are correct.",
     type: "info",
     action: async () => {
       try {
