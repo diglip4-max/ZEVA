@@ -292,8 +292,8 @@ export default async function handler(req, res) {
         
         if (!mobileNumber || String(mobileNumber).trim() === "") {
           const errorMsg = patientName !== `Row ${i + 2}`
-            ? `Phone number is missing for ${patientName}. Please provide a 10-digit phone number (e.g., 9876543210).`
-            : `Phone number is missing. Please provide a 10-digit phone number.`;
+            ? `Phone number is missing for ${patientName}. Please provide a phone number.`
+            : `Phone number is missing. Please provide a phone number.`;
           errors.push(errorMsg);
         }
 
@@ -306,16 +306,8 @@ export default async function handler(req, res) {
           continue;
         }
 
-        // Normalize and validate phone number (required)
+        // Normalize phone number (required) - remove all non-digit characters
         const patientPhone = String(mobileNumber).trim().replace(/\D/g, "");
-        if (patientPhone.length !== 10) {
-          results.failed++;
-          const errorMsg = patientName !== `Row ${i + 2}`
-            ? `❌ ${patientName}: Phone number "${mobileNumber}" is invalid. Please provide exactly 10 digits (e.g., 9876543210).`
-            : `Row ${i + 2}: Invalid phone number. Must be exactly 10 digits.`;
-          results.errors.push(errorMsg);
-          continue;
-        }
 
         // Validate gender if provided (optional)
         let gender = "";

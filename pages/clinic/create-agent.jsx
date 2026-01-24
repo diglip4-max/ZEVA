@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { Toaster, toast } from 'react-hot-toast';
 import CreateAgentModal from '../../components/CreateAgentModal';
+ import EditAgentModal from '../../components/EditAgentModal';
 import AgentPermissionModal from '../../components/AgentPermissionModal';
 import DoctorTreatmentModal from '../../components/DoctorTreatmentModal';
 import ClinicLayout from '../../components/ClinicLayout';
@@ -47,6 +48,7 @@ const ManageAgentsPage = () => {
   const [doctorStaff, setDoctorStaff] = useState([]);
   const [activeView, setActiveView] = useState('agents');
   const [menuAgentId, setMenuAgentId] = useState(null);
+  const [editAgent, setEditAgent] = useState(null);
   const [passwordAgent, setPasswordAgent] = useState(null);
   const [permissionAgent, setPermissionAgent] = useState(null);
   const [treatmentAgent, setTreatmentAgent] = useState(null);
@@ -800,6 +802,16 @@ const ManageAgentsPage = () => {
                                 {canUpdate === true && (
                                   <>
                                     <button
+                                      className="w-full text-left px-3 py-2 text-[11px] hover:bg-teal-50 dark:hover:bg-teal-700 text-teal-700 dark:text-teal-300 transition-colors border-b border-teal-100 dark:border-teal-700"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setEditAgent(agent);
+                                        setMenuAgentId(null);
+                                      }}
+                                    >
+                                      Edit Profile
+                                    </button>
+                                    <button
                                       className="w-full text-left px-3 py-2 text-[11px] hover:bg-teal-50 dark:hover:bg-teal-700 text-teal-700 dark:text-teal-300 transition-colors"
                                       onClick={(e) => {
                                         e.stopPropagation();
@@ -915,6 +927,14 @@ const ManageAgentsPage = () => {
         doctorToken={doctorToken || undefined}
         adminToken={adminToken || undefined}
         defaultRole={activeView === 'doctorStaff' ? 'doctorStaff' : 'agent'}
+      />
+
+      <EditAgentModal
+        isOpen={!!editAgent}
+        onClose={() => setEditAgent(null)}
+        onUpdated={() => loadAll(false)}
+        token={token}
+        agentId={editAgent?._id}
       />
 
       {/* Agent Permission Modal */}
