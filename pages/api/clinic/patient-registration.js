@@ -189,12 +189,11 @@ export default async function handler(req, res) {
       if (
         !invoiceNumber ||
         !firstName ||
-        !gender ||
         !mobileNumber
       ) {
         return res.status(400).json({
           success: false,
-          message: "Missing required fields: invoiceNumber, firstName, gender, and mobileNumber are required",
+          message: "Missing required fields: invoiceNumber, firstName, and mobileNumber are required",
         });
       }
 
@@ -215,7 +214,7 @@ export default async function handler(req, res) {
         emrNumber: emrNumber || "",
         firstName,
         lastName: lastName || "",
-        gender,
+        gender: gender || "Other",
         email: email || "",
         mobileNumber,
         referredBy: referredBy || "",
