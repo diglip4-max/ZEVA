@@ -62,29 +62,16 @@ export default async function handler(req, res) {
       }
     );
 
-    // Filter clinics that have the specified treatment (case-insensitive match on main treatment or sub-treatment)
+    // Filter clinics that have the specified treatment (case-insensitive match on main treatment)
     const matchingClinics = availableClinics.filter((clinic) => {
       if (!clinic.treatments || !Array.isArray(clinic.treatments)) {
         return false;
       }
 
-      // Check if any treatment's mainTreatment or subTreatment matches (case-insensitive)
+      // Check if any treatment's mainTreatment matches (case-insensitive)
       return clinic.treatments.some((treatment) => {
         const mainTreatment = treatment.mainTreatment?.trim() || "";
-        // Check main treatment
-        if (mainTreatment.toLowerCase() === treatmentQuery.toLowerCase()) {
-          return true;
-        }
-
-        // Check sub-treatments
-        if (treatment.subTreatments && Array.isArray(treatment.subTreatments)) {
-          return treatment.subTreatments.some((sub) => {
-            const subName = sub.name?.trim() || "";
-            return subName.toLowerCase() === treatmentQuery.toLowerCase();
-          });
-        }
-
-        return false;
+        return mainTreatment.toLowerCase() === treatmentQuery.toLowerCase();
       });
     });
 

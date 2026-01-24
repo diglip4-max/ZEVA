@@ -472,9 +472,10 @@ export default function AppointmentBookingModal({
     doctorDepartments.length > 0 ? doctorDepartments.map((dept) => dept.name).filter(Boolean) : [];
 
   // Check if all required fields are filled
+  // Button is clickable when both doctor and room are pre-filled automatically
   const isFormValid = Boolean(
     selectedPatient &&
-    roomId &&
+    roomId && 
     selectedDoctorId &&
     status &&
     followType &&

@@ -4,7 +4,6 @@ import { getAuthorizedStaffUser } from "../../../server/staff/authHelpers";
 import { checkClinicPermission } from "../lead-ms/permissions-helper";
 import { checkAgentPermission } from "../agent/permissions-helper";
 import Clinic from "../../../models/Clinic";
-import { generateEmrNumber } from "../../../lib/generateEmrNumber";
 
 const hasRole = (user, roles = []) => roles.includes(user.role);
 
@@ -108,27 +107,23 @@ export default async function handler(req, res) {
         user.mobileNumber ||
         String(user._id);
 
-      if (!firstName || !mobileNumber) {
-        return res.status(400).json({ success: false, message: "Missing required fields: firstName and mobileNumber are required" });
+      if (
+        !invoiceNumber ||
+        !firstName ||
+        !gender ||
+        !mobileNumber
+      ) {
+        return res.status(400).json({ success: false, message: "Missing required fields" });
       }
 
-      let existingPatient = null;
-      if (invoiceNumber) {
-        existingPatient = await PatientRegistration.findOne({ invoiceNumber });
-      }
+      const existingPatient = await PatientRegistration.findOne({ invoiceNumber });
 
       if (existingPatient) {
         // Update existing patient with new data
         if (emrNumber !== undefined) existingPatient.emrNumber = emrNumber;
         if (firstName !== undefined) existingPatient.firstName = firstName;
         if (lastName !== undefined) existingPatient.lastName = lastName;
-        if (gender !== undefined) {
-          if (["Male", "Female", "Other"].includes(gender)) {
-            existingPatient.gender = gender;
-          } else if (gender === "") {
-            existingPatient.gender = undefined;
-          }
-        }
+        if (gender !== undefined) existingPatient.gender = gender;
         if (email !== undefined) existingPatient.email = email;
         if (mobileNumber !== undefined) existingPatient.mobileNumber = mobileNumber;
         if (referredBy !== undefined) existingPatient.referredBy = referredBy;
@@ -172,36 +167,28 @@ export default async function handler(req, res) {
         });
       }
 
-      const finalEmrNumber = emrNumber && String(emrNumber).trim() ? emrNumber : await generateEmrNumber(PatientRegistration);
-
-      const normalizedGender = gender && ["Male", "Female", "Other"].includes(gender) ? gender : undefined;
-      const normalizedPatientType = patientType && ["New", "Old"].includes(patientType) ? patientType : "New";
-
-      const createData = {
+      const patient = await PatientRegistration.create({
         invoiceNumber,
         invoicedBy: computedInvoicedBy,
         userId: user._id,
-        emrNumber: finalEmrNumber,
+        emrNumber,
         firstName,
+        lastName,
+        gender,
+        email,
         mobileNumber,
+        referredBy,
+        patientType,
         insurance,
         insuranceType,
         advanceGivenAmount: Number(advanceGivenAmount) || 0,
         coPayPercent: Number(coPayPercent) || 0,
-        advanceClaimStatus: advanceClaimStatus || "Pending",
+        advanceClaimStatus,
+        notes,
         membership: membership || "No",
         membershipStartDate: membership === "Yes" && membershipStartDate ? new Date(membershipStartDate) : null,
         membershipEndDate: membership === "Yes" && membershipEndDate ? new Date(membershipEndDate) : null,
-      };
-
-      if (lastName) createData.lastName = lastName;
-      if (email) createData.email = email;
-      if (normalizedGender) createData.gender = normalizedGender;
-      if (referredBy) createData.referredBy = referredBy;
-      if (normalizedPatientType) createData.patientType = normalizedPatientType;
-      if (notes) createData.notes = notes;
-
-      const patient = await PatientRegistration.create(createData);
+      });
 
       return res.status(201).json({
         success: true,
