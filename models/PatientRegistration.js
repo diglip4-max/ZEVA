@@ -34,13 +34,7 @@ const patientRegistrationSchema = new mongoose.Schema(
     email: { type: String, trim: true, lowercase: true },
     mobileNumber: { 
       type: String, 
-      required: true,
-      validate: {
-        validator: function(v) {
-          return /^[0-9]{}$/.test(v);
-        },
-        message: "Enter valid mobile number"
-      }
+      required: true
     },
     referredBy: { type: String, trim: true },
     patientType: { type: String, enum: ["New", "Old"], default: "New" },
