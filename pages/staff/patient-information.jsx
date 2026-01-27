@@ -168,7 +168,7 @@ const PatientCard = ({ patient, onUpdate, onViewDetails, canUpdate = true }) => 
   </div>
 );
 
-function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { canRead: true, canUpdate: true, canDelete: true, canCreate: true } }) {
+function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { canRead: true, canUpdate: true, canDelete: true, canCreate: true }, routeContext = "clinic" }) {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const [patients, setPatients] = useState([]);
@@ -211,7 +211,9 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
     }
     setLoading(true);
     try {
-      const { data } = await axios.get("/api/staff/get-patient-registrations", { headers });
+      // Always use clinic API endpoint for consistency - it supports clinic, agent, and doctorStaff roles
+      const apiEndpoint = "/api/clinic/patient-information";
+      const { data } = await axios.get(apiEndpoint, { headers });
       setPatients(data.success ? data.data : []);
       setPage(1);
       addToast("Data loaded successfully", "success");
@@ -224,7 +226,7 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
     }
   };
 
-  useEffect(() => { fetchPatients(); }, []);
+  useEffect(() => { fetchPatients(); }, [routeContext]);
 
   const exportPatientsToCSV = () => {
     if (patients.length === 0) {
@@ -298,7 +300,8 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
     }
 
     try {
-      const response = await axios.delete("/api/staff/get-patient-registrations", {
+      // Use clinic API endpoint for consistency - it supports clinic, agent, and doctorStaff roles
+      const response = await axios.delete("/api/clinic/patient-information", {
         headers,
         data: { id: patientId }
       });
@@ -393,13 +396,13 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
                   className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 outline-none text-sm text-gray-900"
                 />
               </div>
-              <button
+              {/* <button
                 onClick={exportPatientsToCSV}
                 className="inline-flex items-center justify-center gap-1.5 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-sm font-medium"
               >
                 <Download className="h-4 w-4" />
                 <span>Export</span>
-              </button>
+              </button> */}
             </div>
           </div>
 
@@ -554,4 +557,7 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
 PatientFilterUI.getLayout = function PageLayout(page) { return <ClinicLayout>{page}</ClinicLayout>; };
 const ProtectedDashboard = withClinicAuth(PatientFilterUI);
 ProtectedDashboard.getLayout = PatientFilterUI.getLayout;
+
+// Export PatientFilterUI as named export for use in other components
+export { PatientFilterUI as PatientInformation };
 export default ProtectedDashboard;
