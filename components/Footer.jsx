@@ -33,7 +33,7 @@ const footerSections = [
   {
     title: "For Businesses",
     links: [
-      { label: "List Your Clinic", href: "/clinic/register-clinic" },
+      { label: "List Your Clinic", href: "/clinic/findclinic" },
       { label: "For Doctors", href: "/doctor/search" },
       // { label: "For Hospitals", href: "/hospitals" },
       // { label: "Business Solutions", href: "/solutions" },

@@ -5,6 +5,7 @@ import Head from "next/head";
 import Link from "next/link";
 import Image from "next/image";
 import { Calendar, Clock, Users, Shield, CheckCircle2, ArrowRight, Star,FileText, Bell } from "lucide-react";
+import AuthModal from "../../components/AuthModal";
 
 const SLIDES = ["/image1.png", "/image2.png"] as const;
 
@@ -15,6 +16,8 @@ export default function AppointmentLandingPage(): React.ReactElement {
   const title = useMemo(() => "ZEVA | Appointment Schedule", []);
   const currentSlideSrc = SLIDES[slideIndex] || SLIDES[0];
   const isMobileSlide = currentSlideSrc === "/image2.png";
+const [showAuthModal, setShowAuthModal] = useState(false);
+const [authMode, setAuthMode] = useState<"login" | "register">("login");
 
   useEffect(() => {
     // Reset error state when slide changes
@@ -62,12 +65,12 @@ export default function AppointmentLandingPage(): React.ReactElement {
                 >
                   View schedule
                 </Link>
-                <Link
+                {/* <Link
                   href="/clinic/all-appointment"
                   className="rounded-full border border-gray-300 px-6 py-3 text-sm font-bold text-gray-900 hover:bg-gray-50 transition"
                 >
                   All appointments
-                </Link>
+                </Link> */}
               </div>
 
           
@@ -354,13 +357,17 @@ export default function AppointmentLandingPage(): React.ReactElement {
               Join thousands of healthcare providers using ZEVA to manage appointments efficiently.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link
-                href="/clinic/appointment"
-                className="inline-flex items-center gap-2 bg-white text-teal-600 px-8 py-4 rounded-full font-semibold hover:bg-gray-100 transition-colors shadow-lg"
-              >
-                Get Started Now
-                <ArrowRight className="w-5 h-5" />
-              </Link>
+            <button
+  onClick={() => {
+    setAuthMode("login");
+    setShowAuthModal(true);
+  }}
+  className="inline-flex items-center justify-center gap-2 bg-white text-teal-600 px-8 py-4 rounded-full font-semibold hover:bg-gray-100 transition-colors"
+>
+  Get Started Now
+  <ArrowRight className="w-5 h-5" />
+</button>
+
               <Link
                 href="/contact"
                 className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm text-white px-8 py-4 rounded-full font-semibold hover:bg-white/20 transition-colors border border-white/20"
@@ -370,6 +377,14 @@ export default function AppointmentLandingPage(): React.ReactElement {
             </div>
           </div>
         </section>
+
+        {/* Auth Modal */}
+        <AuthModal
+          isOpen={showAuthModal}
+          onClose={() => setShowAuthModal(false)}
+          onSuccess={() => setShowAuthModal(false)}
+          initialMode={authMode}
+        />
       </div>
     </>
   );

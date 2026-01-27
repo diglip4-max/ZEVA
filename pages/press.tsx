@@ -35,9 +35,9 @@ const Press: React.FC = () => {
                   <p className="text-gray-600 mb-4">
                     ZEVA announces the launch of its comprehensive telemedicine platform, making healthcare more accessible to users across the region.
                   </p>
-                  <button className="text-teal-600 hover:text-teal-700 font-semibold">
+                  {/* <button className="text-teal-600 hover:text-teal-700 font-semibold">
                     Read More →
-                  </button>
+                  </button> */}
                 </div>
                 <div className="bg-white rounded-lg shadow-md p-6">
                   <div className="text-sm text-gray-500 mb-2">November 2024</div>
@@ -47,9 +47,9 @@ const Press: React.FC = () => {
                   <p className="text-gray-600 mb-4">
                     ZEVA forms strategic partnerships with top healthcare institutions to expand its network of verified clinics and doctors.
                   </p>
-                  <button className="text-teal-600 hover:text-teal-700 font-semibold">
+                  {/* <button className="text-teal-600 hover:text-teal-700 font-semibold">
                     Read More →
-                  </button>
+                  </button> */}
                 </div>
               </div>
             </div>
@@ -101,7 +101,7 @@ const Press: React.FC = () => {
               </p>
               <div className="text-center">
                 <a
-                  href="mailto:press@zeva360.com"
+                  href=""
                   className="inline-block bg-teal-600 text-white px-8 py-3 rounded-md font-semibold hover:bg-teal-700 transition"
                 >
                   Contact Press Team
