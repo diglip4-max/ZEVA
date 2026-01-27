@@ -119,6 +119,33 @@ export default async function handler(req, res) {
       const existingPatient = await PatientRegistration.findOne({ invoiceNumber });
 
       if (existingPatient) {
+        // Check access for agents/doctorStaff before updating
+        if (user.role === 'agent' || user.role === 'doctorStaff') {
+           if (existingPatient.userId && existingPatient.userId.toString() !== user._id.toString()) {
+               if (user.clinicId) {
+                  const Clinic = (await import("../../../models/Clinic")).default;
+                  const clinic = await Clinic.findById(user.clinicId);
+                  if (clinic) {
+                      const User = (await import("../../../models/Users")).default;
+                      const clinicUsers = await User.find({
+                          $or: [
+                              { _id: clinic.owner },
+                              { clinicId: user.clinicId }
+                          ]
+                      }).select("_id");
+                      const allowedIds = clinicUsers.map(u => u._id.toString());
+                      if (!allowedIds.includes(existingPatient.userId.toString())) {
+                           return res.status(403).json({ success: false, message: "Access denied: Patient belongs to another clinic" });
+                      }
+                  } else {
+                       return res.status(403).json({ success: false, message: "Access denied" });
+                  }
+               } else {
+                   return res.status(403).json({ success: false, message: "Access denied" });
+               }
+           }
+        }
+
         // Update existing patient with new data
         if (emrNumber !== undefined) existingPatient.emrNumber = emrNumber;
         if (firstName !== undefined) existingPatient.firstName = firstName;
@@ -279,7 +306,52 @@ export default async function handler(req, res) {
 
     try {
       const { emrNumber, invoiceNumber, name, phone, claimStatus, applicationStatus } = req.query;
-      const query = { userId: user._id };
+      
+      // Build query based on user role
+      let query = {};
+      
+      // For clinic role: show all patients belonging to the clinic (clinic owner + all agents/doctorStaff linked to clinic)
+      if (user.role === 'clinic') {
+        const Clinic = (await import("../../../models/Clinic")).default;
+        const clinic = await Clinic.findOne({ owner: user._id });
+        if (clinic) {
+          const User = (await import("../../../models/Users")).default;
+          const clinicUsers = await User.find({
+            $or: [
+              { _id: user._id }, // Clinic owner
+              { clinicId: clinic._id } // Agents and doctorStaff linked to clinic
+            ]
+          }).select("_id");
+          query.userId = { $in: clinicUsers.map(u => u._id) };
+        } else {
+          query.userId = user._id;
+        }
+      } 
+      // For agent/doctorStaff: show all patients belonging to the clinic
+      else if (user.role === 'agent' || user.role === 'doctorStaff') {
+        if (user.clinicId) {
+          const Clinic = (await import("../../../models/Clinic")).default;
+          const clinic = await Clinic.findById(user.clinicId);
+          if (clinic) {
+            const User = (await import("../../../models/Users")).default;
+            const clinicUsers = await User.find({
+              $or: [
+                { _id: clinic.owner },
+                { clinicId: user.clinicId }
+              ]
+            }).select("_id");
+            query.userId = { $in: clinicUsers.map(u => u._id) };
+          } else {
+            query.userId = user._id;
+          }
+        } else {
+          query.userId = user._id;
+        }
+      }
+      // For other roles: show their own patients
+      else {
+        query.userId = user._id;
+      }
 
       if (emrNumber) query.emrNumber = { $regex: emrNumber, $options: "i" };
       if (invoiceNumber) query.invoiceNumber = { $regex: invoiceNumber, $options: "i" };

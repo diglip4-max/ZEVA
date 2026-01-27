@@ -21,9 +21,46 @@ export default async function handler(req, res) {
     // GET: Fetch Invoice + Patient Info
     // -------------------------------
     if (req.method === "GET") {
+      // Authenticate user
+      let user;
+      try {
+        user = await getAuthorizedStaffUser(req);
+      } catch (err) {
+        return res.status(err.status || 401).json({ success: false, message: err.message });
+      }
+
       const invoice = await PatientRegistration.findById(id).lean();
 
       if (!invoice) return res.status(404).json({ message: "Invoice not found" });
+
+      // Check access for agents/doctorStaff
+      if (user.role === 'agent' || user.role === 'doctorStaff') {
+         // If patient is not created by the user, check if they are in the same clinic
+         if (invoice.userId && invoice.userId.toString() !== user._id.toString()) {
+             if (user.clinicId) {
+                const Clinic = (await import("../../../../models/Clinic")).default;
+                const clinic = await Clinic.findById(user.clinicId);
+                if (clinic) {
+                    const User = (await import("../../../../models/Users")).default;
+                    const clinicUsers = await User.find({
+                        $or: [
+                            { _id: clinic.owner },
+                            { clinicId: user.clinicId }
+                        ]
+                    }).select("_id");
+                    
+                    const allowedIds = clinicUsers.map(u => u._id.toString());
+                    if (!allowedIds.includes(invoice.userId.toString())) {
+                         return res.status(403).json({ message: "Access denied" });
+                    }
+                } else {
+                     return res.status(403).json({ message: "Access denied" });
+                }
+             } else {
+                 return res.status(403).json({ message: "Access denied" });
+             }
+         }
+      }
 
       // 🔹 Handle doctor field - it might be a string (name) or ObjectId
       let doctorName = "-";

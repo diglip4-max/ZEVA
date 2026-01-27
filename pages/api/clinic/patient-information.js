@@ -38,10 +38,26 @@ export default async function handler(req, res) {
           query.userId = user._id;
         }
       } 
-      // For agent/doctorStaff: STRICTLY only show their own patients (NOT clinic's patients)
+      // For agent/doctorStaff: show all patients belonging to the clinic
       else if (user.role === 'agent' || user.role === 'doctorStaff') {
-        // IMPORTANT: Only show patients created by this specific agent/doctorStaff
-        query.userId = user._id;
+        if (user.clinicId) {
+          const Clinic = (await import("../../../models/Clinic")).default;
+          const clinic = await Clinic.findById(user.clinicId);
+          if (clinic) {
+            const User = (await import("../../../models/Users")).default;
+            const clinicUsers = await User.find({
+              $or: [
+                { _id: clinic.owner }, // Clinic owner
+                { clinicId: user.clinicId } // All agents/staff linked to this clinic
+              ]
+            }).select("_id");
+            query.userId = { $in: clinicUsers.map(u => u._id) };
+          } else {
+            query.userId = user._id;
+          }
+        } else {
+          query.userId = user._id;
+        }
       }
       // For other roles: show their own patients
       else {
@@ -137,7 +153,24 @@ export default async function handler(req, res) {
           query.userId = user._id;
         }
       } else if (user.role === 'agent' || user.role === 'doctorStaff') {
-        query.userId = user._id;
+        if (user.clinicId) {
+          const Clinic = (await import("../../../models/Clinic")).default;
+          const clinic = await Clinic.findById(user.clinicId);
+          if (clinic) {
+            const User = (await import("../../../models/Users")).default;
+            const clinicUsers = await User.find({
+              $or: [
+                { _id: clinic.owner },
+                { clinicId: user.clinicId }
+              ]
+            }).select("_id");
+            query.userId = { $in: clinicUsers.map(u => u._id) };
+          } else {
+            query.userId = user._id;
+          }
+        } else {
+          query.userId = user._id;
+        }
       } else {
         query.userId = user._id;
       }
