@@ -365,6 +365,17 @@ export default async function handler(req, res) {
         }
       }
 
+      let existingPhotosFromClient = null;
+      if (typeof updateData.existingPhotos === "string") {
+        try {
+          existingPhotosFromClient = JSON.parse(updateData.existingPhotos);
+        } catch {
+          existingPhotosFromClient = [];
+        }
+      } else if (Array.isArray(updateData.existingPhotos)) {
+        existingPhotosFromClient = updateData.existingPhotos;
+      }
+
       if (typeof updateData.location === "string") {
         try {
           updateData.location = JSON.parse(updateData.location);
@@ -373,19 +384,30 @@ export default async function handler(req, res) {
         }
       }
 
-      // Merge new photos with existing photos if uploaded
+      if (existingPhotosFromClient) {
+        const oldPhotos = existingClinic.photos || [];
+        const desiredPhotos = Array.isArray(existingPhotosFromClient) ? existingPhotosFromClient : [];
+        const removedPhotos = oldPhotos.filter((p) => !desiredPhotos.includes(p));
+        removedPhotos.forEach((photoPath) => {
+          if (photoPath && photoPath.startsWith("/uploads/clinic/")) {
+            const fullPath = path.join(process.cwd(), "public", photoPath);
+            try {
+              fs.unlinkSync(fullPath);
+            } catch (err) {}
+          }
+        });
+        updateData.photos = desiredPhotos;
+      }
+
       if (uploadedPhotoPaths.length > 0) {
-        // Get existing photos from clinic
-        const existingPhotos = existingClinic.photos || [];
-        // Merge new photos with existing ones (avoid duplicates)
-        const allPhotos = [...existingPhotos];
+        const basePhotos = Array.isArray(updateData.photos) ? updateData.photos : (existingClinic.photos || []);
+        const allPhotos = [...basePhotos];
         uploadedPhotoPaths.forEach((newPhoto) => {
           if (!allPhotos.includes(newPhoto)) {
             allPhotos.push(newPhoto);
           }
         });
         updateData.photos = allPhotos;
-        console.log("📸 Total photos after merge:", allPhotos.length);
       }
 
       // Remove undefined/empty fields
