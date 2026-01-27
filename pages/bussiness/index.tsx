@@ -54,12 +54,12 @@ export default function BussinessLandingPage(): ReactElement {
           <div className="flex h-14 items-center justify-between">
 
             {/* Logo */}
-            <div className="flex items-center gap-2">
+            <Link href="/" className="flex items-center gap-2">
               <div className="w-7 h-7 rounded-md bg-gradient-to-r from-teal-600 to-blue-600 flex items-center justify-center text-white font-bold text-sm">
                 Z
               </div>
               <span className="text-sm font-bold text-gray-800">Zeva</span>
-            </div>
+            </Link>
 
             {/* Right Side */}
             <div className="flex items-center gap-2">
