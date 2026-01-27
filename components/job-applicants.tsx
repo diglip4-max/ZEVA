@@ -2,7 +2,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
-import { Users, Mail, Phone, FileText, Search, Filter, X, Download } from 'lucide-react';
+import { Users, Mail, Phone, FileText, Search, Filter, X} from 'lucide-react';
 
 interface JobInfo {
   jobTitle: string;
@@ -183,6 +183,8 @@ const ApplicationsDashboard: React.FC<ApplicationsDashboardProps> = ({
     document.body.removeChild(link);
     toast.success("Applicants exported successfully");
   };
+  
+  void exportApplicantsToCSV;
 
   const updateStatus = async (applicationId: string, status: string): Promise<void> => {
     if (!permissions.canUpdate) {
