@@ -348,20 +348,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
     endMinutes: null,
     roomId: null,
   });
-  // Initialize selectedDate from localStorage if available, otherwise use today's date
-  const [selectedDate, setSelectedDate] = useState<string>(() => {
-    if (typeof window !== "undefined") {
-      const savedDate = localStorage.getItem("appointmentSelectedDate");
-      if (savedDate) {
-        // Validate the saved date format (YYYY-MM-DD)
-        const dateMatch = savedDate.match(/^\d{4}-\d{2}-\d{2}$/);
-        if (dateMatch) {
-          return savedDate;
-        }
-      }
-    }
-    return new Date().toISOString().split("T")[0];
-  });
+  const [selectedDate, setSelectedDate] = useState<string>(() => new Date().toISOString().split("T")[0]);
   const [doctorTreatmentsMap, setDoctorTreatmentsMap] = useState<Record<string, DoctorTreatmentSummary[]>>({});
   const [doctorTreatmentsLoading, setDoctorTreatmentsLoading] = useState<Record<string, boolean>>({});
   const [doctorTreatmentsError, setDoctorTreatmentsError] = useState<Record<string, string>>({});
