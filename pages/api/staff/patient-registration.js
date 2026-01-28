@@ -154,7 +154,9 @@ export default async function handler(req, res) {
         if (email !== undefined) existingPatient.email = email;
         if (mobileNumber !== undefined) existingPatient.mobileNumber = mobileNumber;
         if (referredBy !== undefined) existingPatient.referredBy = referredBy;
-        if (patientType !== undefined) existingPatient.patientType = patientType;
+        if (patientType !== undefined && String(patientType).trim() !== "") {
+          existingPatient.patientType = patientType;
+        }
         if (notes !== undefined) existingPatient.notes = notes;
         
         // Insurance handling
@@ -194,6 +196,7 @@ export default async function handler(req, res) {
         });
       }
 
+      const normalizedPatientType = (typeof patientType === "string" && patientType.trim() !== "") ? patientType : undefined;
       const patient = await PatientRegistration.create({
         invoiceNumber,
         invoicedBy: computedInvoicedBy,
@@ -205,7 +208,7 @@ export default async function handler(req, res) {
         email,
         mobileNumber,
         referredBy,
-        patientType,
+        patientType: normalizedPatientType,
         insurance,
         insuranceType,
         advanceGivenAmount: Number(advanceGivenAmount) || 0,
