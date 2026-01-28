@@ -154,13 +154,17 @@ const InvoiceManagementSystem = ({ onSuccess, isCompact = false }) => {
       .catch(() => showToast("Failed to fetch user details", "error"));
   }, [showToast]);
 
-  // Auto-generate EMR number when modal opens (for clinic route only) - via API
+  // Auto-generate EMR number when modal opens - via API
+  // Works for clinic, agent, and doctorStaff roles on both clinic and staff routes
   useEffect(() => {
-    // Only generate EMR for clinic route, not for agent/doctorStaff routes
-    const isClinicRoute = typeof window !== 'undefined' && window.location.pathname?.startsWith('/clinic/');
-    const isStaffRoute = typeof window !== 'undefined' && window.location.pathname?.startsWith('/staff/');
+    if (typeof window === "undefined") return;
     
-    // Get user role to check if it's clinic or agent/doctorStaff
+    const currentPath = window.location.pathname || "";
+    const isClinicRoute = currentPath.startsWith('/clinic/');
+    const isStaffRoute = currentPath.startsWith('/staff/');
+    const isClinicPatientRegistration = currentPath.includes('clinic-patient-registration');
+    
+    // Get user role to verify it's a valid role
     const getUserRole = () => {
       if (typeof window === "undefined") return null;
       try {
@@ -183,14 +187,22 @@ const InvoiceManagementSystem = ({ onSuccess, isCompact = false }) => {
     };
     
     const userRole = getUserRole();
-    const isClinicUser = userRole === "clinic" || userRole === "doctor";
+    // Allow EMR generation for clinic, doctor, agent, and doctorStaff roles
+    const isValidRole = userRole === "clinic" || userRole === "doctor" || userRole === "agent" || userRole === "doctorStaff";
     
-    // Only generate EMR if:
-    // 1. It's a clinic route (not staff route)
-    // 2. User is clinic/doctor role (not agent/doctorStaff)
+    // Determine if EMR should be generated:
+    // 1. Clinic route with valid role, OR
+    // 2. Staff route accessing clinic-patient-registration with agent/doctorStaff role
+    const shouldGenerateEMR = 
+      (isClinicRoute && isValidRole) || 
+      (isStaffRoute && isClinicPatientRegistration && (userRole === "agent" || userRole === "doctorStaff"));
+    
+    // Generate EMR if:
+    // 1. Route conditions are met (clinic route OR staff route with clinic-patient-registration)
+    // 2. User has valid role (clinic, doctor, agent, or doctorStaff)
     // 3. Modal is open (isCompact)
     // 4. EMR number is not already set
-    if (isClinicRoute && !isStaffRoute && isClinicUser && isCompact && !formData.emrNumber) {
+    if (shouldGenerateEMR && isCompact && !formData.emrNumber) {
       const headers = getAuthHeaders();
       if (headers) {
         fetch("/api/clinic/generate-emr", { headers })
@@ -386,9 +398,15 @@ const handleSubmit = useCallback(async () => {
           return;
         }
         
-        // Use clinic API endpoint if in clinic route
-        const isClinicRoute = typeof window !== 'undefined' && window.location.pathname?.startsWith('/clinic/');
-        const apiEndpoint = isClinicRoute ? "/api/clinic/patient-registration" : "/api/staff/patient-registration";
+        // Use clinic API endpoint for clinic route OR when accessing clinic-patient-registration page
+        // This ensures consistent validation (only firstName and mobileNumber required) for clinic, agent, and doctorStaff
+        const currentPath = typeof window !== 'undefined' ? window.location.pathname : '';
+        const isClinicRoute = currentPath.startsWith('/clinic/');
+        const isClinicPatientRegistration = currentPath.includes('clinic-patient-registration');
+        // Use clinic API for clinic routes OR when accessing clinic-patient-registration (even from staff route)
+        const apiEndpoint = (isClinicRoute || isClinicPatientRegistration) 
+          ? "/api/clinic/patient-registration" 
+          : "/api/staff/patient-registration";
         
         const res = await fetch(apiEndpoint, {
           method: "POST",
