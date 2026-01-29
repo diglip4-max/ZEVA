@@ -203,7 +203,7 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
   const totalPatients = patients.length;
   const activePatients = patients.filter(p => p.status === 'Active' || p.applicationStatus === 'Active').length;
 
-  const fetchPatients = async () => {
+  const fetchPatients = async (showSuccessToast = true) => {
     const headers = getAuthHeaders();
     if (!headers) {
       addToast("Authentication required. Please login again.", "error");
@@ -216,7 +216,9 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
       const { data } = await axios.get(apiEndpoint, { headers });
       setPatients(data.success ? data.data : []);
       setPage(1);
-      addToast("Data loaded successfully", "success");
+      if (showSuccessToast) {
+        addToast("Data loaded successfully", "success");
+      }
     } catch (err) {
       console.error(err);
       setPatients([]);
@@ -309,8 +311,28 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
       if (response.data.success) {
         // Show success popup
         setDeleteSuccessModal({ isOpen: true, patientName: patientName });
-        // Refresh the patient list
-        fetchPatients();
+        // Refresh the patient list without showing duplicate success toast from fetchPatients
+        const refreshHeaders = getAuthHeaders();
+        if (!refreshHeaders) {
+          addToast("Authentication required. Please login again.", "error");
+          return;
+        }
+        setLoading(true);
+        try {
+          // Always use clinic API endpoint for consistency - it supports clinic, agent, and doctorStaff roles
+          const apiEndpoint = "/api/clinic/patient-information";
+          const { data } = await axios.get(apiEndpoint, { headers: refreshHeaders });
+          setPatients(data.success ? data.data : []);
+          setPage(1);
+          // Changed message to show patient deletion success
+          addToast("Patient deleted successfully", "success");
+        } catch (err) {
+          console.error(err);
+          setPatients([]);
+          addToast("Failed to load data", "error");
+        } finally {
+          setLoading(false);
+        }
       } else {
         addToast(response.data.message || "Failed to delete patient", "error");
       }

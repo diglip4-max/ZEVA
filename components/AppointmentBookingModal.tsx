@@ -657,6 +657,7 @@ export default function AppointmentBookingModal({
                 aria-invalid={!!fieldErrors.doctorId}
                 aria-describedby={fieldErrors.doctorId ? "doctor-error" : undefined}
               >
+                <option value="">Select a doctor</option>
                 {doctorStaff.map((doctor) => (
                   <option key={doctor._id} value={doctor._id}>
                     {doctor.name}
