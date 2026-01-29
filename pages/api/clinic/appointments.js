@@ -423,29 +423,7 @@ export default async function handler(req, res) {
         23, 59, 59, 999
       ));
       
-      // Validation 1: Check if patient already has an appointment at this time
-      const patientExistingAppointment = await Appointment.findOne({
-        clinicId,
-        patientId,
-        startDate: { $gte: startOfDay, $lte: endOfDay },
-        $or: [
-          { fromTime, toTime },
-          {
-            $or: [
-              { fromTime: { $gte: fromTime, $lt: toTime } },
-              { toTime: { $gt: fromTime, $lte: toTime } },
-              { fromTime: { $lte: fromTime }, toTime: { $gte: toTime } },
-            ],
-          },
-        ],
-      });
-
-      if (patientExistingAppointment) {
-        return res.status(400).json({
-          success: false,
-          message: "You are already booking at that time",
-        });
-      }
+      
 
       // Validation 2: Check if SAME doctor is trying to book the SAME room at the same time
       // Allow one doctor to book different rooms at the same time
@@ -453,6 +431,7 @@ export default async function handler(req, res) {
         clinicId,
         roomId,
         doctorId, // Same doctor
+        patientId: { $ne: patientId },
         startDate: { $gte: startOfDay, $lte: endOfDay },
         $or: [
           { fromTime, toTime },
