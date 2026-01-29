@@ -107,13 +107,17 @@ export default async function handler(req, res) {
         user.mobileNumber ||
         String(user._id);
 
+      // Only require invoiceNumber, firstName, and mobileNumber (same as clinic API)
+      // Gender is optional - will default to "Other" if not provided
       if (
         !invoiceNumber ||
         !firstName ||
-        !gender ||
         !mobileNumber
       ) {
-        return res.status(400).json({ success: false, message: "Missing required fields" });
+        return res.status(400).json({ 
+          success: false, 
+          message: "Missing required fields: invoiceNumber, firstName, and mobileNumber are required" 
+        });
       }
 
       const existingPatient = await PatientRegistration.findOne({ invoiceNumber });
@@ -154,7 +158,9 @@ export default async function handler(req, res) {
         if (email !== undefined) existingPatient.email = email;
         if (mobileNumber !== undefined) existingPatient.mobileNumber = mobileNumber;
         if (referredBy !== undefined) existingPatient.referredBy = referredBy;
-        if (patientType !== undefined) existingPatient.patientType = patientType;
+        if (patientType !== undefined && String(patientType).trim() !== "") {
+          existingPatient.patientType = patientType;
+        }
         if (notes !== undefined) existingPatient.notes = notes;
         
         // Insurance handling
@@ -194,24 +200,25 @@ export default async function handler(req, res) {
         });
       }
 
+      const normalizedPatientType = (typeof patientType === "string" && patientType.trim() !== "") ? patientType : undefined;
       const patient = await PatientRegistration.create({
         invoiceNumber,
         invoicedBy: computedInvoicedBy,
         userId: user._id,
-        emrNumber,
+        emrNumber: emrNumber || "",
         firstName,
-        lastName,
-        gender,
-        email,
+        lastName: lastName || "",
+        gender: gender || "Other", // Default to "Other" if not provided (same as clinic API)
+        email: email || "",
         mobileNumber,
-        referredBy,
-        patientType,
-        insurance,
-        insuranceType,
+        referredBy: referredBy || "",
+        patientType: normalizedPatientType || "New",
+        insurance: insurance || "No",
+        insuranceType: insuranceType || "Paid",
         advanceGivenAmount: Number(advanceGivenAmount) || 0,
         coPayPercent: Number(coPayPercent) || 0,
-        advanceClaimStatus,
-        notes,
+        advanceClaimStatus: advanceClaimStatus || "Pending",
+        notes: notes || "",
         membership: membership || "No",
         membershipStartDate: membership === "Yes" && membershipStartDate ? new Date(membershipStartDate) : null,
         membershipEndDate: membership === "Yes" && membershipEndDate ? new Date(membershipEndDate) : null,

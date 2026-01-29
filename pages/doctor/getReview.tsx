@@ -421,7 +421,7 @@ function DoctorReviews() {
                   outerRadius={75}
                   paddingAngle={2}
                   dataKey="value"
-                  label={({ name, percentage }) => percentage > 0 ? `${name.split(' ')[0]}: ${percentage}%` : ''}
+                  label={({ name, percent }) => (percent && percent > 0 && name) ? `${String(name).split(' ')[0]}: ${Math.round(percent * 100)}%` : ''}
                   labelLine={true}
                 >
                   {sentimentData.map((entry, index) => (
@@ -435,8 +435,8 @@ function DoctorReviews() {
                     borderRadius: '6px',
                     fontSize: '12px'
                   }}
-                  formatter={(value: number, name: string, props: any) => [
-                    `${value} (${props.payload.percentage}%)`,
+                  formatter={(value, name, props) => [
+                    `${value} (${props?.payload?.percentage ?? 0}%)`,
                     name
                   ]}
                 />

@@ -3015,11 +3015,13 @@ const ClinicDashboard: NextPageWithLayout = () => {
                         borderRadius: '6px',
                         fontSize: '11px'
                       }}
-                        formatter={(value: number, name: string, props: any) => {
+                        formatter={(value: number | undefined, name: string | undefined, props: any) => {
+                          const displayValue = value ?? 0;
+                          const displayName = name ?? '';
                           if (props.payload?.fullName) {
-                            return [`${value}`, props.payload.fullName];
+                            return [`${displayValue}`, props.payload.fullName];
                           }
-                          return [value, name];
+                          return [displayValue, displayName];
                         }}
                       />
                       <Bar dataKey="value" radius={[4, 4, 0, 0]} fill="#3b82f6">
