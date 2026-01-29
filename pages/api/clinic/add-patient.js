@@ -1,7 +1,10 @@
 import dbConnect from "../../../lib/database";
 import PatientRegistration from "../../../models/PatientRegistration";
-import { getUserFromReq } from "../lead-ms/auth";
 import { generateEmrNumber } from "../../../lib/generateEmrNumber";
+import { getAuthorizedStaffUser } from "../../../server/staff/authHelpers";
+import { checkClinicPermission } from "../lead-ms/permissions-helper";
+import { checkAgentPermission } from "../agent/permissions-helper";
+import Clinic from "../../../models/Clinic";
 
 export default async function handler(req, res) {
   await dbConnect();
@@ -12,13 +15,62 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Verify clinic authentication
-    const clinicUser = await getUserFromReq(req);
-    if (!clinicUser) {
-      return res.status(401).json({ success: false, message: "Unauthorized" });
+    let user;
+    try {
+      user = await getAuthorizedStaffUser(req, {
+        allowedRoles: ["staff", "doctorStaff", "doctor", "clinic", "agent", "admin"],
+      });
+    } catch (err) {
+      return res.status(err.status || 401).json({ success: false, message: err.message || "Authentication error" });
     }
-    if (clinicUser.role !== "clinic") {
-      return res.status(403).json({ success: false, message: "Access denied. Clinic role required." });
+
+    // Role gate (same as patient-registration)
+    if (!["clinic", "staff", "admin", "agent", "doctorStaff", "doctor"].includes(user.role)) {
+      return res.status(403).json({ success: false, message: "Access denied" });
+    }
+
+    // Permission checks (admin bypasses)
+    if (user.role !== "admin") {
+      if (user.role === "clinic") {
+        const clinic = await Clinic.findOne({ owner: user._id });
+        if (clinic) {
+          const { hasPermission, error } = await checkClinicPermission(
+            clinic._id,
+            "patient_registration",
+            "create"
+          );
+          if (!hasPermission) {
+            return res.status(403).json({
+              success: false,
+              message: error || "You do not have permission to create patients",
+            });
+          }
+        }
+      } else if (user.role === "agent") {
+        const { hasPermission, error } = await checkAgentPermission(
+          user._id,
+          "patient_registration",
+          "create"
+        );
+        if (!hasPermission) {
+          return res.status(403).json({
+            success: false,
+            message: error || "You do not have permission to create patients",
+          });
+        }
+      } else if (user.role === "doctorStaff") {
+        const { hasPermission, error } = await checkAgentPermission(
+          user._id,
+          "patient_registration",
+          "create"
+        );
+        if (!hasPermission) {
+          return res.status(403).json({
+            success: false,
+            message: error || "You do not have permission to create patients",
+          });
+        }
+      }
     }
 
     const {
@@ -32,11 +84,16 @@ export default async function handler(req, res) {
       patientType,
     } = req.body;
 
-    // Validation
-    if (!firstName || !gender || !mobileNumber) {
+    const normalizedGender =
+      gender && String(gender).trim()
+        ? String(gender).trim()
+        : "Other";
+
+    // Validation aligned to PatientRegistration model
+    if (!firstName || !mobileNumber) {
       return res.status(400).json({
         success: false,
-        message: "Missing required fields: firstName, gender, and mobileNumber are required",
+        message: "Missing required fields: firstName and mobileNumber are required",
       });
     }
 
@@ -83,32 +140,19 @@ export default async function handler(req, res) {
     }
 
     // Create new patient with minimal required fields
-    const defaultDoctorName =
-      clinicUser.name ||
-      clinicUser.fullName ||
-      clinicUser.email ||
-      "Clinic Doctor";
-
     const newPatient = await PatientRegistration.create({
       invoiceNumber,
       invoicedDate: new Date(),
-      invoicedBy: clinicUser.name || clinicUser.email || "Clinic",
-      userId: clinicUser._id,
+      invoicedBy: user.name || user.email || "Clinic",
+      userId: user._id,
       emrNumber: finalEmrNumber,
       firstName,
       lastName: lastName || "",
-      gender,
+      gender: normalizedGender,
       email: email || "",
       mobileNumber,
       referredBy: referredBy || "",
       patientType: patientType || "New",
-      doctor: defaultDoctorName, // Placeholder; real doctor assigned during appointment booking
-      service: "Treatment", // Default
-      amount: 0,
-      paid: 0,
-      advance: 0,
-      pending: 0,
-      paymentMethod: "Cash", // Default
     });
 
     return res.status(201).json({
