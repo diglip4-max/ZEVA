@@ -2234,24 +2234,24 @@ const ClinicDashboard: NextPageWithLayout = () => {
               {/* Eye icon for show/hide section */}
               <button
                 onClick={() => toggleWidgetVisibility(widget.id)}
-                className="p-2 bg-white rounded-full shadow-xl border-2 border-gray-300 hover:bg-gray-50 transition-all hover:scale-110 z-50"
+                className="p-1 bg-white rounded-full shadow-xl border-2 border-gray-300 hover:bg-gray-50 transition-all hover:scale-110 z-50"
                 title={widget.visible ? 'Hide section' : 'Show section'}
                 style={{ borderWidth: '2px' }}
               >
                 {widget.visible ? (
-                  <Eye className="w-4 h-4 text-gray-700" />
+                  <Eye className="w-3 h-3 text-gray-700" />
                 ) : (
-                  <EyeOff className="w-4 h-4 text-gray-400" />
+                  <EyeOff className="w-3 h-3 text-gray-400" />
                 )}
               </button>
               {/* teal grip icon for section-level swapping */}
               <div
                 {...attributes}
                 {...listeners}
-                className="p-2.5 bg-gradient-to-br from-teal-500 to-teal-600 rounded-full shadow-2xl cursor-grab active:cursor-grabbing hover:from-teal-600 hover:to-teal-700 transition-all border-2 border-white hover:scale-110 z-50"
+                className="p-2 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg shadow-2xl cursor-grab active:cursor-grabbing hover:from-blue-600 hover:to-blue-700 transition-all border-2 border-white hover:scale-110 z-50"
                 title="Drag to reorder entire section"
               >
-                <GripVertical className="w-5 h-5 text-white" />
+                <GripVertical className="w-3 h-3 text-white" />
               </div>
             </div>
           </>
@@ -2297,22 +2297,22 @@ const ClinicDashboard: NextPageWithLayout = () => {
           <div className="absolute top-2 left-2 z-30 flex flex-col gap-1.5">
             <button
               onClick={() => onToggleVisibility(section.id)}
-              className="p-1.5 bg-white rounded-full shadow-lg border border-gray-200 hover:bg-gray-50 transition-colors"
+              className="p-1 bg-white rounded-full shadow-lg border border-gray-200 hover:bg-gray-50 transition-colors"
               title={section.visible ? 'Hide section' : 'Show section'}
             >
               {section.visible ? (
-                <Eye className="w-3.5 h-3.5 text-gray-600" />
+                <Eye className="w-3 h-3 text-gray-600" />
               ) : (
-                <EyeOff className="w-3.5 h-3.5 text-gray-400" />
+                <EyeOff className="w-3 h-3 text-gray-400" />
               )}
             </button>
             <div
               {...attributes}
               {...listeners}
-              className="p-1.5 bg-teal-500 rounded-full shadow-lg cursor-grab active:cursor-grabbing hover:bg-teal-600 transition-colors"
+              className="p-1.5 bg-blue-500 rounded-lg shadow-lg cursor-grab active:cursor-grabbing hover:bg-blue-600 transition-colors"
               title="Drag to move section"
             >
-              <GripVertical className="w-3.5 h-3.5 text-white" />
+              <GripVertical className="w-3 h-3 text-white" />
             </div>
           </div>
         )}
@@ -2357,13 +2357,13 @@ const ClinicDashboard: NextPageWithLayout = () => {
           <div className="absolute top-2 left-2 z-30 flex flex-col gap-1.5">
             <button
               onClick={() => togglePackageOfferVisibility(card.id)}
-              className="p-1.5 bg-white rounded-full shadow-lg border border-gray-200 hover:bg-gray-50 transition-colors"
+              className="p-1 bg-white rounded-full shadow-lg border border-gray-200 hover:bg-gray-50 transition-colors"
               title={card.visible ? 'Hide card' : 'Show card'}
             >
               {card.visible ? (
-                <Eye className="w-3.5 h-3.5 text-gray-600" />
+                <Eye className="w-3 h-3 text-gray-600" />
               ) : (
-                <EyeOff className="w-3.5 h-3.5 text-gray-400" />
+                <EyeOff className="w-3 h-3 text-gray-400" />
               )}
             </button>
             <div
@@ -2372,7 +2372,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
               className="p-1.5 bg-indigo-500 rounded-full shadow-lg cursor-grab active:cursor-grabbing hover:bg-indigo-600 transition-colors"
               title="Drag to move card"
             >
-              <GripVertical className="w-3.5 h-3.5 text-white" />
+              <GripVertical className="w-3 h-3 text-white" />
             </div>
           </div>
         )}
@@ -2417,13 +2417,13 @@ const ClinicDashboard: NextPageWithLayout = () => {
           <div className="absolute top-2 left-2 z-30 flex flex-col gap-1.5">
             <button
               onClick={() => toggleChartVisibility(chart.id)}
-              className="p-1.5 bg-white rounded-full shadow-lg border border-gray-200 hover:bg-gray-50 transition-colors"
+              className="p-1 bg-white rounded-full shadow-lg border border-gray-200 hover:bg-gray-50 transition-colors"
               title={chart.visible ? 'Hide chart' : 'Show chart'}
             >
               {chart.visible ? (
-                <Eye className="w-3.5 h-3.5 text-gray-600" />
+                <Eye className="w-3 h-3 text-gray-600" />
               ) : (
-                <EyeOff className="w-3.5 h-3.5 text-gray-400" />
+                <EyeOff className="w-3 h-3 text-gray-400" />
               )}
             </button>
             <div
@@ -2432,7 +2432,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
               className="p-1.5 bg-orange-500 rounded-full shadow-lg cursor-grab active:cursor-grabbing hover:bg-orange-600 transition-colors"
               title="Drag to move chart"
             >
-              <GripVertical className="w-3.5 h-3.5 text-white" />
+              <GripVertical className="w-3 h-3 text-white" />
             </div>
           </div>
         )}
@@ -2496,13 +2496,13 @@ const ClinicDashboard: NextPageWithLayout = () => {
                   e.stopPropagation();
                   toggleCardVisibility(card.id);
                 }}
-                className="p-1.5 bg-white rounded-full shadow-lg border border-gray-200 hover:bg-gray-50 transition-colors z-40"
+                className="p-1 bg-white rounded-full shadow-lg border border-gray-200 hover:bg-gray-50 transition-colors z-40"
                 title={card.visible ? 'Hide card' : 'Show card'}
               >
                 {card.visible ? (
-                  <Eye className="w-3.5 h-3.5 text-gray-600" />
+                  <Eye className="w-3 h-3 text-gray-600" />
                 ) : (
-                  <EyeOff className="w-3.5 h-3.5 text-gray-400" />
+                  <EyeOff className="w-3 h-3 text-gray-400" />
                 )}
               </button>
               <div
@@ -2512,7 +2512,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                 title="Drag to move or swap cards"
                 onClick={(e) => e.stopPropagation()}
               >
-                <GripVertical className="w-4 h-4 text-white" />
+                <GripVertical className="w-3 h-3 text-white" />
               </div>
             </div>
           )}
@@ -2707,6 +2707,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                   const widgetContent = (() => {
                     switch (widget.type) {
                       case 'packages-offers':
+                        console.log('Rendering packages-offers section');
                         const sortedPackageOfferCards = packageOfferCards.sort((a, b) => a.order - b.order);
                         return (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
@@ -3300,7 +3301,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                               {activeStatsSectionId && sortedStatsSections.find(s => s.id === activeStatsSectionId) ? (
                                 <div className="bg-white rounded-lg border-2 border-teal-500 shadow-xl p-4 opacity-90">
                                   <div className="flex items-center gap-2">
-                                    <GripVertical className="w-4 h-4 text-teal-500" />
+                                    <GripVertical className="w-3 h-3 text-teal-500" />
                                     <span className="text-sm font-semibold text-teal-800">
                                       {sortedStatsSections.find(s => s.id === activeStatsSectionId)?.title || 'Section'}
                                     </span>
@@ -3333,7 +3334,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                       return (
                         <div className="bg-white rounded-lg border-2 border-teal-500 shadow-2xl p-4 opacity-95 min-w-[200px]">
                           <div className="flex items-center gap-2">
-                            <GripVertical className="w-5 h-5 text-teal-500" />
+                            <GripVertical className="w-3 h-3 text-teal-500" />
                             <div className="flex flex-col">
                               <span className="text-sm font-semibold text-gray-700">{widget.title}</span>
                               <span className="text-xs text-gray-500">Section</span>
@@ -3352,7 +3353,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                       return (
                         <div className="bg-white rounded-lg border-2 border-teal-500 shadow-xl p-4 opacity-90 min-w-[200px]">
                 <div className="flex items-center gap-2">
-                            <GripVertical className="w-5 h-5 text-teal-500" />
+                            <GripVertical className="w-3 h-3 text-teal-500" />
                             <div className="flex flex-col">
                               <span className="text-sm font-semibold text-gray-700">{draggedCard.label}</span>
                               <span className="text-xs text-gray-500">{draggedCard.value}</span>
@@ -3369,7 +3370,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                       return (
                         <div className="bg-white rounded-lg border-2 border-orange-500 shadow-xl p-4 opacity-90 min-w-[200px]">
                           <div className="flex items-center gap-2">
-                            <GripVertical className="w-5 h-5 text-orange-500" />
+                            <GripVertical className="w-3 h-3 text-orange-500" />
                             <span className="text-sm font-semibold text-gray-700">{draggedChart.title}</span>
                           </div>
                         </div>
@@ -3382,7 +3383,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                       return (
                         <div className="bg-white rounded-lg border-2 border-indigo-500 shadow-xl p-4 opacity-90 min-w-[200px]">
                           <div className="flex items-center gap-2">
-                            <GripVertical className="w-5 h-5 text-indigo-500" />
+                            <GripVertical className="w-3 h-3 text-indigo-500" />
                             <span className="text-sm font-semibold text-teal-800">{draggedPackage.title}</span>
                           </div>
                         </div>
