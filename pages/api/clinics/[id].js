@@ -61,34 +61,6 @@ function getBaseUrl() {
   return process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
 }
 
-// Normalize photos: split comma-joined strings and convert to absolute URLs
-function normalizePhotos(list) {
-  if (!list || !Array.isArray(list)) return [];
-  const out = [];
-  list.forEach((item) => {
-    if (!item) return;
-    const parts = String(item).split(",").map((p) => p.trim()).filter(Boolean);
-    parts.forEach((photo) => {
-      if (photo.startsWith("http://") || photo.startsWith("https://")) {
-        out.push(photo);
-        return;
-      }
-      if (photo.includes("uploads/")) {
-        const uploadsIndex = photo.indexOf("uploads/");
-        const relativePath = "/" + photo.substring(uploadsIndex);
-        out.push(`${getBaseUrl()}${relativePath}`);
-        return;
-      }
-      if (photo.startsWith("/")) {
-        out.push(`${getBaseUrl()}${photo}`);
-        return;
-      }
-      out.push(`${getBaseUrl()}/uploads/clinic/${photo}`);
-    });
-  });
-  return out;
-}
-
 export default async function handler(req, res) {
   await dbConnect();
 
@@ -203,8 +175,27 @@ export default async function handler(req, res) {
         return res.status(404).json({ success: false, message: "Clinic not found" });
       }
 
+      // Ensure photos are absolute URLs
       if (clinic.photos && Array.isArray(clinic.photos)) {
-        clinic.photos = normalizePhotos(clinic.photos);
+        clinic.photos = clinic.photos.map((photo) => {
+          if (!photo) return photo;
+          // If already an absolute URL, return as is
+          if (photo.startsWith("http://") || photo.startsWith("https://")) {
+            return photo;
+          }
+          // If it's a file system path, extract the uploads part
+          if (photo.includes("uploads/")) {
+            const uploadsIndex = photo.indexOf("uploads/");
+            const relativePath = "/" + photo.substring(uploadsIndex);
+            return `${getBaseUrl()}${relativePath}`;
+          }
+          // If it starts with /, prepend base URL
+          if (photo.startsWith("/")) {
+            return `${getBaseUrl()}${photo}`;
+          }
+          // Otherwise, prepend /uploads/clinic/ if it looks like a filename
+          return `${getBaseUrl()}/uploads/clinic/${photo}`;
+        });
       }
       if (clinic.licenseDocumentUrl) {
         clinic.licenseDocumentUrl = clinic.licenseDocumentUrl.startsWith("http")
@@ -374,6 +365,17 @@ export default async function handler(req, res) {
         }
       }
 
+      let existingPhotosFromClient = null;
+      if (typeof updateData.existingPhotos === "string") {
+        try {
+          existingPhotosFromClient = JSON.parse(updateData.existingPhotos);
+        } catch {
+          existingPhotosFromClient = [];
+        }
+      } else if (Array.isArray(updateData.existingPhotos)) {
+        existingPhotosFromClient = updateData.existingPhotos;
+      }
+
       if (typeof updateData.location === "string") {
         try {
           updateData.location = JSON.parse(updateData.location);
@@ -382,34 +384,31 @@ export default async function handler(req, res) {
         }
       }
 
-      // Parse provided existingPhotos (authoritative list from client after removals)
-      if (typeof updateData.existingPhotos === "string") {
-        try {
-          updateData.existingPhotos = JSON.parse(updateData.existingPhotos);
-        } catch {
-          // Fallback to empty array if parsing fails
-          updateData.existingPhotos = [];
-        }
-      }
-      const providedExisting =
-        Array.isArray(updateData.existingPhotos) ? updateData.existingPhotos.filter(Boolean) : null;
-
-      // Compute final photos: start from providedExisting if available, else from existing clinic
-      let finalPhotos = Array.isArray(providedExisting)
-        ? [...providedExisting]
-        : [...(existingClinic.photos || [])];
-
-      // Merge any newly uploaded photos
-      if (uploadedPhotoPaths.length > 0) {
-        uploadedPhotoPaths.forEach((newPhoto) => {
-          if (!finalPhotos.includes(newPhoto)) {
-            finalPhotos.push(newPhoto);
+      if (existingPhotosFromClient) {
+        const oldPhotos = existingClinic.photos || [];
+        const desiredPhotos = Array.isArray(existingPhotosFromClient) ? existingPhotosFromClient : [];
+        const removedPhotos = oldPhotos.filter((p) => !desiredPhotos.includes(p));
+        removedPhotos.forEach((photoPath) => {
+          if (photoPath && photoPath.startsWith("/uploads/clinic/")) {
+            const fullPath = path.join(process.cwd(), "public", photoPath);
+            try {
+              fs.unlinkSync(fullPath);
+            } catch (err) {}
           }
         });
+        updateData.photos = desiredPhotos;
       }
-      // Set updateData.photos to finalPhotos to persist removals and additions
-      updateData.photos = finalPhotos;
-      console.log("📸 Total photos after apply:", finalPhotos.length);
+
+      if (uploadedPhotoPaths.length > 0) {
+        const basePhotos = Array.isArray(updateData.photos) ? updateData.photos : (existingClinic.photos || []);
+        const allPhotos = [...basePhotos];
+        uploadedPhotoPaths.forEach((newPhoto) => {
+          if (!allPhotos.includes(newPhoto)) {
+            allPhotos.push(newPhoto);
+          }
+        });
+        updateData.photos = allPhotos;
+      }
 
       // Remove undefined/empty fields
       Object.keys(updateData).forEach((key) => {
@@ -440,9 +439,31 @@ export default async function handler(req, res) {
         { new: true, runValidators: true }
       );
 
-      // Ensure photos are absolute URLs and split any comma-joined entries
-      if (updatedClinic && updatedClinic.photos && Array.isArray(updatedClinic.photos)) {
-        updatedClinic.photos = normalizePhotos(updatedClinic.photos);
+      // Ensure photos are absolute URLs
+      if (
+        updatedClinic &&
+        updatedClinic.photos &&
+        Array.isArray(updatedClinic.photos)
+      ) {
+        updatedClinic.photos = updatedClinic.photos.map((photo) => {
+          if (!photo) return photo;
+          // If already an absolute URL, return as is
+          if (photo.startsWith("http://") || photo.startsWith("https://")) {
+            return photo;
+          }
+          // If it's a file system path, extract the uploads part
+          if (photo.includes("uploads/")) {
+            const uploadsIndex = photo.indexOf("uploads/");
+            const relativePath = "/" + photo.substring(uploadsIndex);
+            return `${getBaseUrl()}${relativePath}`;
+          }
+          // If it starts with /, prepend base URL
+          if (photo.startsWith("/")) {
+            return `${getBaseUrl()}${photo}`;
+          }
+          // Otherwise, prepend /uploads/clinic/ if it looks like a filename
+          return `${getBaseUrl()}/uploads/clinic/${photo}`;
+        });
       }
       if (updatedClinic && updatedClinic.licenseDocumentUrl) {
         updatedClinic.licenseDocumentUrl =

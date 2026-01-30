@@ -49,9 +49,9 @@ const Pricing: React.FC = () => {
                     <span className="text-gray-600">Health calculators</span>
                   </li>
                 </ul>
-                <button className="w-full bg-gray-200 text-gray-800 py-3 rounded-md font-semibold hover:bg-gray-300 transition">
-                  Get Started
-                </button>
+                {/* <button className="w-full bg-gray-200 text-gray-800 py-3 rounded-md font-semibold hover:bg-gray-300 transition">
+                
+                </button> */}
               </div>
 
               {/* Premium Plan */}
@@ -86,8 +86,8 @@ const Pricing: React.FC = () => {
                     <span className="text-gray-600">Priority support</span>
                   </li>
                 </ul>
-                <button className="w-full bg-teal-600 text-white py-3 rounded-md font-semibold hover:bg-teal-700 transition">
-                  Get Started
+              <button className="w-full bg-gray-200 text-gray-800 py-3 rounded-md font-semibold hover:bg-gray-300 transition">
+                  Coming soon  
                 </button>
               </div>
 
@@ -119,9 +119,9 @@ const Pricing: React.FC = () => {
                     <span className="text-gray-600">Dedicated support</span>
                   </li>
                 </ul>
-                <button className="w-full bg-gray-200 text-gray-800 py-3 rounded-md font-semibold hover:bg-gray-300 transition">
+                {/* <button className="w-full bg-gray-200 text-gray-800 py-3 rounded-md font-semibold hover:bg-gray-300 transition">
                   Contact Sales
-                </button>
+                </button> */}
               </div>
             </div>
 

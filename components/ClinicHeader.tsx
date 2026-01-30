@@ -126,12 +126,13 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
     sessionStorage.removeItem('clinicEmailForReset');
     window.location.href = '/clinic/login-clinic';
   };
-  
-  const clinicUserRaw = localStorage.getItem('clinicUser');
-  const clinicUser = clinicUserRaw ? JSON.parse(clinicUserRaw) : null;
+  const [clinicUser, setClinicUser] = useState<{ name?: string; email?: string } | null>(null);
   const clinicName: string = useMemo(() => {
+    if (typeof window === 'undefined') {
+      return clinicUser?.name || '';
+    }
     try {
-      const token = localStorage.getItem('clinicToken') || '';
+      const token = localStorage.getItem('clinicToken') || sessionStorage.getItem('clinicToken') || '';
       if (!token) return clinicUser?.name || '';
       const payloadBase64 = token.split('.')[1];
       if (!payloadBase64) return clinicUser?.name || '';
@@ -141,6 +142,16 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
       return clinicUser?.name || '';
     }
   }, [clinicUser]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const raw = localStorage.getItem('clinicUser') || sessionStorage.getItem('clinicUser');
+      setClinicUser(raw ? JSON.parse(raw) : null);
+    } catch {
+      setClinicUser(null);
+    }
+  }, []);
 
   const getInitials = (name: string) => {
     return name

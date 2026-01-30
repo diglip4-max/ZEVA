@@ -381,7 +381,11 @@ export default async function handler(req, res) {
         });
       }
 
-      // Check for overlapping appointments (same doctor, room, date, and time)
+      // Check for overlapping appointments (same doctor, same room, same time)
+      // We want to allow the same doctor to book different rooms at the same time
+      // But prevent same doctor from booking same room at same time
+      // And prevent different doctors from booking same room at same time
+      
       // Normalize startDate to UTC midnight for consistent comparison
       let appointmentDate;
       if (typeof startDate === 'string') {
@@ -419,9 +423,15 @@ export default async function handler(req, res) {
         23, 59, 59, 999
       ));
       
-      const existingAppointment = await Appointment.findOne({
+      
+
+      // Validation 2: Check if SAME doctor is trying to book the SAME room at the same time
+      // Allow one doctor to book different rooms at the same time
+      const sameDoctorSameRoomAppointment = await Appointment.findOne({
         clinicId,
-        doctorId,
+        roomId,
+        doctorId, // Same doctor
+        patientId: { $ne: patientId },
         startDate: { $gte: startOfDay, $lte: endOfDay },
         $or: [
           { fromTime, toTime },
@@ -435,10 +445,35 @@ export default async function handler(req, res) {
         ],
       });
 
-      if (existingAppointment) {
+      if (sameDoctorSameRoomAppointment) {
         return res.status(400).json({
           success: false,
-          message: "An appointment already exists for this doctor at this time",
+          message: "You already have a booking in this room at this time",
+        });
+      }
+
+      // Validation 3: Check if DIFFERENT doctors are trying to book the SAME room at the same time
+      const differentDoctorSameRoomAppointment = await Appointment.findOne({
+        clinicId,
+        roomId,
+        doctorId: { $ne: doctorId }, // Different doctor
+        startDate: { $gte: startOfDay, $lte: endOfDay },
+        $or: [
+          { fromTime, toTime },
+          {
+            $or: [
+              { fromTime: { $gte: fromTime, $lt: toTime } },
+              { toTime: { $gt: fromTime, $lte: toTime } },
+              { fromTime: { $lte: fromTime }, toTime: { $gte: toTime } },
+            ],
+          },
+        ],
+      });
+
+      if (differentDoctorSameRoomAppointment) {
+        return res.status(400).json({
+          success: false,
+          message: "Another doctor is already booked in this room at this time",
         });
       }
 

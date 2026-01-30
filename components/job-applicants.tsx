@@ -2,7 +2,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
-import { Users, Mail, Phone, FileText, Search, Filter, X, Download } from 'lucide-react';
+import { Users, Mail, Phone, FileText, Search, Filter, X} from 'lucide-react';
 
 interface JobInfo {
   jobTitle: string;
@@ -183,6 +183,8 @@ const ApplicationsDashboard: React.FC<ApplicationsDashboardProps> = ({
     document.body.removeChild(link);
     toast.success("Applicants exported successfully");
   };
+  
+  void exportApplicantsToCSV;
 
   const updateStatus = async (applicationId: string, status: string): Promise<void> => {
     if (!permissions.canUpdate) {
@@ -490,13 +492,13 @@ const ApplicationsDashboard: React.FC<ApplicationsDashboardProps> = ({
                 <span className="sm:hidden">Filter</span>
               </button>
               
-              <button
+              {/* <button
                 onClick={exportApplicantsToCSV}
                 className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-md text-[10px] sm:text-xs font-medium transition-colors whitespace-nowrap bg-green-600 text-white hover:bg-green-700 shadow-sm"
               >
                 <Download className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                 <span>Export</span>
-              </button>
+              </button> */}
             </div>
 
             {/* Quick Filters - Compact */}

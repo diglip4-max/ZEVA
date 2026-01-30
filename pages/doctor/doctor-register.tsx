@@ -499,8 +499,8 @@ export default function DoctorRegister() {
     }
   };
 
-  const handlePhoneInput = (e: ChangeEvent<HTMLInputElement>) => {
-    e.target.value = e.target.value.replace(/[^0-9]/g, "");
+  const handlePhoneInput = (e: React.InputEvent<HTMLInputElement>) => {
+    e.currentTarget.value = e.currentTarget.value.replace(/[^0-9]/g, "");
   };
 
   const handleExperienceKeyPress = (e: KeyboardEvent<HTMLInputElement>) => {
@@ -509,8 +509,8 @@ export default function DoctorRegister() {
     }
   };
 
-  const handleExperienceInput = (e: ChangeEvent<HTMLInputElement>) => {
-    e.target.value = e.target.value.replace(/[^0-9]/g, "");
+  const handleExperienceInput = (e: React.InputEvent<HTMLInputElement>) => {
+    e.currentTarget.value = e.currentTarget.value.replace(/[^0-9]/g, "");
   };
 
 return (

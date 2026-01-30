@@ -21,6 +21,7 @@ interface AppointmentBookingModalProps {
   rooms: Array<{ _id: string; name: string }>;
   doctorStaff: Array<{ _id: string; name: string; email?: string }>;
   getAuthHeaders: () => Record<string, string>;
+  preSelectedPatient?: Patient | null; // Pre-selected patient from drag operation
 }
 
 interface Patient {
@@ -67,13 +68,15 @@ export default function AppointmentBookingModal({
   rooms,
   doctorStaff,
   getAuthHeaders,
+  preSelectedPatient,
 }: AppointmentBookingModalProps) {
   // Debug: Log when component receives props
   console.log("AppointmentBookingModal - Received props:", {
     bookedFrom,
     doctorId,
     defaultRoomId,
-    isOpen
+    isOpen,
+    preSelectedPatient: preSelectedPatient ? preSelectedPatient.fullName : null
   });
 
   const [roomId, setRoomId] = useState<string>(defaultRoomId || "");
@@ -125,8 +128,8 @@ export default function AppointmentBookingModal({
     return `${String(newHour).padStart(2, "0")}:${String(newMin).padStart(2, "0")}`;
   };
 
-  const [fromTime, setFromTime] = useState<string>(slotTime);
-  const [toTime, setToTime] = useState<string>(calculateEndTime(slotTime));
+  const [fromTime, setFromTime] = useState<string>(slotTime || "09:00");
+  const [toTime, setToTime] = useState<string>(slotTime ? calculateEndTime(slotTime) : calculateEndTime("09:00"));
   const [referral, setReferral] = useState<string>("direct");
   const [emergency, setEmergency] = useState<string>("no");
   const [notes, setNotes] = useState<string>("");
@@ -147,12 +150,19 @@ export default function AppointmentBookingModal({
         setFromTime(propFromTime);
         setToTime(propToTime);
       } else {
-        setFromTime(slotTime);
-        setToTime(calculateEndTime(slotTime));
+        setFromTime(slotTime || "09:00");
+        setToTime(calculateEndTime(slotTime || "09:00"));
       }
       setStartDate(defaultDate || new Date().toISOString().split("T")[0]);
       setSelectedDoctorId(doctorId || "");
       setRoomId(defaultRoomId || "");
+      
+      console.log("Modal opened with values:", {
+        doctorId,
+        defaultRoomId,
+        selectedDoctorId: doctorId || "",
+        roomId: defaultRoomId || ""
+      });
       // Always update bookedFrom from prop when modal opens - this ensures it's correct
       // CRITICAL: Use the prop value directly if it's explicitly "room" or "doctor"
       let newBookedFrom: "doctor" | "room";
@@ -174,11 +184,23 @@ export default function AppointmentBookingModal({
       console.log("==========================================");
       setCurrentBookedFrom(newBookedFrom);
       
-      // Reset patient search fields when modal opens
-      setPatientSearch("");
-      setSearchResults([]);
-      setSelectedPatient(null);
-      setShowAddPatient(false);
+      // Set pre-selected patient if provided, otherwise reset fields
+      if (preSelectedPatient) {
+        console.log("Setting pre-selected patient:", preSelectedPatient);
+        console.log("Patient fields:", Object.keys(preSelectedPatient));
+        setSelectedPatient(preSelectedPatient);
+        setPatientSearch(preSelectedPatient.fullName);
+        setSearchResults([]); // Clear search results when pre-selecting
+        setShowAddPatient(false);
+        console.log("Pre-selected patient set:", preSelectedPatient);
+      } else {
+        console.log("No pre-selected patient provided");
+        // Reset patient search fields when modal opens without pre-selection
+        setPatientSearch("");
+        setSearchResults([]);
+        setSelectedPatient(null);
+        setShowAddPatient(false);
+      }
     } else {
       // Also reset when modal closes
       setPatientSearch("");
@@ -186,7 +208,7 @@ export default function AppointmentBookingModal({
       setSelectedPatient(null);
       setShowAddPatient(false);
     }
-  }, [slotTime, isOpen, defaultDate, doctorId, defaultRoomId, bookedFrom, propFromTime, propToTime]);
+  }, [slotTime, isOpen, defaultDate, doctorId, defaultRoomId, bookedFrom, propFromTime, propToTime, preSelectedPatient]);
 
   // Search patients - trigger on single character
   useEffect(() => {
@@ -226,8 +248,8 @@ export default function AppointmentBookingModal({
   };
 
   const handleAddPatient = async () => {
-    if (!addPatientForm.firstName || !addPatientForm.gender || !addPatientForm.mobileNumber) {
-      setError("Please fill all required fields: First Name, Gender, and Mobile Number");
+    if (!addPatientForm.firstName || !addPatientForm.mobileNumber) {
+      setError("Please fill all required fields: First Name and Mobile Number");
       return;
     }
 
@@ -308,11 +330,14 @@ export default function AppointmentBookingModal({
     if (!selectedPatient) {
       clientErrors.patientId = "Please select a patient";
     }
-    if (!roomId) {
-      clientErrors.roomId = "Please select a room";
-    }
-    if (!selectedDoctorId) {
-      clientErrors.doctorId = "Please select a doctor";
+    // Only require room OR doctor, not both - set error for the appropriate field
+    if (!roomId && !selectedDoctorId) {
+      // If we know the expected type from bookedFrom, set error for that field
+      if (bookedFrom === "room" || (defaultRoomId && !doctorId)) {
+        clientErrors.roomId = "Please select a room";
+      } else {
+        clientErrors.doctorId = "Please select a doctor";
+      }
     }
     if (!status) {
       clientErrors.status = "Please select a status";
@@ -457,8 +482,8 @@ export default function AppointmentBookingModal({
     setShowAddPatient(false);
     setFollowType("first time");
     setStartDate(defaultDate || new Date().toISOString().split("T")[0]);
-    setFromTime(slotTime);
-    setToTime(calculateEndTime(slotTime));
+    setFromTime(slotTime || "09:00");
+    setToTime(calculateEndTime(slotTime || "09:00"));
     setReferral("direct");
     setEmergency("no");
     setNotes("");
@@ -472,10 +497,10 @@ export default function AppointmentBookingModal({
     doctorDepartments.length > 0 ? doctorDepartments.map((dept) => dept.name).filter(Boolean) : [];
 
   // Check if all required fields are filled
+  // Note: Either doctorId OR roomId is required, not both
   const isFormValid = Boolean(
     selectedPatient &&
-    roomId &&
-    selectedDoctorId &&
+    (roomId || selectedDoctorId) && // Require either room or doctor
     status &&
     followType &&
     startDate &&
@@ -521,7 +546,7 @@ export default function AppointmentBookingModal({
         </div>
 
         {/* Form */}
-        <form id="appointment-form" onSubmit={handleSubmit} className="p-4 space-y-4 overflow-y-auto flex-1 pb-4">
+        <form id="appointment-form" onSubmit={handleSubmit} noValidate className="p-4 space-y-4 overflow-y-auto flex-1 pb-4">
           {error && (
             <div className="bg-red-50 dark:bg-red-100 border-l-4 border-red-500 dark:border-red-600 rounded-lg p-4 flex items-start gap-3 text-red-700 dark:text-red-900 shadow-md animate-in slide-in-from-top-2 fade-in" role="alert">
               <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5 animate-pulse" />
@@ -596,7 +621,6 @@ export default function AppointmentBookingModal({
                   fieldErrors.roomId ? "border-red-500 dark:border-red-500 ring-2 ring-red-200 dark:ring-red-300" : ""
                 }`}
                 style={{ zIndex: 1001, position: 'relative' }}
-                required
                 aria-invalid={!!fieldErrors.roomId}
                 aria-describedby={fieldErrors.roomId ? "room-error" : undefined}
               >
@@ -630,10 +654,10 @@ export default function AppointmentBookingModal({
                   fieldErrors.doctorId ? "border-red-500 dark:border-red-500 ring-2 ring-red-200 dark:ring-red-300" : ""
                 }`}
                 style={{ zIndex: 1000, position: 'relative' }}
-                required
                 aria-invalid={!!fieldErrors.doctorId}
                 aria-describedby={fieldErrors.doctorId ? "doctor-error" : undefined}
               >
+                <option value="">Select a doctor</option>
                 {doctorStaff.map((doctor) => (
                   <option key={doctor._id} value={doctor._id}>
                     {doctor.name}
@@ -663,7 +687,6 @@ export default function AppointmentBookingModal({
                   fieldErrors.status ? "border-red-500 dark:border-red-500 ring-2 ring-red-200 dark:ring-red-300" : ""
                 }`}
                 style={{ zIndex: 999, position: 'relative' }}
-                required
                 aria-invalid={!!fieldErrors.status}
                 aria-describedby={fieldErrors.status ? "status-error" : undefined}
               >
@@ -797,7 +820,7 @@ export default function AppointmentBookingModal({
                 // Auto-generate EMR number when showing the form
                 if (!showAddPatient) {
                   try {
-                    const res = await axios.get("/api/clinic/next-emr-number", {
+                    const res = await axios.get("/api/clinic/generate-emr", {
                       headers: getAuthHeaders(),
                     });
                     if (res.data.success && res.data.emrNumber) {
@@ -807,7 +830,7 @@ export default function AppointmentBookingModal({
                       }));
                     }
                   } catch (err: any) {
-                    console.error("Error fetching next EMR number:", err);
+                    console.error("Error generating EMR number:", err);
                     // Continue without auto-generated EMR - user can enter manually
                   }
                 }
@@ -856,13 +879,12 @@ export default function AppointmentBookingModal({
                 </div>
                 <div>
                   <label className="block text-[10px] font-medium text-gray-700 dark:text-gray-800 mb-0.5">
-                    Gender <span className="text-red-500">*</span>
+                    Gender
                   </label>
                   <select
                     value={addPatientForm.gender}
                     onChange={(e) => setAddPatientForm({ ...addPatientForm, gender: e.target.value })}
                     className="w-full border border-gray-300 dark:border-gray-300 rounded-lg px-2 py-1.5 text-[10px] bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm"
-                    required
                   >
                     <option value="">Select</option>
                     <option value="Male">Male</option>
@@ -945,7 +967,6 @@ export default function AppointmentBookingModal({
                   fieldErrors.followType ? "border-red-500 dark:border-red-500 ring-2 ring-red-200 dark:ring-red-300" : ""
                 }`}
                 style={{ zIndex: 1001, position: 'relative' }}
-                required
               >
                 <option value="first time">First Time</option>
                 <option value="follow up">Follow Up</option>
@@ -1003,7 +1024,6 @@ export default function AppointmentBookingModal({
                 className={`w-full border rounded-lg px-3 py-2.5 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 border-gray-300 dark:border-gray-300 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm ${
                   fieldErrors.startDate ? "border-red-500 dark:border-red-500 ring-2 ring-red-200 dark:ring-red-300" : ""
                 }`}
-                required
               />
               {fieldErrors.startDate && (
                 <p className="mt-1 text-[10px] text-red-600 dark:text-red-700">{fieldErrors.startDate}</p>
@@ -1020,7 +1040,6 @@ export default function AppointmentBookingModal({
                 className={`w-full border rounded-lg px-3 py-2.5 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 border-gray-300 dark:border-gray-300 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm ${
                   fieldErrors.fromTime ? "border-red-500 dark:border-red-500 ring-2 ring-red-200 dark:ring-red-300" : ""
                 }`}
-                required
               />
               {fieldErrors.fromTime && (
                 <p className="mt-1 text-[10px] text-red-600 dark:text-red-700">{fieldErrors.fromTime}</p>
@@ -1042,7 +1061,6 @@ export default function AppointmentBookingModal({
                 className={`w-full border rounded-lg px-3 py-2.5 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 border-gray-300 dark:border-gray-300 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm ${
                   fieldErrors.toTime ? "border-red-500 dark:border-red-500 ring-2 ring-red-200 dark:ring-red-300" : ""
                 }`}
-                required
               />
               {fieldErrors.toTime && (
                 <p className="mt-1 text-[10px] text-red-600 dark:text-red-700">{fieldErrors.toTime}</p>

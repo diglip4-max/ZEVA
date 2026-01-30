@@ -4,7 +4,6 @@ import { getAuthorizedStaffUser } from "../../../server/staff/authHelpers";
 import { checkClinicPermission } from "../lead-ms/permissions-helper";
 import { checkAgentPermission } from "../agent/permissions-helper";
 import Clinic from "../../../models/Clinic";
-import { generateEmrNumber } from "../../../lib/generateEmrNumber";
 
 const hasRole = (user, roles = []) => roles.includes(user.role);
 
@@ -108,31 +107,60 @@ export default async function handler(req, res) {
         user.mobileNumber ||
         String(user._id);
 
-      if (!firstName || !mobileNumber) {
-        return res.status(400).json({ success: false, message: "Missing required fields: firstName and mobileNumber are required" });
+      // Only require invoiceNumber, firstName, and mobileNumber (same as clinic API)
+      // Gender is optional - will default to "Other" if not provided
+      if (
+        !invoiceNumber ||
+        !firstName ||
+        !mobileNumber
+      ) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "Missing required fields: invoiceNumber, firstName, and mobileNumber are required" 
+        });
       }
 
-      let existingPatient = null;
-      if (invoiceNumber) {
-        existingPatient = await PatientRegistration.findOne({ invoiceNumber });
-      }
+      const existingPatient = await PatientRegistration.findOne({ invoiceNumber });
 
       if (existingPatient) {
+        // Check access for agents/doctorStaff before updating
+        if (user.role === 'agent' || user.role === 'doctorStaff') {
+           if (existingPatient.userId && existingPatient.userId.toString() !== user._id.toString()) {
+               if (user.clinicId) {
+                  const Clinic = (await import("../../../models/Clinic")).default;
+                  const clinic = await Clinic.findById(user.clinicId);
+                  if (clinic) {
+                      const User = (await import("../../../models/Users")).default;
+                      const clinicUsers = await User.find({
+                          $or: [
+                              { _id: clinic.owner },
+                              { clinicId: user.clinicId }
+                          ]
+                      }).select("_id");
+                      const allowedIds = clinicUsers.map(u => u._id.toString());
+                      if (!allowedIds.includes(existingPatient.userId.toString())) {
+                           return res.status(403).json({ success: false, message: "Access denied: Patient belongs to another clinic" });
+                      }
+                  } else {
+                       return res.status(403).json({ success: false, message: "Access denied" });
+                  }
+               } else {
+                   return res.status(403).json({ success: false, message: "Access denied" });
+               }
+           }
+        }
+
         // Update existing patient with new data
         if (emrNumber !== undefined) existingPatient.emrNumber = emrNumber;
         if (firstName !== undefined) existingPatient.firstName = firstName;
         if (lastName !== undefined) existingPatient.lastName = lastName;
-        if (gender !== undefined) {
-          if (["Male", "Female", "Other"].includes(gender)) {
-            existingPatient.gender = gender;
-          } else if (gender === "") {
-            existingPatient.gender = undefined;
-          }
-        }
+        if (gender !== undefined) existingPatient.gender = gender;
         if (email !== undefined) existingPatient.email = email;
         if (mobileNumber !== undefined) existingPatient.mobileNumber = mobileNumber;
         if (referredBy !== undefined) existingPatient.referredBy = referredBy;
-        if (patientType !== undefined) existingPatient.patientType = patientType;
+        if (patientType !== undefined && String(patientType).trim() !== "") {
+          existingPatient.patientType = patientType;
+        }
         if (notes !== undefined) existingPatient.notes = notes;
         
         // Insurance handling
@@ -172,36 +200,29 @@ export default async function handler(req, res) {
         });
       }
 
-      const finalEmrNumber = emrNumber && String(emrNumber).trim() ? emrNumber : await generateEmrNumber(PatientRegistration);
-
-      const normalizedGender = gender && ["Male", "Female", "Other"].includes(gender) ? gender : undefined;
-      const normalizedPatientType = patientType && ["New", "Old"].includes(patientType) ? patientType : "New";
-
-      const createData = {
+      const normalizedPatientType = (typeof patientType === "string" && patientType.trim() !== "") ? patientType : undefined;
+      const patient = await PatientRegistration.create({
         invoiceNumber,
         invoicedBy: computedInvoicedBy,
         userId: user._id,
-        emrNumber: finalEmrNumber,
+        emrNumber: emrNumber || "",
         firstName,
+        lastName: lastName || "",
+        gender: gender || "Other", // Default to "Other" if not provided (same as clinic API)
+        email: email || "",
         mobileNumber,
-        insurance,
-        insuranceType,
+        referredBy: referredBy || "",
+        patientType: normalizedPatientType || "New",
+        insurance: insurance || "No",
+        insuranceType: insuranceType || "Paid",
         advanceGivenAmount: Number(advanceGivenAmount) || 0,
         coPayPercent: Number(coPayPercent) || 0,
         advanceClaimStatus: advanceClaimStatus || "Pending",
+        notes: notes || "",
         membership: membership || "No",
         membershipStartDate: membership === "Yes" && membershipStartDate ? new Date(membershipStartDate) : null,
         membershipEndDate: membership === "Yes" && membershipEndDate ? new Date(membershipEndDate) : null,
-      };
-
-      if (lastName) createData.lastName = lastName;
-      if (email) createData.email = email;
-      if (normalizedGender) createData.gender = normalizedGender;
-      if (referredBy) createData.referredBy = referredBy;
-      if (normalizedPatientType) createData.patientType = normalizedPatientType;
-      if (notes) createData.notes = notes;
-
-      const patient = await PatientRegistration.create(createData);
+      });
 
       return res.status(201).json({
         success: true,
@@ -292,7 +313,52 @@ export default async function handler(req, res) {
 
     try {
       const { emrNumber, invoiceNumber, name, phone, claimStatus, applicationStatus } = req.query;
-      const query = { userId: user._id };
+      
+      // Build query based on user role
+      let query = {};
+      
+      // For clinic role: show all patients belonging to the clinic (clinic owner + all agents/doctorStaff linked to clinic)
+      if (user.role === 'clinic') {
+        const Clinic = (await import("../../../models/Clinic")).default;
+        const clinic = await Clinic.findOne({ owner: user._id });
+        if (clinic) {
+          const User = (await import("../../../models/Users")).default;
+          const clinicUsers = await User.find({
+            $or: [
+              { _id: user._id }, // Clinic owner
+              { clinicId: clinic._id } // Agents and doctorStaff linked to clinic
+            ]
+          }).select("_id");
+          query.userId = { $in: clinicUsers.map(u => u._id) };
+        } else {
+          query.userId = user._id;
+        }
+      } 
+      // For agent/doctorStaff: show all patients belonging to the clinic
+      else if (user.role === 'agent' || user.role === 'doctorStaff') {
+        if (user.clinicId) {
+          const Clinic = (await import("../../../models/Clinic")).default;
+          const clinic = await Clinic.findById(user.clinicId);
+          if (clinic) {
+            const User = (await import("../../../models/Users")).default;
+            const clinicUsers = await User.find({
+              $or: [
+                { _id: clinic.owner },
+                { clinicId: user.clinicId }
+              ]
+            }).select("_id");
+            query.userId = { $in: clinicUsers.map(u => u._id) };
+          } else {
+            query.userId = user._id;
+          }
+        } else {
+          query.userId = user._id;
+        }
+      }
+      // For other roles: show their own patients
+      else {
+        query.userId = user._id;
+      }
 
       if (emrNumber) query.emrNumber = { $regex: emrNumber, $options: "i" };
       if (invoiceNumber) query.invoiceNumber = { $regex: invoiceNumber, $options: "i" };

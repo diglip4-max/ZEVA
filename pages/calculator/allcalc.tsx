@@ -3,6 +3,8 @@ import React from 'react';
 import { useRouter } from 'next/router';
 import Image from 'next/image';
 import Head from 'next/head';
+import Header from '../../components/Header';
+import Footer from '../../components/Footer';
 import { calculators } from '../../components/CalculatorGames';
 
 function AllCalculators(){
@@ -122,33 +124,12 @@ function AllCalculators(){
         />
       </Head>
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
-      {/* Header Section */}
+      <Header />
+      
+      {/* Hero Section */}
       <div className="relative bg-gradient-to-r from-orange-500 to-orange-600 py-8 px-4 sm:py-10 sm:px-6 md:py-12 md:px-8">
         <div className="absolute inset-0 bg-black opacity-10"></div>
         <div className="relative max-w-7xl mx-auto">
-          {/* Go to Home Button */}
-          <div className="mb-6">
-            <a
-              href="/"
-              className="inline-flex items-center gap-2 bg-opacity-20 hover:bg-opacity-30 backdrop-blur-sm text-white px-4 py-2 rounded-lg border border-white border-opacity-30 transition-all duration-200 hover:scale-105"
-            >
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
-                />
-              </svg>
-              <span className="font-medium text-gray-700"></span>
-            </a>
-          </div>
-
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
             {/* Left side - Title and description */}
             <div className="text-center lg:text-left">
@@ -276,6 +257,7 @@ function AllCalculators(){
           })}
         </div>
       </div>
+      <Footer />
     </div>
     </>
   );

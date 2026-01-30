@@ -7,9 +7,9 @@ const Header = () => {
   const { isAuthenticated } = useAuth();
 
   const [showAuthModal, setShowAuthModal] = useState(false);
-  const [authMode, setAuthMode] = useState("login"); // login | register
+  const [authMode, setAuthMode] = useState<"login" | "register">("login");
 
-  const openAuthModal = (mode) => {
+  const openAuthModal = (mode: "login" | "register") => {
     setAuthMode(mode);
     setShowAuthModal(true);
   };
@@ -90,6 +90,7 @@ const Header = () => {
       <AuthModal
         isOpen={showAuthModal}
         onClose={() => setShowAuthModal(false)}
+        onSuccess={() => setShowAuthModal(false)}
         initialMode={authMode}
       />
     </>

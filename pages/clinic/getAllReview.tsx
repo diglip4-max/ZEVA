@@ -920,7 +920,7 @@ function ClinicReviews() {
                   outerRadius={65}
                   paddingAngle={2}
                   dataKey="value"
-                  label={({ name, percentage }) => `${name}: ${percentage}%`}
+                  label={({ name, percent }) => `${name}: ${Math.round((percent || 0) * 100)}%`}
                   labelLine={false}
                 >
                   {sentimentData.map((entry, index) => (
@@ -934,8 +934,8 @@ function ClinicReviews() {
                     borderRadius: '6px',
                     fontSize: '11px'
                   }}
-                  formatter={(value: number, name: string, props: any) => [
-                    `${value} (${props.payload.percentage}%)`,
+                  formatter={(value, name, props) => [
+                    `${value} (${props?.payload?.percentage ?? 0}%)`,
                     name
                   ]}
                 />

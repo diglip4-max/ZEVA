@@ -7,9 +7,7 @@ import {
   Plus,
   Mail,
   MessageSquare,
-  Check,
   X,
-  Clock,
   Edit2,
   Trash2,
   Eye,
@@ -23,10 +21,8 @@ import {
   Users,
   BarChart3,
   Send,
-  AlertCircle,
   CheckCircle,
   PauseCircle,
-  Clock4,
   XCircle,
 } from "lucide-react";
 import axios from "axios";
@@ -534,7 +530,7 @@ const CampaignsPage: NextPageWithLayout = () => {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
 
-  const [permissions, _setPermissions] = useState({
+  const [_permissions, _setPermissions] = useState({
     canCreate: false,
     canUpdate: false,
     canDelete: false,
@@ -545,13 +541,13 @@ const CampaignsPage: NextPageWithLayout = () => {
   const [totalPages, setTotalPages] = useState<number>(1);
   const [totalCampaigns, setTotalCampaigns] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(false);
-  const [showDeleteCampaignModal, setShowDeleteCampaignModal] =
+  const [_showDeleteCampaignModal, setShowDeleteCampaignModal] =
     useState<boolean>(false);
   const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(
     null,
   );
-  const [deleteCampaignLoading, setDeleteCampaignLoading] =
-    useState<boolean>(false);
+  /* const [_deleteCampaignLoading, setDeleteCampaignLoading] =
+    useState<boolean>(false); */
 
   // Preview modal state
   const [previewCampaign, setPreviewCampaign] = useState<Campaign | null>(null);
@@ -821,7 +817,7 @@ const CampaignsPage: NextPageWithLayout = () => {
     }
   };
 
-  const handleDeleteCampaign = async (campaignId: string | undefined) => {
+  /* const _handleDeleteCampaign = async (campaignId: string | undefined) => {
     if (!token || !campaignId) return;
     try {
       setDeleteCampaignLoading(true);
@@ -838,7 +834,7 @@ const CampaignsPage: NextPageWithLayout = () => {
     } finally {
       setDeleteCampaignLoading(false);
     }
-  };
+  }; */
 
   useEffect(() => {
     fetchCampaigns();
