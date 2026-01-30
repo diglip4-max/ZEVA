@@ -12,7 +12,7 @@ import {
   Loader2,
 } from "lucide-react";
 
-const genderOptions = ["Male", "Female", "Other"];
+const genderOptions = ["", "Male", "Female", "Other"];
 const patientTypeOptions = ["New", "Old"];
 const insuranceOptions = ["Yes", "No"];
 const insuranceTypeOptions = ["Paid", "Advance"];
@@ -503,6 +503,7 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
                   value={formData.gender}
                   onChange={handleFieldChange}
                   options={genderOptions}
+                  placeholder="Select Gender"
                   required
                 />
                 <EditableField

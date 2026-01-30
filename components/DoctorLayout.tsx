@@ -57,19 +57,17 @@ const DoctorLayout = ({ children, hideSidebar = false, hideHeader = false }: Doc
       <div className="flex flex-col flex-1 min-h-screen lg:ml-0" style={{ overflowX: 'visible', minWidth: 0 }}>
         {/* Header - Visible on both mobile and desktop */}
         {!hideHeader && (
-          <div className="sticky top-0 z-40">
-            <DoctorHeader
-              handleToggleDesktop={handleToggleDesktop}
-              handleToggleMobile={handleToggleMobile}
-              isDesktopHidden={isDesktopHidden}
-              isMobileOpen={isMobileOpen}
-            />
-          </div>
+          <DoctorHeader
+            handleToggleDesktop={handleToggleDesktop}
+            handleToggleMobile={handleToggleMobile}
+            isDesktopHidden={isDesktopHidden}
+            isMobileOpen={isMobileOpen}
+          />
         )}
 
         {/* Page Content */}
         <main 
-          className="flex-1 overflow-y-auto relative" 
+          className="flex-1 overflow-y-auto relative pt-16" 
           role="main" 
           style={{ 
             overflowX: 'visible',

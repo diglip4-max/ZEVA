@@ -279,7 +279,7 @@ export default async function handler(req, res) {
         emrNumber: emrNumber || "",
         firstName,
         lastName: lastName || "",
-        gender: gender || "Other",
+        gender: gender || "",
         email: email || "",
         mobileNumber,
         referredBy: referredBy || "",

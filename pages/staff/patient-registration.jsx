@@ -646,12 +646,12 @@ return (
                     {field.type === "select" ? (
                       <select
                         name={field.name}
-                        value={formData[field.name]}
+                        value={formData[field.name] || ""}
                         onChange={handleInputChange}
                         className={`text-gray-900 w-full px-2 py-1 text-[10px] border rounded-md focus:ring-1 focus:ring-gray-900 focus:border-gray-900 ${errors[field.name] ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
                       >
                         <option value="">Select {field.label}</option>
-                        {field.options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                        {field.options.filter(opt => opt !== "").map(opt => <option key={opt} value={opt}>{opt}</option>)}
                       </select>
                     ) : (
                       <input

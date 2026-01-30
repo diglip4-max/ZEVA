@@ -18,7 +18,9 @@ export default function FinancePage(): ReactElement {
       </Head>
 
       <Header />
-      <FinanceSection />
+      <div className="pt-20">
+        <FinanceSection />
+      </div>
       <Footer />
     </>
   );

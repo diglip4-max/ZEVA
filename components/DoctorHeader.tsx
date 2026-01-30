@@ -53,7 +53,7 @@ const DoctorHeader: React.FC<DoctorHeaderProps> = ({
   };
 
   return (
-    <header className="w-full bg-white border-b border-gray-200 shadow-sm z-[49] backdrop-blur-sm bg-white/95">
+    <header className="w-full bg-white border-b border-gray-200 shadow-sm fixed top-0 left-0 right-0 z-50 backdrop-blur-sm bg-white/95">
       <div className="px-3 py-2.5 sm:px-4 sm:py-3 lg:px-6">
         <div className="flex items-center justify-between gap-2 sm:gap-3 lg:gap-4">
           {/* Left: Mobile Menu Toggle Button */}

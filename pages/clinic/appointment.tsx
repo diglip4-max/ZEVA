@@ -5,7 +5,7 @@ import axios from "axios";
 import withClinicAuth from "../../components/withClinicAuth";
 import ClinicLayout from "../../components/ClinicLayout";
 import type { NextPageWithLayout } from "../_app";
-import { Loader2, Calendar, Clock, X, Upload } from "lucide-react";
+import { Loader2, Calendar, Clock, X, Upload, Stethoscope } from "lucide-react";
 import AppointmentBookingModal from "../../components/AppointmentBookingModal";
 import ImportAppointmentsModal from "../../components/ImportAppointmentsModal";
 import EditAppointmentModal from "../../components/EditAppointmentModal";
@@ -1186,7 +1186,8 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
         // Show ALL appointments regardless of status (booked, Arrived, Consultation, etc.)
         setAppointments(appointmentsData);
         if (appointmentsData.length > 0) {
-          toast.success(`Loaded ${appointmentsData.length} appointment(s)`, { duration: 2000 });
+          // Removed toast notification - only show booking success toast
+          console.log(`[FRONTEND] Loaded ${appointmentsData.length} appointment(s)`);
         } else {
           console.log("[FRONTEND] No appointments returned for date:", selectedDate);
         }
@@ -2198,33 +2199,65 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
   }
 
   // Get status color for appointments
-  const getStatusColor = (status: string): { bg: string; text: string; border: string } => {
+  const getStatusColor = (status: string, bookedFrom?: "doctor" | "room"): { bg: string; text: string; border: string } => {
     const statusLower = status.toLowerCase();
+    
+    // Special handling for room appointments
+    if (bookedFrom === "room") {
+      switch (statusLower) {
+        case "booked":
+          return { bg: "bg-teal-600", text: "text-white", border: "border-teal-700" }; // Keep teal-600 for room booked
+        case "enquiry":
+          return { bg: "bg-amber-500", text: "text-white", border: "border-amber-600" };
+        case "discharge":
+          return { bg: "bg-green-500", text: "text-white", border: "border-green-600" };
+        case "arrived":
+          return { bg: "bg-purple-500", text: "text-white", border: "border-purple-600" };
+        case "consultation":
+          return { bg: "bg-indigo-500", text: "text-white", border: "border-indigo-600" };
+        case "cancelled":
+          return { bg: "bg-red-500", text: "text-white", border: "border-red-600" };
+        case "approved":
+          return { bg: "bg-emerald-500", text: "text-white", border: "border-emerald-600" };
+        case "rescheduled":
+          return { bg: "bg-orange-500", text: "text-white", border: "border-orange-600" };
+        case "waiting":
+          return { bg: "bg-yellow-500", text: "text-white", border: "border-yellow-600" };
+        case "rejected":
+          return { bg: "bg-rose-500", text: "text-white", border: "border-rose-600" };
+        case "completed":
+          return { bg: "bg-teal-500", text: "text-white", border: "border-teal-600" };
+        default:
+          return { bg: "bg-gray-500", text: "text-white", border: "border-gray-600" };
+      }
+    }
+    
+    // Doctor appointments (keep booked as blue, change others)
     switch (statusLower) {
       case "booked":
-        return { bg: "bg-blue-500", text: "text-white", border: "border-blue-600" };
+        return { bg: "bg-blue-500", text: "text-white", border: "border-blue-600" }; // Keep blue for doctor booked
       case "enquiry":
-        return { bg: "bg-amber-500", text: "text-white", border: "border-amber-600" };
+        return { bg: "bg-amber-400", text: "text-white", border: "border-amber-500" }; // Different shade
       case "discharge":
-        return { bg: "bg-green-500", text: "text-white", border: "border-green-600" };
+        return { bg: "bg-green-400", text: "text-white", border: "border-green-500" }; // Different shade
       case "arrived":
-        return { bg: "bg-purple-500", text: "text-white", border: "border-purple-600" };
+        return { bg: "bg-purple-400", text: "text-white", border: "border-purple-500" }; // Different shade
       case "consultation":
-        return { bg: "bg-indigo-500", text: "text-white", border: "border-indigo-600" };
+        return { bg: "bg-indigo-400", text: "text-white", border: "border-indigo-500" }; // Different shade
       case "cancelled":
-        return { bg: "bg-red-500", text: "text-white", border: "border-red-600" };
+        return { bg: "bg-red-400", text: "text-white", border: "border-red-500" }; // Different shade
       case "approved":
-        return { bg: "bg-emerald-500", text: "text-white", border: "border-emerald-600" };
+        return { bg: "bg-emerald-400", text: "text-white", border: "border-emerald-500" }; // Different shade
       case "rescheduled":
-        return { bg: "bg-orange-500", text: "text-white", border: "border-orange-600" };
+        return { bg: "bg-orange-400", text: "text-white", border: "border-orange-500" }; // Different shade
       case "waiting":
-        return { bg: "bg-yellow-500", text: "text-white", border: "border-yellow-600" };
+        return { bg: "bg-yellow-400", text: "text-white", border: "border-yellow-500" }; // Different shade
       case "rejected":
-        return { bg: "bg-rose-500", text: "text-white", border: "border-rose-600" };
+        return { bg: "bg-rose-400", text: "text-white", border: "border-rose-500" }; // Different shade
       case "completed":
-        return { bg: "bg-teal-500", text: "text-white", border: "border-teal-600" };
+        return { bg: "bg-teal-400", text: "text-white", border: "border-teal-500" }; // Different shade
       default:
-        return { bg: "bg-gray-500", text: "text-white", border: "border-gray-600" };
+        return { bg: "bg-gray-400", text: "text-white", border: "border-gray-500" }; // Different shade
     }
   };
 
@@ -2295,7 +2328,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                   {permissions.canCreate === true && (
                     <button
                       onClick={() => setImportModalOpen(true)}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded border border-blue-600 dark:border-blue-500 bg-blue-600 dark:bg-blue-500 text-xs font-medium text-white hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded border border-teal-600 dark:border-teal-500 bg-teal-600 dark:bg-blue-500 text-xs font-medium text-white hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors"
                       type="button"
                       title="Import appointments from CSV or Excel"
                     >
@@ -2614,7 +2647,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
             <div className="overflow-x-auto max-h-[75vh] overflow-y-auto relative">
             {/* Header with doctor names and rooms */}
               <div className="flex bg-gray-50 dark:bg-gray-200 border-b border-gray-200 dark:border-gray-300 sticky top-0 z-20">
-                <div className="w-16 sm:w-18 flex-shrink-0 border-r border-gray-200 dark:border-gray-300 p-1 bg-white dark:bg-gray-50 sticky left-0 z-[70] relative after:content-[''] after:absolute after:top-0 after:bottom-0 after:right-[-2px] after:w-[2px] after:bg-white dark:after:bg-gray-50 after:pointer-events-none">
+                <div className="w-16 sm:w-18 flex-shrink-0 border-r border-gray-200 dark:border-gray-300 p-1 bg-white dark:bg-gray-50 sticky left-0 z-30 relative after:content-[''] after:absolute after:top-0 after:bottom-0 after:right-[-2px] after:w-[2px] after:bg-white dark:after:bg-gray-50 after:pointer-events-none">
                   <div className="flex items-center gap-0.5 text-[8px] sm:text-[9px] font-semibold text-gray-900 dark:text-gray-900">
                     <Clock className="w-2.5 h-2.5" />
                   <span>Time</span>
@@ -2660,7 +2693,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                     {permissions.canRead ? (
                       <div className="flex items-center gap-1">
                         <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-blue-50 dark:bg-blue-100 border border-blue-200 dark:border-blue-300 flex items-center justify-center text-blue-700 dark:text-blue-800 font-semibold text-[8px] sm:text-[9px] flex-shrink-0">
-                          {getInitials(doctor.name)}
+                          <Stethoscope className="w-2.5 h-2.5" />
                         </div>
                         <div className="min-w-0 flex-1">
                           <p className="text-[8px] sm:text-[9px] font-semibold text-gray-900 dark:text-gray-900 truncate">{doctor.name}</p>
@@ -2754,7 +2787,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                   <div key={slot.time} className="flex hover:bg-gray-50/50 dark:hover:bg-gray-100/50 transition-colors min-w-max">
                     {/* Time column */}
                     <div
-                      className="w-16 sm:w-18 flex-shrink-0 border-r border-gray-200 dark:border-gray-300 border-b border-gray-100 dark:border-gray-300 p-1 bg-white dark:bg-gray-50 relative sticky left-0 z-[60] after:content-[''] after:absolute after:top-0 after:bottom-0 after:right-[-2px] after:w-[2px] after:bg-white dark:after:bg-gray-50 after:pointer-events-none"
+                      className="w-16 sm:w-18 flex-shrink-0 border-r border-gray-200 dark:border-gray-300 border-b border-gray-100 dark:border-gray-300 p-1 bg-white dark:bg-gray-50 relative sticky left-0 z-20 after:content-[''] after:absolute after:top-0 after:bottom-0 after:right-[-2px] after:w-[2px] after:bg-white dark:after:bg-gray-50 after:pointer-events-none"
                       style={{ height: ROW_HEIGHT_PX }}
                     >
                       <p className="text-[8px] sm:text-[9px] font-semibold text-gray-900 dark:text-gray-900">{slot.displayTime}</p>
@@ -2902,7 +2935,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                                 // Calculate top offset within this row
                                 const topOffset = ((fromTotal - rowStartMinutes) / ROW_INTERVAL_MINUTES) * ROW_HEIGHT_PX;
                                 
-                                const statusColor = getStatusColor(apt.status);
+                                const statusColor = getStatusColor(apt.status, apt.bookedFrom);
                                 const isShortAppointment = fullHeightPx < 32;
                                 const isDragging = draggedAppointmentId === apt._id;
                                 return (
@@ -3139,13 +3172,19 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                                 // Calculate top offset within this row
                                 const topOffset = ((fromTotal - rowStartMinutes) / ROW_INTERVAL_MINUTES) * ROW_HEIGHT_PX;
                                 
-                                const statusColor = getStatusColor(apt.status);
+                                const statusColor = getStatusColor(apt.status, apt.bookedFrom);
+                                // For room appointments, use status-based colors but keep booked as lighter teal with white text
+                                const roomAppointmentColor = apt.bookedFrom === "room" 
+                                  ? (apt.status.toLowerCase() === "booked" 
+                                      ? { bg: "bg-teal-400", text: "text-white", border: "border-teal-400" } // Use lighter teal-400 for booked
+                                      : { ...statusColor, text: "text-white" }) // Use status-based colors with white text for other statuses
+                                  : statusColor;
                                 const isShortAppointment = fullHeightPx < 32;
                                 const isDragging = draggedAppointmentId === apt._id;
                                 return (
                                   <div
                                     key={apt._id}
-                                    className={`absolute left-0.5 right-0.5 rounded shadow-sm border ${statusColor.bg} ${statusColor.text} ${statusColor.border} overflow-hidden transition-all hover:shadow-md hover:scale-[1.01] ${permissions.canUpdate ? "cursor-move" : "cursor-default"} ${isDragging ? "opacity-50" : ""}`}
+                                    className={`absolute left-0.5 right-0.5 rounded shadow-sm border ${roomAppointmentColor.bg} ${roomAppointmentColor.text} ${roomAppointmentColor.border} overflow-hidden transition-all hover:shadow-md hover:scale-[1.01] ${permissions.canUpdate ? "cursor-move" : "cursor-default"} ${isDragging ? "opacity-50" : ""}`}
                                     style={{
                                       top: `${topOffset + 1}px`,
                                       height: `${fullHeightPx - 2}px`,
@@ -3204,7 +3243,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                                     <div className="h-full flex flex-col justify-between p-1">
                                       <div className="flex items-start gap-1 min-w-0">
                                         <div className="flex-shrink-0 mt-0.5">
-                                          <div className={`w-1 h-1 rounded-full ${statusColor.bg} ${statusColor.border} border`} />
+                                          <div className={`w-1 h-1 rounded-full ${roomAppointmentColor.bg} ${roomAppointmentColor.border} border`} />
                                         </div>
                                         <div className="flex-1 min-w-0">
                                           <p className="truncate font-bold text-[10px] sm:text-xs leading-tight text-gray-900 dark:text-gray-900 cursor-pointer hover:underline" onClick={(e) => {

@@ -18,7 +18,7 @@ const HowItWorks: React.FC = () => {
       
       {/* Hero Banner Section */}
       <section className="relative h-[400px] sm:h-[500px] overflow-hidden flex items-center justify-center text-white">
-        <div className="absolute inset-0 bg-gradient-to-r from-teal-600 via-blue-600 to-purple-600">
+        <div className="absolute inset-0 bg-gradient-to-r from-blue-600 via-blue-600 to-purple-600">
           <img
             src="https://images.unsplash.com/photo-1576091160399-112ba8d25d1f?w=1920&h=800&fit=crop&auto=format"
             alt="How ZEVA Works"
@@ -57,11 +57,11 @@ const HowItWorks: React.FC = () => {
             {/* Main Steps Section */}
             <div className="grid md:grid-cols-3 gap-8 mt-12">
               <div className="bg-white rounded-xl shadow-lg p-8 text-center hover:shadow-xl transition-all duration-300 border border-gray-100">
-                <div className="w-20 h-20 bg-gradient-to-br from-teal-500 to-blue-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg">
+                <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-blue-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg">
                   <Search className="w-10 h-10 text-white" />
                 </div>
-                {/* <div className="w-12 h-12 bg-teal-100 rounded-full flex items-center justify-center mx-auto mb-4 -mt-8">
-                  <span className="text-xl font-bold text-teal-700">1</span>
+                {/* <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4 -mt-8">
+                  <span className="text-xl font-bold text-blue-700">1</span>
                 </div> */}
                 <h3 className="text-xl font-semibold text-gray-900 mb-3" style={{ fontFamily: "'Playfair Display', serif" }}>
                   Find & Search
@@ -110,7 +110,7 @@ const HowItWorks: React.FC = () => {
               <div className="grid md:grid-cols-2 gap-8">
                 <div className="space-y-6">
                   <div className="flex items-start gap-4">
-                    <div className="w-10 h-10 bg-teal-500 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center flex-shrink-0">
                       <Search className="w-6 h-6 text-white" />
                     </div>
                     <div>
@@ -188,7 +188,7 @@ const HowItWorks: React.FC = () => {
               </h2>
               <div className="grid md:grid-cols-2 gap-6">
                 <div className="flex items-start gap-4 p-4 bg-white rounded-lg hover:shadow-md transition-shadow">
-                  <div className="w-10 h-10 bg-teal-500 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center flex-shrink-0">
                     <CheckCircle2 className="w-6 h-6 text-white" />
                   </div>
                   <div>
@@ -241,7 +241,7 @@ const HowItWorks: React.FC = () => {
                   { icon: <Star className="w-6 h-6" />, title: "Patient Reviews", desc: "Read authentic reviews from verified patients" },
                 ].map((feature, index) => (
                   <div key={index} className="bg-gradient-to-br from-gray-50 to-white p-6 rounded-xl border border-gray-100 hover:shadow-lg transition-all">
-                    <div className="w-12 h-12 bg-teal-100 rounded-lg flex items-center justify-center mb-4 text-teal-600">
+                    <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4 text-blue-600">
                       {feature.icon}
                     </div>
                     <h3 className="text-lg font-semibold text-gray-900 mb-2">{feature.title}</h3>
@@ -252,7 +252,7 @@ const HowItWorks: React.FC = () => {
             </div>
 
             {/* Stats Section */}
-            <div className="mt-16 bg-gradient-to-r from-teal-600 via-blue-600 to-purple-600 rounded-2xl shadow-xl p-8 md:p-12 text-white">
+            <div className="mt-16 bg-gradient-to-r from-blue-600 via-blue-600 to-purple-600 rounded-2xl shadow-xl p-8 md:p-12 text-white">
               <h2 className="text-3xl md:text-4xl font-bold mb-8 text-center" style={{ fontFamily: "'Playfair Display', serif" }}>
                 ZEVA by the Numbers
               </h2>
@@ -287,14 +287,14 @@ const HowItWorks: React.FC = () => {
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <Link
                   href="/clinic/findclinic"
-                  className="inline-flex items-center gap-2 bg-gradient-to-r from-teal-600 to-blue-600 text-white px-8 py-4 rounded-full font-semibold hover:from-teal-700 hover:to-blue-700 transition-all shadow-lg hover:shadow-xl"
+                  className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-600 to-blue-600 text-white px-8 py-4 rounded-full font-semibold hover:from-blue-700 hover:to-blue-700 transition-all shadow-lg hover:shadow-xl"
                 >
                   Find Clinics
                   <ArrowRight className="w-5 h-5" />
                 </Link>
                 <Link
                   href="/telemedicine"
-                  className="inline-flex items-center gap-2 bg-white border-2 border-teal-600 text-teal-600 px-8 py-4 rounded-full font-semibold hover:bg-teal-50 transition-all"
+                  className="inline-flex items-center gap-2 bg-white border-2 border-blue-600 text-blue-600 px-8 py-4 rounded-full font-semibold hover:bg-blue-50 transition-all"
                 >
                   Try Telemedicine
                 </Link>

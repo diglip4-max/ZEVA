@@ -30,7 +30,35 @@ export default function withClinicAuth<P extends Record<string, unknown> = Recor
           if (!token) {
             toast.error('Please login to continue');
             clearStorage();
-            router.replace('/clinic/login-clinic');
+            
+            // Check user role to determine redirect destination
+            let role = null;
+            // Check all possible token storage locations
+            for (const key of ['clinicToken', 'agentToken', 'userToken']) {
+              const token = localStorage.getItem(key) || sessionStorage.getItem(key);
+              if (token) {
+                try {
+                  // Decode JWT token to get role
+                  const base64Url = token.split('.')[1];
+                  const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+                  const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+                    return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+                  }).join(''));
+                  const decoded = JSON.parse(jsonPayload);
+                  role = decoded?.role || null;
+                  break;
+                } catch (err) {
+                  console.warn('Unable to decode token:', err);
+                }
+              }
+            }
+            
+            // Redirect based on role
+            if (role === 'staff' || role === 'doctorStaff') {
+              router.replace('/staff');
+            } else {
+              router.replace('/clinic/login-clinic');
+            }
             setLoading(false);
             return;
           }
@@ -50,7 +78,35 @@ export default function withClinicAuth<P extends Record<string, unknown> = Recor
               console.error('Error decoding token:', decodeError);
               toast.error('User data not found. Please login again.');
               clearStorage();
-              router.replace('/clinic/login-clinic');
+              
+              // Check user role to determine redirect destination
+              let role = null;
+              // Check all possible token storage locations
+              for (const key of ['clinicToken', 'agentToken', 'userToken']) {
+                const token = localStorage.getItem(key) || sessionStorage.getItem(key);
+                if (token) {
+                  try {
+                    // Decode JWT token to get role
+                    const base64Url = token.split('.')[1];
+                    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+                    const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+                      return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+                    }).join(''));
+                    const decoded = JSON.parse(jsonPayload);
+                    role = decoded?.role || null;
+                    break;
+                  } catch (err) {
+                    console.warn('Unable to decode token:', err);
+                  }
+                }
+              }
+              
+              // Redirect based on role
+              if (role === 'staff' || role === 'doctorStaff') {
+                router.replace('/staff');
+              } else {
+                router.replace('/clinic/login-clinic');
+              }
               setLoading(false);
               return;
             }
@@ -92,14 +148,70 @@ export default function withClinicAuth<P extends Record<string, unknown> = Recor
           } else {
             toast.error('Access denied: Invalid user role');
             clearStorage();
-            router.replace('/clinic/login-clinic');
+            
+            // Check user role to determine redirect destination
+            let role = null;
+            // Check all possible token storage locations
+            for (const key of ['clinicToken', 'agentToken', 'userToken']) {
+              const token = localStorage.getItem(key) || sessionStorage.getItem(key);
+              if (token) {
+                try {
+                  // Decode JWT token to get role
+                  const base64Url = token.split('.')[1];
+                  const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+                  const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+                    return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+                  }).join(''));
+                  const decoded = JSON.parse(jsonPayload);
+                  role = decoded?.role || null;
+                  break;
+                } catch (err) {
+                  console.warn('Unable to decode token:', err);
+                }
+              }
+            }
+            
+            // Redirect based on role
+            if (role === 'staff' || role === 'doctorStaff') {
+              router.replace('/staff');
+            } else {
+              router.replace('/clinic/login-clinic');
+            }
           }
         } catch (err) {
           console.error('Auth error:', err);
           toast.error('Session expired. Please login again.');
           clearStorage();
+          
+          // Check user role to determine redirect destination
+          let role = null;
+          // Check all possible token storage locations
+          for (const key of ['clinicToken', 'agentToken', 'userToken']) {
+            const token = localStorage.getItem(key) || sessionStorage.getItem(key);
+            if (token) {
+              try {
+                // Decode JWT token to get role
+                const base64Url = token.split('.')[1];
+                const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+                const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+                  return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+                }).join(''));
+                const decoded = JSON.parse(jsonPayload);
+                role = decoded?.role || null;
+                break;
+              } catch (err) {
+                console.warn('Unable to decode token:', err);
+              }
+            }
+          }
+          
           setTimeout(() => {
-            router.replace('/clinic/login-clinic');
+            // Redirect based on role
+            if (role === 'staff' || role === 'doctorStaff') {
+              router.replace('/staff');
+            } else {
+              router.replace('/clinic/login-clinic');
+            }
           }, 3000);
         } finally {
           setLoading(false);

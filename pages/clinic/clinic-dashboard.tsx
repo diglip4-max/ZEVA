@@ -2248,7 +2248,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
               <div
                 {...attributes}
                 {...listeners}
-                className="p-2 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg shadow-2xl cursor-grab active:cursor-grabbing hover:from-blue-600 hover:to-blue-700 transition-all border-2 border-white hover:scale-110 z-50"
+                className="p-2.5 bg-gradient-to-br from-red-500 to-blue-600 rounded-full shadow-2xl cursor-grab active:cursor-grabbing hover:from-teal-600 hover:to-teal-700 transition-all border-2 border-white hover:scale-110 z-50"
                 title="Drag to reorder entire section"
               >
                 <GripVertical className="w-3 h-3 text-white" />
@@ -2309,7 +2309,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
             <div
               {...attributes}
               {...listeners}
-              className="p-1.5 bg-blue-500 rounded-lg shadow-lg cursor-grab active:cursor-grabbing hover:bg-blue-600 transition-colors"
+              className="p-1.5 bg-teal-500 rounded-full shadow-lg cursor-grab active:cursor-grabbing hover:bg-teal-600 transition-colors"
               title="Drag to move section"
             >
               <GripVertical className="w-3 h-3 text-white" />
@@ -2353,31 +2353,33 @@ const ClinicDashboard: NextPageWithLayout = () => {
         style={style}
         className={`relative ${isDragging ? 'z-50' : ''} ${!card.visible ? 'opacity-50' : ''}`}
       >
-        {isEditMode && (
-          <div className="absolute top-2 left-2 z-30 flex flex-col gap-1.5">
-            <button
-              onClick={() => togglePackageOfferVisibility(card.id)}
-              className="p-1 bg-white rounded-full shadow-lg border border-gray-200 hover:bg-gray-50 transition-colors"
-              title={card.visible ? 'Hide card' : 'Show card'}
-            >
-              {card.visible ? (
-                <Eye className="w-3 h-3 text-gray-600" />
-              ) : (
-                <EyeOff className="w-3 h-3 text-gray-400" />
-              )}
-            </button>
-            <div
-              {...attributes}
-              {...listeners}
-              className="p-1.5 bg-indigo-500 rounded-full shadow-lg cursor-grab active:cursor-grabbing hover:bg-indigo-600 transition-colors"
-              title="Drag to move card"
-            >
-              <GripVertical className="w-3 h-3 text-white" />
+        <div className="relative">
+          {isEditMode && (
+            <div className="absolute top-2 left-2 z-30 flex flex-col gap-1.5">
+              <button
+                onClick={() => togglePackageOfferVisibility(card.id)}
+                className="p-1 bg-white rounded-full shadow-lg border border-gray-200 hover:bg-gray-50 transition-colors"
+                title={card.visible ? 'Hide card' : 'Show card'}
+              >
+                {card.visible ? (
+                  <Eye className="w-3 h-3 text-gray-600" />
+                ) : (
+                  <EyeOff className="w-3 h-3 text-gray-400" />
+                )}
+              </button>
+              <div
+                {...attributes}
+                {...listeners}
+                className="p-1.5 bg-indigo-500 rounded-full shadow-lg cursor-grab active:cursor-grabbing hover:bg-indigo-600 transition-colors"
+                title="Drag to move card"
+              >
+                <GripVertical className="w-3.5 h-3.5 text-white" />
+              </div>
             </div>
+          )}
+          <div className={isEditMode ? 'pl-14' : ''}>
+            {children}
           </div>
-        )}
-        <div className={isEditMode ? 'pl-14' : ''}>
-          {children}
         </div>
       </div>
     );
@@ -2432,7 +2434,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
               className="p-1.5 bg-orange-500 rounded-full shadow-lg cursor-grab active:cursor-grabbing hover:bg-orange-600 transition-colors"
               title="Drag to move chart"
             >
-              <GripVertical className="w-3 h-3 text-white" />
+              <GripVertical className="w-3.5 h-3.5 text-white" />
             </div>
           </div>
         )}
@@ -2666,7 +2668,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                     onClick={() => setIsEditMode(true)}
                     className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors shadow-sm"
                   >
-                    <Edit2 className="w-3 h-3" />
+                    <Edit2 className="w-4 h-4" />
                     <span>Customize</span>
                   </button>
                 </>
@@ -2707,11 +2709,18 @@ const ClinicDashboard: NextPageWithLayout = () => {
                   const widgetContent = (() => {
                     switch (widget.type) {
                       case 'packages-offers':
-                        console.log('Rendering packages-offers section');
                         const sortedPackageOfferCards = packageOfferCards.sort((a, b) => a.order - b.order);
+                        // Get only one card of each type (first occurrence)
+                        const uniquePackageCard = sortedPackageOfferCards.find(card => card.type === 'package');
+                        const uniqueOfferCard = sortedPackageOfferCards.find(card => card.type === 'offer');
+                        
+                        const cardsToRender = [];
+                        if (uniquePackageCard) cardsToRender.push(uniquePackageCard);
+                        if (uniqueOfferCard) cardsToRender.push(uniqueOfferCard);
+                        
                         return (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                                {sortedPackageOfferCards.map((card) => {
+                                {cardsToRender.map((card) => {
                                   if (card.type === 'package') {
                                     return (
                                       <SortablePackageOffer key={card.id} card={card}>
@@ -2758,39 +2767,39 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                   } else {
                                     return (
                                       <SortablePackageOffer key={card.id} card={card}>
-          <div className="bg-gradient-to-br from-amber-50 via-orange-50 to-red-50 rounded-lg border-2 border-amber-200 shadow-md p-4 hover:shadow-lg transition-all duration-300 relative overflow-hidden group">
+          <div className="bg-gradient-to-br from-amber-300 via-amber-200 to-amber-100 rounded-lg border-2 border-amber-400 shadow-md p-4 hover:shadow-lg transition-all duration-300 relative overflow-hidden group">
             {/* Decorative Background Elements */}
-            <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-amber-200/30 to-orange-200/30 rounded-full blur-xl -mr-10 -mt-10"></div>
-            <div className="absolute bottom-0 left-0 w-16 h-16 bg-gradient-to-tr from-red-200/30 to-orange-200/30 rounded-full blur-lg -ml-8 -mb-8"></div>
+            <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-amber-400/30 to-amber-300/30 rounded-full blur-xl -mr-10 -mt-10"></div>
+            <div className="absolute bottom-0 left-0 w-16 h-16 bg-gradient-to-tr from-amber-200/30 to-amber-300/30 rounded-full blur-lg -ml-8 -mb-8"></div>
             
             <div className="relative z-10">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
-                  <div className="p-2 bg-gradient-to-br from-amber-500 to-orange-600 rounded-lg shadow-md group-hover:scale-105 transition-transform">
+                  <div className="p-2 bg-gradient-to-br from-amber-600 to-amber-700 rounded-lg shadow-md group-hover:scale-105 transition-transform">
                     <Gift className="w-5 h-5 text-white" />
                   </div>
                   <div>
                     <h3 className="text-sm font-bold text-gray-900">Offers</h3>
-                    <p className="text-[10px] text-gray-600">Current active offers</p>
+                    <p className="text-[10px] text-gray-700">Current active offers</p>
                   </div>
                 </div>
-                <div className="px-2 py-0.5 bg-amber-100 rounded-full">
-                  <span className="text-[10px] font-semibold text-amber-700">ACTIVE</span>
+                <div className="px-2 py-0.5 bg-amber-200 rounded-full">
+                  <span className="text-[10px] font-semibold text-amber-800">ACTIVE</span>
                 </div>
               </div>
               
               <div className="mb-3">
-                <div className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-amber-600 to-orange-600 mb-1">
+                <div className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-amber-700 to-amber-800 mb-1">
                   {stats.totalOffers || 0}
                 </div>
-                <div className="flex items-center gap-1.5 text-xs text-gray-600">
-                  <div className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-pulse"></div>
+                <div className="flex items-center gap-1.5 text-xs text-gray-700">
+                  <div className="w-1.5 h-1.5 bg-amber-600 rounded-full animate-pulse"></div>
                   <span>Active offers</span>
                 </div>
               </div>
               
-              <div className="pt-3 border-t border-amber-200/50">
-                <div className="text-[10px] text-gray-600">
+              <div className="pt-3 border-t border-amber-400/50">
+                <div className="text-[10px] text-gray-700">
                   <span className="font-semibold text-gray-900">Status:</span> Active
                 </div>
               </div>

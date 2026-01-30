@@ -108,7 +108,7 @@ const LoadingSpinner = () => (
 );
 
 // Lightweight inline placeholder to avoid 404 loops
-const PLACEHOLDER_DATA_URI = "/image1.png";
+const PLACEHOLDER_DATA_URI = "";
 
 const Header = ({
   onEditClick,
