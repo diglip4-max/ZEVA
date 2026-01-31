@@ -180,21 +180,55 @@ export default async function handler(req, res) {
         }
       }
 
-      // If agentId is provided, fetch single agent with profile
+      // If agentId is provided, fetch single agent with profile (role-agnostic) + scope checks
       if (req.query.agentId) {
-        query._id = req.query.agentId;
-        const user = await User.findOne(query).select('-password');
-        
+        const user = await User.findById(req.query.agentId).select('-password');
         if (!user) {
           return res.status(404).json({ success: false, message: 'Agent not found' });
         }
-        
+
+        // Scope checks consistent with list filters
+        if (me.role === 'admin') {
+          if (user.createdBy?.toString() !== me._id.toString()) {
+            return res.status(403).json({ success: false, message: 'Access denied for this user' });
+          }
+        } else if (me.role === 'clinic') {
+          const clinic = await Clinic.findOne({ owner: me._id });
+          if (clinic) {
+            const allowed =
+              (user.role === 'doctorStaff' && user.createdBy?.toString() === me._id.toString()) ||
+              (user.role === 'agent' && (user.clinicId?.toString() === clinic._id.toString() || user.createdBy?.toString() === me._id.toString()));
+            if (!allowed) {
+              return res.status(403).json({ success: false, message: 'Access denied for this user' });
+            }
+          } else if (user.createdBy?.toString() !== me._id.toString()) {
+            return res.status(403).json({ success: false, message: 'Access denied for this user' });
+          }
+        } else if (me.role === 'doctor') {
+          const allowed =
+            (user.role === 'doctorStaff' && user.createdBy?.toString() === me._id.toString()) ||
+            (user.role === 'agent' && (me.clinicId && user.clinicId?.toString() === me.clinicId.toString() || user.createdBy?.toString() === me._id.toString()));
+          if (!allowed) {
+            return res.status(403).json({ success: false, message: 'Access denied for this user' });
+          }
+        } else if (me.role === 'agent') {
+          if (user.role !== 'agent' || !me.clinicId || user.clinicId?.toString() !== me.clinicId.toString()) {
+            return res.status(403).json({ success: false, message: 'Access denied for this user' });
+          }
+        } else if (me.role === 'doctorStaff') {
+          const allowed =
+            (user.role === 'doctorStaff' && user.createdBy?.toString() === me._id.toString()) ||
+            (user.role === 'agent' && me.clinicId && user.clinicId?.toString() === me.clinicId.toString());
+          if (!allowed) {
+            return res.status(403).json({ success: false, message: 'Access denied for this user' });
+          }
+        }
+
         const profile = await AgentProfile.findOne({ userId: user._id });
-        
-        return res.status(200).json({ 
-          success: true, 
+        return res.status(200).json({
+          success: true,
           agent: user,
-          profile: profile || {} // Return empty object if no profile exists yet
+          profile: profile || {}
         });
       }
 
@@ -353,7 +387,7 @@ export default async function handler(req, res) {
       const {
         name, email, phone, // User fields
         agentCode, emergencyPhone, relativePhone, idType, idNumber, idDocumentUrl,
-        passportNumber, passportDocumentUrl, contractUrl, baseSalary, commissionType,
+        passportNumber, passportDocumentUrl, contractUrl, contractType, baseSalary, commissionType,
         joiningDate, isActive
       } = req.body;
 
@@ -368,6 +402,10 @@ export default async function handler(req, res) {
         profile = new AgentProfile({ userId: agent._id });
       }
 
+      if (profile.agentCode == null) {
+        profile.agentCode = `USR-${agent._id.toString()}`;
+      }
+
       if (agentCode !== undefined) profile.agentCode = agentCode;
       if (emergencyPhone !== undefined) profile.emergencyPhone = emergencyPhone;
       if (relativePhone !== undefined) profile.relativePhone = relativePhone;
@@ -377,6 +415,7 @@ export default async function handler(req, res) {
       if (passportNumber !== undefined) profile.passportNumber = passportNumber;
       if (passportDocumentUrl !== undefined) profile.passportDocumentUrl = passportDocumentUrl;
       if (contractUrl !== undefined) profile.contractUrl = contractUrl;
+      if (contractType !== undefined) profile.contractType = contractType;
       if (baseSalary !== undefined) profile.baseSalary = baseSalary;
       if (commissionType !== undefined) profile.commissionType = commissionType;
       if (joiningDate !== undefined) profile.joiningDate = joiningDate;

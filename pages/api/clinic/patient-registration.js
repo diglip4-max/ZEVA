@@ -240,6 +240,12 @@ export default async function handler(req, res) {
         advanceClaimStatus,
         advanceClaimReleasedBy,
         notes,
+        membership,
+        membershipStartDate,
+        membershipEndDate,
+        membershipId,
+        package: pkgToggle,
+        packageId,
       } = req.body;
 
       const computedInvoicedBy =
@@ -291,6 +297,12 @@ export default async function handler(req, res) {
         advanceClaimStatus: advanceClaimStatus || "Pending",
         advanceClaimReleasedBy: advanceClaimReleasedBy || null,
         notes: notes || "",
+        membership: membership || "No",
+        membershipStartDate: membership === "Yes" && membershipStartDate ? new Date(membershipStartDate) : null,
+        membershipEndDate: membership === "Yes" && membershipEndDate ? new Date(membershipEndDate) : null,
+        membershipId: membership === "Yes" && membershipId ? membershipId : null,
+        package: pkgToggle || "No",
+        packageId: pkgToggle === "Yes" && packageId ? packageId : null,
       });
 
       return res.status(201).json({

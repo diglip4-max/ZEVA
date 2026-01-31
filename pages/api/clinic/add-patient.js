@@ -1,5 +1,6 @@
 import dbConnect from "../../../lib/database";
 import PatientRegistration from "../../../models/PatientRegistration";
+import Referral from "../../../models/Referral";
 import { generateEmrNumber } from "../../../lib/generateEmrNumber";
 import { getAuthorizedStaffUser } from "../../../server/staff/authHelpers";
 import { checkClinicPermission } from "../lead-ms/permissions-helper";
@@ -81,6 +82,7 @@ export default async function handler(req, res) {
       email,
       mobileNumber,
       referredBy,
+      referredById,
       patientType,
     } = req.body;
 
@@ -140,6 +142,18 @@ export default async function handler(req, res) {
     }
 
     // Create new patient with minimal required fields
+    let referredByName = referredBy || "";
+    let finalReferredById = null;
+    if (referredById) {
+      try {
+        const ref = await Referral.findById(referredById).lean();
+        if (ref) {
+          referredByName = [ref.firstName, ref.lastName].filter(Boolean).join(" ").trim();
+          finalReferredById = ref._id;
+        }
+      } catch {}
+    }
+
     const newPatient = await PatientRegistration.create({
       invoiceNumber,
       invoicedDate: new Date(),
@@ -151,7 +165,8 @@ export default async function handler(req, res) {
       gender: normalizedGender,
       email: email || "",
       mobileNumber,
-      referredBy: referredBy || "",
+      referredById: finalReferredById,
+      referredBy: referredByName,
       patientType: patientType || "New",
     });
 

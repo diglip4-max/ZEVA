@@ -100,9 +100,11 @@ const paymentMethods = ["Cash", "Card", "BT", "Tabby", "Tamara"];
 
 const INITIAL_FORM_DATA = {
   invoiceNumber: "", emrNumber: "", firstName: "", lastName: "", email: "",
-  mobileNumber: "", gender: "", patientType: "", referredBy: "", 
-  insurance: "No", advanceGivenAmount: "", coPayPercent: "", advanceClaimStatus: "Pending", 
-  insuranceType: "Paid", membership: "No", membershipStartDate: "", membershipEndDate: ""
+  mobileNumber: "", gender: "", patientType: "", referredBy: "No",
+  insurance: "No", advanceGivenAmount: "", coPayPercent: "", advanceClaimStatus: "Pending",
+  insuranceType: "Paid",
+  membership: "No", membershipStartDate: "", membershipEndDate: "", membershipId: "",
+  package: "No", packageId: ""
 };
 
 const InvoiceManagementSystem = ({ onSuccess, isCompact = false }) => {
@@ -120,6 +122,16 @@ const InvoiceManagementSystem = ({ onSuccess, isCompact = false }) => {
   const [fetching, setFetching] = useState(false);
   const [toasts, setToasts] = useState([]);
   const [confirmModal, setConfirmModal] = useState({ isOpen: false, action: null });
+  const [memberships, setMemberships] = useState([]);
+  const [packages, setPackages] = useState([]);
+  const [referrals, setReferrals] = useState([]);
+
+  const formatDate = useCallback((dateObj) => {
+    const y = dateObj.getFullYear();
+    const m = String(dateObj.getMonth() + 1).padStart(2, "0");
+    const d = String(dateObj.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  }, []);
 
   // Toast functions
   const showToast = useCallback((message, type = "success") => {
@@ -153,6 +165,53 @@ const InvoiceManagementSystem = ({ onSuccess, isCompact = false }) => {
       })
       .catch(() => showToast("Failed to fetch user details", "error"));
   }, [showToast]);
+
+  useEffect(() => {
+    const headers = getAuthHeaders();
+    if (!headers) return;
+    const fetchLists = async () => {
+      try {
+        const [mRes, pRes, rRes] = await Promise.all([
+          fetch("/api/clinic/memberships", { headers }),
+          fetch("/api/clinic/packages", { headers }),
+          fetch("/api/clinic/referrals", { headers })
+        ]);
+        const mData = await mRes.json();
+        const pData = await pRes.json();
+        const rData = await rRes.json();
+        if (mData.success && Array.isArray(mData.memberships)) {
+          setMemberships(mData.memberships);
+        }
+        if (pData.success && Array.isArray(pData.packages)) {
+          setPackages(pData.packages);
+        }
+        if (rData.success && Array.isArray(rData.referrals)) {
+          setReferrals(rData.referrals);
+        }
+      } catch {
+        // silent fail to avoid blocking registration
+      }
+    };
+    fetchLists();
+  }, []);
+
+  useEffect(() => {
+    if (formData.membership === "Yes" && formData.membershipId) {
+      const selected = memberships.find((m) => m._id === formData.membershipId);
+      if (!selected) return;
+      const start = new Date();
+      const end = new Date(start);
+      const months = Number(selected.durationMonths) || 1;
+      end.setMonth(end.getMonth() + months);
+      const startStr = formatDate(start);
+      const endStr = formatDate(end);
+      setFormData((prev) => ({
+        ...prev,
+        membershipStartDate: startStr,
+        membershipEndDate: endStr,
+      }));
+    }
+  }, [formData.membershipId, formData.membership, memberships, formatDate]);
 
   // Auto-generate EMR number when modal opens - via API
   // Works for clinic, agent, and doctorStaff roles on both clinic and staff routes
@@ -259,6 +318,30 @@ const InvoiceManagementSystem = ({ onSuccess, isCompact = false }) => {
       return;
     }
     
+    // Reset dependent fields on toggles
+    if (name === "membership") {
+      if (value === "No") {
+        setFormData(prev => ({ 
+          ...prev, 
+          membership: "No", 
+          membershipId: "", 
+          membershipStartDate: "", 
+          membershipEndDate: "" 
+        }));
+        return;
+      }
+    }
+    if (name === "package") {
+      if (value === "No") {
+        setFormData(prev => ({ 
+          ...prev, 
+          package: "No", 
+          packageId: "" 
+        }));
+        return;
+      }
+    }
+
     setFormData(prev => ({ ...prev, [name]: value }));
     if (errors[name]) setErrors(prev => ({ ...prev, [name]: "" }));
     if (name === "insurance" && value === "No") {
@@ -365,11 +448,16 @@ const InvoiceManagementSystem = ({ onSuccess, isCompact = false }) => {
     
     // Validate membership dates
     if (formData.membership === "Yes") {
+      if (!formData.membershipId) newErrors.membershipId = "Select membership";
       if (!formData.membershipStartDate) newErrors.membershipStartDate = "Required";
       if (!formData.membershipEndDate) newErrors.membershipEndDate = "Required";
       if (formData.membershipStartDate && formData.membershipEndDate && new Date(formData.membershipStartDate) >= new Date(formData.membershipEndDate)) {
         newErrors.membershipEndDate = "End date must be after start date";
       }
+    }
+    // Validate package selection
+    if (formData.package === "Yes") {
+      if (!formData.packageId) newErrors.packageId = "Select package";
     }
     
     setErrors(newErrors);
@@ -643,7 +731,24 @@ return (
                     <label className={`block text-[10px] mb-0.5 font-medium text-gray-700`}>
                       {field.label} {field.required && <span className="text-red-500">*</span>}
                     </label>
-                    {field.type === "select" ? (
+                    {field.name === "referredBy" ? (
+                      <select
+                        name="referredBy"
+                        value={formData.referredBy || "No"}
+                        onChange={handleInputChange}
+                        className={`text-gray-900 w-full px-2 py-1 text-[10px] border rounded-md focus:ring-1 focus:ring-gray-900 focus:border-gray-900 ${errors.referredBy ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
+                      >
+                        <option value="No">No</option>
+                        {referrals.map((r) => {
+                          const displayName = `${(r.firstName || "").trim()} ${(r.lastName || "").trim()}`.trim() || (r.email || r.phone || "Unknown");
+                          return (
+                            <option key={r._id} value={displayName}>
+                              {displayName}
+                            </option>
+                          );
+                        })}
+                      </select>
+                    ) : field.type === "select" ? (
                       <select
                         name={field.name}
                         value={formData[field.name]}
@@ -670,6 +775,42 @@ return (
                     )}
                   </div>
                 ))}
+                
+                <div className="flex-1 min-w-[120px]">
+                  <label className="block text-[10px] mb-0.5 font-medium text-gray-700">Membership</label>
+                  <select
+                    name="membership"
+                    value={formData.membership}
+                    onChange={handleInputChange}
+                    className="text-gray-900 w-full px-2 py-1 text-[10px] border rounded-md focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 border-gray-300"
+                  >
+                    <option value="No">No</option>
+                    <option value="Yes">Yes</option>
+                  </select>
+                </div>
+                {formData.membership === "Yes" && (
+                  <div className="flex-1 min-w-[120px]">
+                    <label className="block text-[10px] mb-0.5 font-medium text-gray-700">Select Membership <span className="text-red-500">*</span></label>
+                    <select
+                      name="membershipId"
+                      value={formData.membershipId}
+                      onChange={handleInputChange}
+                      className={`text-gray-900 w-full px-2 py-1 text-[10px] border rounded-md focus:ring-1 focus:ring-indigo-500 ${errors.membershipId ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
+                    >
+                      <option value="">Select membership</option>
+                      {memberships.map(m => (
+                        <option key={m._id} value={m._id}>
+                          {m.name}
+                        </option>
+                      ))}
+                    </select>
+                    {errors.membershipId && (
+                      <p className="text-red-500 text-[9px] mt-0.5 flex items-center gap-0.5">
+                        <AlertCircle className="w-2.5 h-2.5" />{errors.membershipId}
+                      </p>
+                    )}
+                  </div>
+                )}
                 
                 {/* Membership Date Fields */}
                 {formData.membership === "Yes" && (
@@ -709,6 +850,42 @@ return (
                       )}
                     </div>
                   </>
+                )}
+
+                <div className="flex-1 min-w-[120px]">
+                  <label className="block text-[10px] mb-0.5 font-medium text-gray-700">Package</label>
+                  <select
+                    name="package"
+                    value={formData.package}
+                    onChange={handleInputChange}
+                    className="text-gray-900 w-full px-2 py-1 text-[10px] border rounded-md focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 border-gray-300"
+                  >
+                    <option value="No">No</option>
+                    <option value="Yes">Yes</option>
+                  </select>
+                </div>
+                {formData.package === "Yes" && (
+                  <div className="flex-1 min-w-[120px]">
+                    <label className="block text-[10px] mb-0.5 font-medium text-gray-700">Select Package <span className="text-red-500">*</span></label>
+                    <select
+                      name="packageId"
+                      value={formData.packageId}
+                      onChange={handleInputChange}
+                      className={`text-gray-900 w-full px-2 py-1 text-[10px] border rounded-md focus:ring-1 focus:ring-indigo-500 ${errors.packageId ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
+                    >
+                      <option value="">Select package</option>
+                      {packages.map(p => (
+                        <option key={p._id} value={p._id}>
+                          {p.name}
+                        </option>
+                      ))}
+                    </select>
+                    {errors.packageId && (
+                      <p className="text-red-500 text-[9px] mt-0.5 flex items-center gap-0.5">
+                        <AlertCircle className="w-2.5 h-2.5" />{errors.packageId}
+                      </p>
+                    )}
+                  </div>
                 )}
               </div>
             </div>

@@ -11,6 +11,7 @@ import {
   RefreshCw,
   Trash2,
   X,
+  Eye,
 } from 'lucide-react';
 import { Toaster, toast } from 'react-hot-toast';
 import CreateAgentModal from '../../components/CreateAgentModal';
@@ -47,6 +48,29 @@ const ManageAgentsPage = () => {
   const [doctorStaff, setDoctorStaff] = useState([]);
   const [activeView, setActiveView] = useState('agents');
   const [menuAgentId, setMenuAgentId] = useState(null);
+  const [profileAgent, setProfileAgent] = useState(null);
+  const [viewAgent, setViewAgent] = useState(null);
+  const [viewProfile, setViewProfile] = useState(null);
+  const [viewLoading, setViewLoading] = useState(false);
+  const [profileForm, setProfileForm] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    idType: "aadhaar",
+    idNumber: "",
+    idDocumentUrl: "",
+    passportNumber: "",
+    passportDocumentUrl: "",
+    emergencyPhone: "",
+    baseSalary: "",
+    commissionType: "flat",
+    contractUrl: "",
+    contractType: "full"
+  });
+  const [uploadingIdDoc, setUploadingIdDoc] = useState(false);
+  const [uploadingPassportDoc, setUploadingPassportDoc] = useState(false);
+  const [uploadingContract, setUploadingContract] = useState(false);
+  const [completionMap, setCompletionMap] = useState({});
   const [passwordAgent, setPasswordAgent] = useState(null);
   const [permissionAgent, setPermissionAgent] = useState(null);
   const [treatmentAgent, setTreatmentAgent] = useState(null);
@@ -354,6 +378,185 @@ const ManageAgentsPage = () => {
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
+    }
+  }
+
+  async function fetchAgentProfile(agentId) {
+    try {
+      const authHeaders = getAuthHeaders();
+      if (!authHeaders) return null;
+      const res = await axios.get(`/api/lead-ms/get-agents?agentId=${agentId}`, { headers: authHeaders });
+      if (res.data.success) return res.data.profile || {};
+    } catch {
+      return null;
+    }
+    return null;
+  }
+
+  function computeCompletion(agent, profile) {
+    let total = 7;
+    let score = 0;
+    if (profile?.emergencyPhone) score += 1;
+    if (agent?.phone) score += 1;
+    if (profile?.idNumber && profile?.idDocumentUrl) score += 1;
+    if (profile?.passportNumber && profile?.passportDocumentUrl) score += 1;
+    if (profile?.contractUrl) score += 1;
+    if (typeof profile?.baseSalary === "number" ? profile.baseSalary > 0 : parseFloat(profile?.baseSalary) > 0) score += 1;
+    if (profile?.commissionType) score += 1;
+    return Math.round((score / total) * 100);
+  }
+
+  useEffect(() => {
+    async function loadCompletions() {
+      const authHeaders = getAuthHeaders();
+      if (!authHeaders) return;
+      const list = activeView === "agents" ? agents : doctorStaff;
+      const updates = {};
+      await Promise.all(
+        list.map(async (u) => {
+          const profile = await fetchAgentProfile(u._id);
+          updates[u._id] = computeCompletion(u, profile || {});
+        })
+      );
+      setCompletionMap((prev) => ({ ...prev, ...updates }));
+    }
+    if (canRead === true && (agents.length > 0 || doctorStaff.length > 0)) {
+      loadCompletions();
+    }
+  }, [agents, doctorStaff, activeView, canRead]);
+
+  async function openProfile(agent) {
+    const authHeaders = getAuthHeaders();
+    if (!authHeaders) return;
+    setProfileAgent(agent);
+    setProfileForm((f) => ({
+      ...f,
+      name: agent.name || "",
+      email: agent.email || "",
+      phone: agent.phone || ""
+    }));
+    try {
+      const res = await axios.get(`/api/lead-ms/get-agents?agentId=${agent._id}`, { headers: authHeaders });
+      if (res.data.success) {
+        const p = res.data.profile || {};
+        setProfileForm({
+          name: agent.name || "",
+          email: agent.email || "",
+          phone: agent.phone || "",
+          idType: p.idType || "aadhaar",
+          idNumber: p.idNumber || "",
+          idDocumentUrl: p.idDocumentUrl || "",
+          passportNumber: p.passportNumber || "",
+          passportDocumentUrl: p.passportDocumentUrl || "",
+          emergencyPhone: p.emergencyPhone || "",
+          baseSalary: typeof p.baseSalary === "number" ? String(p.baseSalary) : (p.baseSalary || ""),
+          commissionType: p.commissionType || "flat",
+          contractUrl: p.contractUrl || "",
+          contractType: p.contractType || "full"
+        });
+      }
+    } catch {}
+  }
+
+  const getFileNameFromUrl = (url) => {
+    try {
+      if (!url || typeof url !== 'string') return '';
+      const u = new URL(url);
+      const pathname = u.pathname || '';
+      const name = pathname.split('/').filter(Boolean).pop() || '';
+      return name || url.split('?')[0].split('/').pop() || '';
+    } catch {
+      return url?.split('?')[0]?.split('/')?.pop() || '';
+    }
+  };
+
+  async function openView(agent) {
+    const authHeaders = getAuthHeaders();
+    if (!authHeaders) return;
+    setViewAgent(agent);
+    setViewLoading(true);
+    try {
+      const res = await axios.get(`/api/lead-ms/get-agents?agentId=${agent._id}`, { headers: authHeaders });
+      if (res.data.success) {
+        setViewProfile(res.data.profile || {});
+      } else {
+        setViewProfile(null);
+      }
+    } catch {
+      setViewProfile(null);
+    } finally {
+      setViewLoading(false);
+    }
+  }
+
+  async function uploadFile(file, setUrl, setLoading) {
+    if (!file) return;
+    const authHeaders = getAuthHeaders();
+    setLoading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await axios.post("/api/upload", formData, {
+        headers: { ...(authHeaders || {}), "Content-Type": "multipart/form-data" }
+      });
+      if (res.data.success && res.data.url) {
+        setUrl(res.data.url);
+        toast.success("Uploaded");
+      } else {
+        toast.error(res.data.message || "Upload failed");
+      }
+    } catch (e) {
+      toast.error("Upload failed");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function saveProfile() {
+    if (!profileAgent) return;
+    const authHeaders = getAuthHeaders();
+    if (!authHeaders) return;
+    try {
+      const payload = {
+        agentId: profileAgent._id,
+        action: "updateProfile",
+        name: profileForm.name,
+        email: profileForm.email,
+        phone: profileForm.phone,
+        emergencyPhone: profileForm.emergencyPhone,
+        idType: profileForm.idType,
+        idNumber: profileForm.idNumber,
+        idDocumentUrl: profileForm.idDocumentUrl,
+        passportNumber: profileForm.passportNumber,
+        passportDocumentUrl: profileForm.passportDocumentUrl,
+        contractUrl: profileForm.contractUrl,
+        contractType: profileForm.contractType,
+        baseSalary: parseFloat(profileForm.baseSalary || "0"),
+        commissionType: profileForm.commissionType
+      };
+      const res = await axios.patch("/api/lead-ms/get-agents", payload, { headers: authHeaders });
+      if (res.data.success) {
+        const pct = computeCompletion(
+          { ...profileAgent, phone: payload.phone },
+          {
+            emergencyPhone: payload.emergencyPhone,
+            idNumber: payload.idNumber,
+            idDocumentUrl: payload.idDocumentUrl,
+            passportNumber: payload.passportNumber,
+            passportDocumentUrl: payload.passportDocumentUrl,
+            contractUrl: payload.contractUrl,
+            baseSalary: payload.baseSalary,
+            commissionType: payload.commissionType
+          }
+        );
+        setCompletionMap((prev) => ({ ...prev, [profileAgent._id]: pct }));
+        setProfileAgent(null);
+        toast.success("Profile updated");
+      } else {
+        toast.error(res.data.message || "Failed to update");
+      }
+    } catch {
+      toast.error("Failed to update");
     }
   }
 
@@ -797,6 +1000,26 @@ const ManageAgentsPage = () => {
                                 }}
                               />
                               <div className="absolute right-0 mt-1 w-40 bg-white dark:bg-teal-800 border border-teal-200 dark:border-teal-700 rounded-md shadow-lg z-20">
+                            <button
+                              className="w-full text-left px-3 py-2 text-[11px] hover:bg-teal-50 dark:hover:bg-teal-700 text-teal-700 dark:text-teal-300 transition-colors"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setMenuAgentId(null);
+                                openView(agent);
+                              }}
+                            >
+                              View
+                            </button>
+                                <button
+                                  className="w-full text-left px-3 py-2 text-[11px] hover:bg-teal-50 dark:hover:bg-teal-700 text-teal-700 dark:text-teal-300 transition-colors"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setMenuAgentId(null);
+                                    openProfile(agent);
+                                  }}
+                                >
+                                  Profile
+                                </button>
                                 {canUpdate === true && (
                                   <>
                                     <button
@@ -860,6 +1083,17 @@ const ManageAgentsPage = () => {
                       </div>
                       <div className="text-sm text-teal-700 dark:text-teal-300">
                         <span className="font-medium text-teal-800 dark:text-teal-200">Phone:</span> {agent.phone || 'N/A'}
+                      </div>
+                      <div className="mt-1">
+                        <div className="h-2 bg-teal-100 dark:bg-teal-700 rounded">
+                          <div
+                            className="h-2 bg-teal-900 dark:bg-blue-600 rounded"
+                            style={{ width: `${completionMap[agent._id] || 0}%` }}
+                          />
+                        </div>
+                        <div className="text-[11px] text-teal-700 dark:text-teal-300 mt-1">
+                          Profile {completionMap[agent._id] || 0}% complete
+                        </div>
                       </div>
                     </div>
 
@@ -1006,6 +1240,268 @@ const ManageAgentsPage = () => {
         </div>
       )}
 
+      {profileAgent && (
+        <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-2xl bg-white dark:bg-teal-800 rounded-lg border border-teal-200 dark:border-teal-700 shadow-xl">
+            <div className="px-5 py-3.5 border-b border-teal-200 dark:border-teal-700 bg-teal-50 dark:bg-teal-900 flex items-start justify-between">
+              <div className="flex-1 min-w-0 pr-2">
+                <h3 className="text-sm font-semibold text-teal-900 dark:text-teal-100">Profile</h3>
+                <p className="text-[11px] text-teal-700 dark:text-teal-400 mt-0.5">{profileAgent.name} • {profileAgent.email}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setProfileAgent(null); }}
+                className="flex-shrink-0 p-1 rounded-lg hover:bg-teal-100 dark:hover:bg-teal-700 transition-colors text-teal-500 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-200"
+                aria-label="Close"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="p-5 space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <input
+                  type="text"
+                  value={profileForm.name}
+                  onChange={(e) => setProfileForm((f) => ({ ...f, name: e.target.value }))}
+                  className="w-full px-3 py-2 border border-teal-300 dark:border-teal-600 rounded-md text-xs bg-white dark:bg-teal-700 text-teal-900 dark:text-teal-100 placeholder-teal-400 dark:placeholder-teal-400 focus:ring-1 focus:ring-teal-900 dark:focus:ring-blue-500 focus:border-teal-900 dark:focus:border-blue-500 outline-none transition-colors"
+                  placeholder="Name"
+                />
+                <input
+                  type="email"
+                  value={profileForm.email}
+                  onChange={(e) => setProfileForm((f) => ({ ...f, email: e.target.value }))}
+                  className="w-full px-3 py-2 border border-teal-300 dark:border-teal-600 rounded-md text-xs bg-white dark:bg-teal-700 text-teal-900 dark:text-teal-100 placeholder-teal-400 dark:placeholder-teal-400 focus:ring-1 focus:ring-teal-900 dark:focus:ring-blue-500 focus:border-teal-900 dark:focus:border-blue-500 outline-none transition-colors"
+                  placeholder="Email"
+                />
+                <input
+                  type="tel"
+                  value={profileForm.phone}
+                  onChange={(e) => setProfileForm((f) => ({ ...f, phone: e.target.value }))}
+                  className="w-full px-3 py-2 border border-teal-300 dark:border-teal-600 rounded-md text-xs bg-white dark:bg-teal-700 text-teal-900 dark:text-teal-100 placeholder-teal-400 dark:placeholder-teal-400 focus:ring-1 focus:ring-teal-900 dark:focus:ring-blue-500 focus:border-teal-900 dark:focus:border-blue-500 outline-none transition-colors"
+                  placeholder="Phone"
+                />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <select
+                  value={profileForm.idType}
+                  onChange={(e) => setProfileForm((f) => ({ ...f, idType: e.target.value }))}
+                  className="w-full px-3 py-2 border border-teal-300 dark:border-teal-600 rounded-md text-xs bg-white dark:bg-teal-700 text-teal-900 dark:text-teal-100"
+                >
+                  <option value="aadhaar">Aadhaar</option>
+                  <option value="pan">PAN</option>
+                  <option value="passport">Passport</option>
+                </select>
+                <input
+                  type="text"
+                  value={profileForm.idNumber}
+                  onChange={(e) => setProfileForm((f) => ({ ...f, idNumber: e.target.value }))}
+                  className="w-full px-3 py-2 border border-teal-300 dark:border-teal-600 rounded-md text-xs bg-white dark:bg-teal-700 text-teal-900 dark:text-teal-100"
+                  placeholder="Identity number"
+                />
+                <div className="flex items-center gap-2">
+                  <input
+                    type="file"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) uploadFile(file, (url) => setProfileForm((f) => ({ ...f, idDocumentUrl: url })), setUploadingIdDoc);
+                    }}
+                  />
+                  <span className="text-[11px] text-teal-700 dark:text-teal-300">
+                    {uploadingIdDoc ? "Uploading..." : profileForm.idDocumentUrl ? getFileNameFromUrl(profileForm.idDocumentUrl) : "Upload ID"}
+                  </span>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <input
+                  type="text"
+                  value={profileForm.passportNumber}
+                  onChange={(e) => setProfileForm((f) => ({ ...f, passportNumber: e.target.value }))}
+                  className="w-full px-3 py-2 border border-teal-300 dark:border-teal-600 rounded-md text-xs bg-white dark:bg-teal-700 text-teal-900 dark:text-teal-100"
+                  placeholder="Passport number"
+                />
+                <div className="flex items-center gap-2">
+                  <input
+                    type="file"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) uploadFile(file, (url) => setProfileForm((f) => ({ ...f, passportDocumentUrl: url })), setUploadingPassportDoc);
+                    }}
+                  />
+                  <span className="text-[11px] text-teal-700 dark:text-teal-300">
+                    {uploadingPassportDoc ? "Uploading..." : profileForm.passportDocumentUrl ? getFileNameFromUrl(profileForm.passportDocumentUrl) : "Upload passport"}
+                  </span>
+                </div>
+                <input
+                  type="tel"
+                  value={profileForm.emergencyPhone}
+                  onChange={(e) => setProfileForm((f) => ({ ...f, emergencyPhone: e.target.value }))}
+                  className="w-full px-3 py-2 border border-teal-300 dark:border-teal-600 rounded-md text-xs bg-white dark:bg-teal-700 text-teal-900 dark:text-teal-100"
+                  placeholder="Emergency contact"
+                />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={profileForm.baseSalary}
+                  onChange={(e) => setProfileForm((f) => ({ ...f, baseSalary: e.target.value }))}
+                  className="w-full px-3 py-2 border border-teal-300 dark:border-teal-600 rounded-md text-xs bg-white dark:bg-teal-700 text-teal-900 dark:text-teal-100"
+                  placeholder="Salary"
+                />
+                <select
+                  value={profileForm.commissionType}
+                  onChange={(e) => setProfileForm((f) => ({ ...f, commissionType: e.target.value }))}
+                  className="w-full px-3 py-2 border border-teal-300 dark:border-teal-600 rounded-md text-xs bg-white dark:bg-teal-700 text-teal-900 dark:text-teal-100"
+                >
+                  <option value="flat">Flat</option>
+                  <option value="after_deduction">After deduction</option>
+                  <option value="target_based">Target based</option>
+                  <option value="target_plus_expense">Target + expense</option>
+                </select>
+                <div className="flex flex-col gap-2">
+                  <select
+                    value={profileForm.contractType}
+                    onChange={(e) => setProfileForm((f) => ({ ...f, contractType: e.target.value }))}
+                    className="w-full px-3 py-2 border border-teal-300 dark:border-teal-600 rounded-md text-xs bg-white dark:bg-teal-700 text-teal-900 dark:text-teal-100"
+                  >
+                    <option value="full">Full</option>
+                    <option value="part">Part</option>
+                  </select>
+                  <input
+                    type="file"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) uploadFile(file, (url) => setProfileForm((f) => ({ ...f, contractUrl: url })), setUploadingContract);
+                    }}
+                  />
+                  <span className="text-[11px] text-teal-700 dark:text-teal-300">
+                    {uploadingContract ? "Uploading..." : profileForm.contractUrl ? getFileNameFromUrl(profileForm.contractUrl) : "Upload contract"}
+                  </span>
+                </div>
+              </div>
+              <div className="flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => { setProfileAgent(null); }}
+                  className="px-3.5 py-2 rounded-md border border-teal-300 dark:border-teal-600 text-[11px] font-medium text-teal-700 dark:text-teal-300 bg-white dark:bg-teal-700 hover:bg-teal-50 dark:hover:bg-teal-600 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={saveProfile}
+                  className="px-3.5 py-2 bg-teal-900 dark:bg-blue-600 hover:bg-teal-800 dark:hover:bg-blue-700 text-white text-[11px] font-medium rounded-md transition-colors shadow-sm"
+                >
+                  Save
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {viewAgent && (
+        <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-3xl bg-white dark:bg-teal-800 rounded-lg border border-teal-200 dark:border-teal-700 shadow-xl">
+            <div className="px-5 py-3.5 border-b border-teal-200 dark:border-teal-700 bg-teal-50 dark:bg-teal-900 flex items-start justify-between">
+              <div className="flex-1 min-w-0 pr-2">
+                <h3 className="text-sm font-semibold text-teal-900 dark:text-teal-100">View profile</h3>
+                <p className="text-[11px] text-teal-700 dark:text-teal-400 mt-0.5">{viewAgent.name} • {viewAgent.email}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setViewAgent(null); setViewProfile(null); }}
+                className="flex-shrink-0 p-1 rounded-lg hover:bg-teal-100 dark:hover:bg-teal-700 transition-colors text-teal-500 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-200"
+                aria-label="Close"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="p-5 space-y-4">
+              {viewLoading ? (
+                <div className="py-8 text-center text-sm text-teal-700 dark:text-teal-300">Loading...</div>
+              ) : (
+                <>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="text-xs text-teal-700 dark:text-teal-300"><span className="font-semibold">Name:</span> {viewAgent.name}</div>
+                    <div className="text-xs text-teal-700 dark:text-teal-300"><span className="font-semibold">Email:</span> {viewAgent.email}</div>
+                    <div className="text-xs text-teal-700 dark:text-teal-300"><span className="font-semibold">Phone:</span> {viewAgent.phone || 'N/A'}</div>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="text-xs text-teal-700 dark:text-teal-300"><span className="font-semibold">Role:</span> {viewAgent.role}</div>
+                    <div className="text-xs text-teal-700 dark:text-teal-300"><span className="font-semibold">Status:</span> {viewAgent.declined ? 'Declined' : viewAgent.isApproved ? 'Approved' : 'Pending'}</div>
+                    <div className="text-xs text-teal-700 dark:text-teal-300"><span className="font-semibold">Commission:</span> {viewProfile?.commissionType || '—'}</div>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="text-xs text-teal-700 dark:text-teal-300"><span className="font-semibold">Identity Type:</span> {viewProfile?.idType || '—'}</div>
+                    <div className="text-xs text-teal-700 dark:text-teal-300"><span className="font-semibold">Identity No:</span> {viewProfile?.idNumber || '—'}</div>
+                    <div className="text-xs text-teal-700 dark:text-teal-300">
+                      <span className="font-semibold">ID Document:</span>{' '}
+                      {viewProfile?.idDocumentUrl ? (
+                        <>
+                          <a href={viewProfile.idDocumentUrl} target="_blank" rel="noreferrer" className="text-teal-900 dark:text-blue-400 underline">Open</a>
+                          <span className="ml-2 text-[11px]">{getFileNameFromUrl(viewProfile.idDocumentUrl)}</span>
+                        </>
+                      ) : '—'}
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="text-xs text-teal-700 dark:text-teal-300"><span className="font-semibold">Passport No:</span> {viewProfile?.passportNumber || '—'}</div>
+                    <div className="text-xs text-teal-700 dark:text-teal-300">
+                      <span className="font-semibold">Passport Doc:</span>{' '}
+                      {viewProfile?.passportDocumentUrl ? (
+                        <>
+                          <a href={viewProfile.passportDocumentUrl} target="_blank" rel="noreferrer" className="text-teal-900 dark:text-blue-400 underline">Open</a>
+                          <span className="ml-2 text-[11px]">{getFileNameFromUrl(viewProfile.passportDocumentUrl)}</span>
+                        </>
+                      ) : '—'}
+                    </div>
+                    <div className="text-xs text-teal-700 dark:text-teal-300"><span className="font-semibold">Emergency Phone:</span> {viewProfile?.emergencyPhone || '—'}</div>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="text-xs text-teal-700 dark:text-teal-300"><span className="font-semibold">Salary:</span> {typeof viewProfile?.baseSalary === 'number' ? viewProfile.baseSalary : (viewProfile?.baseSalary || '—')}</div>
+                    <div className="text-xs text-teal-700 dark:text-teal-300"><span className="font-semibold">Contract Type:</span> {viewProfile?.contractType || '—'}</div>
+                    <div className="text-xs text-teal-700 dark:text-teal-300">
+                      <span className="font-semibold">Contract:</span>{' '}
+                      {viewProfile?.contractUrl ? (
+                        <>
+                          <a href={viewProfile.contractUrl} target="_blank" rel="noreferrer" className="text-teal-900 dark:text-blue-400 underline">Open</a>
+                          <span className="ml-2 text-[11px]">{getFileNameFromUrl(viewProfile.contractUrl)}</span>
+                        </>
+                      ) : '—'}
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="text-xs text-teal-700 dark:text-teal-300"><span className="font-semibold">Joining Date:</span> {viewProfile?.joiningDate ? new Date(viewProfile.joiningDate).toLocaleDateString() : '—'}</div>
+                    <div className="text-xs text-teal-700 dark:text-teal-300"><span className="font-semibold">Active:</span> {viewProfile?.isActive === false ? 'No' : 'Yes'}</div>
+                    <div />
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    {viewProfile?.idDocumentUrl && /\.(png|jpe?g|gif|webp)$/i.test(viewProfile.idDocumentUrl) ? (
+                      <img src={viewProfile.idDocumentUrl} alt="ID" className="rounded border border-teal-200 dark:border-teal-700 max-h-40 object-contain" />
+                    ) : null}
+                    {viewProfile?.passportDocumentUrl && /\.(png|jpe?g|gif|webp)$/i.test(viewProfile.passportDocumentUrl) ? (
+                      <img src={viewProfile.passportDocumentUrl} alt="Passport" className="rounded border border-teal-200 dark:border-teal-700 max-h-40 object-contain" />
+                    ) : null}
+                    {viewProfile?.contractUrl && /\.(png|jpe?g|gif|webp)$/i.test(viewProfile.contractUrl) ? (
+                      <img src={viewProfile.contractUrl} alt="Contract" className="rounded border border-teal-200 dark:border-teal-700 max-h-40 object-contain" />
+                    ) : null}
+                  </div>
+                  <div className="flex items-center justify-end">
+                    <button
+                      type="button"
+                      onClick={() => { setViewAgent(null); setViewProfile(null); }}
+                      className="px-3.5 py-2 rounded-md border border-teal-300 dark:border-teal-600 text-[11px] font-medium text-teal-700 dark:text-teal-300 bg-white dark:bg-teal-700 hover:bg-teal-50 dark:hover:bg-teal-600 transition-colors"
+                    >
+                      Close
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
       {/* Delete Confirmation Modal */}
       {deleteAgent && (
         <div 
