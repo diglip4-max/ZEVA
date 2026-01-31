@@ -120,7 +120,7 @@ export default async function handler(req, res) {
           $gte: query.startDate?.$gte?.toISOString(),
           $lte: query.startDate?.$lte?.toISOString()
         }, null, 2));
-        console.log("================================");
+        console.log("==");
       }
 
       // Filter by doctor if provided
@@ -209,7 +209,7 @@ export default async function handler(req, res) {
           });
         }
       }
-      console.log("=============================");
+      console.log("");
 
       return res.status(200).json({
         success: true,
@@ -348,6 +348,71 @@ export default async function handler(req, res) {
         const day = startDate.getUTCDate();
         appointmentDate = new Date(Date.UTC(year, month, day, 0, 0, 0, 0));
       }
+
+      
+      // Query for appointments on the same date (using date range)
+      const startOfDay = new Date(appointmentDate);
+      const endOfDay = new Date(Date.UTC(
+        appointmentDate.getUTCFullYear(),
+        appointmentDate.getUTCMonth(),
+        appointmentDate.getUTCDate(),
+        23, 59, 59, 999
+      ));
+      
+      
+
+      // Validation 2: Check if SAME doctor is trying to book the SAME room at the same time
+      // Allow one doctor to book different rooms at the same time
+      const sameDoctorSameRoomAppointment = await Appointment.findOne({
+        clinicId,
+        roomId,
+        doctorId, // Same doctor
+        patientId: { $ne: patientId },
+        startDate: { $gte: startOfDay, $lte: endOfDay },
+        $or: [
+          { fromTime, toTime },
+          {
+            $or: [
+              { fromTime: { $gte: fromTime, $lt: toTime } },
+              { toTime: { $gt: fromTime, $lte: toTime } },
+              { fromTime: { $lte: fromTime }, toTime: { $gte: toTime } },
+            ],
+          },
+        ],
+      });
+
+      if (sameDoctorSameRoomAppointment) {
+        return res.status(400).json({
+          success: false,
+          message: "You already have a booking in this room at this time",
+        });
+      }
+
+      // Validation 3: Check if DIFFERENT doctors are trying to book the SAME room at the same time
+      const differentDoctorSameRoomAppointment = await Appointment.findOne({
+        clinicId,
+        roomId,
+        doctorId: { $ne: doctorId }, // Different doctor
+        startDate: { $gte: startOfDay, $lte: endOfDay },
+        $or: [
+          { fromTime, toTime },
+          {
+            $or: [
+              { fromTime: { $gte: fromTime, $lt: toTime } },
+              { toTime: { $gt: fromTime, $lte: toTime } },
+              { fromTime: { $lte: fromTime }, toTime: { $gte: toTime } },
+            ],
+          },
+        ],
+      });
+
+      if (differentDoctorSameRoomAppointment) {
+        return res.status(400).json({
+          success: false,
+          message: "Another doctor is already booked in this room at this time",
+        });
+      }
+
 
       // Create appointment
       console.log("💾 Creating appointment with bookedFrom:", validBookedFrom);
