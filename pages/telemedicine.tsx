@@ -184,7 +184,7 @@ const Telemedicine: React.FC = () => {
                   key={index}
                   className="bg-white rounded-xl shadow-md p-6 hover:shadow-lg transition-shadow"
                 >
-                  <div className="w-12 h-12 bg-teal-100 rounded-lg flex items-center justify-center mb-4 text-teal-600">
+                  <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4 text-blue-600">
                     {feature.icon}
                   </div>
                   <h3 className="text-xl font-semibold text-gray-900 mb-2">{feature.title}</h3>
@@ -210,7 +210,7 @@ const Telemedicine: React.FC = () => {
                   key={index}
                   className="text-center p-6 bg-gray-50 rounded-xl"
                 >
-                  <div className="w-12 h-12 bg-teal-100 rounded-full flex items-center justify-center mx-auto mb-4 text-teal-600">
+                  <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4 text-blue-600">
                     {benefit.icon}
                   </div>
                   <h3 className="font-semibold text-gray-900 mb-2">{benefit.title}</h3>
@@ -235,7 +235,7 @@ const Telemedicine: React.FC = () => {
 
             <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
               <div className="text-center">
-                <div className="w-16 h-16 bg-teal-600 text-white rounded-full flex items-center justify-center mx-auto mb-4 text-2xl font-bold">
+                <div className="w-16 h-16 bg-blue-600 text-white rounded-full flex items-center justify-center mx-auto mb-4 text-2xl font-bold">
                   1
                 </div>
                 <h3 className="text-xl font-semibold text-gray-900 mb-2">Book Appointment</h3>
@@ -244,7 +244,7 @@ const Telemedicine: React.FC = () => {
                 </p>
               </div>
               <div className="text-center">
-                <div className="w-16 h-16 bg-teal-600 text-white rounded-full flex items-center justify-center mx-auto mb-4 text-2xl font-bold">
+                <div className="w-16 h-16 bg-blue-600 text-white rounded-full flex items-center justify-center mx-auto mb-4 text-2xl font-bold">
                   2
                 </div>
                 <h3 className="text-xl font-semibold text-gray-900 mb-2">Video Consultation</h3>
@@ -253,7 +253,7 @@ const Telemedicine: React.FC = () => {
                 </p>
               </div>
               <div className="text-center">
-                <div className="w-16 h-16 bg-teal-600 text-white rounded-full flex items-center justify-center mx-auto mb-4 text-2xl font-bold">
+                <div className="w-16 h-16 bg-blue-600 text-white rounded-full flex items-center justify-center mx-auto mb-4 text-2xl font-bold">
                   3
                 </div>
                 <h3 className="text-xl font-semibold text-gray-900 mb-2">Get Prescription</h3>
@@ -281,9 +281,9 @@ const Telemedicine: React.FC = () => {
               {specialties.map((specialty, index) => (
                 <div
                   key={index}
-                  className="bg-white border-2 border-gray-200 rounded-lg p-4 text-center hover:border-teal-600 hover:shadow-md transition-all"
+                  className="bg-white border-2 border-gray-200 rounded-lg p-4 text-center hover:border-blue-600 hover:shadow-md transition-all"
                 >
-                  <Stethoscope className="w-6 h-6 text-teal-600 mx-auto mb-2" />
+                  <Stethoscope className="w-6 h-6 text-blue-600 mx-auto mb-2" />
                   <p className="font-medium text-gray-900">{specialty}</p>
                 </div>
               ))}
@@ -329,15 +329,15 @@ const Telemedicine: React.FC = () => {
           <div className="container mx-auto px-6">
             <div className="grid md:grid-cols-3 gap-8 max-w-4xl mx-auto">
               <div className="text-center">
-                <div className="text-4xl font-bold text-teal-600 mb-2">500+</div>
+                <div className="text-4xl font-bold text-blue-600 mb-2">500+</div>
                 <p className="text-gray-600">Verified Doctors</p>
               </div>
               <div className="text-center">
-                <div className="text-4xl font-bold text-teal-600 mb-2">24/7</div>
+                <div className="text-4xl font-bold text-blue-600 mb-2">24/7</div>
                 <p className="text-gray-600">Available Support</p>
               </div>
               <div className="text-center">
-                <div className="text-4xl font-bold text-teal-600 mb-2">100%</div>
+                <div className="text-4xl font-bold text-blue-600 mb-2">100%</div>
                 <p className="text-gray-600">Secure & Private</p>
               </div>
             </div>

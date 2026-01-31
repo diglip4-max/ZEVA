@@ -151,7 +151,7 @@ export default function TeamSection(): ReactElement {
             title="Jobs & Hiring"
             subtitle="Find the right talent"
             items={["Job postings", "Applicant tracking", "Interview scheduling", "Offer management"]}
-            link="/job-listings"
+            link="/bussiness/job-dashboard"
           />
 
           <TeamCard

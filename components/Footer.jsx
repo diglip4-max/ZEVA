@@ -24,7 +24,7 @@ const footerSections = [
     links: [
       { label: "Find Clinics", href: "/clinic/findclinic" },
       { label: "Find Doctors", href: "/doctor/search" },
-      { label: "Book Appointment", href: "" },
+      { label: "Book Appointment", href: "/clinic/appointment-landing" },
       { label: "Telemedicine", href: "/telemedicine" },
       { label: "Insurance", href: "/insurance" },
       { label: "Health Tools", href: "/tools" },

@@ -90,7 +90,7 @@ import {
   HardDrive,
   Globe2,
   ChevronDown,
-  GripVertical,
+
 } from "lucide-react";
 
 interface NavItemChild {
@@ -262,15 +262,15 @@ const iconMap: { [key: string]: React.ReactNode } = {
   'accounts': <DollarSign className="w-4 h-4" />,
   
   // Settings & Security
-  '⚙️': <Settings className="w-4 h-4" />,
+  // '⚙️': <Settings className="w-4 h-4" />,
   '🔒': <Lock className="w-4 h-4" />,
   '🛡️': <Shield className="w-4 h-4" />,
-  'settings': <Settings className="w-4 h-4" />,
+  // 'settings': <Settings className="w-4 h-4" />,
   'security': <Shield className="w-4 h-4" />,
   'permissions': <Lock className="w-4 h-4" />,
   'access': <UserCheck className="w-4 h-4" />,
-  'configuration': <Settings className="w-4 h-4" />,
-  'preferences': <Settings className="w-4 h-4" />,
+  // 'configuration': <Settings className="w-4 h-4" />,
+  // 'preferences': <Settings className="w-4 h-4" />,
   
   // Notifications & Alerts
   '🔔': <Bell className="w-4 h-4" />,
@@ -658,15 +658,15 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
           {/* Mobile Header Section */}
           <div className="p-4 border-b border-teal-200 flex-shrink-0 relative">
             <div className="group cursor-pointer">
-              <div className="flex items-center gap-3 p-3 rounded-lg bg-teal-50 group-hover:bg-teal-100 transition-all duration-200 border border-teal-200">
-                <div className="w-10 h-10 bg-teal-800 rounded-lg flex items-center justify-center">
+              <div className="flex items-center gap-3 p-3 rounded-lg bg-gray-50 group-hover:bg-teal-50 transition-all duration-200 border border-teal-200">
+                <div className="w-10 h-10 bg-teal-600 rounded-lg flex items-center justify-center">
                   <span className="text-white font-bold text-lg">Z</span>
                 </div>
                 <div>
                   <span className="font-bold text-base text-teal-900 block">
                     ZEVA
                   </span>
-                  <span className="text-xs text-teal-700 font-medium">Clinic Panel</span>
+                  <span className="text-xs text-gray-950 font-medium">Clinic Panel</span>
                 </div>
               </div>
             </div>
@@ -735,28 +735,22 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                           "w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-all duration-200 text-left group cursor-move",
                           {
                             "bg-[#2D9AA5] text-white": isActive,
-                            "text-teal-700 hover:bg-teal-100": !isActive,
+                            "text-teal-700 hover:bg-teal-50": !isActive,
                           }
                         )}
                       >
                         <div className="flex items-center space-x-3">
-                          <GripVertical className={clsx(
-                            "w-4 h-4 flex-shrink-0 opacity-40 group-hover:opacity-70 transition-opacity",
-                            {
-                              "text-white": isActive,
-                              "text-teal-400": !isActive,
-                            }
-                          )} />
+
                           <div className={clsx(
                             "p-1.5 rounded-md transition-all duration-200 flex-shrink-0",
                             {
                               "bg-white/20 text-white": isActive,
-                              "text-teal-700 group-hover:text-teal-800 group-hover:bg-teal-100": !isActive,
+                              "text-gray-800 group-hover:text-gray-800 group-hover:bg-gray-100": !isActive,
                             }
                           )}>
                             {iconMap[item.icon] || <span className="text-base">{item.icon}</span>}
                           </div>
-                          <span className="font-medium text-sm">{item.label}</span>
+                          <span className="ui-sans-serif text-sm font-medium text-gray-950">{item.label}</span>
                         </div>
                         <ChevronDown
                           className={clsx(
@@ -785,17 +779,11 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                                     "px-3 py-2 rounded-lg transition-all duration-200 text-sm cursor-move flex items-center gap-2",
                                     {
                                       "bg-[#2D9AA5] text-white": isChildActive,
-                                      "text-teal-700 hover:bg-teal-100": !isChildActive,
+                                      "text-teal-700 hover:bg-teal-50": !isChildActive,
                                     }
                                   )}
                                 >
-                                  <GripVertical className={clsx(
-                                    "w-3.5 h-3.5 flex-shrink-0 opacity-40",
-                                    {
-                                      "text-white": isChildActive,
-                                      "text-teal-400": !isChildActive,
-                                    }
-                                  )} />
+
                                   {child.label}
                                 </div>
                               </Link>
@@ -830,18 +818,12 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                       }
                     )}
                   >
-                    <GripVertical className={clsx(
-                      "w-4 h-4 mr-2 flex-shrink-0 opacity-40 group-hover:opacity-70 transition-opacity",
-                      {
-                        "text-white": isActive,
-                        "text-teal-400": !isActive,
-                      }
-                    )} />
+
                     <div className={clsx(
                       "p-1.5 rounded-md transition-all duration-200 flex-shrink-0",
                       {
-                        "bg-white/20 text-white": isActive,
-                        "text-teal-700 group-hover:text-teal-800 group-hover:bg-teal-100": !isActive,
+                        "text-white": isActive,
+                        "text-gray-950 group-hover:text-gray-950": !isActive,
                       }
                     )}>
                       {iconMap[item.icon] || <span className="text-base">{item.icon}</span>}
@@ -849,7 +831,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
 
                     <div className="flex-1 min-w-0 ml-3">
                       <div className={clsx(
-                        "font-medium text-sm transition-colors duration-200",
+                        "ui-sans-serif font-medium text-sm text-gray-800 transition-colors duration-200",
                         {
                           "text-white": isActive,
                           "text-teal-900": !isActive,
@@ -878,7 +860,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
       {/* Desktop Sidebar */}
       <aside
         className={clsx(
-          "transition-all duration-300 ease-in-out bg-white border-r border-teal-200 flex-col min-h-screen w-64 hidden lg:flex",
+          "transition-all duration-300 ease-in-out bg-gray-50 border-r border-teal-200 flex-col min-h-screen w-64 hidden lg:flex",
           {
             "lg:flex": !isDesktopHidden,
             "lg:hidden": isDesktopHidden,
@@ -891,15 +873,15 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
           {/* Desktop Header Section */}
           <div className="p-4 border-b border-teal-200 flex-shrink-0 relative">
             <div className="group cursor-pointer">
-              <div className="flex items-center gap-3 p-3 rounded-lg bg-teal-50 group-hover:bg-teal-100 transition-all duration-200 border border-teal-200">
-                <div className="w-10 h-10 bg-teal-800 rounded-lg flex items-center justify-center">
+              <div className="flex items-center gap-3 p-3 rounded-lg bg-white group-hover:bg-teal-50 transition-all duration-200 border border-teal-200">
+                <div className="w-10 h-10 bg-teal-600 rounded-lg flex items-center justify-center">
                   <span className="text-white font-bold text-lg">Z</span>
                 </div>
                 <div>
                   <span className="font-bold text-base text-teal-900 block">
                     ZEVA
                   </span>
-                  <span className="text-xs text-teal-700 font-medium">Clinic Panel</span>
+                  <span className="text-xs text-gray-950 font-medium">Clinic Panel</span>
                 </div>
               </div>
             </div>
@@ -907,7 +889,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
             {/* Desktop Close Button */}
             <button
               onClick={handleToggleDesktop}
-              className="absolute right-4 top-4 bg-teal-100 text-teal-700 p-1.5 rounded-md hover:bg-teal-200 transition-all duration-200"
+              className="absolute right-4 top-4 bg-teal-50 text-teal-700 p-1.5 rounded-md hover:bg-teal-200 transition-all duration-200"
               aria-label="Close sidebar"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -948,8 +930,8 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                         className={clsx(
                           "group relative block rounded-lg transition-all duration-200 cursor-pointer p-2.5 touch-manipulation",
                           {
-                            "bg-teal-800 text-white": isDropdownOpen,
-                            "hover:bg-teal-50 text-teal-700": !isDropdownOpen,
+                            "bg-teal-600 text-white": isDropdownOpen,
+                            "hover:bg-teal-50 text-gray-950": !isDropdownOpen,
                           }
                         )}
                         onClick={safeClick(() => {
@@ -958,28 +940,22 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                         })}
                       >
                         <div className="flex items-center space-x-3">
-                          <GripVertical className={clsx(
-                            "w-4 h-4 flex-shrink-0 opacity-40 group-hover:opacity-70 transition-opacity",
-                            {
-                              "text-white": isDropdownOpen,
-                              "text-teal-400": !isDropdownOpen,
-                            }
-                          )} />
+
                           <div className={clsx(
                             "p-1.5 rounded-md transition-all duration-200 flex-shrink-0",
                             {
-                              "bg-white/20 text-white": isDropdownOpen,
-                              "text-teal-700 group-hover:text-teal-800 group-hover:bg-teal-100": !isDropdownOpen,
+                              "text-white": isDropdownOpen,
+                              "text-gray-950 group-hover:text-gray-950": !isDropdownOpen,
                             }
                           )}>
                             {iconMap[item.icon] || <span className="text-base">{item.icon}</span>}
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className={clsx(
-                              "font-medium text-sm transition-colors duration-200",
+                              "ui-sans-serif font-medium text-sm transition-colors duration-200",
                               {
                                 "text-white": isDropdownOpen,
-                                "text-teal-900": !isDropdownOpen,
+                                "text-gray-950": !isDropdownOpen,
                               }
                             )}>
                               {item.label}
@@ -1023,8 +999,8 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                                   className={clsx(
                                     "group relative block rounded-lg transition-all duration-200 cursor-pointer p-2 touch-manipulation",
                                     {
-                                      "bg-teal-800 text-white": childActive,
-                                      "hover:bg-teal-50 text-teal-700": !childActive,
+                                      "bg-teal-600 text-white": childActive,
+                                      "hover:bg-teal-50 text-gray-950": !childActive,
                                     }
                                   )}
                                   onClick={safeClick(() => {
@@ -1032,28 +1008,22 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                                   })}
                                 >
                                   <div className="flex items-center space-x-2.5">
-                                    <GripVertical className={clsx(
-                                      "w-3.5 h-3.5 flex-shrink-0 opacity-40 group-hover:opacity-70 transition-opacity",
-                                      {
-                                        "text-white": childActive,
-                                        "text-teal-400": !childActive,
-                                      }
-                                    )} />
+
                                     <div className={clsx(
                                       "p-1 rounded-md transition-all duration-200 flex-shrink-0",
                                       {
-                                        "bg-white/20 text-white": childActive,
-                                        "text-teal-700 group-hover:text-teal-800 group-hover:bg-teal-100": !childActive,
+                                        "text-white": childActive,
+                                        "text-gray-950 group-hover:text-gray-950": !childActive,
                                       }
                                     )}>
                                       {iconMap[child.icon] || <span className="text-sm">{child.icon}</span>}
                                     </div>
                                     <div className="flex-1 min-w-0">
                                       <div className={clsx(
-                                        "font-medium text-sm transition-colors duration-200",
+                                        "ui-sans-serif font-medium text-sm transition-colors duration-200",
                                         {
                                           "text-white": childActive,
-                                          "text-teal-900": !childActive,
+                                          "text-gray-950": !childActive,
                                         }
                                       )}>
                                         {child.label}
@@ -1081,8 +1051,8 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                     className={clsx(
                       "group relative block rounded-lg transition-all duration-200 cursor-move p-2.5 touch-manipulation",
                       {
-                        "bg-teal-800 text-white": isActive,
-                        "hover:bg-teal-50 text-teal-700": !isActive,
+                        "bg-teal-600 text-white": isActive,
+                        "hover:bg-teal-50 text-gray-950": !isActive,
                       }
                     )}
                     onClick={safeClick(() => {
@@ -1095,18 +1065,12 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                     )}
 
                     <div className="flex items-center space-x-3">
-                      <GripVertical className={clsx(
-                        "w-4 h-4 flex-shrink-0 opacity-40 group-hover:opacity-70 transition-opacity",
-                        {
-                          "text-white": isActive,
-                          "text-teal-400": !isActive,
-                        }
-                      )} />
+
                       <div className={clsx(
                         "p-1.5 rounded-md transition-all duration-200 flex-shrink-0",
                         {
-                          "bg-white/20 text-white": isActive,
-                          "text-teal-700 group-hover:text-teal-800 group-hover:bg-teal-100": !isActive,
+                          "text-white": isActive,
+                          "text-gray-950 group-hover:text-gray-950": !isActive,
                         }
                       )}>
                         {iconMap[item.icon] || <span className="text-base">{item.icon}</span>}
@@ -1119,10 +1083,10 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
 
                       <div className="flex-1 min-w-0">
                         <div className={clsx(
-                          "font-medium text-sm transition-colors duration-200",
+                          "ui-sans-serif font-medium text-sm transition-colors duration-200",
                           {
                             "text-white": isActive,
-                            "text-teal-900": !isActive,
+                            "text-gray-950": !isActive,
                           }
                         )}>
                           {item.label}

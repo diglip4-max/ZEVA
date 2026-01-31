@@ -70,7 +70,7 @@ const PatientDetailsModal = ({ isOpen, onClose, patient }) => {
               </h4>
               <div className="space-y-2 text-xs">
                 <div className="flex items-center gap-2"><span className="text-gray-700 w-20">Name:</span> <span className="font-medium text-gray-900">{patient.firstName} {patient.lastName}</span></div>
-                <div className="flex items-center gap-2"><span className="text-gray-700 w-20">Gender:</span> <span className="font-medium text-gray-900">{patient.gender}</span></div>
+                <div className="flex items-center gap-2"><span className="text-gray-700 w-20">Gender:</span> <span className="font-medium text-gray-900">{patient.gender || '-'}</span></div>
                 <div className="flex items-center gap-2"><Mail className="w-3.5 h-3.5 text-gray-400" /><span className="text-gray-700 w-20">Email:</span> <span className="font-medium text-gray-900">{patient.email}</span></div>
                 <div className="flex items-center gap-2"><Phone className="w-3.5 h-3.5 text-gray-400" /><span className="text-gray-700 w-20">Mobile:</span> <span className="font-medium text-gray-900">{patient.mobileNumber}</span></div>
                 <div className="flex items-center gap-2"><span className="text-gray-700 w-20">Type:</span> <span className="font-medium text-gray-900">{patient.patientType}</span></div>

@@ -1244,7 +1244,7 @@ export default function FindDoctor() {
       )}
 
       {/* Professional Header Section */}
-      <div className="w-full bg-gradient-to-br from-white via-[#f8fafc] to-[#f0f7ff] border-b border-[#e2e8f0] shadow-sm">
+      <div className="w-full bg-gradient-to-br from-white via-[#f8fafc] to-[#f0f7ff] border-b border-[#e2e8f0] shadow-sm sticky top-0 z-60">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
           {/* Professional Header */}
           <div className="text-center mb-6">
@@ -1253,7 +1253,7 @@ export default function FindDoctor() {
                 <Stethoscope className="w-6 h-6 text-white" />
                 </div>
               <div className="text-left">
-                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-[#1e293b] tracking-tight">
+                <h1 className="text-2xl mt-7 sm:text-3xl lg:text-4xl font-bold text-[#1e293b] tracking-tight">
                   ZEVA Doctor Directory
                 </h1>
                 <p className="text-xs sm:text-sm text-[#64748b] mt-0.5">

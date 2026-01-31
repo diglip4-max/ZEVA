@@ -116,12 +116,12 @@ function parseTimings(timings: string): { startTime: string; endTime: string; is
     const endHour = parseInt(customFormatMatch[4]);
     const endMin = customFormatMatch[5];
     const endPeriod = customFormatMatch[6].toUpperCase();
-    
+   
     let start24Hour = startHour === 12 ? 0 : startHour;
     if (startPeriod === "PM") start24Hour += 12;
     let end24Hour = endHour === 12 ? 0 : endHour;
     if (endPeriod === "PM") end24Hour += 12;
-    
+   
     return {
       startTime: `${String(start24Hour).padStart(2, "0")}:${startMin}`,
       endTime: `${String(end24Hour).padStart(2, "0")}:${endMin}`,
@@ -163,8 +163,8 @@ function parseTimings(timings: string): { startTime: string; endTime: string; is
         };
       } else if (pattern === patterns[1]) {
         // Format: "09:00-17:00" (but not the exact custom format which was already checked)
-        return { 
-          startTime: match[1] + ":" + match[2], 
+        return {
+          startTime: match[1] + ":" + match[2],
           endTime: match[3] + ":" + match[4],
           isCustom: false,
         };
@@ -223,17 +223,17 @@ function convert12To24(time12: string): string {
   // Handle formats like "10:00 PM", "10:00PM", "10:00 pm"
   const match = time12.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
   if (!match) return time12; // Return as-is if not in expected format
-  
+ 
   let hour = parseInt(match[1]);
   const min = match[2];
   const period = match[3].toUpperCase();
-  
+ 
   if (period === "PM" && hour !== 12) {
     hour += 12;
   } else if (period === "AM" && hour === 12) {
     hour = 0;
   }
-  
+ 
   return `${String(hour).padStart(2, "0")}:${min}`;
 }
 
@@ -292,7 +292,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
   const [editModalOpen, setEditModalOpen] = useState<boolean>(false);
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const appointmentRef = useRef<Appointment | null>(null);
-  
+ 
   // Sync ref with state
   useEffect(() => {
     if (selectedAppointment) {
@@ -322,7 +322,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
     selectedDate: new Date().toISOString().split("T")[0],
     bookedFrom: "doctor",
   });
-  
+ 
   // Drag selection state for time slots (doctors)
   const [timeDragSelection, setTimeDragSelection] = useState<{
     isDragging: boolean;
@@ -378,7 +378,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
     return [];
   });
   const [draggedColumnId, setDraggedColumnId] = useState<string | null>(null); // Format: "doctor:id" or "room:id"
-  
+ 
   // Save columnOrder to localStorage whenever it changes
   useEffect(() => {
     if (typeof window !== "undefined" && columnOrder.length > 0) {
@@ -390,7 +390,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
   const getAuthHeaders = useCallback((): Record<string, string> => {
     if (typeof window === "undefined") return {};
     let token = null;
-    
+   
     // Check tokens based on route context first
     if (routeContext === "agent") {
       token =
@@ -403,12 +403,12 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
     } else {
       token = localStorage.getItem("clinicToken") || sessionStorage.getItem("clinicToken");
     }
-    
+   
     // Fallback to userToken if no token found
     if (!token) {
       token = localStorage.getItem("userToken") || sessionStorage.getItem("userToken");
     }
-    
+   
     if (!token) return {};
     return { Authorization: `Bearer ${token}` };
   }, [routeContext]);
@@ -429,7 +429,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
           // Use 24-hour format for UI time inputs (customStartTime24/customEndTime24 if available, otherwise convert from 12-hour)
           let startTime24 = "";
           let endTime24 = "";
-          
+         
           if (slots.useCustomTimeSlots && slots.customStartTime && slots.customEndTime) {
             // If 24-hour format is provided, use it directly
             if (slots.customStartTime24 && slots.customEndTime24) {
@@ -441,7 +441,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
               endTime24 = convert12To24(slots.customEndTime);
             }
           }
-          
+         
           const loadedValues = {
             useCustomTimeSlots: slots.useCustomTimeSlots || false,
             customStartTime: startTime24, // Store in 24-hour format for UI
@@ -537,14 +537,14 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
   const roomFilterRef = useRef<HTMLDivElement | null>(null);
   const dragStopTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const timeDragSelectionRef = useRef(timeDragSelection);
-  
+ 
   // Keep ref in sync with state
   useEffect(() => {
     timeDragSelectionRef.current = timeDragSelection;
   }, [timeDragSelection]);
 
   const roomDragSelectionRef = useRef(roomDragSelection);
-  
+ 
   // Keep ref in sync with state
   useEffect(() => {
     roomDragSelectionRef.current = roomDragSelection;
@@ -553,7 +553,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
     appointment: Appointment;
     position: { top: number; left: number };
   } | null>(null);
-  
+ 
   // Drag and drop state for appointments
   const [draggedAppointmentId, setDraggedAppointmentId] = useState<string | null>(null);
   const [dragOverDoctorId, setDragOverDoctorId] = useState<string | null>(null);
@@ -619,14 +619,14 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
   useEffect(() => {
     if (!isAgentRoute) return;
     if (agentPermissionsLoading) return;
-    
+   
     const newPermissions = {
       canRead: Boolean(agentPermissions.canAll || agentPermissions.canRead),
       canCreate: Boolean(agentPermissions.canAll || agentPermissions.canCreate),
       canUpdate: Boolean(agentPermissions.canAll || agentPermissions.canUpdate),
       canDelete: Boolean(agentPermissions.canAll || agentPermissions.canDelete),
     };
-    
+   
     setPermissions(newPermissions);
     setPermissionsLoaded(true);
   }, [isAgentRoute, agentPermissions, agentPermissionsLoading]);
@@ -664,7 +664,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
   useEffect(() => {
     if (isAgentRoute) return;
     let isMounted = true;
-    
+   
     // Check which token type is being used
     const clinicToken = typeof window !== "undefined"
       ? (localStorage.getItem("clinicToken") || sessionStorage.getItem("clinicToken"))
@@ -739,7 +739,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
 
               if (modulePermission) {
                 const actions = modulePermission.actions || {};
-                
+               
                 // Check if "all" is true, which grants all permissions
                 const moduleAll = actions.all === true || actions.all === "true" || String(actions.all).toLowerCase() === "true";
                 const moduleCreate = actions.create === true || actions.create === "true" || String(actions.create).toLowerCase() === "true";
@@ -813,7 +813,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
             headers: { Authorization: `Bearer ${agentStaffToken}` }
           });
           const data = res.data;
-          
+         
           if (!isMounted) return;
           const actions = data?.permissions?.actions || data?.data?.moduleActions || {};
           const canAll =
@@ -919,7 +919,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
 
   useEffect(() => {
     if (!permissionsLoaded) return;
-    
+   
     // ✅ Only fetch appointment data if user has read permission
     if (!permissions.canRead) {
       setLoading(false);
@@ -1003,7 +1003,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
               }
             }
           }
-          
+         
           // If we have a saved order, try to preserve it
           if (currentOrder.length > 0) {
             // Filter out invalid doctor IDs and add new ones
@@ -1085,7 +1085,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
               }
             }
           }
-          
+         
           // If we have a saved order, try to preserve it
           if (currentOrder.length > 0) {
             // Filter out invalid room IDs and add new ones
@@ -1247,7 +1247,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
       // Calculate new times if needed
       let newFromTime = updates.fromTime || appointment.fromTime;
       let newToTime = updates.toTime || appointment.toTime;
-      
+     
       // If only time is changed, preserve duration
       if (updates.fromTime && !updates.toTime) {
         const oldDuration = timeStringToMinutes(appointment.toTime) - timeStringToMinutes(appointment.fromTime);
@@ -1317,13 +1317,13 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
   const handleDoctorColumnDrop = async (e: React.DragEvent, doctorId: string) => {
     e.preventDefault();
     e.stopPropagation();
-    
+   
     // ✅ Check permission before allowing drop
     if (!permissions.canUpdate) {
       showErrorToast("You do not have permission to move appointments");
       return;
     }
-    
+   
     if (!draggedAppointmentId) return;
 
     const appointment = appointments.find(apt => apt._id === draggedAppointmentId);
@@ -1338,7 +1338,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
 
     // Update doctor
     await updateAppointment(draggedAppointmentId, { doctorId });
-    
+   
     setDraggedAppointmentId(null);
     setDragOverDoctorId(null);
   };
@@ -1347,13 +1347,13 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
   const handleRoomColumnDrop = async (e: React.DragEvent, roomId: string) => {
     e.preventDefault();
     e.stopPropagation();
-    
+   
     // ✅ Check permission before allowing drop
     if (!permissions.canUpdate) {
       showErrorToast("You do not have permission to move appointments");
       return;
     }
-    
+   
     if (!draggedAppointmentId) return;
 
     const appointment = appointments.find(apt => apt._id === draggedAppointmentId);
@@ -1367,7 +1367,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
 
     // Update room
     await updateAppointment(draggedAppointmentId, { roomId });
-    
+   
     setDraggedAppointmentId(null);
   };
 
@@ -1380,13 +1380,13 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
   ) => {
     e.preventDefault();
     e.stopPropagation();
-    
+   
     // ✅ Check permission before allowing drop
     if (!permissions.canUpdate) {
       showErrorToast("You do not have permission to move appointments");
       return;
     }
-    
+   
     if (!draggedAppointmentId) return;
 
     const appointment = appointments.find(apt => apt._id === draggedAppointmentId);
@@ -1394,7 +1394,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
 
     // Calculate new time
     const newFromTime = `${String(Math.floor(slotMinutes / 60)).padStart(2, "0")}:${String(slotMinutes % 60).padStart(2, "0")}`;
-    
+   
     // Determine what to update based on the type of drop
     const updates: {
       doctorId?: string;
@@ -1421,10 +1421,10 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
       }
       updates.doctorId = targetId;
     }
-    
+   
     // Update the appointment
     await updateAppointment(draggedAppointmentId, updates);
-    
+   
     setDraggedAppointmentId(null);
     setDragOverTimeSlot(null);
   };
@@ -1589,12 +1589,12 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
         return false;
       }
       // NOTE: We do NOT filter by status - all statuses (booked, Arrived, Consultation, etc.) should be shown
-      
+     
       const rowStart = timeStringToMinutes(slotTime);
       const rowEnd = rowStart + ROW_INTERVAL_MINUTES;
       const fromTotal = timeStringToMinutes(apt.fromTime);
       const toTotal = timeStringToMinutes(apt.toTime);
-      
+     
       return fromTotal < rowEnd && toTotal > rowStart;
     });
   };
@@ -1649,15 +1649,15 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
       });
       return;
     }
-    
+   
     const minStart = Math.min(startMinutes, endMinutes);
     const maxEnd = Math.max(startMinutes, endMinutes);
-    
+   
     // Only open modal if there's a valid selection (at least one slot)
     if (maxEnd > minStart) {
       const fromTime = `${String(Math.floor(minStart / 60)).padStart(2, "0")}:${String(minStart % 60).padStart(2, "0")}`;
       const toTime = `${String(Math.floor(maxEnd / 60)).padStart(2, "0")}:${String(maxEnd % 60).padStart(2, "0")}`;
-      
+     
       const doctor = doctorStaff.find((doc) => doc._id === doctorId);
       if (doctor) {
         setBookingModal({
@@ -1675,7 +1675,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
         });
       }
     }
-    
+   
     setTimeDragSelection({
       isDragging: false,
       startMinutes: null,
@@ -1697,15 +1697,15 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
       });
       return;
     }
-    
+   
     const minStart = Math.min(startMinutes, endMinutes);
     const maxEnd = Math.max(startMinutes, endMinutes);
-    
+   
     // Only open modal if there's a valid selection (at least one slot)
     if (maxEnd > minStart) {
       const fromTime = `${String(Math.floor(minStart / 60)).padStart(2, "0")}:${String(minStart % 60).padStart(2, "0")}`;
       const toTime = `${String(Math.floor(maxEnd / 60)).padStart(2, "0")}:${String(maxEnd % 60).padStart(2, "0")}`;
-      
+     
       const room = rooms.find((r) => r._id === roomId);
       if (room) {
         setBookingModal({
@@ -1723,7 +1723,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
         });
       }
     }
-    
+   
     setRoomDragSelection({
       isDragging: false,
       startMinutes: null,
@@ -1736,49 +1736,49 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
   useEffect(() => {
     const handleGlobalMouseMove = (e: MouseEvent) => {
       if (!timeDragSelection.isDragging || !timeDragSelection.doctorId) return;
-      
+     
       // Clear previous timeout
       if (dragStopTimeoutRef.current) {
         clearTimeout(dragStopTimeoutRef.current);
         dragStopTimeoutRef.current = null;
       }
-      
+     
       // Find the doctor column element
       const doctorColumn = document.querySelector(`[data-doctor-id="${timeDragSelection.doctorId}"]`);
       if (!doctorColumn) return;
-      
+     
       const rect = doctorColumn.getBoundingClientRect();
       const y = e.clientY - rect.top;
-      
+     
       // Calculate which time slot the mouse is over
       const slotIndex = Math.floor(y / ROW_HEIGHT_PX);
       if (slotIndex < 0 || slotIndex >= timeSlots.length) return;
-      
+     
       const slot = timeSlots[slotIndex];
       const rowStartMinutes = timeStringToMinutes(slot.time);
-      
+     
       // Calculate offset within the row (0 or 15 minutes)
       const offsetInRow = y - (slotIndex * ROW_HEIGHT_PX);
       const subSlotOffset = offsetInRow < ROW_HEIGHT_PX / 2 ? 0 : SLOT_INTERVAL_MINUTES;
       const currentMinutes = rowStartMinutes + subSlotOffset;
-      
+     
       const slotWithinClosing = lastBookableMinutes === null || currentMinutes <= lastBookableMinutes;
       const now = new Date();
       const currentTimeMinutes = now.getHours() * 60 + now.getMinutes();
       const canBookSlot = !isPastDay && (!isToday || currentMinutes >= currentTimeMinutes) && slotWithinClosing;
-      
+     
       if (canBookSlot) {
         setTimeDragSelection((prev) => ({
           ...prev,
           endMinutes: currentMinutes,
         }));
-        
+       
         // Set timeout to open modal when mouse stops moving (500ms delay)
         dragStopTimeoutRef.current = setTimeout(() => {
           const currentSelection = timeDragSelectionRef.current;
-          if (currentSelection.isDragging && 
-              currentSelection.startMinutes !== null && 
-              currentSelection.endMinutes !== null && 
+          if (currentSelection.isDragging &&
+              currentSelection.startMinutes !== null &&
+              currentSelection.endMinutes !== null &&
               currentSelection.doctorId) {
             openModalWithSelection(
               currentSelection.startMinutes,
@@ -1792,13 +1792,13 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
 
     const handleGlobalMouseUp = () => {
       if (!timeDragSelection.isDragging) return;
-      
+     
       // Clear the timeout if mouse is released
       if (dragStopTimeoutRef.current) {
         clearTimeout(dragStopTimeoutRef.current);
         dragStopTimeoutRef.current = null;
       }
-      
+     
       const { startMinutes, endMinutes, doctorId } = timeDragSelection;
       if (startMinutes !== null && endMinutes !== null && doctorId) {
         openModalWithSelection(startMinutes, endMinutes, doctorId);
@@ -1832,49 +1832,49 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
   useEffect(() => {
     const handleGlobalMouseMove = (e: MouseEvent) => {
       if (!roomDragSelection.isDragging || !roomDragSelection.roomId) return;
-      
+     
       // Clear previous timeout
       if (dragStopTimeoutRef.current) {
         clearTimeout(dragStopTimeoutRef.current);
         dragStopTimeoutRef.current = null;
       }
-      
+     
       // Find the room column element
       const roomColumn = document.querySelector(`[data-room-id="${roomDragSelection.roomId}"]`);
       if (!roomColumn) return;
-      
+     
       const rect = roomColumn.getBoundingClientRect();
       const y = e.clientY - rect.top;
-      
+     
       // Calculate which time slot the mouse is over
       const slotIndex = Math.floor(y / ROW_HEIGHT_PX);
       if (slotIndex < 0 || slotIndex >= timeSlots.length) return;
-      
+     
       const slot = timeSlots[slotIndex];
       const rowStartMinutes = timeStringToMinutes(slot.time);
-      
+     
       // Calculate offset within the row (0 or 15 minutes)
       const offsetInRow = y - (slotIndex * ROW_HEIGHT_PX);
       const subSlotOffset = offsetInRow < ROW_HEIGHT_PX / 2 ? 0 : SLOT_INTERVAL_MINUTES;
       const currentMinutes = rowStartMinutes + subSlotOffset;
-      
+     
       const slotWithinClosing = lastBookableMinutes === null || currentMinutes <= lastBookableMinutes;
       const now = new Date();
       const currentTimeMinutes = now.getHours() * 60 + now.getMinutes();
       const canBookSlot = !isPastDay && (!isToday || currentMinutes >= currentTimeMinutes) && slotWithinClosing;
-      
+     
       if (canBookSlot) {
         setRoomDragSelection((prev) => ({
           ...prev,
           endMinutes: currentMinutes,
         }));
-        
+       
         // Set timeout to open modal when mouse stops moving (500ms delay)
         dragStopTimeoutRef.current = setTimeout(() => {
           const currentSelection = roomDragSelectionRef.current;
-          if (currentSelection.isDragging && 
-              currentSelection.startMinutes !== null && 
-              currentSelection.endMinutes !== null && 
+          if (currentSelection.isDragging &&
+              currentSelection.startMinutes !== null &&
+              currentSelection.endMinutes !== null &&
               currentSelection.roomId) {
             openModalWithRoomSelection(
               currentSelection.startMinutes,
@@ -1888,13 +1888,13 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
 
     const handleGlobalMouseUp = () => {
       if (!roomDragSelection.isDragging) return;
-      
+     
       // Clear the timeout if mouse is released
       if (dragStopTimeoutRef.current) {
         clearTimeout(dragStopTimeoutRef.current);
         dragStopTimeoutRef.current = null;
       }
-      
+     
       const { startMinutes, endMinutes, roomId } = roomDragSelection;
       if (startMinutes !== null && endMinutes !== null && roomId) {
         openModalWithRoomSelection(startMinutes, endMinutes, roomId);
@@ -1971,7 +1971,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
       e.preventDefault();
       return;
     }
-    
+   
     setDraggedColumnId(columnKey);
     e.dataTransfer.effectAllowed = "move";
     e.dataTransfer.setData("text/plain", columnKey);
@@ -2010,14 +2010,14 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
 
   const handleColumnDrop = (e: React.DragEvent, targetColumnKey: string) => {
     e.preventDefault();
-    
+   
     // ✅ Check permission before allowing column swap
     if (!permissions.canUpdate) {
       showErrorToast("You do not have permission to reorder columns");
       setDraggedColumnId(null);
       return;
     }
-    
+   
     if (!draggedColumnId || draggedColumnId === targetColumnKey) return;
 
     setColumnOrder((prevOrder) => {
@@ -2049,18 +2049,18 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
       showErrorToast("You do not have permission to book appointments");
       return;
     }
-    
+   
     // Only start drag on left mouse button and if slot is bookable
     if (e.button !== 0) return;
-    
+   
     // Prevent starting doctor drag if room drag is active
     if (roomDragSelection.isDragging) return;
-    
+   
     const slotWithinClosing = lastBookableMinutes === null || startMinutes <= lastBookableMinutes;
     const canBookSlot = !isPastDay && (!isToday || startMinutes >= currentMinutes) && slotWithinClosing;
-    
+   
     if (!canBookSlot) return;
-    
+   
     e.preventDefault();
     setTimeDragSelection({
       isDragging: true,
@@ -2077,18 +2077,18 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
       showErrorToast("You do not have permission to book appointments");
       return;
     }
-    
+   
     // Only start drag on left mouse button and if slot is bookable
     if (e.button !== 0) return;
-    
+   
     // Prevent starting room drag if doctor drag is active
     if (timeDragSelection.isDragging) return;
-    
+   
     const slotWithinClosing = lastBookableMinutes === null || startMinutes <= lastBookableMinutes;
     const canBookSlot = !isPastDay && (!isToday || startMinutes >= currentMinutes) && slotWithinClosing;
-    
+   
     if (!canBookSlot) return;
-    
+   
     e.preventDefault();
     setRoomDragSelection({
       isDragging: true,
@@ -2103,10 +2103,10 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
     if (!timeDragSelection.isDragging || timeDragSelection.doctorId !== doctorId) return false;
     const { startMinutes, endMinutes } = timeDragSelection;
     if (startMinutes === null || endMinutes === null) return false;
-    
+   
     const minStart = Math.min(startMinutes, endMinutes);
     const maxEnd = Math.max(startMinutes, endMinutes);
-    
+   
     // Check if slot overlaps with selection
     return slotStartMinutes < maxEnd && slotEndMinutes > minStart;
   };
@@ -2116,10 +2116,10 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
     if (!roomDragSelection.isDragging || roomDragSelection.roomId !== roomId) return false;
     const { startMinutes, endMinutes } = roomDragSelection;
     if (startMinutes === null || endMinutes === null) return false;
-    
+   
     const minStart = Math.min(startMinutes, endMinutes);
     const maxEnd = Math.max(startMinutes, endMinutes);
-    
+   
     // Check if slot overlaps with selection
     return slotStartMinutes < maxEnd && slotEndMinutes > minStart;
   };
@@ -2625,7 +2625,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                   const columnKey = column.type === "doctor" ? `doctor:${column.data._id}` : `room:${column.data._id}`;
                   const isDragged = draggedColumnId === columnKey;
                   const isLast = index === orderedColumns.length - 1;
-                  
+                 
                   if (column.type === "doctor") {
                     const doctor = column.data;
                     return (
@@ -2808,7 +2808,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                                 (!isToday || subStartMinutes >= currentMinutes) &&
                                 slotWithinClosing &&
                                 !isSubSlotOccupied;
-                              
+                             
                               // Check if this slot is in the drag selection
                               const isSelected = isInSelection && isSlotInSelection(subStartMinutes, subEndMinutes, doctor._id);
                               const isDragOverSlot = dragOverTimeSlot?.doctorId === doctor._id && dragOverTimeSlot?.minutes === subStartMinutes;
@@ -2886,22 +2886,22 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                             ? rowAppointments.map((apt) => {
                                 const fromTotal = timeStringToMinutes(apt.fromTime);
                                 const toTotal = timeStringToMinutes(apt.toTime);
-                                
+                               
                                 // Only render appointment in the row where it starts
                                 // Check if appointment starts in this row
                                 const appointmentStartsInThisRow = fromTotal >= rowStartMinutes && fromTotal < rowStartMinutes + ROW_INTERVAL_MINUTES;
-                                
+                               
                                 if (!appointmentStartsInThisRow) {
                                   return null;
                                 }
-                                
+                               
                                 // Calculate the full height of the appointment across all rows
                                 const appointmentDuration = toTotal - fromTotal;
                                 const fullHeightPx = (appointmentDuration / ROW_INTERVAL_MINUTES) * ROW_HEIGHT_PX;
-                                
+                               
                                 // Calculate top offset within this row
                                 const topOffset = ((fromTotal - rowStartMinutes) / ROW_INTERVAL_MINUTES) * ROW_HEIGHT_PX;
-                                
+                               
                                 const statusColor = getStatusColor(apt.status);
                                 const isShortAppointment = fullHeightPx < 32;
                                 const isDragging = draggedAppointmentId === apt._id;
@@ -2922,32 +2922,32 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                                       const tooltipWidth = 200;
                                       const tooltipHeight = 300;
                                       const spacing = 8;
-                                      
+                                     
                                       // Calculate position relative to viewport
                                       let left = rect.right + spacing;
                                       let top = rect.top;
-                                      
+                                     
                                       // Check if tooltip would go off right edge
                                       if (left + tooltipWidth > window.innerWidth) {
                                         // Position to the left of the appointment
                                         left = rect.left - tooltipWidth - spacing;
                                       }
-                                      
+                                     
                                       // Check if tooltip would go off bottom edge
                                       if (top + tooltipHeight > window.innerHeight) {
                                         top = window.innerHeight - tooltipHeight - 10;
                                       }
-                                      
+                                     
                                       // Check if tooltip would go off top edge
                                       if (top < 10) {
                                         top = 10;
                                       }
-                                      
+                                     
                                       // Check if tooltip would go off left edge
                                       if (left < 10) {
                                         left = 10;
                                       }
-                                      
+                                     
                                       setHoveredAppointment({
                                         appointment: apt,
                                         position: {
@@ -3048,7 +3048,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                                 (!isToday || subStartMinutes >= currentMinutes) &&
                                 slotWithinClosing &&
                                 !isSubSlotOccupied;
-                              
+                             
                               // Check if this slot is in the drag selection
                               const isSelected = isInRoomSelection && isRoomSlotInSelection(subStartMinutes, subEndMinutes, room._id);
 
@@ -3123,22 +3123,22 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                             ? roomAppointments.map((apt) => {
                                 const fromTotal = timeStringToMinutes(apt.fromTime);
                                 const toTotal = timeStringToMinutes(apt.toTime);
-                                
+                               
                                 // Only render appointment in the row where it starts
                                 // Check if appointment starts in this row
                                 const appointmentStartsInThisRow = fromTotal >= rowStartMinutes && fromTotal < rowStartMinutes + ROW_INTERVAL_MINUTES;
-                                
+                               
                                 if (!appointmentStartsInThisRow) {
                                   return null;
                                 }
-                                
+                               
                                 // Calculate the full height of the appointment across all rows
                                 const appointmentDuration = toTotal - fromTotal;
                                 const fullHeightPx = (appointmentDuration / ROW_INTERVAL_MINUTES) * ROW_HEIGHT_PX;
-                                
+                               
                                 // Calculate top offset within this row
                                 const topOffset = ((fromTotal - rowStartMinutes) / ROW_INTERVAL_MINUTES) * ROW_HEIGHT_PX;
-                                
+                               
                                 const statusColor = getStatusColor(apt.status);
                                 const isShortAppointment = fullHeightPx < 32;
                                 const isDragging = draggedAppointmentId === apt._id;
@@ -3159,32 +3159,32 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                                       const tooltipWidth = 200;
                                       const tooltipHeight = 300;
                                       const spacing = 8;
-                                      
+                                     
                                       // Calculate position relative to viewport
                                       let left = rect.right + spacing;
                                       let top = rect.top;
-                                      
+                                     
                                       // Check if tooltip would go off right edge
                                       if (left + tooltipWidth > window.innerWidth) {
                                         // Position to the left of the appointment
                                         left = rect.left - tooltipWidth - spacing;
                                       }
-                                      
+                                     
                                       // Check if tooltip would go off bottom edge
                                       if (top + tooltipHeight > window.innerHeight) {
                                         top = window.innerHeight - tooltipHeight - 10;
                                       }
-                                      
+                                     
                                       // Check if tooltip would go off top edge
                                       if (top < 10) {
                                         top = 10;
                                       }
-                                      
+                                     
                                       // Check if tooltip would go off left edge
                                       if (left < 10) {
                                         left = 10;
                                       }
-                                      
+                                     
                                       setHoveredAppointment({
                                         appointment: apt,
                                         position: {
@@ -3277,7 +3277,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                 <X className="w-5 h-5 text-gray-500 dark:text-gray-700" />
               </button>
             </div>
-            
+           
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-800 mb-2">
@@ -3688,5 +3688,3 @@ const ProtectedAppointmentPage: NextPageWithLayout = withClinicAuth(AppointmentP
 ProtectedAppointmentPage.getLayout = AppointmentPage.getLayout;
 
 export default ProtectedAppointmentPage;
-
-
