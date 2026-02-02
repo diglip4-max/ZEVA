@@ -387,7 +387,7 @@ export default async function handler(req, res) {
       const {
         name, email, phone, // User fields
         agentCode, emergencyPhone, relativePhone, idType, idNumber, idDocumentUrl,
-        passportNumber, passportDocumentUrl, contractUrl, contractType, baseSalary, commissionType,
+        passportNumber, passportDocumentUrl, contractUrl, contractType, baseSalary, commissionType, commissionPercentage,
         joiningDate, isActive
       } = req.body;
 
@@ -418,6 +418,7 @@ export default async function handler(req, res) {
       if (contractType !== undefined) profile.contractType = contractType;
       if (baseSalary !== undefined) profile.baseSalary = baseSalary;
       if (commissionType !== undefined) profile.commissionType = commissionType;
+      if (commissionPercentage !== undefined) profile.commissionPercentage = commissionPercentage;
       if (joiningDate !== undefined) profile.joiningDate = joiningDate;
       if (isActive !== undefined) profile.isActive = isActive;
 

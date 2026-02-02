@@ -248,8 +248,8 @@ export default function AppointmentBookingModal({
   };
 
   const handleAddPatient = async () => {
-    if (!addPatientForm.firstName || !addPatientForm.gender || !addPatientForm.mobileNumber) {
-      setError("Please fill all required fields: First Name, Gender, and Mobile Number");
+    if (!addPatientForm.firstName || !addPatientForm.mobileNumber) {
+      setError("Please fill all required fields: First Name and Mobile Number");
       return;
     }
 
@@ -879,13 +879,12 @@ export default function AppointmentBookingModal({
                 </div>
                 <div>
                   <label className="block text-[10px] font-medium text-gray-700 dark:text-gray-800 mb-0.5">
-                    Gender <span className="text-red-500">*</span>
+                    Gender
                   </label>
                   <select
                     value={addPatientForm.gender}
                     onChange={(e) => setAddPatientForm({ ...addPatientForm, gender: e.target.value })}
                     className="w-full border border-gray-300 dark:border-gray-300 rounded-lg px-2 py-1.5 text-[10px] bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm"
-                    required
                   >
                     <option value="">Select</option>
                     <option value="Male">Male</option>

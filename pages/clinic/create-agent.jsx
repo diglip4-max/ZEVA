@@ -64,6 +64,7 @@ const ManageAgentsPage = () => {
     emergencyPhone: "",
     baseSalary: "",
     commissionType: "flat",
+    commissionPercentage: "",
     contractUrl: "",
     contractType: "full"
   });
@@ -451,6 +452,7 @@ const ManageAgentsPage = () => {
           emergencyPhone: p.emergencyPhone || "",
           baseSalary: typeof p.baseSalary === "number" ? String(p.baseSalary) : (p.baseSalary || ""),
           commissionType: p.commissionType || "flat",
+          commissionPercentage: p.commissionPercentage || "",
           contractUrl: p.contractUrl || "",
           contractType: p.contractType || "full"
         });
@@ -532,7 +534,8 @@ const ManageAgentsPage = () => {
         contractUrl: profileForm.contractUrl,
         contractType: profileForm.contractType,
         baseSalary: parseFloat(profileForm.baseSalary || "0"),
-        commissionType: profileForm.commissionType
+        commissionType: profileForm.commissionType,
+        commissionPercentage: profileForm.commissionPercentage
       };
       const res = await axios.patch("/api/lead-ms/get-agents", payload, { headers: authHeaders });
       if (res.data.success) {
@@ -546,7 +549,8 @@ const ManageAgentsPage = () => {
             passportDocumentUrl: payload.passportDocumentUrl,
             contractUrl: payload.contractUrl,
             baseSalary: payload.baseSalary,
-            commissionType: payload.commissionType
+            commissionType: payload.commissionType,
+            commissionPercentage: payload.commissionPercentage
           }
         );
         setCompletionMap((prev) => ({ ...prev, [profileAgent._id]: pct }));
@@ -1349,16 +1353,27 @@ const ManageAgentsPage = () => {
                   className="w-full px-3 py-2 border border-teal-300 dark:border-teal-600 rounded-md text-xs bg-white dark:bg-teal-700 text-teal-900 dark:text-teal-100"
                   placeholder="Salary"
                 />
-                <select
-                  value={profileForm.commissionType}
-                  onChange={(e) => setProfileForm((f) => ({ ...f, commissionType: e.target.value }))}
-                  className="w-full px-3 py-2 border border-teal-300 dark:border-teal-600 rounded-md text-xs bg-white dark:bg-teal-700 text-teal-900 dark:text-teal-100"
-                >
-                  <option value="flat">Flat</option>
-                  <option value="after_deduction">After deduction</option>
-                  <option value="target_based">Target based</option>
-                  <option value="target_plus_expense">Target + expense</option>
-                </select>
+                <div className="flex flex-col gap-2">
+                  <select
+                    value={profileForm.commissionType}
+                    onChange={(e) => setProfileForm((f) => ({ ...f, commissionType: e.target.value }))}
+                    className="w-full px-3 py-2 border border-teal-300 dark:border-teal-600 rounded-md text-xs bg-white dark:bg-teal-700 text-teal-900 dark:text-teal-100"
+                  >
+                    <option value="flat">Flat</option>
+                    <option value="after_deduction">After deduction</option>
+                    <option value="target_based">Target based</option>
+                    <option value="target_plus_expense">Target + expense</option>
+                  </select>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={profileForm.commissionPercentage}
+                    onChange={(e) => setProfileForm((f) => ({ ...f, commissionPercentage: e.target.value }))}
+                    className="w-full px-3 py-2 border border-teal-300 dark:border-teal-600 rounded-md text-xs bg-white dark:bg-teal-700 text-teal-900 dark:text-teal-100"
+                    placeholder="Commission %"
+                  />
+                </div>
                 <div className="flex flex-col gap-2">
                   <select
                     value={profileForm.contractType}
@@ -1430,7 +1445,7 @@ const ManageAgentsPage = () => {
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div className="text-xs text-teal-700 dark:text-teal-300"><span className="font-semibold">Role:</span> {viewAgent.role}</div>
                     <div className="text-xs text-teal-700 dark:text-teal-300"><span className="font-semibold">Status:</span> {viewAgent.declined ? 'Declined' : viewAgent.isApproved ? 'Approved' : 'Pending'}</div>
-                    <div className="text-xs text-teal-700 dark:text-teal-300"><span className="font-semibold">Commission:</span> {viewProfile?.commissionType || '—'}</div>
+                    <div className="text-xs text-teal-700 dark:text-teal-300"><span className="font-semibold">Commission:</span> {viewProfile?.commissionType || '—'} {viewProfile?.commissionPercentage ? `(${viewProfile.commissionPercentage}%)` : ''}</div>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div className="text-xs text-teal-700 dark:text-teal-300"><span className="font-semibold">Identity Type:</span> {viewProfile?.idType || '—'}</div>

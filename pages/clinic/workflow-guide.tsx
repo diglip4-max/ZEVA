@@ -183,6 +183,39 @@ const WorkflowGuide: NextPageWithLayout = () => {
                 </div>
               ))}
             </div>
+            
+            <div className="bg-blue-50 border-l-4 border-blue-500 p-4 mb-6">
+              <h4 className="font-semibold text-blue-800 mb-2">Getting Started Guide:</h4>
+              <ul className="list-disc list-inside space-y-2 text-blue-700">
+                <li>Begin with clinic registration to create your account</li>
+                <li>Complete the profile setup with your clinic details</li>
+                <li>Configure your operational settings and working hours</li>
+                <li>Set up your team members and their permissions</li>
+                <li>Start adding patient records and managing appointments</li>
+              </ul>
+            </div>
+            
+            <div className="bg-green-50 border-l-4 border-green-500 p-4 mb-6">
+              <h4 className="font-semibold text-green-800 mb-2">Key Benefits:</h4>
+              <ol className="list-decimal list-inside space-y-2 text-green-700">
+                <li>Streamlined patient management and scheduling</li>
+                <li>Integrated billing and reporting systems</li>
+                <li>Real-time dashboard analytics and insights</li>
+                <li>Automated appointment reminders and notifications</li>
+                <li>Secure and compliant data management</li>
+              </ol>
+            </div>
+            
+            <div className="bg-purple-50 border-l-4 border-purple-500 p-4 mb-6">
+              <h4 className="font-semibold text-purple-800 mb-2">Support Resources:</h4>
+              <ul className="list-disc list-inside space-y-2 text-purple-700">
+                <li>24/7 customer support team</li>
+                <li>Comprehensive online documentation</li>
+                <li>Video tutorials and guides</li>
+                <li>Live training sessions</li>
+                <li>Community forums and knowledge base</li>
+              </ul>
+            </div>
           </div>
         );
 

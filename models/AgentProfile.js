@@ -37,6 +37,8 @@ const AgentProfileSchema = new mongoose.Schema(
       ],
       default: "flat",
     },
+    
+    commissionPercentage: { type: Number, default: 0 },
 
     joiningDate: Date,
     isActive: { type: Boolean, default: true },
