@@ -62,6 +62,9 @@ const Header = () => {
               <Link href="/bussiness" className="hover:text-blue-600 px-2 py-1">
                 Business with Zeva
               </Link>
+              <Link href="/clinic/workflow-guide" className="hover:text-blue-600 px-2 py-1">
+                Workflow Guide
+              </Link>
             </nav>
 
             {/* MOBILE LOGIN/SIGNUP AND HAMBURGER MENU */}
