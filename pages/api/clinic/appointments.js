@@ -388,29 +388,36 @@ export default async function handler(req, res) {
         });
       }
 
-      // Validation 3: Check if DIFFERENT doctors are trying to book the SAME room at the same time
-      const differentDoctorSameRoomAppointment = await Appointment.findOne({
-        clinicId,
-        roomId,
-        doctorId: { $ne: doctorId }, // Different doctor
-        startDate: { $gte: startOfDay, $lte: endOfDay },
-        $or: [
-          { fromTime, toTime },
-          {
-            $or: [
-              { fromTime: { $gte: fromTime, $lt: toTime } },
-              { toTime: { $gt: fromTime, $lte: toTime } },
-              { fromTime: { $lte: fromTime }, toTime: { $gte: toTime } },
-            ],
-          },
-        ],
-      });
+      // Validation 3 removed for clinic, agent, and doctorStaff roles (handled below)
 
-      if (differentDoctorSameRoomAppointment) {
-        return res.status(400).json({
-          success: false,
-          message: "Another doctor is already booked in this room at this time",
+      // UPDATED POLICY:
+      // Allow clinic, agent, and doctorStaff to book different doctors in the same room at the same time
+      // Skip the "different doctor same room/time" validation for these roles
+      // Keep restriction for other roles (e.g., doctor, staff, unknown)
+      // Note: "same doctor same room/time" restriction still applies to prevent duplicate bookings by the same doctor
+      if (!["clinic", "agent", "doctorStaff"].includes(clinicUser.role)) {
+        const differentDoctorSameRoomAppointment = await Appointment.findOne({
+          clinicId,
+          roomId,
+          doctorId: { $ne: doctorId },
+          startDate: { $gte: startOfDay, $lte: endOfDay },
+          $or: [
+            { fromTime, toTime },
+            {
+              $or: [
+                { fromTime: { $gte: fromTime, $lt: toTime } },
+                { toTime: { $gt: fromTime, $lte: toTime } },
+                { fromTime: { $lte: fromTime }, toTime: { $gte: toTime } },
+              ],
+            },
+          ],
         });
+        if (differentDoctorSameRoomAppointment) {
+          return res.status(400).json({
+            success: false,
+            message: "Another doctor is already booked in this room at this time",
+          });
+        }
       }
 
 
