@@ -100,7 +100,7 @@ const paymentMethods = ["Cash", "Card", "BT", "Tabby", "Tamara"];
 
 const INITIAL_FORM_DATA = {
   invoiceNumber: "", emrNumber: "", firstName: "", lastName: "", email: "",
-  mobileNumber: "", gender: "", patientType: "", referredBy: "No",
+  mobileNumber: "", gender: "", patientType: "", referredBy: "Referred",
   insurance: "No", advanceGivenAmount: "", coPayPercent: "", advanceClaimStatus: "Pending",
   insuranceType: "Paid",
   membership: "No", membershipStartDate: "", membershipEndDate: "", membershipId: "",
@@ -739,6 +739,7 @@ return (
                         className={`text-gray-900 w-full px-2 py-1 text-[10px] border rounded-md focus:ring-1 focus:ring-gray-900 focus:border-gray-900 ${errors.referredBy ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
                       >
                         <option value="No">No</option>
+                        <option value="Referred">Select Referred</option>
                         {referrals.map((r) => {
                           const displayName = `${(r.firstName || "").trim()} ${(r.lastName || "").trim()}`.trim() || (r.email || r.phone || "Unknown");
                           return (
@@ -775,7 +776,13 @@ return (
                     )}
                   </div>
                 ))}
-                
+              </div>
+            </div>
+
+            {/* Membership */}
+            <div className={`bg-white rounded-lg p-2 border border-gray-200`}>
+              <h2 className={`text-xs font-semibold text-gray-900 mb-1`}>Membership</h2>
+              <div className={`flex flex-wrap gap-2 items-end`}>
                 <div className="flex-1 min-w-[120px]">
                   <label className="block text-[10px] mb-0.5 font-medium text-gray-700">Membership</label>
                   <select
@@ -851,7 +858,13 @@ return (
                     </div>
                   </>
                 )}
+              </div>
+            </div>
 
+            {/* Packages */}
+            <div className={`bg-white rounded-lg p-2 border border-gray-200`}>
+              <h2 className={`text-xs font-semibold text-gray-900 mb-1`}>Packages</h2>
+              <div className={`flex flex-wrap gap-2 items-end`}>
                 <div className="flex-1 min-w-[120px]">
                   <label className="block text-[10px] mb-0.5 font-medium text-gray-700">Package</label>
                   <select
@@ -889,7 +902,6 @@ return (
                 )}
               </div>
             </div>
-
 
             {/* Insurance Details */}
             <div className={`bg-white rounded-lg p-2 border border-gray-200`}>
@@ -970,7 +982,7 @@ return (
                 onClick={handleSubmit} 
                 className={`px-3 py-1 text-[10px] bg-gray-900 text-white rounded-md hover:bg-gray-800 transition font-medium shadow-sm`}
               >
-                Save Invoice
+                Save
               </button>
             </div>
           </div>

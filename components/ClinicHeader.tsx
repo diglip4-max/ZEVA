@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/router';
 import axios from 'axios';
 
@@ -34,13 +34,14 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
   handleToggleMobile,
   isDesktopHidden = false,
   isMobileOpen = false,
-}) => {
+}: ClinicHeaderProps) => {
   const router = useRouter();
   const [navigationItems, setNavigationItems] = useState<NavigationItem[]>([]);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [showSearchResults, setShowSearchResults] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
+  const [clinicUser, setClinicUser] = useState<{ name?: string; email?: string } | null>(null);
 
   // Fetch navigation items for search
   useEffect(() => {
@@ -126,22 +127,6 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
     sessionStorage.removeItem('clinicEmailForReset');
     window.location.href = '/clinic/login-clinic';
   };
-  const [clinicUser, setClinicUser] = useState<{ name?: string; email?: string } | null>(null);
-  const clinicName: string = useMemo(() => {
-    if (typeof window === 'undefined') {
-      return clinicUser?.name || '';
-    }
-    try {
-      const token = localStorage.getItem('clinicToken') || sessionStorage.getItem('clinicToken') || '';
-      if (!token) return clinicUser?.name || '';
-      const payloadBase64 = token.split('.')[1];
-      if (!payloadBase64) return clinicUser?.name || '';
-      const payload = JSON.parse(atob(payloadBase64));
-      return payload?.clinicName || payload?.name || clinicUser?.name || '';
-    } catch {
-      return clinicUser?.name || '';
-    }
-  }, [clinicUser]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;

@@ -49,7 +49,7 @@ const AdminHeader: React.FC<AdminHeaderProps> = ({
   }, []);
 
   const storedUser = JSON.parse(localStorage.getItem('adminUser') || '{}');
-  const email = storedUser.email;
+  // const email = storedUser.email;
 
   const handleLogout = () => {
     localStorage.removeItem('adminToken');

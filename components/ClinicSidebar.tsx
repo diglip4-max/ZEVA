@@ -13,7 +13,7 @@ import {
   CreditCard,
   Star,
   Mail,
-  Settings,
+ 
   TrendingUp,
   Lock,
   LayoutDashboard,
