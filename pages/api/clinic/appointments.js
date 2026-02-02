@@ -361,30 +361,22 @@ export default async function handler(req, res) {
       
       
 
-      // Validation 2: Check if SAME doctor is trying to book the SAME room at the same time
-      // Allow one doctor to book different rooms at the same time
-      const sameDoctorSameRoomAppointment = await Appointment.findOne({
+      // Validation 2: Check for exact duplicate booking (same patient, doctor, room, date, and time)
+      // Allow multiple patients under the same doctor and same room at the same time
+      const duplicateAppointment = await Appointment.findOne({
         clinicId,
         roomId,
-        doctorId, // Same doctor
-        patientId: { $ne: patientId },
+        doctorId,
+        patientId, // Same patient
         startDate: { $gte: startOfDay, $lte: endOfDay },
-        $or: [
-          { fromTime, toTime },
-          {
-            $or: [
-              { fromTime: { $gte: fromTime, $lt: toTime } },
-              { toTime: { $gt: fromTime, $lte: toTime } },
-              { fromTime: { $lte: fromTime }, toTime: { $gte: toTime } },
-            ],
-          },
-        ],
+        fromTime,
+        toTime,
       });
 
-      if (sameDoctorSameRoomAppointment) {
+      if (duplicateAppointment) {
         return res.status(400).json({
           success: false,
-          message: "You already have a booking in this room at this time",
+          message: "This appointment already exists",
         });
       }
 
