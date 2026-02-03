@@ -1677,11 +1677,11 @@ const WorkflowGuide: NextPageWithLayout = () => {
                 <p className="text-gray-600 mt-2">Complete step-by-step documentation for clinic operations</p>
               </div>
               <Link 
-                href="/clinic/clinic-dashboard"
+                href="/"
                 className="inline-flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors"
               >
                 <ArrowRight className="w-4 h-4" />
-                Back to Dashboard
+                Back to Zeva
               </Link>
             </div>
           </div>
