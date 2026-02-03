@@ -53,6 +53,27 @@ export default function EditAppointmentModal({
   const [error, setError] = useState<string>("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
+  const [referrals, setReferrals] = useState<Array<{ _id: string; firstName: string; lastName: string }>>([]);
+
+  const fetchReferrals = async () => {
+    try {
+      const res = await axios.get("/api/clinic/referrals", {
+        headers: getAuthHeaders(),
+      });
+      if (res.data.success) {
+        setReferrals(res.data.referrals || []);
+      }
+    } catch (err) {
+      console.error("Error fetching referrals:", err);
+    }
+  };
+
+  useEffect(() => {
+    if (isOpen) {
+      fetchReferrals();
+    }
+  }, [isOpen]);
+
   // Update form when appointment changes
   useEffect(() => {
     if (appointment) {
@@ -69,7 +90,9 @@ export default function EditAppointmentModal({
       setStartDate(dateStr);
       setFromTime(appointment.fromTime || "");
       setToTime(appointment.toTime || "");
-      setReferral(appointment.referral || "direct");
+      // Map "direct" to "No" for UI consistency
+      const referralValue = appointment.referral === "direct" ? "No" : (appointment.referral || "No");
+      setReferral(referralValue);
       setEmergency(appointment.emergency || "no");
       setNotes(appointment.notes || "");
       setError("");
@@ -386,8 +409,12 @@ export default function EditAppointmentModal({
                 onChange={(e) => setReferral(e.target.value)}
                 className="w-full border border-gray-300 rounded px-2 py-1.5 text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
               >
-                <option value="direct">Direct</option>
-                <option value="referral">Referral</option>
+                <option value="No">No</option>
+                {referrals.map((ref) => (
+                  <option key={ref._id} value={`${ref.firstName} ${ref.lastName}`.trim()}>
+                    {[ref.firstName, ref.lastName].filter(Boolean).join(" ")}
+                  </option>
+                ))}
               </select>
             </div>
 
