@@ -144,6 +144,7 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
   const [activeTab, setActiveTab] = useState("update"); // "update" or "paymentHistory"
   const [billingHistory, setBillingHistory] = useState([]);
   const [loadingBillingHistory, setLoadingBillingHistory] = useState(false);
+  const [referrals, setReferrals] = useState([]);
 
   const authToken = getStoredToken();
   const showToast = (message, type = "success") => setToast({ message, type });
@@ -197,6 +198,27 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
 
     fetchInvoice();
   }, [resolvedId, authToken]);
+
+  // Fetch referrals
+  useEffect(() => {
+    if (!authToken) return;
+    
+    const fetchReferrals = async () => {
+      try {
+        const headers = { Authorization: `Bearer ${authToken}` };
+        const res = await fetch(`/api/clinic/referrals`, { headers });
+        const data = await res.json();
+        
+        if (data.success && Array.isArray(data.referrals)) {
+          setReferrals(data.referrals);
+        }
+      } catch (err) {
+        console.error('Error fetching referrals:', err);
+      }
+    };
+    
+    fetchReferrals();
+  }, [authToken]);
 
   // Fetch billing history when payment history tab is active
   useEffect(() => {
@@ -380,7 +402,7 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
             )}
           </div>
         ) : (
-          <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-2 py-1.5">
+          <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-2 py-1.5 ml-3 mr-3">
             <div>
               <h1 className="text-xs font-bold flex items-center gap-1">
                 <FileText className="w-3 h-3" />
@@ -515,39 +537,117 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
                   options={patientTypeOptions}
                   required
                 />
-                <EditableField
-                  label="Referred By"
-                  name="referredBy"
-                  value={formData.referredBy}
-                  onChange={handleFieldChange}
-                />
-                <EditableField
-                  label="Membership"
-                  name="membership"
-                  type="select"
-                  value={formData.membership || "No"}
-                  onChange={handleFieldChange}
-                  options={["Yes", "No"]}
-                />
-                {formData.membership === "Yes" && (
-                  <>
-                    <EditableField
-                      label="Membership Start Date"
-                      name="membershipStartDate"
-                      type="date"
-                      value={formData.membershipStartDate ? formData.membershipStartDate.slice(0, 10) : ""}
-                      onChange={handleFieldChange}
-                    />
-                    <EditableField
-                      label="Membership End Date"
-                      name="membershipEndDate"
-                      type="date"
-                      value={formData.membershipEndDate ? formData.membershipEndDate.slice(0, 10) : ""}
-                      onChange={handleFieldChange}
-                    />
-                  </>
-                )}
               </div>
+            </div>
+            <div className="bg-white rounded-lg p-1.5 border border-gray-200">
+                <div className="flex flex-col gap-2">
+                  {/* Row 1: Referred By */}
+                  <div className="w-full">
+                    <label className="block text-[10px] mb-0.5 font-medium text-gray-700">
+                      Referred By
+                    </label>
+                    <select
+                      name="referredBy"
+                      value={formData.referredBy === "No" ? "" : (formData.referredBy || "")}
+                      onChange={handleFieldChange}
+                      className={`text-gray-900 w-full px-2 py-1 text-[10px] border rounded-md focus:ring-1 focus:ring-gray-900 focus:border-gray-900 ${formData.referredBy && formData.referredBy !== "No" ? 'border-blue-300' : 'border-gray-300'}`}
+                    >
+                      <option value="">Select Referred By</option>
+                      {referrals.map((r) => {
+                        const displayName = `${(r.firstName || "").trim()} ${(r.lastName || "").trim()}`.trim() || (r.email || r.phone || "Unknown");
+                        return (
+                          <option key={r._id} value={displayName}>
+                            {displayName}
+                          </option>
+                        );
+                      })}
+                    </select>
+                  </div>
+
+                  {/* Row 2: Membership */}
+                  <div className="flex flex-wrap gap-2 items-end">
+                    <div className="flex-1 min-w-[120px]">
+                      <label className="block text-[10px] mb-0.5 font-medium text-gray-700">Membership</label>
+                      <select
+                        name="membership"
+                        value={formData.membership || "No"}
+                        onChange={handleFieldChange}
+                        className="text-gray-900 w-full px-2 py-1 text-[10px] border rounded-md focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 border-gray-300"
+                      >
+                        <option value="No">No</option>
+                        <option value="Yes">Yes</option>
+                      </select>
+                    </div>
+
+                    {/* Membership Date Fields */}
+                    {formData.membership === "Yes" && (
+                      <>
+                        <div className="flex-1 min-w-[120px]">
+                          <label className="block text-[10px] mb-0.5 font-medium text-gray-700">Membership Start Date</label>
+                          <input
+                            type="date"
+                            name="membershipStartDate"
+                            value={formData.membershipStartDate ? formData.membershipStartDate.slice(0, 10) : ""}
+                            onChange={handleFieldChange}
+                            className="w-full px-2 py-1 text-[10px] border rounded-md focus:ring-1 focus:ring-gray-900 focus:border-gray-900 text-gray-900 border-gray-300"
+                          />
+                        </div>
+                        <div className="flex-1 min-w-[120px]">
+                          <label className="block text-[10px] mb-0.5 font-medium text-gray-700">Membership End Date</label>
+                          <input
+                            type="date"
+                            name="membershipEndDate"
+                            value={formData.membershipEndDate ? formData.membershipEndDate.slice(0, 10) : ""}
+                            onChange={handleFieldChange}
+                            className="w-full px-2 py-1 text-[10px] border rounded-md focus:ring-1 focus:ring-gray-900 focus:border-gray-900 text-gray-900 border-gray-300"
+                          />
+                        </div>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Row 3: Package */}
+                  <div className="flex flex-wrap gap-2 items-end">
+                    <div className="flex-1 min-w-[120px]">
+                      <label className="block text-[10px] mb-0.5 font-medium text-gray-700">Package</label>
+                      <select
+                        name="package"
+                        value={formData.package || "No"}
+                        onChange={handleFieldChange}
+                        className="text-gray-900 w-full px-2 py-1 text-[10px] border rounded-md focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 border-gray-300"
+                      >
+                        <option value="No">No</option>
+                        <option value="Yes">Yes</option>
+                      </select>
+                    </div>
+
+                    {/* Package Date Fields */}
+                    {formData.package === "Yes" && (
+                      <>
+                        <div className="flex-1 min-w-[120px]">
+                          <label className="block text-[10px] mb-0.5 font-medium text-gray-700">Package Start Date</label>
+                          <input
+                            type="date"
+                            name="packageStartDate"
+                            value={formData.packageStartDate ? formData.packageStartDate.slice(0, 10) : ""}
+                            onChange={handleFieldChange}
+                            className="w-full px-2 py-1 text-[10px] border rounded-md focus:ring-1 focus:ring-gray-900 focus:border-gray-900 text-gray-900 border-gray-300"
+                          />
+                        </div>
+                        <div className="flex-1 min-w-[120px]">
+                          <label className="block text-[10px] mb-0.5 font-medium text-gray-700">Package End Date</label>
+                          <input
+                            type="date"
+                            name="packageEndDate"
+                            value={formData.packageEndDate ? formData.packageEndDate.slice(0, 10) : ""}
+                            onChange={handleFieldChange}
+                            className="w-full px-2 py-1 text-[10px] border rounded-md focus:ring-1 focus:ring-gray-900 focus:border-gray-900 text-gray-900 border-gray-300"
+                          />
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
             </div>
 
             <div className={`bg-white rounded-lg p-1.5 border border-gray-200`}>
