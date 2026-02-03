@@ -2353,33 +2353,31 @@ const ClinicDashboard: NextPageWithLayout = () => {
         style={style}
         className={`relative ${isDragging ? 'z-50' : ''} ${!card.visible ? 'opacity-50' : ''}`}
       >
-        <div className="relative">
-          {isEditMode && (
-            <div className="absolute top-2 left-2 z-30 flex flex-col gap-1.5">
-              <button
-                onClick={() => togglePackageOfferVisibility(card.id)}
-                className="p-1 bg-white rounded-full shadow-lg border border-gray-200 hover:bg-gray-50 transition-colors"
-                title={card.visible ? 'Hide card' : 'Show card'}
-              >
-                {card.visible ? (
-                  <Eye className="w-3 h-3 text-gray-600" />
-                ) : (
-                  <EyeOff className="w-3 h-3 text-gray-400" />
-                )}
-              </button>
-              <div
-                {...attributes}
-                {...listeners}
-                className="p-1.5 bg-indigo-500 rounded-full shadow-lg cursor-grab active:cursor-grabbing hover:bg-indigo-600 transition-colors"
-                title="Drag to move card"
-              >
-                <GripVertical className="w-3.5 h-3.5 text-white" />
-              </div>
+        {isEditMode && (
+          <div className="absolute top-2 left-2 z-30 flex flex-col gap-1.5">
+            <button
+              onClick={() => togglePackageOfferVisibility(card.id)}
+              className="p-1 bg-white rounded-full shadow-lg border border-gray-200 hover:bg-gray-50 transition-colors"
+              title={card.visible ? 'Hide card' : 'Show card'}
+            >
+              {card.visible ? (
+                <Eye className="w-3 h-3 text-gray-600" />
+              ) : (
+                <EyeOff className="w-3 h-3 text-gray-400" />
+              )}
+            </button>
+            <div
+              {...attributes}
+              {...listeners}
+              className="p-1.5 bg-indigo-500 rounded-full shadow-lg cursor-grab active:cursor-grabbing hover:bg-indigo-600 transition-colors"
+              title="Drag to move card"
+            >
+              <GripVertical className="w-3.5 h-3.5 text-white" />
             </div>
-          )}
-          <div className={isEditMode ? 'pl-14' : ''}>
-            {children}
           </div>
+        )}
+        <div className={isEditMode ? 'pl-14' : ''}>
+          {children}
         </div>
       </div>
     );
@@ -2668,7 +2666,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                     onClick={() => setIsEditMode(true)}
                     className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors shadow-sm"
                   >
-                    <Edit2 className="w-4 h-4" />
+                    <Edit2 className="w-3 h-3" />
                     <span>Customize</span>
                   </button>
                 </>
@@ -2710,17 +2708,9 @@ const ClinicDashboard: NextPageWithLayout = () => {
                     switch (widget.type) {
                       case 'packages-offers':
                         const sortedPackageOfferCards = packageOfferCards.sort((a, b) => a.order - b.order);
-                        // Get only one card of each type (first occurrence)
-                        const uniquePackageCard = sortedPackageOfferCards.find(card => card.type === 'package');
-                        const uniqueOfferCard = sortedPackageOfferCards.find(card => card.type === 'offer');
-                        
-                        const cardsToRender = [];
-                        if (uniquePackageCard) cardsToRender.push(uniquePackageCard);
-                        if (uniqueOfferCard) cardsToRender.push(uniqueOfferCard);
-                        
                         return (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                                {cardsToRender.map((card) => {
+                                {sortedPackageOfferCards.map((card) => {
                                   if (card.type === 'package') {
                                     return (
                                       <SortablePackageOffer key={card.id} card={card}>

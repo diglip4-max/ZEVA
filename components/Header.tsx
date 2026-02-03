@@ -2,12 +2,14 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { useAuth } from "../context/AuthContext";
 import AuthModal from "../components/AuthModal";
+import { Menu, X } from 'lucide-react';
 
 const Header = () => {
   const { isAuthenticated } = useAuth();
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+
 
   const openAuthModal = (mode: "login" | "register") => {
     setAuthMode(mode);
@@ -21,23 +23,23 @@ const Header = () => {
   return (
     <>
       <header className="bg-white border-b border-gray-200 shadow-sm fixed top-0 left-0 right-0 z-50 w-full">
-        <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 py-2 sm:py-2.5">
-          <div className="flex items-center justify-center h-14 relative">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-2 sm:py-2.5 md:py-3">
+          <div className="flex items-center justify-center h-14 sm:h-16 relative">
 
             {/* LEFT LOGO (same as old) */}
-            <div className="absolute left-3 sm:left-6 flex items-center">
-              <Link href="/" className="flex items-center gap-1 sm:gap-2">
-                <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-md bg-gradient-to-r from-teal-600 to-blue-600 flex items-center justify-center text-white font-bold text-xs sm:text-sm shadow-md">
+            <div className="absolute left-2 sm:left-3 flex items-center">
+              <Link href="/" className="flex items-center gap-0.5 sm:gap-1">
+                <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-md bg-gradient-to-r from-teal-600 to-blue-600 flex items-center justify-center text-white font-bold text-xs shadow-md">
                   Z
                 </div>
-                <span className="text-xs sm:text-sm font-bold text-gray-800">
+                <span className="text-xs font-bold text-gray-800">
                   Zeva
                 </span>
               </Link>
             </div>
 
             {/* CENTER NAV - Hidden on mobile, shown in hamburger menu */}
-            <nav className="hidden md:flex md:items-center gap-4 lg:gap-8 text-sm text-gray-700">
+            <nav className="hidden lg:flex lg:items-center gap-2 xl:gap-4 text-xs sm:text-sm text-gray-700">
               <Link href="/clinic/findclinic" className="hover:text-blue-600 px-2 py-1">
                 Find Clinics
               </Link>
@@ -68,12 +70,12 @@ const Header = () => {
             </nav>
 
             {/* MOBILE LOGIN/SIGNUP AND HAMBURGER MENU */}
-            <div className="absolute right-3 top-2.5 flex items-center gap-1.5">
+            <div className="absolute right-3 top-2.5 flex items-center gap-1">
               
               {/* Login button */}
               <button
                 onClick={() => openAuthModal("register")}
-                className="md:hidden text-blue-600 text-xs font-medium underline"
+                className="md:hidden text-blue-600 text-xs font-medium underline py-1 px-2"
                 aria-label="Login"
               >
                 Login
@@ -82,7 +84,7 @@ const Header = () => {
               {/* Signup button */}
               <button
                 onClick={() => openAuthModal("login")}
-                className="md:hidden bg-yellow-300 hover:bg-yellow-500 text-gray-900 px-2.5 py-1 rounded-full text-xs font-medium shadow-sm"
+                className="md:hidden bg-yellow-300 hover:bg-yellow-500 text-gray-900 px-2 py-0.5 rounded-full text-xs font-medium shadow-sm"
                 aria-label="Sign up"
               >
                 Sign Up
@@ -92,17 +94,13 @@ const Header = () => {
               <button
                 onClick={toggleMenu}
                 id="mobile-menu-toggle"
-                className="md:hidden p-1.5 rounded-md text-gray-700 hover:bg-gray-100 transition-colors duration-200 z-60"
+                className="md:hidden p-1 rounded-md text-gray-700 hover:bg-gray-100 transition-colors duration-200 z-60"
                 aria-label="Toggle menu"
               >
                 {isMenuOpen ? (
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
+                  <X className="w-4 h-4" />
                 ) : (
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                  </svg>
+                  <Menu className="w-4 h-4" />
                 )}
               </button>
             </div>
@@ -124,14 +122,14 @@ const Header = () => {
   <div className="absolute top-0 left-0 right-0 bg-white border-b border-gray-200 shadow-2xl md:hidden z-50">
     
     {/* Header */}
-    <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
-      <span className="text-lg font-semibold text-gray-800">
+    <div className="flex items-center justify-between px-4 py-2 border-b border-gray-100">
+      <span className="text-base font-semibold text-gray-800">
         
       </span>
       <button
         onClick={() => setIsMenuOpen(false)}
         aria-label="Close menu"
-        className="text-gray-600 hover:text-gray-900 text-xl leading-none"
+        className="text-gray-600 hover:text-gray-900 text-lg leading-none"
       >
         ✕
       </button>
@@ -139,7 +137,8 @@ const Header = () => {
 
     {/* Navigation */}
     <nav className="flex flex-col py-3 px-4 space-y-1">
-      {[
+      {(() => {
+        const menuItems = [
         { href: "/clinic/findclinic", icon: "🏥", label: "Find Clinics" },
         { href: "/doctor/search", icon: "👨‍⚕️", label: "Find Doctors" },
         { href: "/about", icon: "ℹ️", label: "About" },
@@ -148,22 +147,44 @@ const Header = () => {
         { href: "/calculator/allcalc", icon: "🧮", label: "Calculator" },
         { href: "/contact", icon: "📞", label: "Contact" },
         { href: "/bussiness", icon: "🏢", label: "Business with Zeva" },
-      ].map((item) => (
-        <Link
-          key={item.href}
-          href={item.href}
-          className="hover:bg-gray-100 py-3 px-4 rounded-lg transition-colors duration-200 text-base font-medium text-gray-800"
-          onClick={() => {
-            setIsMenuOpen(false);
-            window.scrollTo({ top: 0, behavior: "smooth" });
-          }}
-        >
-          <div className="flex items-center">
-            <span>{item.icon}</span>
-            <span className="ml-3">{item.label}</span>
-          </div>
-        </Link>
-      ))}
+        { href: "/clinic/workflow-guide", icon: "❓", label: "Workflow Guide" }
+      ];
+      
+      return menuItems.map((item: { href?: string; onClick?: () => void; icon: string; label: string }) => {
+        if (item.href) {
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className="hover:bg-gray-100 py-2.5 px-3 rounded-lg transition-colors duration-200 text-sm font-medium text-gray-800"
+              onClick={() => {
+                setIsMenuOpen(false);
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              }}
+            >
+              <div className="flex items-center">
+                <span className="text-base">{item.icon}</span>
+                <span className="ml-2 text-sm">{item.label}</span>
+              </div>
+            </Link>
+          );
+        } else if (item.onClick) {
+          return (
+            <button
+              key={item.label}
+              onClick={item.onClick}
+              className="w-full text-left hover:bg-gray-100 py-2.5 px-3 rounded-lg transition-colors duration-200 text-sm font-medium text-gray-800"
+            >
+              <div className="flex items-center">
+                <span className="text-base">{item.icon}</span>
+                <span className="ml-2 text-sm">{item.label}</span>
+              </div>
+            </button>
+          );
+        }
+        return null;
+      });
+    })()}
     </nav>
   </div>
 )}
@@ -171,17 +192,17 @@ const Header = () => {
 
         {/* DESKTOP AUTH BUTTONS - With clear spacing between buttons */}
         {!isAuthenticated && (
-          <div className="absolute top-4 right-4 flex items-center space-x-4 hidden md:block">
+          <div className="absolute top-3 right-3 sm:top-4 sm:right-4 flex items-center space-x-2 sm:space-x-3 hidden lg:block">
             <button
               onClick={() => openAuthModal("register")}
-              className="text-blue-600 text-sm font-medium underline"
+              className="text-blue-600 text-xs sm:text-sm font-medium underline py-1 px-2"
             >
               Login
             </button>
 
             <button
               onClick={() => openAuthModal("login")}
-              className="bg-yellow-300 hover:bg-yellow-500 text-gray-900 px-4 py-1.5 rounded-full text-sm font-medium shadow-md"
+              className="bg-yellow-300 hover:bg-yellow-500 text-gray-900 px-3 py-1 rounded-full text-xs sm:text-sm font-medium shadow-md"
             >
               Sign Up
             </button>

@@ -1,9 +1,26 @@
 import type { ReactElement, ReactNode } from "react";
+import { useState } from "react";
 import Head from "next/head";
 import Header from "../../components/Header";
 import Footer from "../../components/Footer";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 export default function JobDashboardPage(): ReactElement {
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  
+  const images = [
+    "/job1.png",
+    "/jobimage.png"
+  ];
+  
+  const goToPrevious = () => {
+    setCurrentImageIndex((prev: number) => (prev === 0 ? images.length - 1 : prev - 1));
+  };
+  
+  const goToNext = () => {
+    setCurrentImageIndex((prev: number) => (prev === images.length - 1 ? 0 : prev + 1));
+  };
+  
   return (
     <>
       <Head>
@@ -35,16 +52,36 @@ export default function JobDashboardPage(): ReactElement {
               </h2>
               
               <div className="flex justify-center mb-8">
-                <div className="border-2 border-gray-300 rounded-lg overflow-hidden shadow-xl max-w-4xl w-full">
+                <div className="border-2 border-gray-300 rounded-lg overflow-hidden shadow-xl max-w-4xl w-full relative group">
                   <img 
-                    src="/jobimage.png" 
-                    alt="Job Dashboard Screenshot" 
+                    src={images[currentImageIndex]} 
+                    alt={`Job Dashboard Screenshot ${currentImageIndex + 1}`} 
                     className="w-full h-auto"
                     onError={(e) => {
                       const target = e.target as HTMLImageElement;
                       target.src = '/placeholder-dashboard.png';
                     }}
                   />
+                  
+                  {/* Navigation Controls */}
+                  <button 
+                    onClick={goToPrevious}
+                    className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white rounded-full p-2 shadow-md opacity-0 group-hover:opacity-100 transition-opacity"
+                    aria-label="Previous image"
+                  >
+                    <ChevronLeft className="w-5 h-5 text-gray-700" />
+                  </button>
+                  
+                  <button 
+                    onClick={goToNext}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white rounded-full p-2 shadow-md opacity-0 group-hover:opacity-100 transition-opacity"
+                    aria-label="Next image"
+                  >
+                    <ChevronRight className="w-5 h-5 text-gray-700" />
+                  </button>
+                  
+                  
+                  
                 </div>
               </div>
               

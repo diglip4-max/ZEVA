@@ -275,6 +275,11 @@ const FeaturedClinicsDoctors: React.FC = () => {
         setClinics(res.data.data.clinics || []);
         setDoctors(res.data.data.doctors || []);
       }
+    } catch (error) {
+      console.error('Error fetching featured providers:', error);
+      // Set empty arrays to prevent the component from breaking
+      setClinics([]);
+      setDoctors([]);
     } finally {
       setLoading(false);
     }

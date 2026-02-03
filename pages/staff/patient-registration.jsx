@@ -100,7 +100,7 @@ const paymentMethods = ["Cash", "Card", "BT", "Tabby", "Tamara"];
 
 const INITIAL_FORM_DATA = {
   invoiceNumber: "", emrNumber: "", firstName: "", lastName: "", email: "",
-  mobileNumber: "", gender: "", patientType: "", referredBy: "Referred",
+  mobileNumber: "", gender: "", patientType: "", referredBy: "No",
   insurance: "No", advanceGivenAmount: "", coPayPercent: "", advanceClaimStatus: "Pending",
   insuranceType: "Paid",
   membership: "No", membershipStartDate: "", membershipEndDate: "", membershipId: "",
@@ -342,7 +342,10 @@ const InvoiceManagementSystem = ({ onSuccess, isCompact = false }) => {
       }
     }
 
-    setFormData(prev => ({ ...prev, [name]: value }));
+    // Handle referredBy - set to "No" if empty, but keep UI value as empty string
+    const finalValue = (name === "referredBy" && value === "") ? "No" : value;
+    
+    setFormData(prev => ({ ...prev, [name]: finalValue }));
     if (errors[name]) setErrors(prev => ({ ...prev, [name]: "" }));
     if (name === "insurance" && value === "No") {
       setFormData(prev => ({
@@ -398,7 +401,7 @@ const InvoiceManagementSystem = ({ onSuccess, isCompact = false }) => {
             mobileNumber: f.mobileNumber || "",
             gender: f.gender || "",
             patientType: f.patientType || "",
-            referredBy: f.referredBy || ""
+            referredBy: f.referredBy || "No"
           }));
         showToast("Patient details loaded successfully", "success");
       } else {
@@ -734,12 +737,11 @@ return (
                     {field.name === "referredBy" ? (
                       <select
                         name="referredBy"
-                        value={formData.referredBy || "No"}
+                        value={formData.referredBy === "No" ? "" : formData.referredBy}
                         onChange={handleInputChange}
                         className={`text-gray-900 w-full px-2 py-1 text-[10px] border rounded-md focus:ring-1 focus:ring-gray-900 focus:border-gray-900 ${errors.referredBy ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
                       >
-                        <option value="No">No</option>
-                        <option value="Referred">Select Referred</option>
+                        <option value="" disabled hidden>Select Referred By</option>
                         {referrals.map((r) => {
                           const displayName = `${(r.firstName || "").trim()} ${(r.lastName || "").trim()}`.trim() || (r.email || r.phone || "Unknown");
                           return (
