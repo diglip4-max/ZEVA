@@ -85,7 +85,7 @@ export default function MarketplaceSection(): ReactElement {
     <section className="bg-white">
       <div className="mx-auto max-w-6xl px-4 pb-10 pt-2 sm:pb-14">
         <div className="text-center">
-          <div className="mt-3 flex items-center justify-center gap-6 text-2xl font-extrabold text-blue-700 sm:text-3xl">
+          <div className="mt-10 flex items-center justify-center gap-6 text-2xl font-extrabold text-blue-700 sm:text-3xl">
             <span className="h-[3px] w-12 rounded-full bg-yellow-400" />
             <span>Marketplace</span>
             <span className="h-[3px] w-12 rounded-full bg-yellow-400" />

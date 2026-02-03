@@ -820,7 +820,7 @@ export default function AppointmentBookingModal({
                 // Auto-generate EMR number when showing the form
                 if (!showAddPatient) {
                   try {
-                    const res = await axios.get("/api/clinic/generate-emr", {
+                    const res = await axios.get("/api/clinic/next-emr-number", {
                       headers: getAuthHeaders(),
                     });
                     if (res.data.success && res.data.emrNumber) {
@@ -830,7 +830,7 @@ export default function AppointmentBookingModal({
                       }));
                     }
                   } catch (err: any) {
-                    console.error("Error generating EMR number:", err);
+                    console.error("Error fetching next EMR number:", err);
                     // Continue without auto-generated EMR - user can enter manually
                   }
                 }

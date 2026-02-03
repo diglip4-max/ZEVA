@@ -19,10 +19,12 @@ export default function MarketplacePage(): ReactElement {
       </Head>
 
       <Header />
-      <MarketplaceSection />
+      <div className="pt-20">
+        <MarketplaceSection />
 
-      {/* Merge Team & Workforce at the bottom of Marketplace */}
-      <TeamSection />
+        {/* Merge Team & Workforce at the bottom of Marketplace */}
+        <TeamSection />
+      </div>
       <Footer />
     </>
   );

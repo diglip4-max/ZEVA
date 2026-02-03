@@ -168,4 +168,12 @@ export const clinicNavigationItems = [
     moduleKey: "write_blog",
     order: 14,
   },
+  {
+    label: "Workflow Guide",
+    path: "/clinic/workflow-guide",
+    icon: "book-open",
+    description: "Complete clinic workflow documentation",
+    moduleKey: "workflow_guide",
+    order: 15,
+  },
 ];

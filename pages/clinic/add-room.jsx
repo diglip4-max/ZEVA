@@ -894,7 +894,7 @@ function AddRoomPage({ contextOverride = null }) {
         "/api/clinic/packages",
         {
           name: packageName.trim(),
-          price: parseFloat(packagePrice),
+          totalPrice: parseFloat(packagePrice),
           treatments: selectedTreatments,
         },
         { headers }
@@ -933,14 +933,7 @@ function AddRoomPage({ contextOverride = null }) {
       setMessage({ type: "error", text: "Package name cannot be empty" });
       return;
     }
-    if (!editingPackagePrice || parseFloat(editingPackagePrice) < 0) {
-      setMessage({ type: "error", text: "Please enter a valid price" });
-      return;
-    }
-    if (selectedTreatments.length === 0) {
-      setMessage({ type: "error", text: "Please select at least one treatment" });
-      return;
-    }
+    // Editing is restricted: only name can be changed
     const headers = getHeadersOrNotify();
     if (!headers) return;
 
@@ -951,8 +944,6 @@ function AddRoomPage({ contextOverride = null }) {
         {
           packageId: editingPackageId,
           name: editingPackageName.trim(),
-          price: parseFloat(editingPackagePrice),
-          treatments: selectedTreatments,
         },
         { headers }
       );
@@ -1860,9 +1851,10 @@ function AddRoomPage({ contextOverride = null }) {
                               step="0.01"
                               min="0"
                               value={editingPackagePrice}
-                              onChange={(e) => setEditingPackagePrice(e.target.value)}
-                              placeholder="Price"
-                              className="w-full sm:w-32 border border-teal-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                              onChange={() => {}}
+                              placeholder="Total Price"
+                              disabled
+                              className="w-full sm:w-32 bg-gray-100 border border-teal-300 rounded-lg px-3 py-2 text-sm cursor-not-allowed"
                             />
                           </div>
                           {/* Treatment Selection for Edit */}
@@ -1877,30 +1869,23 @@ function AddRoomPage({ contextOverride = null }) {
                                 <div className="relative treatment-dropdown-container">
                                   <button
                                     type="button"
-                                    onClick={() => {
-                                      setTreatmentDropdownOpen(!treatmentDropdownOpen);
-                                      if (!treatmentDropdownOpen) {
-                                        setTreatmentSearchQuery(""); // Clear search when opening
-                                      }
-                                    }}
+                                    onClick={() => {}}
+                                    disabled
                                     className="w-full flex items-center justify-between px-4 py-2.5 bg-white border border-teal-300 rounded-lg text-sm text-teal-700 hover:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
                                   >
                                     <span className="text-teal-500">Select a treatment to add...</span>
                                     <ChevronDown className={`w-4 h-4 text-teal-400 transition-transform ${treatmentDropdownOpen ? 'rotate-180' : ''}`} />
                                   </button>
-                                  {treatmentDropdownOpen && (
+                                  {false && (
                                     <div className="absolute z-10 w-full mt-1 bg-white border border-teal-300 rounded-lg shadow-lg max-h-60 overflow-hidden flex flex-col">
                                       {/* Search Input */}
                                       <div className="p-2 border-b border-teal-200 sticky top-0 bg-white">
-                                        <input
+                                          <input
                                           type="text"
                                           placeholder="Search treatments..."
                                           value={treatmentSearchQuery}
-                                          onChange={(e) => {
-                                            e.stopPropagation();
-                                            setTreatmentSearchQuery(e.target.value);
-                                          }}
-                                          onClick={(e) => e.stopPropagation()}
+                                            onChange={() => {}}
+                                            onClick={() => {}}
                                           className="w-full px-3 py-2 text-sm border border-teal-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                           autoFocus
                                         />
@@ -2003,20 +1988,15 @@ function AddRoomPage({ contextOverride = null }) {
                                             type="number"
                                             min="1"
                                             value={selectedTreatment.sessions || 1}
-                                            onChange={(e) => {
-                                              const value = parseInt(e.target.value) || 1;
-                                              handleSessionChange(selectedTreatment.treatmentSlug, value);
-                                            }}
-                                            className="w-16 px-2 py-1.5 text-sm font-semibold text-center border border-blue-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm"
+                                            onChange={() => {}}
+                                            disabled
+                                            className="w-16 px-2 py-1.5 text-sm font-semibold text-center border border-blue-300 rounded-md bg-gray-100 shadow-sm cursor-not-allowed"
                                             placeholder="1"
                                           />
                                           <button
                                             type="button"
-                                            onClick={(e) => {
-                                              e.preventDefault();
-                                              e.stopPropagation();
-                                              handleRemoveTreatment(selectedTreatment.treatmentSlug, e);
-                                            }}
+                                            onClick={() => {}}
+                                            disabled
                                             className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
                                             title="Remove treatment"
                                           >
@@ -2063,7 +2043,7 @@ function AddRoomPage({ contextOverride = null }) {
                             <h3 className="text-sm font-semibold text-teal-900">{pkg.name}</h3>
                             <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                               <span className="text-xs text-teal-500 font-medium">
-                                Price: ${parseFloat(pkg.price).toFixed(2)}
+                                Price: ${parseFloat(pkg.totalPrice).toFixed(2)}
                               </span>
                               {pkg.treatments && pkg.treatments.length > 0 && (
                                 <>
@@ -2107,7 +2087,7 @@ function AddRoomPage({ contextOverride = null }) {
                             onClick={() => {
                               setEditingPackageId(pkg._id);
                               setEditingPackageName(pkg.name);
-                              setEditingPackagePrice(pkg.price.toString());
+                              setEditingPackagePrice((pkg.totalPrice ?? pkg.price).toString());
                               // Load treatments for this package
                               if (pkg.treatments && Array.isArray(pkg.treatments)) {
                                 setSelectedTreatments(

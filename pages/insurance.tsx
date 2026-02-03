@@ -177,7 +177,7 @@ const Insurance: React.FC = () => {
               {insuranceProviders.map((provider, index) => (
                 <div
                   key={index}
-                  className="bg-white rounded-xl shadow-md p-6 hover:shadow-lg transition-shadow border-2 border-gray-100 hover:border-teal-200 text-center"
+                  className="bg-white rounded-xl shadow-md p-6 hover:shadow-lg transition-shadow border-2 border-gray-100 hover:border-blue-200 text-center"
                 >
                   <div className="text-4xl mb-3">{provider.logo}</div>
                   <h3 className="font-semibold text-gray-900">{provider.name}</h3>
@@ -202,7 +202,7 @@ const Insurance: React.FC = () => {
                   key={index}
                   className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-6 hover:shadow-lg transition-shadow"
                 >
-                  <div className="w-12 h-12 bg-teal-600 text-white rounded-lg flex items-center justify-center mb-4">
+                  <div className="w-12 h-12 bg-blue-600 text-white rounded-lg flex items-center justify-center mb-4">
                     {benefit.icon}
                   </div>
                   <h3 className="text-xl font-semibold text-gray-900 mb-2">{benefit.title}</h3>
@@ -231,7 +231,7 @@ const Insurance: React.FC = () => {
                   key={index}
                   className="bg-white rounded-xl shadow-md p-6 text-center hover:shadow-lg transition-shadow"
                 >
-                  <div className="w-12 h-12 bg-teal-100 rounded-lg flex items-center justify-center mx-auto mb-4 text-teal-600">
+                  <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mx-auto mb-4 text-blue-600">
                     {feature.icon}
                   </div>
                   <h3 className="font-semibold text-gray-900 mb-2">{feature.title}</h3>
@@ -253,7 +253,7 @@ const Insurance: React.FC = () => {
 
             <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
               <div className="text-center">
-                <div className="w-16 h-16 bg-teal-600 text-white rounded-full flex items-center justify-center mx-auto mb-4 text-2xl font-bold">
+                <div className="w-16 h-16 bg-blue-600 text-white rounded-full flex items-center justify-center mx-auto mb-4 text-2xl font-bold">
                   1
                 </div>
                 <h3 className="text-xl font-semibold text-gray-900 mb-2">Check Coverage</h3>
@@ -262,7 +262,7 @@ const Insurance: React.FC = () => {
                 </p>
               </div>
               <div className="text-center">
-                <div className="w-16 h-16 bg-teal-600 text-white rounded-full flex items-center justify-center mx-auto mb-4 text-2xl font-bold">
+                <div className="w-16 h-16 bg-blue-600 text-white rounded-full flex items-center justify-center mx-auto mb-4 text-2xl font-bold">
                   2
                 </div>
                 <h3 className="text-xl font-semibold text-gray-900 mb-2">Book Appointment</h3>
@@ -271,7 +271,7 @@ const Insurance: React.FC = () => {
                 </p>
               </div>
               <div className="text-center">
-                <div className="w-16 h-16 bg-teal-600 text-white rounded-full flex items-center justify-center mx-auto mb-4 text-2xl font-bold">
+                <div className="w-16 h-16 bg-blue-600 text-white rounded-full flex items-center justify-center mx-auto mb-4 text-2xl font-bold">
                   3
                 </div>
                 <h3 className="text-xl font-semibold text-gray-900 mb-2">Get Treatment</h3>
@@ -296,10 +296,10 @@ const Insurance: React.FC = () => {
               {faqs.map((faq, index) => (
                 <div
                   key={index}
-                  className="bg-gray-50 rounded-xl p-6 border border-gray-200 hover:border-teal-300 transition-colors"
+                  className="bg-gray-50 rounded-xl p-6 border border-gray-200 hover:border-blue-300 transition-colors"
                 >
                   <h3 className="font-semibold text-gray-900 mb-2 flex items-start gap-2">
-                    <AlertCircle className="w-5 h-5 text-teal-600 flex-shrink-0 mt-0.5" />
+                    <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
                     {faq.question}
                   </h3>
                   <p className="text-gray-600 ml-7">{faq.answer}</p>
@@ -347,15 +347,15 @@ const Insurance: React.FC = () => {
           <div className="container mx-auto px-6">
             <div className="grid md:grid-cols-3 gap-8 max-w-4xl mx-auto">
               <div className="text-center bg-white rounded-xl p-6 shadow-md">
-                <div className="text-4xl font-bold text-teal-600 mb-2">8+</div>
+                <div className="text-4xl font-bold text-blue-600 mb-2">8+</div>
                 <p className="text-gray-600">Insurance Providers</p>
               </div>
               <div className="text-center bg-white rounded-xl p-6 shadow-md">
-                <div className="text-4xl font-bold text-teal-600 mb-2">500+</div>
+                <div className="text-4xl font-bold text-blue-600 mb-2">500+</div>
                 <p className="text-gray-600">Partner Clinics</p>
               </div>
               <div className="text-center bg-white rounded-xl p-6 shadow-md">
-                <div className="text-4xl font-bold text-teal-600 mb-2">24/7</div>
+                <div className="text-4xl font-bold text-blue-600 mb-2">24/7</div>
                 <p className="text-gray-600">Support Available</p>
               </div>
             </div>

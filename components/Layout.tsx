@@ -13,11 +13,7 @@ const Layout: React.FC<Props> = ({ children }) => {
       className="flex min-h-screen flex-col overflow-x-hidden"
     >
       <Header />
-      <main
-        className="w-full"
-        // className="flex shrink-0 grow flex-col p-4 sm:p-6 md:p-8"
-        // className="flex shrink-0 grow flex-col px-4 sm:p-1 md:p-1"
-      >
+      <main className="flex-1 w-full overflow-y-auto pt-14">
         {children}
       </main>
      

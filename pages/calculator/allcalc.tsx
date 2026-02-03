@@ -127,7 +127,7 @@ function AllCalculators(){
       <Header />
       
       {/* Hero Section */}
-      <div className="relative bg-gradient-to-r from-orange-500 to-orange-600 py-8 px-4 sm:py-10 sm:px-6 md:py-12 md:px-8">
+      <div className="relative bg-gradient-to-r from-orange-500 to-orange-600 py-8 mt-12 px-4 sm:py-10 sm:px-6 md:py-12 md:px-8">
         <div className="absolute inset-0 bg-black opacity-10"></div>
         <div className="relative max-w-7xl mx-auto">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">

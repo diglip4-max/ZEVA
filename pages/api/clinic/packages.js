@@ -49,27 +49,42 @@ export default async function handler(req, res) {
         });
       }
 
-      // Only fetch packages that belong to this specific clinic
-      const packages = await Package.find({ 
-        clinicId: clinicId // Explicitly filter by clinicId to show only this clinic's packages
-      })
+      const packages = await Package.find({ clinicId })
         .sort({ createdAt: -1 })
         .lean();
 
-      // Return only packages created for this clinic
-      return res.status(200).json({
-        success: true,
-        packages: packages
-          .filter((pkg) => pkg.clinicId && pkg.clinicId.toString() === clinicId.toString()) // Additional safety check
-          .map((pkg) => ({
+      const normalized = packages
+        .filter((pkg) => pkg.clinicId && pkg.clinicId.toString() === clinicId.toString())
+        .map((pkg) => {
+          const totalSessions =
+            pkg.totalSessions ??
+            (Array.isArray(pkg.treatments)
+              ? pkg.treatments.reduce((sum, t) => sum + (parseInt(t.sessions) || 1), 0)
+              : 0);
+          const sessionPrice =
+            pkg.sessionPrice ??
+            (pkg.totalPrice && totalSessions > 0
+              ? Number((pkg.totalPrice / totalSessions).toFixed(2))
+              : (pkg.price ?? 0)); // fallback for legacy "price"
+          const totalPrice =
+            pkg.totalPrice ??
+            (sessionPrice && totalSessions > 0
+              ? Number((sessionPrice * totalSessions).toFixed(2))
+              : (pkg.price ?? 0));
+          return {
             _id: pkg._id.toString(),
             name: pkg.name,
-            price: pkg.price,
+            price: sessionPrice, // backward compatible field used by UI
+            totalPrice,
+            totalSessions,
+            sessionPrice,
             treatments: pkg.treatments || [],
             createdAt: pkg.createdAt,
             updatedAt: pkg.updatedAt,
-          })),
-      });
+          };
+        });
+
+      return res.status(200).json({ success: true, packages: normalized });
     } catch (error) {
       console.error("Error fetching packages:", error);
       return res.status(500).json({ success: false, message: "Failed to fetch packages" });
@@ -93,21 +108,21 @@ export default async function handler(req, res) {
         });
       }
 
-      const { name, price, treatments } = req.body;
+      const { name, totalPrice: bodyTotalPrice, price: legacyPrice, treatments } = req.body;
 
       if (!name || !name.trim()) {
         return res.status(400).json({ success: false, message: "Package name is required" });
       }
 
-      if (price === undefined || price === null || isNaN(price) || parseFloat(price) < 0) {
-        return res.status(400).json({ success: false, message: "Valid price is required" });
+      const totalPrice = bodyTotalPrice !== undefined ? parseFloat(bodyTotalPrice) : parseFloat(legacyPrice);
+      if (totalPrice === undefined || totalPrice === null || isNaN(totalPrice) || totalPrice < 0) {
+        return res.status(400).json({ success: false, message: "Valid totalPrice is required" });
       }
 
       if (!treatments || !Array.isArray(treatments) || treatments.length === 0) {
         return res.status(400).json({ success: false, message: "At least one treatment is required" });
       }
 
-      // Validate treatments structure
       for (const treatment of treatments) {
         if (!treatment.treatmentName || !treatment.treatmentName.trim()) {
           return res.status(400).json({ success: false, message: "Treatment name is required for all treatments" });
@@ -130,15 +145,20 @@ export default async function handler(req, res) {
         });
       }
 
+      const normalizedTreatments = treatments.map((t) => ({
+        treatmentName: t.treatmentName.trim(),
+        treatmentSlug: t.treatmentSlug || "",
+        sessions: parseInt(t.sessions) || 1,
+      }));
+      const totalSessions = normalizedTreatments.reduce((sum, t) => sum + (t.sessions || 1), 0);
+      const sessionPrice = totalSessions > 0 ? Number((totalPrice / totalSessions).toFixed(2)) : Number(totalPrice.toFixed(2));
       const newPackage = await Package.create({
         clinicId,
         name: name.trim(),
-        price: parseFloat(price),
-        treatments: treatments.map((t) => ({
-          treatmentName: t.treatmentName.trim(),
-          treatmentSlug: t.treatmentSlug || "",
-          sessions: parseInt(t.sessions) || 1,
-        })),
+        totalPrice,
+        totalSessions,
+        sessionPrice,
+        treatments: normalizedTreatments,
         createdBy: user._id,
       });
 
@@ -148,7 +168,10 @@ export default async function handler(req, res) {
         package: {
           _id: newPackage._id.toString(),
           name: newPackage.name,
-          price: newPackage.price,
+          price: newPackage.sessionPrice,
+          totalPrice: newPackage.totalPrice,
+          totalSessions: newPackage.totalSessions,
+          sessionPrice: newPackage.sessionPrice,
           treatments: newPackage.treatments || [],
           createdAt: newPackage.createdAt,
           updatedAt: newPackage.updatedAt,
@@ -162,7 +185,17 @@ export default async function handler(req, res) {
           message: "A package with this name already exists",
         });
       }
-      return res.status(500).json({ success: false, message: "Failed to create package" });
+      if (error.name === "ValidationError") {
+        return res.status(400).json({
+          success: false,
+          message: error.message || "Validation error creating package",
+        });
+      }
+      return res.status(500).json({
+        success: false,
+        message: "Failed to create package",
+        error: error.message || "Unknown error",
+      });
     }
   }
 
@@ -183,7 +216,7 @@ export default async function handler(req, res) {
         });
       }
 
-      const { packageId, name, price, treatments } = req.body;
+      const { packageId, name } = req.body;
 
       if (!packageId || !name || !name.trim()) {
         return res.status(400).json({
@@ -192,26 +225,7 @@ export default async function handler(req, res) {
         });
       }
 
-      if (price === undefined || price === null || isNaN(price) || parseFloat(price) < 0) {
-        return res.status(400).json({
-          success: false,
-          message: "Valid price is required",
-        });
-      }
-
-      if (!treatments || !Array.isArray(treatments) || treatments.length === 0) {
-        return res.status(400).json({ success: false, message: "At least one treatment is required" });
-      }
-
-      // Validate treatments structure
-      for (const treatment of treatments) {
-        if (!treatment.treatmentName || !treatment.treatmentName.trim()) {
-          return res.status(400).json({ success: false, message: "Treatment name is required for all treatments" });
-        }
-        if (!treatment.sessions || treatment.sessions < 1) {
-          return res.status(400).json({ success: false, message: "Valid sessions (minimum 1) is required for all treatments" });
-        }
-      }
+      // Editing is restricted to name only. Ignore totalPrice/treatments changes from client.
 
       const pkg = await Package.findOne({ _id: packageId, clinicId });
       if (!pkg) {
@@ -233,12 +247,6 @@ export default async function handler(req, res) {
       }
 
       pkg.name = normalizedName;
-      pkg.price = parseFloat(price);
-      pkg.treatments = treatments.map((t) => ({
-        treatmentName: t.treatmentName.trim(),
-        treatmentSlug: t.treatmentSlug || "",
-        sessions: parseInt(t.sessions) || 1,
-      }));
       await pkg.save();
 
       return res.status(200).json({
@@ -247,7 +255,10 @@ export default async function handler(req, res) {
         package: {
           _id: pkg._id.toString(),
           name: pkg.name,
-          price: pkg.price,
+          price: pkg.sessionPrice,
+          totalPrice: pkg.totalPrice,
+          totalSessions: pkg.totalSessions,
+          sessionPrice: pkg.sessionPrice,
           treatments: pkg.treatments || [],
           createdAt: pkg.createdAt,
           updatedAt: pkg.updatedAt,

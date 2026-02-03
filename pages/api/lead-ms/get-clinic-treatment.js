@@ -1,4 +1,3 @@
-// /pages/api/clinic-treatments.ts
 import dbConnect from "../../../lib/database";
 import Clinic from "../../../models/Clinic";
 import { getUserFromReq, requireRole } from "./auth";

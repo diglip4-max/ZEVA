@@ -93,6 +93,13 @@ const patientRegistrationSchema = new mongoose.Schema(
     },
     membershipStartDate: { type: Date },
     membershipEndDate: { type: Date },
+    membershipId: { type: mongoose.Schema.Types.ObjectId, ref: "MembershipPlan" },
+    package: {
+      type: String,
+      enum: ["Yes", "No"],
+      default: "No",
+    },
+    packageId: { type: mongoose.Schema.Types.ObjectId, ref: "Package" },
     notes: { type: String, trim: true },
     rejectionNote: { type: String, trim: true },
 

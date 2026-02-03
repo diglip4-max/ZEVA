@@ -11,8 +11,6 @@ const AgentProfileSchema = new mongoose.Schema(
     },
 
     agentCode: { type: String, unique: true },
-
-    phone: String,
     emergencyPhone: String,
     relativePhone: String,
 
@@ -24,6 +22,7 @@ const AgentProfileSchema = new mongoose.Schema(
     passportDocumentUrl: String,
 
     contractUrl: String,
+    contractType: { type: String, enum: ["full", "part"] },
 
     baseSalary: { type: Number, default: 0 },
 
@@ -38,6 +37,8 @@ const AgentProfileSchema = new mongoose.Schema(
       ],
       default: "flat",
     },
+    
+    commissionPercentage: { type: Number, default: 0 },
 
     joiningDate: Date,
     isActive: { type: Boolean, default: true },
