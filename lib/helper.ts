@@ -6,7 +6,7 @@ import toast from "react-hot-toast";
 
 export const loadSegmentOptions = async (
   inputValue: string,
-  token: string,
+  token: string
 ): Promise<OptionType[]> => {
   let options: OptionType[] = [];
   try {
@@ -28,7 +28,7 @@ export const loadSegmentOptions = async (
 };
 
 export const getChannelTitle = (
-  channel: "sms" | "whatsapp" | "voice" | "email" | "chat",
+  channel: "sms" | "whatsapp" | "voice" | "email" | "chat"
 ) => {
   switch (channel) {
     case "sms":
@@ -121,7 +121,7 @@ export const handleUpload = async (file: File) => {
 };
 
 export function getMediaTypeFromFile(
-  file?: File | null,
+  file?: File | null
 ): "image" | "video" | "document" | "file" {
   if (!file) return "file";
 
@@ -188,7 +188,7 @@ export function getMediaTypeFromFile(
 export const formatScheduledTime = (
   scheduleDate: string,
   scheduleTime: string,
-  timezone: string,
+  timezone: string
 ): string => {
   try {
     if (!scheduleDate || !scheduleTime || !timezone) {
@@ -199,7 +199,7 @@ export const formatScheduledTime = (
     const scheduledMoment = momentTimezone.tz(
       `${scheduleDate} ${scheduleTime}`,
       "YYYY-MM-DD HH:mm",
-      timezone,
+      timezone
     );
 
     if (!scheduledMoment.isValid()) {

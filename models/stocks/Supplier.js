@@ -53,8 +53,8 @@ const SupplierSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["Active", "Inactive", "Allocated"],
-      default: "Allocated",
+      enum: ["Active", "Inactive"],
+      default: "Active",
     },
     openingBalance: {
       type: Number,

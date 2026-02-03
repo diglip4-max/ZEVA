@@ -1,6 +1,8 @@
 export type UOMStatus = "Active" | "Inactive" | "Allocated";
 export type StockLocationStatus = "Active" | "Inactive" | "Allocated";
 export type SupplierStatus = "Active" | "Inactive" | "Allocated";
+export type PurchaseRecordStatus = "New" | "Approved" | "Partly_Delivered" | "Delivered" | "Partly_Invoiced" | "Invoiced" | "Rejected" | "Cancelled" | "Deleted" | "Converted_To_PO";
+export type PurchaseRecordType = "Purchase_Order" | "Purchase_Request" | "Purchase_Invoice" | "GRN_Regular";
 
 export type UOM = {
   _id: string;
@@ -21,6 +23,61 @@ export type StockLocation = {
   createdBy: string;
   createdAt: Date;
   updatedAt: Date;
+};
+
+export type PurchaseRecordItem = {
+  _id?: string;
+  name: string;
+  description?: string;
+  quantity: number;
+  uom?: string;
+  unitPrice: number;
+  totalPrice: number;
+  discount?: number;
+  discountType?: "Fixed" | "Percentage";
+  discountAmount?: number;
+  netPrice: number;
+  vatAmount?: number;
+  vatType?: "Exclusive" | "Inclusive";
+  vatPercentage?: number;
+  netPlusVat?: number;
+  freeQuantity?: number;
+};
+
+export type PurchaseRecord = {
+  _id: string;
+  clinicId: string;
+  orderNo: string;
+  branch: any;
+  date: string;
+  enqNo?: string;
+  suppplier: any; // Reference to Supplier
+  type: PurchaseRecordType;
+  supplierInvoiceNo?: string;
+  notes?: string;
+  status: PurchaseRecordStatus;
+  shipTo?: {
+    to?: string;
+    address?: string;
+    telephone?: string;
+    email?: string;
+  };
+  billTo?: {
+    to?: string;
+    address?: string;
+    telephone?: string;
+    email?: string;
+  };
+  contactInfoOfBuyer?: {
+    to?: string;
+    address?: string;
+    telephone?: string;
+    email?: string;
+  };
+  items: PurchaseRecordItem[];
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type Supplier = {
