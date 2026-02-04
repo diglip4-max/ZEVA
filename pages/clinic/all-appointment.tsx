@@ -701,7 +701,7 @@
                       </button> */}
                       <button
                         onClick={() => setShowFilters(!showFilters)}
-                        className="inline-flex items-center justify-center gap-1 sm:gap-1.5 bg-gray-800 hover:bg-gray-900 text-white px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-[10px] sm:text-xs md:text-sm font-medium"
+                        className="inline-flex items-center justify-center gap-1 sm:gap-1.5 bg-teal-600 hover:bg-teal-700 text-white px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-[10px] sm:text-xs md:text-sm font-medium"
                       >
                         <Filter className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                         <span className="hidden xs:inline">{showFilters ? "Hide Filters" : "Show Filters"}</span>
@@ -936,7 +936,7 @@
                     overflowY: 'visible',
                     WebkitOverflowScrolling: 'touch',
                     scrollbarWidth: 'thin',
-                    scrollbarColor: '#888 #f1f1f1',
+                    scrollbarColor: '#1f2937',
                     width: '100%',
                     display: 'block',
                     position: 'relative',
@@ -951,7 +951,7 @@
                       display: 'table'
                     }}
                   >
-                      <thead className="bg-gray-900 text-white">
+                      <thead className="bg-teal-600 text-white">
                         <tr>
                           <th className="px-1 py-1.5 text-left text-[8px] sm:text-[9px] font-semibold uppercase tracking-wider whitespace-nowrap w-[30px]">
                             <input

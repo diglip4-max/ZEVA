@@ -2310,7 +2310,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                         }
                         toast.success("Switched to today", { duration: 2000 });
                       }}
-                      className="px-2 py-1 rounded border border-gray-900 dark:border-gray-300 bg-gray-900 dark:bg-gray-200 text-xs font-medium text-white dark:text-gray-900 hover:bg-gray-800 dark:hover:bg-gray-300 transition-colors"
+                      className="px-2 py-1 rounded border border-gray-900 dark:border-gray-300 bg-teal-600 dark:bg-teal-600 text-xs font-medium text-white dark:text-gray-900 hover:bg-teal-700 dark:hover:bg-gray-300 transition-colors"
                       type="button"
                     >
                       Today

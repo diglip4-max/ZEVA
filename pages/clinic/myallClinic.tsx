@@ -133,7 +133,7 @@ const Header = ({
       {hasClinic && !isEditing && canUpdate && (
         <button
           onClick={onEditClick}
-          className="flex items-center gap-2 px-3 py-2 bg-teal-800 text-white rounded-lg hover:bg-teal-900 transition-colors font-medium shadow-sm hover:shadow-md text-sm"
+          className="flex items-center gap-2 px-3 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors font-medium shadow-sm hover:shadow-md text-sm"
         >
           <Edit3 className="w-4 h-4" />
           <span>Edit Profile</span>

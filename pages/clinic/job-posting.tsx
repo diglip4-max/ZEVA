@@ -404,7 +404,7 @@ function ClinicJobPostingPage({ contextOverride = null }: { contextOverride?: Ro
               return permissions.canCreate && (
                 <button
                   onClick={handleCreateJobClick}
-                  className="inline-flex items-center justify-center gap-1.5 bg-teal-800 hover:bg-teal-900 text-white px-3 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs sm:text-sm font-medium"
+                  className="inline-flex items-center justify-center gap-1.5 bg-teal-600 hover:bg-teal-700 text-white px-3 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs sm:text-sm font-medium"
                 >
                   <PlusCircle className="h-4 w-4" />
                   <span>Create New Job</span>
@@ -422,7 +422,7 @@ function ClinicJobPostingPage({ contextOverride = null }: { contextOverride?: Ro
             onClick={() => setActiveTab('jobs')}
             className={`px-2 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors ${
               activeTab === 'jobs'
-                ? 'bg-teal-800 text-white'
+                ? 'bg-teal-600 text-white'
                 : 'text-teal-700 hover:text-teal-900 hover:bg-teal-50'
             }`}
           >

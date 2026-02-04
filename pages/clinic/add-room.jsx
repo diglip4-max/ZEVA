@@ -1309,7 +1309,7 @@ function AddRoomPage({ contextOverride = null }) {
                 <button
                   type="submit"
                   disabled={roomCreateDisabled}
-                  className="inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800 active:bg-gray-950 disabled:opacity-60 transition-all duration-200 shadow-sm hover:shadow-md"
+                  className="inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700 active:bg-gray-950 disabled:opacity-60 transition-all duration-200 shadow-sm hover:shadow-md"
                 >
                   {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
                   {submitting ? "Creating..." : "Create Room"}

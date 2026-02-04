@@ -601,7 +601,7 @@ function LeadsPage() {
               {permissions.canCreate && (
                 <Link
                   href="/clinic/segments"
-                  className="inline-flex items-center justify-center cursor-pointer gap-1.5 border border-gray-800 text-gray-800 bg-transparent hover:bg-gray-800 hover:text-white px-3 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs sm:text-sm font-medium"
+                  className="inline-flex items-center justify-center cursor-pointer gap-1.5 border border-gray-800 text-gray-800 bg-transparent hover:bg-teal-600 hover:text-white px-3 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs sm:text-sm font-medium"
                 >
                   <Tag className="h-3.5 w-3.5" />
                   <span>Manage Segments</span>
@@ -611,7 +611,7 @@ function LeadsPage() {
               {permissions.canCreate && (
                 <button
                   onClick={() => setModalOpen(true)}
-                  className="inline-flex items-center justify-center cursor-pointer gap-1.5 border border-gray-800 text-teal-800 bg-transparent hover:bg-gray-800 hover:text-white px-3 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs sm:text-sm font-medium"
+                  className="inline-flex items-center justify-center cursor-pointer gap-1.5 border border-gray-800 text-teal-800 bg-transparent hover:bg-teal-600 hover:text-white px-3 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs sm:text-sm font-medium"
                 >
                   <PlusCircle className="h-3.5 w-3.5" />
                   <span>Create New Lead</span>
@@ -627,7 +627,7 @@ function LeadsPage() {
                     }
                     setImportModalOpen(true);
                   }}
-                  className="inline-flex items-center justify-center cursor-pointer gap-1.5 bg-gray-800 hover:bg-gray-900 text-white px-3 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs sm:text-sm font-medium"
+                  className="inline-flex items-center justify-center cursor-pointer gap-1.5 bg-teal-600 hover:bg-teal-700 text-white px-3 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs sm:text-sm font-medium"
                 >
                   <PlusCircle className="h-3.5 w-3.5" />
                   <span>Import New Lead</span>
@@ -705,7 +705,7 @@ function LeadsPage() {
             />
             <button
               onClick={fetchLeads}
-              className="inline-flex cursor-pointer items-center justify-center bg-gray-800 hover:bg-gray-900 text-white px-3 py-2 rounded-lg text-xs sm:text-sm font-medium shadow-sm hover:shadow-md transition-all"
+              className="inline-flex cursor-pointer items-center justify-center bg-teal-600 hover:bg-teal-700 text-white px-3 py-2 rounded-lg text-xs sm:text-sm font-medium shadow-sm hover:shadow-md transition-all"
             >
               Apply Filters
             </button>
@@ -885,7 +885,7 @@ function LeadsPage() {
                       {permissions.canAssign && (
                         <button
                           onClick={() => setSelectedLead(lead._id)}
-                          className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-2 bg-gray-700 text-white rounded-lg text-sm font-medium hover:bg-gray-800 transition-colors shadow-sm"
+                          className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-2 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-600 transition-colors shadow-sm"
                         >
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
@@ -996,7 +996,7 @@ function LeadsPage() {
             <div className="bg-white rounded-lg shadow-xl w-full max-w-md transform transition-all">
               <div className="px-4 py-3 border-b border-gray-200 bg-gray-50">
                 <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-gray-800 flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-lg bg-teal-600 flex items-center justify-center">
                     <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                     </svg>
@@ -1073,7 +1073,7 @@ function LeadsPage() {
                   <button
                     onClick={assignLead}
                     disabled={!selectedAgent}
-                    className="px-4 py-2 rounded-lg text-xs sm:text-sm font-medium bg-gray-800 text-white shadow-sm hover:bg-gray-900 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-teal-800/20 flex items-center gap-1.5"
+                    className="px-4 py-2 rounded-lg text-xs sm:text-sm font-medium bg-teal-600 text-white shadow-sm hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-teal-800/20 flex items-center gap-1.5"
                   >
                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />

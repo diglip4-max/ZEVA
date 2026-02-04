@@ -745,7 +745,7 @@ const ManageAgentsPage = () => {
               {canCreate === true && (
                 <button
                   onClick={handleCreateClick}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-gray-900 dark:bg-blue-600 hover:bg-gray-800 dark:hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm"
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-teal-600 dark:bg-teal-600 hover:bg-teal-700 dark:hover:bg-teal-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm"
                 >
                   <UserPlus className="w-4 h-4" />
                   Add {activeView === 'agents' ? 'Agent' : 'Doctor'}
@@ -901,7 +901,7 @@ const ManageAgentsPage = () => {
             {canCreate === true && (
               <button
                 onClick={handleCreateClick}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-gray-900 dark:bg-blue-600 hover:bg-gray-800 dark:hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm w-full sm:w-auto justify-center"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-teal-600 dark:bg-blue-600 hover:bg-teal-800 dark:hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm w-full sm:w-auto justify-center"
               >
                 <UserPlus className="w-4 h-4" />
                 Add {activeView === 'agents' ? 'Agent' : 'Doctor'}
