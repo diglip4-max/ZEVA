@@ -1097,7 +1097,7 @@ function AddRoomPage({ contextOverride = null }) {
   };
 
   return (
-    <div className="min-h-screen bg-teal-50">
+    <div className="min-h-screen bg-gray-50">
       <style dangerouslySetInnerHTML={{__html: `
         [data-hot-toast][data-type="error"] button[aria-label="Close"] {
           color: #fff !important;
@@ -1163,12 +1163,12 @@ function AddRoomPage({ contextOverride = null }) {
         }}
       />
       {!permissionsLoaded ? (
-        <div className="bg-white rounded-lg border border-teal-200 shadow-sm p-6 text-center text-teal-700">
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 text-center text-teal-700">
           <Loader2 className="w-5 h-5 mx-auto mb-2 animate-spin" />
           <p className="text-xs sm:text-sm">Checking your permissions...</p>
         </div>
       ) : !permissions.canRead ? (
-        <div className="min-h-screen bg-teal-50 flex items-center justify-center p-4">
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-lg shadow-lg border border-red-200 p-8 text-center max-w-md">
             <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <Building2 className="w-8 h-8 text-red-600" />
@@ -1185,7 +1185,7 @@ function AddRoomPage({ contextOverride = null }) {
       ) : (
         <>
           {/* Professional Header - Matching Dashboard Theme */}
-          <div className="bg-white rounded-lg p-4 border border-teal-200 shadow-sm">
+          <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
               <div className="flex-1">
                 <div className="flex items-center justify-between gap-2 mb-2">
@@ -1208,7 +1208,7 @@ function AddRoomPage({ contextOverride = null }) {
                   Create and manage rooms, departments, and packages for your clinic
                 </p>
               </div>
-              <div className="flex flex-wrap items-center gap-2 bg-teal-100 rounded-lg p-1 border border-teal-200">
+              <div className="flex flex-wrap items-center gap-2 bg-gray-100 rounded-lg p-1 border border-gray-200">
                 <button
                   type="button"
                   onClick={() => {
@@ -1270,7 +1270,7 @@ function AddRoomPage({ contextOverride = null }) {
           </div>
 
           {/* Create Form Card */}
-          <div className="bg-white rounded-lg border border-teal-200 shadow-sm p-4">
+          <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
 
             <div className="flex items-center gap-2 mb-3">
               <Plus className="w-4 h-4 text-teal-700" />
@@ -1302,14 +1302,14 @@ function AddRoomPage({ contextOverride = null }) {
                     value={roomName}
                     onChange={(e) => setRoomName(e.target.value)}
                     placeholder="e.g., Consultation Room 1, Operation Theater A"
-                    className="w-full border border-teal-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
                     required
                   />
                 </div>
                 <button
                   type="submit"
                   disabled={roomCreateDisabled}
-                  className="inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-teal-900 text-white rounded-lg text-sm font-medium hover:bg-teal-800 active:bg-teal-950 disabled:opacity-60 transition-all duration-200 shadow-sm hover:shadow-md"
+                  className="inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800 active:bg-gray-950 disabled:opacity-60 transition-all duration-200 shadow-sm hover:shadow-md"
                 >
                   {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
                   {submitting ? "Creating..." : "Create Room"}
@@ -1329,14 +1329,14 @@ function AddRoomPage({ contextOverride = null }) {
                     value={departmentName}
                     onChange={(e) => setDepartmentName(e.target.value)}
                     placeholder="e.g., Cardiology, Pediatrics, Emergency"
-                    className="w-full border border-teal-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
                     required
                   />
                 </div>
                 <button
                   type="submit"
                   disabled={deptCreateDisabled}
-                  className="inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-teal-900 text-white rounded-lg text-sm font-medium hover:bg-teal-800 active:bg-teal-950 disabled:opacity-60 transition-all duration-200 shadow-sm hover:shadow-md"
+                  className="inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800 active:bg-gray-950 disabled:opacity-60 transition-all duration-200 shadow-sm hover:shadow-md"
                 >
                   {submittingDept ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
                   {submittingDept ? "Creating..." : "Create Department"}
@@ -1356,7 +1356,7 @@ function AddRoomPage({ contextOverride = null }) {
                     value={packageName}
                     onChange={(e) => setPackageName(e.target.value)}
                     placeholder="e.g., Basic Health Package, Premium Wellness Package"
-                    className="w-full border border-teal-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
                     required
                   />
                 </div>
@@ -1371,7 +1371,7 @@ function AddRoomPage({ contextOverride = null }) {
                     value={packagePrice}
                     onChange={(e) => setPackagePrice(e.target.value)}
                     placeholder="e.g., 5000.00"
-                    className="w-full border border-teal-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                    className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
                     required
                   />
                 </div>
@@ -1394,15 +1394,15 @@ function AddRoomPage({ contextOverride = null }) {
                               setTreatmentSearchQuery(""); // Clear search when opening
                             }
                           }}
-                          className="w-full flex items-center justify-between px-4 py-2.5 bg-white border border-teal-300 rounded-lg text-sm text-teal-700 hover:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                          className="w-full flex items-center justify-between px-4 py-2.5 bg-white border border-gray-300 rounded-lg text-sm text-teal-700 hover:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
                         >
                           <span className="text-teal-500">Select a treatment to add...</span>
                           <ChevronDown className={`w-4 h-4 text-teal-400 transition-transform ${treatmentDropdownOpen ? 'rotate-180' : ''}`} />
                         </button>
                         {treatmentDropdownOpen && (
-                          <div className="absolute z-10 w-full mt-1 bg-white border border-teal-300 rounded-lg shadow-lg max-h-60 overflow-hidden flex flex-col">
+                          <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-hidden flex flex-col">
                             {/* Search Input */}
-                            <div className="p-2 border-b border-teal-200 sticky top-0 bg-white">
+                            <div className="p-2 border-b border-gray-200 sticky top-0 bg-white">
                               <input
                                 type="text"
                                 placeholder="Search treatments..."
@@ -1412,7 +1412,7 @@ function AddRoomPage({ contextOverride = null }) {
                                   setTreatmentSearchQuery(e.target.value);
                                 }}
                                 onClick={(e) => e.stopPropagation()}
-                                className="w-full px-3 py-2 text-sm border border-teal-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                 autoFocus
                               />
                             </div>
@@ -1458,7 +1458,7 @@ function AddRoomPage({ contextOverride = null }) {
                                           className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${
                                             isSelected
                                               ? "bg-blue-50 text-blue-700 font-medium"
-                                              : "text-teal-700 hover:bg-teal-50"
+                                              : "text-teal-700 hover:bg-gray-50"
                                           }`}
                                         >
                                           <div className="flex items-center justify-between">
@@ -1548,7 +1548,7 @@ function AddRoomPage({ contextOverride = null }) {
                 <button
                   type="submit"
                   disabled={submittingPackage || !permissions.canCreate}
-                  className="inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-teal-900 text-white rounded-lg text-sm font-medium hover:bg-teal-800 active:bg-teal-950 disabled:opacity-60 transition-all duration-200 shadow-sm hover:shadow-md"
+                  className="inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800 active:bg-gray-950 disabled:opacity-60 transition-all duration-200 shadow-sm hover:shadow-md"
                 >
                   {submittingPackage ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
                   {submittingPackage ? "Creating..." : "Create Package"}
@@ -1559,7 +1559,7 @@ function AddRoomPage({ contextOverride = null }) {
 
           {/* Stats Cards - Matching Dashboard Theme */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div className="bg-white rounded-lg p-4 border border-teal-200 shadow-sm">
+            <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
               <div className="flex items-center gap-2 mb-2">
                 <DoorOpen className="w-4 h-4 text-teal-700" />
                 <span className="text-xs font-semibold text-teal-700">Total Rooms</span>
@@ -1567,7 +1567,7 @@ function AddRoomPage({ contextOverride = null }) {
               <p className="text-2xl font-bold text-teal-900 mb-1">{rooms.length}</p>
               <p className="text-xs text-teal-600">Active rooms in your clinic</p>
             </div>
-            <div className="bg-white rounded-lg p-4 border border-teal-200 shadow-sm">
+            <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
               <div className="flex items-center gap-2 mb-2">
                 <Building2 className="w-4 h-4 text-teal-700" />
                 <span className="text-xs font-semibold text-teal-700">Total Departments</span>
@@ -1575,7 +1575,7 @@ function AddRoomPage({ contextOverride = null }) {
               <p className="text-2xl font-bold text-teal-900 mb-1">{departments.length}</p>
               <p className="text-xs text-teal-600">Active departments in your clinic</p>
             </div>
-            <div className="bg-white rounded-lg p-4 border border-teal-200 shadow-sm">
+            <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
               <div className="flex items-center gap-2 mb-2">
                 <Package className="w-4 h-4 text-teal-700" />
                 <span className="text-xs font-semibold text-teal-700">Total Packages</span>
@@ -1587,11 +1587,11 @@ function AddRoomPage({ contextOverride = null }) {
 
           {/* Rooms List - Only show when viewMode is "room" */}
           {viewMode === "room" && (
-            <div className="bg-white rounded-lg border border-teal-200 shadow-sm p-4">
+            <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
               <div className="flex items-center gap-2 mb-4">
                 <DoorOpen className="w-5 h-5 text-teal-700" />
                 <h2 className="text-lg sm:text-xl font-bold text-teal-900">All Rooms</h2>
-                <span className="ml-auto px-2.5 py-1 bg-blue-50 text-teal-700 rounded-full text-xs font-semibold">
+                <span className="ml-auto px-2.5 py-1 bg-teal-50 text-teal-700 rounded-full text-xs font-semibold">
                   {rooms.length} {rooms.length === 1 ? 'Room' : 'Rooms'}
                 </span>
               </div>
@@ -1603,7 +1603,7 @@ function AddRoomPage({ contextOverride = null }) {
           </div>
         ) : rooms.length === 0 ? (
           <div className="text-center py-12">
-            <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-teal-100 flex items-center justify-center">
+            <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-gray-100 flex items-center justify-center">
               <DoorOpen className="w-8 h-8 text-teal-400" />
             </div>
             <p className="text-sm font-medium text-teal-900 mb-1">No rooms created yet</p>
@@ -1614,7 +1614,7 @@ function AddRoomPage({ contextOverride = null }) {
             {rooms.map((room) => (
               <div
                 key={room._id}
-                className="border border-teal-200 rounded-lg p-3 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 hover:bg-teal-50 hover:border-teal-300 transition-all group"
+                className="border border-gray-200 rounded-lg p-3 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 hover:bg-gray-50 hover:border-gray-300 transition-all group"
               >
                 <div className="flex-1 min-w-0">
                   {editingRoomId === room._id ? (
@@ -1623,14 +1623,14 @@ function AddRoomPage({ contextOverride = null }) {
                         type="text"
                         value={editingRoomName}
                         onChange={(e) => setEditingRoomName(e.target.value)}
-                        className="flex-1 border border-teal-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                         autoFocus
                       />
                       <div className="flex gap-2">
                         <button
                           onClick={handleRoomUpdate}
                           disabled={roomUpdateLoading}
-                          className="flex-1 sm:flex-none px-3 py-2 bg-teal-900 text-white text-sm rounded-lg hover:bg-teal-800 disabled:opacity-60 transition-colors flex items-center justify-center"
+                          className="flex-1 sm:flex-none px-3 py-2 bg-gray-900 text-white text-sm rounded-lg hover:bg-gray-800 disabled:opacity-60 transition-colors flex items-center justify-center"
                         >
                           {roomUpdateLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save"}
                         </button>
@@ -1639,7 +1639,7 @@ function AddRoomPage({ contextOverride = null }) {
                             setEditingRoomId(null);
                             setEditingRoomName("");
                           }}
-                          className="flex-1 sm:flex-none px-3 py-2 bg-teal-100 text-teal-700 text-sm rounded-lg hover:bg-teal-200 transition-colors"
+                          className="flex-1 sm:flex-none px-3 py-2 bg-gray-100 text-teal-700 text-sm rounded-lg hover:bg-gray-200 transition-colors"
                         >
                           Cancel
                         </button>
@@ -1648,7 +1648,7 @@ function AddRoomPage({ contextOverride = null }) {
                   ) : (
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center">
-                        <DoorOpen className="w-5 h-5 text-blue-600" />
+                        <DoorOpen className="w-5 h-5 text-teal-600" />
                       </div>
                       <div>
                         <h3 className="text-sm font-semibold text-teal-900">{room.name}</h3>
@@ -1670,7 +1670,7 @@ function AddRoomPage({ contextOverride = null }) {
                           setEditingRoomId(room._id);
                           setEditingRoomName(room.name);
                         }}
-                        className="p-2 text-teal-600 hover:bg-teal-100 rounded-lg transition-colors"
+                        className="p-2 text-teal-600 hover:bg-gray-100 rounded-lg transition-colors"
                         title="Edit room"
                       >
                         <Edit2 className="w-4 h-4" />
@@ -1696,7 +1696,7 @@ function AddRoomPage({ contextOverride = null }) {
 
           {/* Departments List - Only show when viewMode is "department" */}
           {viewMode === "department" && (
-            <div className="bg-white rounded-lg border border-teal-200 shadow-sm p-4">
+            <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
               <div className="flex items-center gap-2 mb-4">
                 <Building2 className="w-5 h-5 text-teal-700" />
                 <h2 className="text-lg sm:text-xl font-bold text-teal-900">All Departments</h2>
@@ -1712,7 +1712,7 @@ function AddRoomPage({ contextOverride = null }) {
               </div>
             ) : departments.length === 0 ? (
               <div className="text-center py-12">
-                <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-teal-100 flex items-center justify-center">
+                <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-gray-100 flex items-center justify-center">
                   <Building2 className="w-8 h-8 text-teal-400" />
                 </div>
                 <p className="text-sm font-medium text-teal-900 mb-1">No departments created yet</p>
@@ -1723,7 +1723,7 @@ function AddRoomPage({ contextOverride = null }) {
                 {departments.map((dept) => (
                   <div
                     key={dept._id}
-                    className="border border-teal-200 rounded-lg p-3 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 hover:bg-teal-50 hover:border-teal-300 transition-all group"
+                    className="border border-gray-200 rounded-lg p-3 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 hover:bg-gray-50 hover:border-gray-300 transition-all group"
                   >
                     <div className="flex-1 min-w-0">
                       {editingDeptId === dept._id ? (
@@ -1732,14 +1732,14 @@ function AddRoomPage({ contextOverride = null }) {
                             type="text"
                             value={editingDeptName}
                             onChange={(e) => setEditingDeptName(e.target.value)}
-                            className="flex-1 border border-teal-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                             autoFocus
                           />
                           <div className="flex gap-2">
                             <button
                               onClick={handleDepartmentUpdate}
                               disabled={deptUpdateLoading}
-                              className="flex-1 sm:flex-none px-3 py-2 bg-teal-900 text-white text-sm rounded-lg hover:bg-teal-800 disabled:opacity-60 transition-colors"
+                              className="flex-1 sm:flex-none px-3 py-2 bg-gray-900 text-white text-sm rounded-lg hover:bg-gray-800 disabled:opacity-60 transition-colors"
                             >
                               {deptUpdateLoading ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : "Save"}
                             </button>
@@ -1748,7 +1748,7 @@ function AddRoomPage({ contextOverride = null }) {
                                 setEditingDeptId(null);
                                 setEditingDeptName("");
                               }}
-                              className="flex-1 sm:flex-none px-3 py-2 bg-teal-100 text-teal-700 text-sm rounded-lg hover:bg-teal-200 transition-colors"
+                              className="flex-1 sm:flex-none px-3 py-2 bg-gray-100 text-teal-700 text-sm rounded-lg hover:bg-gray-200 transition-colors"
                             >
                               Cancel
                             </button>
@@ -1779,7 +1779,7 @@ function AddRoomPage({ contextOverride = null }) {
                               setEditingDeptId(dept._id);
                               setEditingDeptName(dept.name);
                             }}
-                            className="p-2 text-teal-600 hover:bg-teal-100 rounded-lg transition-colors"
+                            className="p-2 text-teal-600 hover:bg-gray-100 rounded-lg transition-colors"
                             title="Edit department"
                           >
                             <Edit2 className="w-4 h-4" />
@@ -1805,7 +1805,7 @@ function AddRoomPage({ contextOverride = null }) {
 
           {/* Packages List - Only show when viewMode is "package" */}
           {viewMode === "package" && (
-            <div className="bg-white rounded-lg border border-teal-200 shadow-sm p-4">
+            <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
               <div className="flex items-center gap-2 mb-4">
                 <Package className="w-5 h-5 text-teal-700" />
                 <h2 className="text-lg sm:text-xl font-bold text-teal-900">All Packages</h2>
@@ -1821,7 +1821,7 @@ function AddRoomPage({ contextOverride = null }) {
               </div>
             ) : packages.length === 0 ? (
               <div className="text-center py-12">
-                <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-teal-100 flex items-center justify-center">
+                <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-gray-100 flex items-center justify-center">
                   <Package className="w-8 h-8 text-teal-400" />
                 </div>
                 <p className="text-sm font-medium text-teal-900 mb-1">No packages created yet</p>
@@ -1832,7 +1832,7 @@ function AddRoomPage({ contextOverride = null }) {
                 {packages.map((pkg) => (
                   <div
                     key={pkg._id}
-                    className="border border-teal-200 rounded-lg p-3 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 hover:bg-teal-50 hover:border-teal-300 transition-all group"
+                    className="border border-gray-200 rounded-lg p-3 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 hover:bg-gray-50 hover:border-gray-300 transition-all group"
                   >
                     <div className="flex-1 min-w-0">
                       {editingPackageId === pkg._id ? (
@@ -1843,7 +1843,7 @@ function AddRoomPage({ contextOverride = null }) {
                               value={editingPackageName}
                               onChange={(e) => setEditingPackageName(e.target.value)}
                               placeholder="Package Name"
-                              className="flex-1 border border-teal-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                              className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                               autoFocus
                             />
                             <input
@@ -1854,7 +1854,7 @@ function AddRoomPage({ contextOverride = null }) {
                               onChange={() => {}}
                               placeholder="Total Price"
                               disabled
-                              className="w-full sm:w-32 bg-gray-100 border border-teal-300 rounded-lg px-3 py-2 text-sm cursor-not-allowed"
+                              className="w-full sm:w-32 bg-gray-100 border border-gray-300 rounded-lg px-3 py-2 text-sm cursor-not-allowed"
                             />
                           </div>
                           {/* Treatment Selection for Edit */}
@@ -1871,22 +1871,22 @@ function AddRoomPage({ contextOverride = null }) {
                                     type="button"
                                     onClick={() => {}}
                                     disabled
-                                    className="w-full flex items-center justify-between px-4 py-2.5 bg-white border border-teal-300 rounded-lg text-sm text-teal-700 hover:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                                    className="w-full flex items-center justify-between px-4 py-2.5 bg-white border border-gray-300 rounded-lg text-sm text-teal-700 hover:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
                                   >
                                     <span className="text-teal-500">Select a treatment to add...</span>
                                     <ChevronDown className={`w-4 h-4 text-teal-400 transition-transform ${treatmentDropdownOpen ? 'rotate-180' : ''}`} />
                                   </button>
                                   {false && (
-                                    <div className="absolute z-10 w-full mt-1 bg-white border border-teal-300 rounded-lg shadow-lg max-h-60 overflow-hidden flex flex-col">
+                                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-hidden flex flex-col">
                                       {/* Search Input */}
-                                      <div className="p-2 border-b border-teal-200 sticky top-0 bg-white">
+                                      <div className="p-2 border-b border-gray-200 sticky top-0 bg-white">
                                           <input
                                           type="text"
                                           placeholder="Search treatments..."
                                           value={treatmentSearchQuery}
                                             onChange={() => {}}
                                             onClick={() => {}}
-                                          className="w-full px-3 py-2 text-sm border border-teal-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                           autoFocus
                                         />
                                       </div>
@@ -1932,7 +1932,7 @@ function AddRoomPage({ contextOverride = null }) {
                                                     className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${
                                                       isSelected
                                                         ? "bg-blue-50 text-blue-700 font-medium"
-                                                        : "text-teal-700 hover:bg-teal-50"
+                                                        : "text-teal-700 hover:bg-gray-50"
                                                     }`}
                                                   >
                                                     <div className="flex items-center justify-between">
@@ -2017,7 +2017,7 @@ function AddRoomPage({ contextOverride = null }) {
                             <button
                               onClick={handlePackageUpdate}
                               disabled={packageUpdateLoading}
-                              className="flex-1 sm:flex-none px-3 py-2 bg-teal-900 text-white text-sm rounded-lg hover:bg-teal-800 disabled:opacity-60 transition-colors"
+                              className="flex-1 sm:flex-none px-3 py-2 bg-gray-900 text-white text-sm rounded-lg hover:bg-gray-800 disabled:opacity-60 transition-colors"
                             >
                               {packageUpdateLoading ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : "Save"}
                             </button>
@@ -2028,7 +2028,7 @@ function AddRoomPage({ contextOverride = null }) {
                                 setEditingPackagePrice("");
                                 setSelectedTreatments([]);
                               }}
-                              className="flex-1 sm:flex-none px-3 py-2 bg-teal-100 text-teal-700 text-sm rounded-lg hover:bg-teal-200 transition-colors"
+                              className="flex-1 sm:flex-none px-3 py-2 bg-gray-100 text-teal-700 text-sm rounded-lg hover:bg-gray-200 transition-colors"
                             >
                               Cancel
                             </button>
@@ -2070,7 +2070,7 @@ function AddRoomPage({ contextOverride = null }) {
                                   </span>
                                 ))}
                                 {pkg.treatments.length > 3 && (
-                                  <span className="text-xs px-2 py-0.5 bg-teal-100 text-teal-600 rounded">
+                                  <span className="text-xs px-2 py-0.5 bg-gray-100 text-teal-600 rounded">
                                     +{pkg.treatments.length - 3} more
                                   </span>
                                 )}
@@ -2101,7 +2101,7 @@ function AddRoomPage({ contextOverride = null }) {
                                 setSelectedTreatments([]);
                               }
                             }}
-                            className="p-2 text-teal-600 hover:bg-teal-100 rounded-lg transition-colors"
+                            className="p-2 text-teal-600 hover:bg-gray-100 rounded-lg transition-colors"
                             title="Edit package"
                           >
                             <Edit2 className="w-4 h-4" />
@@ -2181,7 +2181,7 @@ function AddRoomPage({ contextOverride = null }) {
                   setConfirmModal({ ...confirmModal, isOpen: false });
                   toast("Deletion cancelled", { duration: 2000, icon: "ℹ️" });
                 }}
-                className="flex-1 px-3 sm:px-4 py-2 border border-teal-300 rounded-lg text-sm font-medium text-teal-700 hover:bg-teal-50 focus:outline-none focus:ring-2 focus:ring-teal-900 transition-colors"
+                className="flex-1 px-3 sm:px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-teal-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-teal-900 transition-colors"
               >
                 Cancel
               </button>

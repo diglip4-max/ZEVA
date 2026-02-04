@@ -391,11 +391,11 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
         </div>
       )}
       
-      <div className={hideHeader ? "p-3 sm:p-4 md:p-6" : "min-h-screen bg-gray-50 p-3 sm:p-4 md:p-6"}>
-        <div className="max-w-7xl mx-auto space-y-3">
+      <div className={hideHeader ? "p-2 sm:p-3" : "min-h-screen bg-gray-50 p-2 sm:p-3"}>
+        <div className="max-w-6xl mx-auto space-y-1">
           {/* Header Section */}
           {!hideHeader && (
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
+            <div className="bg-white rounded-lg mt-3 shadow-sm border border-gray-200 p-3">
               <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2.5">
                 <div>
                   <h1 className="text-xl font-semibold text-gray-900 mb-0.5">Patient Management</h1>
@@ -406,7 +406,7 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
           )}
           
           {/* Simple Search Bar */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 -mt-1">
             <div className="flex flex-col sm:flex-row gap-2">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
@@ -429,8 +429,8 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
           </div>
 
           {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
+          <div className="grid grid-cols-1  md:grid-cols-2 gap-3">
+            <div className="bg-white rounded-lg mt-3 shadow-sm border border-gray-200 p-3">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-[11px] font-medium text-gray-700 mb-0.5">Total Patients</p>
@@ -442,7 +442,7 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
               </div>
             </div>
 
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
+            <div className="bg-white mt-3 rounded-lg shadow-sm border border-gray-200 p-3">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-[11px] font-medium text-gray-700 mb-0.5">Active Patients</p>
@@ -456,8 +456,8 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
           </div>
 
           {/* Patients Table */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-            <div className="px-4 py-3 border-b border-gray-200 bg-gray-50">
+          <div className="bg-white rounded-lg shadow-sm border mt-3 border-gray-200 overflow-hidden">
+            <div className="px-4 py-3 border-b border-gray-200  bg-gray-50">
               <div className="flex items-center gap-3">
                 <Package className="h-4 w-4 text-gray-700" />
                 <h2 className="text-base font-semibold text-gray-900">All Patients</h2>

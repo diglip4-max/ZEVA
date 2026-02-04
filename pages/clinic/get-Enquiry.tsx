@@ -20,6 +20,7 @@ import type { NextPageWithLayout } from "../_app";
 import withClinicAuth from "../../components/withClinicAuth";
 import { useAgentPermissions } from '../../hooks/useAgentPermissions';
 import { Toaster} from 'react-hot-toast';
+import Loader from '../../components/Loader';
 
 interface Enquiry {
   _id: string;
@@ -430,20 +431,13 @@ function ClinicEnquiries({ contextOverride = null }: { contextOverride?: "clinic
 
 
   if (loading || !permissionsLoaded || (isAgentRoute && agentPermissionsLoading)) {
-    return (
-      <div className="min-h-screen bg-teal-50 dark:bg-teal-900 flex items-center justify-center p-4">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-10 w-10 border-3 border-teal-200 dark:border-teal-700 border-t-teal-800 dark:border-t-teal-500 mx-auto mb-3"></div>
-          <p className="text-teal-700 dark:text-teal-300 font-medium text-sm">Loading enquiries...</p>
-        </div>
-      </div>
-    );
+    return <Loader />;
   }
 
   // Show access denied message if no permission
   if (permissionsLoaded && !permissions.canRead) {
     return (
-      <div className="min-h-screen bg-teal-50 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-lg shadow-lg border border-red-200 p-8 text-center max-w-md">
           <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <MessageSquare className="w-8 h-8 text-red-600" />
@@ -461,7 +455,7 @@ function ClinicEnquiries({ contextOverride = null }: { contextOverride?: "clinic
   }
 
   return (
-    <div className="min-h-screen bg-teal-50 dark:bg-teal-900 p-4 sm:p-6">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 sm:p-6">
       <Toaster
         position="top-right"
         toastOptions={{

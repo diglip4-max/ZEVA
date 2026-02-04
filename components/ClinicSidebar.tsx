@@ -619,7 +619,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
         <button
           onClick={handleToggleDesktop}
           className={clsx(
-            "fixed top-4 left-4 z-[60] bg-white text-teal-700 p-2.5 rounded-lg shadow-md transition-all duration-200 border border-teal-200 hover:bg-teal-50 hover:border-teal-300 hidden lg:block",
+            "fixed top-4 left-4 z-[60] bg-white text-teal-700 p-2.5 rounded-lg shadow-md transition-all duration-200 border border-gray-200 hover:bg-teal-50 hover:border-gray-300 hidden lg:block",
             {
               "lg:block": isDesktopHidden,
               "lg:hidden": !isDesktopHidden,
@@ -635,7 +635,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
       {isDesktopHidden && (
         <button
           onClick={handleToggleDesktop}
-          className="fixed top-3 left-3 z-[100] bg-white text-teal-700 p-1.5 rounded-lg shadow-md transition-all duration-200 border border-teal-200 hover:bg-teal-50 hover:border-teal-300 hover:shadow-lg hidden lg:flex items-center justify-center"
+          className="fixed top-3 left-3 z-[100] bg-white text-teal-700 p-1.5 rounded-lg shadow-md transition-all duration-200 border border-gray-200 hover:bg-teal-50 hover:border-gray-300 hover:shadow-lg hidden lg:flex items-center justify-center"
           aria-label="Toggle desktop sidebar"
         >
           <Menu className="w-4 h-4" />
@@ -645,7 +645,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
       {/* Mobile Sidebar */}
       <aside
         className={clsx(
-          "fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-teal-200 transform transition-transform duration-300 ease-in-out lg:hidden",
+          "fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-gray-200 transform transition-transform duration-300 ease-in-out lg:hidden",
           {
             "translate-x-0": isMobileOpen,
             "-translate-x-full": !isMobileOpen,
@@ -656,9 +656,9 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
       >
         <div className="flex flex-col h-full">
           {/* Mobile Header Section */}
-          <div className="p-4 border-b border-teal-200 flex-shrink-0 relative">
+          <div className="p-4 border-b border-gray-200 flex-shrink-0 relative">
             <div className="group cursor-pointer">
-              <div className="flex items-center gap-3 p-3 rounded-lg bg-gray-50 group-hover:bg-teal-50 transition-all duration-200 border border-teal-200">
+              <div className="flex items-center gap-3 p-3 rounded-lg bg-gray-50 group-hover:bg-teal-50 transition-all duration-200 border border-gray-200">
                 <div className="w-10 h-10 bg-teal-600 rounded-lg flex items-center justify-center">
                   <span className="text-white font-bold text-lg">Z</span>
                 </div>
@@ -764,7 +764,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                         />
                       </button>
                       {isDropdownOpen && (
-                        <div className="ml-4 space-y-1 border-l-2 border-teal-200 pl-2">
+                        <div className="ml-4 space-y-1 border-l-2 border-gray-200 pl-2">
                           {item.children.map((child, childIdx) => {
                             const isChildActive = router.pathname === child.path;
                             return child.path ? (
@@ -860,7 +860,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
       {/* Desktop Sidebar */}
       <aside
         className={clsx(
-          "transition-all duration-300 ease-in-out bg-gray-50 border-r border-teal-200 flex-col min-h-screen w-64 hidden lg:flex",
+          "transition-all duration-300 ease-in-out bg-gray-50 border-r border-gray-200 flex-col min-h-screen w-64 hidden lg:flex",
           {
             "lg:flex": !isDesktopHidden,
             "lg:hidden": isDesktopHidden,
@@ -871,9 +871,9 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
       >
         <div className="flex flex-col h-full">
           {/* Desktop Header Section */}
-          <div className="p-4 border-b border-teal-200 flex-shrink-0 relative">
+          <div className="p-4 border-b border-gray-200 flex-shrink-0 relative">
             <div className="group cursor-pointer">
-              <div className="flex items-center gap-3 p-3 rounded-lg bg-white group-hover:bg-teal-50 transition-all duration-200 border border-teal-200">
+              <div className="flex items-center gap-3 p-3 rounded-lg bg-white group-hover:bg-teal-50 transition-all duration-200 border border-gray-200">
                 <div className="w-10 h-10 bg-teal-600 rounded-lg flex items-center justify-center">
                   <span className="text-white font-bold text-lg">Z</span>
                 </div>

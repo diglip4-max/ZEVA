@@ -2089,7 +2089,7 @@ function ModernBlogForm() {
 
   return (
 
-    <div className="min-h-screen bg-gradient-to-br from-cyan-50 via-white to-teal-50">
+    <div className="min-h-screen bg-gray-50">
       <style jsx global>{`
         /* Post Preview modal content: keep embedded media compact */
         .post-preview-content img,
