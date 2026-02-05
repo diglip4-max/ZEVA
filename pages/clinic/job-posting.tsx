@@ -11,6 +11,7 @@ import axios from 'axios';
 import { PlusCircle } from 'lucide-react';
 import { Toaster } from 'react-hot-toast';
 import { useAgentPermissions } from "../../hooks/useAgentPermissions";
+import Loader from '../../components/Loader';
 
 type TabType = 'jobs' | 'applicants';
 type RouteContext = "clinic" | "agent";
@@ -289,17 +290,13 @@ function ClinicJobPostingPage({ contextOverride = null }: { contextOverride?: Ro
   };
 
   if (!permissionsLoaded) {
-    return (
-      <div className="min-h-screen bg-teal-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-teal-800"></div>
-      </div>
-    );
+    return <Loader />;
   }
 
   // Show access denied message if no read or create permission
   if (!permissions.canRead && !permissions.canCreate) {
     return (
-      <div className="min-h-screen bg-teal-50 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-lg shadow-lg border border-red-200 p-8 text-center max-w-md">
           <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <PlusCircle className="w-8 h-8 text-red-600" />
@@ -360,7 +357,7 @@ function ClinicJobPostingPage({ contextOverride = null }: { contextOverride?: Ro
           }}
         />
       </Head>
-      <div className="min-h-screen bg-teal-50 p-3 sm:p-4">
+      <div className="min-h-screen bg-gray-50 p-3 sm:p-4">
       <Toaster
         position="top-right"
         toastOptions={{
@@ -395,7 +392,7 @@ function ClinicJobPostingPage({ contextOverride = null }: { contextOverride?: Ro
         }}
       />
       {/* Compact Header */}
-      <div className="bg-white rounded-lg shadow-sm border border-teal-200 mb-3">
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-3">
         <div className="max-w-7xl mx-auto px-3 sm:px-4 py-3">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
@@ -407,7 +404,7 @@ function ClinicJobPostingPage({ contextOverride = null }: { contextOverride?: Ro
               return permissions.canCreate && (
                 <button
                   onClick={handleCreateJobClick}
-                  className="inline-flex items-center justify-center gap-1.5 bg-teal-800 hover:bg-teal-900 text-white px-3 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs sm:text-sm font-medium"
+                  className="inline-flex items-center justify-center gap-1.5 bg-teal-600 hover:bg-teal-700 text-white px-3 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs sm:text-sm font-medium"
                 >
                   <PlusCircle className="h-4 w-4" />
                   <span>Create New Job</span>
@@ -420,12 +417,12 @@ function ClinicJobPostingPage({ contextOverride = null }: { contextOverride?: Ro
 
       {/* Compact Tabs */}
       <div className="max-w-7xl mx-auto">
-        <div className="bg-white rounded-lg border mt-1  border-teal-200 p-2 mb-1 inline-flex">
+        <div className="bg-white rounded-lg border mt-1  border-gray-200 p-2 mb-1 inline-flex">
           <button
             onClick={() => setActiveTab('jobs')}
             className={`px-2 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors ${
               activeTab === 'jobs'
-                ? 'bg-teal-800 text-white'
+                ? 'bg-teal-600 text-white'
                 : 'text-teal-700 hover:text-teal-900 hover:bg-teal-50'
             }`}
           >
@@ -447,7 +444,7 @@ function ClinicJobPostingPage({ contextOverride = null }: { contextOverride?: Ro
         <div className="mt-1">
           {activeTab === 'jobs' ? (
             !permissions.canRead ? (
-              <div className="bg-white rounded-lg shadow-sm border border-teal-200 p-6 sm:p-8 text-center">
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 sm:p-8 text-center">
                 {permissions.canCreate ? (
                   <>
                     <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center mx-auto mb-3">
@@ -498,7 +495,7 @@ function ClinicJobPostingPage({ contextOverride = null }: { contextOverride?: Ro
             )
           ) : (
             !permissions.canReadApplicants ? (
-              <div className="bg-white rounded-lg shadow-sm border border-teal-200 p-6 sm:p-8 text-center">
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 sm:p-8 text-center">
                 {permissions.canCreate ? (
                   <>
                     <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center mx-auto mb-3">

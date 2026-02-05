@@ -37,7 +37,10 @@ interface Treatment {
 interface Package {
   _id: string;
   name: string;
-  price: number;
+  price?: number;
+  totalPrice: number;
+  totalSessions: number;
+  sessionPrice: number;
   treatments: Array<{
     treatmentName: string;
     treatmentSlug: string;
@@ -233,10 +236,18 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       setTotalPrice(total);
       setFormData((prev) => ({ ...prev, amount: total.toFixed(2) }));
     } else if (selectedPackage) {
-      setTotalPrice(selectedPackage.price);
-      setFormData((prev) => ({ ...prev, amount: selectedPackage.price.toFixed(2) }));
+      const selectedSessions = packageTreatmentSessions
+        .filter((t) => t.isSelected)
+        .reduce((sum, t) => sum + (t.usedSessions || 0), 0);
+      const pkgSessionPrice = Number(selectedPackage.sessionPrice || selectedPackage.price || 0);
+      const computedTotal = Number((pkgSessionPrice * selectedSessions).toFixed(2));
+      setTotalPrice(computedTotal);
+      setFormData((prev) => ({ ...prev, amount: computedTotal.toFixed(2) }));
+    } else {
+      setTotalPrice(0);
+      setFormData((prev) => ({ ...prev, amount: "0.00" }));
     }
-  }, [selectedTreatments, selectedPackage, selectedService]);
+  }, [selectedTreatments, selectedPackage, selectedService, packageTreatmentSessions]);
 
   // Auto-calculate advance and pending based on amount and paid
   useEffect(() => {
@@ -384,20 +395,34 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       }
 
       // Validate required fields
-      if (!formData.firstName || !formData.mobileNumber || !formData.doctor) {
-        setErrors({ general: "Please fill all required fields" });
+      const fieldErrors: Record<string, string> = {};
+      if (!formData.invoiceNumber) fieldErrors.invoiceNumber = "Required";
+      if (!formData.firstName) fieldErrors.firstName = "Required";
+      if (!formData.mobileNumber) fieldErrors.mobileNumber = "Required";
+      if (!formData.doctor) fieldErrors.doctor = "Required";
+      if (Object.keys(fieldErrors).length > 0) {
+        const missingList = Object.keys(fieldErrors)
+          .map((k) => {
+            if (k === "invoiceNumber") return "Invoice Number";
+            if (k === "firstName") return "Name";
+            if (k === "mobileNumber") return "Mobile";
+            if (k === "doctor") return "Doctor";
+            return k;
+          })
+          .join(", ");
+        setErrors({ general: `Please fill all required fields: ${missingList}`, ...fieldErrors });
         setLoading(false);
         return;
       }
 
       if (selectedService === "Treatment" && selectedTreatments.length === 0) {
-        setErrors({ general: "Please select at least one treatment" });
+        setErrors({ general: "Please select at least one treatment", treatment: "Select at least one treatment" });
         setLoading(false);
         return;
       }
 
       if (selectedService === "Package" && !selectedPackage) {
-        setErrors({ general: "Please select a package" });
+        setErrors({ general: "Please select a package", package: "Select a package" });
         setLoading(false);
         return;
       }
@@ -406,7 +431,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
         // Check if at least one treatment is selected
         const hasSelectedTreatment = packageTreatmentSessions.some((t) => t.isSelected);
         if (!hasSelectedTreatment) {
-          setErrors({ general: "Please select at least one treatment from the package" });
+          setErrors({ general: "Please select at least one treatment from the package", packageTreatments: "Select at least one treatment" });
           setLoading(false);
           return;
         }
@@ -415,7 +440,11 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
           (t) => t.isSelected && (t.usedSessions < 1 || t.usedSessions > t.maxSessions)
         );
         if (invalidSessions.length > 0) {
-          setErrors({ general: "Please enter valid sessions for selected treatments" });
+          const sessionErrors: Record<string, string> = {};
+          invalidSessions.forEach((t) => {
+            sessionErrors[`packageSession_${t.treatmentSlug}`] = `Enter 1–${t.maxSessions}`;
+          });
+          setErrors({ general: "Please enter valid sessions for selected treatments", ...sessionErrors });
           setLoading(false);
           return;
         }
@@ -436,9 +465,10 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
         lastName: formData.lastName,
         email: formData.email,
         mobileNumber: formData.mobileNumber,
-        gender: formData.gender,
+        gender: formData.gender || "Unknown",
         doctor: appointment.doctorName,
         service: selectedService,
+        referredBy: formData.referredBy,
         amount: parseFloat(formData.amount) || 0,
         paid: parseFloat(formData.paid) || 0,
         pending: parseFloat(formData.pending || "0") || 0,
@@ -628,6 +658,13 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
               <span><span className="text-gray-600 dark:text-gray-600 font-medium">Gender:</span> <span className="font-semibold text-gray-900 dark:text-gray-900">{formData.gender || appointment?.gender || "-"}</span></span> |
               <span><span className="text-gray-600 dark:text-gray-600 font-medium">EMR:</span> <span className="font-semibold text-gray-900 dark:text-gray-900">{formData.emrNumber || appointment?.emrNumber || "-"}</span></span>
             </div>
+            {(errors.firstName || errors.mobileNumber || errors.gender) && (
+              <div className="mt-1 text-[10px] text-red-600 dark:text-red-700">
+                {errors.firstName && <span className="mr-2">Name is required</span>}
+                {errors.mobileNumber && <span className="mr-2">Mobile is required</span>}
+                {errors.gender && <span className="mr-2">Gender is required</span>}
+              </div>
+            )}
           </div>
 
           {/* Service Selection - Inline */}
@@ -663,6 +700,12 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                 <span className="text-[11px] sm:text-xs font-medium text-gray-700 dark:text-gray-800 group-hover:text-gray-900 transition-colors">Package</span>
               </label>
             </div>
+            {(errors.treatment || errors.package) && (
+              <div className="mt-1 text-[10px] text-red-600 dark:text-red-700">
+                {errors.treatment && <span className="mr-2">{errors.treatment}</span>}
+                {errors.package && <span className="mr-2">{errors.package}</span>}
+              </div>
+            )}
           </div>
 
           {/* Treatment Selection */}
@@ -840,7 +883,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                                 }}
                                 className="w-full text-left px-2 py-1 rounded text-[11px] sm:text-xs text-gray-700 hover:bg-gray-50 transition-colors"
                               >
-                                {pkg.name} - {pkg.price}
+                                {pkg.name} - {Number(pkg.totalPrice).toFixed(2)}
                               </button>
                             ))}
                           </div>
@@ -900,6 +943,9 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                       </div>
                     ))}
                   </div>
+                  {errors.packageTreatments && (
+                    <div className="mt-1 text-[10px] text-red-600">{errors.packageTreatments}</div>
+                  )}
                   <div className="mt-1.5 text-xs text-gray-500 text-center bg-gray-100 px-2 py-1 rounded">
                     Selected: {packageTreatmentSessions.filter((t) => t.isSelected).length}/{packageTreatmentSessions.length} | 
                     Sessions: {packageTreatmentSessions.filter((t) => t.isSelected).reduce((sum, t) => sum + t.usedSessions, 0)}

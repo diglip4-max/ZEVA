@@ -8,6 +8,7 @@ import ClinicLayout from '../../components/ClinicLayout';
 import withClinicAuth from '../../components/withClinicAuth';
 import type { NextPageWithLayout } from '../_app';
 import { useAgentPermissions } from '../../hooks/useAgentPermissions';
+import Loader from '../../components/Loader';
 import { 
   AreaChart, 
   Area, 
@@ -552,20 +553,13 @@ function ClinicReviews() {
 
   // Show loading state
   if (loading || !permissionsLoaded || (isAgentRoute && agentPermissionsLoading)) {
-    return (
-      <div className="w-full p-4 flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="w-8 h-8 border-3 border-teal-200 rounded-full animate-spin mx-auto" style={{ borderTopColor: '#3b82f6' }}></div>
-          <p className="text-teal-600 mt-3 text-sm animate-pulse">Loading reviews...</p>
-        </div>
-      </div>
-    );
+    return <Loader />;
   }
 
   // Show full-page access denied message when read permission is false
   if (permissionsLoaded && !permissions.canRead) {
     return (
-      <div className="min-h-screen bg-teal-50 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-lg shadow-lg border border-red-200 p-8 text-center max-w-md">
           <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <MessageSquare className="w-8 h-8 text-red-600" />
@@ -583,7 +577,7 @@ function ClinicReviews() {
   }
 
   return (
-    <div className="w-full max-w-full space-y-3 overflow-x-auto bg-teal-50 min-h-screen p-3 sm:p-4">
+    <div className="w-full max-w-full space-y-3 overflow-x-auto bg-gray-50 min-h-screen p-3 sm:p-4">
       {/* Compact Header */}
       <div className="bg-white rounded-lg shadow-sm border border-teal-200 p-3 sm:p-4">
         <div className="flex items-center justify-between">

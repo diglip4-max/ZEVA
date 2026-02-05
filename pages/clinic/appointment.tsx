@@ -6,6 +6,7 @@ import withClinicAuth from "../../components/withClinicAuth";
 import ClinicLayout from "../../components/ClinicLayout";
 import type { NextPageWithLayout } from "../_app";
 import { Loader2, Calendar, Clock, X, Upload } from "lucide-react";
+import Loader from "../../components/Loader";
 import AppointmentBookingModal from "../../components/AppointmentBookingModal";
 import ImportAppointmentsModal from "../../components/ImportAppointmentsModal";
 import EditAppointmentModal from "../../components/EditAppointmentModal";
@@ -2145,14 +2146,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
   };
 
   if (loading || !permissionsLoaded) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="flex flex-col items-center gap-3">
-          <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-          <p className="text-gray-700">Loading appointment schedule...</p>
-        </div>
-      </div>
-    );
+    return <Loader />;
   }
 
   // Show access denied message if no permission
@@ -2208,14 +2202,14 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
       case "rejected":
         return { bg: "bg-rose-500", text: "text-white", border: "border-rose-600" };
       case "completed":
-        return { bg: "bg-teal-500", text: "text-white", border: "border-teal-600" };
+        return { bg: "bg-gray-500", text: "text-white", border: "border-teal-600" };
       default:
         return { bg: "bg-gray-500", text: "text-white", border: "border-gray-600" };
     }
   };
 
   return (
-    <div className="p-1 sm:p-2 md:p-3 space-y-2 sm:space-y-3">
+    <div className="min-h-screen bg-gray-50 p-1 sm:p-2 md:p-3 space-y-2 sm:space-y-3">
       <Toaster
         position="top-right"
         toastOptions={{
@@ -2252,7 +2246,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
       <div className="bg-white dark:bg-gray-50 rounded-lg border border-gray-200 dark:border-gray-200 shadow-sm p-1.5 sm:p-2">
         {doctorStaff.length === 0 && rooms.length === 0 ? (
           <div className="flex flex-col items-center justify-center min-h-[60vh] py-12">
-            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-full p-6 mb-6">
+            <div className="bg-gradient-to-br from-gray-50 to-gray-50 dark:from-gray-900/20 dark:to-indigo-900/20 rounded-full p-6 mb-6">
               <div className="w-20 h-20 mx-auto flex items-center justify-center bg-white dark:bg-gray-800 rounded-full shadow-lg">
                 <Calendar className="w-10 h-10 text-blue-600 dark:text-blue-400" />
               </div>
@@ -2316,7 +2310,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                         }
                         toast.success("Switched to today", { duration: 2000 });
                       }}
-                      className="px-2 py-1 rounded border border-gray-900 dark:border-gray-300 bg-gray-900 dark:bg-gray-200 text-xs font-medium text-white dark:text-gray-900 hover:bg-gray-800 dark:hover:bg-gray-300 transition-colors"
+                      className="px-2 py-1 rounded border border-gray-900 dark:border-gray-300 bg-teal-600 dark:bg-teal-600 text-xs font-medium text-white dark:text-gray-900 hover:bg-teal-700 dark:hover:bg-gray-300 transition-colors"
                       type="button"
                     >
                       Today
@@ -2740,7 +2734,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                   <div key={slot.time} className="flex hover:bg-gray-50/50 dark:hover:bg-gray-100/50 transition-colors min-w-max">
                     {/* Time column */}
                     <div
-                      className="w-16 sm:w-18 flex-shrink-0 border-r border-gray-200 dark:border-gray-300 border-b border-gray-100 dark:border-gray-300 p-1 bg-white dark:bg-gray-50 relative sticky left-0 z-[60] after:content-[''] after:absolute after:top-0 after:bottom-0 after:right-[-2px] after:w-[2px] after:bg-white dark:after:bg-gray-50 after:pointer-events-none"
+                      className="w-16 sm:w-18 flex-shrink-0 border-r border-gray-200 dark:border-gray-300 border-b border-gray-100 dark:border-gray-300 p-1 bg-white dark:bg-gray-50 relative sticky left-0 z-[15] after:content-[''] after:absolute after:top-0 after:bottom-0 after:right-[-2px] after:w-[2px] after:bg-white dark:after:bg-gray-50 after:pointer-events-none"
                       style={{ height: ROW_HEIGHT_PX }}
                     >
                       <p className="text-[8px] sm:text-[9px] font-semibold text-gray-900 dark:text-gray-900">{slot.displayTime}</p>

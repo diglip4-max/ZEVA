@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState, useRef, ReactNode } from "react";
+import Loader from "../../components/Loader";
 import axios from "axios";
 import withClinicAuth from "../../components/withClinicAuth";
 import type { NextPageWithLayout } from "../_app";
@@ -98,14 +99,7 @@ interface ClinicStats {
   totalSubTreatments: number;
 }
 
-const LoadingSpinner = () => (
-  <div className="w-full p-4 flex items-center justify-center min-h-screen">
-  <div className="text-center">
-    <div className="w-8 h-8 border-3 border-teal-200 rounded-full animate-spin mx-auto" style={{ borderTopColor: '#3b82f6' }}></div>
-    <p className="text-teal-600 mt-3 text-sm animate-pulse">Loading Clinic Profile...</p>
-  </div>
-  </div>
-);
+ 
 
 // Lightweight inline placeholder to avoid 404 loops
 const PLACEHOLDER_DATA_URI = "";
@@ -123,7 +117,7 @@ const Header = ({
   canUpdate: boolean;
   clinicName?: string;
 }) => (
-  <div className="bg-white rounded-lg p-4 border border-teal-200 shadow-sm">
+  <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
       <div className="flex-1">
         <div className="flex items-center gap-2 mb-2">
@@ -139,7 +133,7 @@ const Header = ({
       {hasClinic && !isEditing && canUpdate && (
         <button
           onClick={onEditClick}
-          className="flex items-center gap-2 px-3 py-2 bg-teal-800 text-white rounded-lg hover:bg-teal-900 transition-colors font-medium shadow-sm hover:shadow-md text-sm"
+          className="flex items-center gap-2 px-3 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors font-medium shadow-sm hover:shadow-md text-sm"
         >
           <Edit3 className="w-4 h-4" />
           <span>Edit Profile</span>
@@ -176,7 +170,7 @@ const FormInput = ({
       <textarea
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full px-4 py-3 border border-teal-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 resize-none placeholder-teal-400 text-teal-700 bg-white transition-all"
+        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 resize-none placeholder-teal-400 text-teal-700 bg-white transition-all"
         rows={rows || 3}
         placeholder={placeholder}
       />
@@ -185,7 +179,7 @@ const FormInput = ({
         type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full px-4 py-3 border border-teal-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 placeholder-teal-400 text-teal-700 bg-white transition-all"
+        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-gray-500 placeholder-teal-400 text-teal-700 bg-white transition-all"
         placeholder={placeholder}
       />
     )}
@@ -222,7 +216,7 @@ const TagManager = ({
         type="text"
         value={newItem}
         onChange={(e) => setNewItem(e.target.value)}
-        className="flex-1 px-4 py-2.5 border border-teal-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 placeholder-teal-400 text-teal-700 bg-white transition-all"
+        className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-gray-500 placeholder-teal-400 text-teal-700 bg-white transition-all"
         placeholder={`Add ${label.toLowerCase()}`}
         onKeyPress={(e) => e.key === "Enter" && onAdd()}
       />
@@ -237,7 +231,7 @@ const TagManager = ({
       {items?.map((item: string, index: number) => (
         <span
           key={index}
-          className="inline-flex items-center gap-2 px-3 py-1.5 bg-teal-50 text-teal-700 rounded-full text-sm border border-teal-200"
+          className="inline-flex items-center gap-2 px-3 py-1.5 bg-gray-50 text-teal-700 rounded-full text-sm border border-gray-200"
         >
           {item}
           <button
@@ -506,7 +500,7 @@ const TreatmentManager = ({
                   }
                 }
               }}
-              className="w-full px-4 py-3 border border-teal-200 rounded-xl bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-[#2D9AA5] focus:border-[#2D9AA5] text-teal-800 transition-all duration-200 text-sm sm:text-base"
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-[#2D9AA5] focus:border-[#2D9AA5] text-teal-800 transition-all duration-200 text-sm sm:text-base"
               value=""
             >
               <option value="">Select a treatment</option>
@@ -524,7 +518,7 @@ const TreatmentManager = ({
               type="text"
               value={newItem}
               onChange={(e) => setNewItem(e.target.value)}
-              className="flex-1 px-4 py-3 border border-teal-200 rounded-xl bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-[#2D9AA5] focus:border-[#2D9AA5] placeholder-teal-400 text-teal-800 transition-all duration-200 text-sm sm:text-base"
+              className="flex-1 px-4 py-3 border border-gray-200 rounded-xl bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-[#2D9AA5] focus:border-[#2D9AA5] placeholder-teal-400 text-teal-800 transition-all duration-200 text-sm sm:text-base"
               placeholder="Enter custom treatment name"
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
@@ -577,7 +571,7 @@ const TreatmentManager = ({
             return (
               <div
                 key={index}
-                className="bg-white border border-teal-100 rounded-xl p-4 sm:p-5 shadow-sm hover:shadow-md transition-all duration-200"
+                className="bg-white border border-gray-100 rounded-xl p-4 sm:p-5 shadow-sm hover:shadow-md transition-all duration-200"
               >
                 <div className="flex items-start justify-between mb-4 gap-3">
                   <h3 className="font-semibold text-teal-800 text-sm sm:text-base leading-tight">
@@ -607,7 +601,7 @@ const TreatmentManager = ({
 
                   {/* Sub-treatment Input */}
                   {showSubTreatmentInput === index && (
-                    <div className="bg-teal-50 rounded-xl p-4 space-y-3">
+                    <div className="bg-gray-50 rounded-xl p-4 space-y-3">
                       <div className="flex flex-col gap-3 sm:flex-row">
                         <select
                           onChange={(e) => {
@@ -621,7 +615,7 @@ const TreatmentManager = ({
                               );
                             }
                           }}
-                          className="text-black flex-1 px-3 py-2 border border-teal-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#2D9AA5] focus:border-[#2D9AA5] text-sm transition-all duration-200"
+                          className="text-black flex-1 px-3 py-2 border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#2D9AA5] focus:border-[#2D9AA5] text-sm transition-all duration-200"
                           value=""
                         >
                           <option value="">Select sub-treatment</option>
@@ -644,7 +638,7 @@ const TreatmentManager = ({
                             onChange={(e) =>
                               setCustomSubTreatment(e.target.value)
                             }
-                            className="flex-1 px-3 py-2 border border-teal-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#2D9AA5] focus:border-[#2D9AA5] text-sm placeholder-teal-400 transition-all duration-200"
+                            className="flex-1 px-3 py-2 border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#2D9AA5] focus:border-[#2D9AA5] text-sm placeholder-teal-400 transition-all duration-200"
                             placeholder="Custom sub-treatment name"
                             onKeyDown={(e) => {
                               if (e.key === "Enter") {
@@ -660,7 +654,7 @@ const TreatmentManager = ({
                             onChange={(e) => {
                               setCustomSubTreatmentPrice(e.target.value);
                             }}
-                            className="w-32 px-3 py-2 border border-teal-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#2D9AA5] focus:border-[#2D9AA5] text-sm placeholder-teal-400 transition-all duration-200"
+                            className="w-32 px-3 py-2 border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#2D9AA5] focus:border-[#2D9AA5] text-sm placeholder-teal-400 transition-all duration-200"
                             placeholder="Price"
                             onKeyDown={(e) => {
                               if (e.key === "Enter") {
@@ -722,7 +716,7 @@ const TreatmentManager = ({
                                 subTreatments: updatedSubTreatments,
                               });
                             }}
-                            className="w-20 px-2 py-1 border border-teal-300 rounded text-xs ml-2"
+                            className="w-20 px-2 py-1 border border-gray-300 rounded text-xs ml-2"
                             placeholder="Price"
                           />
                           <button
@@ -765,13 +759,13 @@ const ClinicCard = ({ clinic, onEdit, getImagePath, canUpdate, stats, statsLoadi
   ) || 0;
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-teal-200 overflow-hidden">
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
       {/* Profile Header Section with Image in Corner - Compact */}
-      <div className="p-3 sm:p-4 border-b border-teal-200">
+      <div className="p-3 sm:p-4 border-b border-gray-200">
       <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
         {/* Clinic Image - Top Left Corner */}
         <div className="relative flex-shrink-0">
-          <div className="relative w-20 h-20 sm:w-24 sm:h-24 lg:w-28 lg:h-28 rounded-lg overflow-hidden border-2 border-teal-200 shadow-sm bg-teal-50">
+          <div className="relative w-20 h-20 sm:w-24 sm:h-24 lg:w-28 lg:h-28 rounded-lg overflow-hidden border-2 border-gray-200 shadow-sm bg-gray-50">
             {(() => {
               // Get the last photo (most recently uploaded profile picture) instead of first
               const photosArray = clinic.photos || [];
@@ -882,8 +876,8 @@ const ClinicCard = ({ clinic, onEdit, getImagePath, canUpdate, stats, statsLoadi
             label="Enquiries"
             value={stats?.totalEnquiries || 0}
             color="text-teal-600"
-            bgColor="bg-teal-50"
-            borderColor="border-teal-200"
+            bgColor="bg-gray-50"
+            borderColor="border-gray-200"
             loading={statsLoading}
           />
           <StatCard
@@ -927,7 +921,7 @@ const ClinicCard = ({ clinic, onEdit, getImagePath, canUpdate, stats, statsLoadi
 
       {/* Info Cards - Compact */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 mb-3">
-        <div className="flex items-center gap-2 p-2.5 sm:p-3 bg-teal-50 rounded-lg border border-teal-200">
+        <div className="flex items-center gap-2 p-2.5 sm:p-3 bg-gray-50 rounded-lg border border-gray-200">
           <div className="w-8 h-8 bg-teal-800 rounded-lg flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
             د.إ
           </div>
@@ -939,7 +933,7 @@ const ClinicCard = ({ clinic, onEdit, getImagePath, canUpdate, stats, statsLoadi
           </div>
         </div>
        
-        <div className="flex items-center gap-2 p-2.5 sm:p-3 bg-teal-50 rounded-lg border border-teal-200">
+        <div className="flex items-center gap-2 p-2.5 sm:p-3 bg-gray-50 rounded-lg border border-gray-200">
           <div className="w-8 h-8 bg-teal-800 rounded-lg flex items-center justify-center flex-shrink-0">
             <Clock className="w-4 h-4 text-white" />
           </div>
@@ -963,7 +957,7 @@ const ClinicCard = ({ clinic, onEdit, getImagePath, canUpdate, stats, statsLoadi
             {clinic.servicesName.map((service, idx) => (
               <span
                 key={idx}
-                className="px-2 py-1 bg-teal-100 text-teal-700 rounded-md text-[10px] sm:text-xs font-medium border border-teal-200"
+                className="px-2 py-1 bg-teal-100 text-teal-700 rounded-md text-[10px] sm:text-xs font-medium border border-gray-200"
               >
                 {service}
               </span>
@@ -981,7 +975,7 @@ const ClinicCard = ({ clinic, onEdit, getImagePath, canUpdate, stats, statsLoadi
           </h3>
           <div className="space-y-2">
             {clinic.treatments.map((treatment, idx) => (
-              <div key={idx} className="border border-teal-200 rounded-lg p-2.5 bg-teal-50">
+              <div key={idx} className="border border-gray-200 rounded-lg p-2.5 bg-gray-50">
                 <span className="px-2 py-1 bg-teal-800 text-white rounded-md text-[10px] sm:text-xs font-semibold inline-block mb-1.5">
                   {treatment.mainTreatment}
                 </span>
@@ -991,7 +985,7 @@ const ClinicCard = ({ clinic, onEdit, getImagePath, canUpdate, stats, statsLoadi
                       {treatment.subTreatments.map((subTreatment, subIdx) => (
                         <span
                           key={subIdx}
-                          className="px-2 py-1 bg-white text-teal-700 rounded-md text-[10px] sm:text-xs font-medium border border-teal-200"
+                          className="px-2 py-1 bg-white text-teal-700 rounded-md text-[10px] sm:text-xs font-medium border border-gray-200"
                         >
                           {subTreatment.name}
                           {typeof subTreatment.price === "number" &&
@@ -1015,7 +1009,7 @@ const ClinicCard = ({ clinic, onEdit, getImagePath, canUpdate, stats, statsLoadi
       )}
 
       {/* Footer - Compact */}
-      <div className="pt-2 border-t border-teal-200">
+      <div className="pt-2 border-t border-gray-200">
         <div className="flex items-center gap-1.5 text-[10px] sm:text-xs text-teal-600">
           <Calendar className="w-3 h-3" />
           <span className="font-medium">
@@ -1051,7 +1045,7 @@ const StatCard = ({ icon, label, value, color, bgColor, borderColor, loading }: 
     </div>
     {loading ? (
       <div className="flex items-center gap-1.5">
-        <div className="animate-spin rounded-full h-2.5 w-2.5 sm:h-3 sm:w-3 border-b-2 border-teal-800"></div>
+        <div className="animate-spin rounded-full h-2.5 w-2.5 sm:h-3 sm:w-3 border-b-2 border-gray-800"></div>
         <span className="text-[10px] sm:text-xs text-teal-500">Loading...</span>
       </div>
     ) : (
@@ -1883,12 +1877,12 @@ function ClinicManagementDashboard() {
     }
   };
 
-  if (loading) return <LoadingSpinner />;
+  if (loading) return <Loader />;
 
   // Show access denied if read permission is false
   if (permissionsLoaded && !permissions.canRead) {
     return (
-      <div className="min-h-screen bg-teal-50 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-lg shadow-lg border border-red-200 p-8 text-center max-w-md">
           <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <Building2 className="w-8 h-8 text-red-600" />
@@ -1906,7 +1900,7 @@ function ClinicManagementDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-teal-50">
+    <div className="min-h-screen bg-gray-50">
       <Toaster
         position="top-right"
         toastOptions={{
@@ -1945,7 +1939,7 @@ function ClinicManagementDashboard() {
 
         {isEditing ? (
           <div className="max-w-5xl mx-auto">
-            <div className="bg-white rounded-lg shadow-sm border border-teal-200 p-4 sm:p-5">
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-5">
               {/* Header - Compact */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-3">
                 <div className="flex items-center gap-2">
@@ -2073,7 +2067,7 @@ function ClinicManagementDashboard() {
                       <Camera className="w-4 h-4" />
                       Health Center Photos (Multiple)
                     </label>
-                    <div className="relative border-2 border-dashed border-teal-200 rounded-xl p-6 sm:p-8 text-center hover:border-[#2D9AA5]/50 hover:bg-[#2D9AA5]/5 transition-all">
+                    <div className="relative border-2 border-dashed border-gray-200 rounded-xl p-6 sm:p-8 text-center hover:border-[#2D9AA5]/50 hover:bg-[#2D9AA5]/5 transition-all">
                       <input
                         type="file"
                         accept="image/jpeg,image/jpg,image/png"
@@ -2234,14 +2228,14 @@ function ClinicManagementDashboard() {
                              
                               if (!viewingPhoto) {
                                 return (
-                                  <div className="relative w-full max-w-xs h-48 rounded-lg overflow-hidden border border-teal-200 bg-teal-50 flex items-center justify-center">
+                                  <div className="relative w-full max-w-xs h-48 rounded-lg overflow-hidden border border-gray-200 bg-gray-50 flex items-center justify-center">
                                     <Camera className="w-6 h-6 text-teal-400" />
                                   </div>
                                 );
                               }
                               
                               return (
-                                <div className="relative w-full max-w-xs h-48 rounded-lg overflow-hidden border border-teal-200 bg-teal-50">
+                                <div className="relative w-full max-w-xs h-48 rounded-lg overflow-hidden border border-gray-200 bg-gray-50">
                                   <img
                                     src={getImagePath(viewingPhoto)}
                                     alt="Current clinic photo"
@@ -2309,7 +2303,7 @@ function ClinicManagementDashboard() {
               </div>
 
               {/* Action Buttons - Compact */}
-              <div className="flex flex-col sm:flex-row gap-2 pt-4 mt-4 border-t border-teal-200">
+              <div className="flex flex-col sm:flex-row gap-2 pt-4 mt-4 border-t border-gray-200">
                 <button
                   onClick={handleUpdate}
                   disabled={updating}
@@ -2345,7 +2339,7 @@ function ClinicManagementDashboard() {
               // For other roles, check permissions
               if (!permissions.canRead) {
                 return (
-                  <div className="bg-white rounded-lg p-6 sm:p-8 border border-teal-200 shadow-sm">
+                  <div className="bg-white rounded-lg p-6 sm:p-8 border border-gray-200 shadow-sm">
                     <div className="text-center max-w-md mx-auto">
                       <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center mx-auto mb-3">
                         <Building2 className="w-6 h-6 text-red-600" />
@@ -2372,7 +2366,7 @@ function ClinicManagementDashboard() {
                 // Show clinics or empty state
                 if (clinics.length === 0) {
                   return (
-                    <div className="bg-white rounded-lg p-6 sm:p-8 border border-teal-200 shadow-sm">
+                    <div className="bg-white rounded-lg p-6 sm:p-8 border border-gray-200 shadow-sm">
                       <div className="text-center max-w-md mx-auto">
                         <div className="w-12 h-12 bg-teal-100 rounded-lg flex items-center justify-center mx-auto mb-3">
                           <Building2 className="w-6 h-6 text-teal-800" />
@@ -2412,7 +2406,7 @@ function ClinicManagementDashboard() {
 
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
                           {/* Bar Chart - Reviews vs Enquiries */}
-                          <div className="bg-teal-50 rounded-lg p-3 border border-teal-200">
+                          <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
                             <h3 className="text-xs font-semibold text-teal-700 mb-2">Reviews & Enquiries</h3>
                             <ResponsiveContainer width="100%" height={180}>
                               <BarChart data={[
@@ -2439,7 +2433,7 @@ function ClinicManagementDashboard() {
                           </div>
 
                           {/* Column Chart - Services Distribution */}
-                          <div className="bg-teal-50 rounded-lg p-3 border border-teal-200">
+                          <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
                             <h3 className="text-xs font-semibold text-teal-700 mb-2">Services Distribution</h3>
                             <ResponsiveContainer width="100%" height={180}>
                               <BarChart
@@ -2522,7 +2516,7 @@ function ClinicManagementDashboard() {
               // Show clinics or empty state for agent/doctorStaff
               if (clinics.length === 0) {
                 return (
-                  <div className="bg-white rounded-lg p-6 sm:p-8 border border-teal-200 shadow-sm">
+                  <div className="bg-white rounded-lg p-6 sm:p-8 border border-gray-200 shadow-sm">
                     <div className="text-center max-w-md mx-auto">
                       <div className="w-12 h-12 bg-teal-100 rounded-lg flex items-center justify-center mx-auto mb-3">
                         <Building2 className="w-6 h-6 text-teal-800" />
@@ -2554,7 +2548,7 @@ function ClinicManagementDashboard() {
                  
                   {/* Statistics Charts Section - Compact */}
                   {clinics.length > 0 && (
-                    <div className="bg-white rounded-lg p-4 border border-teal-200 shadow-sm">
+                    <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
                       <div className="flex items-center gap-2 mb-3">
                         <TrendingUp className="w-5 h-5 text-teal-700" />
                         <h2 className="text-lg sm:text-xl font-bold text-teal-900">Analytics & Insights</h2>
@@ -2562,7 +2556,7 @@ function ClinicManagementDashboard() {
 
                       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
                         {/* Bar Chart - Reviews vs Enquiries */}
-                        <div className="bg-teal-50 rounded-lg p-3 border border-teal-200">
+                        <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
                           <h3 className="text-xs font-semibold text-teal-700 mb-2">Reviews & Enquiries</h3>
                           <ResponsiveContainer width="100%" height={180}>
                             <BarChart data={[
@@ -2589,7 +2583,7 @@ function ClinicManagementDashboard() {
                         </div>
 
                         {/* Column Chart - Services Distribution */}
-                        <div className="bg-teal-50 rounded-lg p-3 border border-teal-200">
+                        <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
                           <h3 className="text-xs font-semibold text-teal-700 mb-2">Services Distribution</h3>
                           <ResponsiveContainer width="100%" height={180}>
                             <BarChart
@@ -2696,10 +2690,10 @@ interface SummaryCardProps {
 
 const SummaryCard = ({ title, value, icon, color }: SummaryCardProps) => {
   const colorClasses = {
-    teal: "bg-teal-50 border-teal-200 text-teal-800",
-    yellow: "bg-teal-50 border-teal-200 text-teal-800",
-    rose: "bg-teal-50 border-teal-200 text-teal-800",
-    green: "bg-teal-50 border-teal-200 text-teal-800",
+    teal: "bg-gray-50 border-gray-200 text-teal-800",
+    yellow: "bg-gray-50 border-gray-200 text-teal-800",
+    rose: "bg-gray-50 border-gray-200 text-teal-800",
+    green: "bg-gray-50 border-gray-200 text-teal-800",
   };
 
   const [_bgColor, borderColor, textColor] = colorClasses[color].split(' ');

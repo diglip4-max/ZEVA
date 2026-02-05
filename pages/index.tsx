@@ -72,7 +72,7 @@ export default function Home(): React.ReactElement {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 overflow-x-hidden">
       <Head>
         {/* Meta Title (55–60 characters) */}
         <title>Zeva | All-in-One Healthcare Platform to Find Doctors & Clinics</title>

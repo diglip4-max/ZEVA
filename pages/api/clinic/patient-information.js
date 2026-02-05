@@ -283,6 +283,16 @@ export default async function handler(req, res) {
         return res.status(404).json({ success: false, message: "Patient not found or unauthorized" });
       }
 
+      const Appointment = (await import("../../../models/Appointment")).default;
+      const Billing = (await import("../../../models/Billing")).default;
+      const AppointmentReport = (await import("../../../models/AppointmentReport")).default;
+
+      await Promise.all([
+        Appointment.deleteMany({ patientId: patient._id }),
+        Billing.deleteMany({ patientId: patient._id }),
+        AppointmentReport.deleteMany({ patientId: patient._id }),
+      ]);
+
       await PatientRegistration.findByIdAndDelete(id);
 
       return res.status(200).json({ success: true, message: "Patient deleted successfully" });

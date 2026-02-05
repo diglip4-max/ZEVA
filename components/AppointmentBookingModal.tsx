@@ -51,6 +51,12 @@ interface DoctorDepartment {
   name: string;
 }
 
+interface Referral {
+  _id: string;
+  firstName: string;
+  lastName: string;
+}
+
 export default function AppointmentBookingModal({
   isOpen,
   onClose,
@@ -130,7 +136,7 @@ export default function AppointmentBookingModal({
 
   const [fromTime, setFromTime] = useState<string>(slotTime || "09:00");
   const [toTime, setToTime] = useState<string>(slotTime ? calculateEndTime(slotTime) : calculateEndTime("09:00"));
-  const [referral, setReferral] = useState<string>("direct");
+  const [referral, setReferral] = useState<string>("No");
   const [emergency, setEmergency] = useState<string>("no");
   const [notes, setNotes] = useState<string>("");
   const [loading, setLoading] = useState(false);
@@ -141,6 +147,7 @@ export default function AppointmentBookingModal({
   const [doctorDepartments, setDoctorDepartments] = useState<DoctorDepartment[]>([]);
   const [doctorDeptLoading, setDoctorDeptLoading] = useState(false);
   const [doctorDeptError, setDoctorDeptError] = useState("");
+  const [referrals, setReferrals] = useState<Referral[]>([]);
 
   // Whenever the selected slot changes (or modal reopens), sync the times
   useEffect(() => {
@@ -151,9 +158,10 @@ export default function AppointmentBookingModal({
         setToTime(propToTime);
       } else {
         setFromTime(slotTime || "09:00");
-        setToTime(calculateEndTime(slotTime || "09:00"));
-      }
-      setStartDate(defaultDate || new Date().toISOString().split("T")[0]);
+      setToTime(calculateEndTime(slotTime || "09:00"));
+      setReferral("No");
+    }
+    setStartDate(defaultDate || new Date().toISOString().split("T")[0]);
       setSelectedDoctorId(doctorId || "");
       setRoomId(defaultRoomId || "");
       
@@ -311,6 +319,25 @@ export default function AppointmentBookingModal({
       setDoctorDeptLoading(false);
     }
   };
+
+  const fetchReferrals = async () => {
+    try {
+      const res = await axios.get("/api/clinic/referrals", {
+        headers: getAuthHeaders(),
+      });
+      if (res.data.success) {
+        setReferrals(res.data.referrals || []);
+      }
+    } catch (err) {
+      console.error("Error fetching referrals:", err);
+    }
+  };
+
+  useEffect(() => {
+    if (isOpen) {
+      fetchReferrals();
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     if (isOpen && selectedDoctorId) {
@@ -484,7 +511,7 @@ export default function AppointmentBookingModal({
     setStartDate(defaultDate || new Date().toISOString().split("T")[0]);
     setFromTime(slotTime || "09:00");
     setToTime(calculateEndTime(slotTime || "09:00"));
-    setReferral("direct");
+    setReferral("No");
     setEmergency("no");
     setNotes("");
     setError("");
@@ -986,8 +1013,12 @@ export default function AppointmentBookingModal({
                 className="w-full border border-gray-300 dark:border-gray-300 rounded-lg px-3 py-2.5 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm"
                 style={{ zIndex: 1000, position: 'relative' }}
               >
-                <option value="direct">Direct</option>
-                <option value="referral">Referral</option>
+                <option value="No">No</option>
+                {referrals.map((ref) => (
+                  <option key={ref._id} value={`${ref.firstName} ${ref.lastName}`.trim()}>
+                    {[ref.firstName, ref.lastName].filter(Boolean).join(" ")}
+                  </option>
+                ))}
               </select>
             </div>
 

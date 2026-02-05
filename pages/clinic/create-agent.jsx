@@ -12,6 +12,7 @@ import {
   Trash2,
   X,
   Eye,
+  Upload,
 } from 'lucide-react';
 import { Toaster, toast } from 'react-hot-toast';
 import CreateAgentModal from '../../components/CreateAgentModal';
@@ -19,6 +20,7 @@ import AgentPermissionModal from '../../components/AgentPermissionModal';
 import DoctorTreatmentModal from '../../components/DoctorTreatmentModal';
 import ClinicLayout from '../../components/ClinicLayout';
 import withClinicAuth from '../../components/withClinicAuth';
+import Loader from '../../components/Loader';
 
 const TOKEN_PRIORITY = [
   'clinicToken',
@@ -72,6 +74,7 @@ const ManageAgentsPage = () => {
   const [uploadingPassportDoc, setUploadingPassportDoc] = useState(false);
   const [uploadingContract, setUploadingContract] = useState(false);
   const [completionMap, setCompletionMap] = useState({});
+  const [agentProfiles, setAgentProfiles] = useState({});
   const [passwordAgent, setPasswordAgent] = useState(null);
   const [permissionAgent, setPermissionAgent] = useState(null);
   const [treatmentAgent, setTreatmentAgent] = useState(null);
@@ -413,13 +416,16 @@ const ManageAgentsPage = () => {
       if (!authHeaders) return;
       const list = activeView === "agents" ? agents : doctorStaff;
       const updates = {};
+      const profiles = {};
       await Promise.all(
         list.map(async (u) => {
           const profile = await fetchAgentProfile(u._id);
           updates[u._id] = computeCompletion(u, profile || {});
+          profiles[u._id] = profile || {};
         })
       );
       setCompletionMap((prev) => ({ ...prev, ...updates }));
+      setAgentProfiles((prev) => ({ ...prev, ...profiles }));
     }
     if (canRead === true && (agents.length > 0 || doctorStaff.length > 0)) {
       loadCompletions();
@@ -709,14 +715,7 @@ const ManageAgentsPage = () => {
 
   // Wait for permissions to load before showing UI
   if (!permissionsLoaded || isLoading) {
-    return (
-      <div className="min-h-screen bg-teal-50 dark:bg-teal-900 flex items-center justify-center">
-        <div className="text-center">
-          <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-teal-200 dark:border-teal-700 border-t-teal-900 dark:border-t-blue-500" />
-          <p className="text-sm text-teal-700 dark:text-teal-300">Loading team data...</p>
-        </div>
-      </div>
-    );
+    return <Loader />;
   }
 
   // If read permission is false, show access denied
@@ -724,8 +723,8 @@ const ManageAgentsPage = () => {
     if (canCreate === true) {
       // Show create button only
       return (
-        <div className="w-full min-h-screen bg-teal-50 dark:bg-teal-900 py-6 px-4 sm:px-6 lg:px-8">
-          <Toaster
+      <div className="w-full min-h-screen bg-gray-50 dark:bg-gray-900 py-6 px-4 sm:px-6 lg:px-8">
+        <Toaster
             position="top-right"
             toastOptions={{
               className: 'text-sm font-medium',
@@ -742,7 +741,7 @@ const ManageAgentsPage = () => {
             </div>
 
             {/* Access Denied Message */}
-            <div className="bg-white dark:bg-teal-800 rounded-xl border border-teal-200 dark:border-teal-700 p-8 text-center">
+            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray200 dark:border-gray700 p-8 text-center">
               <h2 className="text-xl font-semibold text-teal-900 dark:text-teal-100 mb-2">Access Denied</h2>
               <p className="text-sm text-teal-700 dark:text-teal-400 mb-4">
                 You do not have permission to view team members. However, you can create new members.
@@ -750,7 +749,7 @@ const ManageAgentsPage = () => {
               {canCreate === true && (
                 <button
                   onClick={handleCreateClick}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-teal-900 dark:bg-blue-600 hover:bg-teal-800 dark:hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm"
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-teal-600 dark:bg-teal-600 hover:bg-teal-700 dark:hover:bg-teal-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm"
                 >
                   <UserPlus className="w-4 h-4" />
                   Add {activeView === 'agents' ? 'Agent' : 'Doctor'}
@@ -774,8 +773,8 @@ const ManageAgentsPage = () => {
     } else {
       // Show full access denied
       return (
-        <div className="min-h-screen bg-teal-50 dark:bg-teal-900 flex items-center justify-center">
-          <div className="max-w-md mx-auto text-center bg-white dark:bg-teal-800 border border-teal-200 dark:border-teal-700 rounded-xl p-6 shadow-sm">
+        <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+          <div className="max-w-md mx-auto text-center bg-white dark:bg-gray-800 border border-gray200 dark:border-gray700 rounded-xl p-6 shadow-sm">
             <h2 className="text-xl font-semibold text-teal-900 dark:text-teal-100 mb-2">Access denied</h2>
             <p className="text-sm text-teal-700 dark:text-teal-400">
               You do not have permission to view the Create Agent module. Please contact your
@@ -789,7 +788,7 @@ const ManageAgentsPage = () => {
 
 
   return (
-    <div className="w-full min-h-screen bg-teal-50 dark:bg-teal-900 py-6 px-4 sm:px-6 lg:px-8">
+    <div className="w-full min-h-screen bg-gray-50 dark:bg-gray-900 py-6 px-4 sm:px-6 lg:px-8">
       <Toaster
         position="top-right"
         toastOptions={{
@@ -807,7 +806,7 @@ const ManageAgentsPage = () => {
           <button
             onClick={() => loadAll(false)}
             disabled={isRefreshing || !canRead}
-            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-teal-700 dark:text-teal-300 bg-white dark:bg-teal-800 border border-teal-300 dark:border-teal-600 rounded-lg hover:bg-teal-50 dark:hover:bg-teal-700 transition-colors disabled:opacity-50 w-full sm:w-auto justify-center"
+            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-teal-700 dark:text-teal-300 bg-white dark:bg-gray-800 border border-gray300 dark:border-gray600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 w-full sm:w-auto justify-center"
           >
             <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
             Refresh
@@ -816,20 +815,20 @@ const ManageAgentsPage = () => {
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-white dark:bg-teal-800 rounded-xl border border-teal-200 dark:border-teal-700 p-6 shadow-sm">
+          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-medium text-teal-700 dark:text-teal-300 uppercase tracking-wide">Total Team</p>
                 <p className="text-3xl font-bold text-teal-900 dark:text-teal-100 mt-2">{totalTeam}</p>
                 <p className="text-xs text-teal-700 dark:text-teal-400 mt-1">{approvalRate}% approved</p>
               </div>
-              <div className="h-12 w-12 rounded-lg bg-teal-100 dark:bg-teal-700 flex items-center justify-center">
+              <div className="h-12 w-12 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
                 <Users className="w-6 h-6 text-teal-700 dark:text-teal-300" />
               </div>
             </div>
           </div>
 
-          <div className="bg-white dark:bg-teal-800 rounded-xl border border-teal-200 dark:border-teal-700 p-6 shadow-sm">
+          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-medium text-teal-700 dark:text-teal-300 uppercase tracking-wide">Approved</p>
@@ -842,7 +841,7 @@ const ManageAgentsPage = () => {
             </div>
           </div>
 
-          <div className="bg-white dark:bg-teal-800 rounded-xl border border-teal-200 dark:border-teal-700 p-6 shadow-sm">
+          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray200 dark:border-gray700 p-6 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-medium text-teal-700 dark:text-teal-300 uppercase tracking-wide">Pending</p>
@@ -855,7 +854,7 @@ const ManageAgentsPage = () => {
             </div>
           </div>
 
-          <div className="bg-white dark:bg-teal-800 rounded-xl border border-teal-200 dark:border-teal-700 p-6 shadow-sm">
+          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-medium text-teal-700 dark:text-teal-300 uppercase tracking-wide">Declined</p>
@@ -870,7 +869,7 @@ const ManageAgentsPage = () => {
         </div>
 
         {/* Action Bar */}
-        <div className="bg-white dark:bg-teal-800 rounded-xl border border-teal-200 dark:border-teal-700 p-4 shadow-sm">
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray200 dark:border-gray700 p-4 shadow-sm">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="flex items-center gap-4">
               <div>
@@ -880,12 +879,12 @@ const ManageAgentsPage = () => {
                 </p>
               </div>
               {/* View Toggle */}
-              <div className="flex items-center gap-2 bg-teal-100 dark:bg-teal-700 rounded-lg p-1">
+              <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
                 <button
                   onClick={() => setActiveView('agents')}
                   className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
                     activeView === 'agents'
-                      ? 'bg-white dark:bg-teal-600 text-teal-900 dark:text-teal-100 shadow-sm'
+                      ? 'bg-white dark:bg-gray-600 text-teal-900 dark:text-teal-100 shadow-sm'
                       : 'text-teal-600 dark:text-teal-400 hover:text-teal-900 dark:hover:text-teal-200'
                   }`}
                 >
@@ -895,7 +894,7 @@ const ManageAgentsPage = () => {
                   onClick={() => setActiveView('doctorStaff')}
                   className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
                     activeView === 'doctorStaff'
-                      ? 'bg-white dark:bg-teal-600 text-teal-900 dark:text-teal-100 shadow-sm'
+                      ? 'bg-white dark:bg-gray-600 text-teal-900 dark:text-teal-100 shadow-sm'
                       : 'text-teal-600 dark:text-teal-400 hover:text-teal-900 dark:hover:text-teal-200'
                   }`}
                 >
@@ -906,7 +905,7 @@ const ManageAgentsPage = () => {
             {canCreate === true && (
               <button
                 onClick={handleCreateClick}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-teal-900 dark:bg-blue-600 hover:bg-teal-800 dark:hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm w-full sm:w-auto justify-center"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-teal-600 dark:bg-teal-600 hover:bg-teal-800 dark:hover:bg-teal-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm w-full sm:w-auto justify-center"
               >
                 <UserPlus className="w-4 h-4" />
                 Add {activeView === 'agents' ? 'Agent' : 'Doctor'}
@@ -916,12 +915,12 @@ const ManageAgentsPage = () => {
         </div>
 
         {/* Agents/Doctors Cards */}
-        <div className="bg-white dark:bg-teal-800 rounded-xl border border-teal-200 dark:border-teal-700 shadow-sm overflow-hidden">
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray200 dark:border-gray700 shadow-sm overflow-hidden">
 
           {currentList.length === 0 ? (
             <div className="px-5 py-16 text-center">
               <div className="flex flex-col items-center justify-center">
-                <div className="h-16 w-16 rounded-full bg-teal-100 dark:bg-teal-700 flex items-center justify-center mb-4">
+                <div className="h-16 w-16 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center mb-4">
                   <Users className="w-8 h-8 text-teal-700 dark:text-teal-300" />
                 </div>
                 <p className="text-base font-semibold text-teal-900 dark:text-teal-100">No {activeView === 'agents' ? 'agents' : 'doctors'} found</p>
@@ -933,7 +932,7 @@ const ManageAgentsPage = () => {
                 {canCreate === true && (
                   <button
                     onClick={handleCreateClick}
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-teal-900 dark:bg-blue-600 hover:bg-teal-800 dark:hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-gray-900 dark:bg-blue-600 hover:bg-gray-800 dark:hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
                   >
                     <UserPlus className="w-4 h-4" />
                     Add {activeView === 'agents' ? 'Agent' : 'Doctor'}
@@ -947,7 +946,7 @@ const ManageAgentsPage = () => {
                 {currentList.map((agent) => (
                   <div
                     key={agent._id}
-                    className="bg-white dark:bg-teal-800 border border-teal-200 dark:border-teal-700 rounded-xl p-5 hover:shadow-lg transition-all duration-200"
+                    className="bg-white dark:bg-gray-800 border border-gray200 dark:border-gray700 rounded-xl p-5 hover:shadow-lg transition-all duration-200"
                   >
                     {/* Card Header */}
                     <div className="flex items-start justify-between mb-4">
@@ -987,7 +986,7 @@ const ManageAgentsPage = () => {
                               e.stopPropagation();
                               setMenuAgentId(menuAgentId === agent._id ? null : agent._id);
                             }}
-                            className="w-8 h-8 inline-flex items-center justify-center rounded-lg hover:bg-teal-100 dark:hover:bg-teal-700 border border-teal-200 dark:border-teal-600 transition-colors"
+                            className="w-8 h-8 inline-flex items-center justify-center rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray200 dark:border-gray600 transition-colors"
                             aria-label="More actions"
                           >
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4 text-teal-600 dark:text-teal-400">
@@ -1003,9 +1002,9 @@ const ManageAgentsPage = () => {
                                   setMenuAgentId(null);
                                 }}
                               />
-                              <div className="absolute right-0 mt-1 w-40 bg-white dark:bg-teal-800 border border-teal-200 dark:border-teal-700 rounded-md shadow-lg z-20">
+                              <div className="absolute right-0 mt-1 w-40 bg-white dark:bg-gray-800 border border-gray200 dark:border-gray700 rounded-md shadow-lg z-20">
                             <button
-                              className="w-full text-left px-3 py-2 text-[11px] hover:bg-teal-50 dark:hover:bg-teal-700 text-teal-700 dark:text-teal-300 transition-colors"
+                              className="w-full text-left px-3 py-2 text-[11px] hover:bg-gray-50 dark:hover:bg-gray-700 text-teal-700 dark:text-teal-300 transition-colors"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setMenuAgentId(null);
@@ -1015,7 +1014,7 @@ const ManageAgentsPage = () => {
                               View
                             </button>
                                 <button
-                                  className="w-full text-left px-3 py-2 text-[11px] hover:bg-teal-50 dark:hover:bg-teal-700 text-teal-700 dark:text-teal-300 transition-colors"
+                                  className="w-full text-left px-3 py-2 text-[11px] hover:bg-gray-50 dark:hover:bg-gray-700 text-teal-700 dark:text-teal-300 transition-colors"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     setMenuAgentId(null);
@@ -1027,7 +1026,7 @@ const ManageAgentsPage = () => {
                                 {canUpdate === true && (
                                   <>
                                     <button
-                                      className="w-full text-left px-3 py-2 text-[11px] hover:bg-teal-50 dark:hover:bg-teal-700 text-teal-700 dark:text-teal-300 transition-colors"
+                                      className="w-full text-left px-3 py-2 text-[11px] hover:bg-gray-50 dark:hover:bg-gray-700 text-teal-700 dark:text-teal-300 transition-colors"
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         setPasswordAgent(agent);
@@ -1037,7 +1036,7 @@ const ManageAgentsPage = () => {
                                       Change password
                                     </button>
                                     <button
-                                      className="w-full text-left px-3 py-2 text-[11px] hover:bg-teal-50 dark:hover:bg-teal-700 text-teal-700 dark:text-teal-300 transition-colors border-t border-teal-200 dark:border-teal-700"
+                                      className="w-full text-left px-3 py-2 text-[11px] hover:bg-gray-50 dark:hover:bg-gray-700 text-teal-700 dark:text-teal-300 transition-colors border-t border-gray200 dark:border-gray700"
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         setPermissionAgent(agent);
@@ -1048,7 +1047,7 @@ const ManageAgentsPage = () => {
                                     </button>
                                     {agent.role === 'doctorStaff' && (
                                       <button
-                                        className="w-full text-left px-3 py-2 text-[11px] hover:bg-teal-50 dark:hover:bg-teal-700 text-teal-700 dark:text-teal-300 transition-colors border-t border-teal-200 dark:border-teal-700"
+                                        className="w-full text-left px-3 py-2 text-[11px] hover:bg-gray-50 dark:hover:bg-gray-700 text-teal-700 dark:text-teal-300 transition-colors border-t border-gray200 dark:border-gray700"
                                         onClick={(e) => {
                                           e.stopPropagation();
                                           setTreatmentAgent(agent);
@@ -1062,7 +1061,7 @@ const ManageAgentsPage = () => {
                                 )}
                                 {canDelete === true && (
                                   <button
-                                    className="w-full text-left px-3 py-2 text-[11px] hover:bg-red-50 dark:hover:bg-red-900/30 text-red-700 dark:text-red-400 transition-colors border-t border-teal-200 dark:border-teal-700 flex items-center gap-2"
+                                    className="w-full text-left px-3 py-2 text-[11px] hover:bg-red-50 dark:hover:bg-red-900/30 text-red-700 dark:text-red-400 transition-colors border-t border-gray200 dark:border-gray700 flex items-center gap-2"
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       setDeleteAgent(agent);
@@ -1083,15 +1082,18 @@ const ManageAgentsPage = () => {
                     {/* Card Body */}
                     <div className="space-y-2.5 mb-4">
                       <div className="text-sm text-teal-700 dark:text-teal-300 truncate">
-                        <span className="font-medium text-teal-800 dark:text-teal-200">Email:</span> {agent.email}
+                        <span className="font-medium text-teal-800 dark:text-teal-200">Name:</span> {agent.name}
                       </div>
                       <div className="text-sm text-teal-700 dark:text-teal-300">
-                        <span className="font-medium text-teal-800 dark:text-teal-200">Phone:</span> {agent.phone || 'N/A'}
+                        <span className="font-medium text-teal-800 dark:text-teal-200">Email:</span> {agent.email || 'N/A'}
+                      </div>
+                      <div className="text-sm text-teal-700 dark:text-teal-300">
+                        <span className="font-medium text-teal-800 dark:text-teal-200">Mobile Number:</span> {agent.phone || 'N/A'}
                       </div>
                       <div className="mt-1">
-                        <div className="h-2 bg-teal-100 dark:bg-teal-700 rounded">
+                        <div className="h-2 bg-gray-100 dark:bg-gray-700 rounded">
                           <div
-                            className="h-2 bg-teal-900 dark:bg-blue-600 rounded"
+                            className="h-2 bg-gray-900 dark:bg-blue-600 rounded"
                             style={{ width: `${completionMap[agent._id] || 0}%` }}
                           />
                         </div>
@@ -1102,7 +1104,7 @@ const ManageAgentsPage = () => {
                     </div>
 
                     {/* Card Footer - Actions */}
-                    <div className="flex gap-2 pt-4 border-t border-teal-100 dark:border-teal-700">
+                    <div className="flex gap-2 pt-4 border-t border-gray100 dark:border-gray700">
                       {canUpdate === true && (
                         <>
                           <button
@@ -1113,8 +1115,8 @@ const ManageAgentsPage = () => {
                             disabled={agent.isApproved}
                             className={`flex-1 px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
                               agent.isApproved
-                                ? 'bg-teal-50 dark:bg-teal-700 text-teal-400 dark:text-teal-500 cursor-not-allowed border border-teal-200 dark:border-teal-600'
-                                : 'bg-teal-900 dark:bg-blue-600 text-white hover:bg-teal-800 dark:hover:bg-blue-700 shadow-sm hover:shadow-md'
+                                ? 'bg-gray-50 dark:bg-gray-700 text-teal-400 dark:text-teal-500 cursor-not-allowed border border-gray200 dark:border-gray600'
+                                : 'bg-gray-900 dark:bg-blue-600 text-white hover:bg-gray-800 dark:hover:bg-blue-700 shadow-sm hover:shadow-md'
                             }`}
                           >
                             Approve
@@ -1127,8 +1129,8 @@ const ManageAgentsPage = () => {
                             disabled={agent.declined}
                             className={`flex-1 px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
                               agent.declined
-                                ? 'bg-teal-50 dark:bg-teal-700 text-teal-400 dark:text-teal-500 cursor-not-allowed border border-teal-200 dark:border-teal-600'
-                                : 'bg-teal-100 dark:bg-teal-700 text-teal-700 dark:text-teal-300 hover:bg-teal-200 dark:hover:bg-teal-600 border border-teal-200 dark:border-teal-600 hover:border-teal-300 dark:hover:border-teal-500'
+                                ? 'bg-gray-50 dark:bg-gray-700 text-teal-400 dark:text-teal-500 cursor-not-allowed border border-gray200 dark:border-gray600'
+                                : 'bg-gray-100 dark:bg-gray-700 text-teal-700 dark:text-teal-300 hover:bg-gray-200 dark:hover:bg-gray-600 border border-gray200 dark:border-gray600 hover:border-gray300 dark:hover:border-gray500'
                             }`}
                           >
                             Decline
@@ -1181,9 +1183,9 @@ const ManageAgentsPage = () => {
 
       {/* Change Password Modal */}
       {passwordAgent && (
-        <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-sm bg-white dark:bg-teal-800 rounded-lg border border-teal-200 dark:border-teal-700 shadow-xl">
-            <div className="px-5 py-3.5 border-b border-teal-200 dark:border-teal-700 bg-teal-50 dark:bg-teal-900 flex items-start justify-between">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-sm bg-white dark:bg-gray-800 rounded-lg border border-gray200 dark:border-gray700 shadow-xl">
+            <div className="px-5 py-3.5 border-b border-gray200 dark:border-gray700 bg-gray-50 dark:bg-gray-900 flex items-start justify-between">
               <div className="flex-1 min-w-0 pr-2">
                 <h3 className="text-sm font-semibold text-teal-900 dark:text-teal-100">Change password</h3>
                 <p className="text-[11px] text-teal-700 dark:text-teal-400 mt-0.5">{passwordAgent.name} • {passwordAgent.email}</p>
@@ -1191,7 +1193,7 @@ const ManageAgentsPage = () => {
               <button
                 type="button"
                 onClick={() => { setPasswordAgent(null); setNewPassword(''); setConfirmPassword(''); }}
-                className="flex-shrink-0 p-1 rounded-lg hover:bg-teal-100 dark:hover:bg-teal-700 transition-colors text-teal-500 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-200"
+                className="flex-shrink-0 p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-teal-500 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-200"
                 aria-label="Close"
               >
                 <X className="w-4 h-4" />
@@ -1205,7 +1207,7 @@ const ManageAgentsPage = () => {
                     type="password"
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
-                    className="w-full px-3 py-2 border border-teal-300 dark:border-teal-600 rounded-md text-xs bg-white dark:bg-teal-700 text-teal-900 dark:text-teal-100 placeholder-teal-400 dark:placeholder-teal-400 focus:ring-1 focus:ring-teal-900 dark:focus:ring-blue-500 focus:border-teal-900 dark:focus:border-blue-500 outline-none transition-colors"
+                    className="w-full px-3 py-2 border border-gray300 dark:border-gray600 rounded-md text-xs bg-white dark:bg-gray-700 text-teal-900 dark:text-teal-100 placeholder-teal-400 dark:placeholder-teal-400 focus:ring-1 focus:ring-teal-900 dark:focus:ring-blue-500 focus:border-gray900 dark:focus:border-blue-500 outline-none transition-colors"
                     placeholder="Enter new password"
                     required
                     minLength={6}
@@ -1217,7 +1219,7 @@ const ManageAgentsPage = () => {
                     type="password"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="w-full px-3 py-2 border border-teal-300 dark:border-teal-600 rounded-md text-xs bg-white dark:bg-teal-700 text-teal-900 dark:text-teal-100 placeholder-teal-400 dark:placeholder-teal-400 focus:ring-1 focus:ring-teal-900 dark:focus:ring-blue-500 focus:border-teal-900 dark:focus:border-blue-500 outline-none transition-colors"
+                    className="w-full px-3 py-2 border border-gray300 dark:border-gray600 rounded-md text-xs bg-white dark:bg-gray-700 text-teal-900 dark:text-teal-100 placeholder-teal-400 dark:placeholder-teal-400 focus:ring-1 focus:ring-teal-900 dark:focus:ring-blue-500 focus:border-gray900 dark:focus:border-blue-500 outline-none transition-colors"
                     placeholder="Re-enter password"
                     required
                     minLength={6}
@@ -1228,13 +1230,13 @@ const ManageAgentsPage = () => {
                 <button
                   type="button"
                   onClick={() => { setPasswordAgent(null); setNewPassword(''); setConfirmPassword(''); }}
-                  className="px-3.5 py-2 rounded-md border border-teal-300 dark:border-teal-600 text-[11px] font-medium text-teal-700 dark:text-teal-300 bg-white dark:bg-teal-700 hover:bg-teal-50 dark:hover:bg-teal-600 transition-colors"
+                  className="px-3.5 py-2 rounded-md border border-gray300 dark:border-gray600 text-[11px] font-medium text-teal-700 dark:text-teal-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-3.5 py-2 bg-teal-900 dark:bg-blue-600 hover:bg-teal-800 dark:hover:bg-blue-700 text-white text-[11px] font-medium rounded-md transition-colors shadow-sm"
+                  className="px-3.5 py-2 bg-gray-900 dark:bg-blue-600 hover:bg-gray-800 dark:hover:bg-blue-700 text-white text-[11px] font-medium rounded-md transition-colors shadow-sm"
                 >
                   Save changes
                 </button>
@@ -1245,180 +1247,278 @@ const ManageAgentsPage = () => {
       )}
 
       {profileAgent && (
-        <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-2xl bg-white dark:bg-teal-800 rounded-lg border border-teal-200 dark:border-teal-700 shadow-xl">
-            <div className="px-5 py-3.5 border-b border-teal-200 dark:border-teal-700 bg-teal-50 dark:bg-teal-900 flex items-start justify-between">
-              <div className="flex-1 min-w-0 pr-2">
-                <h3 className="text-sm font-semibold text-teal-900 dark:text-teal-100">Profile</h3>
-                <p className="text-[11px] text-teal-700 dark:text-teal-400 mt-0.5">{profileAgent.name} • {profileAgent.email}</p>
-              </div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 overflow-y-auto bg-black/60 backdrop-blur-md">
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto flex flex-col border border-teal-100">
+            <div className="sticky top-0 bg-gray-50 px-4 sm:px-6 py-3 flex items-center justify-between z-10 rounded-t-2xl">
+              <h2 className="text-base sm:text-lg font-bold text-gray-900 flex items-center gap-2">
+                <UserPlus className="w-5 h-5" />
+                Profile Information
+              </h2>
               <button
-                type="button"
                 onClick={() => { setProfileAgent(null); }}
-                className="flex-shrink-0 p-1 rounded-lg hover:bg-teal-100 dark:hover:bg-teal-700 transition-colors text-teal-500 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-200"
-                aria-label="Close"
+                className="p-2 hover:bg-white/20 rounded-lg text-white hover:text-white transition-colors flex-shrink-0 backdrop-blur-sm"
+                aria-label="Close modal"
               >
-                <X className="w-4 h-4" />
+                <X className="w-5 h-5 text-gray-900" />
               </button>
             </div>
-            <div className="p-5 space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <input
-                  type="text"
-                  value={profileForm.name}
-                  onChange={(e) => setProfileForm((f) => ({ ...f, name: e.target.value }))}
-                  className="w-full px-3 py-2 border border-teal-300 dark:border-teal-600 rounded-md text-xs bg-white dark:bg-teal-700 text-teal-900 dark:text-teal-100 placeholder-teal-400 dark:placeholder-teal-400 focus:ring-1 focus:ring-teal-900 dark:focus:ring-blue-500 focus:border-teal-900 dark:focus:border-blue-500 outline-none transition-colors"
-                  placeholder="Name"
-                />
-                <input
-                  type="email"
-                  value={profileForm.email}
-                  onChange={(e) => setProfileForm((f) => ({ ...f, email: e.target.value }))}
-                  className="w-full px-3 py-2 border border-teal-300 dark:border-teal-600 rounded-md text-xs bg-white dark:bg-teal-700 text-teal-900 dark:text-teal-100 placeholder-teal-400 dark:placeholder-teal-400 focus:ring-1 focus:ring-teal-900 dark:focus:ring-blue-500 focus:border-teal-900 dark:focus:border-blue-500 outline-none transition-colors"
-                  placeholder="Email"
-                />
-                <input
-                  type="tel"
-                  value={profileForm.phone}
-                  onChange={(e) => setProfileForm((f) => ({ ...f, phone: e.target.value }))}
-                  className="w-full px-3 py-2 border border-teal-300 dark:border-teal-600 rounded-md text-xs bg-white dark:bg-teal-700 text-teal-900 dark:text-teal-100 placeholder-teal-400 dark:placeholder-teal-400 focus:ring-1 focus:ring-teal-900 dark:focus:ring-blue-500 focus:border-teal-900 dark:focus:border-blue-500 outline-none transition-colors"
-                  placeholder="Phone"
-                />
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <select
-                  value={profileForm.idType}
-                  onChange={(e) => setProfileForm((f) => ({ ...f, idType: e.target.value }))}
-                  className="w-full px-3 py-2 border border-teal-300 dark:border-teal-600 rounded-md text-xs bg-white dark:bg-teal-700 text-teal-900 dark:text-teal-100"
-                >
-                  <option value="aadhaar">Aadhaar</option>
-                  <option value="pan">PAN</option>
-                  <option value="passport">Passport</option>
-                </select>
-                <input
-                  type="text"
-                  value={profileForm.idNumber}
-                  onChange={(e) => setProfileForm((f) => ({ ...f, idNumber: e.target.value }))}
-                  className="w-full px-3 py-2 border border-teal-300 dark:border-teal-600 rounded-md text-xs bg-white dark:bg-teal-700 text-teal-900 dark:text-teal-100"
-                  placeholder="Identity number"
-                />
-                <div className="flex items-center gap-2">
-                  <input
-                    type="file"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) uploadFile(file, (url) => setProfileForm((f) => ({ ...f, idDocumentUrl: url })), setUploadingIdDoc);
-                    }}
-                  />
-                  <span className="text-[11px] text-teal-700 dark:text-teal-300">
-                    {uploadingIdDoc ? "Uploading..." : profileForm.idDocumentUrl ? getFileNameFromUrl(profileForm.idDocumentUrl) : "Upload ID"}
-                  </span>
+            <div className="p-4 sm:p-6 flex-1 overflow-y-auto bg-gray-50">
+              <div className="space-y-6">
+                {/* Basic Information Section */}
+                <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5">
+                  <h3 className="text-sm font-semibold text-teal-900 mb-4">Basic Information</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-xs font-medium text-teal-700 mb-1.5">Name *</label>
+                      <input
+                        type="text"
+                        value={profileForm.name}
+                        onChange={(e) => setProfileForm((f) => ({ ...f, name: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition-colors"
+                        placeholder="Enter name"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-teal-700 mb-1.5">Email *</label>
+                      <input
+                        type="email"
+                        value={profileForm.email}
+                        onChange={(e) => setProfileForm((f) => ({ ...f, email: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition-colors"
+                        placeholder="Enter email"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-teal-700 mb-1.5">Mobile Number *</label>
+                      <input
+                        type="tel"
+                        value={profileForm.phone}
+                        onChange={(e) => setProfileForm((f) => ({ ...f, phone: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition-colors"
+                        placeholder="Enter mobile number"
+                      />
+                    </div>
+                  </div>
                 </div>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <input
-                  type="text"
-                  value={profileForm.passportNumber}
-                  onChange={(e) => setProfileForm((f) => ({ ...f, passportNumber: e.target.value }))}
-                  className="w-full px-3 py-2 border border-teal-300 dark:border-teal-600 rounded-md text-xs bg-white dark:bg-teal-700 text-teal-900 dark:text-teal-100"
-                  placeholder="Passport number"
-                />
-                <div className="flex items-center gap-2">
-                  <input
-                    type="file"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) uploadFile(file, (url) => setProfileForm((f) => ({ ...f, passportDocumentUrl: url })), setUploadingPassportDoc);
-                    }}
-                  />
-                  <span className="text-[11px] text-teal-700 dark:text-teal-300">
-                    {uploadingPassportDoc ? "Uploading..." : profileForm.passportDocumentUrl ? getFileNameFromUrl(profileForm.passportDocumentUrl) : "Upload passport"}
-                  </span>
+
+                {/* Identity Information Section */}
+                <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5">
+                  <h3 className="text-sm font-semibold text-teal-900 mb-4">Identity Information</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-xs font-medium text-teal-700 mb-1.5">ID Type</label>
+                      <select
+                        value={profileForm.idType}
+                        onChange={(e) => setProfileForm((f) => ({ ...f, idType: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition-colors"
+                      >
+                        <option value="aadhaar">Aadhaar</option>
+                        <option value="pan">PAN</option>
+                        <option value="passport">Passport</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-teal-700 mb-1.5">ID Number</label>
+                      <input
+                        type="text"
+                        value={profileForm.idNumber}
+                        onChange={(e) => setProfileForm((f) => ({ ...f, idNumber: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition-colors"
+                        placeholder="Enter ID number"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-teal-700 mb-1.5">Upload ID Document</label>
+                      <label className="flex flex-col gap-1.5 w-full cursor-pointer group">
+                        <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 group-hover:bg-gray-100 transition-colors">
+                          {uploadingIdDoc ? (
+                            <span className="animate-pulse text-teal-600">Uploading...</span>
+                          ) : (
+                            <>
+                              <Upload className="w-4 h-4 mr-2 text-teal-600" />
+                              <span className="text-teal-600">Choose file</span>
+                            </>
+                          )}
+                        </div>
+                        <input
+                          type="file"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) uploadFile(file, (url) => setProfileForm((f) => ({ ...f, idDocumentUrl: url })), setUploadingIdDoc);
+                          }}
+                        />
+                        <span className="text-xs text-gray-600 truncate">
+                          {profileForm.idDocumentUrl ? getFileNameFromUrl(profileForm.idDocumentUrl) : "No file chosen"}
+                        </span>
+                      </label>
+                    </div>
+                  </div>
                 </div>
-                <input
-                  type="tel"
-                  value={profileForm.emergencyPhone}
-                  onChange={(e) => setProfileForm((f) => ({ ...f, emergencyPhone: e.target.value }))}
-                  className="w-full px-3 py-2 border border-teal-300 dark:border-teal-600 rounded-md text-xs bg-white dark:bg-teal-700 text-teal-900 dark:text-teal-100"
-                  placeholder="Emergency contact"
-                />
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={profileForm.baseSalary}
-                  onChange={(e) => setProfileForm((f) => ({ ...f, baseSalary: e.target.value }))}
-                  className="w-full px-3 py-2 border border-teal-300 dark:border-teal-600 rounded-md text-xs bg-white dark:bg-teal-700 text-teal-900 dark:text-teal-100"
-                  placeholder="Salary"
-                />
-                <div className="flex flex-col gap-2">
-                  <select
-                    value={profileForm.commissionType}
-                    onChange={(e) => setProfileForm((f) => ({ ...f, commissionType: e.target.value }))}
-                    className="w-full px-3 py-2 border border-teal-300 dark:border-teal-600 rounded-md text-xs bg-white dark:bg-teal-700 text-teal-900 dark:text-teal-100"
+
+                {/* Additional Information Section */}
+                <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5">
+                  <h3 className="text-sm font-semibold text-teal-900 mb-4">Additional Information</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-xs font-medium text-teal-700 mb-1.5">Passport Number</label>
+                      <input
+                        type="text"
+                        value={profileForm.passportNumber}
+                        onChange={(e) => setProfileForm((f) => ({ ...f, passportNumber: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition-colors"
+                        placeholder="Enter passport number"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-teal-700 mb-1.5">Upload Passport</label>
+                      <label className="flex flex-col gap-1.5 w-full cursor-pointer group">
+                        <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 group-hover:bg-gray-100 transition-colors">
+                          {uploadingPassportDoc ? (
+                            <span className="animate-pulse text-teal-600">Uploading...</span>
+                          ) : (
+                            <>
+                              <Upload className="w-4 h-4 mr-2 text-teal-600" />
+                              <span className="text-teal-600">Choose file</span>
+                            </>
+                          )}
+                        </div>
+                        <input
+                          type="file"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) uploadFile(file, (url) => setProfileForm((f) => ({ ...f, passportDocumentUrl: url })), setUploadingPassportDoc);
+                          }}
+                        />
+                        <span className="text-xs text-gray-600 truncate">
+                          {profileForm.passportDocumentUrl ? getFileNameFromUrl(profileForm.passportDocumentUrl) : "No file chosen"}
+                        </span>
+                      </label>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-teal-700 mb-1.5">Emergency Contact</label>
+                      <input
+                        type="tel"
+                        value={profileForm.emergencyPhone}
+                        onChange={(e) => setProfileForm((f) => ({ ...f, emergencyPhone: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition-colors"
+                        placeholder="Enter emergency contact"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Employment Information Section */}
+                <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5">
+                  <h3 className="text-sm font-semibold text-teal-900 mb-4">Employment Information</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-xs font-medium text-teal-700 mb-1.5">Base Salary</label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={profileForm.baseSalary}
+                        onChange={(e) => setProfileForm((f) => ({ ...f, baseSalary: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition-colors"
+                        placeholder="Enter salary"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-teal-700 mb-1.5">Commission Type</label>
+                      <select
+                        value={profileForm.commissionType}
+                        onChange={(e) => setProfileForm((f) => ({ ...f, commissionType: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition-colors"
+                      >
+                        <option value="no_commission">No Commission</option>
+                        <option value="flat">Flat</option>
+                        <option value="after_deduction">After deduction</option>
+                        <option value="target_based">Target based</option>
+                        <option value="target_plus_expense">Target + expense</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-teal-700 mb-1.5">Commission Percentage</label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={profileForm.commissionPercentage}
+                        onChange={(e) => setProfileForm((f) => ({ ...f, commissionPercentage: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition-colors"
+                        placeholder="Enter commission %"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+                    <div>
+                      <label className="block text-xs font-medium text-teal-700 mb-1.5">Contract Type</label>
+                      <select
+                        value={profileForm.contractType}
+                        onChange={(e) => setProfileForm((f) => ({ ...f, contractType: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition-colors"
+                      >
+                        <option value="full">Full</option>
+                        <option value="part">Part</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-teal-700 mb-1.5">Upload Contract</label>
+                      <label className="flex flex-col gap-1.5 w-full cursor-pointer group">
+                        <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 group-hover:bg-gray-100 transition-colors">
+                          {uploadingContract ? (
+                            <span className="animate-pulse text-teal-600">Uploading...</span>
+                          ) : (
+                            <>
+                              <Upload className="w-4 h-4 mr-2 text-teal-600" />
+                              <span className="text-teal-600">Choose file</span>
+                            </>
+                          )}
+                        </div>
+                        <input
+                          type="file"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) uploadFile(file, (url) => setProfileForm((f) => ({ ...f, contractUrl: url })), setUploadingContract);
+                          }}
+                        />
+                        <span className="text-xs text-gray-600 truncate">
+                          {profileForm.contractUrl ? getFileNameFromUrl(profileForm.contractUrl) : "No file chosen"}
+                        </span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-200">
+                  <button
+                    type="button"
+                    onClick={() => { setProfileAgent(null); }}
+                    className="px-5 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
                   >
-                    <option value="flat">Flat</option>
-                    <option value="after_deduction">After deduction</option>
-                    <option value="target_based">Target based</option>
-                    <option value="target_plus_expense">Target + expense</option>
-                  </select>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={profileForm.commissionPercentage}
-                    onChange={(e) => setProfileForm((f) => ({ ...f, commissionPercentage: e.target.value }))}
-                    className="w-full px-3 py-2 border border-teal-300 dark:border-teal-600 rounded-md text-xs bg-white dark:bg-teal-700 text-teal-900 dark:text-teal-100"
-                    placeholder="Commission %"
-                  />
-                </div>
-                <div className="flex flex-col gap-2">
-                  <select
-                    value={profileForm.contractType}
-                    onChange={(e) => setProfileForm((f) => ({ ...f, contractType: e.target.value }))}
-                    className="w-full px-3 py-2 border border-teal-300 dark:border-teal-600 rounded-md text-xs bg-white dark:bg-teal-700 text-teal-900 dark:text-teal-100"
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={saveProfile}
+                    className="px-5 py-2.5 text-sm font-medium text-white bg-teal-600 hover:bg-teal-700 rounded-lg transition-colors shadow-sm"
                   >
-                    <option value="full">Full</option>
-                    <option value="part">Part</option>
-                  </select>
-                  <input
-                    type="file"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) uploadFile(file, (url) => setProfileForm((f) => ({ ...f, contractUrl: url })), setUploadingContract);
-                    }}
-                  />
-                  <span className="text-[11px] text-teal-700 dark:text-teal-300">
-                    {uploadingContract ? "Uploading..." : profileForm.contractUrl ? getFileNameFromUrl(profileForm.contractUrl) : "Upload contract"}
-                  </span>
+                    Save Changes
+                  </button>
                 </div>
-              </div>
-              <div className="flex items-center justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => { setProfileAgent(null); }}
-                  className="px-3.5 py-2 rounded-md border border-teal-300 dark:border-teal-600 text-[11px] font-medium text-teal-700 dark:text-teal-300 bg-white dark:bg-teal-700 hover:bg-teal-50 dark:hover:bg-teal-600 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={saveProfile}
-                  className="px-3.5 py-2 bg-teal-900 dark:bg-blue-600 hover:bg-teal-800 dark:hover:bg-blue-700 text-white text-[11px] font-medium rounded-md transition-colors shadow-sm"
-                >
-                  Save
-                </button>
               </div>
             </div>
           </div>
         </div>
       )}
       {viewAgent && (
-        <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-3xl bg-white dark:bg-teal-800 rounded-lg border border-teal-200 dark:border-teal-700 shadow-xl">
-            <div className="px-5 py-3.5 border-b border-teal-200 dark:border-teal-700 bg-teal-50 dark:bg-teal-900 flex items-start justify-between">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-4xl bg-white dark:bg-gray-800 rounded-lg border border-gray200 dark:border-gray700 shadow-xl max-h-[90vh] overflow-y-auto mx-auto">
+            <div className="px-5 py-3.5 border-b border-gray200 dark:border-gray700 bg-gray-50 dark:bg-gray-900 flex items-start justify-between sticky top-0 z-10">
               <div className="flex-1 min-w-0 pr-2">
                 <h3 className="text-sm font-semibold text-teal-900 dark:text-teal-100">View profile</h3>
                 <p className="text-[11px] text-teal-700 dark:text-teal-400 mt-0.5">{viewAgent.name} • {viewAgent.email}</p>
@@ -1426,7 +1526,7 @@ const ManageAgentsPage = () => {
               <button
                 type="button"
                 onClick={() => { setViewAgent(null); setViewProfile(null); }}
-                className="flex-shrink-0 p-1 rounded-lg hover:bg-teal-100 dark:hover:bg-teal-700 transition-colors text-teal-500 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-200"
+                className="flex-shrink-0 p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-teal-500 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-200"
                 aria-label="Close"
               >
                 <X className="w-4 h-4" />
@@ -1437,76 +1537,110 @@ const ManageAgentsPage = () => {
                 <div className="py-8 text-center text-sm text-teal-700 dark:text-teal-300">Loading...</div>
               ) : (
                 <>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div className="text-xs text-teal-700 dark:text-teal-300"><span className="font-semibold">Name:</span> {viewAgent.name}</div>
-                    <div className="text-xs text-teal-700 dark:text-teal-300"><span className="font-semibold">Email:</span> {viewAgent.email}</div>
-                    <div className="text-xs text-teal-700 dark:text-teal-300"><span className="font-semibold">Phone:</span> {viewAgent.phone || 'N/A'}</div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div className="text-xs text-teal-700 dark:text-teal-300"><span className="font-semibold">Name:</span> {viewAgent.name || 'N/A'}</div>
+                    <div className="text-xs text-teal-700 dark:text-teal-300"><span className="font-semibold">Email:</span> {viewAgent.email || 'N/A'}</div>
+                    <div className="text-xs text-teal-700 dark:text-teal-300"><span className="font-semibold">Mobile Number:</span> {viewAgent.phone || 'N/A'}</div>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     <div className="text-xs text-teal-700 dark:text-teal-300"><span className="font-semibold">Role:</span> {viewAgent.role}</div>
                     <div className="text-xs text-teal-700 dark:text-teal-300"><span className="font-semibold">Status:</span> {viewAgent.declined ? 'Declined' : viewAgent.isApproved ? 'Approved' : 'Pending'}</div>
-                    <div className="text-xs text-teal-700 dark:text-teal-300"><span className="font-semibold">Commission:</span> {viewProfile?.commissionType || '—'} {viewProfile?.commissionPercentage ? `(${viewProfile.commissionPercentage}%)` : ''}</div>
+                    <div className="text-xs text-teal-700 dark:text-teal-300"><span className="font-semibold">Commission:</span> {viewProfile?.commissionType === 'no_commission' ? 'No Commission' : viewProfile?.commissionType || '—'} {viewProfile?.commissionPercentage ? `(${viewProfile.commissionPercentage}%)` : ''}</div>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div className="text-xs text-teal-700 dark:text-teal-300"><span className="font-semibold">Identity Type:</span> {viewProfile?.idType || '—'}</div>
-                    <div className="text-xs text-teal-700 dark:text-teal-300"><span className="font-semibold">Identity No:</span> {viewProfile?.idNumber || '—'}</div>
-                    <div className="text-xs text-teal-700 dark:text-teal-300">
-                      <span className="font-semibold">ID Document:</span>{' '}
-                      {viewProfile?.idDocumentUrl ? (
-                        <>
-                          <a href={viewProfile.idDocumentUrl} target="_blank" rel="noreferrer" className="text-teal-900 dark:text-blue-400 underline">Open</a>
-                          <span className="ml-2 text-[11px]">{getFileNameFromUrl(viewProfile.idDocumentUrl)}</span>
-                        </>
-                      ) : '—'}
+                  <div className="border border-gray200 dark:border-gray700 rounded-lg p-4 bg-gray-50 dark:bg-gray-900">
+                    <h4 className="text-sm font-semibold text-teal-900 dark:text-teal-100 mb-3">Identity Information</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <div className="text-xs text-teal-700 dark:text-teal-300"><span className="font-semibold">Identity Type:</span> {viewProfile?.idType || '—'}</div>
+                        <div className="text-xs text-teal-700 dark:text-teal-300"><span className="font-semibold">Identity No:</span> {viewProfile?.idNumber || '—'}</div>
+                        <div className="text-xs text-teal-700 dark:text-teal-300">
+                          <span className="font-semibold">ID Document:</span>{' '}
+                          {viewProfile?.idDocumentUrl ? (
+                            <>
+                              <a href={viewProfile.idDocumentUrl} target="_blank" rel="noreferrer" className="text-teal-900 dark:text-blue-400 underline">Open</a>
+                              <span className="ml-2 text-[11px]">{getFileNameFromUrl(viewProfile.idDocumentUrl)}</span>
+                            </>
+                          ) : '—'}
+                        </div>
+                      </div>
+                      {viewProfile?.idDocumentUrl && /\.(png|jpe?g|gif|webp)$/i.test(viewProfile.idDocumentUrl) ? (
+                        <div className="flex items-center justify-center">
+                          <img src={viewProfile.idDocumentUrl} alt="ID Document" className="rounded border border-gray200 dark:border-gray700 max-h-32 object-contain shadow-sm" />
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-center text-gray-400 text-sm">
+                          No ID image available
+                        </div>
+                      )}
                     </div>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div className="text-xs text-teal-700 dark:text-teal-300"><span className="font-semibold">Passport No:</span> {viewProfile?.passportNumber || '—'}</div>
-                    <div className="text-xs text-teal-700 dark:text-teal-300">
-                      <span className="font-semibold">Passport Doc:</span>{' '}
-                      {viewProfile?.passportDocumentUrl ? (
-                        <>
-                          <a href={viewProfile.passportDocumentUrl} target="_blank" rel="noreferrer" className="text-teal-900 dark:text-blue-400 underline">Open</a>
-                          <span className="ml-2 text-[11px]">{getFileNameFromUrl(viewProfile.passportDocumentUrl)}</span>
-                        </>
-                      ) : '—'}
+                  <div className="border border-gray200 dark:border-gray700 rounded-lg p-4 bg-gray-50 dark:bg-gray-900">
+                    <h4 className="text-sm font-semibold text-teal-900 dark:text-teal-100 mb-3">Passport Information</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <div className="text-xs text-teal-700 dark:text-teal-300"><span className="font-semibold">Passport No:</span> {viewProfile?.passportNumber || '—'}</div>
+                        <div className="text-xs text-teal-700 dark:text-teal-300">
+                          <span className="font-semibold">Passport Doc:</span>{' '}
+                          {viewProfile?.passportDocumentUrl ? (
+                            <>
+                              <a href={viewProfile.passportDocumentUrl} target="_blank" rel="noreferrer" className="text-teal-900 dark:text-blue-400 underline">Open</a>
+                              <span className="ml-2 text-[11px]">{getFileNameFromUrl(viewProfile.passportDocumentUrl)}</span>
+                            </>
+                          ) : '—'}
+                        </div>
+                        <div className="text-xs text-teal-700 dark:text-teal-300"><span className="font-semibold">Emergency Phone:</span> {viewProfile?.emergencyPhone || '—'}</div>
+                      </div>
+                      {viewProfile?.passportDocumentUrl && /\.(png|jpe?g|gif|webp)$/i.test(viewProfile.passportDocumentUrl) ? (
+                        <div className="flex items-center justify-center">
+                          <img src={viewProfile.passportDocumentUrl} alt="Passport Document" className="rounded border border-gray200 dark:border-gray700 max-h-32 object-contain shadow-sm" />
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-center text-gray-400 text-sm">
+                          No passport image available
+                        </div>
+                      )}
                     </div>
-                    <div className="text-xs text-teal-700 dark:text-teal-300"><span className="font-semibold">Emergency Phone:</span> {viewProfile?.emergencyPhone || '—'}</div>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div className="text-xs text-teal-700 dark:text-teal-300"><span className="font-semibold">Salary:</span> {typeof viewProfile?.baseSalary === 'number' ? viewProfile.baseSalary : (viewProfile?.baseSalary || '—')}</div>
-                    <div className="text-xs text-teal-700 dark:text-teal-300"><span className="font-semibold">Contract Type:</span> {viewProfile?.contractType || '—'}</div>
-                    <div className="text-xs text-teal-700 dark:text-teal-300">
-                      <span className="font-semibold">Contract:</span>{' '}
-                      {viewProfile?.contractUrl ? (
-                        <>
-                          <a href={viewProfile.contractUrl} target="_blank" rel="noreferrer" className="text-teal-900 dark:text-blue-400 underline">Open</a>
-                          <span className="ml-2 text-[11px]">{getFileNameFromUrl(viewProfile.contractUrl)}</span>
-                        </>
-                      ) : '—'}
+                  <div className="border border-gray200 dark:border-gray700 rounded-lg p-4 bg-gray-50 dark:bg-gray-900">
+                    <h4 className="text-sm font-semibold text-teal-900 dark:text-teal-100 mb-3">Employment Information</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <div className="text-xs text-teal-700 dark:text-teal-300"><span className="font-semibold">Salary:</span> {typeof viewProfile?.baseSalary === 'number' ? viewProfile.baseSalary : (viewProfile?.baseSalary || '—')}</div>
+                        <div className="text-xs text-teal-700 dark:text-teal-300"><span className="font-semibold">Contract Type:</span> {viewProfile?.contractType || '—'}</div>
+                        <div className="text-xs text-teal-700 dark:text-teal-300">
+                          <span className="font-semibold">Contract:</span>{' '}
+                          {viewProfile?.contractUrl ? (
+                            <>
+                              <a href={viewProfile.contractUrl} target="_blank" rel="noreferrer" className="text-teal-900 dark:text-blue-400 underline">Open</a>
+                              <span className="ml-2 text-[11px]">{getFileNameFromUrl(viewProfile.contractUrl)}</span>
+                            </>
+                          ) : '—'}
+                        </div>
+                      </div>
+                      {viewProfile?.contractUrl && /\.(png|jpe?g|gif|webp)$/i.test(viewProfile.contractUrl) ? (
+                        <div className="flex items-center justify-center">
+                          <img src={viewProfile.contractUrl} alt="Contract Document" className="rounded border border-gray200 dark:border-gray700 max-h-32 object-contain shadow-sm" />
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-center text-gray-400 text-sm">
+                          No contract image available
+                        </div>
+                      )}
                     </div>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div className="text-xs text-teal-700 dark:text-teal-300"><span className="font-semibold">Joining Date:</span> {viewProfile?.joiningDate ? new Date(viewProfile.joiningDate).toLocaleDateString() : '—'}</div>
-                    <div className="text-xs text-teal-700 dark:text-teal-300"><span className="font-semibold">Active:</span> {viewProfile?.isActive === false ? 'No' : 'Yes'}</div>
-                    <div />
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    {viewProfile?.idDocumentUrl && /\.(png|jpe?g|gif|webp)$/i.test(viewProfile.idDocumentUrl) ? (
-                      <img src={viewProfile.idDocumentUrl} alt="ID" className="rounded border border-teal-200 dark:border-teal-700 max-h-40 object-contain" />
-                    ) : null}
-                    {viewProfile?.passportDocumentUrl && /\.(png|jpe?g|gif|webp)$/i.test(viewProfile.passportDocumentUrl) ? (
-                      <img src={viewProfile.passportDocumentUrl} alt="Passport" className="rounded border border-teal-200 dark:border-teal-700 max-h-40 object-contain" />
-                    ) : null}
-                    {viewProfile?.contractUrl && /\.(png|jpe?g|gif|webp)$/i.test(viewProfile.contractUrl) ? (
-                      <img src={viewProfile.contractUrl} alt="Contract" className="rounded border border-teal-200 dark:border-teal-700 max-h-40 object-contain" />
-                    ) : null}
+                  <div className="border border-gray200 dark:border-gray700 rounded-lg p-4 bg-gray-50 dark:bg-gray-900">
+                    <h4 className="text-sm font-semibold text-teal-900 dark:text-teal-100 mb-3">Additional Information</h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                      <div className="text-xs text-teal-700 dark:text-teal-300"><span className="font-semibold">Joining Date:</span> {viewProfile?.joiningDate ? new Date(viewProfile.joiningDate).toLocaleDateString() : '—'}</div>
+                      <div className="text-xs text-teal-700 dark:text-teal-300"><span className="font-semibold">Active:</span> {viewProfile?.isActive === false ? 'No' : 'Yes'}</div>
+                      <div />
+                    </div>
                   </div>
                   <div className="flex items-center justify-end">
                     <button
                       type="button"
                       onClick={() => { setViewAgent(null); setViewProfile(null); }}
-                      className="px-3.5 py-2 rounded-md border border-teal-300 dark:border-teal-600 text-[11px] font-medium text-teal-700 dark:text-teal-300 bg-white dark:bg-teal-700 hover:bg-teal-50 dark:hover:bg-teal-600 transition-colors"
+                      className="px-3.5 py-2 rounded-md border border-gray300 dark:border-gray600 text-[11px] font-medium text-teal-700 dark:text-teal-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
                     >
                       Close
                     </button>
@@ -1520,14 +1654,14 @@ const ManageAgentsPage = () => {
       {/* Delete Confirmation Modal */}
       {deleteAgent && (
         <div 
-          className="fixed inset-0 z-30 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
           onClick={(e) => {
             if (e.target === e.currentTarget) {
               setDeleteAgent(null);
             }
           }}
         >
-          <div className="w-full max-w-md bg-white dark:bg-teal-800 rounded-xl border border-red-200 dark:border-red-800 shadow-2xl">
+          <div className="w-full max-w-md bg-white dark:bg-gray-800 rounded-xl border border-red-200 dark:border-red-800 shadow-2xl">
             <div className="px-6 py-4 border-b border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/30 rounded-t-xl">
               <div className="flex items-center gap-3">
                 <div className="h-10 w-10 rounded-full bg-red-100 dark:bg-red-900/50 flex items-center justify-center">
@@ -1552,7 +1686,7 @@ const ManageAgentsPage = () => {
                 <button
                   type="button"
                   onClick={() => setDeleteAgent(null)}
-                  className="px-4 py-2 rounded-lg border border-teal-300 dark:border-teal-600 text-sm font-medium text-teal-700 dark:text-teal-300 bg-white dark:bg-teal-700 hover:bg-teal-50 dark:hover:bg-teal-600 transition-colors"
+                  className="px-4 py-2 rounded-lg border border-gray300 dark:border-gray600 text-sm font-medium text-teal-700 dark:text-teal-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
                 >
                   Cancel
                 </button>

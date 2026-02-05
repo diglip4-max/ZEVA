@@ -26,7 +26,7 @@ const ClinicLayout = ({ children, hideSidebar = false, hideHeader = false }: Cli
   }
 
   return (
-    <div className="flex min-h-screen bg-teal-100" role="application">
+    <div className="flex min-h-screen bg-gray-50" role="application">
       {/* Sidebar - ClinicSidebar with external state */}
       {!hideSidebar && (
         <div className={`h-screen ${isMobileOpen ? 'fixed lg:sticky' : 'sticky'} top-0 z-50`}>

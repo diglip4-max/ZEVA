@@ -176,4 +176,12 @@ export const clinicNavigationItems = [
     moduleKey: "workflow_guide",
     order: 15,
   },
+  {
+    label: "Commission",
+    path: "/clinic/commission",
+    icon: "percent",
+    description: "Referral & staff commissions",
+    moduleKey: "clinic_commission",
+    order: 16,
+  },
 ];

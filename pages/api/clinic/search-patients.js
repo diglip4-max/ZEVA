@@ -1,5 +1,7 @@
 import dbConnect from "../../../lib/database";
 import PatientRegistration from "../../../models/PatientRegistration";
+import Clinic from "../../../models/Clinic";
+import User from "../../../models/Users";
 import { getUserFromReq } from "../lead-ms/auth";
 import { getClinicIdFromUser } from "../lead-ms/permissions-helper";
 
@@ -61,17 +63,78 @@ export default async function handler(req, res) {
 
     const searchTerm = search.trim();
 
+    // Build clinic-scoped user filter
+    let userIdFilter = null;
+    if (authUser.role === "clinic") {
+      const clinic = await Clinic.findOne({ owner: authUser._id }).select("_id owner");
+      if (clinic) {
+        const clinicUsers = await User.find({
+          $or: [{ _id: clinic.owner }, { clinicId: clinic._id }],
+        }).select("_id");
+        userIdFilter = { $in: clinicUsers.map((u) => u._id) };
+      } else {
+        userIdFilter = authUser._id;
+      }
+    } else if (["agent", "doctorStaff", "staff"].includes(authUser.role)) {
+      if (authUser.clinicId) {
+        const clinic = await Clinic.findById(authUser.clinicId).select("_id owner");
+        if (clinic) {
+          const clinicUsers = await User.find({
+            $or: [{ _id: clinic.owner }, { clinicId: authUser.clinicId }],
+          }).select("_id");
+          userIdFilter = { $in: clinicUsers.map((u) => u._id) };
+        } else {
+          userIdFilter = authUser._id;
+        }
+      } else {
+        userIdFilter = authUser._id;
+      }
+    } else if (authUser.role === "doctor") {
+      if (authUser.clinicId) {
+        const clinic = await Clinic.findById(authUser.clinicId).select("_id owner");
+        if (clinic) {
+          const clinicUsers = await User.find({
+            $or: [{ _id: clinic.owner }, { clinicId: authUser.clinicId }],
+          }).select("_id");
+          userIdFilter = { $in: clinicUsers.map((u) => u._id) };
+        } else {
+          userIdFilter = authUser._id;
+        }
+      } else {
+        userIdFilter = authUser._id;
+      }
+    } else if (authUser.role === "admin") {
+      const qClinicId = req.query.clinicId;
+      if (!qClinicId) {
+        return res.status(400).json({ success: false, message: "Admin must provide clinicId to search patients" });
+      }
+      const clinic = await Clinic.findById(qClinicId).select("_id owner");
+      if (!clinic) {
+        return res.status(404).json({ success: false, message: "Clinic not found" });
+      }
+      const clinicUsers = await User.find({
+        $or: [{ _id: clinic.owner }, { clinicId: clinic._id }],
+      }).select("_id");
+      userIdFilter = { $in: clinicUsers.map((u) => u._id) };
+    } else {
+      userIdFilter = authUser._id;
+    }
+
     // Search by firstName, lastName, mobileNumber, email, or EMR number
     // Using case-insensitive regex for partial matching
     const patients = await PatientRegistration.find({
-      $or: [
-        { firstName: { $regex: searchTerm, $options: "i" } },
-        { lastName: { $regex: searchTerm, $options: "i" } },
-        { mobileNumber: { $regex: searchTerm, $options: "i" } },
-        { email: { $regex: searchTerm, $options: "i" } },
-        { emrNumber: { $regex: searchTerm, $options: "i" } },
-        // Also search in full name combination
-        { $expr: { $regexMatch: { input: { $concat: ["$firstName", " ", "$lastName"] }, regex: searchTerm, options: "i" } } },
+      $and: [
+        { userId: userIdFilter },
+        {
+          $or: [
+            { firstName: { $regex: searchTerm, $options: "i" } },
+            { lastName: { $regex: searchTerm, $options: "i" } },
+            { mobileNumber: { $regex: searchTerm, $options: "i" } },
+            { email: { $regex: searchTerm, $options: "i" } },
+            { emrNumber: { $regex: searchTerm, $options: "i" } },
+            { $expr: { $regexMatch: { input: { $concat: ["$firstName", " ", "$lastName"] }, regex: searchTerm, options: "i" } } },
+          ],
+        },
       ],
     })
       .select("_id firstName lastName mobileNumber email emrNumber gender")

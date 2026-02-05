@@ -4,7 +4,7 @@ import PatientRegistration from "../staff/patient-registration";
 import { PatientInformation } from "../staff/patient-information";
 import ClinicLayout from '../../components/ClinicLayout';
 import withClinicAuth from '../../components/withClinicAuth';
-import { X, UserPlus, Upload, Download, FileText, AlertCircle, CheckCircle, XCircle } from "lucide-react";
+import { X, UserPlus, Upload, Download, FileText, AlertCircle, CheckCircle, XCircle, Edit } from "lucide-react";
 import PatientUpdateForm from "../../components/patient/PatientUpdateForm";
 import axios from "axios";
 import csv from "csvtojson";
@@ -123,22 +123,25 @@ function ClinicPatientRegistration() {
   };
 
   return (
-    <div className="min-h-screen bg-teal-50 p-2 sm:p-3">
+    <div className="min-h-screen bg-gray-50 p-2 sm:p-4">
       {/* Register Patient Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 overflow-y-auto bg-black/50 backdrop-blur-sm">
-          <div className="relative bg-white rounded-lg sm:rounded-xl shadow-2xl w-full max-w-7xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto flex flex-col">
-            <div className="sticky top-0 bg-white border-b border-teal-200 px-2 sm:px-3 py-2 flex items-center justify-between z-10">
-              <h2 className="text-sm sm:text-base font-bold text-teal-900">Register New Patient</h2>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 overflow-y-auto bg-black/60 backdrop-blur-md">
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-7xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto flex flex-col border border-teal-100">
+            <div className="sticky top-0 bg-teal-600 px-4 sm:px-6 py-3 flex items-center justify-between z-10 rounded-t-2xl">
+              <h2 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
+                <UserPlus className="w-5 h-5" />
+                Register New Patient
+              </h2>
               <button
                 onClick={handleCloseModal}
-                className="p-1 hover:bg-teal-100 rounded-lg text-teal-500 hover:text-teal-700 transition-colors flex-shrink-0"
+                className="p-2 hover:bg-white/20 rounded-lg text-white hover:text-white transition-colors flex-shrink-0 backdrop-blur-sm"
                 aria-label="Close modal"
               >
-                <X className="w-4 h-4" />
+                <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="p-2 sm:p-3 flex-1 overflow-y-auto">
+            <div className="p-4 sm:p-6 flex-1 overflow-y-auto bg-gray-50">
               <PatientRegistrationWrapper 
                 onSuccess={handleRegistrationSuccess}
                 isCompact
@@ -158,28 +161,33 @@ function ClinicPatientRegistration() {
       )}
 
       {/* Main Content - Patient Information with Register Button */}
-      <PatientInformationWithButton 
-        onRegisterClick={handleOpenModal}
-        onImportClick={handleOpenImportModal}
-        refreshKey={refreshKey}
-        onEditPatient={handleOpenEditModal}
-        routeContext={routeContext}
-      />
+      <div className="max-w-7xl mx-auto">
+        <PatientInformationWithButton 
+          onRegisterClick={handleOpenModal}
+          onImportClick={handleOpenImportModal}
+          refreshKey={refreshKey}
+          onEditPatient={handleOpenEditModal}
+          routeContext={routeContext}
+        />
+      </div>
 
       {editPatientId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 overflow-y-auto bg-black/50 backdrop-blur-sm">
-          <div className="relative w-full max-w-6xl max-h-[95vh] sm:max-h-[90vh] bg-white rounded-lg sm:rounded-xl shadow-2xl flex flex-col">
-            <div className="sticky top-0 bg-white border-b border-teal-200 px-2 sm:px-3 py-2 flex items-center justify-between z-10">
-              <h2 className="text-sm sm:text-base font-bold text-teal-900">Edit Patient</h2>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 overflow-y-auto bg-black/60 backdrop-blur-md">
+          <div className="relative w-full max-w-6xl max-h-[95vh] sm:max-h-[90vh] bg-white rounded-2xl shadow-2xl flex flex-col border border-teal-100">
+            <div className="sticky top-0 bg-gradient-to-r from-teal-600 to-blue-600 px-4 sm:px-6 py-3 flex items-center justify-between z-10 rounded-t-2xl">
+              <h2 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
+                <Edit className="w-5 h-5" />
+                Edit Patient Information
+              </h2>
               <button
                 onClick={() => handleCloseEditModal(false)}
-                className="p-1 hover:bg-teal-100 rounded-lg text-teal-500 hover:text-teal-700 transition-colors flex-shrink-0"
+                className="p-2 hover:bg-white/20 rounded-lg text-white hover:text-white transition-colors flex-shrink-0 backdrop-blur-sm"
                 aria-label="Close edit modal"
               >
-                <X className="w-4 h-4" />
+                <X className="w-5 h-5" />
               </button>
             </div>
-            <div className="p-2 sm:p-3 flex-1 overflow-y-auto">
+            <div className="p-4 sm:p-6 flex-1 overflow-y-auto bg-gray-50">
               <PatientUpdateForm
                 patientId={editPatientId}
                 onClose={() => handleCloseEditModal(true)}
@@ -192,7 +200,7 @@ function ClinicPatientRegistration() {
 
       {showSavePopup && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-6 bg-black/40 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl min-h-[220px] p-6 border border-teal-200">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl min-h-[220px] p-6 border border-gray-200">
             <div className="flex flex-col items-center mb-4">
               <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center mb-3">
                 <CheckCircle className="w-6 h-6 text-green-600" />
@@ -474,7 +482,7 @@ function PatientImportModal({ onClose, onSuccess }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 overflow-y-auto bg-black/50 backdrop-blur-sm">
       <div className="relative bg-white rounded-lg sm:rounded-xl shadow-2xl w-full max-w-4xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto flex flex-col">
-        <div className="sticky top-0 bg-white border-b border-teal-200 px-2 sm:px-3 py-2 flex items-center justify-between z-10">
+        <div className="sticky top-0 bg-white border-b border-gray-200 px-2 sm:px-3 py-2 flex items-center justify-between z-10">
           <h2 className="text-sm sm:text-base font-bold text-teal-900">Import Patients</h2>
           <button
             onClick={onClose}
@@ -516,7 +524,7 @@ function PatientImportModal({ onClose, onSuccess }) {
                 </button>
               </div>
 
-              <div className="border-2 border-dashed border-teal-300 rounded-lg p-6 text-center">
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
                 <Upload className="w-12 h-12 text-teal-400 mx-auto mb-3" />
                 <label className="cursor-pointer">
                   <span className="text-sm font-medium text-teal-700">Choose file to upload</span>
@@ -553,11 +561,11 @@ function PatientImportModal({ onClose, onSuccess }) {
                 <div className="bg-teal-50 rounded-lg p-3 mb-4">
                   <p className="text-xs font-semibold text-teal-700 mb-2">File Preview (first 5 rows):</p>
                   <div className="overflow-x-auto">
-                    <table className="min-w-full text-xs border border-teal-200">
+                    <table className="min-w-full text-xs border border-gray-200">
                       <thead>
                         <tr className="bg-teal-100">
                           {availableColumns.map((col) => (
-                            <th key={col} className="px-2 py-1 border border-teal-300 text-left font-semibold">
+                            <th key={col} className="px-2 py-1 border border-gray-300 text-left font-semibold">
                               {col}
                             </th>
                           ))}
@@ -567,7 +575,7 @@ function PatientImportModal({ onClose, onSuccess }) {
                         {filePreview.map((row, idx) => (
                           <tr key={idx}>
                             {availableColumns.map((col) => (
-                              <td key={col} className="px-2 py-1 border border-teal-300">
+                              <td key={col} className="px-2 py-1 border border-gray-300">
                                 {String(row[col] || "").substring(0, 20)}
                               </td>
                             ))}
@@ -607,7 +615,7 @@ function PatientImportModal({ onClose, onSuccess }) {
                           }
                           setColumnMapping(newMapping);
                         }}
-                        className="flex-1 px-3 py-2 border border-teal-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
                       >
                         <option value="">-- Select Column --</option>
                         {availableColumns.map((col) => (
@@ -1049,8 +1057,8 @@ function PatientInformationWithButton({ onRegisterClick, onImportClick, refreshK
   // Don't render until permissions are loaded
   if (!permissionsLoaded) {
     return (
-      <div className="min-h-screen bg-teal-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-2 border-teal-300 border-t-blue-600"></div>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-2 border-gray-300 border-t-blue-600"></div>
       </div>
     );
   }
@@ -1058,7 +1066,7 @@ function PatientInformationWithButton({ onRegisterClick, onImportClick, refreshK
   // If both canRead and canCreate are false, show access denied message
   if (!permissions.canRead && !permissions.canCreate) {
     return (
-      <div className="min-h-screen bg-teal-50 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-lg shadow-lg border border-red-200 p-8 text-center max-w-md">
           <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <UserPlus className="w-8 h-8 text-red-600" />
@@ -1077,16 +1085,19 @@ function PatientInformationWithButton({ onRegisterClick, onImportClick, refreshK
 
   return (
     <div>
-      {/* Header with Register Button - Matching clinic dashboard theme */}
-      <div className="bg-white ml-6 mr-6 rounded-lg shadow-sm border border-teal-200 mt-1">
-        <div className="max-w-7xl mx-auto px-2 sm:px-3 py-2">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+      {/* Header with Register Button - Enhanced modern UI */}
+      <div className="bg-white rounded-2xl shadow-lg border border-teal-100 mb-6 overflow-hidden">
+        <div className="bg-gradient-to-r from-teal-600 to-blue-600 px-4 sm:px-6 py-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
-              <h1 className="text-sm sm:text-base font-bold text-teal-900">Patient Management</h1>
-              <p className="text-[10px] sm:text-xs text-teal-700 mt-0.5">View and manage all patient records</p>
+              <h1 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2">
+                <UserPlus className="w-6 h-6" />
+                Patient Management
+              </h1>
+              <p className="text-teal-100 mt-1 text-sm">View and manage all patient records</p>
             </div>
             {permissions.canCreate && (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-3">
                 <button
                   onClick={() => {
                     
@@ -1096,16 +1107,16 @@ function PatientInformationWithButton({ onRegisterClick, onImportClick, refreshK
                 </button>
                 <button
                   onClick={onImportClick}
-                  className="inline-flex items-center justify-center gap-1 bg-white hover:bg-teal-50 text-teal-800 border border-teal-300 px-2.5 py-1.5 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-[10px] sm:text-xs font-medium"
+                  className="inline-flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 text-white border border-white/30 px-4 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-sm font-medium backdrop-blur-sm"
                 >
-                  <Upload className="h-3 w-3"/>
+                  <Upload className="h-4 w-4"/>
                   <span>Import Patients</span>
                 </button>
                 <button
                   onClick={onRegisterClick}
-                  className="inline-flex items-center justify-center gap-1 bg-teal-800 hover:bg-teal-900 text-white px-2.5 py-1.5 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-[10px] sm:text-xs font-medium"
+                  className="inline-flex items-center justify-center gap-2 bg-white text-teal-700 hover:bg-gray-100 px-4 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-sm font-medium"
                 >
-                  <UserPlus className="h-3 w-3"/>
+                  <UserPlus className="h-4 w-4"/>
                   <span>Register Patient</span>
                 </button>
               </div>
@@ -1116,7 +1127,7 @@ function PatientInformationWithButton({ onRegisterClick, onImportClick, refreshK
 
       {/* Patient Information Content - Show access denied if canRead is false, otherwise show patient list */}
       {!permissions.canRead ? (
-        <div className="bg-white rounded-lg p-6 sm:p-8 border border-teal-200 shadow-sm">
+        <div className="bg-white rounded-lg p-6 sm:p-8 border border-gray-200 shadow-sm">
           <div className="text-center max-w-md mx-auto">
             <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center mx-auto mb-3">
               <UserPlus className="w-6 h-6 text-red-600" />

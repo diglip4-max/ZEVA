@@ -108,7 +108,7 @@ const EditAgentModal = ({ isOpen, onClose, onUpdated, token, agentId }) => {
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm overflow-y-auto">
-      <div className="w-full max-w-4xl bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-xl my-8">
+      <div className="w-full max-w-4xl bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-xl">
         {/* Header */}
         <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 flex items-center justify-between rounded-t-xl sticky top-0 z-10 backdrop-blur-md">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Edit Profile</h3>
