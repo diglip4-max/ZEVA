@@ -195,6 +195,7 @@ function ClinicCommissionPage() {
                       <th className="px-2 py-1">Mobile</th>
                       <th className="px-2 py-1">Invoice</th>
                       <th className="px-2 py-1">Paid</th>
+                      <th className="px-2 py-1">Earned</th>
                       <th className="px-2 py-1">Commission</th>
                       <th className="px-2 py-1">Doctor</th>
                       <th className="px-2 py-1">Date</th>
@@ -207,6 +208,7 @@ function ClinicCommissionPage() {
                         <td className="px-2 py-1">{it.patientMobile || "—"}</td>
                         <td className="px-2 py-1">{it.invoiceNumber || "—"}</td>
                         <td className="px-2 py-1">₹ {Number(it.paidAmount || 0).toFixed(2)}</td>
+                        <td className="px-2 py-1">₹ {Number(it.commissionAmount || 0).toFixed(2)}</td>
                         <td className="px-2 py-1">₹ {Number(it.commissionAmount || 0).toFixed(2)} ({Number(it.commissionPercent || 0)}%)</td>
                         <td className="px-2 py-1">{it.doctorName || "—"}</td>
                         <td className="px-2 py-1">{it.invoicedDate ? new Date(it.invoicedDate).toLocaleDateString() : "—"}</td>
@@ -231,4 +233,3 @@ const ProtectedClinicCommissionPage = withClinicAuth(ClinicCommissionPage);
 ProtectedClinicCommissionPage.getLayout = ClinicCommissionPage.getLayout;
 
 export default ProtectedClinicCommissionPage;
-
