@@ -576,14 +576,14 @@ function OffersPage() {
           },
         }}
       />
-    <div className="min-h-screen bg-teal-50 p-3 sm:p-4">
+    <div className="min-h-screen bg-gray-50 p-3 sm:p-4">
       <div className="max-w-7xl mx-auto space-y-3">
         {!permissionsLoaded ? (
           <div className="bg-white rounded-lg shadow-sm border border-teal-200 p-4 text-center">
             <p className="text-xs sm:text-sm text-teal-700 font-medium">Loading permissions...</p>
           </div>
         ) : !finalCanRead && !finalCanCreate ? (
-          <div className="min-h-screen bg-teal-50 flex items-center justify-center p-4">
+          <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
             <div className="bg-white rounded-lg shadow-lg border border-red-200 p-8 text-center max-w-md">
               <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Package className="w-8 h-8 text-red-600" />
@@ -598,7 +598,7 @@ function OffersPage() {
             </div>
           </div>
         ) : !finalCanRead && finalCanCreate ? (
-          <div className="min-h-screen bg-teal-50 p-3 sm:p-4">
+          <div className="min-h-screen bg-gray-50 p-3 sm:p-4">
             <div className="max-w-7xl mx-auto space-y-3">
               {/* Compact Header Section */}
               <div className="bg-white rounded-lg shadow-sm border border-teal-200 p-3 sm:p-4">

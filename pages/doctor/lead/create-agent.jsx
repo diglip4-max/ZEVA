@@ -17,6 +17,29 @@ const ManageAgentsPage = () => {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [profileAgent, setProfileAgent] = useState(null);
+  const [viewAgent, setViewAgent] = useState(null);
+  const [viewProfile, setViewProfile] = useState(null);
+  const [viewLoading, setViewLoading] = useState(false);
+  const [profileForm, setProfileForm] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    idType: 'aadhaar',
+    idNumber: '',
+    idDocumentUrl: '',
+    passportNumber: '',
+    passportDocumentUrl: '',
+    emergencyPhone: '',
+    baseSalary: '',
+    commissionType: 'flat',
+    commissionPercentage: '',
+    contractUrl: '',
+    contractType: 'full',
+  });
+  const [uploadingIdDoc, setUploadingIdDoc] = useState(false);
+  const [uploadingPassportDoc, setUploadingPassportDoc] = useState(false);
+  const [uploadingContract, setUploadingContract] = useState(false);
 
   // Get the appropriate token based on what's available (clinic > doctor > admin)
   // This ensures we use the correct token for the logged-in user
@@ -27,6 +50,10 @@ const ManageAgentsPage = () => {
   // Priority: doctorToken > adminToken
   const token = doctorToken || adminToken;
 
+  const getAuthHeaders = () => {
+    return token ? { Authorization: `Bearer ${token}` } : null;
+  };
+
   async function loadAgents() {
     try {
       const { data } = await axios.get('/api/lead-ms/get-agents?role=agent', {
@@ -35,6 +62,138 @@ const ManageAgentsPage = () => {
       if (data.success) setAgents(data.agents);
     } catch (err) {
       console.error(err);
+    }
+  }
+
+  const getFileNameFromUrl = (url) => {
+    try {
+      if (!url || typeof url !== 'string') return '';
+      const u = new URL(url);
+      const pathname = u.pathname || '';
+      const name = pathname.split('/').filter(Boolean).pop() || '';
+      return name || url.split('?')[0].split('/').pop() || '';
+    } catch {
+      return url?.split('?')[0]?.split('/')?.pop() || '';
+    }
+  };
+
+  async function openProfile(agent) {
+    const authHeaders = getAuthHeaders();
+    if (!authHeaders) return;
+    setProfileAgent(agent);
+    setProfileForm((f) => ({
+      ...f,
+      name: agent.name || '',
+      email: agent.email || '',
+      phone: agent.phone || '',
+    }));
+    try {
+      const res = await axios.get(`/api/lead-ms/get-agents?agentId=${agent._id}`, {
+        headers: authHeaders,
+      });
+      if (res.data.success) {
+        const p = res.data.profile || {};
+        setProfileForm({
+          name: agent.name || '',
+          email: agent.email || '',
+          phone: agent.phone || '',
+          idType: p.idType || 'aadhaar',
+          idNumber: p.idNumber || '',
+          idDocumentUrl: p.idDocumentUrl || '',
+          passportNumber: p.passportNumber || '',
+          passportDocumentUrl: p.passportDocumentUrl || '',
+          emergencyPhone: p.emergencyPhone || '',
+          baseSalary: typeof p.baseSalary === 'number' ? String(p.baseSalary) : p.baseSalary || '',
+          commissionType: p.commissionType || 'flat',
+          commissionPercentage: p.commissionPercentage || '',
+          contractUrl: p.contractUrl || '',
+          contractType: p.contractType || 'full',
+        });
+      }
+    } catch {}
+  }
+
+  async function openView(agent) {
+    const authHeaders = getAuthHeaders();
+    if (!authHeaders) return;
+    setViewAgent(agent);
+    setViewLoading(true);
+    try {
+      const res = await axios.get(`/api/lead-ms/get-agents?agentId=${agent._id}`, {
+        headers: authHeaders,
+      });
+      if (res.data.success) {
+        setViewProfile(res.data.profile || {});
+      } else {
+        setViewProfile(null);
+      }
+    } catch {
+      setViewProfile(null);
+    } finally {
+      setViewLoading(false);
+    }
+  }
+
+  async function uploadFile(file, setUrl, setLoading) {
+    if (!file) return;
+    const authHeaders = getAuthHeaders();
+    setLoading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await axios.post('/api/upload', formData, {
+        headers: { ...(authHeaders || {}), 'Content-Type': 'multipart/form-data' },
+      });
+      if (res.data.success && res.data.url) {
+        setUrl(res.data.url);
+        alert('Uploaded');
+      } else {
+        alert(res.data.message || 'Upload failed');
+      }
+    } catch (e) {
+      alert('Upload failed');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function saveProfile() {
+    if (!profileAgent) return;
+    const authHeaders = getAuthHeaders();
+    if (!authHeaders) return;
+    try {
+      const payload = {
+        agentId: profileAgent._id,
+        action: 'updateProfile',
+        name: profileForm.name,
+        email: profileForm.email,
+        phone: profileForm.phone,
+        emergencyPhone: profileForm.emergencyPhone,
+        idType: profileForm.idType,
+        idNumber: profileForm.idNumber,
+        idDocumentUrl: profileForm.idDocumentUrl,
+        passportNumber: profileForm.passportNumber,
+        passportDocumentUrl: profileForm.passportDocumentUrl,
+        contractUrl: profileForm.contractUrl,
+        contractType: profileForm.contractType,
+        baseSalary: parseFloat(profileForm.baseSalary || '0'),
+        commissionType: profileForm.commissionType,
+        commissionPercentage: profileForm.commissionPercentage,
+      };
+      const res = await axios.patch('/api/lead-ms/get-agents', payload, { headers: authHeaders });
+      if (res.data?.success) {
+        if (profileAgent.role === 'doctorStaff') {
+          setDoctorStaff((prev) => prev.map((a) => (a._id === profileAgent._id ? res.data.agent : a)));
+        } else {
+          setAgents((prev) => prev.map((a) => (a._id === profileAgent._id ? res.data.agent : a)));
+        }
+        setProfileAgent(null);
+        alert('Profile updated');
+      } else {
+        alert(res.data?.message || 'Failed to update profile');
+      }
+    } catch (e) {
+      alert('Failed to update profile');
     }
   }
 
@@ -315,6 +474,24 @@ const ManageAgentsPage = () => {
                                 <button
                                   className="w-full text-left px-3 py-2 text-[11px] hover:bg-gray-50 transition-colors"
                                   onClick={() => {
+                                    setMenuAgentId(null);
+                                    openView(agent);
+                                  }}
+                                >
+                                  View
+                                </button>
+                                <button
+                                  className="w-full text-left px-3 py-2 text-[11px] hover:bg-gray-50 transition-colors"
+                                  onClick={() => {
+                                    setMenuAgentId(null);
+                                    openProfile(agent);
+                                  }}
+                                >
+                                  Profile
+                                </button>
+                                <button
+                                  className="w-full text-left px-3 py-2 text-[11px] hover:bg-gray-50 transition-colors"
+                                  onClick={() => {
                                     setPasswordAgent(agent);
                                     setMenuAgentId(null);
                                   }}
@@ -363,6 +540,316 @@ const ManageAgentsPage = () => {
           token={token || null}
           userRole={doctorToken ? 'doctor' : 'admin'}
         />
+      )}
+
+      {/* Profile Edit Modal */}
+      {profileAgent && (
+        <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-4xl bg-white rounded-lg border border-gray-200 shadow-xl max-h-[90vh] overflow-y-auto">
+            <div className="px-5 py-3.5 border-b border-gray-200 bg-gray-50 flex items-start justify-between sticky top-0 z-10">
+              <div className="flex-1 min-w-0 pr-2">
+                <h3 className="text-sm font-semibold text-gray-900">Edit profile</h3>
+                <p className="text-[11px] text-gray-500 mt-0.5">{profileAgent.name} • {profileAgent.email}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setProfileAgent(null); }}
+                className="flex-shrink-0 p-1 rounded-lg hover:bg-gray-100 transition-colors text-gray-500 hover:text-gray-700"
+                aria-label="Close"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="p-5 space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-[11px] font-medium text-gray-700 mb-1.5">Name</label>
+                  <input
+                    type="text"
+                    value={profileForm.name}
+                    onChange={(e) => setProfileForm((f) => ({ ...f, name: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-xs bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-medium text-gray-700 mb-1.5">Email</label>
+                  <input
+                    type="email"
+                    value={profileForm.email}
+                    onChange={(e) => setProfileForm((f) => ({ ...f, email: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-xs bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-medium text-gray-700 mb-1.5">Phone</label>
+                  <input
+                    type="text"
+                    value={profileForm.phone}
+                    onChange={(e) => setProfileForm((f) => ({ ...f, phone: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-xs bg-white"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-[11px] font-medium text-gray-700 mb-1.5">Emergency phone</label>
+                  <input
+                    type="text"
+                    value={profileForm.emergencyPhone}
+                    onChange={(e) => setProfileForm((f) => ({ ...f, emergencyPhone: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-xs bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-medium text-gray-700 mb-1.5">Identity type</label>
+                  <select
+                    value={profileForm.idType}
+                    onChange={(e) => setProfileForm((f) => ({ ...f, idType: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-xs bg-white"
+                  >
+                    <option value="aadhaar">Aadhaar</option>
+                    <option value="passport">Passport</option>
+                    <option value="pan">PAN</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[11px] font-medium text-gray-700 mb-1.5">Identity number</label>
+                  <input
+                    type="text"
+                    value={profileForm.idNumber}
+                    onChange={(e) => setProfileForm((f) => ({ ...f, idNumber: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-xs bg-white"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-[11px] font-medium text-gray-700 mb-1.5">ID document</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="file"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) uploadFile(file, (url) => setProfileForm((f) => ({ ...f, idDocumentUrl: url })), setUploadingIdDoc);
+                      }}
+                    />
+                    <span className="text-[11px] text-gray-600 truncate flex-1 min-w-0">
+                      {profileForm.idDocumentUrl ? getFileNameFromUrl(profileForm.idDocumentUrl) : 'No file chosen'}
+                    </span>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-[11px] font-medium text-gray-700 mb-1.5">Passport number</label>
+                  <input
+                    type="text"
+                    value={profileForm.passportNumber}
+                    onChange={(e) => setProfileForm((f) => ({ ...f, passportNumber: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-xs bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-medium text-gray-700 mb-1.5">Passport document</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="file"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) uploadFile(file, (url) => setProfileForm((f) => ({ ...f, passportDocumentUrl: url })), setUploadingPassportDoc);
+                      }}
+                    />
+                    <span className="text-[11px] text-gray-600 truncate flex-1 min-w-0">
+                      {profileForm.passportDocumentUrl ? getFileNameFromUrl(profileForm.passportDocumentUrl) : 'No file chosen'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-[11px] font-medium text-gray-700 mb-1.5">Contract URL</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="file"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) uploadFile(file, (url) => setProfileForm((f) => ({ ...f, contractUrl: url })), setUploadingContract);
+                      }}
+                    />
+                    <span className="text-[11px] text-gray-600 truncate flex-1 min-w-0">
+                      {profileForm.contractUrl ? getFileNameFromUrl(profileForm.contractUrl) : 'No file chosen'}
+                    </span>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-[11px] font-medium text-gray-700 mb-1.5">Contract type</label>
+                  <select
+                    value={profileForm.contractType}
+                    onChange={(e) => setProfileForm((f) => ({ ...f, contractType: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-xs bg-white"
+                  >
+                    <option value="full">Full</option>
+                    <option value="part">Part</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[11px] font-medium text-gray-700 mb-1.5">Base salary</label>
+                  <input
+                    type="number"
+                    value={profileForm.baseSalary}
+                    onChange={(e) => setProfileForm((f) => ({ ...f, baseSalary: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-xs bg-white"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-[11px] font-medium text-gray-700 mb-1.5">Commission type</label>
+                  <select
+                    value={profileForm.commissionType}
+                    onChange={(e) => setProfileForm((f) => ({ ...f, commissionType: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-xs bg-white"
+                  >
+                    <option value="flat">Flat</option>
+                    <option value="percentage">Percentage</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[11px] font-medium text-gray-700 mb-1.5">Commission %</label>
+                  <input
+                    type="number"
+                    value={profileForm.commissionPercentage}
+                    onChange={(e) => setProfileForm((f) => ({ ...f, commissionPercentage: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-xs bg-white"
+                  />
+                </div>
+                <div />
+              </div>
+              <div className="flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => { setProfileAgent(null); }}
+                  className="px-3.5 py-2 rounded-md border border-gray-300 text-[11px] font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={saveProfile}
+                  className="px-3.5 py-2 bg-gray-900 hover:bg-gray-800 text-white text-[11px] font-medium rounded-md transition-colors shadow-sm"
+                >
+                  Save
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* View Profile Modal */}
+      {viewAgent && (
+        <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-4xl bg-white rounded-lg border border-gray-200 shadow-xl max-h-[90vh] overflow-y-auto">
+            <div className="px-5 py-3.5 border-b border-gray-200 bg-gray-50 flex items-start justify-between sticky top-0 z-10">
+              <div className="flex-1 min-w-0 pr-2">
+                <h3 className="text-sm font-semibold text-gray-900">View profile</h3>
+                <p className="text-[11px] text-gray-500 mt-0.5">{viewAgent.name} • {viewAgent.email}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setViewAgent(null); setViewProfile(null); }}
+                className="flex-shrink-0 p-1 rounded-lg hover:bg-gray-100 transition-colors text-gray-500 hover:text-gray-700"
+                aria-label="Close"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="p-5 space-y-4">
+              {viewLoading ? (
+                <div className="py-8 text-center text-sm text-gray-700">Loading...</div>
+              ) : (
+                <>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div className="text-xs text-gray-700"><span className="font-semibold">Name:</span> {viewAgent.name}</div>
+                    <div className="text-xs text-gray-700"><span className="font-semibold">Email:</span> {viewAgent.email}</div>
+                    <div className="text-xs text-gray-700"><span className="font-semibold">Phone:</span> {viewAgent.phone || 'N/A'}</div>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div className="text-xs text-gray-700"><span className="font-semibold">Role:</span> {viewAgent.role}</div>
+                    <div className="text-xs text-gray-700"><span className="font-semibold">Status:</span> {viewAgent.declined ? 'Declined' : viewAgent.isApproved ? 'Approved' : 'Pending'}</div>
+                    <div className="text-xs text-gray-700"><span className="font-semibold">Commission:</span> {viewProfile?.commissionType || '—'} {viewProfile?.commissionPercentage ? `(${viewProfile.commissionPercentage}%)` : ''}</div>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div className="text-xs text-gray-700"><span className="font-semibold">Identity Type:</span> {viewProfile?.idType || '—'}</div>
+                    <div className="text-xs text-gray-700"><span className="font-semibold">Identity No:</span> {viewProfile?.idNumber || '—'}</div>
+                    <div className="text-xs text-gray-700">
+                      <span className="font-semibold">ID Document:</span>{' '}
+                      {viewProfile?.idDocumentUrl ? (
+                        <>
+                          <a href={viewProfile.idDocumentUrl} target="_blank" rel="noreferrer" className="text-gray-900 underline">Open</a>
+                          <span className="ml-2 text-[11px]">{getFileNameFromUrl(viewProfile.idDocumentUrl)}</span>
+                        </>
+                      ) : '—'}
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div className="text-xs text-gray-700"><span className="font-semibold">Passport No:</span> {viewProfile?.passportNumber || '—'}</div>
+                    <div className="text-xs text-gray-700">
+                      <span className="font-semibold">Passport Doc:</span>{' '}
+                      {viewProfile?.passportDocumentUrl ? (
+                        <>
+                          <a href={viewProfile.passportDocumentUrl} target="_blank" rel="noreferrer" className="text-gray-900 underline">Open</a>
+                          <span className="ml-2 text-[11px]">{getFileNameFromUrl(viewProfile.passportDocumentUrl)}</span>
+                        </>
+                      ) : '—'}
+                    </div>
+                    <div className="text-xs text-gray-700"><span className="font-semibold">Emergency Phone:</span> {viewProfile?.emergencyPhone || '—'}</div>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div className="text-xs text-gray-700"><span className="font-semibold">Salary:</span> {typeof viewProfile?.baseSalary === 'number' ? viewProfile.baseSalary : (viewProfile?.baseSalary || '—')}</div>
+                    <div className="text-xs text-gray-700"><span className="font-semibold">Contract Type:</span> {viewProfile?.contractType || '—'}</div>
+                    <div className="text-xs text-gray-700">
+                      <span className="font-semibold">Contract:</span>{' '}
+                      {viewProfile?.contractUrl ? (
+                        <>
+                          <a href={viewProfile.contractUrl} target="_blank" rel="noreferrer" className="text-gray-900 underline">Open</a>
+                          <span className="ml-2 text-[11px]">{getFileNameFromUrl(viewProfile.contractUrl)}</span>
+                        </>
+                      ) : '—'}
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div className="text-xs text-gray-700"><span className="font-semibold">Joining Date:</span> {viewProfile?.joiningDate ? new Date(viewProfile.joiningDate).toLocaleDateString() : '—'}</div>
+                    <div className="text-xs text-gray-700"><span className="font-semibold">Active:</span> {viewProfile?.isActive === false ? 'No' : 'Yes'}</div>
+                    <div />
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {viewProfile?.idDocumentUrl && /\.(png|jpe?g|gif|webp)$/i.test(viewProfile.idDocumentUrl) ? (
+                      <img src={viewProfile.idDocumentUrl} alt="ID" className="rounded border border-gray-200 max-h-40 object-contain" />
+                    ) : null}
+                    {viewProfile?.passportDocumentUrl && /\.(png|jpe?g|gif|webp)$/i.test(viewProfile.passportDocumentUrl) ? (
+                      <img src={viewProfile.passportDocumentUrl} alt="Passport" className="rounded border border-gray-200 max-h-40 object-contain" />
+                    ) : null}
+                    {viewProfile?.contractUrl && /\.(png|jpe?g|gif|webp)$/i.test(viewProfile.contractUrl) ? (
+                      <img src={viewProfile.contractUrl} alt="Contract" className="rounded border border-gray-200 max-h-40 object-contain" />
+                    ) : null}
+                  </div>
+                  <div className="flex items-center justify-end">
+                    <button
+                      type="button"
+                      onClick={() => { setViewAgent(null); setViewProfile(null); }}
+                      className="px-3.5 py-2 rounded-md border border-gray-300 text-[11px] font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors"
+                    >
+                      Close
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Change Password Modal */}
