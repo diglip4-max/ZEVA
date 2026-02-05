@@ -57,7 +57,7 @@ interface ContactInfo {
 interface PurchaseRequest {
   _id: string;
   orderNo: string;
-  suppplier?: {
+  supplier?: {
     _id: string;
     name: string;
   };
@@ -85,7 +85,7 @@ const ConvertPurchaseRequestModal: React.FC<IProps> = ({
     useState<PurchaseRequest | null>(null);
   const { clinicBranches } = useClinicBranches();
   const [purchaseRequests, setPurchaseRequests] = useState<PurchaseRequest[]>(
-    []
+    [],
   );
   const [purchaseRequestsLoading, setPurchaseRequestsLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -103,7 +103,7 @@ const ConvertPurchaseRequestModal: React.FC<IProps> = ({
     quotationNo: "",
     validityDays: "",
     paymentTermsDays: "",
-    suppplier: "",
+    supplier: "",
     type: "Purchase_Order",
     supplierInvoiceNo: "",
     notes: "",
@@ -221,19 +221,19 @@ const ConvertPurchaseRequestModal: React.FC<IProps> = ({
   const calculateTotals = () => {
     const subtotal = items.reduce(
       (sum, item) => sum + (item.totalPrice || 0),
-      0
+      0,
     );
     const totalDiscount = items.reduce(
       (sum, item) => sum + (item.discountAmount || 0),
-      0
+      0,
     );
     const totalVat = items.reduce(
       (sum, item) => sum + (item.vatAmount || 0),
-      0
+      0,
     );
     const grandTotal = items.reduce(
       (sum, item) => sum + (item.netPlusVat || 0),
-      0
+      0,
     );
 
     return { subtotal, totalDiscount, totalVat, grandTotal };
@@ -276,7 +276,7 @@ const ConvertPurchaseRequestModal: React.FC<IProps> = ({
           headers: {
             Authorization: `Bearer ${token}`,
           },
-        }
+        },
       );
 
       const data = await response.json();
@@ -300,7 +300,7 @@ const ConvertPurchaseRequestModal: React.FC<IProps> = ({
       branch: branchId,
       date: pr.date || new Date().toISOString().split("T")[0],
       enqNo: pr.enqNo || "",
-      suppplier: pr.suppplier?._id || "",
+      supplier: pr.supplier?._id || "",
       notes: pr.notes || "",
       shipTo: {
         to: pr.shipTo?.to || "",
@@ -358,7 +358,7 @@ const ConvertPurchaseRequestModal: React.FC<IProps> = ({
   const handleInputChange = (
     e: React.ChangeEvent<
       HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
-    >
+    >,
   ) => {
     const { name, value } = e.target;
 
@@ -382,7 +382,7 @@ const ConvertPurchaseRequestModal: React.FC<IProps> = ({
 
   const handleCurrentItemChange = (
     field: keyof ExtendedPurchaseRecordItem,
-    value: any
+    value: any,
   ) => {
     setCurrentItem((prev) => ({
       ...prev,
@@ -418,7 +418,7 @@ const ConvertPurchaseRequestModal: React.FC<IProps> = ({
 
   const handleEditChange = (
     field: keyof ExtendedPurchaseRecordItem,
-    value: any
+    value: any,
   ) => {
     if (editedItem) {
       setEditedItem({
@@ -485,7 +485,7 @@ const ConvertPurchaseRequestModal: React.FC<IProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.branch.trim() || !formData.suppplier.trim()) {
+    if (!formData.branch.trim() || !formData.supplier.trim()) {
       setError("Please fill in all required fields");
       return;
     }
@@ -516,7 +516,7 @@ const ConvertPurchaseRequestModal: React.FC<IProps> = ({
             Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify(payload),
-        }
+        },
       );
 
       const result = await response.json();
@@ -549,7 +549,7 @@ const ConvertPurchaseRequestModal: React.FC<IProps> = ({
       quotationNo: "",
       validityDays: "",
       paymentTermsDays: "",
-      suppplier: "",
+      supplier: "",
       type: "Purchase_Order",
       supplierInvoiceNo: "",
       notes: "",
@@ -770,9 +770,9 @@ const ConvertPurchaseRequestModal: React.FC<IProps> = ({
                                   pr.orderNo
                                     .toLowerCase()
                                     .includes(searchTerm.toLowerCase()) ||
-                                  pr.suppplier?.name
+                                  pr.supplier?.name
                                     .toLowerCase()
-                                    .includes(searchTerm.toLowerCase())
+                                    .includes(searchTerm.toLowerCase()),
                               )
                               .map((pr) => (
                                 <tr key={pr._id} className="hover:bg-gray-50">
@@ -780,14 +780,14 @@ const ConvertPurchaseRequestModal: React.FC<IProps> = ({
                                     {pr.orderNo}
                                   </td>
                                   <td className="px-3 py-2 text-sm text-gray-900">
-                                    {pr.suppplier?.name || "No supplier"}
+                                    {pr.supplier?.name || "No supplier"}
                                   </td>
                                   <td className="px-3 py-2 text-sm text-gray-900">
                                     {pr.items.length} items
                                   </td>
                                   <td className="px-3 py-2 text-sm text-gray-900">
                                     {new Date(
-                                      pr.createdAt
+                                      pr.createdAt,
                                     ).toLocaleDateString()}
                                   </td>
                                   <td className="px-3 py-2 text-sm">
@@ -825,10 +825,10 @@ const ConvertPurchaseRequestModal: React.FC<IProps> = ({
                         {selectedPurchaseRequest.orderNo}
                       </h3>
                       <p className="text-xs text-gray-600 mt-1">
-                        Supplier: {selectedPurchaseRequest.suppplier?.name} |
+                        Supplier: {selectedPurchaseRequest.supplier?.name} |
                         Items: {selectedPurchaseRequest.items.length} | Date:{" "}
                         {new Date(
-                          selectedPurchaseRequest.createdAt
+                          selectedPurchaseRequest.createdAt,
                         ).toLocaleDateString()}
                       </p>
                     </div>
@@ -885,13 +885,13 @@ const ConvertPurchaseRequestModal: React.FC<IProps> = ({
                     >
                       <span
                         className={
-                          formData.suppplier ? "text-gray-900" : "text-gray-400"
+                          formData.supplier ? "text-gray-900" : "text-gray-400"
                         }
                       >
                         {suppliers?.find(
-                          (supplier) => supplier._id === formData.suppplier
+                          (supplier) => supplier._id === formData.supplier,
                         )?.name ||
-                          selectedPurchaseRequest?.suppplier?.name ||
+                          selectedPurchaseRequest?.supplier?.name ||
                           "Select a supplier"}
                       </span>
                       <ChevronDown
@@ -926,7 +926,7 @@ const ConvertPurchaseRequestModal: React.FC<IProps> = ({
                                 onClick={() => {
                                   setFormData({
                                     ...formData,
-                                    suppplier: supplier._id,
+                                    supplier: supplier._id,
                                   });
                                   setIsSupplierDropdownOpen(false);
                                 }}
@@ -1182,7 +1182,7 @@ const ConvertPurchaseRequestModal: React.FC<IProps> = ({
                         onChange={(e) =>
                           handleCurrentItemChange(
                             "quantity",
-                            parseFloat(e.target.value) || 1
+                            parseFloat(e.target.value) || 1,
                           )
                         }
                         className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed h-10"
@@ -1231,7 +1231,7 @@ const ConvertPurchaseRequestModal: React.FC<IProps> = ({
                         onChange={(e) =>
                           handleCurrentItemChange(
                             "unitPrice",
-                            parseFloat(e.target.value) || 0
+                            parseFloat(e.target.value) || 0,
                           )
                         }
                         className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed h-10"
@@ -1250,7 +1250,7 @@ const ConvertPurchaseRequestModal: React.FC<IProps> = ({
                         onChange={(e) =>
                           handleCurrentItemChange(
                             "discountType",
-                            e.target.value as "Fixed" | "Percentage"
+                            e.target.value as "Fixed" | "Percentage",
                           )
                         }
                         className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed h-10"
@@ -1274,7 +1274,7 @@ const ConvertPurchaseRequestModal: React.FC<IProps> = ({
                         onChange={(e) =>
                           handleCurrentItemChange(
                             "discount",
-                            parseFloat(e.target.value) || 0
+                            parseFloat(e.target.value) || 0,
                           )
                         }
                         className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed h-10"
@@ -1296,7 +1296,7 @@ const ConvertPurchaseRequestModal: React.FC<IProps> = ({
                         onChange={(e) =>
                           handleCurrentItemChange(
                             "vatPercentage",
-                            parseFloat(e.target.value) || 0
+                            parseFloat(e.target.value) || 0,
                           )
                         }
                         className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed h-10"
@@ -1317,7 +1317,7 @@ const ConvertPurchaseRequestModal: React.FC<IProps> = ({
                         onChange={(e) =>
                           handleCurrentItemChange(
                             "freeQuantity",
-                            parseFloat(e.target.value) || 0
+                            parseFloat(e.target.value) || 0,
                           )
                         }
                         className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed h-10"
@@ -1504,7 +1504,7 @@ const ConvertPurchaseRequestModal: React.FC<IProps> = ({
                                       onChange={(e) =>
                                         handleEditChange(
                                           "description",
-                                          e.target.value
+                                          e.target.value,
                                         )
                                       }
                                       className="w-full px-2 py-1 text-sm border border-gray-300 text-gray-500 rounded"
@@ -1518,7 +1518,7 @@ const ConvertPurchaseRequestModal: React.FC<IProps> = ({
                                       onChange={(e) =>
                                         handleEditChange(
                                           "quantity",
-                                          parseFloat(e.target.value) || 1
+                                          parseFloat(e.target.value) || 1,
                                         )
                                       }
                                       className="w-full px-2 py-1 text-sm border border-gray-300 text-gray-500 rounded"
@@ -1560,7 +1560,7 @@ const ConvertPurchaseRequestModal: React.FC<IProps> = ({
                                       onChange={(e) =>
                                         handleEditChange(
                                           "unitPrice",
-                                          parseFloat(e.target.value) || 0
+                                          parseFloat(e.target.value) || 0,
                                         )
                                       }
                                       className="w-full px-2 py-1 text-sm border border-gray-300 text-gray-500 rounded"
@@ -1574,7 +1574,7 @@ const ConvertPurchaseRequestModal: React.FC<IProps> = ({
                                       onChange={(e) =>
                                         handleEditChange(
                                           "discountType",
-                                          e.target.value
+                                          e.target.value,
                                         )
                                       }
                                       className="w-full px-2 py-1 text-sm border border-gray-300 text-gray-500 rounded"
@@ -1591,7 +1591,7 @@ const ConvertPurchaseRequestModal: React.FC<IProps> = ({
                                       onChange={(e) =>
                                         handleEditChange(
                                           "discount",
-                                          parseFloat(e.target.value) || 0
+                                          parseFloat(e.target.value) || 0,
                                         )
                                       }
                                       className="w-full px-2 py-1 text-sm border border-gray-300 text-gray-500 rounded"
@@ -1605,7 +1605,7 @@ const ConvertPurchaseRequestModal: React.FC<IProps> = ({
                                       onChange={(e) =>
                                         handleEditChange(
                                           "vatPercentage",
-                                          parseFloat(e.target.value) || 0
+                                          parseFloat(e.target.value) || 0,
                                         )
                                       }
                                       className="w-full px-2 py-1 text-sm border border-gray-300 text-gray-500 rounded"
@@ -1618,7 +1618,7 @@ const ConvertPurchaseRequestModal: React.FC<IProps> = ({
                                       onChange={(e) =>
                                         handleEditChange(
                                           "freeQuantity",
-                                          parseFloat(e.target.value) || 0
+                                          parseFloat(e.target.value) || 0,
                                         )
                                       }
                                       className="w-full px-2 py-1 text-sm border border-gray-300 text-gray-500 rounded"
@@ -1714,7 +1714,7 @@ const ConvertPurchaseRequestModal: React.FC<IProps> = ({
                             <td className="px-3 py-2 text-sm font-bold text-gray-900">
                               {items.reduce(
                                 (sum, item) => sum + item.quantity,
-                                0
+                                0,
                               )}
                             </td>
                             <td className="px-3 py-2 text-sm font-bold text-gray-900">
@@ -1732,7 +1732,7 @@ const ConvertPurchaseRequestModal: React.FC<IProps> = ({
                             <td className="px-3 py-2 text-sm font-bold text-gray-900">
                               {items.reduce(
                                 (sum, item) => sum + (item.vatPercentage || 0),
-                                0
+                                0,
                               ) / items.length || 0}
                               %
                             </td>
@@ -1785,7 +1785,7 @@ const ConvertPurchaseRequestModal: React.FC<IProps> = ({
                 disabled={
                   loading ||
                   !formData.branch.trim() ||
-                  !formData.suppplier.trim() ||
+                  !formData.supplier.trim() ||
                   !formData.date.trim() ||
                   !formData.type.trim() ||
                   (showSupplierInvoiceNo &&

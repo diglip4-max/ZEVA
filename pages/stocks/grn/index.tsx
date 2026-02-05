@@ -10,34 +10,24 @@ import {
   TrashIcon,
   EllipsisVerticalIcon,
 } from "@heroicons/react/24/outline";
-import { FileText, ShoppingCart, Filter } from "lucide-react";
+import { ShoppingCart, Filter } from "lucide-react";
 import { PurchaseRecord } from "@/types/stocks";
 import debounce from "lodash.debounce";
-import AddPurchaseOrderModal from "./_components/AddPurchaseOrderModal";
-import DeletePurchaseOrderModal from "./_components/DeletePurchaseOrderModal";
-import EditPurchaseOrderModal from "./_components/EditPurchaseOrderModal";
-import PurchaseOrderDetailModal from "./_components/PurchaseOrderDetailModal";
-import ConvertPurchaseRequestModal from "./_components/ConvertPurchaseRequestModal";
+import AddGRNModal from "./_components/AddGRNModal";
+import DeleteGRNModal from "./_components/DeleteGRNModal";
+import EditGRNModal from "./_components/EditGRNModal";
 import FilterModal from "./_components/FilterModal";
-// import AddStockItemModal from "@/components/shared/AddStockItemModal";
 
-const PurchaseOrdersPage: NextPageWithLayout = () => {
-  const token = getTokenByPath();
-  const [purchaseOrders, setPurchaseOrders] = useState<PurchaseRecord[]>([]);
+const GRNPage: NextPageWithLayout = () => {
+  const [grnRecords, setGrnRecords] = useState<PurchaseRecord[]>([]);
   const [loading, setLoading] = useState(false);
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [isConvertModalOpen, setIsConvertModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
-  const [purchaseOrderToDelete, setPurchaseOrderToDelete] =
-    useState<PurchaseRecord | null>(null);
+  const [grnToDelete, setGrnToDelete] = useState<PurchaseRecord | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [purchaseOrderToEdit, setPurchaseOrderToEdit] =
-    useState<PurchaseRecord | null>(null);
-  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
-  const [purchaseOrderForDetail, setPurchaseOrderForDetail] =
-    useState<PurchaseRecord | null>(null);
+  const [grnToEdit, setGrnToEdit] = useState<PurchaseRecord | null>(null);
   const [pagination, setPagination] = useState({
     totalResults: 0,
     totalPages: 1,
@@ -60,14 +50,15 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
   const [filterData, setFilterData] = useState({
     branch: "",
     supplier: "",
-    orderNo: "",
+    grnNo: "",
+    orderCode: "",
     fromDate: "",
     toDate: "",
     status: "",
   });
 
-  // Fetch purchase orders with proper error handling
-  const fetchPurchaseOrders = useCallback(
+  // Fetch GRN records with proper error handling
+  const fetchGRNRecords = useCallback(
     debounce(
       async (page: number = 1, search: string = "", filters: any = {}) => {
         try {
@@ -78,22 +69,19 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
           const params = new URLSearchParams();
           params.append("page", page.toString());
           params.append("limit", pagination.limit.toString());
-          params.append("type", "Purchase_Order");
-
           if (search) {
             params.append("search", encodeURIComponent(search));
           }
 
           // Add filter parameters
           if (filters.branch) params.append("branch", filters.branch);
-          if (filters.supplier) params.append("supplier", filters.supplier);
-          if (filters.orderNo) params.append("orderNo", filters.orderNo);
-          if (filters.fromDate) params.append("fromDate", filters.fromDate);
-          if (filters.toDate) params.append("toDate", filters.toDate);
-          if (filters.status) params.append("status", filters.status);
-
+          if (filters.supplier)
+            params.append("supplierInvoiceNo", filters.supplier);
+          if (filters.grnNo) params.append("grnNo", filters.grnNo);
+          if (filters.orderCode)
+            params.append("purchasedOrder", filters.orderCode);
           const response = await axios.get(
-            `/api/stocks/purchase-records?${params.toString()}`,
+            `/api/stocks/grns?${params.toString()}`,
             {
               headers: {
                 Authorization: `Bearer ${token}`,
@@ -102,7 +90,49 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
           );
 
           if (response.data?.success) {
-            setPurchaseOrders(response.data?.data?.records || []);
+            const records = response.data.data?.records || [];
+
+            // Enrich records with full purchase order details (items & totals)
+            const poIds: string[] = Array.from(
+              new Set(
+                records
+                  .map((r: any) => r.purchasedOrder?._id || r.purchasedOrder)
+                  .filter(Boolean),
+              ),
+            );
+
+            const poMap: Record<string, any> = {};
+            if (poIds.length > 0) {
+              await Promise.all(
+                poIds.map(async (id: string) => {
+                  try {
+                    const poRes = await axios.get(
+                      `/api/stocks/purchase-records/get-purchase-record/${id}`,
+                      {
+                        headers: { Authorization: `Bearer ${token}` },
+                      },
+                    );
+                    if (poRes.data?.success) {
+                      poMap[id] = poRes.data.data;
+                    }
+                  } catch (err) {
+                    // ignore individual PO fetch errors
+                    console.warn("Failed to fetch PO", id, err);
+                  }
+                }),
+              );
+            }
+
+            // Merge purchase details into grn records for table rendering
+            const enriched = records.map((r: any) => {
+              const poId = r.purchasedOrder?._id || r.purchasedOrder;
+              return {
+                ...r,
+                purchaseDetails: poId ? poMap[poId] : null,
+              };
+            });
+
+            setGrnRecords(enriched);
             setPagination((prev) => ({
               ...prev,
               ...response.data.data?.pagination,
@@ -119,9 +149,8 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
             );
           }
         } catch (error) {
-          console.error("Error fetching purchase orders:", error);
-          // Show empty state on error
-          setPurchaseOrders([]);
+          console.error("Error fetching GRN records:", error);
+          setGrnRecords([]);
         } finally {
           setLoading(false);
         }
@@ -133,20 +162,20 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
 
   // Initial fetch on mount
   useEffect(() => {
-    fetchPurchaseOrders(1, "", filterData);
+    fetchGRNRecords(1, "", filterData);
   }, []);
 
   // Handle page change
   const handlePageChange = useCallback(
     (page: number) => {
-      fetchPurchaseOrders(page, searchTerm, filterData);
+      fetchGRNRecords(page, searchTerm, filterData);
     },
-    [fetchPurchaseOrders, searchTerm, filterData],
+    [fetchGRNRecords, searchTerm, filterData],
   );
 
   useEffect(() => {
-    fetchPurchaseOrders(1, searchTerm, filterData);
-  }, [searchTerm, filterData]);
+    fetchGRNRecords(1, searchTerm, filterData);
+  }, [searchTerm, filterData, fetchGRNRecords]);
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -177,30 +206,25 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
     }));
   };
 
-  // Use sample data if API is not working
-  const displayData = purchaseOrders.length > 0 ? purchaseOrders : [];
+  const displayData = grnRecords.length > 0 ? grnRecords : [];
 
-  const handleAddPurchaseOrder = useCallback(() => {
+  const handleAddGRN = useCallback(() => {
     setIsAddModalOpen(true);
   }, []);
 
-  const handleConvertPurchaseRequest = useCallback(() => {
-    setIsConvertModalOpen(true);
-  }, []);
-
-  const handleDeleteClick = useCallback((purchaseOrder: PurchaseRecord) => {
-    setPurchaseOrderToDelete(purchaseOrder);
+  const handleDeleteClick = useCallback((grn: PurchaseRecord) => {
+    setGrnToDelete(grn);
     setIsDeleteModalOpen(true);
   }, []);
 
   const handleDeleteConfirm = useCallback(async () => {
-    if (!purchaseOrderToDelete) return;
+    if (!grnToDelete) return;
 
     try {
       const token = getTokenByPath();
       setIsDeleting(true);
       const response = await axios.delete(
-        `/api/stocks/purchase-records/delete-purchase-record/${purchaseOrderToDelete._id}`,
+        `/api/stocks/grns/delete-grn/${grnToDelete._id}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -209,51 +233,41 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
       );
 
       if (response.data.success) {
-        // Refresh the list
-        const updatedPurchaseOrders = purchaseOrders.filter(
-          (po) => po._id !== purchaseOrderToDelete._id,
+        const updatedGrnRecords = grnRecords.filter(
+          (grn) => grn._id !== grnToDelete._id,
         );
-        setPurchaseOrders(updatedPurchaseOrders);
+        setGrnRecords(updatedGrnRecords);
         setIsDeleteModalOpen(false);
-        setPurchaseOrderToDelete(null);
+        setGrnToDelete(null);
       }
     } catch (error) {
-      console.error("Error deleting purchase order:", error);
-      alert("Failed to delete purchase order");
+      console.error("Error deleting GRN:", error);
+      alert("Failed to delete GRN");
     } finally {
       setIsDeleting(false);
     }
   }, [
-    purchaseOrderToDelete,
-    fetchPurchaseOrders,
+    grnToDelete,
+    fetchGRNRecords,
     pagination.currentPage,
     searchTerm,
     filterData,
+    grnRecords,
   ]);
 
   const handleDeleteCancel = useCallback(() => {
     setIsDeleteModalOpen(false);
-    setPurchaseOrderToDelete(null);
+    setGrnToDelete(null);
   }, []);
 
-  const handleEditClick = useCallback((purchaseOrder: PurchaseRecord) => {
-    setPurchaseOrderToEdit(purchaseOrder);
+  const handleEditClick = useCallback((grn: PurchaseRecord) => {
+    setGrnToEdit(grn);
     setIsEditModalOpen(true);
   }, []);
 
   const handleEditCancel = useCallback(() => {
     setIsEditModalOpen(false);
-    setPurchaseOrderToEdit(null);
-  }, []);
-
-  const handleDetailClick = useCallback((purchaseOrder: PurchaseRecord) => {
-    setPurchaseOrderForDetail(purchaseOrder);
-    setIsDetailModalOpen(true);
-  }, []);
-
-  const handleDetailCancel = useCallback(() => {
-    setIsDetailModalOpen(false);
-    setPurchaseOrderForDetail(null);
+    setGrnToEdit(null);
   }, []);
 
   return (
@@ -264,10 +278,10 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div>
               <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">
-                Purchase Orders
+                Goods Received Notes
               </h1>
               <p className="mt-1 sm:mt-2 text-xs sm:text-sm text-gray-600">
-                Manage your purchase orders and procurement workflow
+                Manage your goods received notes and inventory receiveds
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -279,125 +293,73 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
                 Advanced Filter
               </button>
               <button
-                className="cursor-pointer inline-flex items-center justify-center gap-1.5 bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs sm:text-sm font-medium"
-                onClick={handleConvertPurchaseRequest}
-              >
-                <FileText className="h-5 w-5" />
-                Convert Purchase Request
-              </button>
-              <button
                 className="cursor-pointer inline-flex items-center justify-center gap-1.5 bg-gray-800 hover:bg-gray-900 text-white px-3 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs sm:text-sm font-medium"
-                onClick={handleAddPurchaseOrder}
+                onClick={handleAddGRN}
               >
                 <PlusIcon className="h-5 w-5 mr-2" />
-                Add Purchase Order
+                Add GRN
               </button>
             </div>
 
-            {/* Convert Purchase Request Modal */}
-            <ConvertPurchaseRequestModal
-              token={token || ""}
-              isOpen={isConvertModalOpen}
-              onClose={() => setIsConvertModalOpen(false)}
-              onSuccess={(purchaseOrderData: PurchaseRecord) => {
-                setPurchaseOrders((prev) => [...prev, purchaseOrderData]);
-                fetchPurchaseOrders(
-                  pagination.currentPage,
-                  searchTerm,
-                  filterData,
-                );
-              }}
-            />
-
-            {/* Add Purchase Order Modal */}
-            <AddPurchaseOrderModal
-              token={token || ""}
+            {/* Add GRN Modal */}
+            <AddGRNModal
               isOpen={isAddModalOpen}
               onClose={() => setIsAddModalOpen(false)}
-              onSuccess={(purchaseOrderData: PurchaseRecord) => {
-                setPurchaseOrders((prev) => [...prev, purchaseOrderData]);
-                fetchPurchaseOrders(
-                  pagination.currentPage,
-                  searchTerm,
-                  filterData,
-                );
+              onAddGRN={(_grnData: PurchaseRecord) => {
+                fetchGRNRecords(pagination.currentPage, searchTerm, filterData);
               }}
             />
 
-            {/* Delete Purchase Order Modal */}
-            <DeletePurchaseOrderModal
+            {/* Delete GRN Modal */}
+            <DeleteGRNModal
               isOpen={isDeleteModalOpen}
               onClose={handleDeleteCancel}
               onConfirm={handleDeleteConfirm}
-              purchaseOrderName={purchaseOrderToDelete?.orderNo}
+              grnName={(grnToDelete as any)?.grnNo || ""}
               loading={isDeleting}
             />
 
-            {/* Edit Purchase Order Modal */}
-            <EditPurchaseOrderModal
-              token={token || ""}
+            {/* Edit GRN Modal */}
+            <EditGRNModal
               isOpen={isEditModalOpen}
               onClose={handleEditCancel}
-              purchaseOrderData={purchaseOrderToEdit}
-              onSuccess={(purchaseOrderData: any) => {
-                const updatedPurchaseOrders = purchaseOrders.map((po) =>
-                  po._id === purchaseOrderData._id ? purchaseOrderData : po,
-                );
-                setPurchaseOrders(updatedPurchaseOrders);
+              grnData={grnToEdit}
+              onEditGRN={(_grnData: any) => {
+                fetchGRNRecords(pagination.currentPage, searchTerm, filterData);
               }}
             />
-
-            {/* Purchase Order Detail Modal */}
-            <PurchaseOrderDetailModal
-              isOpen={isDetailModalOpen}
-              onClose={handleDetailCancel}
-              purchaseOrder={purchaseOrderForDetail}
-            />
           </div>
-
-          {/* Advanced Filter Form */}
-          {/* Filter Modal */}
-          <FilterModal
-            isOpen={isFilterOpen}
-            onClose={() => setIsFilterOpen(false)}
-            onApply={(filters) => {
-              fetchPurchaseOrders(1, searchTerm, filters);
-            }}
-            filterData={filterData}
-            setFilterData={setFilterData}
-            title="Advanced Filter - Purchase Orders"
-          />
         </div>
       </div>
 
-      {/* <AddStockItemModal
-        token={token || ""}
-        clinicId={"clinicId"}
-        isOpen={true}
-        onClose={() => {
-          // setIsModalOpen(false)
+      {/* Filter Modal */}
+      <FilterModal
+        isOpen={isFilterOpen}
+        onClose={() => setIsFilterOpen(false)}
+        onApply={(filters) => {
+          setFilterData(filters);
+          fetchGRNRecords(1, searchTerm, filters);
         }}
-        onSuccess={(newStockItem) => {
-          // Handle successful creation
-          console.log("New stock item created:", newStockItem);
-        }}
-      /> */}
+        filterData={filterData}
+        setFilterData={setFilterData}
+        title="Advanced Filter"
+      />
 
       {/* Enhanced Stats Cards */}
       <div className="max-w-7xl mx-auto mb-8">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {/* Total Purchase Orders Card */}
+          {/* Total GRNs Card */}
           <div className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1">
             <div className="p-6">
               <div className="flex items-center">
                 <div className="flex-shrink-0">
                   <div className="h-14 w-14 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-md">
-                    <span className="text-white text-xl font-bold">PO</span>
+                    <span className="text-white text-xl font-bold">GRN</span>
                   </div>
                 </div>
                 <div className="ml-5 flex-1">
                   <div className="text-sm font-medium text-gray-500 uppercase tracking-wide">
-                    Total Orders
+                    Total GRNs
                   </div>
                   <div className="text-3xl font-bold text-gray-900 mt-1">
                     {stats?.totalRecords || displayData.length}
@@ -406,9 +368,7 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
               </div>
             </div>
             <div className="px-6 py-3 bg-gray-50 border-t border-gray-100">
-              <div className="text-xs text-gray-500">
-                Active purchase orders
-              </div>
+              <div className="text-xs text-gray-500">Active Receiveds</div>
             </div>
           </div>
 
@@ -516,7 +476,7 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
               </div>
             </div>
             <div className="px-6 py-3 bg-gray-50 border-t border-gray-100">
-              <div className="text-xs text-gray-500">Items ordered</div>
+              <div className="text-xs text-gray-500">Items received</div>
             </div>
           </div>
         </div>
@@ -529,7 +489,7 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
           <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
               <h2 className="text-xl font-semibold text-gray-900">
-                Purchase Orders
+                Goods Received Notes
               </h2>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -547,7 +507,7 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
                 </div>
                 <input
                   type="text"
-                  placeholder="Search by order number, supplier or items..."
+                  placeholder="Search by GRN number, supplier or items..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="w-full pl-10 pr-4 py-2.5 text-gray-500 text-sm bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed"
@@ -581,7 +541,7 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
                   ></path>
                 </svg>
               </div>
-              <p className="text-gray-600">Loading purchase orders...</p>
+              <p className="text-gray-600">Loading GRNs...</p>
             </div>
           ) : displayData.length === 0 ? (
             /* Empty State */
@@ -602,17 +562,17 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
                 </svg>
               </div>
               <h3 className="text-lg font-medium text-gray-900 mb-1">
-                No purchase orders found
+                No GRNs found
               </h3>
               <p className="text-gray-500 mb-6">
-                Get started by adding your first purchase order.
+                Get started by adding your first goods Received note.
               </p>
               <button
-                onClick={handleAddPurchaseOrder}
+                onClick={handleAddGRN}
                 className="cursor-pointer inline-flex items-center justify-center gap-2 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white px-4 py-2.5 rounded-xl shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200 text-sm font-semibold"
               >
                 <ShoppingCart className="h-5 w-5" />
-                Add First Order
+                Add First GRN
               </button>
             </div>
           ) : (
@@ -622,28 +582,37 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Order #
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Date
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Supplier
+                      GRN No
                     </th>
                     <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Branch
                     </th>
                     <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Items Count
+                      Date
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">
+                      Order No
                     </th>
                     <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Total Amount
+                      Suppliers
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Total
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">
+                      Disc.
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">
+                      Net
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">
+                      VAT
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">
+                      Net + VAT
                     </th>
                     <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Status
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Created
                     </th>
                     <th className="px-6 py-4 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Actions
@@ -651,140 +620,170 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {displayData.map((order: any, index: number) => (
-                    <React.Fragment key={order._id}>
+                  {displayData.map((grn: any, index: number) => (
+                    <React.Fragment key={grn._id}>
                       <tr className="hover:bg-gray-50 transition-colors duration-150">
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center">
                             <div className="flex-shrink-0 h-10 w-10 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
                               <span className="text-white font-medium text-sm">
-                                {order.orderNo.charAt(order.orderNo.length - 2)}
+                                {(() => {
+                                  const s = (
+                                    grn.purchasedOrder?.purchaseNo ||
+                                    grn.grnNo ||
+                                    ""
+                                  ).toString();
+                                  return s.charAt(Math.max(0, s.length - 2));
+                                })()}
                               </span>
                             </div>
                             <div className="ml-4">
                               <div className="text-sm font-medium text-gray-900">
-                                {order.orderNo}
+                                {grn.grnNo}
                               </div>
                               <div className="text-sm text-gray-500">
-                                ID: {order._id.substring(0, 8)}...
+                                ID: {grn._id.substring(0, 8)}...
                               </div>
                             </div>
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {new Date(order.date).toLocaleDateString()}
+                          {grn.branch?.name || "N/A"}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {order.supplier?.name || "N/A"}
+                          {new Date(
+                            grn.grnDate || grn.date,
+                          ).toLocaleDateString()}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 hidden md:table-cell">
+                          {grn.purchasedOrder?.orderNo ||
+                            grn.purchasedOrder?.poNo ||
+                            (grn.purchasedOrder?._id
+                              ? grn.purchasedOrder._id.substring(0, 8) + "..."
+                              : "N/A")}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {order.branch?.name || "N/A"}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {order.items.length}
+                          {grn.purchaseDetails?.supplier?.name ||
+                            grn.purchasedOrder?.supplier?.name ||
+                            grn.supplier?.name ||
+                            grn.suppplier?.name ||
+                            "N/A"}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           AED{" "}
-                          {order.items
+                          {(grn.purchaseDetails?.items || [])
                             .reduce(
-                              (sum: number, item: any) => sum + item.totalPrice,
+                              (sum: number, item: any) =>
+                                sum + (item.totalPrice || 0),
                               0,
                             )
                             .toFixed(2)}
                         </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 hidden md:table-cell">
+                          AED{" "}
+                          {(
+                            grn.purchaseDetails?.discountAmount ||
+                            grn.purchaseDetails?.discount ||
+                            0
+                          ).toFixed(2)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 hidden md:table-cell">
+                          AED{" "}
+                          {(
+                            (grn.purchaseDetails?.items || []).reduce(
+                              (sum: number, item: any) =>
+                                sum + (item.totalPrice || 0),
+                              0,
+                            ) -
+                            (grn.purchaseDetails?.discountAmount ||
+                              grn.purchaseDetails?.discount ||
+                              0)
+                          ).toFixed(2)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 hidden lg:table-cell">
+                          AED{" "}
+                          {(
+                            grn.purchaseDetails?.taxAmount ||
+                            grn.purchaseDetails?.vat ||
+                            0
+                          ).toFixed(2)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 hidden lg:table-cell">
+                          AED{" "}
+                          {(
+                            (grn.purchaseDetails?.items || []).reduce(
+                              (sum: number, item: any) =>
+                                sum + (item.totalPrice || 0),
+                              0,
+                            ) -
+                            (grn.purchaseDetails?.discountAmount ||
+                              grn.purchaseDetails?.discount ||
+                              0) +
+                            (grn.purchaseDetails?.taxAmount ||
+                              grn.purchaseDetails?.vat ||
+                              0)
+                          ).toFixed(2)}
+                        </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span
                             className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-                              {
-                                New: "bg-blue-100 text-blue-800",
-                                Approved: "bg-green-100 text-green-800",
-                                Partly_Delivered:
-                                  "bg-yellow-100 text-yellow-800",
-                                Delivered: "bg-teal-100 text-teal-800",
-                                Partly_Invoiced:
-                                  "bg-orange-100 text-orange-800",
-                                Invoiced: "bg-emerald-100 text-emerald-800",
-                                Rejected: "bg-red-100 text-red-800",
-                                Cancelled: "bg-gray-100 text-gray-800",
-                                Deleted: "bg-gray-100 text-gray-800",
-                                Converted_To_PO:
-                                  "bg-purple-100 text-purple-800",
-                              }[
-                                order.status as
-                                  | "New"
-                                  | "Approved"
-                                  | "Partly_Delivered"
-                                  | "Delivered"
-                                  | "Partly_Invoiced"
-                                  | "Invoiced"
-                                  | "Rejected"
-                                  | "Cancelled"
-                                  | "Deleted"
-                                  | "Converted_To_PO"
-                              ] || "bg-gray-100 text-gray-800"
+                              (
+                                {
+                                  New: "bg-blue-100 text-blue-800",
+                                  Approved: "bg-green-100 text-green-800",
+                                  Partly_Delivered:
+                                    "bg-yellow-100 text-yellow-800",
+                                  Delivered: "bg-teal-100 text-teal-800",
+                                  Partly_Invoiced:
+                                    "bg-orange-100 text-orange-800",
+                                  Invoiced: "bg-emerald-100 text-emerald-800",
+                                  Rejected: "bg-red-100 text-red-800",
+                                  Cancelled: "bg-gray-100 text-gray-800",
+                                  Deleted: "bg-gray-100 text-gray-800",
+                                } as any
+                              )[grn.status] || "bg-gray-100 text-gray-800"
                             }`}
                           >
                             <span
                               className={`h-2 w-2 rounded-full mr-2 ${
-                                {
-                                  New: "bg-blue-500",
-                                  Approved: "bg-green-500",
-                                  Partly_Delivered: "bg-yellow-500",
-                                  Delivered: "bg-teal-500",
-                                  Partly_Invoiced: "bg-orange-500",
-                                  Invoiced: "bg-emerald-500",
-                                  Rejected: "bg-red-500",
-                                  Cancelled: "bg-gray-500",
-                                  Deleted: "bg-gray-500",
-                                  Converted_To_PO: "bg-purple-500",
-                                }[
-                                  order.status as
-                                    | "New"
-                                    | "Approved"
-                                    | "Partly_Delivered"
-                                    | "Delivered"
-                                    | "Partly_Invoiced"
-                                    | "Invoiced"
-                                    | "Rejected"
-                                    | "Cancelled"
-                                    | "Deleted"
-                                    | "Converted_To_PO"
-                                ] || "bg-gray-500"
+                                (
+                                  {
+                                    New: "bg-blue-500",
+                                    Approved: "bg-green-500",
+                                    Partly_Delivered: "bg-yellow-500",
+                                    Delivered: "bg-teal-500",
+                                    Partly_Invoiced: "bg-orange-500",
+                                    Invoiced: "bg-emerald-500",
+                                    Rejected: "bg-red-500",
+                                    Cancelled: "bg-gray-500",
+                                    Deleted: "bg-gray-500",
+                                  } as any
+                                )[grn.status] || "bg-gray-500"
                               }`}
                             />
-                            {order.status.replace(/_/g, " ")}
+                            {grn.status.replace(/_/g, " ")}
                           </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {new Date(order.createdAt).toLocaleDateString(
-                            "en-US",
-                            {
-                              year: "numeric",
-                              month: "short",
-                              day: "numeric",
-                            },
-                          )}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                           <div className="relative inline-block text-left">
                             <button
                               onClick={() => {
-                                // Toggle dropdown menu for this order
+                                // Toggle dropdown menu for this GRN
                                 const currentMenuState = document
-                                  .getElementById(`menu-${order._id}`)
+                                  .getElementById(`menu-${grn._id}`)
                                   ?.classList.contains("block");
                                 // Close all other menus
                                 document
                                   .querySelectorAll("[id^=menu-]")
                                   .forEach((el) => {
-                                    if (el.id !== `menu-${order._id}`) {
+                                    if (el.id !== `menu-${grn._id}`) {
                                       el.classList.remove("block");
                                       el.classList.add("hidden");
                                     }
                                   });
                                 // Toggle current menu
                                 const menuEl = document.getElementById(
-                                  `menu-${order._id}`,
+                                  `menu-${grn._id}`,
                                 );
                                 if (menuEl) {
                                   if (currentMenuState) {
@@ -802,7 +801,7 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
                               <EllipsisVerticalIcon className="h-5 w-5" />
                             </button>
                             <div
-                              id={`menu-${order._id}`}
+                              id={`menu-${grn._id}`}
                               className={`hidden absolute ${
                                 index >= displayData?.length - 2
                                   ? "bottom-0 right-0"
@@ -812,10 +811,9 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
                               <div className="py-1" role="none">
                                 <button
                                   onClick={() => {
-                                    handleEditClick(order);
-                                    // Close the dropdown after clicking
+                                    handleEditClick(grn);
                                     const menuEl = document.getElementById(
-                                      `menu-${order._id}`,
+                                      `menu-${grn._id}`,
                                     );
                                     if (menuEl) {
                                       menuEl.classList.remove("block");
@@ -831,41 +829,9 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
                                 </button>
                                 <button
                                   onClick={() => {
-                                    handleDetailClick(order);
-                                    // Close the dropdown after clicking
+                                    toggleRowExpansion(grn._id);
                                     const menuEl = document.getElementById(
-                                      `menu-${order._id}`,
-                                    );
-                                    if (menuEl) {
-                                      menuEl.classList.remove("block");
-                                      menuEl.classList.add("hidden");
-                                    }
-                                  }}
-                                  className="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
-                                >
-                                  <div className="flex items-center">
-                                    <svg
-                                      className="h-4 w-4 mr-2"
-                                      fill="none"
-                                      viewBox="0 0 24 24"
-                                      stroke="currentColor"
-                                    >
-                                      <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth={2}
-                                        d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                                      />
-                                    </svg>
-                                    Detail
-                                  </div>
-                                </button>
-                                <button
-                                  onClick={() => {
-                                    toggleRowExpansion(order._id);
-                                    // Close the dropdown after clicking
-                                    const menuEl = document.getElementById(
-                                      `menu-${order._id}`,
+                                      `menu-${grn._id}`,
                                     );
                                     if (menuEl) {
                                       menuEl.classList.remove("block");
@@ -888,17 +854,16 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
                                         d="M19 9l-7 7-7-7"
                                       />
                                     </svg>
-                                    {expandedRows[order._id]
+                                    {expandedRows[grn._id]
                                       ? "Hide Items"
                                       : "Show Items"}
                                   </div>
                                 </button>
                                 <button
                                   onClick={() => {
-                                    handleDeleteClick(order);
-                                    // Close the dropdown after clicking
+                                    handleDeleteClick(grn);
                                     const menuEl = document.getElementById(
-                                      `menu-${order._id}`,
+                                      `menu-${grn._id}`,
                                     );
                                     if (menuEl) {
                                       menuEl.classList.remove("block");
@@ -919,17 +884,17 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
                       </tr>
 
                       {/* Expanded row for items */}
-                      {expandedRows[order._id] && (
+                      {expandedRows[grn._id] && (
                         <tr>
                           <td
-                            colSpan={9}
+                            colSpan={12}
                             className="px-6 py-6 bg-gradient-to-r from-gray-50 to-gray-100 border-t border-gray-200"
                           >
                             <div className="ml-8 mr-4">
                               <div className="flex items-center justify-between mb-4">
                                 <h4 className="text-lg font-bold text-gray-900 flex items-center">
                                   <svg
-                                    className="w-5 h-5 text-blue-600 mr-2"
+                                    className="w-5 h-5 text-purple-600 mr-2"
                                     fill="none"
                                     stroke="currentColor"
                                     viewBox="0 0 24 24"
@@ -941,7 +906,7 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
                                       d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
                                     />
                                   </svg>
-                                  Items in Order #{order.orderNo}
+                                  Items in GRN #{grn.grnNo}
                                 </h4>
                                 <div className="flex items-center space-x-4 text-sm text-gray-600">
                                   <div className="flex items-center">
@@ -958,7 +923,13 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
                                         d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
                                       />
                                     </svg>
-                                    <span>{order.items.length} items</span>
+                                    <span>
+                                      {
+                                        (grn.purchaseDetails?.items || [])
+                                          .length
+                                      }{" "}
+                                      items
+                                    </span>
                                   </div>
                                   <div className="flex items-center">
                                     <svg
@@ -976,10 +947,10 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
                                     </svg>
                                     <span>
                                       AED{" "}
-                                      {order.items
+                                      {(grn.purchaseDetails?.items || [])
                                         .reduce(
                                           (sum: number, item: any) =>
-                                            sum + item.totalPrice,
+                                            sum + (item.totalPrice || 0),
                                           0,
                                         )
                                         .toFixed(2)}{" "}
@@ -995,233 +966,53 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
                                     <thead className="bg-gray-50">
                                       <tr>
                                         <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                                          <div className="flex items-center">
-                                            <svg
-                                              className="w-4 h-4 mr-2 text-gray-500"
-                                              fill="none"
-                                              stroke="currentColor"
-                                              viewBox="0 0 24 24"
-                                            >
-                                              <path
-                                                strokeLinecap="round"
-                                                strokeLinejoin="round"
-                                                strokeWidth={2}
-                                                d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"
-                                              />
-                                            </svg>
-                                            Item
-                                          </div>
+                                          Item
                                         </th>
                                         <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                                          <div className="flex items-center">
-                                            <svg
-                                              className="w-4 h-4 mr-2 text-gray-500"
-                                              fill="none"
-                                              stroke="currentColor"
-                                              viewBox="0 0 24 24"
-                                            >
-                                              <path
-                                                strokeLinecap="round"
-                                                strokeLinejoin="round"
-                                                strokeWidth={2}
-                                                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                                              />
-                                            </svg>
-                                            Description
-                                          </div>
+                                          Description
                                         </th>
                                         <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                                          <div className="flex items-center">
-                                            <svg
-                                              className="w-4 h-4 mr-2 text-gray-500"
-                                              fill="none"
-                                              stroke="currentColor"
-                                              viewBox="0 0 24 24"
-                                            >
-                                              <path
-                                                strokeLinecap="round"
-                                                strokeLinejoin="round"
-                                                strokeWidth={2}
-                                                d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"
-                                              />
-                                            </svg>
-                                            Qty
-                                          </div>
+                                          Qty
                                         </th>
                                         <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                                          <div className="flex items-center">
-                                            <svg
-                                              className="w-4 h-4 mr-2 text-gray-500"
-                                              fill="none"
-                                              stroke="currentColor"
-                                              viewBox="0 0 24 24"
-                                            >
-                                              <path
-                                                strokeLinecap="round"
-                                                strokeLinejoin="round"
-                                                strokeWidth={2}
-                                                d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"
-                                              />
-                                            </svg>
-                                            UOM
-                                          </div>
+                                          UOM
                                         </th>
                                         <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                                          <div className="flex items-center">
-                                            <svg
-                                              className="w-4 h-4 mr-2 text-gray-500"
-                                              fill="none"
-                                              stroke="currentColor"
-                                              viewBox="0 0 24 24"
-                                            >
-                                              <path
-                                                strokeLinecap="round"
-                                                strokeLinejoin="round"
-                                                strokeWidth={2}
-                                                d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                                              />
-                                            </svg>
-                                            Unit Price
-                                          </div>
+                                          Unit Price
                                         </th>
                                         <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                                          <div className="flex items-center">
-                                            <svg
-                                              className="w-4 h-4 mr-2 text-gray-500"
-                                              fill="none"
-                                              stroke="currentColor"
-                                              viewBox="0 0 24 24"
-                                            >
-                                              <path
-                                                strokeLinecap="round"
-                                                strokeLinejoin="round"
-                                                strokeWidth={2}
-                                                d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                                              />
-                                            </svg>
-                                            Total
-                                          </div>
+                                          Total
                                         </th>
                                         <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                                          <div className="flex items-center">
-                                            <svg
-                                              className="w-4 h-4 mr-2 text-gray-500"
-                                              fill="none"
-                                              stroke="currentColor"
-                                              viewBox="0 0 24 24"
-                                            >
-                                              <path
-                                                strokeLinecap="round"
-                                                strokeLinejoin="round"
-                                                strokeWidth={2}
-                                                d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"
-                                              />
-                                            </svg>
-                                            Discount
-                                          </div>
+                                          Discount
                                         </th>
                                         <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                                          <div className="flex items-center">
-                                            <svg
-                                              className="w-4 h-4 mr-2 text-gray-500"
-                                              fill="none"
-                                              stroke="currentColor"
-                                              viewBox="0 0 24 24"
-                                            >
-                                              <path
-                                                strokeLinecap="round"
-                                                strokeLinejoin="round"
-                                                strokeWidth={2}
-                                                d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2zM10 8.5a.5.5 0 11-1 0 .5.5 0 011 0zm5 5a.5.5 0 11-1 0 .5.5 0 011 0z"
-                                              />
-                                            </svg>
-                                            Net Price
-                                          </div>
+                                          Net Price
                                         </th>
                                         <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                                          <div className="flex items-center">
-                                            <svg
-                                              className="w-4 h-4 mr-2 text-gray-500"
-                                              fill="none"
-                                              stroke="currentColor"
-                                              viewBox="0 0 24 24"
-                                            >
-                                              <path
-                                                strokeLinecap="round"
-                                                strokeLinejoin="round"
-                                                strokeWidth={2}
-                                                d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"
-                                              />
-                                            </svg>
-                                            VAT %
-                                          </div>
+                                          VAT %
                                         </th>
                                         <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                                          <div className="flex items-center">
-                                            <svg
-                                              className="w-4 h-4 mr-2 text-gray-500"
-                                              fill="none"
-                                              stroke="currentColor"
-                                              viewBox="0 0 24 24"
-                                            >
-                                              <path
-                                                strokeLinecap="round"
-                                                strokeLinejoin="round"
-                                                strokeWidth={2}
-                                                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                                              />
-                                            </svg>
-                                            VAT
-                                          </div>
+                                          VAT
                                         </th>
                                         <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                                          <div className="flex items-center">
-                                            <svg
-                                              className="w-4 h-4 mr-2 text-gray-500"
-                                              fill="none"
-                                              stroke="currentColor"
-                                              viewBox="0 0 24 24"
-                                            >
-                                              <path
-                                                strokeLinecap="round"
-                                                strokeLinejoin="round"
-                                                strokeWidth={2}
-                                                d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                                              />
-                                            </svg>
-                                            Net + VAT
-                                          </div>
+                                          Net + VAT
                                         </th>
                                         <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                                          <div className="flex items-center">
-                                            <svg
-                                              className="w-4 h-4 mr-2 text-gray-500"
-                                              fill="none"
-                                              stroke="currentColor"
-                                              viewBox="0 0 24 24"
-                                            >
-                                              <path
-                                                strokeLinecap="round"
-                                                strokeLinejoin="round"
-                                                strokeWidth={2}
-                                                d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
-                                              />
-                                            </svg>
-                                            Free Qty
-                                          </div>
+                                          Free Qty
                                         </th>
                                       </tr>
                                     </thead>
                                     <tbody className="bg-white divide-y divide-gray-200">
-                                      {order.items.map(
+                                      {(grn.purchaseDetails?.items || []).map(
                                         (item: any, itemIndex: number) => (
                                           <tr
                                             key={itemIndex}
-                                            className="hover:bg-blue-50 transition-colors duration-150"
+                                            className="hover:bg-purple-50 transition-colors duration-150"
                                           >
                                             <td className="px-4 py-3 whitespace-nowrap">
                                               <div className="flex items-center">
-                                                <div className="flex-shrink-0 h-8 w-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
+                                                <div className="flex-shrink-0 h-8 w-8 rounded-lg bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center">
                                                   <span className="text-white text-xs font-bold">
                                                     {item.name.charAt(0)}
                                                   </span>
@@ -1244,7 +1035,7 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
                                             </td>
                                             <td className="px-4 py-3 whitespace-nowrap">
                                               <div className="flex items-center">
-                                                <span className="px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                                <span className="px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
                                                   {item.quantity}
                                                 </span>
                                               </div>
@@ -1327,7 +1118,7 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
                                             </td>
                                             <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
                                               <div className="flex items-center">
-                                                <span className="px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                                <span className="px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
                                                   {item.freeQuantity || 0}
                                                 </span>
                                                 {(item.freeQuantity || 0) > 0 &&
@@ -1348,17 +1139,17 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
                                           colSpan={5}
                                           className="px-4 py-3 text-sm font-medium text-gray-700 text-right"
                                         >
-                                          Order Totals:
+                                          GRN Totals:
                                         </td>
                                         <td className="px-4 py-3 text-sm font-bold text-gray-900 text-right">
                                           <div className="flex items-center justify-end">
                                             <span className="text-green-600 mr-1">
                                               AED
                                             </span>
-                                            {order.items
+                                            {(grn.purchaseDetails?.items || [])
                                               .reduce(
                                                 (sum: number, item: any) =>
-                                                  sum + item.totalPrice,
+                                                  sum + (item.totalPrice || 0),
                                                 0,
                                               )
                                               .toFixed(2)}
@@ -1374,7 +1165,7 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
                                             <span className="text-blue-600 mr-1">
                                               AED
                                             </span>
-                                            {order.items
+                                            {(grn.purchaseDetails?.items || [])
                                               .reduce(
                                                 (sum: number, item: any) =>
                                                   sum +
@@ -1394,7 +1185,7 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
                                             <span className="text-orange-600 mr-1">
                                               AED
                                             </span>
-                                            {order.items
+                                            {(grn.purchaseDetails?.items || [])
                                               .reduce(
                                                 (sum: number, item: any) =>
                                                   sum + (item.vatAmount || 0),
@@ -1408,7 +1199,7 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
                                             <span className="text-purple-600 mr-1">
                                               AED
                                             </span>
-                                            {order.items
+                                            {(grn.purchaseDetails?.items || [])
                                               .reduce(
                                                 (sum: number, item: any) =>
                                                   sum +
@@ -1423,8 +1214,10 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
                                         </td>
                                         <td className="px-4 py-3 text-sm text-gray-700 text-right">
                                           <div className="flex items-center justify-end">
-                                            <span className="px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                              {order.items.reduce(
+                                            <span className="px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                                              {(
+                                                grn.purchaseDetails?.items || []
+                                              ).reduce(
                                                 (sum: number, item: any) =>
                                                   sum +
                                                   (item.freeQuantity || 0),
@@ -1514,7 +1307,7 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
 };
 
 // Layout configuration
-PurchaseOrdersPage.getLayout = function getLayout(page: ReactElement) {
+GRNPage.getLayout = function getLayout(page: ReactElement) {
   return (
     <ClinicLayout hideSidebar={false} hideHeader={false}>
       {page}
@@ -1523,9 +1316,7 @@ PurchaseOrdersPage.getLayout = function getLayout(page: ReactElement) {
 };
 
 // Export protected page with auth
-const ProtectedPurchaseOrdersPage = withClinicAuth(
-  PurchaseOrdersPage,
-) as NextPageWithLayout;
-ProtectedPurchaseOrdersPage.getLayout = PurchaseOrdersPage.getLayout;
+const ProtectedGRNPage = withClinicAuth(GRNPage) as NextPageWithLayout;
+ProtectedGRNPage.getLayout = GRNPage.getLayout;
 
-export default ProtectedPurchaseOrdersPage;
+export default ProtectedGRNPage;

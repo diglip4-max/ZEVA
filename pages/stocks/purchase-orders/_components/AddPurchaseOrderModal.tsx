@@ -1,9 +1,18 @@
 import React, { useState, useEffect, useRef } from "react";
-import { PlusCircle, X, Plus, Trash2, Search, ChevronDown } from "lucide-react";
+import {
+  PlusCircle,
+  X,
+  Plus,
+  Trash2,
+  Search,
+  ChevronDown,
+  CirclePlus,
+} from "lucide-react";
 import { PurchaseRecord, PurchaseRecordItem } from "@/types/stocks";
 import useClinicBranches from "@/hooks/useClinicBranches";
 import useSuppliers from "@/hooks/useSuppliers";
 import useUoms from "@/hooks/useUoms";
+import AddStockItemModal from "@/components/shared/AddStockItemModal";
 
 interface AddPurchaseOrderModalProps {
   token: string;
@@ -24,6 +33,7 @@ const AddPurchaseOrderModal: React.FC<AddPurchaseOrderModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [isSupplierDropdownOpen, setIsSupplierDropdownOpen] = useState(false);
   const supplierDropdownRef = useRef<HTMLDivElement>(null);
+  const [isOpenAddStockItemModal, setIsOpenAddStockItemModal] = useState(false);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -33,7 +43,7 @@ const AddPurchaseOrderModal: React.FC<AddPurchaseOrderModalProps> = ({
     quotationNo: "",
     validityDays: "",
     paymentTermsDays: "",
-    suppplier: "",
+    supplier: "",
     type: "Purchase_Order",
     supplierInvoiceNo: "",
     notes: "",
@@ -166,7 +176,7 @@ const AddPurchaseOrderModal: React.FC<AddPurchaseOrderModalProps> = ({
   const handleInputChange = (
     e: React.ChangeEvent<
       HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
-    >
+    >,
   ) => {
     const { name, value } = e.target;
 
@@ -190,7 +200,7 @@ const AddPurchaseOrderModal: React.FC<AddPurchaseOrderModalProps> = ({
 
   const handleCurrentItemChange = (
     field: keyof PurchaseRecordItem,
-    value: any
+    value: any,
   ) => {
     setCurrentItem((prev) => ({
       ...prev,
@@ -237,7 +247,7 @@ const AddPurchaseOrderModal: React.FC<AddPurchaseOrderModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.branch.trim() || !formData.suppplier.trim()) return;
+    if (!formData.branch.trim() || !formData.supplier.trim()) return;
 
     setLoading(true);
     setError(null);
@@ -259,7 +269,7 @@ const AddPurchaseOrderModal: React.FC<AddPurchaseOrderModalProps> = ({
             Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify(payload),
-        }
+        },
       );
 
       const result = await response.json();
@@ -286,7 +296,7 @@ const AddPurchaseOrderModal: React.FC<AddPurchaseOrderModalProps> = ({
       quotationNo: "",
       validityDays: "",
       paymentTermsDays: "",
-      suppplier: "",
+      supplier: "",
       type: "Purchase_Order",
       supplierInvoiceNo: "",
       notes: "",
@@ -411,11 +421,11 @@ const AddPurchaseOrderModal: React.FC<AddPurchaseOrderModalProps> = ({
                   >
                     <span
                       className={
-                        formData.suppplier ? "text-gray-900" : "text-gray-400"
+                        formData.supplier ? "text-gray-900" : "text-gray-400"
                       }
                     >
                       {suppliers?.find(
-                        (supplier) => supplier._id === formData.suppplier
+                        (supplier) => supplier._id === formData.supplier,
                       )?.name || "Select a supplier"}
                     </span>
                     <ChevronDown
@@ -489,7 +499,7 @@ const AddPurchaseOrderModal: React.FC<AddPurchaseOrderModalProps> = ({
                                   onClick={() => {
                                     setFormData({
                                       ...formData,
-                                      suppplier: supplier._id,
+                                      supplier: supplier._id,
                                     });
                                     setIsSupplierDropdownOpen(false);
                                     setSupplierSearch("");
@@ -884,7 +894,17 @@ const AddPurchaseOrderModal: React.FC<AddPurchaseOrderModalProps> = ({
             <div className="space-y-4">
               <div className="flex justify-between items-center">
                 <div>
-                  <h3 className="text-base font-bold text-gray-900">Items *</h3>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base font-bold text-gray-900">
+                      Items *
+                    </h3>
+                    <button
+                      onClick={() => setIsOpenAddStockItemModal(true)}
+                      className="flex items-center justify-center gap-1 text-blue-500 hover:text-blue-700 transition-colors"
+                    >
+                      <CirclePlus size={18} />
+                    </button>
+                  </div>
                   <p className="text-xs text-gray-500 mt-1">
                     Add items for this purchase order
                   </p>
@@ -946,7 +966,7 @@ const AddPurchaseOrderModal: React.FC<AddPurchaseOrderModalProps> = ({
                       onChange={(e) =>
                         handleCurrentItemChange(
                           "quantity",
-                          parseFloat(e.target.value) || 0
+                          parseFloat(e.target.value) || 0,
                         )
                       }
                       className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed h-10"
@@ -996,7 +1016,7 @@ const AddPurchaseOrderModal: React.FC<AddPurchaseOrderModalProps> = ({
                       onChange={(e) =>
                         handleCurrentItemChange(
                           "unitPrice",
-                          parseFloat(e.target.value) || 0
+                          parseFloat(e.target.value) || 0,
                         )
                       }
                       className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed h-10"
@@ -1031,7 +1051,7 @@ const AddPurchaseOrderModal: React.FC<AddPurchaseOrderModalProps> = ({
                       onChange={(e) =>
                         handleCurrentItemChange(
                           "discount",
-                          parseFloat(e.target.value) || 0
+                          parseFloat(e.target.value) || 0,
                         )
                       }
                       className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed h-10"
@@ -1050,7 +1070,7 @@ const AddPurchaseOrderModal: React.FC<AddPurchaseOrderModalProps> = ({
                       onChange={(e) =>
                         handleCurrentItemChange(
                           "discountType",
-                          e.target.value as "Fixed" | "Percentage"
+                          e.target.value as "Fixed" | "Percentage",
                         )
                       }
                       className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed h-10"
@@ -1071,7 +1091,7 @@ const AddPurchaseOrderModal: React.FC<AddPurchaseOrderModalProps> = ({
                       onChange={(e) =>
                         handleCurrentItemChange(
                           "discountType",
-                          e.target.value as "Fixed" | "Percentage"
+                          e.target.value as "Fixed" | "Percentage",
                         )
                       }
                       className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed h-10"
@@ -1120,7 +1140,7 @@ const AddPurchaseOrderModal: React.FC<AddPurchaseOrderModalProps> = ({
                       onChange={(e) =>
                         handleCurrentItemChange(
                           "vatPercentage",
-                          parseFloat(e.target.value) || 0
+                          parseFloat(e.target.value) || 0,
                         )
                       }
                       className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed h-10"
@@ -1142,7 +1162,7 @@ const AddPurchaseOrderModal: React.FC<AddPurchaseOrderModalProps> = ({
                       onChange={(e) =>
                         handleCurrentItemChange(
                           "vatAmount",
-                          parseFloat(e.target.value) || 0
+                          parseFloat(e.target.value) || 0,
                         )
                       }
                       className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed h-10"
@@ -1176,7 +1196,7 @@ const AddPurchaseOrderModal: React.FC<AddPurchaseOrderModalProps> = ({
                       onChange={(e) =>
                         handleCurrentItemChange(
                           "freeQuantity",
-                          parseFloat(e.target.value) || 0
+                          parseFloat(e.target.value) || 0,
                         )
                       }
                       className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed h-10"
@@ -1363,7 +1383,7 @@ const AddPurchaseOrderModal: React.FC<AddPurchaseOrderModalProps> = ({
             disabled={
               loading ||
               !formData.branch.trim() ||
-              !formData.suppplier.trim() ||
+              !formData.supplier.trim() ||
               !formData.date.trim() ||
               !formData.type.trim() ||
               (showSupplierInvoiceNo && !formData.supplierInvoiceNo.trim()) ||
@@ -1403,6 +1423,18 @@ const AddPurchaseOrderModal: React.FC<AddPurchaseOrderModalProps> = ({
             )}
           </button>
         </div>
+
+        {/* Add stock item modal */}
+        <AddStockItemModal
+          token={token || ""}
+          clinicId={formData?.branch || ""}
+          isOpen={isOpenAddStockItemModal}
+          onClose={() => setIsOpenAddStockItemModal(false)}
+          onSuccess={(newStockItem) => {
+            // Handle successful creation
+            console.log("New stock item created:", newStockItem);
+          }}
+        />
       </div>
     </div>
   );

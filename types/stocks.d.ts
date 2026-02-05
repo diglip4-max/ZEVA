@@ -1,8 +1,24 @@
 export type UOMStatus = "Active" | "Inactive" | "Allocated";
 export type StockLocationStatus = "Active" | "Inactive" | "Allocated";
 export type SupplierStatus = "Active" | "Inactive" | "Allocated";
-export type PurchaseRecordStatus = "New" | "Approved" | "Partly_Delivered" | "Delivered" | "Partly_Invoiced" | "Invoiced" | "Rejected" | "Cancelled" | "Deleted" | "Converted_To_PO";
-export type PurchaseRecordType = "Purchase_Order" | "Purchase_Request" | "Purchase_Invoice" | "GRN_Regular";
+export type PurchaseRecordStatus =
+  | "New"
+  | "Approved"
+  | "Partly_Delivered"
+  | "Delivered"
+  | "Partly_Invoiced"
+  | "Invoiced"
+  | "Rejected"
+  | "Cancelled"
+  | "Deleted"
+  | "Converted_To_PO"
+  | "Converted_To_PI"
+  | "Converted_To_GRN";
+export type PurchaseRecordType =
+  | "Purchase_Order"
+  | "Purchase_Request"
+  | "Purchase_Invoice"
+  | "GRN_Regular";
 
 export type UOM = {
   _id: string;
@@ -51,7 +67,7 @@ export type PurchaseRecord = {
   branch: any;
   date: string;
   enqNo?: string;
-  suppplier: any; // Reference to Supplier
+  supplier: any; // Reference to Supplier
   type: PurchaseRecordType;
   supplierInvoiceNo?: string;
   notes?: string;

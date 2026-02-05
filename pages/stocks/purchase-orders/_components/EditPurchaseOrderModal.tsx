@@ -32,7 +32,7 @@ const EditPurchaseOrderModal: React.FC<EditPurchaseOrderModalProps> = ({
     branch: "",
     date: "",
     enqNo: "",
-    suppplier: "",
+    supplier: "",
     type: "Purchase_Order",
     supplierInvoiceNo: "",
     notes: "",
@@ -149,10 +149,10 @@ const EditPurchaseOrderModal: React.FC<EditPurchaseOrderModalProps> = ({
           ? purchaseOrderData.date.split("T")[0]
           : new Date().toISOString().split("T")[0],
         enqNo: purchaseOrderData.enqNo || "",
-        suppplier:
-          typeof purchaseOrderData.suppplier === "object"
-            ? (purchaseOrderData.suppplier as any)._id
-            : purchaseOrderData.suppplier || "",
+        supplier:
+          typeof purchaseOrderData.supplier === "object"
+            ? (purchaseOrderData.supplier as any)._id
+            : purchaseOrderData.supplier || "",
         type: purchaseOrderData.type || "Purchase_Order",
         supplierInvoiceNo: purchaseOrderData.supplierInvoiceNo || "",
         notes: purchaseOrderData.notes || "",
@@ -181,7 +181,7 @@ const EditPurchaseOrderModal: React.FC<EditPurchaseOrderModalProps> = ({
         purchaseOrderData.items.map((item) => ({
           ...item,
           discountAmount: item.discountAmount || calculateDiscountAmount(item),
-        }))
+        })),
       );
     }
   }, [purchaseOrderData]);
@@ -206,7 +206,7 @@ const EditPurchaseOrderModal: React.FC<EditPurchaseOrderModalProps> = ({
   const handleInputChange = (
     e: React.ChangeEvent<
       HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
-    >
+    >,
   ) => {
     const { name, value } = e.target;
 
@@ -229,7 +229,7 @@ const EditPurchaseOrderModal: React.FC<EditPurchaseOrderModalProps> = ({
 
   const handleCurrentItemChange = (
     field: keyof PurchaseRecordItem,
-    value: any
+    value: any,
   ) => {
     setCurrentItem((prev) => ({
       ...prev,
@@ -373,7 +373,7 @@ const EditPurchaseOrderModal: React.FC<EditPurchaseOrderModalProps> = ({
             Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify(payload),
-        }
+        },
       );
 
       const result = await response.json();
@@ -404,13 +404,13 @@ const EditPurchaseOrderModal: React.FC<EditPurchaseOrderModalProps> = ({
   const grandTotal = items.reduce((sum, item) => sum + item.totalPrice, 0);
   const totalDiscount = items.reduce(
     (sum, item) => sum + (item.discountAmount || 0),
-    0
+    0,
   );
   const totalNet = items.reduce((sum, item) => sum + item.netPrice, 0);
   const totalVat = items.reduce((sum, item) => sum + (item.vatAmount || 0), 0);
   const totalNetPlusVat = items.reduce(
     (sum, item) => sum + (item.netPlusVat || 0),
-    0
+    0,
   );
 
   return (
@@ -488,11 +488,11 @@ const EditPurchaseOrderModal: React.FC<EditPurchaseOrderModalProps> = ({
                   >
                     <span
                       className={
-                        formData.suppplier ? "text-gray-900" : "text-gray-400"
+                        formData.supplier ? "text-gray-900" : "text-gray-400"
                       }
                     >
                       {suppliers?.find(
-                        (supplier) => supplier._id === formData.suppplier
+                        (supplier) => supplier._id === formData.supplier,
                       )?.name || "Select a supplier"}
                     </span>
                     <ChevronDown
@@ -563,7 +563,7 @@ const EditPurchaseOrderModal: React.FC<EditPurchaseOrderModalProps> = ({
                                   onClick={() => {
                                     setFormData({
                                       ...formData,
-                                      suppplier: supplier._id,
+                                      supplier: supplier._id,
                                     });
                                     setIsSupplierDropdownOpen(false);
                                     setSupplierSearch("");
@@ -991,7 +991,7 @@ const EditPurchaseOrderModal: React.FC<EditPurchaseOrderModalProps> = ({
                       onChange={(e) =>
                         handleCurrentItemChange(
                           "quantity",
-                          parseFloat(e.target.value) || 0
+                          parseFloat(e.target.value) || 0,
                         )
                       }
                       className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed h-10"
@@ -1041,7 +1041,7 @@ const EditPurchaseOrderModal: React.FC<EditPurchaseOrderModalProps> = ({
                       onChange={(e) =>
                         handleCurrentItemChange(
                           "unitPrice",
-                          parseFloat(e.target.value) || 0
+                          parseFloat(e.target.value) || 0,
                         )
                       }
                       className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed h-10"
@@ -1076,7 +1076,7 @@ const EditPurchaseOrderModal: React.FC<EditPurchaseOrderModalProps> = ({
                       onChange={(e) =>
                         handleCurrentItemChange(
                           "discount",
-                          parseFloat(e.target.value) || 0
+                          parseFloat(e.target.value) || 0,
                         )
                       }
                       className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed h-10"
@@ -1095,7 +1095,7 @@ const EditPurchaseOrderModal: React.FC<EditPurchaseOrderModalProps> = ({
                       onChange={(e) =>
                         handleCurrentItemChange(
                           "discountType",
-                          e.target.value as "Fixed" | "Percentage"
+                          e.target.value as "Fixed" | "Percentage",
                         )
                       }
                       className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed h-10"
@@ -1145,7 +1145,7 @@ const EditPurchaseOrderModal: React.FC<EditPurchaseOrderModalProps> = ({
                       onChange={(e) =>
                         handleCurrentItemChange(
                           "vatPercentage",
-                          parseFloat(e.target.value) || 0
+                          parseFloat(e.target.value) || 0,
                         )
                       }
                       className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed h-10"
@@ -1167,7 +1167,7 @@ const EditPurchaseOrderModal: React.FC<EditPurchaseOrderModalProps> = ({
                       onChange={(e) =>
                         handleCurrentItemChange(
                           "vatAmount",
-                          parseFloat(e.target.value) || 0
+                          parseFloat(e.target.value) || 0,
                         )
                       }
                       className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed h-10"
@@ -1201,7 +1201,7 @@ const EditPurchaseOrderModal: React.FC<EditPurchaseOrderModalProps> = ({
                       onChange={(e) =>
                         handleCurrentItemChange(
                           "freeQuantity",
-                          parseFloat(e.target.value) || 0
+                          parseFloat(e.target.value) || 0,
                         )
                       }
                       className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed h-10"
@@ -1327,7 +1327,7 @@ const EditPurchaseOrderModal: React.FC<EditPurchaseOrderModalProps> = ({
                                     onChange={(e) =>
                                       handleEditChange(
                                         "description",
-                                        e.target.value
+                                        e.target.value,
                                       )
                                     }
                                     className="w-full px-2 py-1 text-sm border border-gray-300 rounded"
@@ -1341,7 +1341,7 @@ const EditPurchaseOrderModal: React.FC<EditPurchaseOrderModalProps> = ({
                                       onChange={(e) =>
                                         handleEditChange(
                                           "quantity",
-                                          parseFloat(e.target.value) || 0
+                                          parseFloat(e.target.value) || 0,
                                         )
                                       }
                                       className="w-16 px-2 py-1 text-sm border border-gray-300 rounded"
@@ -1383,7 +1383,7 @@ const EditPurchaseOrderModal: React.FC<EditPurchaseOrderModalProps> = ({
                                       onChange={(e) =>
                                         handleEditChange(
                                           "freeQuantity",
-                                          parseFloat(e.target.value) || 0
+                                          parseFloat(e.target.value) || 0,
                                         )
                                       }
                                       className="w-16 px-2 py-1 text-sm border border-gray-300 rounded"
@@ -1425,7 +1425,7 @@ const EditPurchaseOrderModal: React.FC<EditPurchaseOrderModalProps> = ({
                                     onChange={(e) =>
                                       handleEditChange(
                                         "unitPrice",
-                                        parseFloat(e.target.value) || 0
+                                        parseFloat(e.target.value) || 0,
                                       )
                                     }
                                     className="w-full px-2 py-1 text-sm border border-gray-300 rounded"
@@ -1443,7 +1443,7 @@ const EditPurchaseOrderModal: React.FC<EditPurchaseOrderModalProps> = ({
                                       onChange={(e) =>
                                         handleEditChange(
                                           "discount",
-                                          parseFloat(e.target.value) || 0
+                                          parseFloat(e.target.value) || 0,
                                         )
                                       }
                                       className="w-16 px-2 py-1 text-sm border border-gray-300 rounded"
@@ -1455,7 +1455,7 @@ const EditPurchaseOrderModal: React.FC<EditPurchaseOrderModalProps> = ({
                                           "discountType",
                                           e.target.value as
                                             | "Fixed"
-                                            | "Percentage"
+                                            | "Percentage",
                                         )
                                       }
                                       className="w-16 px-2 py-1 text-sm border border-gray-300 rounded"
@@ -1480,7 +1480,7 @@ const EditPurchaseOrderModal: React.FC<EditPurchaseOrderModalProps> = ({
                                       onChange={(e) =>
                                         handleEditChange(
                                           "vatPercentage",
-                                          parseFloat(e.target.value) || 0
+                                          parseFloat(e.target.value) || 0,
                                         )
                                       }
                                       className="w-16 px-2 py-1 text-sm border border-gray-300 rounded"
@@ -1493,7 +1493,7 @@ const EditPurchaseOrderModal: React.FC<EditPurchaseOrderModalProps> = ({
                                       onChange={(e) =>
                                         handleEditChange(
                                           "vatAmount",
-                                          parseFloat(e.target.value) || 0
+                                          parseFloat(e.target.value) || 0,
                                         )
                                       }
                                       className="w-16 px-2 py-1 text-sm border border-gray-300 rounded"
@@ -1635,7 +1635,7 @@ const EditPurchaseOrderModal: React.FC<EditPurchaseOrderModalProps> = ({
             disabled={
               loading ||
               !formData.branch.trim() ||
-              !formData.suppplier.trim() ||
+              !formData.supplier.trim() ||
               !formData.date.trim() ||
               !formData.type.trim() ||
               (showSupplierInvoiceNo && !formData.supplierInvoiceNo.trim()) ||

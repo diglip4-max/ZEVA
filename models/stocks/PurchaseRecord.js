@@ -29,7 +29,7 @@ const PurchaseRecordSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
-    suppplier: {
+    supplier: {
       // it will actuall branch reference not string
       type: mongoose.Schema.Types.ObjectId,
       ref: "Supplier",
@@ -68,6 +68,8 @@ const PurchaseRecordSchema = new mongoose.Schema(
         "Cancelled",
         "Deleted",
         "Converted_To_PO",
+        "Converted_To_PI",
+        "Converted_To_GRN",
       ],
       default: "New",
     },
@@ -165,7 +167,7 @@ const PurchaseRecordSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
-  }
+  },
 );
 
 // Separate function to find next available order number

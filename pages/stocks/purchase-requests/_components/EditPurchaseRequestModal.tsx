@@ -32,7 +32,7 @@ const EditPurchaseRequestModal: React.FC<EditPurchaseRequestModalProps> = ({
     branch: "",
     date: "",
     enqNo: "",
-    suppplier: "",
+    supplier: "",
     type: "Purchase_Request",
     supplierInvoiceNo: "",
     notes: "",
@@ -148,10 +148,10 @@ const EditPurchaseRequestModal: React.FC<EditPurchaseRequestModalProps> = ({
           ? purchaseRequestData.date.split("T")[0]
           : new Date().toISOString().split("T")[0],
         enqNo: purchaseRequestData.enqNo || "",
-        suppplier:
-          typeof purchaseRequestData.suppplier === "object"
-            ? (purchaseRequestData.suppplier as any)._id
-            : purchaseRequestData.suppplier || "",
+        supplier:
+          typeof purchaseRequestData.supplier === "object"
+            ? (purchaseRequestData.supplier as any)._id
+            : purchaseRequestData.supplier || "",
         type: purchaseRequestData.type || "Purchase_Request",
         supplierInvoiceNo: purchaseRequestData.supplierInvoiceNo || "",
         notes: purchaseRequestData.notes || "",
@@ -180,7 +180,7 @@ const EditPurchaseRequestModal: React.FC<EditPurchaseRequestModalProps> = ({
         purchaseRequestData.items.map((item) => ({
           ...item,
           discountAmount: item.discountAmount || calculateDiscountAmount(item),
-        }))
+        })),
       );
     }
   }, [purchaseRequestData]);
@@ -205,7 +205,7 @@ const EditPurchaseRequestModal: React.FC<EditPurchaseRequestModalProps> = ({
   const handleInputChange = (
     e: React.ChangeEvent<
       HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
-    >
+    >,
   ) => {
     const { name, value } = e.target;
 
@@ -228,7 +228,7 @@ const EditPurchaseRequestModal: React.FC<EditPurchaseRequestModalProps> = ({
 
   const handleCurrentItemChange = (
     field: keyof PurchaseRecordItem,
-    value: any
+    value: any,
   ) => {
     setCurrentItem((prev) => ({
       ...prev,
@@ -372,7 +372,7 @@ const EditPurchaseRequestModal: React.FC<EditPurchaseRequestModalProps> = ({
             Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify(payload),
-        }
+        },
       );
 
       const result = await response.json();
@@ -474,11 +474,11 @@ const EditPurchaseRequestModal: React.FC<EditPurchaseRequestModalProps> = ({
                   >
                     <span
                       className={
-                        formData.suppplier ? "text-gray-900" : "text-gray-400"
+                        formData.supplier ? "text-gray-900" : "text-gray-400"
                       }
                     >
                       {suppliers?.find(
-                        (supplier) => supplier._id === formData.suppplier
+                        (supplier) => supplier._id === formData.supplier,
                       )?.name || "Select a supplier"}
                     </span>
                     <ChevronDown
@@ -549,7 +549,7 @@ const EditPurchaseRequestModal: React.FC<EditPurchaseRequestModalProps> = ({
                                   onClick={() => {
                                     setFormData({
                                       ...formData,
-                                      suppplier: supplier._id,
+                                      supplier: supplier._id,
                                     });
                                     setIsSupplierDropdownOpen(false);
                                     setSupplierSearch("");
@@ -751,7 +751,7 @@ const EditPurchaseRequestModal: React.FC<EditPurchaseRequestModalProps> = ({
                       onChange={(e) =>
                         handleCurrentItemChange(
                           "quantity",
-                          parseFloat(e.target.value) || 0
+                          parseFloat(e.target.value) || 0,
                         )
                       }
                       className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed h-10"
@@ -881,7 +881,7 @@ const EditPurchaseRequestModal: React.FC<EditPurchaseRequestModalProps> = ({
                                     onChange={(e) =>
                                       handleEditChange(
                                         "description",
-                                        e.target.value
+                                        e.target.value,
                                       )
                                     }
                                     className="w-full px-2 py-1 text-sm border border-gray-300 text-gray-500 rounded"
@@ -895,7 +895,7 @@ const EditPurchaseRequestModal: React.FC<EditPurchaseRequestModalProps> = ({
                                       onChange={(e) =>
                                         handleEditChange(
                                           "quantity",
-                                          parseFloat(e.target.value) || 0
+                                          parseFloat(e.target.value) || 0,
                                         )
                                       }
                                       className="w-16 px-2 py-1 text-sm border border-gray-300 text-gray-500 rounded"
@@ -1006,7 +1006,7 @@ const EditPurchaseRequestModal: React.FC<EditPurchaseRequestModalProps> = ({
             disabled={
               loading ||
               !formData.branch.trim() ||
-              !formData.suppplier.trim() ||
+              !formData.supplier.trim() ||
               !formData.date.trim() ||
               !formData.type.trim() ||
               (showSupplierInvoiceNo && !formData.supplierInvoiceNo.trim()) ||

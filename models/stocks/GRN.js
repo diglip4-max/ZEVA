@@ -8,21 +8,17 @@ const GRNSchema = new mongoose.Schema(
       required: true,
       index: true,
     }, // ✅ Clinic that owns this GRN
-    // TODO
     grnNo: {
       type: String,
-      required: [true, "GRN number is required"],
       trim: true,
     },
     branch: {
-      // it will actuall branch reference not string
       type: mongoose.Schema.Types.ObjectId,
       ref: "Clinic",
       required: true,
       index: true,
     },
     purchasedOrder: {
-      // it will actually be a reference to a Purchase Order, not a branch
       type: mongoose.Schema.Types.ObjectId,
       ref: "PurchaseRecord",
       required: true,
@@ -47,7 +43,14 @@ const GRNSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["New", "Partly_Invoiced", "Invoiced", "Partly_Paid", "Paid", "Deleted"],
+      enum: [
+        "New",
+        "Partly_Invoiced",
+        "Invoiced",
+        "Partly_Paid",
+        "Paid",
+        "Deleted",
+      ],
       default: "New",
     },
     createdBy: {
@@ -60,6 +63,46 @@ const GRNSchema = new mongoose.Schema(
   },
 );
 
+// Separate function to find next available gap
+async function getNextAvailableGRNNumber(clinicId) {
+  const grns = await mongoose.models.GRN.find({ clinicId }).sort({
+    grnNo: 1,
+  }); // Ascending order
+
+  // Find first missing number in sequence
+  let expectedNumber = 1;
+
+  for (const grn of grns) {
+    const match = grn.grnNo?.match(/(\d+)$/);
+    if (match) {
+      const currentNumber = parseInt(match[1]);
+
+      if (currentNumber === expectedNumber) {
+        expectedNumber++;
+      } else if (currentNumber > expectedNumber) {
+        // Found a gap!
+        break;
+      }
+    }
+  }
+
+  console.log("Next available GRN number:", expectedNumber);
+  return `GRN-${String(expectedNumber).padStart(6, "0")}`;
+}
+
+// In pre-save hook
+GRNSchema.pre("save", async function (next) {
+  if (!this.grnNo) {
+    try {
+      this.grnNo = await getNextAvailableGRNNumber(this.clinicId);
+    } catch (error) {
+      console.error("Error generating GRN number:", error);
+      // Fallback: use timestamp
+      this.grnNo = `GRN-${Date.now().toString().slice(-6)}`;
+    }
+  }
+  next();
+});
 
 // 🔥 Important fix for Next.js hot-reload
 if (mongoose.models.GRN) {

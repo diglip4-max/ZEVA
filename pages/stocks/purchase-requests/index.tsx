@@ -21,7 +21,7 @@ import FilterModal from "./_components/FilterModal";
 const PurchaseRequestsPage: NextPageWithLayout = () => {
   const token = getTokenByPath();
   const [purchaseRequests, setPurchaseRequests] = useState<PurchaseRecord[]>(
-    []
+    [],
   );
   const [loading, setLoading] = useState(false);
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
@@ -96,7 +96,7 @@ const PurchaseRequestsPage: NextPageWithLayout = () => {
               headers: {
                 Authorization: `Bearer ${token}`,
               },
-            }
+            },
           );
 
           if (response.data?.success) {
@@ -113,7 +113,7 @@ const PurchaseRequestsPage: NextPageWithLayout = () => {
                 uniqueSuppliersCount: 0,
                 uniqueBranchesCount: 0,
                 totalItems: 0,
-              }
+              },
             );
           }
         } catch (error) {
@@ -124,9 +124,9 @@ const PurchaseRequestsPage: NextPageWithLayout = () => {
           setLoading(false);
         }
       },
-      300
+      300,
     ),
-    [pagination.limit]
+    [pagination.limit],
   );
 
   // Initial fetch on mount
@@ -139,7 +139,7 @@ const PurchaseRequestsPage: NextPageWithLayout = () => {
     (page: number) => {
       fetchPurchaseRequests(page, searchTerm, filterData);
     },
-    [fetchPurchaseRequests, searchTerm, filterData]
+    [fetchPurchaseRequests, searchTerm, filterData],
   );
 
   useEffect(() => {
@@ -199,18 +199,17 @@ const PurchaseRequestsPage: NextPageWithLayout = () => {
           headers: {
             Authorization: `Bearer ${token}`,
           },
-        }
+        },
       );
 
       if (response.data.success) {
         // Refresh the list
         const updatedPurchaseRequests = purchaseRequests.filter(
-          (pr) => pr._id !== purchaseRequestToDelete._id
+          (pr) => pr._id !== purchaseRequestToDelete._id,
         );
         setPurchaseRequests(updatedPurchaseRequests);
         setIsDeleteModalOpen(false);
         setPurchaseRequestToDelete(null);
-        fetchPurchaseRequests(pagination.currentPage, searchTerm, filterData);
       }
     } catch (error) {
       console.error("Error deleting purchase request:", error);
@@ -304,7 +303,7 @@ const PurchaseRequestsPage: NextPageWithLayout = () => {
                 fetchPurchaseRequests(
                   pagination.currentPage,
                   searchTerm,
-                  filterData
+                  filterData,
                 );
               }}
             />
@@ -326,13 +325,13 @@ const PurchaseRequestsPage: NextPageWithLayout = () => {
               purchaseRequestData={purchaseRequestToEdit}
               onSuccess={(purchaseRequestData) => {
                 const updatedPurchaseRequests = purchaseRequests.map((pr) =>
-                  pr._id === purchaseRequestData._id ? purchaseRequestData : pr
+                  pr._id === purchaseRequestData._id ? purchaseRequestData : pr,
                 );
                 setPurchaseRequests(updatedPurchaseRequests);
                 fetchPurchaseRequests(
                   pagination.currentPage,
                   searchTerm,
-                  filterData
+                  filterData,
                 );
               }}
             />
@@ -635,7 +634,7 @@ const PurchaseRequestsPage: NextPageWithLayout = () => {
                             <div className="flex-shrink-0 h-10 w-10 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
                               <span className="text-white font-medium text-sm">
                                 {request.orderNo.charAt(
-                                  request.orderNo.length - 2
+                                  request.orderNo.length - 2,
                                 )}
                               </span>
                             </div>
@@ -653,7 +652,7 @@ const PurchaseRequestsPage: NextPageWithLayout = () => {
                           {new Date(request.date).toLocaleDateString()}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {request.suppplier?.name || "N/A"}
+                          {request.supplier?.name || "N/A"}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           {request.branch?.name || "N/A"}
@@ -737,7 +736,7 @@ const PurchaseRequestsPage: NextPageWithLayout = () => {
                               year: "numeric",
                               month: "short",
                               day: "numeric",
-                            }
+                            },
                           )}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
@@ -759,7 +758,7 @@ const PurchaseRequestsPage: NextPageWithLayout = () => {
                                   });
                                 // Toggle current menu
                                 const menuEl = document.getElementById(
-                                  `menu-${request._id}`
+                                  `menu-${request._id}`,
                                 );
                                 if (menuEl) {
                                   if (currentMenuState) {
@@ -790,7 +789,7 @@ const PurchaseRequestsPage: NextPageWithLayout = () => {
                                     handleEditClick(request);
                                     // Close the dropdown after clicking
                                     const menuEl = document.getElementById(
-                                      `menu-${request._id}`
+                                      `menu-${request._id}`,
                                     );
                                     if (menuEl) {
                                       menuEl.classList.remove("block");
@@ -809,7 +808,7 @@ const PurchaseRequestsPage: NextPageWithLayout = () => {
                                     handleDetailClick(request);
                                     // Close the dropdown after clicking
                                     const menuEl = document.getElementById(
-                                      `menu-${request._id}`
+                                      `menu-${request._id}`,
                                     );
                                     if (menuEl) {
                                       menuEl.classList.remove("block");
@@ -840,7 +839,7 @@ const PurchaseRequestsPage: NextPageWithLayout = () => {
                                     toggleRowExpansion(request._id);
                                     // Close the dropdown after clicking
                                     const menuEl = document.getElementById(
-                                      `menu-${request._id}`
+                                      `menu-${request._id}`,
                                     );
                                     if (menuEl) {
                                       menuEl.classList.remove("block");
@@ -873,7 +872,7 @@ const PurchaseRequestsPage: NextPageWithLayout = () => {
                                     handleDeleteClick(request);
                                     // Close the dropdown after clicking
                                     const menuEl = document.getElementById(
-                                      `menu-${request._id}`
+                                      `menu-${request._id}`,
                                     );
                                     if (menuEl) {
                                       menuEl.classList.remove("block");
@@ -954,7 +953,7 @@ const PurchaseRequestsPage: NextPageWithLayout = () => {
                                       {request.items
                                         .reduce(
                                           (sum, item) => sum + item.totalPrice,
-                                          0
+                                          0,
                                         )
                                         .toFixed(2)}{" "}
                                       total
@@ -1112,7 +1111,7 @@ const PurchaseRequestsPage: NextPageWithLayout = () => {
                 <span className="font-medium">
                   {Math.min(
                     pagination.currentPage * pagination.limit,
-                    pagination.totalResults
+                    pagination.totalResults,
                   )}
                 </span>{" "}
                 of{" "}
@@ -1144,7 +1143,7 @@ const PurchaseRequestsPage: NextPageWithLayout = () => {
                           {pageNum}
                         </button>
                       );
-                    }
+                    },
                   )}
                 </div>
                 <button
@@ -1174,7 +1173,7 @@ PurchaseRequestsPage.getLayout = function getLayout(page: ReactElement) {
 
 // Export protected page with auth
 const ProtectedPurchaseRequestsPage = withClinicAuth(
-  PurchaseRequestsPage
+  PurchaseRequestsPage,
 ) as NextPageWithLayout;
 ProtectedPurchaseRequestsPage.getLayout = PurchaseRequestsPage.getLayout;
 

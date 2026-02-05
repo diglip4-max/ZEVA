@@ -30,7 +30,7 @@ const AddPurchaseRequestModal: React.FC<AddPurchaseRequestModalProps> = ({
     branch: "",
     date: new Date().toISOString().split("T")[0],
     enqNo: "",
-    suppplier: "",
+    supplier: "",
     type: "Purchase_Request",
     supplierInvoiceNo: "",
     notes: "",
@@ -115,7 +115,7 @@ const AddPurchaseRequestModal: React.FC<AddPurchaseRequestModalProps> = ({
   const handleInputChange = (
     e: React.ChangeEvent<
       HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
-    >
+    >,
   ) => {
     const { name, value } = e.target;
 
@@ -138,7 +138,7 @@ const AddPurchaseRequestModal: React.FC<AddPurchaseRequestModalProps> = ({
 
   const handleCurrentItemChange = (
     field: keyof PurchaseRecordItem,
-    value: any
+    value: any,
   ) => {
     setCurrentItem((prev) => ({
       ...prev,
@@ -196,7 +196,7 @@ const AddPurchaseRequestModal: React.FC<AddPurchaseRequestModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.branch.trim() || !formData.suppplier.trim()) {
+    if (!formData.branch.trim() || !formData.supplier.trim()) {
       setError("Please fill in all required fields");
       return;
     }
@@ -226,7 +226,7 @@ const AddPurchaseRequestModal: React.FC<AddPurchaseRequestModalProps> = ({
             Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify(payload),
-        }
+        },
       );
 
       const result = await response.json();
@@ -250,7 +250,7 @@ const AddPurchaseRequestModal: React.FC<AddPurchaseRequestModalProps> = ({
       branch: "",
       date: new Date().toISOString().split("T")[0],
       enqNo: "",
-      suppplier: "",
+      supplier: "",
       type: "Purchase_Request",
       supplierInvoiceNo: "",
       notes: "",
@@ -376,11 +376,11 @@ const AddPurchaseRequestModal: React.FC<AddPurchaseRequestModalProps> = ({
                   >
                     <span
                       className={
-                        formData.suppplier ? "text-gray-900" : "text-gray-400"
+                        formData.supplier ? "text-gray-900" : "text-gray-400"
                       }
                     >
                       {suppliers?.find(
-                        (supplier) => supplier._id === formData.suppplier
+                        (supplier) => supplier._id === formData.supplier,
                       )?.name || "Select a supplier"}
                     </span>
                     <ChevronDown
@@ -454,7 +454,7 @@ const AddPurchaseRequestModal: React.FC<AddPurchaseRequestModalProps> = ({
                                   onClick={() => {
                                     setFormData({
                                       ...formData,
-                                      suppplier: supplier._id,
+                                      supplier: supplier._id,
                                     });
                                     setIsSupplierDropdownOpen(false);
                                     setSupplierSearch("");
@@ -643,7 +643,7 @@ const AddPurchaseRequestModal: React.FC<AddPurchaseRequestModalProps> = ({
                       onChange={(e) =>
                         handleCurrentItemChange(
                           "quantity",
-                          parseFloat(e.target.value) || 0
+                          parseFloat(e.target.value) || 0,
                         )
                       }
                       className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed h-10"
@@ -814,7 +814,7 @@ const AddPurchaseRequestModal: React.FC<AddPurchaseRequestModalProps> = ({
             disabled={
               loading ||
               !formData.branch.trim() ||
-              !formData.suppplier.trim() ||
+              !formData.supplier.trim() ||
               items.length === 0
             }
             className="px-4 py-2.5 text-sm font-medium text-white bg-gray-800 border border-transparent rounded-lg hover:bg-gray-900 focus:ring-2 focus:ring-gray-800/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"

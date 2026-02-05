@@ -83,9 +83,9 @@ export default async function handler(req, res) {
         _id: purchaseRecordId,
         clinicId,
       })
-      .populate("branch", "name")
-      .populate("suppplier", "name vatRegNo telephone mobile email")
-      .populate("createdBy", "name email");
+        .populate("branch", "name")
+        .populate("supplier", "name vatRegNo telephone mobile email")
+        .populate("createdBy", "name email");
 
       if (!purchaseRecord) {
         return res.status(404).json({
@@ -99,7 +99,6 @@ export default async function handler(req, res) {
         message: "Purchase record fetched successfully",
         data: purchaseRecord,
       });
-
     } catch (err) {
       console.error("Error in fetch purchase record:", err);
 
@@ -194,7 +193,7 @@ export default async function handler(req, res) {
         branch,
         date,
         enqNo,
-        suppplier,
+        supplier,
         type,
         supplierInvoiceNo,
         notes,
@@ -213,17 +212,17 @@ export default async function handler(req, res) {
         });
       }
 
-      if (branch && !await Clinic.findById(branch)) {
+      if (branch && !(await Clinic.findById(branch))) {
         return res.status(404).json({
           success: false,
           message: "Branch not found",
         });
       }
 
-      if (suppplier) {
+      if (supplier) {
         // Validate supplier exists and belongs to clinic
         const findSupplier = await Supplier.findOne({
-          _id: suppplier,
+          _id: supplier,
           clinicId: clinicId,
         });
         if (!findSupplier) {
@@ -266,29 +265,29 @@ export default async function handler(req, res) {
       if (items && Array.isArray(items) && items.length > 0) {
         for (let i = 0; i < items.length; i++) {
           const item = items[i];
-          
+
           if (!item.name) {
             return res.status(400).json({
               success: false,
               message: `Item ${i + 1}: Name is required`,
             });
           }
-          
-          if (typeof item.quantity !== 'number' || item.quantity <= 0) {
+
+          if (typeof item.quantity !== "number" || item.quantity <= 0) {
             return res.status(400).json({
               success: false,
               message: `Item ${i + 1}: Quantity must be a positive number`,
             });
           }
-          
-          if (typeof item.unitPrice !== 'number' || item.unitPrice < 0) {
+
+          if (typeof item.unitPrice !== "number" || item.unitPrice < 0) {
             return res.status(400).json({
               success: false,
               message: `Item ${i + 1}: Unit price must be a non-negative number`,
             });
           }
-          
-          if (typeof item.totalPrice !== 'number' || item.totalPrice < 0) {
+
+          if (typeof item.totalPrice !== "number" || item.totalPrice < 0) {
             return res.status(400).json({
               success: false,
               message: `Item ${i + 1}: Total price must be a non-negative number`,
@@ -299,30 +298,33 @@ export default async function handler(req, res) {
 
       // Prepare update object with only provided fields
       const updateData = {};
-      
+
       if (orderNo !== undefined) updateData.orderNo = orderNo;
       if (branch) updateData.branch = branch;
       if (date) updateData.date = new Date(date);
       if (enqNo !== undefined) updateData.enqNo = enqNo;
-      if (suppplier) updateData.suppplier = suppplier;
+      if (supplier) updateData.supplier = supplier;
       if (type) updateData.type = type;
-      if (supplierInvoiceNo !== undefined) updateData.supplierInvoiceNo = supplierInvoiceNo;
+      if (supplierInvoiceNo !== undefined)
+        updateData.supplierInvoiceNo = supplierInvoiceNo;
       if (notes !== undefined) updateData.notes = notes;
       if (status) updateData.status = status;
       if (shipTo) updateData.shipTo = shipTo;
       if (billTo) updateData.billTo = billTo;
-      if (contactInfoOfBuyer) updateData.contactInfoOfBuyer = contactInfoOfBuyer;
-      if (items && Array.isArray(items) && items.length > 0) updateData.items = items;
-      
+      if (contactInfoOfBuyer)
+        updateData.contactInfoOfBuyer = contactInfoOfBuyer;
+      if (items && Array.isArray(items) && items.length > 0)
+        updateData.items = items;
+
       // Update the record
       const updatedRecord = await PurchaseRecord.findOneAndUpdate(
         { _id: purchaseRecordId, clinicId },
         { ...updateData },
-        { new: true, runValidators: true }
+        { new: true, runValidators: true },
       )
-      .populate("branch", "name")
-      .populate("suppplier", "name vatRegNo telephone mobile email")
-      .populate("createdBy", "name email");
+        .populate("branch", "name")
+        .populate("supplier", "name vatRegNo telephone mobile email")
+        .populate("createdBy", "name email");
 
       if (!updatedRecord) {
         return res.status(404).json({
@@ -336,7 +338,6 @@ export default async function handler(req, res) {
         message: "Purchase record updated successfully",
         data: updatedRecord,
       });
-
     } catch (err) {
       console.error("Error in update purchase record:", err);
 
@@ -433,7 +434,6 @@ export default async function handler(req, res) {
         success: true,
         message: "Purchase record deleted successfully",
       });
-
     } catch (err) {
       console.error("Error in delete purchase record:", err);
 

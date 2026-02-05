@@ -92,7 +92,7 @@ const PurchaseRequestDetailModal: React.FC<PurchaseRequestDetailModalProps> = ({
   const getTotalAmount = () => {
     return purchaseRequest.items.reduce(
       (sum, item) => sum + (item.totalPrice || 0),
-      0
+      0,
     );
   };
 
@@ -112,7 +112,7 @@ const PurchaseRequestDetailModal: React.FC<PurchaseRequestDetailModalProps> = ({
               <p className="text-gray-300 text-xs sm:text-sm mt-1 flex items-center gap-2">
                 <span
                   className={`px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(
-                    purchaseRequest.status
+                    purchaseRequest.status,
                   )}`}
                 >
                   {purchaseRequest.status.replace(/_/g, " ")}
@@ -120,7 +120,7 @@ const PurchaseRequestDetailModal: React.FC<PurchaseRequestDetailModalProps> = ({
                 <span>•</span>
                 <span
                   className={`px-2 py-0.5 rounded-full text-xs font-medium ${getTypeColor(
-                    purchaseRequest.type
+                    purchaseRequest.type,
                   )}`}
                 >
                   {purchaseRequest.type.replace(/_/g, " ")}
@@ -189,7 +189,7 @@ const PurchaseRequestDetailModal: React.FC<PurchaseRequestDetailModalProps> = ({
                     </p>
                     <span
                       className={`px-2 py-1 rounded-full text-xs font-medium ${getTypeColor(
-                        purchaseRequest.type
+                        purchaseRequest.type,
                       )}`}
                     >
                       {purchaseRequest.type.replace(/_/g, " ")}
@@ -222,9 +222,9 @@ const PurchaseRequestDetailModal: React.FC<PurchaseRequestDetailModalProps> = ({
                       Supplier
                     </p>
                     <p className="text-sm text-gray-800 font-medium">
-                      {typeof purchaseRequest.suppplier === "object"
-                        ? (purchaseRequest.suppplier as any).name
-                        : purchaseRequest.suppplier || "N/A"}
+                      {typeof purchaseRequest.supplier === "object"
+                        ? (purchaseRequest.supplier as any).name
+                        : purchaseRequest.supplier || "N/A"}
                     </p>
                   </div>
                 </div>
@@ -671,7 +671,7 @@ const PurchaseRequestDetailModal: React.FC<PurchaseRequestDetailModalProps> = ({
                           {purchaseRequest.items
                             .reduce(
                               (sum, item) => sum + (item.totalPrice || 0),
-                              0
+                              0,
                             )
                             .toFixed(2)}
                         </div>
@@ -685,7 +685,7 @@ const PurchaseRequestDetailModal: React.FC<PurchaseRequestDetailModalProps> = ({
                           {purchaseRequest.items
                             .reduce(
                               (sum, item) => sum + (item.discountAmount || 0),
-                              0
+                              0,
                             )
                             .toFixed(2)}
                         </div>
@@ -699,7 +699,7 @@ const PurchaseRequestDetailModal: React.FC<PurchaseRequestDetailModalProps> = ({
                           {purchaseRequest.items
                             .reduce(
                               (sum, item) => sum + (item.vatAmount || 0),
-                              0
+                              0,
                             )
                             .toFixed(2)}
                         </div>
@@ -714,7 +714,7 @@ const PurchaseRequestDetailModal: React.FC<PurchaseRequestDetailModalProps> = ({
                                 (item.netPlusVat ||
                                   (item.netPrice || item.totalPrice) +
                                     (item.vatAmount || 0)),
-                              0
+                              0,
                             )
                             .toFixed(2)}
                         </div>
@@ -724,7 +724,7 @@ const PurchaseRequestDetailModal: React.FC<PurchaseRequestDetailModalProps> = ({
                           <span className="px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
                             {purchaseRequest.items.reduce(
                               (sum, item) => sum + (item.freeQuantity || 0),
-                              0
+                              0,
                             )}{" "}
                             free
                           </span>

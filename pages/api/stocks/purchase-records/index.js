@@ -145,7 +145,7 @@ export default async function handler(req, res) {
 
     // Filter by supplier
     if (supplierId) {
-      query.suppplier = supplierId; // Note: field name is 'suppplier' in the model
+      query.supplier = supplierId; // Note: field name is 'supplier' in the model
     }
 
     // Filter by order number
@@ -170,14 +170,14 @@ export default async function handler(req, res) {
       if (fromDate) {
         query.date.$gte = query.date.$gte
           ? new Date(
-              Math.max(query.date.$gte.getTime(), new Date(fromDate).getTime())
+              Math.max(query.date.$gte.getTime(), new Date(fromDate).getTime()),
             )
           : new Date(fromDate);
       }
       if (toDate) {
         query.date.$lte = query.date.$lte
           ? new Date(
-              Math.min(query.date.$lte.getTime(), new Date(toDate).getTime())
+              Math.min(query.date.$lte.getTime(), new Date(toDate).getTime()),
             )
           : new Date(toDate);
       }
@@ -187,7 +187,7 @@ export default async function handler(req, res) {
     const totalRecords = await PurchaseRecord.countDocuments(query);
     const records = await PurchaseRecord.find(query)
       .populate("branch", "name")
-      .populate("suppplier", "name")
+      .populate("supplier", "name")
       .populate("createdBy", "name email")
       // .sort({ [finalSortBy]: sortOrder })
       .sort({ createdAt: -1 })
@@ -204,7 +204,7 @@ export default async function handler(req, res) {
           _id: null,
           totalRecords: { $sum: 1 },
           totalValue: { $sum: "$items.totalPrice" },
-          uniqueSuppliers: { $addToSet: "$suppplier" },
+          uniqueSuppliers: { $addToSet: "$supplier" },
           uniqueBranches: { $addToSet: "$branch" },
           totalItems: { $sum: "$items.quantity" },
         },
@@ -239,7 +239,7 @@ export default async function handler(req, res) {
     const distinctBranches = await PurchaseRecord.distinct("branch", {
       clinicId,
     });
-    const distinctSuppliers = await PurchaseRecord.distinct("suppplier", {
+    const distinctSuppliers = await PurchaseRecord.distinct("supplier", {
       clinicId,
     });
 

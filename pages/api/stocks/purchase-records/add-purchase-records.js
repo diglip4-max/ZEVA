@@ -69,7 +69,7 @@ export default async function handler(req, res) {
       branch,
       date,
       enqNo,
-      suppplier,
+      supplier,
       type,
       supplierInvoiceNo,
       notes,
@@ -94,7 +94,7 @@ export default async function handler(req, res) {
       });
     }
 
-    if (!suppplier) {
+    if (!supplier) {
       return res.status(400).json({
         success: false,
         message: "Supplier is required",
@@ -119,7 +119,7 @@ export default async function handler(req, res) {
 
     // Validate supplier exists and belongs to clinic
     const findSupplier = await Supplier.findOne({
-      _id: suppplier,
+      _id: supplier,
       clinicId: clinicId,
     });
     if (!findSupplier) {
@@ -193,7 +193,7 @@ export default async function handler(req, res) {
       branch,
       date: new Date(date),
       enqNo,
-      suppplier,
+      supplier,
       type: type || "Purchase_Request", // Default type
       supplierInvoiceNo,
       notes,
@@ -209,17 +209,23 @@ export default async function handler(req, res) {
 
     // if convert purchase request then change their status
     if (req.body?.purchaseRequestId) {
+      const updatedStatus =
+        type === "Purchase_Order"
+          ? "Converted_To_PO"
+          : type === "Purchase_Invoice"
+            ? "Converted_To_PI"
+            : "Converted_To_GRN";
       await PurchaseRecord.updateOne(
         { _id: req.body.purchaseRequestId },
-        { status: "Converted_To_PO" }
+        { status: updatedStatus },
       );
     }
 
     const recordWithPopulate = await PurchaseRecord.findById(
-      newPurchaseRecord._id
+      newPurchaseRecord._id,
     )
       .populate("branch", "name")
-      .populate("suppplier", "name")
+      .populate("supplier", "name")
       .populate("createdBy", "name email");
 
     res.status(200).json({
