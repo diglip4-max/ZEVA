@@ -60,46 +60,58 @@ export default async function handler(req, res) {
       }
     }
 
-    let match = { clinicId };
+    let grouped = [];
     if (source === "referral") {
-      match = {
-        clinicId,
-        $or: [{ source: "referral" }, { referralId: { $ne: null } }],
-      };
-    } else if (source === "staff") {
-      match = {
-        clinicId,
-        $or: [{ source: "staff" }, { staffId: { $ne: null } }],
-      };
-    }
-
-    const grouped = await Commission.aggregate([
-      { $match: match },
-      {
-        $group: {
-          _id: {
-            source: "$source",
-            referralId: "$referralId",
-            staffId: "$staffId",
+      grouped = await Commission.aggregate([
+        { $match: { clinicId, $or: [{ source: "referral" }, { referralId: { $ne: null } }], referralId: { $ne: null } } },
+        {
+          $group: {
+            _id: "$referralId",
+            totalCommissionAmount: { $sum: "$commissionAmount" },
+            totalAmountPaid: { $sum: "$amountPaid" },
+            count: { $sum: 1 },
+            lastCommissionPercent: { $last: "$commissionPercent" },
+            lastReferralName: { $last: "$referralName" },
           },
-          totalCommissionAmount: { $sum: "$commissionAmount" },
-          totalAmountPaid: { $sum: "$amountPaid" },
-          count: { $sum: 1 },
-          lastCommissionPercent: { $last: "$commissionPercent" },
-          lastReferralName: { $last: "$referralName" },
         },
-      },
-      { $sort: { totalCommissionAmount: -1 } },
-    ]);
+        { $sort: { totalCommissionAmount: -1 } },
+      ]);
+    } else if (source === "staff") {
+      grouped = await Commission.aggregate([
+        { $match: { clinicId, $or: [{ source: "staff" }, { staffId: { $ne: null } }], staffId: { $ne: null } } },
+        {
+          $group: {
+            _id: "$staffId",
+            totalCommissionAmount: { $sum: "$commissionAmount" },
+            totalAmountPaid: { $sum: "$amountPaid" },
+            count: { $sum: 1 },
+            lastCommissionPercent: { $last: "$commissionPercent" },
+          },
+        },
+        { $sort: { totalCommissionAmount: -1 } },
+      ]);
+    } else {
+      grouped = await Commission.aggregate([
+        { $match: { clinicId } },
+        {
+          $group: {
+            _id: "$staffId",
+            totalCommissionAmount: { $sum: "$commissionAmount" },
+            totalAmountPaid: { $sum: "$amountPaid" },
+            count: { $sum: 1 },
+            lastCommissionPercent: { $last: "$commissionPercent" },
+          },
+        },
+        { $sort: { totalCommissionAmount: -1 } },
+      ]);
+    }
 
     const results = [];
     for (const g of grouped) {
-      const isReferral = !!g._id.referralId;
-      const isStaff = !!g._id.staffId;
-      if (isReferral) {
+      if (source === "referral") {
+        const referralId = g._id;
         let name = g.lastReferralName || "";
         let percent = g.lastCommissionPercent || 0;
-        const referralId = g._id.referralId;
         if (referralId) {
           const ref = await Referral.findById(referralId).lean();
           if (ref) {
@@ -116,8 +128,8 @@ export default async function handler(req, res) {
           totalPaid: Number(g.totalAmountPaid.toFixed(2)),
           count: g.count,
         });
-      } else if (isStaff) {
-        const staffId = g._id.staffId;
+      } else {
+        const staffId = g._id;
         let name = "";
         let percent = g.lastCommissionPercent || 0;
         if (staffId) {
