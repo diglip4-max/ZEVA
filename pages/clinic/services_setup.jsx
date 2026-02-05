@@ -1156,7 +1156,7 @@ function ServicesSetupPage() {
                     <button
                       type="button"
                       onClick={() => setTreatmentDropdownOpen(!treatmentDropdownOpen)}
-                      className="w-full flex items-center justify-between px-4 py-2.5 bg-white border border-gray-300 rounded-lg text-sm text-teal-700 hover:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                      className="w-full flex items-center justify-between px-4 py-2.5 bg-white border border-gray-300 rounded-lg text-sm text-teal-700 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-gray-500 transition-all"
                     >
                       <span className="text-teal-500">
                         {selectedTreatments.length > 0
@@ -1176,7 +1176,7 @@ function ServicesSetupPage() {
                             value={treatmentSearchQuery}
                             onChange={(e) => setTreatmentSearchQuery(e.target.value)}
                             onClick={(e) => e.stopPropagation()}
-                            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-gray-500"
                             autoFocus
                           />
                         </div>
@@ -1200,7 +1200,7 @@ function ServicesSetupPage() {
                                         }}
                                         className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${
                                           isSelected
-                                            ? "bg-blue-50 text-blue-700 font-medium"
+                                            ? "bg-gray-50 text-gray-700 font-medium"
                                             : "text-teal-700 hover:bg-gray-50"
                                         }`}
                                       >
@@ -1212,7 +1212,7 @@ function ServicesSetupPage() {
                                             )}
                                           </span>
                                           {isSelected && (
-                                            <span className="text-blue-600 text-xs">✓</span>
+                                            <span className="text-gray-600 text-xs">✓</span>
                                           )}
                                         </div>
                                       </button>
@@ -1251,7 +1251,7 @@ function ServicesSetupPage() {
                                       }}
                                       className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${
                                         isSelected
-                                          ? "bg-blue-50 text-blue-700 font-medium"
+                                          ? "bg-gray-50 text-gray-700 font-medium"
                                           : "text-teal-700 hover:bg-gray-50"
                                       }`}
                                     >
@@ -1260,7 +1260,7 @@ function ServicesSetupPage() {
                                           {treatment.name}
                                         </span>
                                         {isSelected && (
-                                          <span className="text-blue-600 text-xs">✓</span>
+                                          <span className="text-gray-600 text-xs">✓</span>
                                         )}
                                       </div>
                                     </button>
@@ -1287,7 +1287,7 @@ function ServicesSetupPage() {
                         return (
                           <div
                             key={selectedTreatment.treatmentSlug}
-                            className="flex items-center justify-between p-2.5 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200 hover:border-blue-300 transition-all"
+                            className="flex items-center justify-between p-2.5 bg-gradient-to-r from-gray-50 to-gray-50 rounded-lg border border-gray-200 hover:border-gray-300 transition-all"
                           >
                             <div className="flex-1 min-w-0 mr-2">
                               <span className="text-sm font-medium text-teal-900 block truncate">
@@ -1303,7 +1303,7 @@ function ServicesSetupPage() {
                                   const value = parseInt(e.target.value) || 1;
                                   handleSessionChange(selectedTreatment.treatmentSlug, value);
                                 }}
-                                className="w-16 px-2 py-1.5 text-sm font-semibold text-center border border-blue-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm"
+                                className="w-16 px-2 py-1.5 text-sm font-semibold text-center border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-gray-500 bg-white shadow-sm"
                                 placeholder="1"
                               />
                               <button
@@ -1343,7 +1343,7 @@ function ServicesSetupPage() {
               <div className="flex items-center gap-2 mb-4">
                 <Package className="w-5 h-5 text-teal-700" />
                 <h2 className="text-lg sm:text-xl font-bold text-teal-900">All Packages</h2>
-                <span className="ml-auto px-2.5 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-semibold">
+                <span className="ml-auto px-2.5 py-1 bg-gray-50 text-gray-700 rounded-full text-xs font-semibold">
                   {packages.length} {packages.length === 1 ? 'Package' : 'Packages'}
                 </span>
               </div>
@@ -1377,7 +1377,7 @@ function ServicesSetupPage() {
                                 value={pkgEditingName}
                                 onChange={(e) => setPkgEditingName(e.target.value)}
                                 placeholder="Package Name"
-                                className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-gray-500"
                                 autoFocus
                               />
                               <input
@@ -1442,7 +1442,7 @@ function ServicesSetupPage() {
                                   {pkg.treatments.slice(0, 3).map((treatment, idx) => (
                                     <span
                                       key={idx}
-                                      className="text-xs px-2 py-0.5 bg-blue-50 text-blue-700 rounded"
+                                      className="text-xs px-2 py-0.5 bg-gray-50 text-gray-700 rounded"
                                     >
                                       {treatment.treatmentName || treatment.name} ({treatment.sessions || 1} session{treatment.sessions !== 1 ? 's' : ''})
                                     </span>

@@ -432,7 +432,7 @@ function ClinicJobPostingPage({ contextOverride = null }: { contextOverride?: Ro
             onClick={() => setActiveTab('applicants')}
             className={`px-2 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors ${
               activeTab === 'applicants'
-                ? 'bg-teal-800 text-white'
+                ? 'bg-teal-600 text-white'
                 : 'text-teal-700 hover:text-teal-900 hover:bg-teal-50'
             }`}
           >
@@ -484,7 +484,7 @@ function ClinicJobPostingPage({ contextOverride = null }: { contextOverride?: Ro
                   title: 'My Job Postings',
                   subtitle: 'Manage and review all your job listings posted as a clinic',
                   tokenKey,
-                  primaryColor: '#1f2937',
+                  primaryColor: '"#1f2937"',
                   emptyStateTitle: 'No Job Postings Yet',
                   emptyStateDescription: 'Start posting job opportunities to find new candidates.',
                   emptyStateButtonText: 'Post a New Job'
