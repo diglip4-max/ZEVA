@@ -50,7 +50,7 @@ interface TimeSlot {
 
 const ROW_INTERVAL_MINUTES = 30;
 const SLOT_INTERVAL_MINUTES = 15;
-const ROW_HEIGHT_PX = 48;
+const ROW_HEIGHT_PX = 56;
 const SUB_SLOT_HEIGHT_PX = ROW_HEIGHT_PX / 2;
 
 function timeStringToMinutes(time24: string): number {
@@ -2209,7 +2209,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-1 sm:p-2 md:p-3 space-y-2 sm:space-y-3">
+    <div className="min-h-screen bg-gray-50 p-3 sm:p-4 md:p-6 space-y-3 sm:space-y-4">
       <Toaster
         position="top-right"
         toastOptions={{
@@ -2243,7 +2243,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
           },
         }}
       />
-      <div className="bg-white dark:bg-gray-50 rounded-lg border border-gray-200 dark:border-gray-200 shadow-sm p-1.5 sm:p-2">
+      <div className="bg-white dark:bg-gray-50 rounded-lg border border-gray-200 dark:border-gray-200 shadow-sm p-3 sm:p-4">
         {doctorStaff.length === 0 && rooms.length === 0 ? (
           <div className="flex flex-col items-center justify-center min-h-[60vh] py-12">
             <div className="bg-gradient-to-br from-gray-50 to-gray-50 dark:from-gray-900/20 dark:to-indigo-900/20 rounded-full p-6 mb-6">
@@ -2263,15 +2263,15 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
           </div>
         ) : (
           <>
-            <div className="flex flex-col gap-2 mb-2">
-              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2">
+            <div className="flex flex-col gap-3 mb-3">
+              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
                 <div>
                   <h1 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-900">Appointment Schedule</h1>
                   <p className="text-xs text-gray-700 dark:text-gray-800">
                     {clinic?.name} • {clinic?.timings || "No timings set"}
                   </p>
                 </div>
-                <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                   {permissions.canCreate === true && (
                     <button
                       onClick={() => setImportModalOpen(true)}
@@ -2283,7 +2283,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                       Import
                     </button>
                   )}
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-2">
                     <button
                       onClick={() => {
                         const current = new Date(selectedDate);
@@ -2295,7 +2295,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                           localStorage.setItem("appointmentSelectedDate", newDate);
                         }
                       }}
-                      className="px-2 py-1 rounded border border-gray-300 dark:border-gray-300 bg-white dark:bg-gray-100 text-xs font-medium text-gray-700 dark:text-gray-800 hover:bg-gray-50 dark:hover:bg-gray-200 transition-colors"
+                      className="px-3 py-1.5 rounded border border-gray-300 dark:border-gray-300 bg-white dark:bg-gray-100 text-xs font-medium text-gray-700 dark:text-gray-800 hover:bg-gray-50 dark:hover:bg-gray-200 transition-colors"
                       type="button"
                     >
                       Prev
@@ -2310,7 +2310,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                         }
                         toast.success("Switched to today", { duration: 2000 });
                       }}
-                      className="px-2 py-1 rounded border border-gray-900 dark:border-gray-300 bg-teal-600 dark:bg-teal-600 text-xs font-medium text-white dark:text-gray-900 hover:bg-teal-700 dark:hover:bg-gray-300 transition-colors"
+                      className="px-3 py-1.5 rounded border border-gray-900 dark:border-gray-300 bg-teal-600 dark:bg-teal-600 text-xs font-medium text-white dark:text-gray-900 hover:bg-teal-700 dark:hover:bg-gray-300 transition-colors"
                       type="button"
                     >
                       Today
@@ -2326,13 +2326,13 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                           localStorage.setItem("appointmentSelectedDate", newDate);
                         }
                       }}
-                      className="px-2 py-1 rounded border border-gray-300 dark:border-gray-300 bg-white dark:bg-gray-100 text-xs font-medium text-gray-700 dark:text-gray-800 hover:bg-gray-50 dark:hover:bg-gray-200 transition-colors"
+                      className="px-3 py-1.5 rounded border border-gray-300 dark:border-gray-300 bg-white dark:bg-gray-100 text-xs font-medium text-gray-700 dark:text-gray-800 hover:bg-gray-50 dark:hover:bg-gray-200 transition-colors"
                       type="button"
                     >
                       Next
                     </button>
                   </div>
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-2">
                     <label className="text-xs font-medium text-gray-700 dark:text-gray-800 whitespace-nowrap">Date:</label>
                     <input
                       type="date"
@@ -2349,13 +2349,13 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                           icon: "ℹ️",
                         });
                       }}
-                      className="border border-gray-300 dark:border-gray-300 bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 rounded px-2 py-1 text-xs focus:ring-1 focus:ring-gray-900 dark:focus:ring-gray-700 focus:border-gray-900 dark:focus:border-gray-700 transition-all"
+                      className="border border-gray-300 dark:border-gray-300 bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 rounded px-3 py-1.5 text-xs focus:ring-1 focus:ring-gray-900 dark:focus:ring-gray-700 focus:border-gray-900 dark:focus:border-gray-700 transition-all"
                     />
                   </div>
                 </div>
               </div>
               {(doctorStaff.length > 0 || rooms.length > 0) && (
-            <div className="flex flex-wrap gap-1.5">
+            <div className="flex flex-wrap gap-2">
               {doctorStaff.length > 0 && (
                 <div className="relative" ref={doctorFilterRef}>
                   <button
@@ -2611,7 +2611,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                     return (
                       <div
                         key={columnKey}
-                        className={`flex-1 min-w-[90px] sm:min-w-[100px] ${isLast ? '' : 'border-r'} border-gray-200 dark:border-gray-300 p-1 relative bg-white dark:bg-gray-50 transition-all ${
+                        className={`flex-1 min-w-[110px] sm:min-w-[120px] ${isLast ? '' : 'border-r'} border-gray-200 dark:border-gray-300 p-1.5 relative bg-white dark:bg-gray-50 transition-all ${
                           isDragged ? "opacity-50" : ""
                         } ${draggedColumnId ? "cursor-move" : ""}`}
                         draggable={permissions.canUpdate}
@@ -2644,6 +2644,9 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                         </div>
                         <div className="min-w-0 flex-1">
                           <p className="text-[8px] sm:text-[9px] font-semibold text-gray-900 dark:text-gray-900 truncate">{doctor.name}</p>
+                          <span className="inline-block mt-0.5 px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 border border-blue-200 text-[8px]">
+                            Doctor
+                          </span>
                         </div>
                         {permissions.canUpdate && (
                           <div className="flex-shrink-0 cursor-grab active:cursor-grabbing opacity-40 hover:opacity-70 transition-opacity" title="Drag to reorder">
@@ -2670,7 +2673,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                     return (
                       <div
                         key={columnKey}
-                        className={`flex-1 min-w-[90px] sm:min-w-[100px] ${isLast ? '' : 'border-r'} border-gray-200 dark:border-gray-300 p-1 bg-white dark:bg-gray-50 transition-all room-column ${
+                        className={`flex-1 min-w-[110px] sm:min-w-[120px] ${isLast ? '' : 'border-r'} border-gray-200 dark:border-gray-300 p-1.5 bg-emerald-50 dark:bg-emerald-100 transition-all room-column ${
                           isDragged ? "opacity-50" : ""
                         } ${draggedColumnId ? "cursor-move" : ""}`}
                         draggable={permissions.canUpdate}
@@ -2701,6 +2704,9 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                         </div>
                         <div className="min-w-0 flex-1">
                           <p className="text-[8px] sm:text-[9px] font-semibold text-gray-900 dark:text-gray-900 truncate">{room.name}</p>
+                          <span className="inline-block mt-0.5 px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200 text-[8px]">
+                            Room
+                          </span>
                         </div>
                         {permissions.canUpdate && (
                           <div className="flex-shrink-0 cursor-grab active:cursor-grabbing opacity-40 hover:opacity-70 transition-opacity" title="Drag to reorder">
@@ -2754,7 +2760,11 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                       return (
                         <div
                             key={`${slot.time}-doctor-${doctor._id}`}
-                          className={`flex-1 min-w-[90px] sm:min-w-[100px] ${isLastColumn ? '' : 'border-r'} border-gray-200 dark:border-gray-300 border-b border-gray-100 dark:border-gray-300 relative bg-white dark:bg-gray-50 transition-colors ${isDragOver ? "bg-blue-50 dark:bg-blue-100 border-blue-300 dark:border-blue-400" : ""}`}
+                          className={`flex-1 min-w-[110px] sm:min-w-[120px] ${isLastColumn ? '' : 'border-r'} border-gray-200 dark:border-gray-300 border-b border-gray-100 dark:border-gray-300 relative transition-colors ${isDragOver ? "bg-blue-100 dark:bg-blue-200 border-blue-300 dark:border-blue-400" : ""} ${
+                            (timeDragSelection.isDragging && timeDragSelection.doctorId === doctor._id && isSlotInSelection(rowStartMinutes, rowStartMinutes + ROW_INTERVAL_MINUTES, doctor._id))
+                              ? "bg-blue-200 dark:bg-blue-200"
+                              : "bg-blue-50 dark:bg-blue-100"
+                          }`}
                           style={{ height: ROW_HEIGHT_PX }}
                           data-doctor-id={doctor._id}
                           onDragOver={(e) => {
@@ -2872,11 +2882,10 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                                   const slotStartMinutes = rowStartMinutes + (slotIndex * SLOT_INTERVAL_MINUTES);
                                   const slotEndMinutes = slotStartMinutes + SLOT_INTERVAL_MINUTES;
                                   
-                                  // Find all appointments that overlap with this slot
+                                  // Only render appointments that START within this sub-slot
                                   const overlappingAppointments = rowAppointments.filter((apt) => {
                                     const aptStart = timeStringToMinutes(apt.fromTime);
-                                    const aptEnd = timeStringToMinutes(apt.toTime);
-                                    return aptStart < slotEndMinutes && aptEnd > slotStartMinutes;
+                                    return aptStart >= slotStartMinutes && aptStart < slotEndMinutes;
                                   });
                                   
                                   if (overlappingAppointments.length > 0) {
@@ -2888,13 +2897,22 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                                   const slotIndex = parseInt(slotKey);
                                   const topOffset = slotIndex * SUB_SLOT_HEIGHT_PX;
                                   
+                                  // Calculate max block height among appointments starting in this sub-slot
+                                  const maxHeightPx = Math.max(
+                                    SUB_SLOT_HEIGHT_PX - 2,
+                                    ...apts.map((apt) => {
+                                      const durationMin = timeStringToMinutes(apt.toTime) - timeStringToMinutes(apt.fromTime);
+                                      const blocks = Math.max(1, Math.ceil(durationMin / SLOT_INTERVAL_MINUTES));
+                                      return blocks * SUB_SLOT_HEIGHT_PX - 2;
+                                    })
+                                  );
                                   return (
                                     <div
                                       key={`slot-${slotKey}`}
                                       className="absolute left-0.5 right-0.5"
                                       style={{
                                         top: `${topOffset + 1}px`,
-                                        height: `${SUB_SLOT_HEIGHT_PX - 2}px`,
+                                        height: `${maxHeightPx}px`,
                                         zIndex: 10,
                                       }}
                                     >
@@ -2902,11 +2920,15 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                                         {apts.map((apt) => {
                                           const statusColor = getStatusColor(apt.status);
                                           const isDragging = draggedAppointmentId === apt._id;
+                                          const durationMin = timeStringToMinutes(apt.toTime) - timeStringToMinutes(apt.fromTime);
+                                          const blocks = Math.max(1, Math.ceil(durationMin / SLOT_INTERVAL_MINUTES));
+                                          const chipHeight = blocks * SUB_SLOT_HEIGHT_PX - 2;
                                           
                                           return (
                                             <div
                                               key={apt._id}
                                               className={`flex items-center gap-1 px-1 py-0.5 rounded ${statusColor.bg} ${statusColor.text} ${statusColor.border} border transition-all hover:shadow-sm ${permissions.canUpdate ? "cursor-pointer" : "cursor-default"} ${isDragging ? "opacity-50" : ""}`}
+                                              style={{ height: `${chipHeight}px` }}
                                               draggable={permissions.canUpdate}
                                               onDragStart={(e) => handleAppointmentDragStart(e, apt._id)}
                                               onDragEnd={handleAppointmentDragEnd}
@@ -2977,7 +2999,11 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                       return (
                         <div
                             key={`${slot.time}-room-${room._id}`}
-                          className={`flex-1 min-w-[90px] sm:min-w-[100px] ${isLastColumn ? '' : 'border-r'} border-gray-200 dark:border-gray-300 border-b border-gray-100 dark:border-gray-300 relative bg-white dark:bg-gray-50`}
+                          className={`flex-1 min-w-[110px] sm:min-w-[120px] ${isLastColumn ? '' : 'border-r'} border-gray-200 dark:border-gray-300 border-b border-gray-100 dark:border-gray-300 relative ${
+                            (roomDragSelection.isDragging && roomDragSelection.roomId === room._id && isRoomSlotInSelection(rowStartMinutes, rowStartMinutes + ROW_INTERVAL_MINUTES, room._id))
+                              ? "bg-emerald-200 dark:bg-emerald-200"
+                              : "bg-emerald-50 dark:bg-emerald-100"
+                          }`}
                           style={{ height: ROW_HEIGHT_PX }}
                           data-room-id={room._id}
                           onDragOver={(e) => {
@@ -3093,11 +3119,10 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                                   const slotStartMinutes = rowStartMinutes + (slotIndex * SLOT_INTERVAL_MINUTES);
                                   const slotEndMinutes = slotStartMinutes + SLOT_INTERVAL_MINUTES;
                                   
-                                  // Find all appointments that overlap with this slot
+                                  // Only render appointments that START within this sub-slot
                                   const overlappingAppointments = roomAppointments.filter((apt) => {
                                     const aptStart = timeStringToMinutes(apt.fromTime);
-                                    const aptEnd = timeStringToMinutes(apt.toTime);
-                                    return aptStart < slotEndMinutes && aptEnd > slotStartMinutes;
+                                    return aptStart >= slotStartMinutes && aptStart < slotEndMinutes;
                                   });
                                   
                                   if (overlappingAppointments.length > 0) {
@@ -3109,13 +3134,22 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                                   const slotIndex = parseInt(slotKey);
                                   const topOffset = slotIndex * SUB_SLOT_HEIGHT_PX;
                                   
+                                  // Calculate max block height among appointments starting in this sub-slot
+                                  const maxHeightPx = Math.max(
+                                    SUB_SLOT_HEIGHT_PX - 2,
+                                    ...apts.map((apt) => {
+                                      const durationMin = timeStringToMinutes(apt.toTime) - timeStringToMinutes(apt.fromTime);
+                                      const blocks = Math.max(1, Math.ceil(durationMin / SLOT_INTERVAL_MINUTES));
+                                      return blocks * SUB_SLOT_HEIGHT_PX - 2;
+                                    })
+                                  );
                                   return (
                                     <div
                                       key={`slot-${slotKey}`}
                                       className="absolute left-0.5 right-0.5"
                                       style={{
                                         top: `${topOffset + 1}px`,
-                                        height: `${SUB_SLOT_HEIGHT_PX - 2}px`,
+                                        height: `${maxHeightPx}px`,
                                         zIndex: 10,
                                       }}
                                     >
@@ -3123,11 +3157,15 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                                         {apts.map((apt) => {
                                           const statusColor = getStatusColor(apt.status);
                                           const isDragging = draggedAppointmentId === apt._id;
+                                          const durationMin = timeStringToMinutes(apt.toTime) - timeStringToMinutes(apt.fromTime);
+                                          const blocks = Math.max(1, Math.ceil(durationMin / SLOT_INTERVAL_MINUTES));
+                                          const chipHeight = blocks * SUB_SLOT_HEIGHT_PX - 2;
                                           
                                           return (
                                             <div
                                               key={apt._id}
                                               className={`flex items-center gap-1 px-1 py-0.5 rounded ${statusColor.bg} ${statusColor.text} ${statusColor.border} border transition-all hover:shadow-sm ${permissions.canUpdate ? "cursor-pointer" : "cursor-default"} ${isDragging ? "opacity-50" : ""}`}
+                                              style={{ height: `${chipHeight}px` }}
                                               draggable={permissions.canUpdate}
                                               onDragStart={(e) => handleAppointmentDragStart(e, apt._id)}
                                               onDragEnd={handleAppointmentDragEnd}

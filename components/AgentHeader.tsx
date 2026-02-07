@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import axios from 'axios';
 
 interface ClinicHeaderProps {
   handleToggleMobile: () => void;
@@ -10,6 +11,20 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
   isMobileOpen
 }) => {
   const [tokenUser, setTokenUser] = useState<{ name?: string; email?: string } | null>(null);
+  const [walletOpen, setWalletOpen] = useState(false);
+  const [commissionCount, setCommissionCount] = useState<number>(0);
+  const [totalCommission, setTotalCommission] = useState<number>(0);
+  const [commissionItems, setCommissionItems] = useState<Array<{
+    commissionId: string;
+    patientName: string;
+    patientMobile: string;
+    invoiceNumber: string;
+    invoicedDate: string | null;
+    paidAmount: number;
+    commissionPercent: number;
+    commissionAmount: number;
+    doctorName: string;
+  }>>([]);
 
   const handleLogout = () => {
     localStorage.removeItem('agentToken');
@@ -54,6 +69,35 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
     
     getUserInfo();
   }, []);
+
+  const getAuthHeaders = useCallback(() => {
+    if (typeof window === 'undefined') return null;
+    const token = localStorage.getItem('agentToken') || localStorage.getItem('userToken');
+    return token ? { Authorization: `Bearer ${token}` } : null;
+  }, []);
+
+  const loadCommissions = useCallback(async () => {
+    const headers = getAuthHeaders();
+    if (!headers) return;
+    try {
+      const res = await axios.get('/api/agent/commissions/mine', { headers });
+      if (res.data && res.data.success) {
+        setCommissionCount(res.data.count || 0);
+        setTotalCommission(res.data.totalCommission || 0);
+        setCommissionItems(res.data.items || []);
+      }
+    } catch (err) {
+      // Silent fail
+    }
+  }, [getAuthHeaders]);
+
+  useEffect(() => {
+    loadCommissions();
+  }, [loadCommissions]);
+
+  const toggleWallet = () => {
+    setWalletOpen((prev) => !prev);
+  };
 
 
 
@@ -112,6 +156,65 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
 
         {/* Right: User Profile */}
         <div className="flex items-center gap-1.5 sm:gap-3 flex-shrink-0">
+          {/* Wallet */}
+          <div className="relative">
+            <button
+              onClick={toggleWallet}
+              className="relative p-1.5 sm:p-2 rounded-lg hover:bg-gray-100 transition-colors duration-200 flex-shrink-0"
+              aria-label="Commission Wallet"
+              title="Your commissions"
+            >
+              <svg className="w-4 h-4 sm:w-5 sm:h-5 text-gray-700" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7a4 4 0 014-4h10a2 2 0 012 2v2h-7a4 4 0 00-4 4v0a4 4 0 004 4h7v2a2 2 0 01-2 2H7a4 4 0 01-4-4V7z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 11h4v4h-4a2 2 0 01-2-2v0a2 2 0 012-2z" />
+              </svg>
+              {commissionCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-teal-600 text-white text-[9px] px-1.5 py-0.5 rounded-full">
+                  {commissionCount}
+                </span>
+              )}
+            </button>
+            {walletOpen && (
+              <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white border border-gray-200 rounded-lg shadow-xl z-50">
+                <div className="px-3 py-2 border-b">
+                  <div className="flex items-center justify-between">
+                    <div className="text-xs font-semibold text-gray-900">Your Commissions</div>
+                    <div className="text-xs text-teal-700 font-semibold">Total ₹ {Number(totalCommission || 0).toFixed(2)}</div>
+                  </div>
+                </div>
+                <div className="max-h-80 overflow-auto">
+                  {commissionItems.length === 0 ? (
+                    <div className="px-3 py-2 text-xs text-gray-600">No commissions yet</div>
+                  ) : (
+                    <ul className="divide-y divide-gray-100">
+                      {commissionItems.map((it) => (
+                        <li key={it.commissionId} className="px-3 py-2">
+                          <div className="flex items-center justify-between">
+                            <div className="text-xs text-gray-900">{it.patientName || '—'}</div>
+                            <div className="text-[10px] text-gray-500">{it.invoiceNumber || '—'}</div>
+                          </div>
+                          <div className="mt-0.5 flex items-center justify-between">
+                            <div className="text-[10px] text-gray-700">
+                              Paid ₹ {Number(it.paidAmount || 0).toFixed(2)} • {Number(it.commissionPercent || 0)}%
+                            </div>
+                            <div className="text-[10px] bg-teal-50 text-teal-800 px-2 py-0.5 rounded">
+                              Commission ₹ {Number(it.commissionAmount || 0).toFixed(2)}
+                            </div>
+                          </div>
+                          <div className="mt-0.5 text-[10px] text-gray-500">
+                            {it.doctorName ? `Doctor: ${it.doctorName}` : ''}
+                          </div>
+                          <div className="mt-0.5 text-[10px] text-gray-500">
+                            {it.invoicedDate ? new Date(it.invoicedDate).toLocaleDateString() : ''}
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
           <div className="hidden md:block text-right">
             <div className="text-xs sm:text-sm font-medium text-gray-900 truncate max-w-[120px] sm:max-w-none">
               {tokenUser?.name || ''}
