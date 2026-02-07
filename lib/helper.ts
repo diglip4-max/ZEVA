@@ -281,3 +281,44 @@ export const maskEmail = (email: string): string => {
 
   return `${maskedLocal}@${maskedDomain}.${tld}`;
 };
+
+// Get authentication headers based on current user context
+export const getAuthHeaders = () => {
+  if (typeof window === "undefined") return null;
+
+  const pathname = window.location.pathname;
+  let token = null;
+
+  if (pathname?.includes("/clinic")) {
+    token = localStorage.getItem("clinicToken");
+  } else if (pathname?.includes("/staff") || pathname?.includes("/agent")) {
+    token = localStorage.getItem("agentToken") || localStorage.getItem("staffToken");
+  } else if (pathname?.includes("/doctor")) {
+    token = localStorage.getItem("doctorToken");
+  } else {
+    token = localStorage.getItem("userToken");
+  }
+
+  if (!token) {
+    return null;
+  }
+
+  return {
+    Authorization: `Bearer ${token}`,
+    // Don't set Content-Type here - let axios/browser set it automatically for FormData
+    // "Content-Type": "application/json",  // Removed to avoid conflicts with FormData
+  };
+};
+
+// Get user role from current context
+export const getUserRole = () => {
+  if (typeof window === "undefined") return null;
+
+  const pathname = window.location.pathname;
+  
+  if (pathname?.includes("/clinic")) return "clinic";
+  if (pathname?.includes("/staff")) return "staff";
+  if (pathname?.includes("/agent")) return "agent";
+  if (pathname?.includes("/doctor")) return "doctor";
+  return "user";
+};

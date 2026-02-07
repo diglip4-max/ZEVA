@@ -66,12 +66,6 @@ const CreateAgentModal = ({ isOpen, onClose, onCreated, token, doctorToken, admi
     e.preventDefault();
     if (!name || !email || !password || !role) return;
     
-    // Validate phone number if provided
-    if (phone && phone.length !== 10) {
-      alert("Please enter a valid 10-digit phone number or leave it empty");
-      return;
-    }
-    
     setSubmitting(true);
     try {
       const { data } = await axios.post(
@@ -156,23 +150,10 @@ const CreateAgentModal = ({ isOpen, onClose, onCreated, token, doctorToken, admi
               <input 
                 type="tel"
                 value={phone} 
-                onChange={(e) => {
-                  // Only allow digits and limit to 10 digits
-                  const value = e.target.value.replace(/\D/g, '');
-                  if (value.length <= 10) {
-                    setPhone(value);
-                  }
-                }} 
-                placeholder="Enter 10-digit phone number" 
-                maxLength={10}
+                onChange={(e) => setPhone(e.target.value)} 
+                placeholder="Enter phone number" 
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-400 focus:ring-1 focus:ring-gray-400 dark:focus:ring-blue-500 focus:border-gray-400 dark:focus:border-blue-500 outline-none transition-colors" 
               />
-              {phone.length > 0 && phone.length !== 10 && (
-                <p className="text-xs text-red-500 mt-1">Phone number must be exactly 10 digits</p>
-              )}
-              {phone.length === 10 && (
-                <p className="text-xs text-green-600 mt-1">Valid phone number</p>
-              )}
             </div>
             <div>
               <label className="block text-sm text-gray-700 dark:text-gray-300 mb-1">Password <span className="text-red-500">*</span></label>
