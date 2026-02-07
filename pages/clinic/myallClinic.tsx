@@ -658,7 +658,7 @@ function ClinicManagementDashboard() {
             {clinics.length > 0 && !isEditing && permissions.canUpdate && (
               <button
                 onClick={() => handleEdit(clinics[0])}
-                className="self-end sm:self-auto px-4 py-2 bg-white text-teal-800 rounded-lg hover:bg-teal-50 font-medium transition-all shadow-md hover:shadow-lg flex items-center gap-2"
+                className="self-end sm:self-auto px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-50 font-medium transition-all shadow-md hover:shadow-lg flex items-center gap-2"
               >
                 <Edit3 className="w-4 h-4" />
                 <span className="hidden sm:inline">Edit Profile</span>
