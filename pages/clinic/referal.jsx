@@ -191,14 +191,14 @@ function ClinicReferralPage() {
         </div>
       )}
       <div className="max-w-7xl mx-auto">
-        <div className="bg-white rounded-lg shadow-sm border border-teal-200 p-4 sm:p-6">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6">
           <div className="flex items-center justify-between mb-3">
             <div>
               <h2 className="text-sm sm:text-base font-bold text-teal-900">Referral Management</h2>
               <p className="text-[10px] sm:text-xs text-teal-700">Create, update, and delete referral contacts</p>
             </div>
             <button
-              className="px-3 py-1.5 bg-teal-900 hover:bg-teal-800 text-white text-xs rounded-md flex items-center gap-1"
+              className="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white text-xs rounded-md flex items-center gap-1"
               onClick={() => resetForm()}
             >
               <Plus className="w-4 h-4" />
@@ -269,7 +269,7 @@ function ClinicReferralPage() {
                     </button>
                   )}
                   <button
-                    className={`px-3 py-1 text-[10px] rounded-md text-white ${saving ? "bg-gray-500" : "bg-teal-900 hover:bg-teal-800"}`}
+                    className={`px-3 py-1 text-[10px] rounded-md text-white ${saving ? "bg-gray-500" : "bg-teal-600 hover:bg-teal-700"}`}
                     onClick={handleSave}
                     disabled={saving}
                   >
