@@ -224,7 +224,8 @@ export const getTokenByPath = () => {
   } else if (pathname?.includes("/staff")) {
     return localStorage.getItem("agentToken");
   } else {
-    return localStorage.getItem("userToken");
+    // return localStorage.getItem("userToken");
+    return localStorage.getItem("clinicToken");
   }
 };
 

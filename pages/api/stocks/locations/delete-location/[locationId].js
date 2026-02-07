@@ -1,9 +1,7 @@
-import { getUserFromReq, requireRole } from "../../lead-ms/auth";
-import Clinic from "../../../../models/Clinic";
-import Provider from "../../../../models/Provider";
-import Template from "../../../../models/Template";
-import { deleteWhatsappTemplate } from "../../../../services/whatsapp";
-import dbConnect from "../../../../lib/database";
+import dbConnect from "../../../../../lib/database";
+import Clinic from "../../../../../models/Clinic";
+import StockLocation from "../../../../../models/stocks/StockLocation";
+import { getUserFromReq, requireRole } from "../../../lead-ms/auth";
 
 export default async function handler(req, res) {
   await dbConnect();
@@ -65,40 +63,28 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { templateId } = req.query;
+    const { locationId } = req.query;
 
-    let template = await Template.findOne({
-      _id: templateId,
+    let location = await StockLocation.findOne({
+      _id: locationId,
       clinicId,
     });
-    if (!template) {
+    if (!location) {
       return res.status(404).json({
         success: false,
-        message: "Template not found or you do not have access to it",
+        message: "Stock location not found or you do not have access to it",
       });
     }
 
-    if (
-      template?.templateType === "sms" ||
-      template?.templateType === "email"
-    ) {
-      await Template.findByIdAndDelete(templateId);
-    } else if (template?.templateType === "whatsapp") {
-      const provider = await Provider.findById(template.provider);
-      const accessToken = provider?.secrets?.whatsappAccessToken;
-      const wabaId = provider?.secrets?.wabaId;
-
-      await deleteWhatsappTemplate(accessToken, wabaId, template.uniqueName);
-      await Template.findByIdAndDelete(templateId);
-    }
+    // Delete the stock location
+    await StockLocation.findByIdAndDelete(locationId);
 
     return res.status(200).json({
       success: true,
-      message: "Template deleted successfully",
-      data: template,
+      message: "Stock location deleted successfully",
     });
   } catch (err) {
-    console.error("Error delete template:", err);
+    console.error("Error in delete stock location:", err);
 
     return res.status(500).json({
       success: false,

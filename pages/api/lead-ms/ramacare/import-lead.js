@@ -88,11 +88,7 @@ export default async function handler(req, res) {
         "create_lead", // Check "create_lead" module permission
         "create",
         null, // No submodule - this is a module-level check
-        me.role === "doctor"
-          ? "doctor"
-          : me.role === "clinic"
-            ? "clinic"
-            : null,
+        me.role === "doctor" ? "doctor" : me.role === "clinic" ? "clinic" : null
       );
 
     if (!clinicHasPermission) {
@@ -104,14 +100,15 @@ export default async function handler(req, res) {
 
     // If user is an agent, also check agent-specific permissions
     if (me.role === "agent") {
-      const { checkAgentPermission } =
-        await import("../../agent/permissions-helper");
+      const { checkAgentPermission } = await import(
+        "../../agent/permissions-helper"
+      );
       const { hasPermission: agentHasPermission, error: agentError } =
         await checkAgentPermission(
           me._id,
           "create_lead", // Check "create_lead" module permission
           "create",
-          null, // No submodule
+          null // No submodule
         );
 
       if (!agentHasPermission) {
@@ -128,17 +125,32 @@ export default async function handler(req, res) {
       name,
       phone,
       email,
-      gender,
+      gender = "Male",
       age,
       source = "Other",
       customSource = "Rama Care",
       segmentId,
     } = body;
 
-    if (!name || !phone || !email || !gender || !source) {
+    console.log({ body });
+    if (!name || !phone) {
       return res
         .status(400)
         .json({ success: false, message: "Required fields missing" });
+    }
+
+    if (
+      ![
+        "Instagram",
+        "Facebook",
+        "Google",
+        "WhatsApp",
+        "Walk-in",
+        "Other",
+      ]?.includes(source)
+    ) {
+      source = "Other";
+      customSource = body?.source || "Rama Care";
     }
 
     // ✅ Create lead with correct clinicId

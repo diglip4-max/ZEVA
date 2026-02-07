@@ -1,15 +1,13 @@
-import { getUserFromReq, requireRole } from "../../lead-ms/auth";
-import Clinic from "../../../../models/Clinic";
-import Provider from "../../../../models/Provider";
-import Template from "../../../../models/Template";
-import { deleteWhatsappTemplate } from "../../../../services/whatsapp";
-import dbConnect from "../../../../lib/database";
+import dbConnect from "../../../../../lib/database";
+import Clinic from "../../../../../models/Clinic";
+import StockLocation from "../../../../../models/stocks/StockLocation";
+import { getUserFromReq, requireRole } from "../../../lead-ms/auth";
 
 export default async function handler(req, res) {
   await dbConnect();
 
-  if (req.method !== "DELETE") {
-    res.setHeader("Allow", ["DELETE"]);
+  if (req.method !== "PUT") {
+    res.setHeader("Allow", ["PUT"]);
     return res.status(405).end(`Method ${req.method} Not Allowed`);
   }
 
@@ -65,40 +63,31 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { templateId } = req.query;
+    const { locationId } = req.query;
+    const { location, status } = req.body;
 
-    let template = await Template.findOne({
-      _id: templateId,
+    let findLocation = await StockLocation.findOne({
+      _id: locationId,
       clinicId,
     });
-    if (!template) {
+    if (!findLocation) {
       return res.status(404).json({
         success: false,
-        message: "Template not found or you do not have access to it",
+        message: "Stock location not found or you do not have access to it",
       });
     }
 
-    if (
-      template?.templateType === "sms" ||
-      template?.templateType === "email"
-    ) {
-      await Template.findByIdAndDelete(templateId);
-    } else if (template?.templateType === "whatsapp") {
-      const provider = await Provider.findById(template.provider);
-      const accessToken = provider?.secrets?.whatsappAccessToken;
-      const wabaId = provider?.secrets?.wabaId;
-
-      await deleteWhatsappTemplate(accessToken, wabaId, template.uniqueName);
-      await Template.findByIdAndDelete(templateId);
-    }
+    // Delete the stock location
+    findLocation.location = location || findLocation.location;
+    findLocation.status = status || findLocation.status;
+    await findLocation.save();
 
     return res.status(200).json({
       success: true,
-      message: "Template deleted successfully",
-      data: template,
+      message: "Stock location updated successfully",
     });
   } catch (err) {
-    console.error("Error delete template:", err);
+    console.error("Error in update stock location:", err);
 
     return res.status(500).json({
       success: false,
