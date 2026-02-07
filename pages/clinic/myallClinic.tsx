@@ -642,17 +642,15 @@ function ClinicManagementDashboard() {
       />
       <div className="p-3 sm:p-4 lg:p-5 space-y-3 lg:space-y-4">
         {/* Header - Enhanced */}
-        <div className="bg-teal-600 rounded-xl p-4 sm:p-5 shadow-lg">
+        <div className="bg-white rounded-xl p-4 sm:p-5 shadow-lg">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-white/20 rounded-lg flex items-center justify-center flex-shrink-0">
-                <Building2 className="w-5 h-5 text-white" />
-              </div>
+             
               <div>
-                <h1 className="text-xl sm:text-2xl font-bold text-white">
+                <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
                   Health Center Management
                 </h1>
-                <p className="text-teal-100 text-sm">
+                <p className="text-teal-600 text-sm">
                   Manage your clinic profile and services
                 </p>
               </div>
