@@ -83,10 +83,10 @@ export default async function handler(req, res) {
       // Clinic, admin, and doctor users bypass permission checks
     }
 
-    // Fetch offers for the clinic - minimal fields, no populate for speed
+    // Fetch offers for the clinic - return all fields defined in CreateOffer model
     const now = new Date();
-    const offers = await Offer.find({ clinicId })
-      .select("title type value endsAt status createdAt updatedAt code slug")
+    const query = clinicId ? { clinicId } : {};
+    const offers = await Offer.find(query)
       .sort({ createdAt: -1 })
       .lean();
 
