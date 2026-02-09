@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useRef, useState, useCallback } from "react";
+import React, { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { useRouter } from "next/router";
 import axios from "axios";
 import withClinicAuth from "../../components/withClinicAuth";
@@ -50,7 +50,7 @@ interface TimeSlot {
 
 const ROW_INTERVAL_MINUTES = 30;
 const SLOT_INTERVAL_MINUTES = 15;
-const ROW_HEIGHT_PX = 48;
+const ROW_HEIGHT_PX = 40; // Reduced from 56 to allow more rows
 const SUB_SLOT_HEIGHT_PX = ROW_HEIGHT_PX / 2;
 
 function timeStringToMinutes(time24: string): number {
@@ -1573,10 +1573,14 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
 
   // Get appointments for a specific doctor and row
   // IMPORTANT: Show ALL appointments regardless of status (booked, Arrived, Consultation, Cancelled, etc.)
-  // Show appointments in doctor column if they match the doctor (regardless of bookedFrom)
+  // Show appointments in doctor column if they match the doctor AND were not booked specifically from room view
   const getAppointmentsForRow = (doctorId: string, slotTime: string): Appointment[] => {
     return appointments.filter((apt) => {
       if (apt.doctorId !== doctorId) return false;
+      
+      // Filter out appointments booked from the room view
+      if (apt.bookedFrom === 'room') return false;
+
       // Compare dates in local timezone to match the selectedDate
       const aptDate = formatDateLocal(apt.startDate);
       if (aptDate !== selectedDate) {
@@ -1595,10 +1599,14 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
 
   // Get appointments for a specific room and row
   // IMPORTANT: Show ALL appointments regardless of status (booked, Arrived, Consultation, Cancelled, etc.)
-  // Show appointments in room column if they match the room (regardless of bookedFrom)
+  // Show appointments in room column if they match the room AND were not booked specifically from doctor view
   const getRoomAppointmentsForRow = (roomId: string, slotTime: string): Appointment[] => {
     return appointments.filter((apt) => {
       if (apt.roomId !== roomId) return false;
+
+      // Filter out appointments booked from the doctor view
+      if (apt.bookedFrom === 'doctor') return false;
+
       // Compare dates in local timezone to match the selectedDate
       const aptDate = formatDateLocal(apt.startDate);
       if (aptDate !== selectedDate) return false;
@@ -1622,6 +1630,9 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
   })();
   const lastBookableMinutes =
     closingMinutes !== null ? closingMinutes - SLOT_INTERVAL_MINUTES : null;
+
+  // Column widths are fixed - do not expand based on patients
+  // All columns maintain consistent width regardless of number of patients
 
   // Helper function to open modal with selected time range (doctors)
   const openModalWithSelection = useCallback((startMinutes: number, endMinutes: number, doctorId: string) => {
@@ -2209,7 +2220,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-1 sm:p-2 md:p-3 space-y-2 sm:space-y-3">
+    <div className="min-h-screen bg-gray-50 p-3 sm:p-4 md:p-6 space-y-3 sm:space-y-4">
       <Toaster
         position="top-right"
         toastOptions={{
@@ -2243,7 +2254,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
           },
         }}
       />
-      <div className="bg-white dark:bg-gray-50 rounded-lg border border-gray-200 dark:border-gray-200 shadow-sm p-1.5 sm:p-2">
+      <div className="bg-white dark:bg-gray-50 rounded-lg border border-gray-200 dark:border-gray-200 shadow-sm p-3 sm:p-4">
         {doctorStaff.length === 0 && rooms.length === 0 ? (
           <div className="flex flex-col items-center justify-center min-h-[60vh] py-12">
             <div className="bg-gradient-to-br from-gray-50 to-gray-50 dark:from-gray-900/20 dark:to-indigo-900/20 rounded-full p-6 mb-6">
@@ -2263,15 +2274,15 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
           </div>
         ) : (
           <>
-            <div className="flex flex-col gap-2 mb-2">
-              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2">
+            <div className="flex flex-col gap-3 mb-3">
+              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
                 <div>
                   <h1 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-900">Appointment Schedule</h1>
                   <p className="text-xs text-gray-700 dark:text-gray-800">
                     {clinic?.name} • {clinic?.timings || "No timings set"}
                   </p>
                 </div>
-                <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                   {permissions.canCreate === true && (
                     <button
                       onClick={() => setImportModalOpen(true)}
@@ -2283,7 +2294,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                       Import
                     </button>
                   )}
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-2">
                     <button
                       onClick={() => {
                         const current = new Date(selectedDate);
@@ -2295,7 +2306,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                           localStorage.setItem("appointmentSelectedDate", newDate);
                         }
                       }}
-                      className="px-2 py-1 rounded border border-gray-300 dark:border-gray-300 bg-white dark:bg-gray-100 text-xs font-medium text-gray-700 dark:text-gray-800 hover:bg-gray-50 dark:hover:bg-gray-200 transition-colors"
+                      className="px-3 py-1.5 rounded border border-gray-300 dark:border-gray-300 bg-white dark:bg-gray-100 text-xs font-medium text-gray-700 dark:text-gray-800 hover:bg-gray-50 dark:hover:bg-gray-200 transition-colors"
                       type="button"
                     >
                       Prev
@@ -2310,7 +2321,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                         }
                         toast.success("Switched to today", { duration: 2000 });
                       }}
-                      className="px-2 py-1 rounded border border-gray-900 dark:border-gray-300 bg-teal-600 dark:bg-teal-600 text-xs font-medium text-white dark:text-gray-900 hover:bg-teal-700 dark:hover:bg-gray-300 transition-colors"
+                      className="px-3 py-1.5 rounded border border-gray-900 dark:border-gray-300 bg-teal-600 dark:bg-teal-600 text-xs font-medium text-white dark:text-gray-900 hover:bg-teal-700 dark:hover:bg-gray-300 transition-colors"
                       type="button"
                     >
                       Today
@@ -2326,13 +2337,13 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                           localStorage.setItem("appointmentSelectedDate", newDate);
                         }
                       }}
-                      className="px-2 py-1 rounded border border-gray-300 dark:border-gray-300 bg-white dark:bg-gray-100 text-xs font-medium text-gray-700 dark:text-gray-800 hover:bg-gray-50 dark:hover:bg-gray-200 transition-colors"
+                      className="px-3 py-1.5 rounded border border-gray-300 dark:border-gray-300 bg-white dark:bg-gray-100 text-xs font-medium text-gray-700 dark:text-gray-800 hover:bg-gray-50 dark:hover:bg-gray-200 transition-colors"
                       type="button"
                     >
                       Next
                     </button>
                   </div>
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-2">
                     <label className="text-xs font-medium text-gray-700 dark:text-gray-800 whitespace-nowrap">Date:</label>
                     <input
                       type="date"
@@ -2349,13 +2360,13 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                           icon: "ℹ️",
                         });
                       }}
-                      className="border border-gray-300 dark:border-gray-300 bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 rounded px-2 py-1 text-xs focus:ring-1 focus:ring-gray-900 dark:focus:ring-gray-700 focus:border-gray-900 dark:focus:border-gray-700 transition-all"
+                      className="border border-gray-300 dark:border-gray-300 bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 rounded px-3 py-1.5 text-xs focus:ring-1 focus:ring-gray-900 dark:focus:ring-gray-700 focus:border-gray-900 dark:focus:border-gray-700 transition-all"
                     />
                   </div>
                 </div>
               </div>
               {(doctorStaff.length > 0 || rooms.length > 0) && (
-            <div className="flex flex-wrap gap-1.5">
+            <div className="flex flex-wrap gap-2">
               {doctorStaff.length > 0 && (
                 <div className="relative" ref={doctorFilterRef}>
                   <button
@@ -2611,7 +2622,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                     return (
                       <div
                         key={columnKey}
-                        className={`flex-1 min-w-[90px] sm:min-w-[100px] ${isLast ? '' : 'border-r'} border-gray-200 dark:border-gray-300 p-1 relative bg-white dark:bg-gray-50 transition-all ${
+                        className={`flex-1 min-w-[110px] sm:min-w-[120px] ${isLast ? '' : 'border-r'} border-gray-200 dark:border-gray-300 p-1.5 relative bg-white dark:bg-gray-50 transition-all ${
                           isDragged ? "opacity-50" : ""
                         } ${draggedColumnId ? "cursor-move" : ""}`}
                         draggable={permissions.canUpdate}
@@ -2644,6 +2655,9 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                         </div>
                         <div className="min-w-0 flex-1">
                           <p className="text-[8px] sm:text-[9px] font-semibold text-gray-900 dark:text-gray-900 truncate">{doctor.name}</p>
+                          <span className="inline-block mt-0.5 px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 border border-blue-200 text-[8px]">
+                            Doctor
+                          </span>
                         </div>
                         {permissions.canUpdate && (
                           <div className="flex-shrink-0 cursor-grab active:cursor-grabbing opacity-40 hover:opacity-70 transition-opacity" title="Drag to reorder">
@@ -2670,7 +2684,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                     return (
                       <div
                         key={columnKey}
-                        className={`flex-1 min-w-[90px] sm:min-w-[100px] ${isLast ? '' : 'border-r'} border-gray-200 dark:border-gray-300 p-1 bg-white dark:bg-gray-50 transition-all room-column ${
+                        className={`flex-1 min-w-[110px] sm:min-w-[120px] ${isLast ? '' : 'border-r'} border-gray-200 dark:border-gray-300 p-1.5 bg-emerald-50 dark:bg-emerald-100 transition-all room-column ${
                           isDragged ? "opacity-50" : ""
                         } ${draggedColumnId ? "cursor-move" : ""}`}
                         draggable={permissions.canUpdate}
@@ -2701,6 +2715,9 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                         </div>
                         <div className="min-w-0 flex-1">
                           <p className="text-[8px] sm:text-[9px] font-semibold text-gray-900 dark:text-gray-900 truncate">{room.name}</p>
+                          <span className="inline-block mt-0.5 px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200 text-[8px]">
+                            Room
+                          </span>
                         </div>
                         {permissions.canUpdate && (
                           <div className="flex-shrink-0 cursor-grab active:cursor-grabbing opacity-40 hover:opacity-70 transition-opacity" title="Drag to reorder">
@@ -2751,11 +2768,18 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                       const isInSelection = timeDragSelection.isDragging && timeDragSelection.doctorId === doctor._id;
 
                       const isDragOver = dragOverDoctorId === doctor._id;
+
                       return (
                         <div
                             key={`${slot.time}-doctor-${doctor._id}`}
-                          className={`flex-1 min-w-[90px] sm:min-w-[100px] ${isLastColumn ? '' : 'border-r'} border-gray-200 dark:border-gray-300 border-b border-gray-100 dark:border-gray-300 relative bg-white dark:bg-gray-50 transition-colors ${isDragOver ? "bg-blue-50 dark:bg-blue-100 border-blue-300 dark:border-blue-400" : ""}`}
-                          style={{ height: ROW_HEIGHT_PX }}
+                          className={`flex-1 min-w-[110px] sm:min-w-[120px] flex-shrink-0 ${isLastColumn ? '' : 'border-r'} border-gray-200 dark:border-gray-300 border-b border-gray-100 dark:border-gray-300 relative transition-colors ${isDragOver ? "bg-blue-100 dark:bg-blue-200 border-blue-300 dark:border-blue-400" : ""} ${
+                            (timeDragSelection.isDragging && timeDragSelection.doctorId === doctor._id && isSlotInSelection(rowStartMinutes, rowStartMinutes + ROW_INTERVAL_MINUTES, doctor._id))
+                              ? "bg-blue-200 dark:bg-blue-200"
+                              : "bg-blue-50 dark:bg-blue-100"
+                          }`}
+                          style={{ 
+                            height: ROW_HEIGHT_PX,
+                          }}
                           data-doctor-id={doctor._id}
                           onDragOver={(e) => {
                             if (permissions.canUpdate) {
@@ -2864,106 +2888,132 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                           {/* ✅ Only show appointments if user has read permission */}
                           {permissions.canRead && rowAppointments.length > 0
                             ? (() => {
-                                // Group by time slot (15-minute intervals) - show all appointments that overlap with each slot
-                                const groupedAppointments: { [key: string]: Appointment[] } = {};
-                                
-                                // Create slots for this row (2 slots per row: 0-15 min, 15-30 min)
-                                for (let slotIndex = 0; slotIndex < 2; slotIndex++) {
-                                  const slotStartMinutes = rowStartMinutes + (slotIndex * SLOT_INTERVAL_MINUTES);
-                                  const slotEndMinutes = slotStartMinutes + SLOT_INTERVAL_MINUTES;
-                                  
-                                  // Find all appointments that overlap with this slot
-                                  const overlappingAppointments = rowAppointments.filter((apt) => {
-                                    const aptStart = timeStringToMinutes(apt.fromTime);
-                                    const aptEnd = timeStringToMinutes(apt.toTime);
-                                    return aptStart < slotEndMinutes && aptEnd > slotStartMinutes;
-                                  });
-                                  
-                                  if (overlappingAppointments.length > 0) {
-                                    groupedAppointments[slotIndex.toString()] = overlappingAppointments;
-                                  }
-                                }
-
-                                return Object.entries(groupedAppointments).map(([slotKey, apts]) => {
-                                  const slotIndex = parseInt(slotKey);
-                                  const topOffset = slotIndex * SUB_SLOT_HEIGHT_PX;
-                                  
-                                  return (
-                                    <div
-                                      key={`slot-${slotKey}`}
-                                      className="absolute left-0.5 right-0.5"
-                                      style={{
-                                        top: `${topOffset + 1}px`,
-                                        height: `${SUB_SLOT_HEIGHT_PX - 2}px`,
-                                        zIndex: 10,
-                                      }}
-                                    >
-                                      <div className="flex flex-col gap-0.5 h-full overflow-y-auto">
-                                        {apts.map((apt) => {
-                                          const statusColor = getStatusColor(apt.status);
-                                          const isDragging = draggedAppointmentId === apt._id;
-                                          
-                                          return (
-                                            <div
-                                              key={apt._id}
-                                              className={`flex items-center gap-1 px-1 py-0.5 rounded ${statusColor.bg} ${statusColor.text} ${statusColor.border} border transition-all hover:shadow-sm ${permissions.canUpdate ? "cursor-pointer" : "cursor-default"} ${isDragging ? "opacity-50" : ""}`}
-                                              draggable={permissions.canUpdate}
-                                              onDragStart={(e) => handleAppointmentDragStart(e, apt._id)}
-                                              onDragEnd={handleAppointmentDragEnd}
-                                              onMouseEnter={(e) => {
-                                                const rect = e.currentTarget.getBoundingClientRect();
-                                                const tooltipWidth = 200;
-                                                const tooltipHeight = 300;
-                                                const spacing = 8;
-                                                
-                                                let left = rect.right + spacing;
-                                                let top = rect.top;
-                                                
-                                                if (left + tooltipWidth > window.innerWidth) {
-                                                  left = rect.left - tooltipWidth - spacing;
-                                                }
-                                                
-                                                if (top + tooltipHeight > window.innerHeight) {
-                                                  top = window.innerHeight - tooltipHeight - 10;
-                                                }
-                                                
-                                                if (top < 10) {
-                                                  top = 10;
-                                                }
-                                                
-                                                if (left < 10) {
-                                                  left = 10;
-                                                }
-                                                
-                                                setHoveredAppointment({
-                                                  appointment: apt,
-                                                  position: { top, left },
-                                                });
-                                              }}
-                                              onMouseLeave={() => {
-                                                setHoveredAppointment(null);
-                                              }}
-                                              onClick={(e) => {
-                                                e.stopPropagation();
-                                                if (permissions.canUpdate) {
-                                                  appointmentRef.current = apt;
-                                                  setSelectedAppointment(apt);
-                                                  setEditModalOpen(true);
-                                                }
-                                              }}
-                                              title={`${apt.patientName} - ${formatTime(apt.fromTime)} - ${formatTime(apt.toTime)}`}
-                                            >
-                                              <div className={`w-1 h-1 rounded-full ${statusColor.bg} ${statusColor.border} border flex-shrink-0`} />
-                                              <p className="truncate font-bold text-[9px] sm:text-[10px] leading-tight flex-1">
-                                                {apt.patientName}
-                                              </p>
-                                            </div>
-                                          );
-                                        })}
-                                      </div>
-                                    </div>
-                                  );
+                                // Filter to only show appointments that START in this row to avoid duplication across rows
+                                const startingAppointments = rowAppointments.filter(apt => {
+                                  const aptStart = timeStringToMinutes(apt.fromTime);
+                                  return aptStart >= rowStartMinutes && aptStart < rowStartMinutes + ROW_INTERVAL_MINUTES;
                                 });
+
+                                if (startingAppointments.length === 0) return null;
+
+                                // Group appointments by their start time within the row to position them correctly
+                                const appointmentsBySlot = startingAppointments.map((apt) => {
+                                  const aptStart = timeStringToMinutes(apt.fromTime);
+                                  const aptEnd = timeStringToMinutes(apt.toTime);
+                                  const slotOffset = aptStart - rowStartMinutes; // Offset from row start in minutes
+                                  const topOffset = (slotOffset / ROW_INTERVAL_MINUTES) * ROW_HEIGHT_PX; // Convert to pixels
+                                  const duration = aptEnd - aptStart;
+                                  const height = (duration / ROW_INTERVAL_MINUTES) * ROW_HEIGHT_PX;
+                                  
+                                  return { apt, topOffset, height: Math.max(height, ROW_HEIGHT_PX / 2) };
+                                });
+                                
+                                // Group appointments by their top offset (same time slot)
+                                const groupedBySlot: { [key: string]: typeof appointmentsBySlot } = {};
+                                appointmentsBySlot.forEach((item) => {
+                                  const slotKey = Math.round(item.topOffset).toString();
+                                  if (!groupedBySlot[slotKey]) {
+                                    groupedBySlot[slotKey] = [];
+                                  }
+                                  groupedBySlot[slotKey].push(item);
+                                });
+                                
+                                return (
+                                  <>
+                                    {Object.values(groupedBySlot).map((slotAppointments, groupIndex) => {
+                                      const firstAppt = slotAppointments[0];
+                                      const maxHeight = Math.max(...slotAppointments.map(item => item.height));
+                                      
+                                      return (
+                                        <div
+                                          key={`slot-${groupIndex}`}
+                                          className="absolute left-[2px] right-[2px] flex flex-row items-center"
+                                          style={{
+                                            top: `${Math.max(0, firstAppt.topOffset + 1)}px`,
+                                            height: `${maxHeight - 2}px`,
+                                            zIndex: 20,
+                                          }}
+                                        >
+                                          {slotAppointments.map((item, sameIndex) => {
+                                            const statusColor = getStatusColor(item.apt.status);
+                                            // Calculate card width based on number of patients
+                                            const patientCount = slotAppointments.length;
+                                            const cardWidthPercent = patientCount > 1 ? `${Math.floor(100 / patientCount)}%` : '100%';
+                                            
+                                            return (
+                                              <div
+                                                key={item.apt._id}
+                                                className={`flex items-center flex-1 min-w-0 px-0.5 py-0.5 ${sameIndex === 0 ? 'rounded-l-sm' : ''} ${sameIndex === slotAppointments.length - 1 ? 'rounded-r-sm' : ''} ${statusColor.bg} ${statusColor.text} ${statusColor.border} border-y ${sameIndex === 0 ? 'border-l' : ''} ${sameIndex === slotAppointments.length - 1 ? 'border-r' : 'border-r border-r-gray-400/30'} transition-all hover:shadow-sm ${permissions.canUpdate ? "cursor-pointer" : "cursor-default"} ${draggedAppointmentId === item.apt._id ? "opacity-50" : ""}`}
+                                                style={{ 
+                                                  height: `${item.height - 2}px`,
+                                                  width: cardWidthPercent,
+                                                  flexBasis: cardWidthPercent,
+                                                }}
+                                                draggable={permissions.canUpdate}
+                                                onDragStart={(e) => handleAppointmentDragStart(e, item.apt._id)}
+                                                onDragEnd={handleAppointmentDragEnd}
+                                                onMouseEnter={(e) => {
+                                                  const rect = e.currentTarget.getBoundingClientRect();
+                                                  const tooltipWidth = 200;
+                                                  const tooltipHeight = 300;
+                                                  const spacing = 8;
+                                                  
+                                                  let left = rect.right + spacing;
+                                                  let top = rect.top;
+                                                  
+                                                  if (left + tooltipWidth > window.innerWidth) {
+                                                    left = rect.left - tooltipWidth - spacing;
+                                                  }
+                                                  
+                                                  if (top + tooltipHeight > window.innerHeight) {
+                                                    top = window.innerHeight - tooltipHeight - 10;
+                                                  }
+                                                  
+                                                  if (top < 10) {
+                                                    top = 10;
+                                                  }
+                                                  
+                                                  if (left < 10) {
+                                                    left = 10;
+                                                  }
+                                                  
+                                                  setHoveredAppointment({
+                                                    appointment: item.apt,
+                                                    position: { top, left },
+                                                  });
+                                                }}
+                                                onMouseLeave={() => {
+                                                  setHoveredAppointment(null);
+                                                }}
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  if (permissions.canUpdate) {
+                                                    appointmentRef.current = item.apt;
+                                                    setSelectedAppointment(item.apt);
+                                                    setEditModalOpen(true);
+                                                  }
+                                                }}
+                                                title={`${item.apt.patientName} - ${formatTime(item.apt.fromTime)} - ${formatTime(item.apt.toTime)}`}
+                                              >
+                                                <div className={`w-0.5 h-0.5 rounded-full ${statusColor.bg} ${statusColor.border} border flex-shrink-0 mr-1`} style={{ borderWidth: '1px' }} />
+                                                <div className="flex flex-col min-w-0 flex-1 overflow-hidden">
+                                                  <p className="font-semibold text-[6px] sm:text-[7px] leading-tight truncate w-full" style={{ lineHeight: '1' }}>
+                                                    {slotAppointments.length > 1 ? item.apt.patientName.split(' ').slice(0, 2).join(' ') : item.apt.patientName}
+                                                  </p>
+                                                  {slotAppointments.length <= 2 && (
+                                                    <p className="text-[6px] leading-tight truncate w-full opacity-75" style={{ lineHeight: '1', marginTop: '1px' }}>
+                                                      {formatTime(item.apt.fromTime)} - {formatTime(item.apt.toTime)}
+                                                    </p>
+                                                  )}
+                                                </div>
+                                              </div>
+                                            );
+                                          })}
+                                        </div>
+                                      );
+                                    })}
+                                  </>
+                                );
                               })()
                             : null}
                         </div>
@@ -2977,8 +3027,14 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                       return (
                         <div
                             key={`${slot.time}-room-${room._id}`}
-                          className={`flex-1 min-w-[90px] sm:min-w-[100px] ${isLastColumn ? '' : 'border-r'} border-gray-200 dark:border-gray-300 border-b border-gray-100 dark:border-gray-300 relative bg-white dark:bg-gray-50`}
-                          style={{ height: ROW_HEIGHT_PX }}
+                          className={`flex-1 min-w-[110px] sm:min-w-[120px] flex-shrink-0 ${isLastColumn ? '' : 'border-r'} border-gray-200 dark:border-gray-300 border-b border-gray-100 dark:border-gray-300 relative ${
+                            (roomDragSelection.isDragging && roomDragSelection.roomId === room._id && isRoomSlotInSelection(rowStartMinutes, rowStartMinutes + ROW_INTERVAL_MINUTES, room._id))
+                              ? "bg-emerald-200 dark:bg-emerald-200"
+                              : "bg-emerald-50 dark:bg-emerald-100"
+                          }`}
+                          style={{ 
+                            height: ROW_HEIGHT_PX,
+                          }}
                           data-room-id={room._id}
                           onDragOver={(e) => {
                             if (permissions.canUpdate && draggedAppointmentId) {
@@ -3085,106 +3141,139 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                           {/* ✅ Only show appointments if user has read permission */}
                           {permissions.canRead && roomAppointments.length > 0
                             ? (() => {
-                                // Group by time slot (15-minute intervals) - show all appointments that overlap with each slot
-                                const groupedAppointments: { [key: string]: Appointment[] } = {};
-                                
-                                // Create slots for this row (2 slots per row: 0-15 min, 15-30 min)
-                                for (let slotIndex = 0; slotIndex < 2; slotIndex++) {
-                                  const slotStartMinutes = rowStartMinutes + (slotIndex * SLOT_INTERVAL_MINUTES);
-                                  const slotEndMinutes = slotStartMinutes + SLOT_INTERVAL_MINUTES;
-                                  
-                                  // Find all appointments that overlap with this slot
-                                  const overlappingAppointments = roomAppointments.filter((apt) => {
-                                    const aptStart = timeStringToMinutes(apt.fromTime);
-                                    const aptEnd = timeStringToMinutes(apt.toTime);
-                                    return aptStart < slotEndMinutes && aptEnd > slotStartMinutes;
-                                  });
-                                  
-                                  if (overlappingAppointments.length > 0) {
-                                    groupedAppointments[slotIndex.toString()] = overlappingAppointments;
-                                  }
-                                }
-
-                                return Object.entries(groupedAppointments).map(([slotKey, apts]) => {
-                                  const slotIndex = parseInt(slotKey);
-                                  const topOffset = slotIndex * SUB_SLOT_HEIGHT_PX;
-                                  
-                                  return (
-                                    <div
-                                      key={`slot-${slotKey}`}
-                                      className="absolute left-0.5 right-0.5"
-                                      style={{
-                                        top: `${topOffset + 1}px`,
-                                        height: `${SUB_SLOT_HEIGHT_PX - 2}px`,
-                                        zIndex: 10,
-                                      }}
-                                    >
-                                      <div className="flex flex-col gap-0.5 h-full overflow-y-auto">
-                                        {apts.map((apt) => {
-                                          const statusColor = getStatusColor(apt.status);
-                                          const isDragging = draggedAppointmentId === apt._id;
-                                          
-                                          return (
-                                            <div
-                                              key={apt._id}
-                                              className={`flex items-center gap-1 px-1 py-0.5 rounded ${statusColor.bg} ${statusColor.text} ${statusColor.border} border transition-all hover:shadow-sm ${permissions.canUpdate ? "cursor-pointer" : "cursor-default"} ${isDragging ? "opacity-50" : ""}`}
-                                              draggable={permissions.canUpdate}
-                                              onDragStart={(e) => handleAppointmentDragStart(e, apt._id)}
-                                              onDragEnd={handleAppointmentDragEnd}
-                                              onMouseEnter={(e) => {
-                                                const rect = e.currentTarget.getBoundingClientRect();
-                                                const tooltipWidth = 200;
-                                                const tooltipHeight = 300;
-                                                const spacing = 8;
-                                                
-                                                let left = rect.right + spacing;
-                                                let top = rect.top;
-                                                
-                                                if (left + tooltipWidth > window.innerWidth) {
-                                                  left = rect.left - tooltipWidth - spacing;
-                                                }
-                                                
-                                                if (top + tooltipHeight > window.innerHeight) {
-                                                  top = window.innerHeight - tooltipHeight - 10;
-                                                }
-                                                
-                                                if (top < 10) {
-                                                  top = 10;
-                                                }
-                                                
-                                                if (left < 10) {
-                                                  left = 10;
-                                                }
-                                                
-                                                setHoveredAppointment({
-                                                  appointment: apt,
-                                                  position: { top, left },
-                                                });
-                                              }}
-                                              onMouseLeave={() => {
-                                                setHoveredAppointment(null);
-                                              }}
-                                              onClick={(e) => {
-                                                e.stopPropagation();
-                                                if (permissions.canUpdate) {
-                                                  appointmentRef.current = apt;
-                                                  setSelectedAppointment(apt);
-                                                  setEditModalOpen(true);
-                                                }
-                                              }}
-                                              title={`${apt.patientName} - ${formatTime(apt.fromTime)} - ${formatTime(apt.toTime)}`}
-                                            >
-                                              <div className={`w-1 h-1 rounded-full ${statusColor.bg} ${statusColor.border} border flex-shrink-0`} />
-                                              <p className="truncate font-bold text-[9px] sm:text-[10px] leading-tight flex-1 text-gray-900 dark:text-gray-900">
-                                                {apt.patientName}
-                                              </p>
-                                            </div>
-                                          );
-                                        })}
-                                      </div>
-                                    </div>
-                                  );
+                                // Filter to only show appointments that START in this row to avoid duplication across rows
+                                const startingAppointments = roomAppointments.filter(apt => {
+                                  const aptStart = timeStringToMinutes(apt.fromTime);
+                                  return aptStart >= rowStartMinutes && aptStart < rowStartMinutes + ROW_INTERVAL_MINUTES;
                                 });
+
+                                if (startingAppointments.length === 0) return null;
+
+                                // Group appointments by their start time within the row to position them correctly
+                                const appointmentsBySlot = startingAppointments.map((apt) => {
+                                  const aptStart = timeStringToMinutes(apt.fromTime);
+                                  const aptEnd = timeStringToMinutes(apt.toTime);
+                                  const slotOffset = aptStart - rowStartMinutes; // Offset from row start in minutes
+                                  const topOffset = (slotOffset / ROW_INTERVAL_MINUTES) * ROW_HEIGHT_PX; // Convert to pixels
+                                  const duration = aptEnd - aptStart;
+                                  const height = (duration / ROW_INTERVAL_MINUTES) * ROW_HEIGHT_PX;
+                                  
+                                  return { apt, topOffset, height: Math.max(height, ROW_HEIGHT_PX / 2) };
+                                });
+                                
+                                // Group appointments by their top offset (same time slot)
+                                const groupedBySlot: { [key: string]: typeof appointmentsBySlot } = {};
+                                appointmentsBySlot.forEach((item) => {
+                                  const slotKey = Math.round(item.topOffset).toString();
+                                  if (!groupedBySlot[slotKey]) {
+                                    groupedBySlot[slotKey] = [];
+                                  }
+                                  groupedBySlot[slotKey].push(item);
+                                });
+                                
+                                return (
+                                  <>
+                                    {Object.values(groupedBySlot).map((slotAppointments, groupIndex) => {
+                                      const firstAppt = slotAppointments[0];
+                                      const maxHeight = Math.max(...slotAppointments.map(item => item.height));
+                                      
+                                      return (
+                                        <div
+                                          key={`slot-${groupIndex}`}
+                                          className="absolute left-0.5 right-0.5 flex flex-row items-center"
+                                          style={{
+                                            top: `${Math.max(0, firstAppt.topOffset + 1)}px`,
+                                            height: `${maxHeight - 2}px`,
+                                            zIndex: 20,
+                                            gap: '2px',
+                                          }}
+                                        >
+                                          {slotAppointments.map((item, sameIndex) => {
+                                            const statusColor = getStatusColor(item.apt.status);
+                                            // Calculate card width based on number of patients - more patients = smaller cards
+                                            const patientCount = slotAppointments.length;
+                                            const cardWidthPercent = patientCount > 1 ? `${Math.floor(100 / patientCount)}%` : '100%';
+                                            const maxCardWidth = patientCount > 3 ? '80px' : patientCount > 2 ? '90px' : 'none';
+                                            
+                                            return (
+                                              <div
+                                                key={item.apt._id}
+                                                className={`flex items-center flex-1 min-w-0 px-0.5 py-0.5 rounded-sm ${statusColor.bg} ${statusColor.text} ${statusColor.border} border transition-all hover:shadow-sm ${permissions.canUpdate ? "cursor-pointer" : "cursor-default"} ${draggedAppointmentId === item.apt._id ? "opacity-50" : ""}`}
+                                                style={{ 
+                                                  height: `${item.height - 2}px`,
+                                                  borderWidth: '1px',
+                                                  width: cardWidthPercent,
+                                                  maxWidth: maxCardWidth,
+                                                  flexBasis: cardWidthPercent,
+                                                }}
+                                                draggable={permissions.canUpdate}
+                                                onDragStart={(e) => handleAppointmentDragStart(e, item.apt._id)}
+                                                onDragEnd={handleAppointmentDragEnd}
+                                                onMouseEnter={(e) => {
+                                                  const rect = e.currentTarget.getBoundingClientRect();
+                                                  const tooltipWidth = 200;
+                                                  const tooltipHeight = 300;
+                                                  const spacing = 8;
+                                                  
+                                                  let left = rect.right + spacing;
+                                                  let top = rect.top;
+                                                  
+                                                  if (left + tooltipWidth > window.innerWidth) {
+                                                    left = rect.left - tooltipWidth - spacing;
+                                                  }
+                                                  
+                                                  if (top + tooltipHeight > window.innerHeight) {
+                                                    top = window.innerHeight - tooltipHeight - 10;
+                                                  }
+                                                  
+                                                  if (top < 10) {
+                                                    top = 10;
+                                                  }
+                                                  
+                                                  if (left < 10) {
+                                                    left = 10;
+                                                  }
+                                                  
+                                                  setHoveredAppointment({
+                                                    appointment: item.apt,
+                                                    position: { top, left },
+                                                  });
+                                                }}
+                                                onMouseLeave={() => {
+                                                  setHoveredAppointment(null);
+                                                }}
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  if (permissions.canUpdate) {
+                                                    appointmentRef.current = item.apt;
+                                                    setSelectedAppointment(item.apt);
+                                                    setEditModalOpen(true);
+                                                  }
+                                                }}
+                                                title={`${item.apt.patientName} - ${formatTime(item.apt.fromTime)} - ${formatTime(item.apt.toTime)}`}
+                                              >
+                                                <div className={`w-0.5 h-0.5 rounded-full ${statusColor.bg} ${statusColor.border} border flex-shrink-0 mr-0.5`} style={{ borderWidth: '1px' }} />
+                                                <div className="flex flex-col min-w-0 flex-1 overflow-hidden">
+                                                  <p className="font-semibold text-[6px] sm:text-[7px] leading-tight truncate w-full text-gray-900 dark:text-gray-900" style={{ lineHeight: '1' }}>
+                                                    {slotAppointments.length > 1 ? item.apt.patientName.split(' ').slice(0, 2).join(' ') : item.apt.patientName}
+                                                  </p>
+                                                  {slotAppointments.length <= 2 && (
+                                                    <p className="text-[6px] leading-tight truncate w-full opacity-75 text-gray-700 dark:text-gray-700" style={{ lineHeight: '1', marginTop: '1px' }}>
+                                                      {formatTime(item.apt.fromTime)} - {formatTime(item.apt.toTime)}
+                                                    </p>
+                                                  )}
+                                                </div>
+                                                {sameIndex < slotAppointments.length - 1 && (
+                                                  <div className="w-px h-2 bg-gray-300 dark:bg-gray-400 mx-0.5 flex-shrink-0" />
+                                                )}
+                                              </div>
+                                            );
+                                          })}
+                                        </div>
+                                      );
+                                    })}
+                                  </>
+                                );
                               })()
                             : null}
                         </div>

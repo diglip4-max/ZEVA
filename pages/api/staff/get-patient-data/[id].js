@@ -144,6 +144,9 @@ export default async function handler(req, res) {
           membership,
           membershipStartDate,
           membershipEndDate,
+          membershipId,
+          package: pkgToggle,
+          packageId,
         } = req.body;
 
         if (!firstName || !gender) {
@@ -165,9 +168,19 @@ export default async function handler(req, res) {
         if (membership === "Yes") {
           if (membershipStartDate) invoice.membershipStartDate = new Date(membershipStartDate);
           if (membershipEndDate) invoice.membershipEndDate = new Date(membershipEndDate);
+          if (membershipId) invoice.membershipId = membershipId;
         } else if (membership === "No") {
           invoice.membershipStartDate = null;
           invoice.membershipEndDate = null;
+          invoice.membershipId = null;
+        }
+
+        if (pkgToggle === "Yes") {
+          invoice.package = "Yes";
+          invoice.packageId = packageId || invoice.packageId || null;
+        } else if (pkgToggle === "No") {
+          invoice.package = "No";
+          invoice.packageId = null;
         }
 
         invoice.notes = notes || "";

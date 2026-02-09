@@ -282,6 +282,35 @@ export default async function handler(req, res) {
         bookedFrom, // Track which column the appointment was booked from
       } = req.body;
 
+      // Basic required-field validation with user-friendly errors
+      const errors = {};
+      const missingFields = [];
+      const missingFieldLabels = [];
+      const requireField = (value, field, label) => {
+        if (!value || (typeof value === "string" && value.trim() === "")) {
+          errors[field] = `${label} is required`;
+          missingFields.push(field);
+          missingFieldLabels.push(label);
+        }
+      };
+      requireField(patientId, "patientId", "Patient");
+      requireField(doctorId, "doctorId", "Doctor");
+      requireField(roomId, "roomId", "Room");
+      requireField(status, "status", "Status");
+      requireField(followType, "followType", "Follow Type");
+      requireField(startDate, "startDate", "Appointment Date");
+      requireField(fromTime, "fromTime", "From Time");
+      requireField(toTime, "toTime", "To Time");
+      if (Object.keys(errors).length > 0) {
+        return res.status(400).json({
+          success: false,
+          message: "Please fill all required fields",
+          errors,
+          missingFields,
+          missingFieldLabels,
+        });
+      }
+
       // Debug log to verify bookedFrom is being received
       console.log("=== API RECEIVING APPOINTMENT ===");
       console.log("Received bookedFrom from request:", bookedFrom);
@@ -361,16 +390,19 @@ export default async function handler(req, res) {
       
       
 
-      // Validation 2: Check for exact duplicate booking (same patient, doctor, room, date, and time)
-      // Allow multiple patients under the same doctor and same room at the same time
+      // Validation 2: Check for duplicate booking for the same patient
+      // Prevent same patient from being booked in the same room OR with the same doctor at the same time
+      // This ensures that if booked under Doctor column (with room), it blocks re-booking under Room column (for same patient)
       const duplicateAppointment = await Appointment.findOne({
         clinicId,
-        roomId,
-        doctorId,
         patientId, // Same patient
         startDate: { $gte: startOfDay, $lte: endOfDay },
         fromTime,
         toTime,
+        $or: [
+          { roomId: roomId },
+          { doctorId: doctorId }
+        ]
       });
 
       if (duplicateAppointment) {

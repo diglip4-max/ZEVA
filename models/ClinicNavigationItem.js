@@ -44,24 +44,13 @@ const ClinicNavigationItemSchema = new mongoose.Schema({
     enum: ['admin', 'clinic', 'doctor'],
     required: true
   },
-  subModules: [{
-    name: {
-      type: String,
-      required: true
-    },
-    path: {
-      type: String,
-      default: ''
-    },
-    icon: {
-      type: String,
-      required: true
-    },
-    order: {
-      type: Number,
-      default: 0
-    }
-  }]
+ subModules: [{
+  name: { type: String, required: true },
+  path: { type: String },
+  icon: { type: String, required: true },
+  order: { type: Number, default: 0 },
+  moduleKey: { type: String, required: true }
+}]
 }, { timestamps: true });
 
 // Index for efficient queries

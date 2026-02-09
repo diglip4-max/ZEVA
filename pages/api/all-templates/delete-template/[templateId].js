@@ -78,8 +78,6 @@ export default async function handler(req, res) {
       });
     }
 
-    console.log({ template });
-
     if (
       template?.templateType === "sms" ||
       template?.templateType === "email"

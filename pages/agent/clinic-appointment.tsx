@@ -1,7 +1,8 @@
 import React from "react";
 import AgentLayout from "../../components/AgentLayout";
 import withAgentAuth from "../../components/withAgentAuth";
-import { AppointmentPageBase } from "../clinic/appointment";
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { AppointmentPageBase } = require("../clinic/appointment");
 import type { NextPageWithLayout } from "../_app";
 
 const AgentClinicAppointmentPage = () => {
