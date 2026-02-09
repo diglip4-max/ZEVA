@@ -245,7 +245,16 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
           </div>
 
           {/* Right: User Profile - Always aligned to right corner */}
-          <div className="flex items-center gap-1 flex-shrink-0 ml-auto">
+          <div className="flex items-center gap-2 flex-shrink-0 ml-auto">
+            {/* Name + Email */}
+            <div className="hidden sm:block text-right">
+              <div className="text-sm font-medium text-gray-900">
+                {clinicUser?.name || 'Clinic User'}
+              </div>
+              <div className="text-xs text-gray-500">
+                {clinicUser?.email || ''}
+              </div>
+            </div>
             {/* Avatar - Always visible */}
             <div className="w-6 h-6 sm:w-7 sm:h-7 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
               <span className="text-white font-medium text-xs">

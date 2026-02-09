@@ -23,10 +23,11 @@ function ClinicCommissionPage() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState(null);
-  const [detailsOpen, setDetailsOpen] = useState(false);
-  const [detailsLoading, setDetailsLoading] = useState(false);
-  const [detailsItems, setDetailsItems] = useState([]);
-  const [selected, setSelected] = useState(null);
+  const [showModal, setShowModal] = useState(false);
+  const [modalLoading, setModalLoading] = useState(false);
+  const [modalItems, setModalItems] = useState([]);
+  const [selectedPerson, setSelectedPerson] = useState(null);
+  const [lastSource, setLastSource] = useState("referral"); // Track last source to detect changes
 
   const showToast = useCallback((message, type = "success") => {
     setToast({ message, type });
@@ -56,7 +57,14 @@ function ClinicCommissionPage() {
 
   useEffect(() => {
     load();
-  }, [load]);
+    // Clear modal when source changes
+    if (source !== lastSource) {
+      setShowModal(false);
+      setModalItems([]);
+      setSelectedPerson(null);
+      setLastSource(source);
+    }
+  }, [load, source, lastSource]);
 
   const openDetails = async (row) => {
     const headers = getAuthHeaders();
@@ -64,10 +72,18 @@ function ClinicCommissionPage() {
       showToast("Authentication required", "error");
       return;
     }
-    setSelected(row);
-    setDetailsOpen(true);
-    setDetailsLoading(true);
+    
+    // Clear previous data and show modal
+    setSelectedPerson(null);
+    setModalItems([]);
+    setShowModal(true);
+    setModalLoading(true);
+    
     try {
+      // Small delay to ensure UI updates
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      setSelectedPerson(row);
       const params =
         row.source === "referral"
           ? { source: "referral", referralId: row.personId }
@@ -77,14 +93,16 @@ function ClinicCommissionPage() {
         headers,
       });
       if (res.data.success) {
-        setDetailsItems(res.data.items || []);
+        setModalItems(res.data.items || []);
       } else {
         showToast(res.data.message || "Failed to load history", "error");
+        setShowModal(false);
       }
     } catch (err) {
       showToast("Network error", "error");
+      setShowModal(false);
     } finally {
-      setDetailsLoading(false);
+      setModalLoading(false);
     }
   };
 
@@ -100,61 +118,72 @@ function ClinicCommissionPage() {
         </div>
       )}
       <div className="max-w-7xl mx-auto">
-        <div className="bg-white rounded-lg shadow-sm border border-teal-200 p-4 sm:p-6">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6">
           <div className="flex items-center justify-between mb-3">
             <div>
-              <h2 className="text-sm sm:text-base font-bold text-teal-900">Commission Tracker</h2>
-              <p className="text-[10px] sm:text-xs text-teal-700">Referral and doctorStaff commissions</p>
+              <h2 className="text-lg sm:text-xl font-bold text-teal-900">Commission Tracker</h2>
+              <p className="text-xs sm:text-sm text-teal-600">Referral and doctor/staff commissions</p>
             </div>
             <div className="flex items-center gap-2">
               <button
-                className={`px-3 py-1.5 text-xs rounded-md border ${source === "referral" ? "bg-teal-900 text-white border-teal-900" : "bg-white text-teal-900 border-teal-300"}`}
-                onClick={() => setSource("referral")}
+                className={`px-4 py-2 text-sm font-medium rounded-md transition-all ${source === "referral" ? "bg-teal-600 text-white shadow-sm hover:bg-teal-700" : "bg-white text-teal-700 border border-gray-300 hover:bg-teal-50"}`}
+                onClick={() => {
+                  if (source !== "referral") {
+                    setSource("referral");
+                  }
+                }}
               >
                 Referral
               </button>
               <button
-                className={`px-3 py-1.5 text-xs rounded-md border ${source === "staff" ? "bg-teal-900 text-white border-teal-900" : "bg-white text-teal-900 border-teal-300"}`}
-                onClick={() => setSource("staff")}
+                className={`px-4 py-2 text-sm font-medium rounded-md transition-all ${source === "staff" ? "bg-teal-600 text-white shadow-sm hover:bg-teal-700" : "bg-white text-teal-700 border border-gray-300 hover:bg-teal-50"}`}
+                onClick={() => {
+                  if (source !== "staff") {
+                    setSource("staff");
+                  }
+                }}
               >
                 Doctor/Staff
               </button>
-              <button className="px-3 py-1.5 text-xs rounded-md border border-teal-300" onClick={load}>
+              <button 
+                className="px-4 py-2 text-sm font-medium rounded-md border border-gray-300 text-teal-700 hover:bg-teal-50 transition-all"
+                onClick={load}
+              >
                 Refresh
               </button>
             </div>
           </div>
 
           {loading ? (
-            <div className="text-xs text-gray-700">Loading...</div>
+            <div className="text-sm text-teal-600">Loading...</div>
           ) : items.length === 0 ? (
-            <div className="text-xs text-gray-700">No commissions found</div>
+            <div className="text-sm text-teal-600">No commissions found</div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="min-w-full text-[10px]">
+              <table className="min-w-full text-sm">
                 <thead>
                   <tr className="text-left text-gray-600">
-                    <th className="px-2 py-1">Name</th>
-                    <th className="px-2 py-1">Type</th>
-                    <th className="px-2 py-1">% Rate</th>
-                    <th className="px-2 py-1">Earned</th>
-                    <th className="px-2 py-1">Paid</th>
-                    <th className="px-2 py-1">Count</th>
-                    <th className="px-2 py-1">Actions</th>
+                    <th className="px-4 py-3 font-medium">Name</th>
+                    <th className="px-4 py-3 font-medium">Type</th>
+                    <th className="px-4 py-3 font-medium">%</th>
+                    <th className="px-4 py-3 font-medium">Earned</th>
+                    <th className="px-4 py-3 font-medium">Paid</th>
+                    <th className="px-4 py-3 font-medium">Count</th>
+                    <th className="px-4 py-3 font-medium">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {items.map((row) => (
-                    <tr key={`${row.source}-${row.personId}`} className="border-t">
-                      <td className="px-2 py-1">{row.name || "—"}</td>
-                      <td className="px-2 py-1">{row.source === "referral" ? "Referral" : "Doctor/Staff"}</td>
-                      <td className="px-2 py-1">{row.percent ?? 0}</td>
-                      <td className="px-2 py-1">₹ {Number(row.totalEarned || 0).toFixed(2)}</td>
-                      <td className="px-2 py-1">₹ {Number(row.totalPaid || 0).toFixed(2)}</td>
-                      <td className="px-2 py-1">{row.count}</td>
-                      <td className="px-2 py-1">
+                    <tr key={`${row.source}-${row.personId}`} className="border-t border-gray-200 hover:bg-gray-50">
+                      <td className="px-4 py-3">{row.name || "—"}</td>
+                      <td className="px-4 py-3">{row.source === "referral" ? "Referral" : "Doctor/Staff"}</td>
+                      <td className="px-4 py-3">{row.percent ?? 0}</td>
+                      <td className="px-4 py-3">₹ {Number(row.totalEarned || 0).toFixed(2)}</td>
+                      <td className="px-4 py-3">₹ {Number(row.totalPaid || 0).toFixed(2)}</td>
+                      <td className="px-4 py-3">{row.count}</td>
+                      <td className="px-4 py-3">
                         <button
-                          className="px-2 py-1 text-[10px] rounded-md bg-teal-900 hover:bg-teal-800 text-white flex items-center gap-1"
+                          className="px-3 py-1.5 text-xs rounded-md bg-teal-600 hover:bg-teal-700 text-white flex items-center gap-1 font-medium transition-all shadow-sm"
                           onClick={() => openDetails(row)}
                         >
                           <Eye className="w-3 h-3" />
@@ -169,53 +198,73 @@ function ClinicCommissionPage() {
           )}
         </div>
 
-        {detailsOpen && (
-          <div className="mt-4 bg-white rounded-lg shadow-sm border border-teal-200 p-4 sm:p-6">
-            <div className="flex items-center justify-between mb-3">
-              <div>
-                <h3 className="text-xs font-semibold text-teal-900">
-                  {selected?.source === "referral" ? "Referral History" : "Doctor/Staff History"}
-                </h3>
-                <p className="text-[10px] text-teal-700">{selected?.name || ""}</p>
+        {/* Modal Popup */}
+        {showModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[80vh] overflow-hidden">
+              {/* Modal Header */}
+              <div className="flex items-center justify-between p-6 border-b border-gray-200">
+                <div>
+                  <h3 className="text-xl font-bold text-teal-900">
+                    {selectedPerson?.source === "referral" ? "Referral History" : "Doctor/Staff History"}
+                  </h3>
+                  <p className="text-sm text-teal-600 mt-1">{selectedPerson?.name || ""}</p>
+                </div>
+                <button 
+                  className="p-2 rounded-md hover:bg-gray-100 transition-colors"
+                  onClick={() => setShowModal(false)}
+                >
+                  <X className="w-5 h-5 text-gray-500" />
+                </button>
               </div>
-              <button className="px-2 py-1 text-[10px] border border-teal-300 rounded-md" onClick={() => setDetailsOpen(false)}>
-                Close
-              </button>
+              
+              {/* Modal Body */}
+              <div className="p-5">
+                {modalLoading ? (
+                  <div className="text-center py-6">
+                    <div className="inline-flex items-center px-4 py-2 bg-teal-50 rounded-lg">
+                      <div className="w-4 h-4 border-2 border-teal-600 border-t-transparent rounded-full animate-spin mr-2"></div>
+                      <span className="text-teal-700 font-medium">Loading history...</span>
+                    </div>
+                  </div>
+                ) : modalItems.length === 0 ? (
+                  <div className="text-center py-6">
+                    <div className="text-teal-600">No records found</div>
+                  </div>
+                ) : (
+                  <div className="overflow-hidden max-h-[50vh]">
+                    <table className="min-w-full text-sm">
+                      <thead className="bg-gray-50 sticky top-0">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Patient</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Mobile</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Invoice</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Paid</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Earned</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Commission</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Doctor</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {modalItems.map((it) => (
+                          <tr key={it.commissionId} className="hover:bg-gray-50">
+                            <td className="px-4 py-3 whitespace-nowrap">{it.patientName || "—"}</td>
+                            <td className="px-4 py-3 whitespace-nowrap">{it.patientMobile || "—"}</td>
+                            <td className="px-4 py-3 whitespace-nowrap">{it.invoiceNumber || "—"}</td>
+                            <td className="px-4 py-3 whitespace-nowrap">₹ {Number(it.paidAmount || 0).toFixed(2)}</td>
+                            <td className="px-4 py-3 whitespace-nowrap">₹ {Number(it.commissionAmount || 0).toFixed(2)}</td>
+                            <td className="px-4 py-3 whitespace-nowrap">₹ {Number(it.commissionAmount || 0).toFixed(2)} ({Number(it.commissionPercent || 0)}%)</td>
+                            <td className="px-4 py-3 whitespace-nowrap">{it.doctorName || "—"}</td>
+                            <td className="px-4 py-3 whitespace-nowrap">{it.invoicedDate ? new Date(it.invoicedDate).toLocaleDateString() : "—"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
             </div>
-            {detailsLoading ? (
-              <div className="text-xs text-gray-700">Loading history...</div>
-            ) : detailsItems.length === 0 ? (
-              <div className="text-xs text-gray-700">No records</div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="min-w-full text-[10px]">
-                  <thead>
-                    <tr className="text-left text-gray-600">
-                      <th className="px-2 py-1">Patient</th>
-                      <th className="px-2 py-1">Mobile</th>
-                      <th className="px-2 py-1">Invoice</th>
-                      <th className="px-2 py-1">Paid</th>
-                      <th className="px-2 py-1">Commission</th>
-                      <th className="px-2 py-1">Doctor</th>
-                      <th className="px-2 py-1">Date</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {detailsItems.map((it) => (
-                      <tr key={it.commissionId} className="border-t">
-                        <td className="px-2 py-1">{it.patientName || "—"}</td>
-                        <td className="px-2 py-1">{it.patientMobile || "—"}</td>
-                        <td className="px-2 py-1">{it.invoiceNumber || "—"}</td>
-                        <td className="px-2 py-1">₹ {Number(it.paidAmount || 0).toFixed(2)}</td>
-                        <td className="px-2 py-1">₹ {Number(it.commissionAmount || 0).toFixed(2)} ({Number(it.commissionPercent || 0)}%)</td>
-                        <td className="px-2 py-1">{it.doctorName || "—"}</td>
-                        <td className="px-2 py-1">{it.invoicedDate ? new Date(it.invoicedDate).toLocaleDateString() : "—"}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
           </div>
         )}
       </div>
@@ -231,4 +280,3 @@ const ProtectedClinicCommissionPage = withClinicAuth(ClinicCommissionPage);
 ProtectedClinicCommissionPage.getLayout = ClinicCommissionPage.getLayout;
 
 export default ProtectedClinicCommissionPage;
-
