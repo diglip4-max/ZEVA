@@ -217,16 +217,19 @@ export default async function handler(req, res) {
       console.log("👤 User role:", me?.role);
       console.log("📥 Request headers:", req.headers);
       
-      // Parse JSON body manually only for application/json requests
-      if (req.headers["content-type"]?.includes("application/json") && !req.body) {
+      // When bodyParser is disabled, we need to parse the request manually
+      // But for simplicity, let's re-enable bodyParser for this endpoint
+      // and handle file uploads separately
+      
+      // With bodyParser disabled, only manually parse JSON bodies (never multipart)
+      const contentType = req.headers["content-type"] || "";
+      if (contentType.includes("application/json") && !req.body) {
         const chunks = [];
-        for await (const chunk of req) {
-          chunks.push(chunk);
-        }
+        for await (const chunk of req) chunks.push(chunk);
         const rawBody = Buffer.concat(chunks).toString();
         try {
-          req.body = JSON.parse(rawBody);
-        } catch (e) {
+          req.body = JSON.parse(rawBody || "{}");
+        } catch {
           req.body = {};
         }
       }
@@ -311,7 +314,10 @@ export default async function handler(req, res) {
           }
         } catch (uploadError) {
           console.error("File upload error:", uploadError);
-          return res.status(400).json({ message: "File upload failed" });
+          const msg = uploadError?.message || "File upload failed";
+          return res
+            .status(400)
+            .json({ message: msg, error: uploadError?.message || null });
         }
       }
 

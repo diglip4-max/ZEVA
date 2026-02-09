@@ -855,7 +855,7 @@ function AddRoomPage({ contextOverride = null }) {
   };
 
   return (
-    <div className="min-h-screen bg-teal-50">
+    <div className="min-h-screen bg-gray-50">
       <style dangerouslySetInnerHTML={{__html: `
         [data-hot-toast][data-type="error"] button[aria-label="Close"] {
           color: #fff !important;
@@ -926,7 +926,7 @@ function AddRoomPage({ contextOverride = null }) {
           <p className="text-xs sm:text-sm">Checking your permissions...</p>
         </div>
       ) : !permissions.canRead ? (
-        <div className="min-h-screen bg-teal-50 flex items-center justify-center p-4">
+        <div className="min-h-screen bg-teal-600 flex items-center justify-center p-4">
           <div className="bg-white rounded-lg shadow-lg border border-red-200 p-8 text-center max-w-md">
             <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <Building2 className="w-8 h-8 text-red-600" />
@@ -966,7 +966,7 @@ function AddRoomPage({ contextOverride = null }) {
                   Create and manage rooms, departments, and packages for your clinic
                 </p>
               </div>
-              <div className="flex flex-wrap items-center gap-2 bg-teal-100 rounded-lg p-1 border border-gray-200">
+              <div className="flex flex-wrap items-center gap-2 bg-teal-200 rounded-lg p-1 border border-gray-200">
                 <button
                   type="button"
                   onClick={() => {
