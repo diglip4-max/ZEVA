@@ -175,7 +175,7 @@ async function getNextAvailableOrderNo(clinicId, type) {
   // Define prefix based on type
   const prefixes = {
     Purchase_Order: "PO",
-    Purchase_Request: "PR",
+    Purchase_Request: "PUR",
     Purchase_Invoice: "PI",
     GRN_Regular: "GRN",
   };
@@ -221,7 +221,7 @@ PurchaseRecordSchema.pre("save", async function (next) {
       // Fallback to timestamp-based numbering
       const prefixes = {
         Purchase_Order: "PO",
-        Purchase_Request: "PR",
+        Purchase_Request: "PUR",
         Purchase_Invoice: "PI",
         GRN_Regular: "GRN",
       };
