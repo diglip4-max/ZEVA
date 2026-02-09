@@ -48,12 +48,22 @@ const ToastContainer = ({ toasts, removeToast }) => (
   </div>
 );
 
-const PatientDetailsModal = ({ isOpen, onClose, patient }) => {
+const PatientDetailsModal = ({ isOpen, onClose, patient, memberships = [], packages = [] }) => {
   if (!isOpen || !patient) return null;
+  const membershipName = (() => {
+    if (!patient.membershipId) return null;
+    const m = memberships.find((x) => x._id === patient.membershipId);
+    return m?.name || null;
+  })();
+  const packageName = (() => {
+    if (!patient.packageId) return null;
+    const p = packages.find((x) => x._id === patient.packageId);
+    return p?.name || null;
+  })();
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-white rounded-lg sm:rounded-xl shadow-2xl max-w-3xl w-full my-2 sm:my-4 md:my-8 animate-scaleIn max-h-[95vh] sm:max-h-[90vh] md:max-h-[85vh] overflow-y-auto flex flex-col">
+      <div className="relative bg-white rounded-lg sm:rounded-xl shadow-2xl max-w-4xl w-full my-2 sm:my-4 md:my-8 animate-scaleIn max-h-[95vh] sm:max-h-[90vh] md:max-h-[85vh] overflow-y-auto flex flex-col">
         <div className="sticky top-0 bg-gray-50 border-b px-3 sm:px-4 py-2 sm:py-3 flex items-center justify-between z-10">
           <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1">
             <User className="w-4 h-4 sm:w-5 sm:h-5 text-gray-700 flex-shrink-0" />
@@ -75,6 +85,7 @@ const PatientDetailsModal = ({ isOpen, onClose, patient }) => {
                 <div className="flex items-center gap-2"><Phone className="w-3.5 h-3.5 text-gray-400" /><span className="text-gray-700 w-20">Mobile:</span> <span className="font-medium text-gray-900">{patient.mobileNumber}</span></div>
                 <div className="flex items-center gap-2"><span className="text-gray-700 w-20">Type:</span> <span className="font-medium text-gray-900">{patient.patientType}</span></div>
                 <div className="flex items-center gap-2"><span className="text-gray-700 w-20">Referred:</span> <span className="font-medium text-gray-900">{patient.referredBy || 'N/A'}</span></div>
+                {patient.doctor && <div className="flex items-center gap-2"><span className="text-gray-700 w-20">Doctor:</span> <span className="font-medium text-gray-900">{patient.doctor}</span></div>}
               </div>
             </div>
             <div className="bg-white rounded-lg border border-gray-200 p-3">
@@ -85,7 +96,7 @@ const PatientDetailsModal = ({ isOpen, onClose, patient }) => {
               <div className="space-y-2 text-xs">
                 <div className="flex items-center gap-2"><span className="text-gray-700 w-20">Invoice:</span> <span className="font-medium text-gray-900">{patient.invoiceNumber}</span></div>
                 <div className="flex items-center gap-2"><Building2 className="w-3.5 h-3.5 text-gray-400" /><span className="text-gray-700 w-20">By:</span> <span className="font-medium text-gray-900">{patient.invoicedBy}</span></div>
-                <div className="flex items-center gap-2"><Calendar className="w-3.5 h-3.5 text-gray-400" /><span className="text-gray-700 w-20">Date:</span> <span className="font-medium text-gray-900">{new Date(patient.invoicedDate).toLocaleDateString()}</span></div>
+                <div className="flex items-center gap-2"><Calendar className="w-3.5 h-3.5 text-gray-400" /><span className="text-gray-700 w-20">Date:</span> <span className="font-medium text-gray-900">{patient.invoicedDate ? new Date(patient.invoicedDate).toLocaleDateString() : '-'}</span></div>
                 <div className="flex items-center gap-2"><span className="text-gray-700 w-20">EMR:</span> <span className="font-medium text-gray-900">{patient.emrNumber || 'N/A'}</span></div>
               </div>
             </div>
@@ -96,14 +107,58 @@ const PatientDetailsModal = ({ isOpen, onClose, patient }) => {
               Insurance Info
             </h4>
             <div className="grid md:grid-cols-3 gap-3 text-xs">
-              <div className="flex items-center gap-2"><span className="text-gray-700">Insurance:</span> <span className="font-medium text-gray-900">{patient.insurance}</span></div>
-              <div className="flex items-center gap-2"><span className="text-gray-700">Type:</span> <span className="font-medium text-gray-900">{patient.insuranceType || 'N/A'}</span></div>
-              <div className="flex items-center gap-2"><span className="text-gray-700">Advance:</span> <span className="font-medium text-gray-900">د.إ{patient.advanceGivenAmount?.toLocaleString() || 0}</span></div>
-              <div className="flex items-center gap-2"><span className="text-gray-700">Co-Pay:</span> <span className="font-medium text-gray-900">{patient.coPayPercent || 0}%</span></div>
-              <div className="flex items-center gap-2"><span className="text-gray-700">Need To Pay:</span> <span className="font-medium text-gray-900">د.إ{patient.needToPay?.toLocaleString() || 0}</span></div>
-              <div className="flex items-center gap-2"><span className="text-gray-700">Claim:</span> <span className={`px-2 py-0.5 text-xs font-medium rounded ${patient.advanceClaimStatus === 'Released' ? 'bg-emerald-100 text-emerald-700' : patient.advanceClaimStatus === 'Approved by doctor' ? 'bg-blue-100 text-blue-700' : patient.advanceClaimStatus === 'Pending' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'}`}>{patient.advanceClaimStatus}</span></div>
+              <div className="flex items-center gap-2"><span className="text-gray-700">Insurance:</span> <span className="font-medium text-gray-900">{patient.insurance || 'No'}</span></div>
+              {patient.insurance === 'Yes' && (
+                <>
+                  <div className="flex items-center gap-2"><span className="text-gray-700">Type:</span> <span className="font-medium text-gray-900">{patient.insuranceType || 'Paid'}</span></div>
+                  {patient.insuranceType === 'Advance' && (
+                    <>
+                      <div className="flex items-center gap-2"><span className="text-gray-700">Advance:</span> <span className="font-medium text-gray-900">د.إ{patient.advanceGivenAmount?.toLocaleString() || 0}</span></div>
+                      <div className="flex items-center gap-2"><span className="text-gray-700">Co-Pay:</span> <span className="font-medium text-gray-900">{patient.coPayPercent || 0}%</span></div>
+                      <div className="flex items-center gap-2"><span className="text-gray-700">Need To Pay:</span> <span className="font-medium text-gray-900">د.إ{patient.needToPay?.toLocaleString() || 0}</span></div>
+                    </>
+                  )}
+                </>
+              )}
+              {patient.advanceClaimStatus && (
+                <div className="flex items-center gap-2"><span className="text-gray-700">Claim:</span> <span className={`px-2 py-0.5 text-xs font-medium rounded ${patient.advanceClaimStatus === 'Released' ? 'bg-emerald-100 text-emerald-700' : patient.advanceClaimStatus === 'Approved by doctor' ? 'bg-blue-100 text-blue-700' : patient.advanceClaimStatus === 'Pending' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'}`}>{patient.advanceClaimStatus}</span></div>
+              )}
             </div>
           </div>
+          
+          <div className="grid md:grid-cols-2 gap-3 sm:gap-4">
+            <div className="bg-white rounded-lg border border-gray-200 p-3">
+              <h4 className="text-xs font-semibold text-gray-900 uppercase border-b pb-2 mb-3 flex items-center gap-1.5">
+                <CreditCard className="w-3.5 h-3.5" />
+                Membership
+              </h4>
+              <div className="space-y-2 text-xs">
+                <div className="flex items-center gap-2"><span className="text-gray-700 w-24">Status:</span> <span className="font-medium text-gray-900">{patient.membership || 'No'}</span></div>
+                {patient.membership === 'Yes' && (
+                  <>
+                    <div className="flex items-center gap-2"><span className="text-gray-700 w-24">Name:</span> <span className="font-medium text-gray-900">{membershipName || '-'}</span></div>
+                    <div className="flex items-center gap-2"><span className="text-gray-700 w-24">Start:</span> <span className="font-medium text-gray-900">{patient.membershipStartDate ? new Date(patient.membershipStartDate).toLocaleDateString() : '-'}</span></div>
+                    <div className="flex items-center gap-2"><span className="text-gray-700 w-24">End:</span> <span className="font-medium text-gray-900">{patient.membershipEndDate ? new Date(patient.membershipEndDate).toLocaleDateString() : '-'}</span></div>
+                  </>
+                )}
+              </div>
+            </div>
+            <div className="bg-white rounded-lg border border-gray-200 p-3">
+              <h4 className="text-xs font-semibold text-gray-900 uppercase border-b pb-2 mb-3 flex items-center gap-1.5">
+                <Package className="w-3.5 h-3.5" />
+                Package
+              </h4>
+              <div className="space-y-2 text-xs">
+                <div className="flex items-center gap-2"><span className="text-gray-700 w-24">Status:</span> <span className="font-medium text-gray-900">{patient.package || 'No'}</span></div>
+                {patient.package === 'Yes' && (
+                  <>
+                    <div className="flex items-center gap-2"><span className="text-gray-700 w-24">Name:</span> <span className="font-medium text-gray-900">{packageName || '-'}</span></div>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+          
           {patient.paymentHistory?.length > 0 && (
             <div><h4 className="text-sm font-semibold text-gray-900 uppercase border-b pb-2 mb-3">Payment History</h4>
               {patient.paymentHistory.map((p, i) => (
@@ -172,6 +227,8 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const [patients, setPatients] = useState([]);
+  const [memberships, setMemberships] = useState([]);
+  const [packages, setPackages] = useState([]);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
   const [toasts, setToasts] = useState([]);
@@ -229,6 +286,24 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
   };
 
   useEffect(() => { fetchPatients(); }, [routeContext]);
+  
+  useEffect(() => {
+    const headers = getAuthHeaders();
+    if (!headers) return;
+    const fetchLists = async () => {
+      try {
+        const [mRes, pRes] = await Promise.all([
+          axios.get("/api/clinic/memberships", { headers }),
+          axios.get("/api/clinic/packages", { headers }),
+        ]);
+        setMemberships(mRes.data?.memberships || []);
+        setPackages(pRes.data?.packages || []);
+      } catch (e) {
+        // silent
+      }
+    };
+    fetchLists();
+  }, []);
 
   const exportPatientsToCSV = () => {
     if (patients.length === 0) {
@@ -357,7 +432,13 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
     <>
       <style>{`@keyframes slideIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}@keyframes scaleIn{from{transform:scale(0.9);opacity:0}to{transform:scale(1);opacity:1}}.animate-slideIn{animation:slideIn 0.3s ease-out}.animate-scaleIn{animation:scaleIn 0.2s ease-out}`}</style>
       <ToastContainer toasts={toasts} removeToast={removeToast} />
-      <PatientDetailsModal isOpen={detailsModal.isOpen} onClose={() => setDetailsModal({ isOpen: false, patient: null })} patient={detailsModal.patient} />
+      <PatientDetailsModal
+        isOpen={detailsModal.isOpen}
+        onClose={() => setDetailsModal({ isOpen: false, patient: null })}
+        patient={detailsModal.patient}
+        memberships={memberships}
+        packages={packages}
+      />
       
       {/* Delete Success Modal */}
       {deleteSuccessModal.isOpen && (

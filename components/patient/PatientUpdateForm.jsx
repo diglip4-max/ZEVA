@@ -145,6 +145,9 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
   const [billingHistory, setBillingHistory] = useState([]);
   const [loadingBillingHistory, setLoadingBillingHistory] = useState(false);
   const [referrals, setReferrals] = useState([]);
+  const [memberships, setMemberships] = useState([]);
+  const [packages, setPackages] = useState([]);
+  const [errors, setErrors] = useState({});
 
   const authToken = getStoredToken();
   const showToast = (message, type = "success") => setToast({ message, type });
@@ -220,6 +223,28 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
     fetchReferrals();
   }, [authToken]);
 
+  useEffect(() => {
+    if (!authToken) return;
+    const headers = { Authorization: `Bearer ${authToken}` };
+    const fetchLists = async () => {
+      try {
+        const [mRes, pRes] = await Promise.all([
+          fetch("/api/clinic/memberships", { headers }),
+          fetch("/api/clinic/packages", { headers }),
+        ]);
+        const mData = await mRes.json();
+        const pData = await pRes.json();
+        if (mData.success && Array.isArray(mData.memberships)) {
+          setMemberships(mData.memberships);
+        }
+        if (pData.success && Array.isArray(pData.packages)) {
+          setPackages(pData.packages);
+        }
+      } catch {}
+    };
+    fetchLists();
+  }, [authToken]);
+
   // Fetch billing history when payment history tab is active
   useEffect(() => {
     if (activeTab === "paymentHistory" && resolvedId && authToken && !loadingBillingHistory) {
@@ -263,17 +288,37 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
 
   const handleFullUpdate = useCallback(async () => {
     if (!invoiceInfo) return;
-    const requiredFields = [
-      { field: "firstName", label: "First Name" },
-      { field: "gender", label: "Gender" },
-      { field: "mobileNumber", label: "Mobile Number" },
-    ];
-
-    const missingField = requiredFields.find(
-      ({ field }) => !formData[field] && formData[field] !== 0
-    );
-    if (missingField) {
-      showToast(`${missingField.label} is required`, "error");
+    const fieldErrors = {};
+    if (!formData.firstName) fieldErrors.firstName = "First Name is required";
+    if (!formData.gender) fieldErrors.gender = "Gender is required";
+    if (!formData.mobileNumber) fieldErrors.mobileNumber = "Mobile Number is required";
+    if (formData.membership === "Yes") {
+      if (!formData.membershipId) fieldErrors.membershipId = "Membership is required";
+      if (!formData.membershipStartDate) fieldErrors.membershipStartDate = "Membership Start Date is required";
+      if (!formData.membershipEndDate) fieldErrors.membershipEndDate = "Membership End Date is required";
+    }
+    if (formData.package === "Yes") {
+      if (!formData.packageId) fieldErrors.packageId = "Package is required";
+    }
+    if (formData.insurance === "Yes") {
+      if (!formData.insuranceType) fieldErrors.insuranceType = "Insurance Type is required";
+      if (formData.insuranceType === "Advance") {
+        if (formData.coPayPercent === "" || formData.coPayPercent === undefined) {
+          fieldErrors.coPayPercent = "Co-Pay % is required";
+        }
+      } else {
+        formData.advanceGivenAmount = 0;
+        formData.coPayPercent = 0;
+      }
+    } else {
+      formData.insuranceType = "Paid";
+      formData.advanceGivenAmount = 0;
+      formData.coPayPercent = 0;
+    }
+    setErrors(fieldErrors);
+    const firstError = Object.values(fieldErrors)[0];
+    if (firstError) {
+      showToast(firstError, "error");
       return;
     }
 
@@ -299,6 +344,9 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
       membership: formData.membership,
       membershipStartDate: formData.membershipStartDate,
       membershipEndDate: formData.membershipEndDate,
+      membershipId: formData.membershipId,
+      package: formData.package,
+      packageId: formData.packageId,
     };
 
     try {
@@ -579,28 +627,62 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
                       </select>
                     </div>
 
+                  {formData.membership === "Yes" && (
+                    <div className="flex-1 min-w-[120px]">
+                      <label className="block text-[10px] mb-0.5 font-medium text-gray-700">Select Membership <span className="text-red-500">*</span></label>
+                      <select
+                        name="membershipId"
+                        value={formData.membershipId || ""}
+                        onChange={handleFieldChange}
+                        className={`text-gray-900 w-full px-2 py-1 text-[10px] border rounded-md focus:ring-1 focus:ring-indigo-500 ${errors.membershipId ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
+                      >
+                        <option value="">Select membership</option>
+                        {memberships.map(m => (
+                          <option key={m._id} value={m._id}>
+                            {m.name}
+                          </option>
+                        ))}
+                      </select>
+                      {errors.membershipId && (
+                        <p className="text-red-500 text-[9px] mt-0.5 flex items-center gap-0.5">
+                          <AlertCircle className="w-2.5 h-2.5" />{errors.membershipId}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
                     {/* Membership Date Fields */}
                     {formData.membership === "Yes" && (
                       <>
                         <div className="flex-1 min-w-[120px]">
-                          <label className="block text-[10px] mb-0.5 font-medium text-gray-700">Membership Start Date</label>
+                          <label className="block text-[10px] mb-0.5 font-medium text-gray-700">Membership Start Date <span className="text-red-500">*</span></label>
                           <input
                             type="date"
                             name="membershipStartDate"
                             value={formData.membershipStartDate ? formData.membershipStartDate.slice(0, 10) : ""}
                             onChange={handleFieldChange}
-                            className="w-full px-2 py-1 text-[10px] border rounded-md focus:ring-1 focus:ring-gray-900 focus:border-gray-900 text-gray-900 border-gray-300"
+                            className={`w-full px-2 py-1 text-[10px] border rounded-md focus:ring-1 focus:ring-gray-900 focus:border-gray-900 text-gray-900 ${errors.membershipStartDate ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
                           />
+                          {errors.membershipStartDate && (
+                            <p className="text-red-500 text-[9px] mt-0.5 flex items-center gap-0.5">
+                              <AlertCircle className="w-2.5 h-2.5" />{errors.membershipStartDate}
+                            </p>
+                          )}
                         </div>
                         <div className="flex-1 min-w-[120px]">
-                          <label className="block text-[10px] mb-0.5 font-medium text-gray-700">Membership End Date</label>
+                          <label className="block text-[10px] mb-0.5 font-medium text-gray-700">Membership End Date <span className="text-red-500">*</span></label>
                           <input
                             type="date"
                             name="membershipEndDate"
                             value={formData.membershipEndDate ? formData.membershipEndDate.slice(0, 10) : ""}
                             onChange={handleFieldChange}
-                            className="w-full px-2 py-1 text-[10px] border rounded-md focus:ring-1 focus:ring-gray-900 focus:border-gray-900 text-gray-900 border-gray-300"
+                            className={`w-full px-2 py-1 text-[10px] border rounded-md focus:ring-1 focus:ring-gray-900 focus:border-gray-900 text-gray-900 ${errors.membershipEndDate ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
                           />
+                          {errors.membershipEndDate && (
+                            <p className="text-red-500 text-[9px] mt-0.5 flex items-center gap-0.5">
+                              <AlertCircle className="w-2.5 h-2.5" />{errors.membershipEndDate}
+                            </p>
+                          )}
                         </div>
                       </>
                     )}
@@ -621,31 +703,29 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
                       </select>
                     </div>
 
-                    {/* Package Date Fields */}
-                    {formData.package === "Yes" && (
-                      <>
-                        <div className="flex-1 min-w-[120px]">
-                          <label className="block text-[10px] mb-0.5 font-medium text-gray-700">Package Start Date</label>
-                          <input
-                            type="date"
-                            name="packageStartDate"
-                            value={formData.packageStartDate ? formData.packageStartDate.slice(0, 10) : ""}
-                            onChange={handleFieldChange}
-                            className="w-full px-2 py-1 text-[10px] border rounded-md focus:ring-1 focus:ring-gray-900 focus:border-gray-900 text-gray-900 border-gray-300"
-                          />
-                        </div>
-                        <div className="flex-1 min-w-[120px]">
-                          <label className="block text-[10px] mb-0.5 font-medium text-gray-700">Package End Date</label>
-                          <input
-                            type="date"
-                            name="packageEndDate"
-                            value={formData.packageEndDate ? formData.packageEndDate.slice(0, 10) : ""}
-                            onChange={handleFieldChange}
-                            className="w-full px-2 py-1 text-[10px] border rounded-md focus:ring-1 focus:ring-gray-900 focus:border-gray-900 text-gray-900 border-gray-300"
-                          />
-                        </div>
-                      </>
-                    )}
+                  {formData.package === "Yes" && (
+                    <div className="flex-1 min-w-[120px]">
+                      <label className="block text-[10px] mb-0.5 font-medium text-gray-700">Select Package <span className="text-red-500">*</span></label>
+                      <select
+                        name="packageId"
+                        value={formData.packageId || ""}
+                        onChange={handleFieldChange}
+                        className={`text-gray-900 w-full px-2 py-1 text-[10px] border rounded-md focus:ring-1 focus:ring-indigo-500 ${errors.packageId ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
+                      >
+                        <option value="">Select package</option>
+                        {packages.map(p => (
+                          <option key={p._id} value={p._id}>
+                            {p.name}
+                          </option>
+                        ))}
+                      </select>
+                      {errors.packageId && (
+                        <p className="text-red-500 text-[9px] mt-0.5 flex items-center gap-0.5">
+                          <AlertCircle className="w-2.5 h-2.5" />{errors.packageId}
+                        </p>
+                      )}
+                    </div>
+                  )}
                   </div>
                 </div>
             </div>
@@ -661,41 +741,46 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
                   onChange={handleFieldChange}
                   options={insuranceOptions}
                 />
-                <EditableField
-                  label="Insurance Type"
-                  name="insuranceType"
-                  type="select"
-                  value={formData.insuranceType}
-                  onChange={handleFieldChange}
-                  options={insuranceTypeOptions}
-                  disabled={formData.insurance !== "Yes"}
-                />
-                <EditableField
-                  label="Advance Given Amount"
-                  name="advanceGivenAmount"
-                  type="number"
-                  value={formData.advanceGivenAmount}
-                  onChange={handleFieldChange}
-                  min={0}
-                  disabled={formData.insurance !== "Yes"}
-                />
-                <EditableField
-                  label="Co-Pay %"
-                  name="coPayPercent"
-                  type="number"
-                  value={formData.coPayPercent}
-                  onChange={handleFieldChange}
-                  min={0}
-                  max={100}
-                  disabled={formData.insurance !== "Yes"}
-                />
-                <EditableField
-                  label="Need to Pay Amount (Auto)"
-                  name="needToPay"
-                  value={`د.إ ${calculatedFields.needToPay.toFixed(2)}`}
-                  onChange={() => {}}
-                  disabled
-                />
+                {formData.insurance === "Yes" && (
+                  <>
+                    <EditableField
+                      label="Insurance Type"
+                      name="insuranceType"
+                      type="select"
+                      value={formData.insuranceType}
+                      onChange={handleFieldChange}
+                      options={insuranceTypeOptions}
+                    />
+                    {formData.insuranceType === "Advance" && (
+                      <>
+                        <EditableField
+                          label="Advance Given Amount"
+                          name="advanceGivenAmount"
+                          type="number"
+                          value={formData.advanceGivenAmount}
+                          onChange={handleFieldChange}
+                          min={0}
+                        />
+                        <EditableField
+                          label="Co-Pay %"
+                          name="coPayPercent"
+                          type="number"
+                          value={formData.coPayPercent}
+                          onChange={handleFieldChange}
+                          min={0}
+                          max={100}
+                        />
+                        <EditableField
+                          label="Need to Pay Amount (Auto)"
+                          name="needToPay"
+                          value={`د.إ ${calculatedFields.needToPay.toFixed(2)}`}
+                          onChange={() => {}}
+                          disabled
+                        />
+                      </>
+                    )}
+                  </>
+                )}
                 <EditableField
                   label="Advance Claim Status"
                   name="advanceClaimStatus"
