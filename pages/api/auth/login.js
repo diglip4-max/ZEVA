@@ -47,7 +47,7 @@ export default async function handler(req, res) {
         role: user.role,
       },
       process.env.JWT_SECRET || "your-secret-key",
-      { expiresIn: "7d" }
+      { expiresIn: "7d" },
     );
 
     // Remove password from response
