@@ -390,17 +390,19 @@ export default async function handler(req, res) {
       
       
 
-      // Validation 2: Check for exact duplicate booking (same patient, doctor, room, date, and time)
-      // Allow multiple patients under the same doctor and same room at the same time
-      // Guard against invalid ObjectId casting by ensuring filters are defined correctly
+      // Validation 2: Check for duplicate booking for the same patient
+      // Prevent same patient from being booked in the same room OR with the same doctor at the same time
+      // This ensures that if booked under Doctor column (with room), it blocks re-booking under Room column (for same patient)
       const duplicateAppointment = await Appointment.findOne({
         clinicId,
-        roomId,
-        doctorId,
         patientId, // Same patient
         startDate: { $gte: startOfDay, $lte: endOfDay },
         fromTime,
         toTime,
+        $or: [
+          { roomId: roomId },
+          { doctorId: doctorId }
+        ]
       });
 
       if (duplicateAppointment) {

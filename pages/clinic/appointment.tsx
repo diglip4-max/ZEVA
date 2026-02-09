@@ -1573,10 +1573,14 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
 
   // Get appointments for a specific doctor and row
   // IMPORTANT: Show ALL appointments regardless of status (booked, Arrived, Consultation, Cancelled, etc.)
-  // Show appointments in doctor column if they match the doctor (regardless of bookedFrom)
+  // Show appointments in doctor column if they match the doctor AND were not booked specifically from room view
   const getAppointmentsForRow = (doctorId: string, slotTime: string): Appointment[] => {
     return appointments.filter((apt) => {
       if (apt.doctorId !== doctorId) return false;
+      
+      // Filter out appointments booked from the room view
+      if (apt.bookedFrom === 'room') return false;
+
       // Compare dates in local timezone to match the selectedDate
       const aptDate = formatDateLocal(apt.startDate);
       if (aptDate !== selectedDate) {
@@ -1595,10 +1599,14 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
 
   // Get appointments for a specific room and row
   // IMPORTANT: Show ALL appointments regardless of status (booked, Arrived, Consultation, Cancelled, etc.)
-  // Show appointments in room column if they match the room (regardless of bookedFrom)
+  // Show appointments in room column if they match the room AND were not booked specifically from doctor view
   const getRoomAppointmentsForRow = (roomId: string, slotTime: string): Appointment[] => {
     return appointments.filter((apt) => {
       if (apt.roomId !== roomId) return false;
+
+      // Filter out appointments booked from the doctor view
+      if (apt.bookedFrom === 'doctor') return false;
+
       // Compare dates in local timezone to match the selectedDate
       const aptDate = formatDateLocal(apt.startDate);
       if (aptDate !== selectedDate) return false;
@@ -2880,8 +2888,16 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                           {/* ✅ Only show appointments if user has read permission */}
                           {permissions.canRead && rowAppointments.length > 0
                             ? (() => {
+                                // Filter to only show appointments that START in this row to avoid duplication across rows
+                                const startingAppointments = rowAppointments.filter(apt => {
+                                  const aptStart = timeStringToMinutes(apt.fromTime);
+                                  return aptStart >= rowStartMinutes && aptStart < rowStartMinutes + ROW_INTERVAL_MINUTES;
+                                });
+
+                                if (startingAppointments.length === 0) return null;
+
                                 // Group appointments by their start time within the row to position them correctly
-                                const appointmentsBySlot = rowAppointments.map((apt) => {
+                                const appointmentsBySlot = startingAppointments.map((apt) => {
                                   const aptStart = timeStringToMinutes(apt.fromTime);
                                   const aptEnd = timeStringToMinutes(apt.toTime);
                                   const slotOffset = aptStart - rowStartMinutes; // Offset from row start in minutes
@@ -2911,25 +2927,27 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                                       return (
                                         <div
                                           key={`slot-${groupIndex}`}
-                                          className="absolute left-0.5 right-0.5 flex flex-row items-center"
+                                          className="absolute left-[2px] right-[2px] flex flex-row items-center"
                                           style={{
                                             top: `${Math.max(0, firstAppt.topOffset + 1)}px`,
-                                            height: `${Math.min(maxHeight, ROW_HEIGHT_PX - 2)}px`,
-                                            zIndex: 10,
-                                            gap: '2px',
+                                            height: `${maxHeight - 2}px`,
+                                            zIndex: 20,
                                           }}
                                         >
                                           {slotAppointments.map((item, sameIndex) => {
                                             const statusColor = getStatusColor(item.apt.status);
-                                            // Make cards expand to fill available space
-                                            const shouldExpand = slotAppointments.length < 3; // Expand if 1-2 patients
+                                            // Calculate card width based on number of patients
+                                            const patientCount = slotAppointments.length;
+                                            const cardWidthPercent = patientCount > 1 ? `${Math.floor(100 / patientCount)}%` : '100%';
+                                            
                                             return (
                                               <div
                                                 key={item.apt._id}
-                                                className={`flex items-center ${shouldExpand ? 'flex-1' : ''} px-1 py-0.5 rounded-sm ${statusColor.bg} ${statusColor.text} ${statusColor.border} border transition-all hover:shadow-sm ${permissions.canUpdate ? "cursor-pointer" : "cursor-default"} ${draggedAppointmentId === item.apt._id ? "opacity-50" : ""} ${shouldExpand ? '' : 'flex-shrink-0 min-w-0'}`}
+                                                className={`flex items-center flex-1 min-w-0 px-0.5 py-0.5 ${sameIndex === 0 ? 'rounded-l-sm' : ''} ${sameIndex === slotAppointments.length - 1 ? 'rounded-r-sm' : ''} ${statusColor.bg} ${statusColor.text} ${statusColor.border} border-y ${sameIndex === 0 ? 'border-l' : ''} ${sameIndex === slotAppointments.length - 1 ? 'border-r' : 'border-r border-r-gray-400/30'} transition-all hover:shadow-sm ${permissions.canUpdate ? "cursor-pointer" : "cursor-default"} ${draggedAppointmentId === item.apt._id ? "opacity-50" : ""}`}
                                                 style={{ 
-                                                  height: `${Math.min(item.height, ROW_HEIGHT_PX - 2)}px`,
-                                                  borderWidth: '1px',
+                                                  height: `${item.height - 2}px`,
+                                                  width: cardWidthPercent,
+                                                  flexBasis: cardWidthPercent,
                                                 }}
                                                 draggable={permissions.canUpdate}
                                                 onDragStart={(e) => handleAppointmentDragStart(e, item.apt._id)}
@@ -2977,13 +2995,17 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                                                 }}
                                                 title={`${item.apt.patientName} - ${formatTime(item.apt.fromTime)} - ${formatTime(item.apt.toTime)}`}
                                               >
-                                                <div className={`w-0.5 h-0.5 rounded-full ${statusColor.bg} ${statusColor.border} border flex-shrink-0`} style={{ borderWidth: '1px' }} />
-                                                <p className="font-semibold text-[6px] sm:text-[7px] leading-tight truncate min-w-0 flex-1 overflow-hidden" style={{ lineHeight: '1', maxWidth: '100%' }}>
-                                                  {slotAppointments.length > 1 ? item.apt.patientName.split(' ').slice(0, 2).join(' ') : item.apt.patientName}
-                                                </p>
-                                                {sameIndex < slotAppointments.length - 1 && (
-                                                  <div className="w-px h-2 bg-gray-300 dark:bg-gray-400 mx-0.5 flex-shrink-0" />
-                                                )}
+                                                <div className={`w-0.5 h-0.5 rounded-full ${statusColor.bg} ${statusColor.border} border flex-shrink-0 mr-1`} style={{ borderWidth: '1px' }} />
+                                                <div className="flex flex-col min-w-0 flex-1 overflow-hidden">
+                                                  <p className="font-semibold text-[6px] sm:text-[7px] leading-tight truncate w-full" style={{ lineHeight: '1' }}>
+                                                    {slotAppointments.length > 1 ? item.apt.patientName.split(' ').slice(0, 2).join(' ') : item.apt.patientName}
+                                                  </p>
+                                                  {slotAppointments.length <= 2 && (
+                                                    <p className="text-[6px] leading-tight truncate w-full opacity-75" style={{ lineHeight: '1', marginTop: '1px' }}>
+                                                      {formatTime(item.apt.fromTime)} - {formatTime(item.apt.toTime)}
+                                                    </p>
+                                                  )}
+                                                </div>
                                               </div>
                                             );
                                           })}
@@ -3119,8 +3141,16 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                           {/* ✅ Only show appointments if user has read permission */}
                           {permissions.canRead && roomAppointments.length > 0
                             ? (() => {
+                                // Filter to only show appointments that START in this row to avoid duplication across rows
+                                const startingAppointments = roomAppointments.filter(apt => {
+                                  const aptStart = timeStringToMinutes(apt.fromTime);
+                                  return aptStart >= rowStartMinutes && aptStart < rowStartMinutes + ROW_INTERVAL_MINUTES;
+                                });
+
+                                if (startingAppointments.length === 0) return null;
+
                                 // Group appointments by their start time within the row to position them correctly
-                                const appointmentsBySlot = roomAppointments.map((apt) => {
+                                const appointmentsBySlot = startingAppointments.map((apt) => {
                                   const aptStart = timeStringToMinutes(apt.fromTime);
                                   const aptEnd = timeStringToMinutes(apt.toTime);
                                   const slotOffset = aptStart - rowStartMinutes; // Offset from row start in minutes
@@ -3153,8 +3183,8 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                                           className="absolute left-0.5 right-0.5 flex flex-row items-center"
                                           style={{
                                             top: `${Math.max(0, firstAppt.topOffset + 1)}px`,
-                                            height: `${Math.min(maxHeight, ROW_HEIGHT_PX - 2)}px`,
-                                            zIndex: 10,
+                                            height: `${maxHeight - 2}px`,
+                                            zIndex: 20,
                                             gap: '2px',
                                           }}
                                         >
@@ -3170,7 +3200,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                                                 key={item.apt._id}
                                                 className={`flex items-center flex-1 min-w-0 px-0.5 py-0.5 rounded-sm ${statusColor.bg} ${statusColor.text} ${statusColor.border} border transition-all hover:shadow-sm ${permissions.canUpdate ? "cursor-pointer" : "cursor-default"} ${draggedAppointmentId === item.apt._id ? "opacity-50" : ""}`}
                                                 style={{ 
-                                                  height: `${Math.min(item.height, ROW_HEIGHT_PX - 2)}px`,
+                                                  height: `${item.height - 2}px`,
                                                   borderWidth: '1px',
                                                   width: cardWidthPercent,
                                                   maxWidth: maxCardWidth,
@@ -3222,10 +3252,17 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                                                 }}
                                                 title={`${item.apt.patientName} - ${formatTime(item.apt.fromTime)} - ${formatTime(item.apt.toTime)}`}
                                               >
-                                                <div className={`w-0.5 h-0.5 rounded-full ${statusColor.bg} ${statusColor.border} border flex-shrink-0`} style={{ borderWidth: '1px' }} />
-                                                <p className="font-semibold text-[6px] sm:text-[7px] leading-tight truncate min-w-0 flex-1 text-gray-900 dark:text-gray-900 overflow-hidden" style={{ lineHeight: '1', maxWidth: '100%' }}>
-                                                  {slotAppointments.length > 1 ? item.apt.patientName.split(' ').slice(0, 2).join(' ') : item.apt.patientName}
-                                                </p>
+                                                <div className={`w-0.5 h-0.5 rounded-full ${statusColor.bg} ${statusColor.border} border flex-shrink-0 mr-0.5`} style={{ borderWidth: '1px' }} />
+                                                <div className="flex flex-col min-w-0 flex-1 overflow-hidden">
+                                                  <p className="font-semibold text-[6px] sm:text-[7px] leading-tight truncate w-full text-gray-900 dark:text-gray-900" style={{ lineHeight: '1' }}>
+                                                    {slotAppointments.length > 1 ? item.apt.patientName.split(' ').slice(0, 2).join(' ') : item.apt.patientName}
+                                                  </p>
+                                                  {slotAppointments.length <= 2 && (
+                                                    <p className="text-[6px] leading-tight truncate w-full opacity-75 text-gray-700 dark:text-gray-700" style={{ lineHeight: '1', marginTop: '1px' }}>
+                                                      {formatTime(item.apt.fromTime)} - {formatTime(item.apt.toTime)}
+                                                    </p>
+                                                  )}
+                                                </div>
                                                 {sameIndex < slotAppointments.length - 1 && (
                                                   <div className="w-px h-2 bg-gray-300 dark:bg-gray-400 mx-0.5 flex-shrink-0" />
                                                 )}
