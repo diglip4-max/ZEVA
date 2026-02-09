@@ -8,8 +8,9 @@ function escapeRegex(str) {
 
 export default async function handler(req, res) {
   await dbConnect();
+  let user;
   try {
-    await getAuthorizedStaffUser(req, {
+    user = await getAuthorizedStaffUser(req, {
       allowedRoles: ["staff", "doctorStaff", "doctor", "clinic", "agent", "admin"],
     });
   } catch (err) {
@@ -28,7 +29,44 @@ export default async function handler(req, res) {
     }
 
     const regex = new RegExp("^" + escapeRegex(q), "i");
-    const results = await PatientRegistration.find({ emrNumber: { $regex: regex } })
+    const query = { emrNumber: { $regex: regex } };
+
+    // Apply clinic scoping
+    if (user.role === 'agent' || user.role === 'doctorStaff') {
+        if (user.clinicId) {
+            const Clinic = (await import("../../../models/Clinic")).default;
+            const clinic = await Clinic.findById(user.clinicId);
+            if (clinic) {
+                const User = (await import("../../../models/Users")).default;
+                const clinicUsers = await User.find({
+                    $or: [
+                        { _id: clinic.owner },
+                        { clinicId: user.clinicId }
+                    ]
+                }).select("_id");
+                query.userId = { $in: clinicUsers.map(u => u._id) };
+            } else {
+                 query.userId = user._id;
+            }
+        } else {
+             query.userId = user._id;
+        }
+    } else if (user.role === 'clinic') {
+         const Clinic = (await import("../../../models/Clinic")).default;
+         const clinic = await Clinic.findOne({ owner: user._id });
+         if (clinic) {
+              const User = (await import("../../../models/Users")).default;
+              const clinicUsers = await User.find({
+                    $or: [
+                        { _id: clinic.owner },
+                        { clinicId: clinic._id }
+                    ]
+              }).select("_id");
+              query.userId = { $in: clinicUsers.map(u => u._id) };
+         }
+    }
+
+    const results = await PatientRegistration.find(query)
       .select("emrNumber firstName lastName mobileNumber")
       .limit(10)
       .lean();

@@ -2,6 +2,7 @@
 import dbConnect from '../../../lib/database';
 import User from '../../../models/Users';
 import Clinic from '../../../models/Clinic';   // ✅ import Clinic
+import AgentProfile from '../../../models/AgentProfile'; // ✅ import AgentProfile
 import bcrypt from 'bcryptjs';
 import { getUserFromReq, requireRole } from './auth';
 import { checkClinicPermission } from './permissions-helper';
@@ -180,6 +181,58 @@ export default async function handler(req, res) {
         }
       }
 
+      // If agentId is provided, fetch single agent with profile (role-agnostic) + scope checks
+      if (req.query.agentId) {
+        const user = await User.findById(req.query.agentId).select('-password');
+        if (!user) {
+          return res.status(404).json({ success: false, message: 'Agent not found' });
+        }
+
+        // Scope checks consistent with list filters
+        if (me.role === 'admin') {
+          if (user.createdBy?.toString() !== me._id.toString()) {
+            return res.status(403).json({ success: false, message: 'Access denied for this user' });
+          }
+        } else if (me.role === 'clinic') {
+          const clinic = await Clinic.findOne({ owner: me._id });
+          if (clinic) {
+            const allowed =
+              (user.role === 'doctorStaff' && user.createdBy?.toString() === me._id.toString()) ||
+              (user.role === 'agent' && (user.clinicId?.toString() === clinic._id.toString() || user.createdBy?.toString() === me._id.toString()));
+            if (!allowed) {
+              return res.status(403).json({ success: false, message: 'Access denied for this user' });
+            }
+          } else if (user.createdBy?.toString() !== me._id.toString()) {
+            return res.status(403).json({ success: false, message: 'Access denied for this user' });
+          }
+        } else if (me.role === 'doctor') {
+          const allowed =
+            (user.role === 'doctorStaff' && user.createdBy?.toString() === me._id.toString()) ||
+            (user.role === 'agent' && (me.clinicId && user.clinicId?.toString() === me.clinicId.toString() || user.createdBy?.toString() === me._id.toString()));
+          if (!allowed) {
+            return res.status(403).json({ success: false, message: 'Access denied for this user' });
+          }
+        } else if (me.role === 'agent') {
+          if (user.role !== 'agent' || !me.clinicId || user.clinicId?.toString() !== me.clinicId.toString()) {
+            return res.status(403).json({ success: false, message: 'Access denied for this user' });
+          }
+        } else if (me.role === 'doctorStaff') {
+          const allowed =
+            (user.role === 'doctorStaff' && user.createdBy?.toString() === me._id.toString()) ||
+            (user.role === 'agent' && me.clinicId && user.clinicId?.toString() === me.clinicId.toString());
+          if (!allowed) {
+            return res.status(403).json({ success: false, message: 'Access denied for this user' });
+          }
+        }
+
+        const profile = await AgentProfile.findOne({ userId: user._id });
+        return res.status(200).json({
+          success: true,
+          agent: user,
+          profile: profile || {}
+        });
+      }
+
       // Debug: Log the query and user info
       console.log('GET Agents Query:', JSON.stringify(query, null, 2));
       console.log('Current User:', { role: me.role, _id: me._id.toString() });
@@ -211,8 +264,8 @@ export default async function handler(req, res) {
     if (!agentId || typeof agentId !== 'string') {
       return res.status(400).json({ success: false, message: 'agentId is required and must be a string' });
     }
-    if (!action || !['approve', 'decline', 'resetPassword'].includes(action)) {
-      return res.status(400).json({ success: false, message: 'action must be either "approve", "decline" or "resetPassword"' });
+    if (!action || !['approve', 'decline', 'resetPassword', 'updateProfile'].includes(action)) {
+      return res.status(400).json({ success: false, message: 'action must be either "approve", "decline", "resetPassword" or "updateProfile"' });
     }
 
     // ✅ Check permissions for updating agents (admin bypasses all checks)
@@ -220,7 +273,7 @@ export default async function handler(req, res) {
       let requiredAction = 'update';
       if (action === 'approve' || action === 'decline') {
         requiredAction = 'approve';
-      } else if (action === 'resetPassword') {
+      } else if (action === 'resetPassword' || action === 'updateProfile') {
         requiredAction = 'update';
       }
 
@@ -316,6 +369,8 @@ export default async function handler(req, res) {
       return res.status(404).json({ success: false, message: 'User not found or you do not have permission to modify this user' });
     }
 
+    let updatedProfile = null;
+
     if (action === 'approve') {
       agent.isApproved = true;
       agent.declined = false;
@@ -329,11 +384,52 @@ export default async function handler(req, res) {
       // Hash the password before saving
       const hashedPassword = await bcrypt.hash(newPassword, 10);
       agent.password = hashedPassword;
+    } else if (action === 'updateProfile') {
+      const {
+        name, email, phone, // User fields
+        agentCode, emergencyPhone, relativePhone, idType, idNumber, idDocumentUrl,
+        passportNumber, passportDocumentUrl, contractUrl, contractType, baseSalary, commissionType, commissionPercentage,
+        joiningDate, isActive
+      } = req.body;
+
+      // Update User fields
+      if (name) agent.name = name;
+      if (email) agent.email = email;
+      if (phone !== undefined) agent.phone = phone;
+
+      // Update AgentProfile
+      let profile = await AgentProfile.findOne({ userId: agent._id });
+      if (!profile) {
+        profile = new AgentProfile({ userId: agent._id });
+      }
+
+      if (profile.agentCode == null) {
+        profile.agentCode = `USR-${agent._id.toString()}`;
+      }
+
+      if (agentCode !== undefined) profile.agentCode = agentCode;
+      if (emergencyPhone !== undefined) profile.emergencyPhone = emergencyPhone;
+      if (relativePhone !== undefined) profile.relativePhone = relativePhone;
+      if (idType !== undefined) profile.idType = idType;
+      if (idNumber !== undefined) profile.idNumber = idNumber;
+      if (idDocumentUrl !== undefined) profile.idDocumentUrl = idDocumentUrl;
+      if (passportNumber !== undefined) profile.passportNumber = passportNumber;
+      if (passportDocumentUrl !== undefined) profile.passportDocumentUrl = passportDocumentUrl;
+      if (contractUrl !== undefined) profile.contractUrl = contractUrl;
+      if (contractType !== undefined) profile.contractType = contractType;
+      if (baseSalary !== undefined) profile.baseSalary = baseSalary;
+      if (commissionType !== undefined) profile.commissionType = commissionType;
+      if (commissionPercentage !== undefined) profile.commissionPercentage = commissionPercentage;
+      if (joiningDate !== undefined) profile.joiningDate = joiningDate;
+      if (isActive !== undefined) profile.isActive = isActive;
+
+      await profile.save();
+      updatedProfile = profile;
     }
 
     try {
       await agent.save();
-      return res.status(200).json({ success: true, agent });
+      return res.status(200).json({ success: true, agent, profile: updatedProfile });
     } catch (err) {
       return res.status(500).json({ success: false, message: 'Failed to update agent status', error: err.message });
     }

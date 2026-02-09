@@ -61,25 +61,25 @@ function MessageIcon(props: { className?: string }) {
   );
 }
 
-function ArrowRightIcon(props: { className?: string }) {
-  return (
-    <svg className={props.className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14" />
-      <path strokeLinecap="round" strokeLinejoin="round" d="M13 6l6 6-6 6" />
-    </svg>
-  );
-}
+// function ArrowRightIcon(props: { className?: string }) {
+//   return (
+//     <svg className={props.className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+//       <path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14" />
+//       <path strokeLinecap="round" strokeLinejoin="round" d="M13 6l6 6-6 6" />
+//     </svg>
+//   );
+// }
 
 type MarketingCardProps = {
   icon: ReactElement;
   title: string;
   subtitle: string;
-  price: string;
+  // price: string;
   items: string[];
   delayMs?: number;
 };
 
-function MarketingCard({ icon, title, subtitle, price, items, delayMs = 0 }: MarketingCardProps): ReactElement {
+function MarketingCard({ icon, title, subtitle, items, delayMs = 0 }: MarketingCardProps): ReactElement {
   return (
     <div
       style={{ animationDelay: `${delayMs}ms` }}
@@ -94,14 +94,6 @@ function MarketingCard({ icon, title, subtitle, price, items, delayMs = 0 }: Mar
           <div className="grid h-12 w-12 place-items-center rounded-2xl bg-pink-50">
             <div className="grid h-9 w-9 place-items-center rounded-xl bg-pink-100 text-pink-600">
               {icon}
-            </div>
-          </div>
-
-          <div className="text-right">
-            <div className="text-[11px] font-bold tracking-wide text-gray-500">FROM</div>
-            <div className="text-xl font-extrabold text-blue-700">
-              {price}
-              <span className="text-xs font-semibold text-gray-500">/mo</span>
             </div>
           </div>
         </div>
@@ -124,10 +116,10 @@ function MarketingCard({ icon, title, subtitle, price, items, delayMs = 0 }: Mar
           type="button"
           className={[
             "mt-5 flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-bold transition-colors",
-            "border-pink-600 bg-white text-pink-600 hover:bg-pink-600 hover:text-white",
+            "border-pink-600 bg-pink-600 text-gray-900 hover:bg-pink-600 hover:text-white",
           ].join(" ")}
         >
-          Learn More <ArrowRightIcon className="h-4 w-4" />
+          Coming Soon 
         </button>
       </div>
     </div>
@@ -157,7 +149,7 @@ export default function MarketingSection(): ReactElement {
               icon={<ShareIcon className="h-6 w-6" />}
               title="Social Media Tools"
               subtitle="Grow online presence"
-              price="$59"
+              // price="$59"
               items={["Content scheduler", "HIPAA templates", "Analytics", "Multi-platform"]}
             />
 
@@ -166,7 +158,7 @@ export default function MarketingSection(): ReactElement {
               icon={<SearchIcon className="h-6 w-6" />}
               title="SEO & Local Listings"
               subtitle="Get found locally"
-              price="$49"
+              // price="$49"
               items={["Google profile sync", "Keyword insights", "Local citations", "Landing pages"]}
             />
 
@@ -175,7 +167,7 @@ export default function MarketingSection(): ReactElement {
               icon={<StarIcon className="h-6 w-6" />}
               title="Reviews & Reputation"
               subtitle="Build trust at scale"
-              price="$39"
+              // price="$39"
               items={["Review requests", "Auto follow-ups", "Reputation dashboard", "Response templates"]}
             />
 
@@ -184,7 +176,7 @@ export default function MarketingSection(): ReactElement {
               icon={<MegaphoneIcon className="h-6 w-6" />}
               title="Campaign Manager"
               subtitle="Launch promotions"
-              price="$—"
+              // price="$—"
               items={["Email campaigns", "SMS campaigns", "Audience segments", "A/B testing"]}
             />
 
@@ -193,7 +185,7 @@ export default function MarketingSection(): ReactElement {
               icon={<LinkIcon className="h-6 w-6" />}
               title="Referral Program"
               subtitle="Grow via partners"
-              price="$—"
+              // price="$—"
               items={["Referral links", "Rewards rules", "Partner portal", "Conversion tracking"]}
             />
 
@@ -202,7 +194,7 @@ export default function MarketingSection(): ReactElement {
               icon={<MessageIcon className="h-6 w-6" />}
               title="Patient Outreach"
               subtitle="Stay connected"
-              price="$—"
+              // price="$—"
               items={["Broadcast messages", "Recall reminders", "Newsletter builder", "Engagement analytics"]}
             />
           </div>
@@ -235,6 +227,7 @@ export default function MarketingSection(): ReactElement {
       {/* Merge custom CTA at the bottom of Marketing */}
       <CustomSolutionsSection />
     </>
+    
   );
 }
 

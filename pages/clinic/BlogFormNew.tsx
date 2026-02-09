@@ -48,7 +48,9 @@ import {
 
   RefreshCw,
 
-  TrendingUp
+  TrendingUp,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 
 import { useAgentPermissions } from '../../hooks/useAgentPermissions';
@@ -240,6 +242,10 @@ function ModernBlogForm() {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   const [successMessage, setSuccessMessage] = useState('');
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const postsPerPage = 6;
 
   const [showDeleteSuccessModal, setShowDeleteSuccessModal] = useState(false);
 
@@ -1163,6 +1169,39 @@ function ModernBlogForm() {
 
   }, [publishedPosts]);
 
+  // Reset pagination when tab changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeTab, searchQuery]);
+
+  // Handle page bounds - ensure current page is valid
+  useEffect(() => {
+    // Calculate publishedPostIds inside useEffect to avoid initialization order issues
+    const publishedPostIdsSet = new Set(publishedPosts.map(p => p._id));
+    
+    // Use allPosts directly instead of filteredPosts to avoid initialization order issues
+    const allPostsToShow = [...publishedPosts, ...draftPosts].filter(post => {
+      if (activeTab === 'feed') return true;
+      if (activeTab === 'published') return post.status === 'published';
+      if (activeTab === 'drafts') {
+        const isDraft = post.status === 'draft' || (!post.status && !publishedPostIdsSet.has(post._id));
+        const notPublished = !publishedPostIdsSet.has(post._id);
+        return isDraft && notPublished;
+      }
+      if (activeTab === 'trending') {
+        if (post.status !== 'published') return false;
+        const likesCount = post.likesCount || post.likes || 0;
+        const commentsCount = post.commentsCount || (Array.isArray(post.comments) ? post.comments.length : 0) || 0;
+        return (likesCount + commentsCount) > 0;
+      }
+      return false;
+    });
+    const totalPages = Math.ceil(allPostsToShow.length / postsPerPage);
+    if (currentPage > totalPages && totalPages > 0) {
+      setCurrentPage(1);
+    }
+  }, [publishedPosts, draftPosts, activeTab, currentPage, postsPerPage]);
+
 
 
   const handleCreatePost = () => {
@@ -1698,42 +1737,49 @@ function ModernBlogForm() {
 
     return (
 
-      <article className="bg-white rounded-xl shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden group border border-gray-100">
-        {imageUrl && (
-
-          <div className="relative h-32 sm:h-36 overflow-hidden bg-gray-100">
-            <img
-
-              src={imageUrl}
-
-              alt={post.title}
-
-              className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-              onError={(e) => {
-                // Hide image if it fails to load
-                const target = e.target as HTMLImageElement;
-                target.style.display = 'none';
-              }}
-              loading="lazy"
-            />
-
-            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-            {type === 'drafts' && (
-
-              <div className="absolute top-3 left-3 px-2 py-1 bg-amber-500/95 backdrop-blur-sm text-white rounded-full text-xs font-bold shadow-lg">
-                Draft
-
-              </div>
-
-            )}
-
-          </div>
-
-        )}
+      <article className="bg-white rounded-xl shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden group border border-gray-100 flex flex-col">
+        {/* Always show image container with fixed height */}
+        <div className="relative h-32 sm:h-36 overflow-hidden bg-gradient-to-br from-gray-100 via-gray-50 to-gray-100 flex-shrink-0">
+          {imageUrl ? (
+            <>
+              <img
+                src={imageUrl}
+                alt={post.title}
+                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                onError={(e) => {
+                  // Hide image if it fails to load and show placeholder
+                  const target = e.target as HTMLImageElement;
+                  target.style.display = 'none';
+                  const container = target.parentElement;
+                  if (container) {
+                    const placeholder = container.querySelector('.no-image-placeholder');
+                    if (placeholder) {
+                      (placeholder as HTMLElement).style.display = 'flex';
+                    }
+                  }
+                }}
+                loading="lazy"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+            </>
+          ) : (
+            <div className="no-image-placeholder absolute inset-0 flex flex-col items-center justify-center text-gray-400">
+              <svg className="w-12 h-12 sm:w-16 sm:h-16 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              <span className="text-xs sm:text-sm text-gray-500">No Image</span>
+            </div>
+          )}
+          {type === 'drafts' && (
+            <div className="absolute top-3 left-3 px-2 py-1 bg-amber-500/95 backdrop-blur-sm text-white rounded-full text-xs font-bold shadow-lg">
+              Draft
+            </div>
+          )}
+        </div>
 
         
 
-        <div className="p-4 overflow-hidden">
+        <div className="p-4 overflow-hidden flex-1 flex flex-col min-h-[200px]">
           {topics.length > 0 && (
 
             <div className="flex flex-wrap gap-1.5 mb-2">
@@ -2043,7 +2089,7 @@ function ModernBlogForm() {
 
   return (
 
-    <div className="min-h-screen bg-gradient-to-br from-cyan-50 via-white to-teal-50">
+    <div className="min-h-screen bg-gray-50">
       <style jsx global>{`
         /* Post Preview modal content: keep embedded media compact */
         .post-preview-content img,
@@ -2180,91 +2226,133 @@ function ModernBlogForm() {
 
           <>
 
-            {(activeTab === 'feed' || activeTab === 'published' || activeTab === 'trending') && (
+            {(activeTab === 'feed' || activeTab === 'published' || activeTab === 'trending') && (() => {
+              let allPostsToShow = filteredPosts.filter(post => {
+                if (activeTab === 'feed') return true;
+                if (activeTab === 'published') return post.status === 'published';
+                if (activeTab === 'trending') {
+                  // For trending: only show published posts with engagement (likes + comments)
+                  if (post.status !== 'published') return false;
+                  
+                  const likesCount = post.likesCount || post.likes || 0;
+                  const commentsCount = post.commentsCount || (Array.isArray(post.comments) ? post.comments.length : 0) || 0;
+                  const engagement = likesCount + commentsCount;
+                  
+                  // Only show posts with engagement (at least 1 like or comment)
+                  return engagement > 0;
+                }
+                return false;
+              });
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {(() => {
-                  let postsToShow = filteredPosts.filter(post => {
-                    if (activeTab === 'feed') return true;
-                    if (activeTab === 'published') return post.status === 'published';
-                    if (activeTab === 'trending') {
-                      // For trending: only show published posts with engagement (likes + comments)
-                      if (post.status !== 'published') return false;
-                      
-                      const likesCount = post.likesCount || post.likes || 0;
-                      const commentsCount = post.commentsCount || (Array.isArray(post.comments) ? post.comments.length : 0) || 0;
-                      const engagement = likesCount + commentsCount;
-                      
-                      // Only show posts with engagement (at least 1 like or comment)
-                      return engagement > 0;
-                    }
-                    return false;
-                  });
-
-                  // For trending tab, sort by engagement (likes + comments) in descending order
-                  if (activeTab === 'trending') {
-                    postsToShow = postsToShow.sort((a, b) => {
-                      const aLikes = a.likesCount || a.likes || 0;
-                      const aComments = a.commentsCount || (Array.isArray(a.comments) ? a.comments.length : 0) || 0;
-                      const aEngagement = aLikes + aComments;
-                      
-                      const bLikes = b.likesCount || b.likes || 0;
-                      const bComments = b.commentsCount || (Array.isArray(b.comments) ? b.comments.length : 0) || 0;
-                      const bEngagement = bLikes + bComments;
-                      
-                      // Sort by engagement (descending), then by date if engagement is equal
-                      if (bEngagement !== aEngagement) {
-                        return bEngagement - aEngagement;
-                      }
-                      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-                    });
+              // For trending tab, sort by engagement (likes + comments) in descending order
+              if (activeTab === 'trending') {
+                allPostsToShow = allPostsToShow.sort((a, b) => {
+                  const aLikes = a.likesCount || a.likes || 0;
+                  const aComments = a.commentsCount || (Array.isArray(a.comments) ? a.comments.length : 0) || 0;
+                  const aEngagement = aLikes + aComments;
+                  
+                  const bLikes = b.likesCount || b.likes || 0;
+                  const bComments = b.commentsCount || (Array.isArray(b.comments) ? b.comments.length : 0) || 0;
+                  const bEngagement = bLikes + bComments;
+                  
+                  // Sort by engagement (descending), then by date if engagement is equal
+                  if (bEngagement !== aEngagement) {
+                    return bEngagement - aEngagement;
                   }
+                  return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+                });
+              }
 
-                  return postsToShow;
-                })().map((post) => (
+              // Pagination logic
+              const totalPages = Math.ceil(allPostsToShow.length / postsPerPage);
+              const startIndex = (currentPage - 1) * postsPerPage;
+              const endIndex = startIndex + postsPerPage;
+              const paginatedPosts = allPostsToShow.slice(startIndex, endIndex);
 
-                    <PostCard
+              return (
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {paginatedPosts.map((post) => (
+                      <PostCard
+                        key={post._id}
+                        post={post}
+                        type={post.status === 'draft' ? 'drafts' : 'published'}
+                      />
+                    ))}
+                  </div>
 
-                      key={post._id}
+                  {/* Pagination Controls */}
+                  {totalPages > 1 && (
+                    <div className="flex items-center justify-center gap-2 mt-6">
+                      <button
+                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                        disabled={currentPage === 1}
+                        className="p-2 rounded-lg border border-gray-200 bg-white hover:bg-cyan-50 hover:border-cyan-300 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:border-gray-200 transition-all"
+                        title="Previous"
+                      >
+                        <ChevronLeft className="w-4 h-4 text-gray-600" />
+                      </button>
+                      <button
+                        onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                        disabled={currentPage === totalPages}
+                        className="p-2 rounded-lg border border-gray-200 bg-white hover:bg-cyan-50 hover:border-cyan-300 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:border-gray-200 transition-all"
+                        title="Next"
+                      >
+                        <ChevronRight className="w-4 h-4 text-gray-600" />
+                      </button>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
 
-                      post={post}
-
-                      type={post.status === 'draft' ? 'drafts' : 'published'}
-
-                    />
-
-                  ))}
-
-              </div>
-
-            )}
 
 
+            {activeTab === 'drafts' && (() => {
+              const allDraftPosts = filteredPosts.filter(post => {
+                const isDraft = post.status === 'draft' || (!post.status && !publishedPostIds.has(post._id));
+                const notPublished = !publishedPostIds.has(post._id);
+                return isDraft && notPublished;
+              });
 
-            {activeTab === 'drafts' && (
+              // Pagination logic for drafts
+              const totalPages = Math.ceil(allDraftPosts.length / postsPerPage);
+              const startIndex = (currentPage - 1) * postsPerPage;
+              const endIndex = startIndex + postsPerPage;
+              const paginatedDrafts = allDraftPosts.slice(startIndex, endIndex);
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {filteredPosts
+              return (
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {paginatedDrafts.map((post) => (
+                      <PostCard key={post._id} post={post} type="drafts" />
+                    ))}
+                  </div>
 
-                  .filter(post => {
-
-                    const isDraft = post.status === 'draft' || (!post.status && !publishedPostIds.has(post._id));
-
-                    const notPublished = !publishedPostIds.has(post._id);
-
-                    return isDraft && notPublished;
-
-                  })
-
-                  .map((post) => (
-
-                    <PostCard key={post._id} post={post} type="drafts" />
-
-                  ))}
-
-              </div>
-
-            )}
+                  {/* Pagination Controls */}
+                  {totalPages > 1 && (
+                    <div className="flex items-center justify-center gap-2 mt-6">
+                      <button
+                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                        disabled={currentPage === 1}
+                        className="p-2 rounded-lg border border-gray-200 bg-white hover:bg-cyan-50 hover:border-cyan-300 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:border-gray-200 transition-all"
+                        title="Previous"
+                      >
+                        <ChevronLeft className="w-4 h-4 text-gray-600" />
+                      </button>
+                      <button
+                        onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                        disabled={currentPage === totalPages}
+                        className="p-2 rounded-lg border border-gray-200 bg-white hover:bg-cyan-50 hover:border-cyan-300 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:border-gray-200 transition-all"
+                        title="Next"
+                      >
+                        <ChevronRight className="w-4 h-4 text-gray-600" />
+                      </button>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
 
 
 

@@ -31,6 +31,8 @@ interface Doctor {
   experience: number;
   address: string;
   resumeUrl: string;
+  slug?: string;
+  slugLocked?: boolean;
   treatments: Array<{
     mainTreatment: string;
     mainTreatmentSlug: string;
@@ -96,7 +98,7 @@ const Toast = ({ toast, onClose }: { toast: Toast; onClose: () => void }) => {
 
 // Toast Container
 const ToastContainer = ({ toasts, removeToast }: { toasts: Toast[]; removeToast: (id: string) => void }) => (
-  <div className="fixed top-4 right-4 z-50 space-y-2">
+  <div className="fixed top-4 right-4 z-[99999] space-y-2" style={{ zIndex: 99999 }}>
     {toasts.map((toast) => (
       <Toast key={toast.id} toast={toast} onClose={() => removeToast(toast.id)} />
     ))}
@@ -226,9 +228,7 @@ function AdminDoctors() {
         throw err;
       });
       setDoctors(res.data.doctorProfiles || []);
-      if (res.data.doctorProfiles && res.data.doctorProfiles.length > 0) {
-        showToast(`Loaded ${res.data.doctorProfiles.length} doctor(s)`, 'success');
-      }
+      // Removed "Loaded X doctors" popup - too many popups showing
     } catch (error: any) {
       console.error("Failed to fetch doctors", error);
       if (error.response?.status === 403) {
@@ -301,7 +301,14 @@ function AdminDoctors() {
       await axios.post("/api/admin/action", { userId, action }, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      showToast(`Doctor ${action}d successfully`, 'success');
+      
+      // Show only one popup after approval
+      if (action === "approve") {
+        showToast(`Doctor approved successfully`, 'success');
+      } else {
+        showToast(`Doctor ${action}d successfully`, 'success');
+      }
+      
       fetchDoctors();
     } catch (err: any) {
       console.error("Error:", err);
@@ -558,7 +565,7 @@ function AdminDoctors() {
         <div className="p-5 space-y-4">
           <div className="flex items-center justify-between gap-4">
             <div className="min-w-0">
-              <h3 className="text-lg font-semibold text-slate-900 truncate">
+              <h3 className="text-lg font-semibold text-blue-800 truncate">
                 {doctor.user.name}
               </h3>
               <p className="text-xs text-slate-500 mt-1 truncate">
@@ -575,12 +582,14 @@ function AdminDoctors() {
           </div>
           <div className="flex items-center justify-between text-xs text-slate-500">
             <span>{doctor.experience} yrs exp.</span>
+            <div className="flex items-center gap-2">
             <button
               onClick={() => setDetailDoctor(doctor)}
               className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600 hover:border-slate-300 hover:text-slate-900"
             >
               View info
             </button>
+            </div>
           </div>
           <div className="flex flex-wrap gap-2 border-t border-slate-100 pt-4">
             {actions.map((action) => (
@@ -679,35 +688,21 @@ function AdminDoctors() {
         <div className="bg-white/90 border border-slate-200 rounded-2xl shadow-sm p-6 backdrop-blur">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
             <div className="flex items-start gap-4">
-              <div className="rounded-2xl bg-slate-900/90 p-3 text-white shadow-sm">
-                <UserGroupIcon className="w-7 h-7" />
+              <div className="rounded-2xl bg-blue-900 p-3 text-white shadow-sm">
+                <UserGroupIcon className="w-6 h-6" />
               </div>
               <div>
-                <p className="text-xs uppercase tracking-[0.2em] text-slate-500">
-                  Doctor approvals
-                </p>
-                <h1 className="text-xl font-semibold text-slate-900 mt-2">
+               
+                <h1 className="text-xl font-semibold text-blue-800 mt-2">
                   Doctor Management
                 </h1>
-                <p className="text-sm text-slate-600 mt-1">
+                <p className="text-sm text-blue-600 mt-1">
                   Vet, approve, and onboard practitioners to keep your marketplace trustworthy.
                 </p>
               </div>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center w-full md:w-auto">
-              <button
-                onClick={fetchDoctors}
-                className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:border-slate-300 hover:bg-slate-50 transition"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-                Refresh Data
-              </button>
-              <div className="flex items-center gap-2 text-xs font-medium text-slate-500">
-                <span className="inline-flex h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-                Live sync enabled
-              </div>
+             
             </div>
           </div>
         </div>
@@ -784,8 +779,8 @@ function AdminDoctors() {
                 }}
                 className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition ${
                   activeTab === tab.key
-                    ? "border-slate-900 bg-slate-900 text-white shadow-sm"
-                    : "border-slate-200 bg-white text-slate-600 hover:text-slate-900"
+                    ? "border-slate-400 bg-blue-900 text-white shadow-sm"
+                    : "border-slate-200 bg-white text-blue-600 hover:text-blue-900"
                 }`}
               >
                 {tab.label}
@@ -902,7 +897,7 @@ function AdminDoctors() {
 
       {/* Confirmation Modal */}
       {confirmAction.show && typeof window !== 'undefined' && createPortal(
-        <div className="fixed inset-0 backdrop-blur-sm bg-black/20 flex items-center justify-center z-[9999] p-4" style={{ zIndex: 9999 }}>
+        <div className="fixed inset-0 backdrop-blur-sm bg-black/20 flex items-center justify-center z-[99999] p-4" style={{ zIndex: 99999 }}>
           <div className="bg-white rounded-lg shadow-xl p-8 max-w-md w-full">
             <div className="text-center">
               <div className="mx-auto mb-4 w-16 h-16 rounded-full flex items-center justify-center">
@@ -975,7 +970,7 @@ function AdminDoctors() {
 
       {/* Map Modal */}
       {mapVisible && selectedLocation && typeof window !== 'undefined' && createPortal(
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[9999] p-4" style={{ zIndex: 9999 }}>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[99999] p-4" style={{ zIndex: 99999 }}>
           <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
             <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200 flex-shrink-0">
               <h3 className="text-lg sm:text-xl font-semibold text-gray-900 flex items-center gap-2">
@@ -1021,7 +1016,7 @@ function AdminDoctors() {
 
       {/* Treatments Modal */}
       {treatmentsModal.open && treatmentsModal.doctor && typeof window !== 'undefined' && createPortal(
-        <div className="fixed inset-0 backdrop-blur-sm bg-black/20 flex items-center justify-center z-[9999] p-4" style={{ zIndex: 9999 }}>
+        <div className="fixed inset-0 backdrop-blur-sm bg-black/20 flex items-center justify-center z-[99999] p-4" style={{ zIndex: 99999 }}>
           <div className="bg-white rounded-lg shadow-xl p-4 sm:p-6 max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
             <div className="flex items-center justify-between mb-4 flex-shrink-0">
               <h2 className="text-lg sm:text-xl font-semibold text-gray-900 flex items-center gap-2">
@@ -1076,7 +1071,7 @@ function AdminDoctors() {
 
       {/* Password Modal */}
       {passwordModal.show && typeof window !== 'undefined' && createPortal(
-        <div className="fixed inset-0 backdrop-blur-sm bg-black/20 flex items-center justify-center z-[9999] p-4" style={{ zIndex: 9999 }}>
+        <div className="fixed inset-0 backdrop-blur-sm bg-black/20 flex items-center justify-center z-[99999] p-4" style={{ zIndex: 99999 }}>
           <div className="bg-white rounded-lg shadow-xl p-8 max-w-md w-full">
             <div className="text-center mb-6">
               <div className="mx-auto mb-4 w-16 h-16 rounded-full flex items-center justify-center bg-blue-100">
@@ -1216,7 +1211,7 @@ function AdminDoctors() {
 
       {/* Detail Modal */}
       {detailDoctor && typeof window !== 'undefined' && createPortal(
-        <div className="fixed inset-0 backdrop-blur-sm bg-black/30 flex items-center justify-center z-[9999] p-4" style={{ zIndex: 9999 }}>
+        <div className="fixed inset-0 backdrop-blur-sm bg-black/30 flex items-center justify-center z-[99999] p-4" style={{ zIndex: 99999 }}>
           <div className="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col">
             {/* Header */}
             <div className="flex items-center justify-between p-4 sm:p-6 border-b border-slate-200 bg-slate-50 flex-shrink-0">

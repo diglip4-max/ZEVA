@@ -78,6 +78,35 @@ export default async function handler(req, res) {
       return res.status(404).json({ success: false, message: "Patient not found" });
     }
 
+    // Check access for agents/doctorStaff
+    if (user.role === 'agent' || user.role === 'doctorStaff') {
+         // If patient is not created by the user, check if they are in the same clinic
+         if (patient.userId && patient.userId.toString() !== user._id.toString()) {
+             if (user.clinicId) {
+                const Clinic = (await import("../../../../models/Clinic")).default;
+                const clinic = await Clinic.findById(user.clinicId);
+                if (clinic) {
+                    const User = (await import("../../../../models/Users")).default;
+                    const clinicUsers = await User.find({
+                        $or: [
+                            { _id: clinic.owner },
+                            { clinicId: user.clinicId }
+                        ]
+                    }).select("_id");
+                    
+                    const allowedIds = clinicUsers.map(u => u._id.toString());
+                    if (!allowedIds.includes(patient.userId.toString())) {
+                         return res.status(403).json({ success: false, message: "Access denied" });
+                    }
+                } else {
+                     return res.status(403).json({ success: false, message: "Access denied" });
+                }
+             } else {
+                 return res.status(403).json({ success: false, message: "Access denied" });
+             }
+         }
+    }
+
     // Calculate total advance amount for this EMR number across all records
     const allPatientsWithSameEMR = await PatientRegistration.find({ emrNumber });
     const totalAdvanceAmount = allPatientsWithSameEMR.reduce((total, p) => {

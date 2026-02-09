@@ -34,6 +34,10 @@ export default function Home() {
     const [ratingFilter, setRatingFilter] = useState(0);
     const [manualPlace, setManualPlace] = useState("");
     const [loading, setLoading] = useState(false);
+    const [clinicNames, setClinicNames] = useState([]);
+    const [clinicNamesLoading, setClinicNamesLoading] = useState(true);
+    const [specialties, setSpecialties] = useState([]);
+    const [specialtiesLoading, setSpecialtiesLoading] = useState(true);
 
     // Auth Modal states
     const [showAuthModal, setShowAuthModal] = useState(false);
@@ -43,9 +47,6 @@ export default function Home() {
     const router = useRouter();
 
     const [clinicReviews, setClinicReviews] = useState({});
-    
-    // State to track current image index for each clinic carousel
-    const [clinicImageIndices, setClinicImageIndices] = useState({});
 
     // Helper function to convert text to slug
     const textToSlug = (text) => {
@@ -71,7 +72,7 @@ export default function Home() {
     // Converts absolute Windows file paths to relative URLs
     const normalizeImagePath = (imagePath) => {
         if (!imagePath) return '';
-        
+       
         // Handle malformed URLs that have localhost concatenated with file path
         // e.g., "http://localhost:3000C:/Users/..." -> extract the file path part
         if (imagePath.includes('localhost') && /[A-Za-z]:/.test(imagePath)) {
@@ -81,18 +82,18 @@ export default function Home() {
                 imagePath = driveMatch[1];
             }
         }
-        
+       
         // If it's already a relative path starting with /, clean up and return
         if (imagePath.startsWith('/')) {
             // Remove double slashes
             return imagePath.replace(/\/+/g, '/');
         }
-        
+       
         // If it's already a full URL (http:// or https://), return as is
         if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
             return imagePath;
         }
-        
+       
         // If it's a Windows absolute path (C:/, D:/, etc.), extract the relative part
         if (/^[A-Za-z]:/.test(imagePath)) {
             // Find the uploads directory and extract everything from there
@@ -114,37 +115,42 @@ export default function Home() {
                 }
             }
         }
-        
+       
         // If it doesn't start with /, add it
         if (!imagePath.startsWith('/')) {
             // Remove double slashes before adding leading slash
             const cleaned = imagePath.replace(/\/+/g, '/');
             return '/' + cleaned.replace(/^\//, '');
         }
-        
+       
         // Remove double slashes
         return imagePath.replace(/\/+/g, '/');
     };
 
+    // Store treatment slug when treatment is selected
+    const [selectedTreatmentSlug, setSelectedTreatmentSlug] = useState(null);
+
     // Update URL with search parameters - ALWAYS use values from input fields
-    const updateURL = (treatment, location) => {
+    const updateURL = (treatment, location, treatmentSlug = null) => {
         // Set flag to prevent useEffect from interfering
         isUpdatingURL.current = true;
-        
+       
         const params = new URLSearchParams();
         if (treatment) {
-            params.set('treatment', textToSlug(treatment));
+            // Use treatment slug from database if available, otherwise generate from name
+            const slugToUse = treatmentSlug || selectedTreatmentSlug || textToSlug(treatment);
+            params.set('treatment', slugToUse);
         }
         if (location) {
             // Always use the actual location value from input - no special handling
             params.set('location', textToSlug(location));
         }
-        const newUrl = params.toString() 
+        const newUrl = params.toString()
             ? `${router.pathname}?${params.toString()}`
             : router.pathname;
-        
+       
         router.replace(newUrl, undefined, { shallow: true });
-        
+       
         // Reset flag after a short delay to allow URL to update
         setTimeout(() => {
             isUpdatingURL.current = false;
@@ -167,6 +173,7 @@ export default function Home() {
     const loadingToastId = useRef(null);
     const hasSearchedFromURL = useRef(false);
     const isUpdatingURL = useRef(false); // Flag to prevent useEffect from interfering during URL updates
+    const [photoIndexByClinic, setPhotoIndexByClinic] = useState({});
 
     // Add the clearFilters function
     const clearFilters = () => {
@@ -284,6 +291,48 @@ export default function Home() {
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, [suggestions]);
 
+    // Fetch clinic specialties on component mount
+    useEffect(() => {
+        const fetchSpecialties = async () => {
+            try {
+                setSpecialtiesLoading(true);
+                const res = await axios.get("/api/clinic/specialties");
+                if (res.data && res.data.success && res.data.specialties && Array.isArray(res.data.specialties)) {
+                    setSpecialties(res.data.specialties);
+                } else {
+                    setSpecialties([]);
+                }
+            } catch (error) {
+                console.error("Error fetching clinic specialties:", error);
+                setSpecialties([]);
+            } finally {
+                setSpecialtiesLoading(false);
+            }
+        };
+        fetchSpecialties();
+    }, []);
+
+    // Fetch clinic names on component mount
+    useEffect(() => {
+        const fetchClinicNames = async () => {
+            try {
+                setClinicNamesLoading(true);
+                const res = await axios.get("/api/clinic/list");
+                if (res.data.success && res.data.clinics) {
+                    // Extract just the names for quick access
+                    const names = res.data.clinics.map(clinic => clinic.name).filter(Boolean);
+                    setClinicNames(names);
+                }
+            } catch (error) {
+                console.error("Error fetching clinic names:", error);
+                setClinicNames([]);
+            } finally {
+                setClinicNamesLoading(false);
+            }
+        };
+        fetchClinicNames();
+    }, []);
+
     // Load persisted search state from localStorage on component mount
     useEffect(() => {
         if (typeof window !== "undefined") {
@@ -336,6 +385,13 @@ export default function Home() {
         loadPersistedState();
     }, []);
 
+    // Recalculate distances when user location becomes available and clinics are already loaded
+    useEffect(() => {
+        if (userCurrentLocation && userCurrentLocation.lat && userCurrentLocation.lng && clinics.length > 0) {
+            recalculateDistancesForClinics(userCurrentLocation.lat, userCurrentLocation.lng);
+        }
+    }, [userCurrentLocation]); // Recalculate when user location changes
+
     // Get user's current location on component mount (for distance calculation)
     useEffect(() => {
         if (typeof window !== "undefined" && navigator.geolocation && !userCurrentLocation) {
@@ -361,20 +417,20 @@ export default function Home() {
     // Separate useEffect for URL query parameters to avoid conflicts with localStorage
     useEffect(() => {
         if (!router.isReady || hasSearchedFromURL.current || isUpdatingURL.current) return; // Wait for router to be ready and prevent duplicate searches, and don't interfere during URL updates
-        
+       
         const { treatment, location } = router.query;
         if (treatment || location) {
             const treatmentText = treatment ? slugToText(String(treatment)) : '';
             const locationText = location ? slugToText(String(location)) : '';
-            
-            // Only proceed if we have at least a location and haven't searched yet
-            // Also check if the current form values don't match URL params (to avoid overwriting manual input)
-            const currentTreatmentMatches = !treatmentText || (query.trim().toLowerCase() === treatmentText.toLowerCase() || selectedService.toLowerCase() === treatmentText.toLowerCase());
-            const currentLocationMatches = !locationText || manualPlace.trim().toLowerCase() === locationText.toLowerCase();
-            
-            if (locationText && locationText !== 'near-me' && !hasSearched && !currentLocationMatches) {
+            const rawLocation = location ? String(location).toLowerCase() : '';
+           
+            // On fresh mount (when hasSearchedFromURL is false), we want to trigger search from URL
+            // even if we already loaded from localStorage, to ensure fresh results as requested.
+            // This ensures that when a user returns to the page (e.g. via back button), the results are refreshed.
+           
+            if (locationText && rawLocation !== 'near-me') {
                 hasSearchedFromURL.current = true;
-                
+               
                 // Set the form values
                 if (treatmentText) {
                     setQuery(treatmentText);
@@ -386,19 +442,35 @@ export default function Home() {
                 setTimeout(() => {
                     searchByPlaceFromURL(locationText, treatmentText || null);
                 }, 300);
-            } else if (locationText === 'near-me' && treatmentText && !hasSearched && !currentTreatmentMatches) {
+            } else if (rawLocation === 'near-me') {
                 hasSearchedFromURL.current = true;
-                
+               
                 // Handle near-me case
-                setQuery(treatmentText);
-                setSelectedService(treatmentText);
+                if (treatmentText) {
+                    setQuery(treatmentText);
+                    setSelectedService(treatmentText);
+                }
                 // Trigger locateMe after a delay
                 setTimeout(() => {
                     locateMe();
                 }, 300);
+            } else if (treatmentText && !locationText) {
+                hasSearchedFromURL.current = true;
+                setQuery(treatmentText);
+                setSelectedService(treatmentText);
+                setLoading(true);
+                setClinics([]);
+                axios
+                    .get("/api/clinic/searchByTreatment", { params: { treatment: treatmentText } })
+                    .then((res) => {
+                        const list = Array.isArray(res.data?.clinics) ? res.data.clinics : [];
+                        setClinics(list);
+                        setHasSearched(true);
+                    })
+                    .finally(() => setLoading(false));
             }
         }
-    }, [router.isReady, router.query.treatment, router.query.location, hasSearched]);
+    }, [router.isReady, router.query.treatment, router.query.location]);
 
     // Save search state to localStorage whenever it changes
     useEffect(() => {
@@ -425,6 +497,11 @@ export default function Home() {
         currentPage,
         ratingFilter,
     ]);
+
+    // Reset currentPage when filters or results change
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [clinics, ratingFilter, priceRange, sortBy, quickFilters]);
 
     // Clear persisted state when user performs a new search
     const clearPersistedState = () => {
@@ -503,14 +580,35 @@ export default function Home() {
         return `${distance}km`;
     };
 
+    // Helper function to recalculate distances for existing clinics when user location is available
+    const recalculateDistancesForClinics = (userLat, userLng) => {
+        if (!userLat || !userLng) return;
+        
+        setClinics(prevClinics => {
+            return prevClinics.map(clinic => {
+                if (
+                    clinic.location &&
+                    clinic.location.coordinates &&
+                    clinic.location.coordinates.length === 2
+                ) {
+                    const clinicLng = clinic.location.coordinates[0];
+                    const clinicLat = clinic.location.coordinates[1];
+                    const distance = calculateDistance(userLat, userLng, clinicLat, clinicLng);
+                    return {
+                        ...clinic,
+                        distance: distance,
+                    };
+                }
+                return clinic;
+            });
+        });
+    };
+
     const fetchSuggestions = async (q) => {
         if (!q.trim()) return setSuggestions([]);
 
         try {
-            const [treatRes, clinicRes] = await Promise.all([
-                axios.get("/api/clinics/search?q=" + encodeURIComponent(q)),
-                axios.get("/api/clinics/searchByClinic?q=" + encodeURIComponent(q)),
-            ]);
+            const treatRes = await axios.get("/api/clinics/search?q=" + encodeURIComponent(q));
 
             const treatmentSuggestions = (treatRes.data.treatments || []).map(
                 (t) => ({
@@ -519,14 +617,7 @@ export default function Home() {
                 })
             );
 
-            const clinicSuggestions = (clinicRes.data.clinics || []).map(
-                (c) => ({
-                    type: "clinic",
-                    value: c.name,
-                })
-            );
-
-            setSuggestions([...treatmentSuggestions, ...clinicSuggestions]);
+            setSuggestions(treatmentSuggestions);
         } catch (err) {
             // console.error("Error fetching suggestions:", err);
             setSuggestions([]);
@@ -553,7 +644,7 @@ export default function Home() {
         }
         // Clear URL parameters
         updateURL("", "");
-        toast("Search cleared", { icon: "🧹" });
+        toast("Search cleared", { icon: "" });
     };
 
     const validateSearchInputs = () => {
@@ -582,26 +673,26 @@ export default function Home() {
         if (!validateSearchInputs()) return;
         // Reset URL search flag so manual searches work
         hasSearchedFromURL.current = false;
-        
+       
         // ALWAYS get values directly from input fields
         const treatmentValue = query.trim();
         const locationValue = manualPlace.trim();
-        
+       
         // If query has value but selectedService doesn't, set selectedService to query
         const serviceToUse = treatmentValue && !selectedService ? treatmentValue : selectedService;
         if (treatmentValue && !selectedService) {
             setSelectedService(treatmentValue);
         }
-        
+       
         // Make sure we have a valid location
         if (!locationValue) {
             toast.error("Please enter a valid location");
             return;
         }
-        
+       
         // Update URL immediately with values from input fields
-        updateURL(serviceToUse || treatmentValue, locationValue);
-        
+        updateURL(serviceToUse || treatmentValue, locationValue, selectedTreatmentSlug);
+       
         // Then proceed with search
         searchByPlace(serviceToUse);
     };
@@ -638,6 +729,12 @@ export default function Home() {
     }, [priceRange, ratingFilter, selectedTimes, quickFilters]);
 
     const fetchClinics = async (lat, lng, serviceOverride = null) => {
+        console.log("=== FETCH CLINICS CALLED ===");
+        console.log("Location:", { lat, lng });
+        console.log("Service override:", serviceOverride);
+        console.log("Selected service:", selectedService);
+        console.log("Query:", query);
+        
         setLoading(true);
         if (loadingToastId.current) {
             toast.dismiss(loadingToastId.current);
@@ -646,10 +743,30 @@ export default function Home() {
         try {
             // Use serviceOverride if provided, otherwise use selectedService, otherwise use query
             const serviceToSearch = serviceOverride || selectedService || query.trim();
+            console.log("Service to search:", serviceToSearch || "(none)");
+            
             const res = await axios.get("/api/clinics/nearby", {
                 params: { lat, lng, service: serviceToSearch },
             });
             
+            console.log("API Response:", {
+                success: res.data.success,
+                clinicsCount: res.data.clinics?.length || 0,
+                hasClinics: !!res.data.clinics && Array.isArray(res.data.clinics) && res.data.clinics.length > 0
+            });
+           
+            // Check if clinics array exists and is not empty
+            if (!res.data || !res.data.clinics || !Array.isArray(res.data.clinics) || res.data.clinics.length === 0) {
+                console.log("❌ NO CLINICS IN RESPONSE!");
+                console.log("Response data:", res.data);
+                setClinics([]);
+                setHasSearched(true);
+                toast("No clinics found for this search", { icon: "🔍" });
+                return;
+            }
+            
+            console.log("✅ Found", res.data.clinics.length, "clinics in response");
+           
             // Use user's current location for distance calculation if available, otherwise use searched location
             const distanceLat = userCurrentLocation?.lat || lat;
             const distanceLng = userCurrentLocation?.lng || lng;
@@ -657,7 +774,7 @@ export default function Home() {
             const clinicsWithDistance = res.data.clinics.map((clinic) => {
                 // Normalize photos array if it exists
                 const normalizedPhotos = clinic.photos?.map(photo => normalizeImagePath(photo)) || clinic.photos;
-                
+               
                 if (
                     clinic.location &&
                     clinic.location.coordinates &&
@@ -673,10 +790,10 @@ export default function Home() {
                         distance: distance,
                     };
                 } else {
-                    return { 
-                        ...clinic, 
+                    return {
+                        ...clinic,
                         photos: normalizedPhotos,
-                        distance: null 
+                        distance: null
                     };
                 }
             });
@@ -699,6 +816,26 @@ export default function Home() {
             setClinics(clinicsWithDistance);
             setHasSearched(true);
 
+            // Auto-adjust price range slider based on clinic prices
+            if (clinicsWithDistance.length > 0) {
+                const prices = clinicsWithDistance
+                    .map(c => parsePriceValue(c.pricing))
+                    .filter(p => p > 0);
+               
+                if (prices.length > 0) {
+                    const maxPrice = Math.max(...prices);
+                    const minPrice = Math.min(...prices);
+                   
+                    // Set max to at least the highest clinic price, rounded up to nearest 1000
+                    const newMax = Math.max(40000, Math.ceil(maxPrice / 1000) * 1000);
+                   
+                    // Only update if current max is too low
+                    if (priceRange[1] < maxPrice) {
+                        setPriceRange([priceRange[0], newMax]);
+                    }
+                }
+            }
+
             // Scroll to results section when clinics are loaded
             setTimeout(() => {
                 if (resultsRef.current && clinicsWithDistance.length > 0) {
@@ -714,8 +851,11 @@ export default function Home() {
             } else {
                 toast.success(`Found ${clinicsWithDistance.length} clinics`);
             }
-        } catch {
+        } catch (error) {
+            console.error("Error fetching clinics:", error);
             toast.error("Unable to fetch clinics right now. Please try again.");
+            setClinics([]);
+            setHasSearched(true);
         } finally {
             if (loadingToastId.current) {
                 toast.dismiss(loadingToastId.current);
@@ -728,40 +868,60 @@ export default function Home() {
     const locateMe = () => {
         // Reset URL search flag so manual searches work
         hasSearchedFromURL.current = false;
-        
+       
         setLoading(true);
         clearPersistedState(); // Clear old state when starting new search
+        
         if (typeof window === "undefined" || !navigator.geolocation) {
             toast.error("Geolocation is not supported in this browser");
             setLoading(false);
             return;
         }
-        
+       
         // Get values from input fields
         const treatmentValue = query.trim();
         const locationValue = manualPlace.trim();
         const serviceToUse = selectedService || treatmentValue;
-        
+       
         // Update URL with values from input fields (if location is empty, use "near-me")
         const locationForURL = locationValue || 'near-me';
-        updateURL(serviceToUse || treatmentValue, locationForURL);
+        updateURL(serviceToUse || treatmentValue, locationForURL, selectedTreatmentSlug);
+       
+        // Request location permission from browser (will show browser's native permission dialog)
+        const locatingToast = toast.loading("Getting your location...");
         
-        const locatingToast = toast.loading("Locating you...");
         navigator.geolocation.getCurrentPosition(
             (pos) => {
                 const { latitude, longitude } = pos.coords;
                 setCoords({ lat: latitude, lng: longitude });
                 setUserCurrentLocation({ lat: latitude, lng: longitude }); // Store user's current location
                 setHasSearched(true);
-                
+               
+                // If clinics are already loaded, recalculate distances with user's current location
+                if (clinics.length > 0) {
+                    recalculateDistancesForClinics(latitude, longitude);
+                }
+               
                 fetchClinics(latitude, longitude);
-                toast.success("Location detected");
                 toast.dismiss(locatingToast);
             },
-            () => {
+            (error) => {
                 toast.dismiss(locatingToast);
-                toast.error("Geolocation permission denied");
+                let errorMessage = "Location access denied";
+                if (error.code === error.PERMISSION_DENIED) {
+                    errorMessage = "Location permission denied. Please enable location access in your browser settings to see distances.";
+                } else if (error.code === error.POSITION_UNAVAILABLE) {
+                    errorMessage = "Unable to detect your location. Please try again.";
+                } else if (error.code === error.TIMEOUT) {
+                    errorMessage = "Location request timed out. Please try again.";
+                }
+                toast.error(errorMessage);
                 setLoading(false);
+            },
+            {
+                enableHighAccuracy: true,
+                timeout: 10000,
+                maximumAge: 0 // Don't use cached location
             }
         );
     };
@@ -777,7 +937,7 @@ export default function Home() {
 
         setLoading(true);
         clearPersistedState(); // Clear old state when starting new search
-        
+       
         // Try to get user's current location in the background (for distance calculation)
         if (typeof window !== "undefined" && navigator.geolocation && !userCurrentLocation) {
             navigator.geolocation.getCurrentPosition(
@@ -795,7 +955,7 @@ export default function Home() {
                 }
             );
         }
-        
+       
         const geocodeToastId = toast.loading("Validating location...");
         try {
             const res = await axios.get("/api/clinics/geocode", {
@@ -806,14 +966,14 @@ export default function Home() {
             setFormErrors((prev) => ({ ...prev, location: "" }));
             toast.success(`Location pinned: ${placeQuery}`);
             setHasSearched(true);
-            
+           
             // Get values from input fields for URL update
             const treatmentValue = query.trim();
             const serviceToUse = serviceOverride || selectedService || treatmentValue;
-            
+           
             // Update URL with values from input fields - always use actual input values
-            updateURL(serviceToUse || treatmentValue, placeQuery);
-            
+            updateURL(serviceToUse || treatmentValue, placeQuery, selectedTreatmentSlug);
+           
             fetchClinics(res.data.lat, res.data.lng, serviceOverride);
         } catch {
             toast.error("We couldn't find that place. Try a nearby landmark.");
@@ -838,7 +998,7 @@ export default function Home() {
             setCoords({ lat: res.data.lat, lng: res.data.lng });
             setFormErrors((prev) => ({ ...prev, location: "" }));
             setHasSearched(true);
-            
+           
             // Use the service from URL if provided
             const serviceToUse = serviceText || selectedService || query.trim();
             fetchClinics(res.data.lat, res.data.lng, serviceText);
@@ -938,6 +1098,9 @@ export default function Home() {
     }, [clinics]);
 
     const filteredClinics = getFilteredClinics();
+    const pageSize = 6;
+    const totalPages = Math.ceil(filteredClinics.length / pageSize);
+    const paginatedClinics = filteredClinics.slice((currentPage - 1) * pageSize, currentPage * pageSize);
     const hasResults = clinics.length > 0;
 
     return (
@@ -999,6 +1162,7 @@ export default function Home() {
                     onSuccess={handleAuthSuccess}
                     initialMode={authModalMode}
                 />
+
                 <Toaster
                 position="top-right"
                 toastOptions={{
@@ -1006,9 +1170,9 @@ export default function Home() {
                     style: { fontSize: "0.9rem" },
                 }}
             />
-            
+           
             {/* Professional Header Section */}
-            <div className="w-full bg-gradient-to-br from-white via-[#f8fafc] to-[#f0f7ff] border-b border-[#e2e8f0] shadow-sm sticky top-0 z-50">
+            <div className="w-full bg-gradient-to-br from-white via-[#f8fafc] to-[#f0f7ff] border-b border-[#e2e8f0] shadow-sm sticky top-0 z-60">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
                     {/* Professional Header */}
                     <div className="text-center mb-6">
@@ -1017,7 +1181,7 @@ export default function Home() {
                                 <HeartPulse className="w-6 h-6 text-white" />
                             </div>
                             <div className="text-left">
-                                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-[#1e293b] tracking-tight">
+                                <h1 className="text-2xl sm:text-3xl lg:text-4xl mt-7 font-bold text-[#1e293b] tracking-tight">
                                     ZEVA Healthcare Directory
                                 </h1>
                                 <p className="text-xs sm:text-sm text-[#64748b] mt-0.5">
@@ -1033,7 +1197,102 @@ export default function Home() {
                     </div>
 
                     {/* Professional Search Interface */}
-                    <div className="w-full max-w-6xl mx-auto">
+                    <div className="w-full max-w-6xl mx-auto" style={{ position: 'relative', zIndex: 100 }}>
+                        {/* Quick Filter Chips - Dynamic Specialties */}
+                        {specialtiesLoading ? (
+                            <div className="mb-3 flex flex-wrap gap-2">
+                                <div className="px-3 py-1.5 text-[10px] text-gray-500">Loading specialties...</div>
+                            </div>
+                        ) : specialties.length > 0 ? (
+                            <div className="mb-3 flex flex-wrap gap-2">
+                                {specialties.map((specialty) => (
+                                    <button
+                                        key={specialty}
+                                        onClick={async () => {
+                                            // If clicking the same specialty again, don't change location
+                                            const isSameSpecialty = selectedService === specialty;
+                                            
+                                            // If clicking a different specialty, clear previous selection
+                                            if (!isSameSpecialty && selectedService) {
+                                                setClinics([]);
+                                                setManualPlace("");
+                                                clearPersistedState();
+                                            }
+                                            
+                                            setQuery(specialty);
+                                            setSelectedService(specialty);
+                                            
+                                            // Automatically search for clinics with this specialty from Clinic model
+                                            try {
+                                                setLoading(true);
+                                                
+                                                // Only clear results if selecting a different specialty
+                                                if (!isSameSpecialty) {
+                                                    setClinics([]);
+                                                    clearPersistedState();
+                                                }
+                                                
+                                                // Search clinics by treatment directly from Clinic (no location required)
+                                                const res = await axios.get("/api/clinic/searchByTreatment", {
+                                                    params: { treatment: specialty },
+                                                });
+
+                                                if (res.data.success && res.data.clinics) {
+                                                    // Calculate distances if user location is available
+                                                    const clinicsWithDistance = res.data.clinics.map((clinic) => {
+                                                        if (clinic.location?.coordinates?.length === 2 && userCurrentLocation) {
+                                                            const clinicLng = clinic.location.coordinates[0];
+                                                            const clinicLat = clinic.location.coordinates[1];
+                                                            const distance = calculateDistance(
+                                                                userCurrentLocation.lat,
+                                                                userCurrentLocation.lng,
+                                                                clinicLat,
+                                                                clinicLng
+                                                            );
+                                                            return { ...clinic, distance };
+                                                        }
+                                                        return { ...clinic, distance: null };
+                                                    });
+
+                                                    // Sort by distance if available, otherwise keep original order
+                                                    clinicsWithDistance.sort((a, b) => {
+                                                        if (a.distance === null && b.distance === null) return 0;
+                                                        if (a.distance === null) return 1;
+                                                        if (b.distance === null) return -1;
+                                                        return (a.distance || 0) - (b.distance || 0);
+                                                    });
+
+                                                    setClinics(clinicsWithDistance);
+                                                    setHasSearched(true);
+
+                                                    // Do not auto-fill or clear location based on results
+
+                                                    // Update URL using only manualPlace if provided
+                                                    updateURL(specialty, manualPlace.trim());
+                                                } else {
+                                                    // No clinics found
+                                                    setClinics([]);
+                                                    setHasSearched(true);
+                                                    updateURL(specialty, 'all-clinics');
+                                                }
+                                            } catch (error) {
+                                                console.error("Error searching clinics:", error);
+                                                setClinics([]);
+                                            } finally {
+                                                setLoading(false);
+                                            }
+                                        }}
+                                        className={`px-3 py-1.5 text-[10px] font-medium rounded-full border transition-all shadow-sm hover:shadow ${
+                                            selectedService === specialty
+                                                ? 'bg-gradient-to-r from-blue-100 to-purple-100 border-blue-400 text-blue-800'
+                                                : 'bg-gradient-to-r from-blue-50 to-purple-50 border-blue-200 text-blue-700 hover:from-blue-100 hover:to-purple-100 hover:border-blue-300'
+                                        }`}
+                                    >
+                                        {specialty}
+                                    </button>
+                                ))}
+                            </div>
+                        ) : null}
                         <div className={`rounded-2xl p-4 sm:p-5 shadow-lg border border-[#e2e8f0] bg-white backdrop-blur-sm ${hasResults ? "mb-3" : "mb-6"}`}>
                             {/* Desktop Layout */}
                             <div className="hidden md:flex gap-3 items-center">
@@ -1044,7 +1303,7 @@ export default function Home() {
                                     </div>
                                     <input
                                         type="text"
-                                        placeholder="Search treatments, specialists, or clinic names..."
+                                        placeholder="Search treatments, specialists"
                                         value={query}
                                         onChange={(e) => {
                                             setQuery(e.target.value);
@@ -1065,7 +1324,7 @@ export default function Home() {
                                     {/* Suggestions Dropdown */}
                                     {suggestions.length > 0 && (
                                         <div
-                                            className="absolute top-full left-0 right-0 z-50 mt-1 rounded-lg shadow-lg max-h-64 overflow-y-auto border border-[#e2e8f0] bg-white"
+                                            className="absolute top-full left-0 right-0 z-50 mt-1 rounded-lg shadow-lg max-h-64 overflow-y-auto border border-[#e2e8f0] bg-white custom-scrollbar"
                                             ref={suggestionsDropdownRef}
                                         >
                                             <div className="p-1">
@@ -1073,25 +1332,72 @@ export default function Home() {
                                                     <div
                                                         key={i}
                                                         className="flex items-center px-2 py-1.5 hover:bg-[#f0f7ff] cursor-pointer transition-colors border-b border-[#f1f5f9] last:border-b-0 rounded group"
-                                                        onClick={(e) => {
+                                                        onClick={async (e) => {
                                                             e.preventDefault();
                                                             e.stopPropagation();
-                                                            const serviceValue = s.value;
-                                                            setSelectedService(serviceValue);
-                                                            setQuery(serviceValue);
-                                                            setSuggestions([]);
+                                                            
+                                                            // Use the full value (subcategory or treatment) as displayed
+                                                            const treatmentValue = s.value;
+                                                            
+                                                            // Auto-fill the search field and close dropdown immediately
+                                                            setQuery(treatmentValue);
+                                                            setSelectedService(treatmentValue);
+                                                            setSuggestions([]); // Close dropdown immediately
                                                             searchInputRef.current?.blur();
-                                                            // Auto-search if location is already set
-                                                            if (manualPlace.trim() || coords) {
-                                                                setTimeout(() => {
-                                                                    if (coords) {
-                                                                        // Use the service value directly
-                                                                        fetchClinics(coords.lat, coords.lng, serviceValue);
-                                                                    } else if (manualPlace.trim()) {
-                                                                        // Trigger search which will use the updated selectedService
-                                                                        handleSearch();
-                                                                    }
-                                                                }, 100);
+                                                            
+                                                            clearPersistedState();
+                                                            
+                                                            // Search clinics by treatment directly from Clinic (no location required)
+                                                            try {
+                                                                setLoading(true);
+                                                                setClinics([]);
+                                                                
+                                                                const res = await axios.get("/api/clinic/searchByTreatment", {
+                                                                    params: { treatment: treatmentValue },
+                                                                });
+
+                                                                if (res.data.success && res.data.clinics) {
+                                                                    // Calculate distances if user location is available
+                                                                    const clinicsWithDistance = res.data.clinics.map((clinic) => {
+                                                                        if (clinic.location?.coordinates?.length === 2 && userCurrentLocation) {
+                                                                            const clinicLng = clinic.location.coordinates[0];
+                                                                            const clinicLat = clinic.location.coordinates[1];
+                                                                            const distance = calculateDistance(
+                                                                                userCurrentLocation.lat,
+                                                                                userCurrentLocation.lng,
+                                                                                clinicLat,
+                                                                                clinicLng
+                                                                            );
+                                                                            return { ...clinic, distance };
+                                                                        }
+                                                                        return { ...clinic, distance: null };
+                                                                    });
+
+                                                                    // Sort by distance if available
+                                                                    clinicsWithDistance.sort((a, b) => {
+                                                                        if (a.distance === null && b.distance === null) return 0;
+                                                                        if (a.distance === null) return 1;
+                                                                        if (b.distance === null) return -1;
+                                                                        return (a.distance || 0) - (b.distance || 0);
+                                                                    });
+
+                                                                    setClinics(clinicsWithDistance);
+                                                                    setHasSearched(true);
+
+                                                                    // Do not auto-fill or clear location based on results
+
+                                                                    // Update URL using only manualPlace if provided
+                                                                    updateURL(treatmentValue, manualPlace.trim());
+                                                                } else {
+                                                                    setClinics([]);
+                                                                    setHasSearched(true);
+                                                                    updateURL(treatmentValue, 'all-clinics');
+                                                                }
+                                                            } catch (error) {
+                                                                console.error("Error searching clinics:", error);
+                                                                setClinics([]);
+                                                            } finally {
+                                                                setLoading(false);
                                                             }
                                                         }}
                                                         onMouseDown={(e) => {
@@ -1119,7 +1425,7 @@ export default function Home() {
                                         </div>
                                     )}
                                     {formErrors.service && (
-                                        <p className="mt-1 text-xs text-[#dc2626]">
+                                        <p className="mt-1 text-xs text-[#0284c7]">
                                             {formErrors.service}
                                         </p>
                                     )}
@@ -1204,7 +1510,7 @@ export default function Home() {
                                         {/* Mobile Suggestions */}
                                         {suggestions.length > 0 && (
                                             <div
-                                                className="absolute top-full left-0 right-0 z-50 mt-1 rounded-lg shadow-lg max-h-64 overflow-y-auto border border-[#e2e8f0] bg-white"
+                                                className="absolute top-full left-0 right-0 z-50 mt-1 rounded-lg shadow-lg max-h-64 overflow-y-auto border border-[#e2e8f0] bg-white custom-scrollbar"
                                                 ref={suggestionsDropdownRef}
                                             >
                                                 <div className="p-1">
@@ -1212,25 +1518,88 @@ export default function Home() {
                                                         <div
                                                             key={i}
                                                             className="flex items-center px-2 py-1.5 hover:bg-[#f0f7ff] cursor-pointer transition-colors border-b border-[#f1f5f9] last:border-b-0 rounded group"
-                                                            onClick={(e) => {
+                                                            onClick={async (e) => {
                                                                 e.preventDefault();
                                                                 e.stopPropagation();
-                                                                const serviceValue = s.value;
-                                                                setSelectedService(serviceValue);
-                                                                setQuery(serviceValue);
-                                                                setSuggestions([]);
+                                                                
+                                                                // Use the full value (subcategory or treatment) as displayed
+                                                                const treatmentValue = s.value;
+                                                                
+                                                                // Auto-fill the search field and close dropdown immediately
+                                                                setQuery(treatmentValue);
+                                                                setSelectedService(treatmentValue);
+                                                                setSuggestions([]); // Close dropdown immediately
                                                                 searchInputRef.current?.blur();
-                                                                // Auto-search if location is already set
-                                                                if (manualPlace.trim() || coords) {
-                                                                    setTimeout(() => {
-                                                                        if (coords) {
-                                                                            // Use the service value directly
-                                                                            fetchClinics(coords.lat, coords.lng, serviceValue);
-                                                                        } else if (manualPlace.trim()) {
-                                                                            // Trigger search which will use the updated selectedService
-                                                                            handleSearch();
+                                                                
+                                                                clearPersistedState();
+                                                                
+                                                                // Search clinics by treatment directly from Clinic (no location required)
+                                                                try {
+                                                                    setLoading(true);
+                                                                    setClinics([]);
+                                                                    
+                                                                    const res = await axios.get("/api/clinic/searchByTreatment", {
+                                                                        params: { treatment: treatmentValue },
+                                                                    });
+
+                                                                    if (res.data.success && res.data.clinics) {
+                                                                        // Calculate distances if user location is available
+                                                                        const clinicsWithDistance = res.data.clinics.map((clinic) => {
+                                                                            if (clinic.location?.coordinates?.length === 2 && userCurrentLocation) {
+                                                                                const clinicLng = clinic.location.coordinates[0];
+                                                                                const clinicLat = clinic.location.coordinates[1];
+                                                                                const distance = calculateDistance(
+                                                                                    userCurrentLocation.lat,
+                                                                                    userCurrentLocation.lng,
+                                                                                    clinicLat,
+                                                                                    clinicLng
+                                                                                );
+                                                                                return { ...clinic, distance };
+                                                                            }
+                                                                            return { ...clinic, distance: null };
+                                                                        });
+
+                                                                        // Sort by distance if available
+                                                                        clinicsWithDistance.sort((a, b) => {
+                                                                            if (a.distance === null && b.distance === null) return 0;
+                                                                            if (a.distance === null) return 1;
+                                                                            if (b.distance === null) return -1;
+                                                                            return (a.distance || 0) - (b.distance || 0);
+                                                                        });
+
+                                                                        setClinics(clinicsWithDistance);
+                                                                        setHasSearched(true);
+
+                                                                        // Auto-fill location field ONLY if exactly 1 clinic found
+                                                                        // If more than 1 clinic, don't auto-fill location
+                                                                        if (clinicsWithDistance.length === 1 && !manualPlace.trim()) {
+                                                                            const clinicWithAddress = clinicsWithDistance.find(
+                                                                                (clinic) => clinic.address && clinic.address.trim()
+                                                                            );
+                                                                            if (clinicWithAddress?.address) {
+                                                                                setManualPlace(clinicWithAddress.address.trim());
+                                                                            }
+                                                                        } else if (clinicsWithDistance.length > 1) {
+                                                                            // More than 1 clinic - clear location field
+                                                                            setManualPlace("");
                                                                         }
-                                                                    }, 100);
+
+                                                                        // Update URL with location from clinic's address or current manualPlace
+                                                                        const locationForURL = manualPlace.trim() || 
+                                                                            (clinicsWithDistance.length > 0 && clinicsWithDistance[0]?.address 
+                                                                                ? clinicsWithDistance[0].address.trim() 
+                                                                                : 'all-clinics');
+                                                                        updateURL(treatmentValue, locationForURL);
+                                                                    } else {
+                                                                        setClinics([]);
+                                                                        setHasSearched(true);
+                                                                        updateURL(treatmentValue, 'all-clinics');
+                                                                    }
+                                                                } catch (error) {
+                                                                    console.error("Error searching clinics:", error);
+                                                                    setClinics([]);
+                                                                } finally {
+                                                                    setLoading(false);
                                                                 }
                                                             }}
                                                             onMouseDown={(e) => {
@@ -1260,7 +1629,7 @@ export default function Home() {
                                             </div>
                                         )}
                                         {formErrors.service && (
-                                            <p className="mt-1 text-xs text-[#dc2626]">
+                                            <p className="mt-1 text-xs text-[#0284c7]">
                                                 {formErrors.service}
                                             </p>
                                         )}
@@ -1356,7 +1725,7 @@ export default function Home() {
                                                 <input
                                                     type="range"
                                                     min="0"
-                                                    max="10000"
+                                                    max={Math.max(10000, Math.ceil(priceRange[1] / 1000) * 1000)}
                                                     value={priceRange[0]}
                                                     onChange={(e) => {
                                                         const newMin = parseInt(e.target.value);
@@ -1366,7 +1735,7 @@ export default function Home() {
                                                     }}
                                                     className="w-full h-1 bg-[#e2e8f0] rounded appearance-none cursor-pointer"
                                                     style={{
-                                                        background: `linear-gradient(to right, #0284c7 0%, #0284c7 ${(priceRange[0] / 10000) * 100}%, #e2e8f0 ${(priceRange[0] / 10000) * 100}%, #e2e8f0 100%)`
+                                                        background: `linear-gradient(to right, #0284c7 0%, #0284c7 ${(priceRange[0] / Math.max(10000, Math.ceil(priceRange[1] / 1000) * 1000)) * 100}%, #e2e8f0 ${(priceRange[0] / Math.max(10000, Math.ceil(priceRange[1] / 1000) * 1000)) * 100}%, #e2e8f0 100%)`
                                                     }}
                                                 />
                                             </div>
@@ -1379,7 +1748,7 @@ export default function Home() {
                                                 <input
                                                     type="range"
                                                     min="0"
-                                                    max="10000"
+                                                    max={Math.max(10000, Math.ceil(priceRange[1] / 1000) * 1000)}
                                                     value={priceRange[1]}
                                                     onChange={(e) => {
                                                         const newMax = parseInt(e.target.value);
@@ -1389,7 +1758,7 @@ export default function Home() {
                                                     }}
                                                     className="w-full h-1 bg-[#e2e8f0] rounded appearance-none cursor-pointer"
                                                     style={{
-                                                        background: `linear-gradient(to right, #0284c7 0%, #0284c7 ${(priceRange[1] / 10000) * 100}%, #e2e8f0 ${(priceRange[1] / 10000) * 100}%, #e2e8f0 100%)`
+                                                        background: `linear-gradient(to right, #0284c7 0%, #0284c7 ${(priceRange[1] / Math.max(10000, Math.ceil(priceRange[1] / 1000) * 1000)) * 100}%, #e2e8f0 ${(priceRange[1] / Math.max(10000, Math.ceil(priceRange[1] / 1000) * 1000)) * 100}%, #e2e8f0 100%)`
                                                     }}
                                                 />
                                             </div>
@@ -1398,7 +1767,7 @@ export default function Home() {
                                         {/* Price Labels */}
                                         <div className="flex justify-between text-xs text-[#64748b] mt-1">
                                             <span>₹0</span>
-                                            <span>₹10k</span>
+                                            <span>₹{Math.max(10000, Math.ceil(priceRange[1] / 1000) * 1000).toLocaleString()}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -1514,54 +1883,6 @@ export default function Home() {
                                 )}
                             </div>
 
-                            <div className="mb-3 space-y-2">
-                                <div className="flex flex-wrap items-center gap-1.5">
-                                    <span className="text-xs text-[#64748b] font-medium">
-                                        Filters:
-                                    </span>
-                                    {Object.entries(quickFilterMeta).map(([key, meta]) => {
-                                        const IconComponent = meta.icon;
-                                        const isActive = quickFilters[key];
-                                        return (
-                                            <button
-                                                key={key}
-                                                type="button"
-                                                onClick={() => toggleQuickFilter(key)}
-                                                className={`flex items-center px-2 py-1 rounded-full border text-xs font-medium transition-all ${
-                                                    isActive
-                                                        ? "bg-[#f0f7ff] border-[#0284c7] text-[#0284c7]"
-                                                        : "bg-white border-[#e2e8f0] text-[#475569] hover:border-[#cbd5e1]"
-                                                }`}
-                                                title={meta.description}
-                                            >
-                                                <IconComponent
-                                                    className={`w-3 h-3 mr-1 ${isActive ? "text-[#0284c7]" : "text-[#94a3b8]"}`}
-                                                />
-                                                {meta.label}
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                                {activeFilters.length > 0 && (
-                                    <div className="flex flex-wrap items-center gap-1.5">
-                                        {activeFilters.map((chip) => (
-                                            <span
-                                                key={chip}
-                                                className="px-2 py-0.5 rounded-full bg-[#f8fafc] border border-[#e2e8f0] text-xs text-[#475569]"
-                                            >
-                                                {chip}
-                                            </span>
-                                        ))}
-                                        <button
-                                            type="button"
-                                            onClick={clearFilters}
-                                            className="text-xs font-medium text-[#0284c7] hover:text-[#0369a1]"
-                                        >
-                                            Reset
-                                        </button>
-                                    </div>
-                                )}
-                            </div>
 
                             {loading ? (
                                 <div className="flex items-center justify-center py-8">
@@ -1581,7 +1902,7 @@ export default function Home() {
                                             Try adjusting your search criteria or filters
                                         </p>
                                     </div>
-                                    
+                                   
                                     {/* Professional ZEVA Clinics Information Section */}
                                     <div className="bg-gradient-to-br from-[#f0f7ff] via-[#e0f2fe] to-[#bae6fd] rounded-xl p-6 sm:p-8 border border-[#cbd5e1] shadow-sm">
                                         <div className="flex items-center mb-4">
@@ -1597,7 +1918,7 @@ export default function Home() {
                                                 </p>
                                             </div>
                                         </div>
-                                        
+                                       
                                         <div className="grid md:grid-cols-2 gap-4 mb-6">
                                             <div className="bg-white/80 backdrop-blur-sm rounded-lg p-4 border border-white/50">
                                                 <div className="flex items-start mb-2">
@@ -1610,7 +1931,7 @@ export default function Home() {
                                                     </div>
                                                 </div>
                                             </div>
-                                            
+                                           
                                             <div className="bg-white/80 backdrop-blur-sm rounded-lg p-4 border border-white/50">
                                                 <div className="flex items-start mb-2">
                                                     <Star className="w-5 h-5 text-[#0284c7] mr-2 flex-shrink-0 mt-0.5" />
@@ -1622,7 +1943,7 @@ export default function Home() {
                                                     </div>
                                                 </div>
                                             </div>
-                                            
+                                           
                                             <div className="bg-white/80 backdrop-blur-sm rounded-lg p-4 border border-white/50">
                                                 <div className="flex items-start mb-2">
                                                     <BadgeIndianRupee className="w-5 h-5 text-[#0284c7] mr-2 flex-shrink-0 mt-0.5" />
@@ -1634,7 +1955,7 @@ export default function Home() {
                                                     </div>
                                                 </div>
                                             </div>
-                                            
+                                           
                                             <div className="bg-white/80 backdrop-blur-sm rounded-lg p-4 border border-white/50">
                                                 <div className="flex items-start mb-2">
                                                     <MapPin className="w-5 h-5 text-[#0284c7] mr-2 flex-shrink-0 mt-0.5" />
@@ -1647,7 +1968,7 @@ export default function Home() {
                                                 </div>
                                             </div>
                                         </div>
-                                        
+                                       
                                         <div className="bg-white/90 backdrop-blur-sm rounded-lg p-5 border border-white/50">
                                             <h3 className="text-base font-bold text-[#1e293b] mb-3 text-center">Why Choose ZEVA Healthcare?</h3>
                                             <div className="grid sm:grid-cols-2 gap-3 text-xs text-[#475569]">
@@ -1669,7 +1990,7 @@ export default function Home() {
                                                 </div>
                                             </div>
                                         </div>
-                                        
+                                       
                                         <div className="mt-5 pt-5 border-t border-[#cbd5e1]">
                                             <p className="text-sm text-[#475569] text-center leading-relaxed">
                                                 <strong className="text-[#1e293b]">Search Tip:</strong> Try searching by location (city, area), treatment type (Panchakarma, Abhyanga), or clinic name to discover the best Ayurveda healthcare providers in your area.
@@ -1678,204 +1999,191 @@ export default function Home() {
                                     </div>
                                 </div>
                             ) : (
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 relative z-10">
-                                    {filteredClinics.map((clinic, index) => {
+                                <>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 relative z-10">
+                                        {paginatedClinics.map((clinic, index) => {
                                         const hasRating = clinicReviews[clinic._id]?.totalReviews > 0;
                                         const reviewsLoaded = clinicReviews[clinic._id] !== undefined;
 
                                         return (
                                             <div
                                                 key={index}
-                                                className="bg-white rounded-xl shadow-md border-2 border-[#e2e8f0] overflow-hidden hover:shadow-lg hover:border-[#0284c7] transition-all duration-300 group"
+                                                className="bg-white rounded-2xl border overflow-hidden hover:shadow-xl transition h-full flex flex-col group"
                                             >
-                                                {/* Clinic Image Carousel */}
-                                                <div className="relative h-24 w-full bg-gradient-to-br from-[#e0f2fe] to-[#bae6fd] overflow-hidden">
+                                                {/* Clinic Image */}
+                                                <div className="relative bg-gray-100 overflow-hidden" style={{ aspectRatio: '4/3' }}>
                                                     {clinic.photos && clinic.photos.length > 0 ? (
-                                                        <>
-                                                            {/* Image Carousel */}
-                                                            <div className="relative w-full h-full">
-                                                                {(() => {
-                                                                    const currentIndex = clinicImageIndices[clinic._id] || 0;
-                                                                    const photos = clinic.photos.filter(photo => photo); // Filter out null/undefined
-                                                                    const hasMultiplePhotos = photos.length > 1;
-                                                                    const currentPhoto = photos[currentIndex];
-                                                                    
-                                                                    return (
-                                                                        <>
-                                                        <Image
-                                                                                key={`${clinic._id}-${currentIndex}`}
-                                                                                src={normalizeImagePath(currentPhoto)}
-                                                                                alt={`${clinic.name || "Clinic Image"} - Photo ${currentIndex + 1}`}
-                                                            fill
-                                                            className="object-cover object-center group-hover:scale-105 transition-transform duration-300"
-                                                                                unoptimized
-                                                                            />
-                                                                            
-                                                                            {/* Navigation Arrows - Only show if multiple photos */}
-                                                                            {hasMultiplePhotos && (
-                                                                                <>
-                                                                                    {/* Left Arrow */}
-                                                                                    <button
-                                                                                        onClick={(e) => {
-                                                                                            e.stopPropagation();
-                                                                                            const currentIdx = clinicImageIndices[clinic._id] || 0;
-                                                                                            const newIndex = currentIdx > 0 ? currentIdx - 1 : photos.length - 1;
-                                                                                            setClinicImageIndices(prev => ({
-                                                                                                ...prev,
-                                                                                                [clinic._id]: newIndex
-                                                                                            }));
-                                                                                        }}
-                                                                                        className="absolute left-1 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-1 rounded-full transition-all duration-200 z-10 opacity-0 group-hover:opacity-100"
-                                                                                        aria-label="Previous image"
-                                                                                    >
-                                                                                        <ChevronLeft className="w-3 h-3" />
-                                                                                    </button>
-                                                                                    
-                                                                                    {/* Right Arrow */}
-                                                                                    <button
-                                                                                        onClick={(e) => {
-                                                                                            e.stopPropagation();
-                                                                                            const currentIdx = clinicImageIndices[clinic._id] || 0;
-                                                                                            const newIndex = currentIdx < photos.length - 1 ? currentIdx + 1 : 0;
-                                                                                            setClinicImageIndices(prev => ({
-                                                                                                ...prev,
-                                                                                                [clinic._id]: newIndex
-                                                                                            }));
-                                                                                        }}
-                                                                                        className="absolute right-1 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-1 rounded-full transition-all duration-200 z-10 opacity-0 group-hover:opacity-100"
-                                                                                        aria-label="Next image"
-                                                                                    >
-                                                                                        <ChevronRight className="w-3 h-3" />
-                                                                                    </button>
-                                                                                    
-                                                                                    {/* Image Indicators/Dots */}
-                                                                                    <div className="absolute bottom-1 left-1/2 -translate-x-1/2 flex gap-1 z-10">
-                                                                                        {photos.map((_, idx) => (
-                                                                                            <button
-                                                                                                key={idx}
-                                                                                                onClick={(e) => {
-                                                                                                    e.stopPropagation();
-                                                                                                    setClinicImageIndices(prev => ({
-                                                                                                        ...prev,
-                                                                                                        [clinic._id]: idx
-                                                                                                    }));
-                                                                                                }}
-                                                                                                className={`w-1.5 h-1.5 rounded-full transition-all duration-200 ${
-                                                                                                    (clinicImageIndices[clinic._id] || 0) === idx
-                                                                                                        ? 'bg-white w-3'
-                                                                                                        : 'bg-white/50 hover:bg-white/75'
-                                                                                                }`}
-                                                                                                aria-label={`Go to image ${idx + 1}`}
-                                                                                            />
-                                                                                        ))}
-                                                                                    </div>
-                                                                                    
-                                                                                    {/* Image Counter */}
-                                                                                    <div className="absolute top-1 left-1 bg-black/50 text-white px-1.5 py-0.5 rounded text-xs font-medium z-10">
-                                                                                        {currentIndex + 1}/{photos.length}
-                                                                                    </div>
-                                                                                </>
-                                                                            )}
-                                                                        </>
-                                                                    );
-                                                                })()}
-                                                            </div>
-                                                        </>
+                                                        <div className="relative w-full h-full">
+                                                            {(() => {
+                                                                const photos = (clinic.photos || []).filter(photo => photo);
+                                                                const currentIndex = photoIndexByClinic[clinic._id] !== undefined ? photoIndexByClinic[clinic._id] : (photos.length > 0 ? photos.length - 1 : 0);
+                                                                const currentPhoto = photos.length > 0 ? photos[currentIndex] : null;
+                                                                return currentPhoto ? (
+                                                                    <img
+                                                                        src={normalizeImagePath(currentPhoto)}
+                                                                        alt={clinic.name || "Clinic Image"}
+                                                                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                                                                        style={{
+                                                                            objectFit: 'cover',
+                                                                            width: '100%',
+                                                                            height: '100%',
+                                                                            display: 'block'
+                                                                        }}
+                                                                        onError={(e) => {
+                                                                            e.currentTarget.src = "/image1.png";
+                                                                        }}
+                                                                    />
+                                                                ) : (
+                                                                    <div className="w-full h-full bg-gray-100 flex items-center justify-center">
+                                                                        <div className="text-center">
+                                                                            <div className="w-12 h-12 bg-teal-800 rounded-full flex items-center justify-center mx-auto mb-2">
+                                                                                <HeartPulse className="w-6 h-6 text-white" />
+                                                                            </div>
+                                                                            <span className="text-sm text-teal-800 font-medium">
+                                                                                {clinic.name}
+                                                                            </span>
+                                                                        </div>
+                                                                    </div>
+                                                                );
+                                                            })()}
+                                                        </div>
                                                     ) : (
-                                                        <div className="w-full h-full bg-gradient-to-br from-[#e0f2fe] to-[#bae6fd] flex items-center justify-center">
+                                                        <div className="w-full h-full bg-gray-100 flex items-center justify-center">
                                                             <div className="text-center">
-                                                                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-[#0284c7] rounded-full flex items-center justify-center mx-auto mb-1">
-                                                                    <HeartPulse className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                                                                <div className="w-12 h-12 bg-teal-800 rounded-full flex items-center justify-center mx-auto mb-2">
+                                                                    <HeartPulse className="w-6 h-6 text-white" />
                                                                 </div>
-                                                                <span className="text-xs text-[#0284c7] font-medium">
-                                                                    {clinic.name?.split(" ")[0]}
+                                                                <span className="text-sm text-teal-800 font-medium">
+                                                                    {clinic.name}
                                                                 </span>
                                                             </div>
                                                         </div>
                                                     )}
+                                                    
+                                                    {/* Badge Overlay */}
+                                                    {/* <span className="absolute top-3 left-3 bg-amber-300 px-3 py-1 rounded-full text-xs font-semibold">
+                                                        {clinicReviews[clinic._id]?.averageRating >= 4.8 ? "Top Rated" : clinic.isDubaiPrioritized ? "Premium" : "Most Booked"}
+                                                    </span> */}
 
-                                                    {/* Overlay badges */}
-                                                    <div className="absolute top-1.5 right-1.5 z-20">
-                                                        {clinic.verified && (
-                                                            <div className="bg-[#059669] text-white px-1 py-0.5 rounded text-xs font-medium flex items-center">
-                                                                <Shield className="w-2 h-2 mr-0.5" />
-                                                                ✓
-                                                            </div>
-                                                        )}
-                                                    </div>
+                                                    {/* Verified Overlay */}
+                                                    <span className="absolute top-3 right-3 w-8 h-8 bg-teal-800 text-white rounded-full flex items-center justify-center z-20">
+                                                        <Shield className="w-4 h-4" />
+                                                    </span>
 
+                                                    {clinic.photos && clinic.photos.length > 1 && (
+                                                        <>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    const photos = (clinic.photos || []).filter(p => p);
+                                                                    if (photos.length > 1) {
+                                                                        const currentIndex = photoIndexByClinic[clinic._id] !== undefined ? photoIndexByClinic[clinic._id] : (photos.length - 1);
+                                                                        const prevIndex = (currentIndex - 1 + photos.length) % photos.length;
+                                                                        setPhotoIndexByClinic(prev => ({ ...prev, [clinic._id]: prevIndex }));
+                                                                    }
+                                                                }}
+                                                                className="absolute left-3 top-1/2 -translate-y-1/2 bg-white/80 backdrop-blur-sm text-[#1e293b] hover:bg-white text-xs rounded-full p-2 shadow-md z-20"
+                                                                aria-label="Previous photo"
+                                                                title="Previous photo"
+                                                            >
+                                                                <ChevronLeft className="w-4 h-4" />
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    const photos = (clinic.photos || []).filter(p => p);
+                                                                    if (photos.length > 1) {
+                                                                        const currentIndex = photoIndexByClinic[clinic._id] !== undefined ? photoIndexByClinic[clinic._id] : (photos.length - 1);
+                                                                        const nextIndex = (currentIndex + 1) % photos.length;
+                                                                        setPhotoIndexByClinic(prev => ({ ...prev, [clinic._id]: nextIndex }));
+                                                                    }
+                                                                }}
+                                                                className="absolute right-3 top-1/2 -translate-y-1/2 bg-white/80 backdrop-blur-sm text-[#1e293b] hover:bg-white text-xs rounded-full p-2 shadow-md z-20"
+                                                                aria-label="Next photo"
+                                                                title="Next photo"
+                                                            >
+                                                                <ChevronRight className="w-4 h-4" />
+                                                            </button>
+                                                        </>
+                                                    )}
+
+                                                    {/* Distance Overlay */}
                                                     {clinic.distance && (
-                                                        <div className="absolute bottom-1.5 left-1.5 bg-[#0284c7] text-white px-1 py-0.5 rounded text-xs font-medium flex items-center z-20">
-                                                            <Navigation className="w-2 h-2 mr-0.5" />
+                                                        <div className="absolute bottom-3 left-3 bg-teal-800 text-white px-2 py-1 rounded-md text-[10px] font-bold flex items-center z-20">
+                                                            <Navigation className="w-2.5 h-2.5 mr-1" />
                                                             {formatDistance(clinic.distance)}
                                                         </div>
                                                     )}
                                                 </div>
 
                                                 {/* Clinic Info */}
-                                                <div className="p-3">
-                                                    {/* Rating */}
-                                                    <div className="flex items-center gap-1.5 mb-2">
-                                                        {hasRating ? (
-                                                            <>
-                                                                <div className="flex">
-                                                                    {renderStars(clinicReviews[clinic._id].averageRating)}
-                                                                </div>
-                                                                <span className="text-xs font-semibold text-[#1e293b]">
-                                                                    {clinicReviews[clinic._id].averageRating.toFixed(1)}
-                                                                </span>
-                                                                <span className="text-xs text-[#64748b]">
-                                                                    ({clinicReviews[clinic._id].totalReviews} reviews)
-                                                                </span>
-                                                            </>
-                                                        ) : reviewsLoaded ? (
-                                                            <span className="text-xs text-[#64748b]">No reviews yet</span>
-                                                        ) : null}
+                                                <div className="p-4 flex-1 flex flex-col">
+                                                    <div className="flex justify-between gap-2">
+                                                        <div className="font-semibold text-gray-900 line-clamp-1 group-hover:text-teal-800 transition-colors">
+                                                            {clinic.name}
+                                                        </div>
+                                                        <div className="text-amber-500 text-sm font-semibold whitespace-nowrap">
+                                                            ★ {reviewsLoaded ? (clinicReviews[clinic._id]?.averageRating || 0).toFixed(1) : "0.0"}
+                                                        </div>
                                                     </div>
 
-                                                    {/* Name and Address */}
-                                                    <h3 className="text-sm font-bold text-[#1e293b] leading-tight mb-1.5 line-clamp-1 group-hover:text-[#0284c7] transition-colors">
-                                                        {clinic.name}
-                                                    </h3>
-                                                    <p className="text-[#64748b] text-xs line-clamp-2 mb-2 leading-relaxed">
-                                                        {clinic.address}
-                                                    </p>
+                                                    <div className="mt-2 flex flex-wrap gap-2">
+                                                        {clinic.services?.slice(0, 2).map((s) => (
+                                                            <span
+                                                                key={s}
+                                                                className="text-[10px] px-2 py-1 bg-teal-50 text-teal-800 rounded-full font-medium"
+                                                            >
+                                                                {s}
+                                                            </span>
+                                                        )) || (
+                                                            <>
+                                                                <span className="text-[10px] px-2 py-1 bg-teal-50 text-teal-800 rounded-full font-medium">Healthcare</span>
+                                                                <span className="text-[10px] px-2 py-1 bg-teal-50 text-teal-800 rounded-full font-medium">Wellness</span>
+                                                            </>
+                                                        )}
+                                                    </div>
+
+                                                    <div className="mt-3 flex items-center gap-2 text-sm text-gray-600">
+                                                        <MapPin className="w-4 h-4 text-teal-800 shrink-0" />
+                                                        <span className="truncate">{clinic.address}</span>
+                                                    </div>
 
                                                     {/* Fee and Actions */}
-                                                    <div className="flex justify-between items-center gap-2 pt-2 border-t border-[#f1f5f9]">
-                                                        {clinic.pricing && (
-                                                            <div>
-                                                                <p className="text-xs text-[#64748b] mb-0.5">Consultation</p>
-                                                                <p className="text-sm font-bold text-[#0284c7]">
-                                                                    AED {clinic.pricing}
-                                                                </p>
+                                                    <div className="mt-auto pt-4 flex justify-between items-center">
+                                                        <div>
+                                                            <div className="text-[10px] text-gray-500 font-medium">Starting from</div>
+                                                            <div className="font-bold text-blue-700 text-sm">
+                                                                {clinic.pricing ? `AED ${clinic.pricing}` : "AED —"}
                                                             </div>
-                                                        )}
+                                                        </div>
+                                                        
                                                         <div className="flex gap-2 items-center">
                                                             {(() => {
-                                                                // Use address if available (more accurate), otherwise fall back to coordinates
                                                                 const mapsHref = clinic.address
                                                                     ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(clinic.address)}`
                                                                     : clinic.location?.coordinates?.length === 2
                                                                     ? `https://www.google.com/maps/dir/?api=1&destination=${clinic.location.coordinates[1]},${clinic.location.coordinates[0]}`
                                                                     : null;
-                                                                
+                                                               
                                                                 return mapsHref ? (
                                                                     <a
                                                                         href={mapsHref}
-                                                                    target="_blank"
-                                                                    rel="noopener noreferrer"
-                                                                    onClick={(e) => e.stopPropagation()}
-                                                                    className="flex items-center justify-center px-2.5 py-1.5 bg-[#0284c7] text-white rounded-lg hover:bg-[#0369a1] transition-all text-xs shadow-sm hover:shadow"
-                                                                    title="Get Directions"
-                                                                >
-                                                                    <Navigation className="w-3.5 h-3.5" />
-                                                                </a>
+                                                                        target="_blank"
+                                                                        rel="noopener noreferrer"
+                                                                        onClick={(e) => e.stopPropagation()}
+                                                                        className="w-8 h-8 flex items-center justify-center bg-teal-800 text-white rounded-full hover:bg-teal-900 transition-all shadow-sm"
+                                                                        title="Get Directions"
+                                                                    >
+                                                                        <MapPin className="w-4 h-4" />
+                                                                    </a>
                                                                 ) : null;
                                                             })()}
+                                                            
                                                             <a
-                                                                href={`/clinics/${textToSlug(clinic.name)}?c=${clinic._id}`}
-                                                                className="px-2.5 py-1 text-xs text-white bg-gradient-to-r from-[#0284c7] to-[#0ea5e9] hover:from-[#0369a1] hover:to-[#0284c7] rounded-lg font-medium transition-all shadow-sm hover:shadow whitespace-nowrap"
+                                                                href={clinic.slug && clinic.slugLocked
+                                                                    ? `/clinics/${clinic.slug}`
+                                                                    : `/clinics/${clinic._id}`}
+                                                                className="bg-amber-300 px-4 py-2 rounded-xl text-xs font-bold text-gray-900 hover:bg-amber-400 transition-all shadow-sm"
                                                             >
                                                                 View Details
                                                             </a>
@@ -1886,9 +2194,49 @@ export default function Home() {
                                         );
                                     })}
                                 </div>
-                            )}
-                        </div>
+
+                                {/* Pagination Controls - Arrow Icons Only */}
+                                {totalPages > 1 && (
+                                    <div className="flex items-center justify-center gap-2 mt-6 pb-6">
+                                        <button
+                                            onClick={() => {
+                                                setCurrentPage(prev => Math.max(1, prev - 1));
+                                                if (resultsRef.current) {
+                                                    resultsRef.current.scrollIntoView({ 
+                                                        behavior: 'smooth', 
+                                                        block: 'start' 
+                                                    });
+                                                }
+                                            }}
+                                            disabled={currentPage === 1}
+                                            className="p-2 rounded-full border border-gray-200 bg-white hover:bg-cyan-50 hover:border-cyan-300 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:border-gray-200 transition-all"
+                                            title="Previous"
+                                        >
+                                            <ChevronLeft className="w-4 h-4 text-gray-600" />
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                setCurrentPage(prev => Math.min(totalPages, prev + 1));
+                                                if (resultsRef.current) {
+                                                    resultsRef.current.scrollIntoView({ 
+                                                        behavior: 'smooth', 
+                                                        block: 'start' 
+                                                    });
+                                                }
+                                            }}
+                                            disabled={currentPage === totalPages}
+                                            className="p-2 rounded-full border border-gray-200 bg-white hover:bg-cyan-50 hover:border-cyan-300 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:border-gray-200 transition-all"
+                                            title="Next"
+                                        >
+                                            <ChevronRight className="w-4 h-4 text-gray-600" />
+                                            <ChevronLeft className="w-4 h-4 text-gray-600" />
+                                        </button>
+                                    </div>
+                                )}
+                            </>
+                        )}
                     </div>
+                </div>
                 ) : hasSearched ? (
                     loading ? (
                         <div className="flex items-center justify-center py-8">
@@ -1906,7 +2254,7 @@ export default function Home() {
                                     Try adjusting your filters or search with different criteria
                                 </p>
                             </div>
-                            
+                           
                             {/* Professional ZEVA Clinics Information Section */}
                             <div className="bg-gradient-to-br from-[#f0f7ff] via-[#e0f2fe] to-[#bae6fd] rounded-xl p-6 sm:p-8 border border-[#cbd5e1] shadow-sm mb-4">
                                 <div className="flex items-center mb-4">
@@ -1922,7 +2270,7 @@ export default function Home() {
                                         </p>
                                     </div>
                                 </div>
-                                        
+                                       
                                 <div className="grid md:grid-cols-2 gap-4 mb-6">
                                     <div className="bg-white/80 backdrop-blur-sm rounded-lg p-4 border border-white/50">
                                         <div className="flex items-start mb-2">
@@ -1935,7 +2283,7 @@ export default function Home() {
                                             </div>
                                         </div>
                                     </div>
-                                    
+                                   
                                     <div className="bg-white/80 backdrop-blur-sm rounded-lg p-4 border border-white/50">
                                         <div className="flex items-start mb-2">
                                             <Star className="w-5 h-5 text-[#0284c7] mr-2 flex-shrink-0 mt-0.5" />
@@ -1947,7 +2295,7 @@ export default function Home() {
                                             </div>
                                         </div>
                                     </div>
-                                    
+                                   
                                     <div className="bg-white/80 backdrop-blur-sm rounded-lg p-4 border border-white/50">
                                         <div className="flex items-start mb-2">
                                             <BadgeIndianRupee className="w-5 h-5 text-[#0284c7] mr-2 flex-shrink-0 mt-0.5" />
@@ -1959,7 +2307,7 @@ export default function Home() {
                                             </div>
                                         </div>
                                     </div>
-                                    
+                                   
                                     <div className="bg-white/80 backdrop-blur-sm rounded-lg p-4 border border-white/50">
                                         <div className="flex items-start mb-2">
                                             <MapPin className="w-5 h-5 text-[#0284c7] mr-2 flex-shrink-0 mt-0.5" />
@@ -1972,7 +2320,7 @@ export default function Home() {
                                         </div>
                                     </div>
                                 </div>
-                                        
+                                       
                                 <div className="bg-white/90 backdrop-blur-sm rounded-lg p-5 border border-white/50">
                                     <h3 className="text-base font-bold text-[#1e293b] mb-3 text-center">Why Choose ZEVA Healthcare?</h3>
                                     <div className="grid sm:grid-cols-2 gap-3 text-xs text-[#475569]">
@@ -1994,14 +2342,14 @@ export default function Home() {
                                         </div>
                                     </div>
                                 </div>
-                                        
+                                       
                                 <div className="mt-5 pt-5 border-t border-[#cbd5e1]">
                                     <p className="text-sm text-[#475569] text-center leading-relaxed">
                                         <strong className="text-[#1e293b]">Search Tip:</strong> Try searching by location (city, area), treatment type (Panchakarma, Abhyanga), or clinic name to discover the best Ayurveda healthcare providers in your area.
                                     </p>
                                 </div>
                             </div>
-                            
+                           
                             <div className="flex items-center justify-center gap-3">
                                 <button
                                     type="button"
@@ -2034,7 +2382,7 @@ export default function Home() {
 
                             </p>
                         </div>
-                        
+                       
                         {/* Professional ZEVA Information Section */}
                         <div className="bg-gradient-to-br from-[#f0f7ff] via-[#e0f2fe] to-[#bae6fd] rounded-xl p-6 sm:p-8 border border-[#cbd5e1] shadow-sm mb-6">
                             <div className="flex flex-col sm:flex-row items-center sm:items-start mb-6">
@@ -2051,7 +2399,7 @@ export default function Home() {
                                     </p>
                                 </div>
                             </div>
-                            
+                           
                             <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                                 <div className="bg-white/90 backdrop-blur-sm rounded-lg p-4 border border-white/50 shadow-sm">
                                     <Shield className="w-6 h-6 text-[#0284c7] mb-2" />
@@ -2060,7 +2408,7 @@ export default function Home() {
                                         All clinics are verified with proper certifications and credentials
                                     </p>
                                 </div>
-                                
+                               
                                 <div className="bg-white/90 backdrop-blur-sm rounded-lg p-4 border border-white/50 shadow-sm">
                                     <Star className="w-6 h-6 text-[#0284c7] mb-2" />
                                     <h3 className="text-sm font-bold text-[#1e293b] mb-1">Patient Reviews</h3>
@@ -2068,7 +2416,7 @@ export default function Home() {
                                         Real reviews and ratings from verified patients
                                     </p>
                                 </div>
-                                
+                               
                                 <div className="bg-white/90 backdrop-blur-sm rounded-lg p-4 border border-white/50 shadow-sm">
                                     <BadgeIndianRupee className="w-6 h-6 text-[#0284c7] mb-2" />
                                     <h3 className="text-sm font-bold text-[#1e293b] mb-1">Transparent Pricing</h3>
@@ -2076,7 +2424,7 @@ export default function Home() {
                                         Clear consultation fees with no hidden charges
                                     </p>
                                 </div>
-                                
+                               
                                 <div className="bg-white/90 backdrop-blur-sm rounded-lg p-4 border border-white/50 shadow-sm">
                                     <MapPin className="w-6 h-6 text-[#0284c7] mb-2" />
                                     <h3 className="text-sm font-bold text-[#1e293b] mb-1">Easy Search</h3>
@@ -2085,7 +2433,7 @@ export default function Home() {
                                     </p>
                                 </div>
                             </div>
-                            
+                           
                             <div className="bg-white/90 backdrop-blur-sm rounded-lg p-5 border border-white/50">
                                 <h3 className="text-lg font-bold text-[#1e293b] mb-4 text-center">Why Users Trust ZEVA:
 </h3>
@@ -2117,14 +2465,14 @@ export default function Home() {
                                     </div>
                                 </div>
                             </div>
-                            
+                           
                             <div className="mt-6 pt-6 border-t border-[#cbd5e1]">
                                 <p className="text-sm text-[#475569] text-center leading-relaxed max-w-3xl mx-auto">
                                     <strong className="text-[#1e293b]">Get Started:</strong> Enter your location or use the "Near Me" feature to find verified Ayurveda clinics. You can search by treatment type (Panchakarma, Abhyanga, Shirodhara), clinic name, or browse by location to discover the best healthcare providers near you.
                                 </p>
                             </div>
                         </div>
-                        
+                       
                         <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
                             <button
                                 type="button"
@@ -2134,19 +2482,13 @@ export default function Home() {
                                 <Navigation className="w-4 h-4 mr-2" />
                                 Use Near Me
                             </button>
-                            <button
-                                type="button"
-                                onClick={() => searchInputRef.current?.focus()}
-                                className="px-6 py-3 rounded-xl border-2 border-[#e2e8f0] text-[#475569] text-sm font-semibold hover:bg-[#f8fafc] hover:border-[#cbd5e1] transition-all"
-                            >
-                                Start Searching
-                            </button>
+                           
                         </div>
                     </div>
                 )}
                 </div>
             </div>
-            
+           
             {isVisible && (
                 <button
                     onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}

@@ -448,6 +448,8 @@ export default async function handler(req, res) {
         const name = getMappedValue(row, columnMapping, "name")?.trim() || "";
         const phone =
           getMappedValue(row, columnMapping, "phone")?.toString()?.trim() || "";
+        const email =
+          getMappedValue(row, columnMapping, "email")?.toString()?.trim() || "";
         const gender =
           getMappedValue(row, columnMapping, "gender")?.toString()?.trim() ||
           "Male";
@@ -511,6 +513,7 @@ export default async function handler(req, res) {
           clinicId,
           name,
           phone,
+          email,
           gender: finalGender,
           age: finalAge,
           treatments: validatedTreatments,
@@ -545,7 +548,7 @@ export default async function handler(req, res) {
     }
 
     // Import in batches of 100
-    const BATCH_SIZE = 100;
+    // const BATCH_SIZE = 100;
     let importedCount = 0;
     let batchFailedCount = 0;
     const batchFailedRecords = [];

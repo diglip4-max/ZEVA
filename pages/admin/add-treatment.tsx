@@ -13,6 +13,8 @@ import {
   ExclamationTriangleIcon,
   XMarkIcon,
   TrashIcon,
+  PlusIcon,
+  PencilSquareIcon,
 } from '@heroicons/react/24/outline';
 import type { NextPageWithLayout } from '../_app';
 
@@ -84,7 +86,8 @@ const AddTreatment: NextPageWithLayout = () => {
   const router = useRouter();
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [newMainTreatment, setNewMainTreatment] = useState<string>('');
-  const [newSubTreatment, setNewSubTreatment] = useState<string>('');
+  const [currentSubTreatment, setCurrentSubTreatment] = useState<string>('');
+  const [addedSubTreatments, setAddedSubTreatments] = useState<Array<{id: string, name: string}>>([]);
   const [selectedMainTreatment, setSelectedMainTreatment] = useState<string>('');
   const [availableSubTreatments, setAvailableSubTreatments] = useState<SubTreatment[]>([]);
   const [treatments, setTreatments] = useState<Treatment[]>([]);
@@ -96,6 +99,8 @@ const AddTreatment: NextPageWithLayout = () => {
   // const [isFromDropdown, setIsFromDropdown] = useState<boolean>(false); // Reserved for future use - tracks if value came from dropdown vs manual input
   const [customMainTreatments, setCustomMainTreatments] = useState<Array<{id: string, name: string}>>([]);
   const [customSubTreatments, setCustomSubTreatments] = useState<Array<{id: string, name: string}>>([]);
+  const [editingTreatment, setEditingTreatment] = useState<Treatment | null>(null);
+  const [originalSubTreatments, setOriginalSubTreatments] = useState<string[]>([]);
 
   // Toast helper functions
   const showToast = useCallback((message: string, type: Toast['type'] = 'info') => {
@@ -216,6 +221,15 @@ const AddTreatment: NextPageWithLayout = () => {
       setAvailableSubTreatments([]);
     }
   }, [selectedMainTreatment, treatments]);
+
+  // Reset form when editingTreatment changes
+  useEffect(() => {
+    if (!editingTreatment && selectedMainTreatment) {
+      // Reset sub-treatment chips when not editing
+      setAddedSubTreatments([]);
+      setCurrentSubTreatment('');
+    }
+  }, [editingTreatment]);
 
   useEffect(() => {
     if (showDeleteModal) {
@@ -406,18 +420,89 @@ const AddTreatment: NextPageWithLayout = () => {
     } else {
       setAvailableSubTreatments([]);
     }
-    setNewSubTreatment('');
+    // Reset sub-treatment chips when main treatment changes (only if not editing)
+    if (!editingTreatment) {
+      setAddedSubTreatments([]);
+      setCurrentSubTreatment('');
+    }
     // setTimeout(() => setIsFromDropdown(false), 100); // Reserved for future use
   };
 
   const handleSubTreatmentSelect = (subTreatmentName: string) => {
-    // setIsFromDropdown(true); // Reserved for future use
-    setNewSubTreatment(subTreatmentName);
-    // setTimeout(() => setIsFromDropdown(false), 100); // Reserved for future use
+    setCurrentSubTreatment(subTreatmentName);
+  };
+
+  const handleAddSubTreatmentToChips = () => {
+    const trimmedValue = currentSubTreatment.trim();
+    if (!trimmedValue) {
+      showToast('Please enter a sub-treatment name', 'warning');
+      return;
+    }
+
+    // Check for duplicates (case-insensitive)
+    const isDuplicate = addedSubTreatments.some(
+      st => st.name.toLowerCase().trim() === trimmedValue.toLowerCase()
+    );
+
+    if (isDuplicate) {
+      showToast('This sub-treatment is already added', 'warning');
+      return;
+    }
+
+    // Add to chips
+    const newId = Math.random().toString(36).substr(2, 9);
+    setAddedSubTreatments(prev => [...prev, { id: newId, name: trimmedValue }]);
+    setCurrentSubTreatment('');
+  };
+
+  const handleRemoveSubTreatmentChip = (id: string) => {
+    setAddedSubTreatments(prev => prev.filter(chip => chip.id !== id));
+  };
+
+  const handleSubTreatmentKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleAddSubTreatmentToChips();
+    }
+  };
+
+  const handleEditTreatment = (treatment: Treatment) => {
+    setEditingTreatment(treatment);
+    setSelectedMainTreatment(treatment._id);
+    setNewMainTreatment('');
+    setCurrentSubTreatment('');
+    // Set sub-treatment chips from existing subcategories
+    if (treatment.subcategories && treatment.subcategories.length > 0) {
+      const subTreatmentNames = treatment.subcategories.map(sub => sub.name);
+      setOriginalSubTreatments(subTreatmentNames);
+      setAddedSubTreatments(
+        treatment.subcategories.map(sub => ({
+          id: Math.random().toString(36).substr(2, 9),
+          name: sub.name
+        }))
+      );
+    } else {
+      setOriginalSubTreatments([]);
+      setAddedSubTreatments([]);
+    }
+    // Scroll to top of form
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleCancelEdit = () => {
+    setEditingTreatment(null);
+    setSelectedMainTreatment('');
+    setNewMainTreatment('');
+    setCurrentSubTreatment('');
+    setAddedSubTreatments([]);
+    setOriginalSubTreatments([]);
   };
 
   const handleAddBoth = async () => {
-    if (!newMainTreatment.trim() && !newSubTreatment.trim()) {
+    // Get all sub-treatment values from chips
+    const subTreatmentValues = addedSubTreatments.map(chip => chip.name.trim());
+
+    if (!newMainTreatment.trim() && subTreatmentValues.length === 0) {
       showToast('Please enter main treatment or sub-treatment', 'warning');
       return;
     }
@@ -441,10 +526,17 @@ const AddTreatment: NextPageWithLayout = () => {
         return;
       }
 
-      let mainTreatmentId = selectedMainTreatment;
+      let mainTreatmentId = editingTreatment ? editingTreatment._id : selectedMainTreatment;
 
-      // Add main treatment if value exists
-      if (newMainTreatment.trim()) {
+      // If editing but no mainTreatmentId, something is wrong
+      if (editingTreatment && !mainTreatmentId) {
+        showToast('Error: Treatment ID not found', 'error');
+        setLoading(false);
+        return;
+      }
+
+      // Add main treatment if value exists and not editing
+      if (newMainTreatment.trim() && !editingTreatment) {
         // Normalize for comparison: lowercase and trim
         const normalizedMainTreatment = newMainTreatment.trim().toLowerCase();
         
@@ -484,50 +576,215 @@ const AddTreatment: NextPageWithLayout = () => {
         }
       }
 
-      // Add sub-treatment if value exists and main treatment is selected
-      if (newSubTreatment.trim()) {
-        if (!mainTreatmentId) {
+      // Handle sub-treatments if main treatment is selected
+      if (!mainTreatmentId) {
+        if (subTreatmentValues.length > 0) {
           showToast('Please select or add main treatment first', 'warning');
           setLoading(false);
           return;
         }
+      } else {
+        // If editing, handle deletions and additions
+        if (editingTreatment) {
+          const currentSubNames = subTreatmentValues.map(name => name.toLowerCase().trim());
+          const originalSubNames = originalSubTreatments.map(name => name.toLowerCase().trim());
+          
+          // Find removed sub-treatments (in original but not in current)
+          const removedSubTreatments = originalSubTreatments.filter(originalName => {
+            const normalized = originalName.toLowerCase().trim();
+            return !currentSubNames.includes(normalized);
+          });
+          
+          // Find new sub-treatments (in current but not in original)
+          const newSubTreatments = subTreatmentValues.filter(currentName => {
+            const normalized = currentName.toLowerCase().trim();
+            return !originalSubNames.includes(normalized);
+          });
 
-        // Find the main treatment to check for duplicate sub-treatments
-        const mainTreatment = treatments.find(t => t._id === mainTreatmentId);
-        if (mainTreatment) {
-          // Normalize for comparison: lowercase and trim
-          const normalizedSubTreatment = newSubTreatment.trim().toLowerCase();
-          
-          // Check for duplicate sub-treatment (case-insensitive)
-          const isDuplicateSubTreatment = mainTreatment.subcategories?.some(st => 
-            st.name?.toLowerCase().trim() === normalizedSubTreatment
-          );
-          
-          if (isDuplicateSubTreatment) {
-            showToast(`Sub-treatment "${newSubTreatment.trim()}" already exists for this treatment`, 'error');
+          // If no changes, just refresh and exit
+          if (removedSubTreatments.length === 0 && newSubTreatments.length === 0) {
+            await fetchTreatments();
+            showToast('No changes made', 'info');
+            setEditingTreatment(null);
+            setSelectedMainTreatment('');
+            setAddedSubTreatments([]);
+            setCurrentSubTreatment('');
+            setOriginalSubTreatments([]);
             setLoading(false);
             return;
           }
-        }
 
-        const res = await axios.post('/api/admin/addSubTreatment', {
-          mainTreatmentId: mainTreatmentId,
-          subTreatmentName: newSubTreatment.trim(),
-          subTreatmentSlug: newSubTreatment.trim().toLowerCase().replace(/\s+/g, '-'),
-        }, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+          const addPromises: Promise<any>[] = [];
+          const deleteResults: any[] = [];
+          const deleteErrors: any[] = [];
 
-        if (res.status === 201) {
-          const addedSubTreatmentName = newSubTreatment;
-          const customId = Math.random().toString(36).substr(2, 9);
-          setCustomSubTreatments(prev => [...prev, { id: customId, name: addedSubTreatmentName }]);
-          setNewSubTreatment('');
-          await fetchTreatments();
+          // Delete removed sub-treatments SEQUENTIALLY to avoid race conditions
+          // Multiple deletions on the same document can conflict if done in parallel
+          if (removedSubTreatments.length > 0) {
+            for (const subName of removedSubTreatments) {
+              try {
+                const result = await axios.delete(
+                  `/api/admin/deleteSubTreatment?mainTreatmentId=${mainTreatmentId}&subTreatmentName=${encodeURIComponent(subName)}`,
+                  {
+                    headers: { Authorization: `Bearer ${token}` }
+                  }
+                );
+                deleteResults.push({ success: true, subName, data: result.data });
+              } catch (err: any) {
+                // Log error but continue with other deletions
+                console.error(`Failed to delete sub-treatment "${subName}":`, err.response?.data || err.message);
+                deleteErrors.push({ 
+                  error: true, 
+                  subName, 
+                  message: err.response?.data?.message || 'Delete failed' 
+                });
+                deleteResults.push({ error: true, subName });
+              }
+            }
+          }
+
+          // Add new sub-treatments (can be done in parallel since they don't conflict)
+          if (newSubTreatments.length > 0) {
+            newSubTreatments.forEach(subName => {
+              addPromises.push(
+                axios.post('/api/admin/addSubTreatment', {
+                  mainTreatmentId: mainTreatmentId,
+                  subTreatmentName: subName,
+                  subTreatmentSlug: subName.toLowerCase().replace(/\s+/g, '-'),
+                }, {
+                  headers: { Authorization: `Bearer ${token}` }
+                }).catch(err => {
+                  // Log error but don't fail the entire update
+                  console.error(`Failed to add sub-treatment "${subName}":`, err.response?.data || err.message);
+                  return { error: true, subName, message: err.response?.data?.message || 'Add failed' };
+                })
+              );
+            });
+          }
+
+          try {
+            // Execute additions in parallel (they don't conflict with each other)
+            const addResults = addPromises.length > 0 ? await Promise.all(addPromises) : [];
+            
+            // Check for errors
+            const addErrors = addResults.filter(r => r && r.error);
+            
+            // Refresh data regardless of errors
+            await fetchTreatments();
+            
+            // Reset form
+            setAddedSubTreatments([]);
+            setCurrentSubTreatment('');
+            setOriginalSubTreatments([]);
+            
+            // Show appropriate messages
+            const messages: string[] = [];
+            const errorMessages: string[] = [];
+            
+            // Count successful deletions
+            const successfulDeletions = deleteResults.filter(r => r && r.success).length;
+            const failedDeletions = deleteErrors.length;
+            
+            if (failedDeletions > 0) {
+              errorMessages.push(`${failedDeletions} deletion(s) failed`);
+            }
+            if (successfulDeletions > 0) {
+              messages.push(`${successfulDeletions} sub-treatment(s) removed`);
+            }
+            
+            // Count successful additions
+            const successfulAdditions = addResults.filter(r => r && !r.error).length;
+            const failedAdditions = addErrors.length;
+            
+            if (failedAdditions > 0) {
+              errorMessages.push(`${failedAdditions} addition(s) failed`);
+            }
+            if (successfulAdditions > 0) {
+              messages.push(`${successfulAdditions} sub-treatment(s) added`);
+            }
+            
+            if (errorMessages.length > 0 && messages.length > 0) {
+              showToast(`${messages.join(', ')}. ${errorMessages.join(', ')}`, 'warning');
+            } else if (errorMessages.length > 0) {
+              showToast(`Update completed with errors: ${errorMessages.join(', ')}`, 'warning');
+            } else if (messages.length > 0) {
+              showToast(messages.join(', '), 'success');
+            } else {
+              showToast('Update completed', 'success');
+            }
+            
+            setEditingTreatment(null);
+            setSelectedMainTreatment('');
+          } catch (err: any) {
+            // This should rarely happen now, but handle it just in case
+            console.error('Unexpected error during update:', err);
+            const message = err.response?.data?.message || 'Failed to update sub-treatments';
+            showToast(message, 'error');
+            // Still refresh and reset form
+            await fetchTreatments();
+            setEditingTreatment(null);
+            setSelectedMainTreatment('');
+            setAddedSubTreatments([]);
+            setCurrentSubTreatment('');
+            setOriginalSubTreatments([]);
+            setLoading(false);
+            return;
+          }
+        } else {
+          // Not editing - just add new sub-treatments
+          if (subTreatmentValues.length > 0) {
+            const mainTreatment = treatments.find(t => t._id === mainTreatmentId);
+            const existingSubNames = mainTreatment?.subcategories?.map(st => st.name.toLowerCase().trim()) || [];
+            
+            // Filter out existing sub-treatments (only add new ones)
+            const newSubTreatments = subTreatmentValues.filter(subName => {
+              const normalized = subName.toLowerCase();
+              return !existingSubNames.includes(normalized);
+            });
+
+            if (newSubTreatments.length === 0) {
+              showToast('All sub-treatments already exist for this treatment', 'info');
+              setLoading(false);
+              return;
+            }
+
+            // Batch add only new sub-treatments
+            const subTreatmentPromises = newSubTreatments.map(subName => 
+              axios.post('/api/admin/addSubTreatment', {
+                mainTreatmentId: mainTreatmentId,
+                subTreatmentName: subName,
+                subTreatmentSlug: subName.toLowerCase().replace(/\s+/g, '-'),
+              }, {
+                headers: { Authorization: `Bearer ${token}` }
+              })
+            );
+
+            try {
+              await Promise.all(subTreatmentPromises);
+              // Reset sub-treatment chips
+              setAddedSubTreatments([]);
+              setCurrentSubTreatment('');
+              await fetchTreatments();
+              showToast('Treatment(s) added successfully', 'success');
+            } catch (err: any) {
+              const message = err.response?.data?.message || 'Failed to add sub-treatment(s)';
+              showToast(message, 'error');
+            }
+          } else {
+            showToast('Treatment(s) added successfully', 'success');
+          }
         }
       }
 
-      showToast('Treatment(s) added successfully', 'success');
+      // Reset form if not editing
+      if (!editingTreatment) {
+        setNewMainTreatment('');
+        setSelectedMainTreatment('');
+        setAddedSubTreatments([]);
+        setCurrentSubTreatment('');
+      } else {
+        handleCancelEdit();
+      }
     } catch (err: any) {
       const message = err.response?.data?.message || 'Failed to add treatment';
       showToast(message, 'error');
@@ -569,13 +826,13 @@ const AddTreatment: NextPageWithLayout = () => {
     !agentPermissions.canExport
   ) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-blue-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-lg shadow-sm p-6 max-w-sm w-full text-center">
           <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-3">
             <XCircleIcon className="w-6 h-6 text-red-600" />
           </div>
-          <h2 className="text-lg font-semibold text-gray-900 mb-2">Access Denied</h2>
-          <p className="text-sm text-gray-700">
+          <h2 className="text-lg font-semibold text-blue-900 mb-2">Access Denied</h2>
+          <p className="text-sm text-blue-700">
             You do not have permission to view treatments.
           </p>
         </div>
@@ -585,36 +842,36 @@ const AddTreatment: NextPageWithLayout = () => {
 
   if (fetching && treatments.length === 0) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-blue-50 flex items-center justify-center p-4">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-800 mx-auto"></div>
-          <p className="mt-3 text-sm text-gray-700">Loading...</p>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-800 mx-auto"></div>
+          <p className="mt-3 text-sm text-blue-700">Loading...</p>
         </div>
       </div>
     );
   }
 
  return (
-    <div className="min-h-screen bg-gray-50 p-4 sm:p-6">
+    <div className="min-h-screen bg-blue-50 p-4 sm:p-6">
       <ToastContainer toasts={toasts} removeToast={removeToast} />
       
       <div className="max-w-6xl mx-auto sm:pt-1 lg:pt-1 space-y-4">
         {/* Compact Header */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+        <div className="bg-white rounded-lg shadow-sm border border-blue-200 p-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="bg-gray-800 p-2 rounded-lg">
+              <div className="bg-blue-800 p-2 rounded-lg">
                 <BeakerIcon className="w-5 h-5 text-white" />
               </div>
               <div>
-                <h1 className="text-lg font-semibold text-gray-900">Treatment Management</h1>
-                <p className="text-xs text-gray-700">Add and manage treatments</p>
+                <h1 className="text-lg font-semibold text-blue-800">Treatment Management</h1>
+                <p className="text-xs text-blue-600">Add and manage treatments</p>
               </div>
             </div>
             {/* <button
               onClick={fetchTreatments}
               disabled={fetching}
-              className="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-50"
+              className="px-3 py-1.5 bg-blue-800 hover:bg-blue-700 text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-50"
             >
               {fetching ? 'Loading...' : 'Refresh'}
             </button> */}
@@ -624,17 +881,17 @@ const AddTreatment: NextPageWithLayout = () => {
          {/* Compact Stats - hidden for read-only agents */}
          {(!isAgentReadOnly || isAdmin) && (
            <div className="grid grid-cols-3 gap-3">
-             <div className="bg-white rounded-lg border border-gray-200 p-3">
-               <p className="text-xs text-gray-700 mb-1">Main</p>
-               <p className="text-xl font-bold text-gray-900">{treatments.length}</p>
+             <div className="bg-white rounded-lg border border-blue-200 p-3">
+               <p className="text-xs text-blue-700 mb-1">Main</p>
+               <p className="text-xl font-bold text-blue-800">{treatments.length}</p>
              </div>
-             <div className="bg-white rounded-lg border border-gray-200 p-3">
-               <p className="text-xs text-gray-700 mb-1">Sub</p>
-               <p className="text-xl font-bold text-gray-900">{totalSubTreatments}</p>
+             <div className="bg-white rounded-lg border border-blue-200 p-3">
+               <p className="text-xs text-blue-700 mb-1">Sub</p>
+               <p className="text-xl font-bold text-blue-800">{totalSubTreatments}</p>
              </div>
-             <div className="bg-white rounded-lg border border-gray-200 p-3">
-               <p className="text-xs text-gray-700 mb-1">Total</p>
-               <p className="text-xl font-bold text-gray-900">{treatments.length + totalSubTreatments}</p>
+             <div className="bg-white rounded-lg border border-blue-200 p-3">
+               <p className="text-xs text-blue-700 mb-1">Total</p>
+               <p className="text-xl font-bold text-blue-800">{treatments.length + totalSubTreatments}</p>
              </div>
            </div>
          )}
@@ -645,8 +902,20 @@ const AddTreatment: NextPageWithLayout = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           
           {/* Add Treatment Form */}
-          <div className="bg-white rounded-lg border border-gray-200 p-4">
-            <h2 className="text-sm font-semibold text-gray-900 mb-4">Add Treatment</h2>
+          <div className="bg-white rounded-lg border border-blue-200 p-4">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-sm font-semibold text-blue-900">
+                {editingTreatment ? 'Edit Treatment' : 'Add Treatment'}
+              </h2>
+              {editingTreatment && (
+                <button
+                  onClick={handleCancelEdit}
+                  className="text-xs text-blue-600 hover:text-blue-800 px-2 py-1 rounded border border-blue-300 hover:bg-blue-50 transition-colors"
+                >
+                  Cancel Edit
+                </button>
+              )}
+            </div>
 
             {/* Show Access Denied if agent/doctorStaff doesn't have create permission */}
             {hasNoCreatePermission ? (
@@ -654,8 +923,8 @@ const AddTreatment: NextPageWithLayout = () => {
                 <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mb-3">
                   <XCircleIcon className="w-6 h-6 text-red-600" />
                 </div>
-                <h3 className="text-base font-semibold text-gray-900 mb-2">Access Denied</h3>
-                <p className="text-sm text-gray-700 text-center">
+                <h3 className="text-base font-semibold text-blue-900 mb-2">Access Denied</h3>
+                <p className="text-sm text-blue-700 text-center">
                   You do not have permission to create treatments.
                 </p>
               </div>
@@ -663,7 +932,7 @@ const AddTreatment: NextPageWithLayout = () => {
               <div className="space-y-4">
                 {/* Main Treatment */}
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1.5">
+                  <label className="block text-xs font-medium text-blue-700 mb-1.5">
                     Main Treatment
                   </label>
               
@@ -671,7 +940,8 @@ const AddTreatment: NextPageWithLayout = () => {
                   <select
                     value={selectedMainTreatment}
                     onChange={(e) => handleMainTreatmentSelect(e.target.value)}
-                    className="w-full mt-3 px-3 py-1.5 text-sm border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-800"
+                    disabled={!!editingTreatment}
+                    className="w-full mt-3 px-3 py-1.5 text-sm border border-blue-300 rounded-lg bg-white text-blue-900 focus:outline-none focus:ring-1 focus:ring-blue-800 disabled:bg-gray-100 disabled:cursor-not-allowed"
                   >
                     <option value="">Select main treatment</option>
                     {treatments.map((treatment) => (
@@ -680,28 +950,35 @@ const AddTreatment: NextPageWithLayout = () => {
                       </option>
                     ))}
                   </select>
-                  <input
-                    type="text"
-                    value={newMainTreatment}
-                    onChange={(e) => {
-                      // setIsFromDropdown(false); // Reserved for future use
-                      setNewMainTreatment(e.target.value);
-                    }}
-                    placeholder="Enter name"
-                    className="w-full px-3 mt-2 py-1.5 text-sm border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-800"
-                  />
+                  {editingTreatment && (
+                    <div className="mt-2 px-3 py-1.5 text-sm bg-blue-50 border border-blue-300 rounded-lg text-blue-900">
+                      {editingTreatment.name}
+                    </div>
+                  )}
+                  {!editingTreatment && (
+                    <input
+                      type="text"
+                      value={newMainTreatment}
+                      onChange={(e) => {
+                        // setIsFromDropdown(false); // Reserved for future use
+                        setNewMainTreatment(e.target.value);
+                      }}
+                      placeholder="Enter name"
+                      className="w-full px-3 mt-2 py-1.5 text-sm border border-blue-300 rounded-lg text-blue-900 focus:outline-none focus:ring-1 focus:ring-blue-800"
+                    />
+                  )}
                   {/* Custom Main Treatments Boxes */}
                   {customMainTreatments.length > 0 && (
                     <div className="mt-3 flex flex-wrap gap-2">
                       {customMainTreatments.map((custom) => (
                         <div
                           key={custom.id}
-                          className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-gray-100 border border-gray-300 rounded-lg text-sm text-gray-900"
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-blue-100 border border-blue-300 rounded-lg text-sm text-blue-900"
                         >
                           <span>{custom.name}</span>
                           <button
                             onClick={() => handleRemoveCustomMainTreatment(custom.id)}
-                            className="text-gray-500 hover:text-red-600 transition-colors"
+                            className="text-blue-500 hover:text-red-600 transition-colors"
                             aria-label="Remove"
                           >
                             <XMarkIcon className="w-4 h-4" />
@@ -713,16 +990,16 @@ const AddTreatment: NextPageWithLayout = () => {
                 </div>
 
                 {/* Divider */}
-                <div className="border-t border-gray-200 pt-4">
-                  <label className="block text-xs font-medium text-gray-700 mb-1.5">
+                <div className="border-t border-blue-200 pt-4">
+                  <label className="block text-xs font-medium text-blue-700 mb-1.5">
                     Sub-Treatment
                   </label>
                   
                   {/* Sub-treatment selection dropdown */}
-                  {selectedMainTreatment && availableSubTreatments.length > 0 && (
+                  {selectedMainTreatment && availableSubTreatments.length > 0 && !editingTreatment && (
                     <select
                       onChange={(e) => handleSubTreatmentSelect(e.target.value)}
-                      className="w-full mb-2 px-3 py-1.5 text-sm border border-gray-300 rounded-lg bg-white text-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-800"
+                      className="w-full mb-2 px-3 py-1.5 text-sm border border-blue-300 rounded-lg bg-white text-blue-900 focus:outline-none focus:ring-1 focus:ring-blue-800"
                     >
                       <option value="">Select sub-treatment</option>
                       {availableSubTreatments.map((sub, index) => (
@@ -733,16 +1010,57 @@ const AddTreatment: NextPageWithLayout = () => {
                     </select>
                   )}
 
-                  <input
-                    type="text"
-                    value={newSubTreatment}
-                    onChange={(e) => {
-                      // setIsFromDropdown(false); // Reserved for future use
-                      setNewSubTreatment(e.target.value);
-                    }}
-                    placeholder="Enter sub-treatment name"
-                    className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-800"
-                  />
+                  {/* Single Sub-Treatment Input with icon inside */}
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={currentSubTreatment}
+                      onChange={(e) => setCurrentSubTreatment(e.target.value)}
+                      onKeyPress={handleSubTreatmentKeyPress}
+                      placeholder="Enter sub-treatment name"
+                      className="w-full px-3 py-1.5 pr-8 text-sm border border-blue-300 rounded-lg text-blue-900 focus:outline-none focus:ring-1 focus:ring-blue-800"
+                    />
+                    <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                      {currentSubTreatment.trim() && (
+                        <button
+                          onClick={() => setCurrentSubTreatment('')}
+                          className="text-gray-400 hover:text-red-600 transition-colors p-0.5"
+                          title="Clear"
+                        >
+                          <XMarkIcon className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                      <button
+                        onClick={handleAddSubTreatmentToChips}
+                        className="text-blue-600 hover:text-blue-800 transition-colors p-0.5"
+                        title="Add sub-treatment"
+                      >
+                        <PlusIcon className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Added Sub-Treatment Chips */}
+                  {addedSubTreatments.length > 0 && (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {addedSubTreatments.map((chip) => (
+                        <div
+                          key={chip.id}
+                          className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 border border-blue-300 rounded text-xs text-blue-900"
+                        >
+                          <span>{chip.name}</span>
+                          <button
+                            onClick={() => handleRemoveSubTreatmentChip(chip.id)}
+                            className="text-red-500 hover:text-red-700 transition-colors ml-0.5"
+                            aria-label="Remove"
+                            title="Remove"
+                          >
+                            <XMarkIcon className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   
                   {/* Custom Sub-Treatments Boxes */}
                   {customSubTreatments.length > 0 && (
@@ -750,12 +1068,12 @@ const AddTreatment: NextPageWithLayout = () => {
                       {customSubTreatments.map((custom) => (
                         <div
                           key={custom.id}
-                          className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-gray-100 border border-gray-300 rounded-lg text-sm text-gray-900"
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-blue-100 border border-blue-300 rounded-lg text-sm text-blue-900"
                         >
                           <span>{custom.name}</span>
                           <button
                             onClick={() => handleRemoveCustomSubTreatment(custom.id)}
-                            className="text-gray-500 hover:text-red-600 transition-colors"
+                            className="text-blue-500 hover:text-red-600 transition-colors"
                             aria-label="Remove"
                           >
                             <XMarkIcon className="w-4 h-4" />
@@ -769,10 +1087,10 @@ const AddTreatment: NextPageWithLayout = () => {
                   {(isAdmin || (isAgent && !permissionsLoading && agentPermissions && (agentPermissions.canCreate || agentPermissions.canAll))) && (
                     <button
                       onClick={handleAddBoth}
-                      disabled={loading || (!newMainTreatment.trim() && !newSubTreatment.trim())}
-                      className="w-full mt-4 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      disabled={loading || (!newMainTreatment.trim() && addedSubTreatments.length === 0)}
+                      className="w-full mt-4 px-4 py-2 bg-blue-800 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {loading ? 'Adding...' : 'Add Treatment'}
+                      {loading ? (editingTreatment ? 'Updating...' : 'Adding...') : (editingTreatment ? 'Update Treatment' : 'Add Treatment')}
                     </button>
                   )}
                 </div>
@@ -782,10 +1100,10 @@ const AddTreatment: NextPageWithLayout = () => {
 
            {/* Treatment List - hidden for read-only agents */}
            {(!isAgentReadOnly || isAdmin) && (
-             <div className="bg-white rounded-lg border border-gray-200 p-4">
+             <div className="bg-white rounded-lg border border-blue-200 p-4">
                <div className="flex items-center justify-between mb-4">
-                 <h2 className="text-sm font-semibold text-gray-900">All Treatments</h2>
-                 <span className="text-xs text-gray-700 bg-gray-100 px-2 py-0.5 rounded">
+                 <h2 className="text-sm font-semibold text-blue-900">All Treatments</h2>
+                 <span className="text-xs text-blue-700 bg-blue-100 px-2 py-0.5 rounded">
                    {treatments.length}
                  </span>
                </div>
@@ -793,8 +1111,8 @@ const AddTreatment: NextPageWithLayout = () => {
                <div className="max-h-[500px] overflow-y-auto space-y-2">
                  {treatments.length === 0 ? (
                    <div className="text-center py-8">
-                     <BeakerIcon className="w-10 h-10 text-gray-400 mx-auto mb-2" />
-                     <p className="text-xs text-gray-700">No treatments yet</p>
+                     <BeakerIcon className="w-10 h-10 text-blue-400 mx-auto mb-2" />
+                     <p className="text-xs text-blue-700">No treatments yet</p>
                    </div>
                  ) : (
                    treatments.map((treatment, index) => {
@@ -803,15 +1121,15 @@ const AddTreatment: NextPageWithLayout = () => {
                      return (
                        <div
                          key={treatment._id}
-                         className="bg-gray-50 rounded-lg p-3 border border-gray-200 hover:border-gray-300 transition-colors"
+                         className="bg-blue-50 rounded-lg p-3 border border-blue-200 hover:border-blue-300 transition-colors"
                        >
                          <div className="flex items-start justify-between gap-2">
                            <div className="flex items-start gap-2 flex-1 min-w-0">
-                             <span className="text-xs text-gray-700 font-medium pt-0.5">
+                             <span className="text-xs text-blue-700 font-medium pt-0.5">
                                {index + 1}.
                              </span>
                              <div className="flex-1 min-w-0">
-                               <h4 className="text-sm font-medium text-gray-900 mb-1">
+                               <h4 className="text-sm font-medium text-blue-900 mb-1">
                                  {treatment.name}
                                </h4>
                                {treatment.subcategories && treatment.subcategories.length > 0 && (
@@ -819,7 +1137,7 @@ const AddTreatment: NextPageWithLayout = () => {
                                    {treatment.subcategories.map((sub, subIndex) => (
                                      <span
                                        key={subIndex}
-                                       className="text-xs text-gray-700 bg-white border border-gray-300 px-2 py-0.5 rounded"
+                                       className="text-xs text-blue-700 bg-white border border-blue-300 px-2 py-0.5 rounded"
                                      >
                                        {sub.name}
                                      </span>
@@ -828,15 +1146,26 @@ const AddTreatment: NextPageWithLayout = () => {
                                )}
                              </div>
                            </div>
-                           {canDelete && (
-                             <button
-                               onClick={() => handleDeleteClick(treatment._id, treatment.name)}
-                               className="text-red-500 hover:text-red-700 hover:bg-red-50 p-1.5 rounded transition-colors flex-shrink-0"
-                               title="Delete"
-                             >
-                               <TrashIcon className="w-4 h-4" />
-                             </button>
-                           )}
+                           <div className="flex items-center gap-1 flex-shrink-0">
+                             {(isAdmin || (isAgent && !permissionsLoading && agentPermissions && (agentPermissions.canUpdate || agentPermissions.canAll))) && (
+                               <button
+                                 onClick={() => handleEditTreatment(treatment)}
+                                 className="text-blue-500 hover:text-blue-700 hover:bg-blue-50 p-1.5 rounded transition-colors"
+                                 title="Edit"
+                               >
+                                 <PencilSquareIcon className="w-4 h-4" />
+                               </button>
+                             )}
+                             {canDelete && (
+                               <button
+                                 onClick={() => handleDeleteClick(treatment._id, treatment.name)}
+                                 className="text-red-500 hover:text-red-700 hover:bg-red-50 p-1.5 rounded transition-colors"
+                                 title="Delete"
+                               >
+                                 <TrashIcon className="w-4 h-4" />
+                               </button>
+                             )}
+                           </div>
                          </div>
                        </div>
                      );
@@ -861,14 +1190,14 @@ const AddTreatment: NextPageWithLayout = () => {
               <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-3">
                 <XCircleIcon className="w-6 h-6 text-red-600" />
               </div>
-              <h3 className="text-base font-semibold text-gray-900 mb-1">
+              <h3 className="text-base font-semibold text-blue-900 mb-1">
                 Delete Treatment?
               </h3>
-              <p className="text-xs text-gray-700 mb-3">
+              <p className="text-xs text-blue-700 mb-3">
                 This action cannot be undone.
               </p>
-              <div className="bg-gray-50 rounded px-3 py-2">
-                <p className="text-sm font-medium text-gray-900">
+              <div className="bg-blue-50 rounded px-3 py-2">
+                <p className="text-sm font-medium text-blue-900">
                   &quot;{treatmentToDelete?.name}&quot;
                 </p>
               </div>
@@ -878,7 +1207,7 @@ const AddTreatment: NextPageWithLayout = () => {
               <button
                 onClick={handleDeleteCancel}
                 disabled={isDeleting}
-                className="flex-1 px-3 py-2 text-sm text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg font-medium transition-colors disabled:opacity-50"
+                className="flex-1 px-3 py-2 text-sm text-blue-700 bg-blue-100 hover:bg-blue-200 rounded-lg font-medium transition-colors disabled:opacity-50"
               >
                 Cancel
               </button>
@@ -894,26 +1223,26 @@ const AddTreatment: NextPageWithLayout = () => {
         </div>
       )}
  {/* Graphical Overview */}
-      <div className="bg-white rounded-lg mt-5 border border-gray-200 p-4">
+      <div className="bg-white rounded-lg mt-5 border border-blue-200 p-4">
           <div className="flex items-center justify-between mb-3">
             <div>
-              <p className="text-sm font-semibold text-gray-900">Treatment Distribution</p>
-              <p className="text-xs text-gray-600">Share of sub-treatments by top mains</p>
+              <p className="text-sm font-semibold text-blue-900">Treatment Distribution</p>
+              <p className="text-xs text-blue-600">Share of sub-treatments by top mains</p>
             </div>
-            <span className="text-xs text-gray-600 bg-gray-100 px-2 py-0.5 rounded">
+            <span className="text-xs text-blue-600 bg-blue-100 px-2 py-0.5 rounded">
               {totalSubTreatments} sub treatments
             </span>
           </div>
           {topTreatments.length === 0 || totalSubTreatments === 0 ? (
-            <div className="py-6 text-center text-xs text-gray-500">No data yet</div>
+            <div className="py-6 text-center text-xs text-blue-500">No data yet</div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="relative flex items-center justify-center">
                 <svg viewBox="0 0 220 220" className="w-48 h-48">
                   <defs>
                     <radialGradient id="innerCircle" cx="50%" cy="50%" r="50%">
-                      <stop offset="70%" stopColor="#111827" />
-                      <stop offset="100%" stopColor="#0f172a" />
+                      <stop offset="70%" stopColor="#3b82f6" />
+                      <stop offset="100%" stopColor="#2563eb" />
                     </radialGradient>
                     <linearGradient id="donutColor1" x1="0%" y1="0%" x2="100%" y2="100%">
                       <stop offset="0%" stopColor="#fb7185" />
@@ -970,8 +1299,8 @@ const AddTreatment: NextPageWithLayout = () => {
                   <circle cx="110" cy="110" r="40" fill="url(#innerCircle)" />
                 </svg>
                 <div className="absolute text-center">
-                  <p className="text-xs text-gray-500">Total</p>
-                  <p className="text-lg font-semibold text-gray-900">{totalSubTreatments}</p>
+                  <p className="text-xs text-white">Total</p>
+                  <p className="text-lg font-semibold text-white">{totalSubTreatments}</p>
                 </div>
               </div>
               <div className="space-y-2 text-xs">
@@ -987,22 +1316,22 @@ const AddTreatment: NextPageWithLayout = () => {
                   return (
                     <div
                       key={treatment._id}
-                      className="flex items-center justify-between border border-gray-100 rounded-lg px-3 py-2"
+                      className="flex items-center justify-between border border-blue-100 rounded-lg px-3 py-2"
                     >
                       <div className="flex items-center gap-2">
                         <span className={`font-bold ${legendColors[index % legendColors.length]}`}>
                           {percent}%
                         </span>
-                        <span className="font-medium text-gray-900 truncate">{treatment.name}</span>
+                        <span className="font-medium text-blue-900 truncate">{treatment.name}</span>
                       </div>
-                      <span className="text-gray-500 font-semibold">{treatment.subCount} sub</span>
+                      <span className="text-blue-500 font-semibold">{treatment.subCount} sub</span>
                     </div>
                   );
                 })}
               </div>
             </div>
           )}
-          <div className="mt-4 flex items-center justify-between text-xs text-gray-600">
+          <div className="mt-4 flex items-center justify-between text-xs text-blue-600">
             <span>Main with sub treatments: {treatmentsWithSub}</span>
             <span>
               Avg sub/main:{" "}
@@ -1013,52 +1342,52 @@ const AddTreatment: NextPageWithLayout = () => {
 
  {/* Coverage & Activity Visualization */}
          <div className="grid grid-cols-1 mt-5 md:grid-cols-2 gap-4">
-          <div className="bg-white rounded-lg border border-gray-200 p-4 flex items-center gap-4">
+          <div className="bg-white rounded-lg border border-blue-200 p-4 flex items-center gap-4">
             <div
               className="w-24 h-24 rounded-full flex items-center justify-center relative"
               style={{
-                background: `conic-gradient(#111 ${subCoveragePercent}%, #e5e7eb ${subCoveragePercent}% 100%)`,
+                background: `conic-gradient(#3b82f6 ${subCoveragePercent}%, #e5e7eb ${subCoveragePercent}% 100%)`,
               }}
             >
               <div className="absolute w-16 h-16 bg-white rounded-full flex items-center justify-center">
-                <span className="text-lg font-semibold text-gray-900">
+                <span className="text-lg font-semibold text-blue-800">
                   {subCoveragePercent}%
                 </span>
               </div>
             </div>
             <div>
-              <p className="text-sm font-semibold text-gray-900">Coverage</p>
-              <p className="text-xs text-gray-600 mb-2">
+              <p className="text-sm font-semibold text-blue-900">Coverage</p>
+              <p className="text-xs text-blue-600 mb-2">
                 Main treatments with at least one sub-treatment
               </p>
-              <p className="text-sm text-gray-700">
+              <p className="text-sm text-blue-700">
                 {treatmentsWithSub} of {treatments.length || 0} mains
               </p>
             </div>
           </div>
 
-          <div className="bg-white rounded-lg border border-gray-200 p-4 flex items-center gap-4">
+          <div className="bg-white rounded-lg border border-blue-200 p-4 flex items-center gap-4">
             <div
               className="w-24 h-24 rounded-full flex items-center justify-center relative"
               style={{
-                background: `conic-gradient(#4b5563 ${Math.min(
+                background: `conic-gradient(#3b82f6 ${Math.min(
                   (avgSubsPerMain / 5) * 100,
                   100
                 )}%, #e5e7eb ${Math.min((avgSubsPerMain / 5) * 100, 100)}% 100%)`,
               }}
             >
               <div className="absolute w-16 h-16 bg-white rounded-full flex items-center justify-center">
-                <span className="text-lg font-semibold text-gray-900">
+                <span className="text-lg font-semibold text-blue-900">
                   {avgSubsPerMain}
                 </span>
               </div>
             </div>
             <div>
-              <p className="text-sm font-semibold text-gray-900">Avg. Sub Count</p>
-              <p className="text-xs text-gray-600 mb-2">
+              <p className="text-sm font-semibold text-blue-900">Avg. Sub Count</p>
+              <p className="text-xs text-blue-600 mb-2">
                 Average sub-treatments per main (target 5+)
               </p>
-              <p className="text-sm text-gray-700">
+              <p className="text-sm text-blue-700">
                 {totalSubTreatments} subs / {treatments.length || 0} mains
               </p>
             </div>

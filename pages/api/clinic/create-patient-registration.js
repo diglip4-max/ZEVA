@@ -4,6 +4,9 @@ import PatientRegistration from "../../../models/PatientRegistration";
 import User from "../../../models/Users";
 import Clinic from "../../../models/Clinic";
 import Appointment from "../../../models/Appointment";
+import Referral from "../../../models/Referral";
+import Commission from "../../../models/Commission";
+import AgentProfile from "../../../models/AgentProfile";
 import { getUserFromReq } from "../lead-ms/auth";
 import { checkClinicPermission } from "../lead-ms/permissions-helper";
 import { checkAgentPermission } from "../agent/permissions-helper";
@@ -110,10 +113,11 @@ export default async function handler(req, res) {
       notes,
       emrNumber,
       userId, // PatientRegistration ID from appointment (appointment.patientId)
+      referredBy,
     } = req.body;
 
     // Validate required fields
-    if (!invoiceNumber || !appointmentId || !firstName || !mobileNumber || !gender || !doctor || !service) {
+    if (!invoiceNumber || !appointmentId || !firstName || !mobileNumber || !doctor || !service) {
       return res.status(400).json({
         success: false,
         message: "Missing required fields",
@@ -232,6 +236,90 @@ export default async function handler(req, res) {
     };
 
     const billing = await Billing.create(billingData);
+
+    // Commission calculation and storage
+    try {
+      const paidNumForCommission = paidNum;
+      const referredByStr = String(referredBy || "").trim();
+      if (paidNumForCommission > 0 && referredByStr && referredByStr.toLowerCase() !== "no") {
+        // Find referral by combined name within this clinic
+        const referrals = await Referral.find({ clinicId: clinic._id }).lean();
+        const match = referrals.find((r) => {
+          const full = `${(r.firstName || "").trim()} ${(r.lastName || "").trim()}`.trim().toLowerCase();
+          return full && full === referredByStr.toLowerCase();
+        });
+        if (match) {
+          const commissionPercent = Number(match.referralPercent || 0);
+          if (commissionPercent > 0) {
+            const commissionAmount = Number(((paidNumForCommission * commissionPercent) / 100).toFixed(2));
+            // Optionally try to map to a staff user via email or phone
+            let staffId = null;
+            if (match.email || match.phone) {
+              const userCandidate = await User.findOne({
+                clinicId: clinic._id,
+                $or: [
+                  match.email ? { email: String(match.email).toLowerCase() } : { _id: null },
+                  match.phone ? { phone: String(match.phone) } : { _id: null },
+                ],
+              }).lean();
+              if (userCandidate) {
+                staffId = userCandidate._id;
+              }
+            }
+            await Commission.create({
+              clinicId: clinic._id,
+              source: "referral",
+              referralId: match._id,
+              referralName: `${(match.firstName || "").trim()} ${(match.lastName || "").trim()}`.trim(),
+              staffId,
+              appointmentId: appointment._id,
+              patientId: patientRegistration._id,
+              billingId: billing._id,
+              commissionPercent,
+              amountPaid: paidNumForCommission,
+              commissionAmount,
+              invoicedDate: new Date(invoicedDate),
+              notes: notes || "",
+              createdBy: clinicUser._id,
+            });
+          }
+        }
+      }
+    } catch (commissionErr) {
+      console.error("Commission calculation/store error (referral):", commissionErr);
+      // Do not fail the billing creation if commission creation fails
+    }
+
+    // Doctor/Staff commission based on AgentProfile (flat type)
+    try {
+      if (paidNum > 0 && appointment?.doctorId) {
+        const doctorProfile = await AgentProfile.findOne({ userId: appointment.doctorId }).lean();
+        if (doctorProfile && String(doctorProfile.commissionType || "flat") === "flat") {
+          const percent = Number(doctorProfile.commissionPercentage || 0);
+          if (percent > 0) {
+            const staffCommissionAmount = Number(((paidNum * percent) / 100).toFixed(2));
+            await Commission.create({
+              clinicId: clinic._id,
+              source: "staff",
+              staffId: appointment.doctorId,
+              commissionType: "flat",
+              appointmentId: appointment._id,
+              patientId: patientRegistration._id,
+              billingId: billing._id,
+              commissionPercent: percent,
+              amountPaid: paidNum,
+              commissionAmount: staffCommissionAmount,
+              invoicedDate: new Date(invoicedDate),
+              notes: notes || "",
+              createdBy: clinicUser._id,
+            });
+          }
+        }
+      }
+    } catch (staffCommissionErr) {
+      console.error("Commission calculation/store error (staff):", staffCommissionErr);
+      // Do not fail the billing creation if commission creation fails
+    }
 
     return res.status(201).json({
       success: true,

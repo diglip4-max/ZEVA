@@ -120,7 +120,7 @@ export default async function handler(req, res) {
           $gte: query.startDate?.$gte?.toISOString(),
           $lte: query.startDate?.$lte?.toISOString()
         }, null, 2));
-        console.log("================================");
+        console.log("==");
       }
 
       // Filter by doctor if provided
@@ -209,7 +209,7 @@ export default async function handler(req, res) {
           });
         }
       }
-      console.log("=============================");
+      console.log("");
 
       return res.status(200).json({
         success: true,
@@ -316,72 +316,11 @@ export default async function handler(req, res) {
       }
       console.log("🎯 Final validBookedFrom that will be saved:", validBookedFrom);
 
-      // Detailed validation
-      const missingFields = [];
-      const fieldLabels = {
-        patientId: "Patient",
-        doctorId: "Doctor",
-        roomId: "Room",
-        status: "Status",
-        followType: "Follow Type",
-        startDate: "Start Date",
-        fromTime: "From Time",
-        toTime: "To Time",
-      };
+      // REMOVED: All validation checks
+      // Allow unlimited bookings - no restrictions on doctor or patient concurrency
+      // This enables maximum flexibility for all booking scenarios
 
-      if (!patientId) missingFields.push("patientId");
-      if (!doctorId) missingFields.push("doctorId");
-      if (!roomId) missingFields.push("roomId");
-      if (!status) missingFields.push("status");
-      if (!followType) missingFields.push("followType");
-      if (!startDate) missingFields.push("startDate");
-      if (!fromTime) missingFields.push("fromTime");
-      if (!toTime) missingFields.push("toTime");
-
-      if (missingFields.length > 0) {
-        const missingFieldLabels = missingFields.map((field) => fieldLabels[field] || field);
-        return res.status(400).json({
-          success: false,
-          message: "Missing required fields",
-          missingFields: missingFields,
-          missingFieldLabels: missingFieldLabels,
-          errors: missingFields.reduce((acc, field) => {
-            acc[field] = `${fieldLabels[field] || field} is required`;
-            return acc;
-          }, {}),
-        });
-      }
-
-      // Verify doctor belongs to clinic
-      const User = (await import("../../../models/Users")).default;
-      const doctor = await User.findOne({
-        _id: doctorId,
-        role: "doctorStaff",
-        clinicId: clinicId,
-      });
-
-      if (!doctor) {
-        return res.status(400).json({
-          success: false,
-          message: "Doctor not found or does not belong to this clinic",
-        });
-      }
-
-      // Verify room belongs to clinic
-      const Room = (await import("../../../models/Room")).default;
-      const room = await Room.findOne({
-        _id: roomId,
-        clinicId: clinicId,
-      });
-
-      if (!room) {
-        return res.status(400).json({
-          success: false,
-          message: "Room not found or does not belong to this clinic",
-        });
-      }
-
-      // Check for overlapping appointments (same doctor, room, date, and time)
+      // Add missing date parsing logic
       // Normalize startDate to UTC midnight for consistent comparison
       let appointmentDate;
       if (typeof startDate === 'string') {
@@ -409,6 +348,7 @@ export default async function handler(req, res) {
         const day = startDate.getUTCDate();
         appointmentDate = new Date(Date.UTC(year, month, day, 0, 0, 0, 0));
       }
+
       
       // Query for appointments on the same date (using date range)
       const startOfDay = new Date(appointmentDate);
@@ -419,28 +359,59 @@ export default async function handler(req, res) {
         23, 59, 59, 999
       ));
       
-      const existingAppointment = await Appointment.findOne({
+      
+
+      // Validation 2: Check for exact duplicate booking (same patient, doctor, room, date, and time)
+      // Allow multiple patients under the same doctor and same room at the same time
+      const duplicateAppointment = await Appointment.findOne({
         clinicId,
+        roomId,
         doctorId,
+        patientId, // Same patient
         startDate: { $gte: startOfDay, $lte: endOfDay },
-        $or: [
-          { fromTime, toTime },
-          {
-            $or: [
-              { fromTime: { $gte: fromTime, $lt: toTime } },
-              { toTime: { $gt: fromTime, $lte: toTime } },
-              { fromTime: { $lte: fromTime }, toTime: { $gte: toTime } },
-            ],
-          },
-        ],
+        fromTime,
+        toTime,
       });
 
-      if (existingAppointment) {
+      if (duplicateAppointment) {
         return res.status(400).json({
           success: false,
-          message: "An appointment already exists for this doctor at this time",
+          message: "This appointment already exists",
         });
       }
+
+      // Validation 3 removed for clinic, agent, and doctorStaff roles (handled below)
+
+      // UPDATED POLICY:
+      // Allow clinic, agent, and doctorStaff to book different doctors in the same room at the same time
+      // Skip the "different doctor same room/time" validation for these roles
+      // Keep restriction for other roles (e.g., doctor, staff, unknown)
+      // Note: "same doctor same room/time" restriction still applies to prevent duplicate bookings by the same doctor
+      if (!["clinic", "agent", "doctorStaff"].includes(clinicUser.role)) {
+        const differentDoctorSameRoomAppointment = await Appointment.findOne({
+          clinicId,
+          roomId,
+          doctorId: { $ne: doctorId },
+          startDate: { $gte: startOfDay, $lte: endOfDay },
+          $or: [
+            { fromTime, toTime },
+            {
+              $or: [
+                { fromTime: { $gte: fromTime, $lt: toTime } },
+                { toTime: { $gt: fromTime, $lte: toTime } },
+                { fromTime: { $lte: fromTime }, toTime: { $gte: toTime } },
+              ],
+            },
+          ],
+        });
+        if (differentDoctorSameRoomAppointment) {
+          return res.status(400).json({
+            success: false,
+            message: "Another doctor is already booked in this room at this time",
+          });
+        }
+      }
+
 
       // Create appointment
       console.log("💾 Creating appointment with bookedFrom:", validBookedFrom);
@@ -461,7 +432,7 @@ export default async function handler(req, res) {
         roomId,
         status,
         followType,
-        startDate: normalizedAppointmentDate,
+        startDate: normalizedAppointmentDate, // Use the normalized date
         fromTime,
         toTime,
         referral: referral || "direct",

@@ -53,13 +53,13 @@ const ZevaHealthPlatform = () => {
     }, []);
 
     return (
-        <main className="w-full bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-100">
-            <section className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-12 lg:py-16">
+        <main className="w-full bg-gradient-to-br from-blue-50 via-blue-50 to-blue-100">
+            {/* <section className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-12 lg:py-16">
                 <div className="grid lg:grid-cols-2 gap-10 items-center">
-                    {/* Left Column */}
+                    
                     <div className="space-y-6">
-                        <div className="inline-flex items-center gap-2 rounded-full border border-purple-200 bg-white/80 px-4 py-1 text-xs font-semibold text-purple-700">
-                            <Sparkles className="w-4 h-4 text-purple-500" />
+                        <div className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-white/80 px-4 py-1 text-xs font-semibold text-blue-700">
+                            <Sparkles className="w-4 h-4 text-blue-500" />
                             Zeva | All-in-One Healthcare Platform for Doctors & Clinics
                         </div>
 
@@ -73,11 +73,11 @@ const ZevaHealthPlatform = () => {
                             </p>
                         </div>
 
-                        {/* Find & Search Module */}
-                        <div className="rounded-3xl bg-white shadow-xl border border-purple-100 p-5">
+                    
+                        <div className="rounded-3xl bg-white shadow-xl border border-blue-100 p-5">
                             <div className="flex items-center justify-between pb-4 border-b border-gray-100">
                                 <div>
-                                    <p className="text-xs tracking-wide text-purple-500 font-semibold uppercase">Find & Search Doctor</p>
+                                    <p className="text-xs tracking-wide text-blue-500 font-semibold uppercase">Find & Search Doctor</p>
                                     <h2 className="text-lg font-bold text-gray-900">Schedule a visit in under a minute</h2>
                                 </div>
                                 <span className="text-xs font-semibold text-gray-500">Live data</span>
@@ -90,7 +90,7 @@ const ZevaHealthPlatform = () => {
                                     <button
                                         type="button"
                                         onClick={() => router.push('/doctor/search')}
-                                        className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-purple-600 to-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-md hover:-translate-y-0.5 transition"
+                                        className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-blue-600 to-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-md hover:-translate-y-0.5 transition"
                                     >
                                         <Search className="w-4 h-4" />
                                         Search doctors
@@ -101,7 +101,7 @@ const ZevaHealthPlatform = () => {
                                         onClick={() => router.push('/clinic/findclinic')}
                                         className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white px-5 py-2.5 text-sm font-semibold text-gray-700 shadow hover:border-gray-300 hover:-translate-y-0.5 transition"
                                     >
-                                        <Heart className="w-4 h-4 text-purple-500" />
+                                        <Heart className="w-4 h-4 text-blue-500" />
                                         Explore clinics
                                     </button>
                                 </div>
@@ -122,7 +122,7 @@ const ZevaHealthPlatform = () => {
                             </div>
                         </div>
 
-                        {/* Quick Stats */}
+            
                         <div className="flex flex-wrap gap-4 text-sm">
                             <div className="flex-1 min-w-[120px] rounded-2xl bg-white/80 px-4 py-3 shadow">
                                 <p className="text-xs uppercase text-gray-500">Active users</p>
@@ -139,7 +139,7 @@ const ZevaHealthPlatform = () => {
                         </div>
                     </div>
 
-                    {/* Right Column */}
+                
                     <div className="space-y-4">
                         <div className="rounded-[28px] overflow-hidden bg-white/60 shadow-2xl border border-white/60">
                             <img
@@ -148,13 +148,13 @@ const ZevaHealthPlatform = () => {
                                 className="w-full h-[360px] object-cover"
                             />                      <div className="px-6 py-5 space-y-4">
                                 <div className="flex items-center gap-3 text-sm text-gray-600">
-                                    <Users className="w-4 h-4 text-purple-500" />
+                                    <Users className="w-4 h-4 text-blue-500" />
                                     200+ verified practitioners online now
                                 </div>
                                 <p className="text-sm text-gray-700">
                                     “Zeva lets me blend traditional Ayurveda with modern monitoring tools. Patients love how effortless booking feels.”
                                 </p>
-                                {/* <p className="text-xs font-semibold text-gray-500">Dr. Aditi Rao — Lead Panchakarma Specialist</p> */}
+                                
                             </div>
                         </div>
 
@@ -181,15 +181,15 @@ const ZevaHealthPlatform = () => {
                             </button>
                         </div>
 
-                        <div className="rounded-2xl border border-white/60 bg-gradient-to-r from-emerald-400 to-lime-400 px-5 py-4 text-white shadow">
+                        <div className="rounded-2xl border border-teal-200 bg-gradient-to-r from-teal-50 to-white px-5 py-4 shadow">
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <p className="text-xs uppercase tracking-wide">Care coach</p>
-                                    <p className="text-lg font-semibold">Need guidance on programs?</p>
+                                    <p className="text-xs uppercase tracking-wide text-teal-600">Care coach</p>
+                                    <p className="text-lg font-semibold text-teal-700">Need guidance on programs?</p>
                                 </div>
                                 <button
                                     onClick={handleBookAppointment}
-                                    className="inline-flex items-center gap-2 rounded-2xl bg-white/15 px-4 py-2 text-sm font-semibold"
+                                    className="inline-flex items-center gap-2 rounded-2xl bg-teal-600 hover:bg-teal-700 px-4 py-2 text-sm font-semibold text-white transition"
                                 >
                                     <Calendar className="w-4 h-4" />
                                     {showComingSoon ? 'Coming soon' : 'Talk to us'}
@@ -198,7 +198,7 @@ const ZevaHealthPlatform = () => {
                         </div>
                     </div>
                 </div>
-            </section>
+            </section> */}
         </main>
     );
 };

@@ -225,11 +225,11 @@ function AllPettyCashAdmin() {
       )}
 
       {/* Header */}
-      <h1 className="text-lg sm:text-xl font-bold text-gray-900 mb-4 sm:mb-6">Petty Cash Records</h1>
+      <h1 className="text-lg sm:text-xl font-bold text-blue-800 mb-4 sm:mb-6">Petty Cash Records</h1>
 
       {/* Global Totals */}
       <div className="bg-white rounded shadow p-4 sm:p-5 mb-5 sm:mb-6">
-        <h2 className="text-base sm:text-md font-bold text-gray-900 mb-3 sm:mb-4">Global Petty Cash Summary</h2>
+        <h2 className="text-base sm:text-md font-bold text-blue-800 mb-3 sm:mb-4">Global Petty Cash Summary</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
           <div className="bg-green-50 border border-green-200 rounded-lg p-3 sm:p-4 text-center">
             <div className="text-lg sm:text-xl font-bold text-green-600">د.إ{globalAmounts.globalTotalAmount}</div>

@@ -211,10 +211,10 @@ const AdminEodNotes = () => {
               </svg>
             </div>
             <div>
-              <h2 className="text-base sm:text-lg font-bold text-gray-800">
+              <h2 className="text-base sm:text-lg font-bold text-blue-800">
                 EOD Notes Dashboard
               </h2>
-              <p className="text-xs text-gray-500 mt-0.5">Admin View - All Staff Reports</p>
+              <p className="text-xs text-blue-600 mt-0.5">Admin View - All Staff Reports</p>
             </div>
           </div>
 

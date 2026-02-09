@@ -11,10 +11,16 @@ import {
   Award,
   Calendar,
   Users,
+  ChevronLeft,
   ChevronRight,
+  Shield,
+  Heart,
+  CheckCircle,
+  Building2,
+  Stethoscope,
+  Sparkles,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext"; // ✅ make sure this path is correct
-import CalculatorGames from "../../components/CalculatorGames";
 import AuthModal from "../../components/AuthModal";
 import Image from 'next/image';
 
@@ -42,13 +48,34 @@ interface Clinic {
 const normalizePhotoUrl = (url: string | undefined): string => {
   if (!url) return '';
   
-  // If already an absolute URL (http:// or https://), return as is
-  if (url.startsWith('http://') || url.startsWith('https://')) {
-    return url;
+  // Handle malformed URLs that have localhost concatenated with file path
+  // e.g., "http://localhost:3000C:/Users/..." -> extract the file path part
+  if (url.includes('localhost') && /[A-Za-z]:/.test(url)) {
+    // Find the drive letter (C:, D:, etc.) and extract from there
+    const driveMatch = url.match(/([A-Za-z]:.*)/);
+    if (driveMatch) {
+      url = driveMatch[1];
+    }
   }
   
-  // If it's a file system path (contains drive letter or backslashes), extract the uploads part
-  if (url.includes('uploads/') && (url.includes(':\\') || url.includes(':/') || url.includes('C:/') || url.includes('D:/'))) {
+  // Normalize Windows backslashes to forward slashes
+  url = url.replace(/\\/g, '/');
+  
+  // If already a valid absolute URL (http:// or https://), return as is
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    // Make sure it's a proper URL, not concatenated with file path
+    if (!/[A-Za-z]:/.test(url)) {
+    return url;
+    }
+    // If it has a drive letter, it's malformed, extract the path part
+    const driveMatch = url.match(/([A-Za-z]:.*)/);
+    if (driveMatch) {
+      url = driveMatch[1];
+    }
+  }
+  
+  // If it's a file system path (contains drive letter), extract the uploads part
+  if (url.includes('uploads/') && /[A-Za-z]:/.test(url)) {
     const uploadsIndex = url.indexOf('uploads/');
     const relativePath = '/' + url.substring(uploadsIndex);
     return relativePath;
@@ -66,8 +93,14 @@ const normalizePhotoUrl = (url: string | undefined): string => {
     return url;
   }
   
+  // If it contains uploads but no drive letter, make it relative
+  if (url.includes('uploads/')) {
+    const uploadsIndex = url.indexOf('uploads/');
+    return '/' + url.substring(uploadsIndex);
+  }
+  
   // Otherwise, prepend /uploads/clinic/ if it looks like a filename
-  if (url.includes('clinicPhoto') || url.match(/\.(jpg|jpeg|png|gif)$/i)) {
+  if (url.includes('clinicPhoto') || url.match(/\.(jpg|jpeg|png|gif|avif|webp)$/i)) {
     return '/uploads/clinic/' + url;
   }
   
@@ -100,29 +133,77 @@ export default function ClinicDetail() {
   const navigateToReview = useRef(false);
 
   useEffect(() => {
-    if (!router.isReady) return;
+    if (!router.isReady || !slug) return;
     
-    // Get clinic ID from query parameter (passed as ?c=... in URL)
-    // If no query param, check if the path param is actually an ObjectId (24 hex chars) for backward compatibility
-    const isObjectId = slug && /^[0-9a-fA-F]{24}$/.test(slug);
-    // Use query param 'c' if available, otherwise use slug if it's an ObjectId (backward compatibility)
-    const idToUse = clinicId || (isObjectId ? slug : null);
-    
-    if (!idToUse) return;
     const fetchClinic = async () => {
       try {
         setLoading(true);
         setError(null);
-        const res = await axios.get(`/api/clinics/${idToUse}`);
+        
+        // Check if slug is an ObjectId (for backward compatibility)
+        const isObjectId = /^[0-9a-fA-F]{24}$/.test(slug);
+        
+        let res;
+        if (isObjectId) {
+          // Old ObjectId-based URL - fetch by ObjectId first
+          try {
+            res = await axios.get(`/api/clinics/${slug}`);
+            const clinic = res.data?.clinic || res.data?.data || res.data;
+            
+            // If clinic has a slug, redirect to slug-based URL
+            if (clinic?.slug && clinic?.slugLocked) {
+              router.replace(`/clinics/${clinic.slug}`, undefined, { shallow: false });
+              return;
+            }
+          } catch (err: any) {
+            // If fetch fails, try redirect API
+            try {
+              // Redirect API will handle slug generation if needed
+              window.location.href = `/api/clinics/redirect/${slug}`;
+              return;
+            } catch (redirectErr) {
+              throw err;
+            }
+          }
+        } else {
+          // New slug-based URL - fetch by slug
+          try {
+            res = await axios.get(`/api/clinics/by-slug/${slug}`);
+          } catch (slugErr: any) {
+            // If slug fetch fails and we have clinicId in query params, try fetching by ID
+            if (slugErr.response?.status === 404 && clinicId) {
+              console.log("Slug not found, trying with clinic ID:", clinicId);
+              try {
+                res = await axios.get(`/api/clinics/${clinicId}`);
+                const clinic = res.data?.clinic || res.data?.data || res.data;
+                
+                // If clinic has a slug, redirect to slug-based URL
+                if (clinic?.slug && clinic?.slugLocked) {
+                  router.replace(`/clinics/${clinic.slug}`, undefined, { shallow: false });
+                  return;
+                }
+              } catch (idErr: any) {
+                // Both slug and ID failed, throw the original slug error
+                throw slugErr;
+              }
+            } else {
+              // Re-throw if it's not a 404 or no clinicId available
+              throw slugErr;
+            }
+          }
+        }
+        
         setClinic(res.data?.clinic || res.data?.data || res.data);
-      } catch {
-        setError("Failed to load clinic");
+      } catch (err: any) {
+        console.error("Error fetching clinic:", err);
+        setError(err.response?.data?.message || "Failed to load clinic");
       } finally {
         setLoading(false);
       }
     };
+    
     fetchClinic();
-  }, [slug, clinicId, router.isReady]);
+  }, [slug, router.isReady, router]);
 
   useEffect(() => {
     if (!clinic?._id) return;
@@ -270,16 +351,30 @@ export default function ClinicDetail() {
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
       {/* Main Content */}
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {/* Back Button */}
+        <div className="flex justify-end">
+          <button 
+            onClick={() => router.back()} 
+            className="flex items-center gap-2 text-gray-600 hover:text-[#2D9AA5] transition-colors mb-6 group"
+          >
+            <ChevronLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
+            <span className="font-medium">Back </span>
+          </button>
+        </div>
+
         <div className="bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden">
           {/* Profile Header Section */}
           <div className="p-6 sm:p-8 bg-gradient-to-r from-[#2D9AA5]/5 to-[#2D9AA5]/10 border-b border-gray-100">
             <div className="flex flex-col lg:flex-row gap-6 items-start">
-              {/* Clinic Image - Left Corner */}
-              {clinic.photos?.[0] && (
+              {(() => {
+                const photosArray = clinic.photos || [];
+                const latestPhoto = photosArray.length > 0 ? photosArray[photosArray.length - 1] : null;
+                
+                return latestPhoto && (
                 <div className="w-full max-w-sm lg:max-w-xs flex-shrink-0">
                   <div className="relative w-full h-48 sm:h-56 lg:h-60 rounded-2xl overflow-hidden shadow-lg border-4 border-white bg-white">
                     <Image
-                      src={normalizePhotoUrl(clinic.photos[0])}
+                        src={normalizePhotoUrl(latestPhoto)}
                       alt={clinic.name}
                       fill
                       className="object-contain"
@@ -288,7 +383,8 @@ export default function ClinicDetail() {
                     />
                   </div>
                 </div>
-              )}
+                );
+              })()}
 
               {/* Profile Info */}
               <div className="flex-1 min-w-0">
@@ -526,9 +622,259 @@ export default function ClinicDetail() {
         </div>
       </div>
 
-      {/* Bottom Spacing */}
-      <div className="h-8"></div>
-      <CalculatorGames />
+      {/* About & Contact Section */}
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* About Section */}
+          <div className="bg-white rounded-2xl shadow-xl border border-gray-200 p-6 sm:p-8">
+            <h2 className="text-2xl font-bold text-gray-900 mb-4 flex items-center gap-3">
+              <div className="p-2 bg-[#2D9AA5]/20 rounded-lg">
+                <Users className="w-6 h-6 text-[#2D9AA5]" />
+              </div>
+              About {clinic.name}
+            </h2>
+            <p className="text-gray-600 leading-relaxed mb-4">
+              {clinic.name} is a trusted healthcare facility committed to providing exceptional medical care and personalized treatment plans. Our team of experienced professionals ensures the highest standards of patient care and medical excellence.
+            </p>
+            <div className="space-y-3">
+              {clinic.timings && (
+                <div className="flex items-start gap-3">
+                  <Clock className="w-5 h-5 text-[#2D9AA5] mt-0.5 flex-shrink-0" />
+                  <div>
+                    <p className="font-semibold text-gray-800">Operating Hours</p>
+                    <p className="text-gray-600">{clinic.timings}</p>
+                  </div>
+                </div>
+              )}
+              {clinic.pricing && (
+                <div className="flex items-start gap-3">
+                  <Award className="w-5 h-5 text-[#2D9AA5] mt-0.5 flex-shrink-0" />
+                  <div>
+                    <p className="font-semibold text-gray-800">Consultation Fee</p>
+                    <p className="text-gray-600">AED {clinic.pricing}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Contact & Location Section */}
+          <div className="bg-white rounded-2xl shadow-xl border border-gray-200 p-6 sm:p-8">
+            <h2 className="text-2xl font-bold text-gray-900 mb-4 flex items-center gap-3">
+              <div className="p-2 bg-[#2D9AA5]/20 rounded-lg">
+                <MapPin className="w-6 h-6 text-[#2D9AA5]" />
+              </div>
+              Location & Contact
+            </h2>
+            <div className="space-y-4">
+              <div className="flex items-start gap-3">
+                <MapPin className="w-5 h-5 text-[#2D9AA5] mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="font-semibold text-gray-800">Address</p>
+                  <p className="text-gray-600">{clinic.address}</p>
+                </div>
+              </div>
+              {(() => {
+                const mapsHref = clinic.address
+                  ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(clinic.address)}`
+                  : clinic.location?.coordinates?.length === 2
+                  ? `https://www.google.com/maps/dir/?api=1&destination=${clinic.location.coordinates[1]},${clinic.location.coordinates[0]}`
+                  : null;
+                
+                return mapsHref ? (
+                  <a
+                    href={mapsHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-300 font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+                  >
+                    <Navigation className="w-4 h-4" />
+                    Get Directions
+                  </a>
+                ) : null;
+              })()}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Map Section */}
+      {/* {clinic.location?.coordinates && clinic.location.coordinates.length === 2 && (
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="bg-white rounded-2xl shadow-xl border border-gray-200 p-6 sm:p-8">
+            <h2 className="text-2xl font-bold text-gray-900 mb-4 flex items-center gap-3">
+              <div className="p-2 bg-[#2D9AA5]/20 rounded-lg">
+                <MapPin className="w-6 h-6 text-[#2D9AA5]" />
+              </div>
+              Find Us on Map
+            </h2>
+            <div className="w-full h-96 rounded-xl overflow-hidden border border-gray-200">
+              <iframe
+                width="100%"
+                height="100%"
+                frameBorder="0"
+                style={{ border: 0 }}
+                src={`https://www.google.com/maps/embed/v1/place?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dS6fa4U8xDGZQ&q=${clinic.location.coordinates[1]},${clinic.location.coordinates[0]}&zoom=15`}
+                allowFullScreen
+              ></iframe>
+            </div>
+          </div>
+        </div>
+      )} */}
+
+      {/* Why Choose Us Section */}
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="bg-white rounded-2xl shadow-xl border border-gray-200 p-6 sm:p-8">
+          <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-3">
+            <div className="p-2 bg-[#2D9AA5]/20 rounded-lg">
+              <Sparkles className="w-6 h-6 text-[#2D9AA5]" />
+            </div>
+            Why Choose {clinic.name}?
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="flex items-start gap-4 p-4 rounded-xl bg-gradient-to-br from-blue-50 to-blue-100/50 border border-blue-200 hover:shadow-lg transition-all">
+              <div className="p-3 bg-[#2D9AA5] rounded-lg flex-shrink-0">
+                <Shield className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h3 className="font-bold text-gray-900 mb-2">Verified & Certified</h3>
+                <p className="text-sm text-gray-600">Fully licensed healthcare facility with certified medical professionals and verified credentials.</p>
+              </div>
+            </div>
+            
+            <div className="flex items-start gap-4 p-4 rounded-xl bg-gradient-to-br from-green-50 to-green-100/50 border border-green-200 hover:shadow-lg transition-all">
+              <div className="p-3 bg-green-600 rounded-lg flex-shrink-0">
+                <Heart className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h3 className="font-bold text-gray-900 mb-2">Patient-Centered Care</h3>
+                <p className="text-sm text-gray-600">Personalized treatment plans tailored to each patient's unique healthcare needs and preferences.</p>
+              </div>
+            </div>
+            
+            <div className="flex items-start gap-4 p-4 rounded-xl bg-gradient-to-br from-purple-50 to-purple-100/50 border border-purple-200 hover:shadow-lg transition-all">
+              <div className="p-3 bg-purple-600 rounded-lg flex-shrink-0">
+                <Stethoscope className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h3 className="font-bold text-gray-900 mb-2">Expert Medical Team</h3>
+                <p className="text-sm text-gray-600">Experienced healthcare professionals dedicated to providing the highest quality medical care.</p>
+              </div>
+            </div>
+            
+            <div className="flex items-start gap-4 p-4 rounded-xl bg-gradient-to-br from-amber-50 to-amber-100/50 border border-amber-200 hover:shadow-lg transition-all">
+              <div className="p-3 bg-amber-600 rounded-lg flex-shrink-0">
+                <Clock className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h3 className="font-bold text-gray-900 mb-2">Convenient Timings</h3>
+                <p className="text-sm text-gray-600">Flexible appointment scheduling to accommodate your busy lifestyle and urgent care needs.</p>
+              </div>
+            </div>
+            
+            <div className="flex items-start gap-4 p-4 rounded-xl bg-gradient-to-br from-teal-50 to-teal-100/50 border border-teal-200 hover:shadow-lg transition-all">
+              <div className="p-3 bg-teal-600 rounded-lg flex-shrink-0">
+                <Award className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h3 className="font-bold text-gray-900 mb-2">Transparent Pricing</h3>
+                <p className="text-sm text-gray-600">Clear and upfront consultation fees with no hidden charges or surprise costs.</p>
+              </div>
+            </div>
+            
+            <div className="flex items-start gap-4 p-4 rounded-xl bg-gradient-to-br from-indigo-50 to-indigo-100/50 border border-indigo-200 hover:shadow-lg transition-all">
+              <div className="p-3 bg-indigo-600 rounded-lg flex-shrink-0">
+                <CheckCircle className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h3 className="font-bold text-gray-900 mb-2">Quality Assurance</h3>
+                <p className="text-sm text-gray-600">Committed to maintaining the highest standards of medical excellence and patient satisfaction.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Mission & Vision Section */}
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="bg-white rounded-2xl shadow-xl border border-gray-200 p-6 sm:p-8">
+          <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-3">
+            <div className="p-2 bg-[#2D9AA5]/20 rounded-lg">
+              <Users className="w-6 h-6 text-[#2D9AA5]" />
+            </div>
+            Our Mission & Vision
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-3 p-6 bg-gradient-to-br from-blue-50 to-blue-100/30 rounded-xl border border-blue-200">
+              <h3 className="font-bold text-gray-900 text-lg flex items-center gap-2">
+                <CheckCircle className="w-5 h-5 text-[#2D9AA5]" />
+                Our Mission
+              </h3>
+              <p className="text-gray-700 leading-relaxed">
+                To provide accessible, high-quality healthcare services that improve the health and well-being of our community through compassionate care and medical excellence.
+              </p>
+            </div>
+            <div className="space-y-3 p-6 bg-gradient-to-br from-green-50 to-green-100/30 rounded-xl border border-green-200">
+              <h3 className="font-bold text-gray-900 text-lg flex items-center gap-2">
+                <CheckCircle className="w-5 h-5 text-[#2D9AA5]" />
+                Our Vision
+              </h3>
+              <p className="text-gray-700 leading-relaxed">
+                To be recognized as a leading healthcare provider known for innovation, patient-centered care, and unwavering commitment to medical excellence.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Facilities & Amenities Section */}
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="bg-white rounded-2xl shadow-xl border border-gray-200 p-6 sm:p-8">
+          <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-3">
+            <div className="p-2 bg-[#2D9AA5]/20 rounded-lg">
+              <Building2 className="w-6 h-6 text-[#2D9AA5]" />
+            </div>
+            Facilities & Amenities
+          </h2>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+            {[
+              "Modern Equipment",
+              "Clean & Sanitized",
+              "Parking Available",
+              "Wheelchair Accessible",
+              "Air Conditioned",
+              "Wi-Fi Available",
+              "Emergency Services",
+              "Pharmacy Nearby"
+            ].map((facility, idx) => (
+              <div key={idx} className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg hover:bg-[#2D9AA5]/5 transition-all">
+                <CheckCircle className="w-4 h-4 text-[#2D9AA5] flex-shrink-0" />
+                <span className="text-sm font-medium text-gray-700">{facility}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Detailed About Section */}
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="bg-white rounded-2xl shadow-xl border border-gray-200 p-6 sm:p-8">
+          <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-3">
+            <div className="p-2 bg-[#2D9AA5]/20 rounded-lg">
+              <Users className="w-6 h-6 text-[#2D9AA5]" />
+            </div>
+            About Our Clinic
+          </h2>
+          <div className="prose max-w-none">
+            <p className="text-gray-700 leading-relaxed mb-4 text-base">
+              {clinic.name} stands as a beacon of excellence in healthcare, dedicated to providing comprehensive medical services with a focus on patient well-being and satisfaction. Our clinic combines traditional medical practices with modern technology to deliver exceptional healthcare experiences.
+            </p>
+            <p className="text-gray-700 leading-relaxed mb-4 text-base">
+              With a team of highly qualified and experienced medical professionals, we ensure that every patient receives personalized attention and care tailored to their specific health needs. Our commitment to excellence is reflected in our state-of-the-art facilities, advanced medical equipment, and compassionate approach to patient care.
+            </p>
+          </div>
+        </div>
+      </div>
 
       {/* Login Modal */}
       {showAuthModal && (

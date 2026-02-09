@@ -7,6 +7,10 @@ import Clinic from "../../../models/Clinic";
 import { getUserFromReq, requireRole } from "../lead-ms/auth";
 import { getClinicIdFromUser, checkClinicPermission } from "../lead-ms/permissions-helper";
 import { checkAgentPermission } from "../agent/permissions-helper";
+import { generateAndLockSlug } from "../../../lib/slugService";
+import { runSEOPipeline } from "../../../lib/seo/SEOOrchestrator";
+import { checkSEOHealth } from "../../../lib/seo/SEOHealthService";
+import { slugify } from "../../../lib/utils";
 
 export default async function handler(req, res) {
   await dbConnect();
@@ -296,13 +300,16 @@ export default async function handler(req, res) {
           const { title, content, paramlink } = req.body;
           const { draftId } = req.query; // Check if publishing from a draft
 
-          if (!title || !content || !paramlink) {
+          if (!title || !content) {
             return res.status(400).json({
               success: false,
               message:
-                "Title, content, and paramlink are required for published blogs",
+                "Title and content are required for published blogs",
             });
           }
+
+          // Generate paramlink from title if not provided
+          let paramlinkToUse = paramlink?.trim() || slugify(title.trim());
 
           // If publishing from a draft, update the draft to published instead of creating new
           if (draftId) {
@@ -321,15 +328,50 @@ export default async function handler(req, res) {
             }
 
             // Check if paramlink conflicts with other published blogs (excluding this draft)
+            // If it exists, automatically generate sequential slug
+            let finalParamlink = paramlinkToUse;
             const existingPublished = await Blog.findOne({
-              paramlink,
+              paramlink: finalParamlink,
               status: "published",
               _id: { $ne: draftId },
             });
+            
             if (existingPublished) {
-              return res
-                .status(409)
-                .json({ success: false, message: "Paramlink already exists" });
+              // Extract base slug from title (remove any existing number suffix)
+              const baseSlug = slugify(title.trim());
+              
+              // Find all slugs matching pattern: baseSlug or baseSlug-{number}
+              const regexPattern = new RegExp(`^${baseSlug.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(-\\d+)?$`);
+              
+              const existingSlugs = await Blog.find({
+                paramlink: { $regex: regexPattern },
+                status: "published",
+                _id: { $ne: draftId },
+              }).select('paramlink');
+
+              // Extract numbers from slugs (e.g., "abc-2" -> 2, "abc" -> 0)
+              // Filter out suspiciously large numbers (like timestamps) - only consider numbers up to 1000
+              const numbers = existingSlugs.map(blog => {
+                const slug = blog.paramlink;
+                if (slug === baseSlug) return 0; // Base slug counts as 0
+                const match = slug.match(/-(\d+)$/);
+                if (match) {
+                  const num = parseInt(match[1], 10);
+                  // Only consider sequential numbers (up to 1000 to avoid timestamps)
+                  return num <= 1000 ? num : 0;
+                }
+                return 0;
+              });
+
+              // Find the highest number (excluding filtered out large numbers)
+              const validNumbers = numbers.filter(n => n > 0);
+              const maxNumber = validNumbers.length > 0 ? Math.max(...validNumbers) : 0;
+              
+              // Start from 2 if base exists, otherwise use next number
+              const nextNumber = maxNumber === 0 ? 2 : maxNumber + 1;
+              finalParamlink = `${baseSlug}-${nextNumber}`;
+              
+              console.log(`🔄 Paramlink conflict detected. Generated sequential slug: ${finalParamlink}`);
             }
 
             // Update the draft to published status
@@ -338,23 +380,134 @@ export default async function handler(req, res) {
               {
                 title: title.trim(),
                 content: content.trim(),
-                paramlink: paramlink.trim(),
+                paramlink: finalParamlink,
                 status: "published",
                 updatedAt: new Date(),
               },
               { new: true, runValidators: true }
             ).populate("postedBy", "name email");
 
-            return res.status(200).json({ success: true, blog: updatedBlog });
+            // Step 2: Generate and lock slug for published blog
+            if (updatedBlog && !updatedBlog.slugLocked) {
+              try {
+                console.log(`🔄 Generating slug for blog: ${updatedBlog.title} (ID: ${draftId})`);
+                
+                // Use central slug service to generate and lock slug
+                const blogWithSlug = await generateAndLockSlug('blog', draftId.toString());
+                
+                if (blogWithSlug.paramlink && blogWithSlug.slugLocked) {
+                  console.log(`✅ Slug generated successfully: ${blogWithSlug.paramlink}`);
+                  
+                  // Step 3: Run SEO pipeline after slug generation
+                  try {
+                    console.log(`🚀 Running SEO pipeline for blog: ${draftId}`);
+                    const refreshedBlog = await Blog.findById(draftId);
+                    const seoResult = await runSEOPipeline('blog', draftId.toString(), refreshedBlog);
+                    if (seoResult.success) {
+                      console.log(`✅ SEO pipeline completed successfully`);
+                      
+                      // Step 4: Run SEO Health Check after pipeline
+                      try {
+                        console.log(`\n🏥 [SEO Health Check] Running health check for blog: ${draftId}`);
+                        const healthCheck = await checkSEOHealth('blog', draftId.toString());
+                        
+                        console.log(`\n📊 [SEO Health Check] Results:`);
+                        console.log(`   Overall Health: ${healthCheck.overallHealth.toUpperCase()}`);
+                        console.log(`   Health Score: ${healthCheck.score}/100`);
+                        console.log(`   Total Issues: ${healthCheck.issues.length}`);
+                        
+                        if (healthCheck.issues.length > 0) {
+                          console.log(`\n   🚨 Issues Found:`);
+                          healthCheck.issues.forEach((issue, index) => {
+                            console.log(`   ${index + 1}. [${issue.severity.toUpperCase()}] ${issue.type}`);
+                            console.log(`      Message: ${issue.message}`);
+                            if (issue.field) console.log(`      Field: ${issue.field}`);
+                            if (issue.expected) console.log(`      Expected: ${issue.expected}`);
+                            if (issue.actual) console.log(`      Actual: ${issue.actual}`);
+                            if (issue.fix) console.log(`      Fix: ${issue.fix}`);
+                          });
+                        }
+                        
+                        if (healthCheck.recommendations.length > 0) {
+                          console.log(`\n   💡 Recommendations:`);
+                          healthCheck.recommendations.forEach((rec, index) => {
+                            console.log(`   ${index + 1}. ${rec}`);
+                          });
+                        }
+                        
+                        console.log(`\n`);
+                        
+                        // Store health check in SEO result
+                        seoResult.healthCheck = healthCheck;
+                      } catch (healthError) {
+                        console.error(`❌ SEO Health Check error (non-fatal):`, healthError.message);
+                        // Non-fatal - continue with response
+                      }
+                    } else {
+                      console.warn(`⚠️ SEO pipeline completed with warnings:`, seoResult.errors);
+                    }
+                  } catch (seoError) {
+                    // SEO errors are non-fatal - log but continue
+                    console.error("❌ SEO pipeline error (non-fatal):", seoError.message);
+                  }
+                } else {
+                  console.log(`⚠️ Slug generation completed but slugLocked is false`);
+                }
+              } catch (slugError) {
+                // If slug generation fails but blog is published, continue
+                console.error("❌ Slug generation error (non-fatal):", slugError.message);
+                console.error("Error stack:", slugError.stack);
+              }
+            } else if (updatedBlog && updatedBlog.slugLocked) {
+              console.log(`⏭️ Skipping slug generation - slug already locked: ${updatedBlog.paramlink}`);
+            }
+
+            // Refresh blog data to get updated slug
+            const finalBlog = await Blog.findById(draftId).populate("postedBy", "name email");
+
+            return res.status(200).json({ success: true, blog: finalBlog });
           }
 
           // If not publishing from a draft, create a new published blog
-          // Only disallow if a published blog already has the paramlink
-          const existing = await Blog.findOne({ paramlink, status: "published" });
+          // If paramlink exists, automatically generate sequential slug
+          let finalParamlink = paramlinkToUse;
+          const existing = await Blog.findOne({ paramlink: finalParamlink, status: "published" });
+          
           if (existing) {
-            return res
-              .status(409)
-              .json({ success: false, message: "Paramlink already exists" });
+            // Extract base slug from title (remove any existing number suffix)
+            const baseSlug = slugify(title.trim());
+            
+            // Find all slugs matching pattern: baseSlug or baseSlug-{number}
+            const regexPattern = new RegExp(`^${baseSlug.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(-\\d+)?$`);
+            
+            const existingSlugs = await Blog.find({
+              paramlink: { $regex: regexPattern },
+              status: "published",
+            }).select('paramlink');
+
+            // Extract numbers from slugs (e.g., "abc-2" -> 2, "abc" -> 0)
+            // Filter out suspiciously large numbers (like timestamps) - only consider numbers up to 1000
+            const numbers = existingSlugs.map(blog => {
+              const slug = blog.paramlink;
+              if (slug === baseSlug) return 0; // Base slug counts as 0
+              const match = slug.match(/-(\d+)$/);
+              if (match) {
+                const num = parseInt(match[1], 10);
+                // Only consider sequential numbers (up to 1000 to avoid timestamps)
+                return num <= 1000 ? num : 0;
+              }
+              return 0;
+            });
+
+            // Find the highest number (excluding filtered out large numbers)
+            const validNumbers = numbers.filter(n => n > 0);
+            const maxNumber = validNumbers.length > 0 ? Math.max(...validNumbers) : 0;
+            
+            // Start from 2 if base exists, otherwise use next number
+            const nextNumber = maxNumber === 0 ? 2 : maxNumber + 1;
+            finalParamlink = `${baseSlug}-${nextNumber}`;
+            
+            console.log(`🔄 Paramlink conflict detected. Generated sequential slug: ${finalParamlink}`);
           }
 
           // Determine the role to use for the blog
@@ -367,11 +520,84 @@ export default async function handler(req, res) {
           const publishedBlog = await Blog.create({
             title: title || "Untitled Blog",
             content: content || "",
-            paramlink,
+            paramlink: finalParamlink,
             status: "published",
             postedBy: me._id,
             role: blogRole,
           });
+
+          // Step 2: Generate and lock slug for published blog
+          if (publishedBlog && !publishedBlog.slugLocked) {
+            try {
+              console.log(`🔄 Generating slug for blog: ${publishedBlog.title} (ID: ${publishedBlog._id})`);
+              
+              // Use central slug service to generate and lock slug
+              const blogWithSlug = await generateAndLockSlug('blog', publishedBlog._id.toString());
+              
+              if (blogWithSlug.paramlink && blogWithSlug.slugLocked) {
+                console.log(`✅ Slug generated successfully: ${blogWithSlug.paramlink}`);
+                
+                // Step 3: Run SEO pipeline after slug generation
+                try {
+                  console.log(`🚀 Running SEO pipeline for blog: ${publishedBlog._id}`);
+                  const refreshedBlog = await Blog.findById(publishedBlog._id);
+                  const seoResult = await runSEOPipeline('blog', publishedBlog._id.toString(), refreshedBlog);
+                  if (seoResult.success) {
+                    console.log(`✅ SEO pipeline completed successfully`);
+                    
+                    // Step 4: Run SEO Health Check after pipeline
+                    try {
+                      console.log(`\n🏥 [SEO Health Check] Running health check for blog: ${publishedBlog._id}`);
+                      const healthCheck = await checkSEOHealth('blog', publishedBlog._id.toString());
+                      
+                      console.log(`\n📊 [SEO Health Check] Results:`);
+                      console.log(`   Overall Health: ${healthCheck.overallHealth.toUpperCase()}`);
+                      console.log(`   Health Score: ${healthCheck.score}/100`);
+                      console.log(`   Total Issues: ${healthCheck.issues.length}`);
+                      
+                      if (healthCheck.issues.length > 0) {
+                        console.log(`\n   🚨 Issues Found:`);
+                        healthCheck.issues.forEach((issue, index) => {
+                          console.log(`   ${index + 1}. [${issue.severity.toUpperCase()}] ${issue.type}`);
+                          console.log(`      Message: ${issue.message}`);
+                          if (issue.field) console.log(`      Field: ${issue.field}`);
+                          if (issue.expected) console.log(`      Expected: ${issue.expected}`);
+                          if (issue.actual) console.log(`      Actual: ${issue.actual}`);
+                          if (issue.fix) console.log(`      Fix: ${issue.fix}`);
+                        });
+                      }
+                      
+                      if (healthCheck.recommendations.length > 0) {
+                        console.log(`\n   💡 Recommendations:`);
+                        healthCheck.recommendations.forEach((rec, index) => {
+                          console.log(`   ${index + 1}. ${rec}`);
+                        });
+                      }
+                      
+                      console.log(`\n`);
+                      
+                      // Store health check in SEO result
+                      seoResult.healthCheck = healthCheck;
+                    } catch (healthError) {
+                      console.error(`❌ SEO Health Check error (non-fatal):`, healthError.message);
+                      // Non-fatal - continue with response
+                    }
+                  } else {
+                    console.warn(`⚠️ SEO pipeline completed with warnings:`, seoResult.errors);
+                  }
+                } catch (seoError) {
+                  // SEO errors are non-fatal - log but continue
+                  console.error("❌ SEO pipeline error (non-fatal):", seoError.message);
+                }
+              } else {
+                console.log(`⚠️ Slug generation completed but slugLocked is false`);
+              }
+            } catch (slugError) {
+              // If slug generation fails but blog is published, continue
+              console.error("❌ Slug generation error (non-fatal):", slugError.message);
+              console.error("Error stack:", slugError.stack);
+            }
+          }
 
           // Populate the postedBy field to return user info
           const populatedBlog = await Blog.findById(publishedBlog._id).populate(
@@ -464,17 +690,53 @@ export default async function handler(req, res) {
             // Clinic, admin, and doctor users bypass permission checks
           }
 
-          // If paramlink is being updated, only conflict with other published blogs
+          // If paramlink is being updated, automatically generate sequential slug if it conflicts
+          let finalParamlink = paramlink;
           if (paramlink) {
             const existing = await Blog.findOne({
-              paramlink,
+              paramlink: paramlink.trim(),
               status: "published",
               _id: { $ne: id },
             });
+            
             if (existing) {
-              return res
-                .status(409)
-                .json({ success: false, message: "Paramlink already exists" });
+              // Extract base slug from title (remove any existing number suffix)
+              const baseSlug = slugify(title.trim());
+              
+              // Find all slugs matching pattern: baseSlug or baseSlug-{number}
+              const regexPattern = new RegExp(`^${baseSlug.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(-\\d+)?$`);
+              
+              const existingSlugs = await Blog.find({
+                paramlink: { $regex: regexPattern },
+                status: "published",
+                _id: { $ne: id },
+              }).select('paramlink');
+
+              // Extract numbers from slugs (e.g., "abc-2" -> 2, "abc" -> 0)
+              // Filter out suspiciously large numbers (like timestamps) - only consider numbers up to 1000
+              const numbers = existingSlugs.map(blog => {
+                const slug = blog.paramlink;
+                if (slug === baseSlug) return 0; // Base slug counts as 0
+                const match = slug.match(/-(\d+)$/);
+                if (match) {
+                  const num = parseInt(match[1], 10);
+                  // Only consider sequential numbers (up to 1000 to avoid timestamps)
+                  return num <= 1000 ? num : 0;
+                }
+                return 0;
+              });
+
+              // Find the highest number (excluding filtered out large numbers)
+              const validNumbers = numbers.filter(n => n > 0);
+              const maxNumber = validNumbers.length > 0 ? Math.max(...validNumbers) : 0;
+              
+              // Start from 2 if base exists, otherwise use next number
+              const nextNumber = maxNumber === 0 ? 2 : maxNumber + 1;
+              finalParamlink = `${baseSlug}-${nextNumber}`;
+              
+              console.log(`🔄 Paramlink conflict detected. Generated sequential slug: ${finalParamlink}`);
+            } else {
+              finalParamlink = paramlink.trim();
             }
           }
 
@@ -483,7 +745,7 @@ export default async function handler(req, res) {
             {
               title,
               content,
-              paramlink,
+              paramlink: finalParamlink,
               status: "published",
               updatedAt: new Date(),
             },

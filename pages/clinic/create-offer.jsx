@@ -9,12 +9,12 @@ import {
   Package,
   TrendingUp,
   Calendar,
+  Download,
 } from "lucide-react";
 import { Toaster, toast } from "react-hot-toast";
 import CreateOfferModal from "../../components/CreateOfferModal";
 import ClinicLayout from "../../components/ClinicLayout";
 import withClinicAuth from "../../components/withClinicAuth";
-import { useAgentPermissions } from "../../hooks/useAgentPermissions";
 
 const TOKEN_PRIORITY = [
   "clinicToken",
@@ -71,12 +71,10 @@ function OffersPage() {
     canCreate: false,
     canUpdate: false,
     canDelete: false,
-    canRead: undefined,
+    canRead: false,
   });
   const [permissionsLoaded, setPermissionsLoaded] = useState(false);
   const [token, setToken] = useState("");
-  const [hasAgentToken, setHasAgentToken] = useState(false);
-  const [isAgentRoute, setIsAgentRoute] = useState(false);
   const [confirmModal, setConfirmModal] = useState({
     isOpen: false,
     offerId: null,
@@ -88,59 +86,14 @@ function OffersPage() {
     const syncTokens = () => {
       const storedToken = getStoredToken();
       setToken(storedToken || "");
-      setHasAgentToken(Boolean(localStorage.getItem("agentToken")));
     };
     syncTokens();
     window.addEventListener("storage", syncTokens);
     return () => window.removeEventListener("storage", syncTokens);
   }, []);
 
+  // Fetch permissions - same pattern as myallClinic.tsx
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    const agentPath =
-      router?.pathname?.startsWith("/agent/") ||
-      window.location.pathname?.startsWith("/agent/");
-    setIsAgentRoute(agentPath && hasAgentToken);
-  }, [router.pathname, hasAgentToken]);
-
-  // Check if user has agentToken or userToken (doctorStaff) - these need agent-level permissions
-  const hasAgentOrUserToken = typeof window !== 'undefined' ? 
-    Boolean(localStorage.getItem('agentToken') || localStorage.getItem('userToken')) : false;
-  
-  const {
-    permissions: agentPermissions,
-    loading: agentPermissionsLoading,
-  } = useAgentPermissions(hasAgentOrUserToken ? "clinic_create_offers" : null);
-
-  // Handle agent-level permissions (for agentToken or userToken users)
-  useEffect(() => {
-    if (!hasAgentOrUserToken) return;
-    if (agentPermissionsLoading) return;
-    
-    // ✅ Ensure permissions are properly set from hook response
-    // Use strict boolean checks - only true if explicitly true
-    const newPermissions = {
-      canCreate: agentPermissions.canAll === true || agentPermissions.canCreate === true,
-      canUpdate: agentPermissions.canAll === true || agentPermissions.canUpdate === true,
-      canDelete: agentPermissions.canAll === true || agentPermissions.canDelete === true,
-      canRead: agentPermissions.canAll === true || agentPermissions.canRead === true,
-    };
-    
-    console.log('Setting agent-level permissions from API:', {
-      agentPermissions,
-      newPermissions,
-      moduleKey: 'clinic_create_offers'
-    });
-    
-    setPermissions(newPermissions);
-    setPermissionsLoaded(true);
-  }, [hasAgentOrUserToken, agentPermissions, agentPermissionsLoading]);
-
-  // Handle admin-level permissions (for clinicToken or doctorToken users)
-  useEffect(() => {
-    if (hasAgentOrUserToken) return; // Skip if user has agent/user token (handled above)
-    let isMounted = true;
-    
     const fetchPermissions = async () => {
       try {
         const authHeaders = getAuthHeaders();
@@ -156,34 +109,13 @@ function OffersPage() {
         }
 
         const userRole = getUserRole();
-        const clinicToken = typeof window !== 'undefined' ? localStorage.getItem('clinicToken') : null;
-        const doctorToken = typeof window !== 'undefined' ? localStorage.getItem('doctorToken') : null;
-        const adminToken = typeof window !== 'undefined' ? localStorage.getItem('adminToken') : null;
         
-        // ✅ For admin role, grant full access (bypass permission checks)
-        if (userRole === 'admin') {
-          if (isMounted) {
-            setPermissions({
-              canCreate: true,
-              canRead: true,
-              canUpdate: true,
-              canDelete: true,
-            });
-            setPermissionsLoaded(true);
-          }
-          return;
-        }
-        
-        // ✅ Check permissions based on token type, not userRole
-        // If clinicToken or doctorToken exists: fetch admin-level permissions from /api/clinic/sidebar-permissions
-        // If agentToken exists: use agent permissions (handled by useAgentPermissions hook)
-        if (clinicToken || doctorToken) {
+        // For clinic and doctor roles, fetch admin-level permissions from /api/clinic/sidebar-permissions
+        if (userRole === "clinic" || userRole === "doctor") {
           try {
-            const res = await axios.get('/api/clinic/sidebar-permissions', {
+            const res = await axios.get("/api/clinic/sidebar-permissions", {
               headers: authHeaders,
             });
-            
-            if (!isMounted) return;
             
             if (res.data.success) {
               // Check if permissions array exists and is not null
@@ -201,12 +133,10 @@ function OffersPage() {
                 const modulePermission = res.data.permissions.find((p) => {
                   if (!p?.module) return false;
                   // Check for clinic_create_offers module
-                  if (p.module === 'clinic_create_offers') return true;
-                  if (p.module === 'create_offers') return true;
-                  if (p.module === 'clinic_create_offer') return true;
-                  if (p.module === 'create_offer') return true;
-                  if (p.module?.endsWith('create_offers')) return true;
-                  if (p.module?.endsWith('create_offer')) return true;
+                  if (p.module === "clinic_create_offers") return true;
+                  if (p.module === "create_offers") return true;
+                  if (p.module === "clinic_create_offer") return true;
+                  if (p.module === "create_offer") return true;
                   return false;
                 });
 
@@ -214,49 +144,26 @@ function OffersPage() {
                   const actions = modulePermission.actions || {};
                   
                   // Check if "all" is true, which grants all permissions
-                  // Handle both boolean true and string "true"
-                  const moduleAll = actions.all === true || 
-                                   actions.all === 'true' || 
-                                   String(actions.all).toLowerCase() === 'true' ||
-                                   actions.all === 1 ||
-                                   actions.all === '1';
-                  
-                  // If "all" is true, grant all permissions immediately
-                  if (moduleAll) {
-                    if (isMounted) {
-                      setPermissions({
-                        canCreate: true,
-                        canRead: true,
-                        canUpdate: true,
-                        canDelete: true,
-                      });
-                    }
-                  } else {
-                    // Otherwise check individual permissions
-                    const moduleCreate = actions.create === true || actions.create === 'true' || String(actions.create).toLowerCase() === 'true' || actions.create === 1 || actions.create === '1';
-                    const moduleRead = actions.read === true || actions.read === 'true' || String(actions.read).toLowerCase() === 'true' || actions.read === 1 || actions.read === '1';
-                    const moduleUpdate = actions.update === true || actions.update === 'true' || String(actions.update).toLowerCase() === 'true' || actions.update === 1 || actions.update === '1';
-                    const moduleDelete = actions.delete === true || actions.delete === 'true' || String(actions.delete).toLowerCase() === 'true' || actions.delete === 1 || actions.delete === '1';
+                  const moduleAll = actions.all === true || actions.all === "true" || String(actions.all).toLowerCase() === "true";
+                  const moduleCreate = actions.create === true || actions.create === "true" || String(actions.create).toLowerCase() === "true";
+                  const moduleRead = actions.read === true || actions.read === "true" || String(actions.read).toLowerCase() === "true";
+                  const moduleUpdate = actions.update === true || actions.update === "true" || String(actions.update).toLowerCase() === "true";
+                  const moduleDelete = actions.delete === true || actions.delete === "true" || String(actions.delete).toLowerCase() === "true";
 
-                    if (isMounted) {
-                      setPermissions({
-                        canCreate: moduleCreate,
-                        canRead: moduleRead,
-                        canUpdate: moduleUpdate,
-                        canDelete: moduleDelete,
-                      });
-                    }
-                  }
+                  setPermissions({
+                    canCreate: moduleAll || moduleCreate,
+                    canRead: moduleAll || moduleRead,
+                    canUpdate: moduleAll || moduleUpdate,
+                    canDelete: moduleAll || moduleDelete,
+                  });
                 } else {
                   // Module permission not found in the permissions array - default to read-only
-                  if (isMounted) {
-                    setPermissions({
-                      canCreate: false,
-                      canRead: true, // Clinic/doctor can always read their own data
-                      canUpdate: false,
-                      canDelete: false,
-                    });
-                  }
+                  setPermissions({
+                    canCreate: false,
+                    canRead: true, // Clinic/doctor can always read their own data
+                    canUpdate: false,
+                    canDelete: false,
+                  });
                 }
               }
             } else {
@@ -269,125 +176,123 @@ function OffersPage() {
               });
             }
           } catch (err) {
-            console.error('Error fetching clinic sidebar permissions:', err);
+            console.error("Error fetching clinic sidebar permissions:", err);
             // On error, default to full access (backward compatibility)
-            if (isMounted) {
-              setPermissions({
-                canCreate: true,
-                canRead: true,
-                canUpdate: true,
-                canDelete: true,
-              });
-            }
+            setPermissions({
+              canCreate: true,
+              canRead: true,
+              canUpdate: true,
+              canDelete: true,
+            });
           }
-          if (isMounted) {
-            setPermissionsLoaded(true);
-          }
+          setPermissionsLoaded(true);
           return;
         }
 
-        // For agents, staff, and doctorStaff with agentToken: use agent permissions logic
-        // (handled by useAgentPermissions hook - permissions will be set by that hook)
-        // Only set default here if no clinic/doctor token exists
-        if (['agent', 'staff', 'doctorStaff'].includes(userRole || '')) {
-          // Agent permissions are handled by useAgentPermissions hook when isAgentRoute is true
-          // For non-agent routes with agent role, check if they have clinic permissions via token
-          const agentToken = typeof window !== 'undefined' ? localStorage.getItem('agentToken') : null;
-          if (!agentToken && !clinicToken && !doctorToken) {
-            // No tokens available, deny access
-            if (isMounted) {
+        // For agents, staff, and doctorStaff, fetch from /api/agent/permissions
+        if (["agent", "staff", "doctorStaff"].includes(userRole || "")) {
+          let permissionsData = null;
+          try {
+            // Get agentId from token
+            const token = getStoredToken();
+            if (token) {
+              const payload = JSON.parse(atob(token.split('.')[1]));
+              const agentId = payload.userId || payload.id;
+              
+              if (agentId) {
+                const res = await axios.get(`/api/agent/permissions?agentId=${agentId}`, {
+                  headers: authHeaders,
+                });
+                
+                if (res.data.success && res.data.data) {
+                  permissionsData = res.data.data;
+                }
+              }
+            }
+          } catch (err) {
+            console.error("Error fetching agent permissions:", err);
+          }
+
+          if (permissionsData && permissionsData.permissions) {
+            const modulePermission = permissionsData.permissions.find((p) => {
+              if (!p?.module) return false;
+              if (p.module === "create_offers") return true;
+              if (p.module === "clinic_create_offers") return true;
+              if (p.module === "clinic_create_offer") return true;
+              if (p.module === "create_offer") return true;
+              if (p.module.startsWith("clinic_") && p.module.slice(7) === "create_offers") {
+                return true;
+              }
+              return false;
+            });
+
+            if (modulePermission) {
+              const actions = modulePermission.actions || {};
+              
+              // Module-level "all" grants all permissions
+              const moduleAll = actions.all === true || actions.all === "true" || String(actions.all).toLowerCase() === "true";
+              const moduleCreate = actions.create === true || actions.create === "true" || String(actions.create).toLowerCase() === "true";
+              const moduleRead = actions.read === true || actions.read === "true" || String(actions.read).toLowerCase() === "true";
+              const moduleUpdate = actions.update === true || actions.update === "true" || String(actions.update).toLowerCase() === "true";
+              const moduleDelete = actions.delete === true || actions.delete === "true" || String(actions.delete).toLowerCase() === "true";
+
+              setPermissions({
+                canCreate: moduleAll || moduleCreate,
+                canRead: moduleAll || moduleRead,
+                canUpdate: moduleAll || moduleUpdate,
+                canDelete: moduleAll || moduleDelete,
+              });
+            } else {
+              // No permissions found for this module, default to false
               setPermissions({
                 canCreate: false,
                 canRead: false,
                 canUpdate: false,
                 canDelete: false,
               });
-              setPermissionsLoaded(true);
             }
-            return;
+          } else {
+            // API failed or no permissions data, default to false
+            setPermissions({
+              canCreate: false,
+              canRead: false,
+              canUpdate: false,
+              canDelete: false,
+            });
           }
-          // If agent has clinicToken, permissions were already checked above
-          // Otherwise, agent permissions are handled by useAgentPermissions hook
-          if (isMounted) {
-            setPermissionsLoaded(true);
-          }
-          return;
-        }
-
-        // For admin or unknown roles, default to full access
-        if (isMounted) {
+        } else {
+          // Unknown role, default to false
           setPermissions({
-            canCreate: true,
-            canRead: true,
-            canUpdate: true,
-            canDelete: true,
+            canCreate: false,
+            canRead: false,
+            canUpdate: false,
+            canDelete: false,
           });
-          setPermissionsLoaded(true);
         }
+        setPermissionsLoaded(true);
       } catch (err) {
-        console.error('Error fetching permissions:', err);
-        // On error, default to full access (backward compatibility)
+        console.error("Error fetching permissions:", err);
+        // On error, default to false (no permissions)
         setPermissions({
-          canCreate: true,
-          canRead: true,
-          canUpdate: true,
-          canDelete: true,
+          canCreate: false,
+          canRead: false,
+          canUpdate: false,
+          canDelete: false,
         });
         setPermissionsLoaded(true);
       }
     };
 
     fetchPermissions();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [hasAgentOrUserToken, token]);
+  }, []);
   
-  // Get token values for permission computation
-  const clinicToken = typeof window !== 'undefined' ? localStorage.getItem('clinicToken') : null;
-  const doctorToken = typeof window !== 'undefined' ? localStorage.getItem('doctorToken') : null;
-  const agentToken = typeof window !== 'undefined' ? localStorage.getItem('agentToken') : null;
-  const userToken = typeof window !== 'undefined' ? localStorage.getItem('userToken') : null;
   const userRole = getUserRole();
   
-  // Determine final permissions based on token type
-  // Priority: 
-  // 1. Admin users get full access
-  // 2. If agentToken or userToken exists: use agent permissions (agent-level) from API
-  // 3. If clinicToken/doctorToken exists: use clinic permissions (admin-level)
-  // 4. Otherwise: use permissions from state
-  const finalCanRead = userRole === 'admin' 
-    ? true
-    : (hasAgentOrUserToken && !agentPermissionsLoading)
-      ? (agentPermissions.canAll === true || agentPermissions.canRead === true)
-      : (clinicToken || doctorToken) 
-        ? permissions.canRead
-        : permissions.canRead;
-    
-  const finalCanCreate = userRole === 'admin' 
-    ? true
-    : (hasAgentOrUserToken && !agentPermissionsLoading)
-      ? (agentPermissions.canAll === true || agentPermissions.canCreate === true)
-      : (clinicToken || doctorToken) 
-        ? permissions.canCreate
-        : permissions.canCreate;
-    
-  const finalCanUpdate = userRole === 'admin' 
-    ? true
-    : (hasAgentOrUserToken && !agentPermissionsLoading)
-      ? (agentPermissions.canAll === true || agentPermissions.canUpdate === true)
-      : (clinicToken || doctorToken) 
-        ? permissions.canUpdate
-        : permissions.canUpdate;
-    
-  const finalCanDelete = userRole === 'admin' 
-    ? true
-    : (hasAgentOrUserToken && !agentPermissionsLoading)
-      ? (agentPermissions.canAll === true || agentPermissions.canDelete === true)
-      : (clinicToken || doctorToken) 
-        ? permissions.canDelete
-        : permissions.canDelete;
+  // Admin role bypasses all permission checks
+  const finalCanRead = userRole === 'admin' ? true : permissions.canRead;
+  const finalCanCreate = userRole === 'admin' ? true : permissions.canCreate;
+  const finalCanUpdate = userRole === 'admin' ? true : permissions.canUpdate;
+  const finalCanDelete = userRole === 'admin' ? true : permissions.canDelete;
 
   // Fetch all offers
   const fetchOffers = async () => {
@@ -572,6 +477,66 @@ function OffersPage() {
     }
   };
 
+  // Export offers to CSV
+  const exportOffersToCSV = () => {
+    // Check if user has read permission
+    if (finalCanRead !== true) {
+      toast.error("You do not have permission to export offers");
+      return;
+    }
+    
+    if (offers.length === 0) {
+      toast.error("No offers to export");
+      return;
+    }
+    
+    // Define CSV headers
+    const headers = [
+      "Title",
+      "Description",
+      "Type",
+      "Value",
+      "Code",
+      "Slug",
+      "Start Date",
+      "End Date",
+      "Status",
+      "Created At",
+      "Updated At"
+    ];
+    
+    // Prepare CSV content
+    const csvContent = [
+      headers.join(","),
+      ...offers.map(offer => [
+        `"${(offer.title || '').replace(/"/g, '""')}"`,
+        `"${(offer.description || '').replace(/"/g, '""')}"`,
+        `"${offer.type || ''}"`,
+        `"${offer.value || ''}"`,
+        `"${offer.code || ''}"`,
+        `"${offer.slug || ''}"`,
+        `"${offer.startsAt ? new Date(offer.startsAt).toLocaleDateString() : ''}"`,
+        `"${offer.endsAt ? new Date(offer.endsAt).toLocaleDateString() : ''}"`,
+        `"${offer.status || ''}"`,
+        `"${offer.createdAt ? new Date(offer.createdAt).toLocaleString() : ''}"`,
+        `"${offer.updatedAt ? new Date(offer.updatedAt).toLocaleString() : ''}"`
+      ].join(","))
+    ].join("\n");
+    
+    // Create and download the CSV file
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `offers_export_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    toast.success(`${offers.length} offers exported successfully!`);
+  };
+
   // Calculate enhanced stats
   const activeOffers = offers.filter((o) => o.status === "active").length;
   const inactiveOffers = offers.filter((o) => o.status !== "active").length;
@@ -613,9 +578,9 @@ function OffersPage() {
       />
     <div className="min-h-screen bg-gray-50 p-3 sm:p-4">
       <div className="max-w-7xl mx-auto space-y-3">
-        {(!permissionsLoaded || (hasAgentOrUserToken && agentPermissionsLoading)) ? (
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 text-center">
-            <p className="text-xs sm:text-sm text-gray-700 font-medium">Loading permissions...</p>
+        {!permissionsLoaded ? (
+          <div className="bg-white rounded-lg shadow-sm border border-teal-200 p-4 text-center">
+            <p className="text-xs sm:text-sm text-teal-700 font-medium">Loading permissions...</p>
           </div>
         ) : !finalCanRead && !finalCanCreate ? (
           <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
@@ -623,11 +588,11 @@ function OffersPage() {
               <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Package className="w-8 h-8 text-red-600" />
               </div>
-              <h2 className="text-xl font-bold text-gray-900 mb-2">Access Denied</h2>
-              <p className="text-sm text-gray-700 mb-4">
+              <h2 className="text-xl font-bold text-teal-900 mb-2">Access Denied</h2>
+              <p className="text-sm text-teal-700 mb-4">
                 You do not have permission to view or create clinic offers.
               </p>
-              <p className="text-xs text-gray-600">
+              <p className="text-xs text-teal-600">
                 Please contact your administrator to request access to the Offers module.
               </p>
             </div>
@@ -636,25 +601,34 @@ function OffersPage() {
           <div className="min-h-screen bg-gray-50 p-3 sm:p-4">
             <div className="max-w-7xl mx-auto space-y-3">
               {/* Compact Header Section */}
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 sm:p-4">
+              <div className="bg-white rounded-lg shadow-sm border border-teal-200 p-3 sm:p-4">
                 <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2">
                   <div>
-                    <h1 className="text-lg sm:text-xl font-bold text-gray-900 mb-0.5">Offers Management</h1>
-                    <p className="text-[10px] sm:text-xs text-gray-600">Create promotional offers for your clinic</p>
+                    <h1 className="text-lg sm:text-xl font-bold text-teal-900 mb-0.5">Offers Management</h1>
+                    <p className="text-[10px] sm:text-xs text-teal-600">Create promotional offers for your clinic</p>
                   </div>
-                  {finalCanCreate === true && (
+                  <div className="flex gap-2">
+                    {finalCanCreate === true && (
+                      <button
+                        onClick={() => {
+                          setEditingOfferId(null);
+                          setEditingOfferData(null);
+                          setModalOpen(true);
+                        }}
+                        className="inline-flex items-center justify-center gap-1.5 bg-teal-800 hover:bg-teal-900 text-white px-2 py-1 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs font-medium"
+                      >
+                        <PlusCircle className="h-3 w-3" />
+                        <span>Create New Offer</span>
+                      </button>
+                    )}
                     <button
-                      onClick={() => {
-                        setEditingOfferId(null);
-                        setEditingOfferData(null);
-                        setModalOpen(true);
-                      }}
-                      className="inline-flex items-center justify-center gap-1.5 bg-gray-800 hover:bg-gray-900 text-white px-3 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs sm:text-sm font-medium"
+                      onClick={exportOffersToCSV}
+                      className="inline-flex items-center justify-center gap-1.5 bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs font-medium"
                     >
-                      <PlusCircle className="h-3.5 w-3.5" />
-                      <span>Create New Offer</span>
+                      <Download className="h-3 w-3" />
+                      <span>Export</span>
                     </button>
-                  )}
+                  </div>
                 </div>
               </div>
 
@@ -663,13 +637,13 @@ function OffersPage() {
                 <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-3">
                   <Package className="w-6 h-6 text-amber-600" />
                 </div>
-                <h3 className="text-lg font-bold text-gray-900 mb-2">
+                <h3 className="text-lg font-bold text-teal-900 mb-2">
                   Limited Access
                 </h3>
-                <p className="text-sm text-gray-700 mb-3">
+                <p className="text-sm text-teal-700 mb-3">
                   You can create new offers, but you don't have permission to view existing offers.
                 </p>
-                <p className="text-xs text-gray-600">
+                <p className="text-xs text-teal-600">
                   Use the "Create New Offer" button above to add a new offer.
                 </p>
               </div>
@@ -678,38 +652,47 @@ function OffersPage() {
         ) : (
           <>
             {/* Compact Header Section */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 sm:p-4">
+            <div className="bg-white rounded-lg shadow-sm border border-teal-200 p-3 sm:p-4">
               <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2">
                 <div>
-                  <h1 className="text-lg sm:text-xl font-bold text-gray-900 mb-0.5">Offers Management</h1>
-                  <p className="text-[10px] sm:text-xs text-gray-600">Create and manage promotional offers for your clinic</p>
+                  <h1 className="text-lg sm:text-xl font-bold text-teal-900 mb-0.5">Offers Management</h1>
+                  <p className="text-[10px] sm:text-xs text-teal-600">Create and manage promotional offers for your clinic</p>
                 </div>
-                {finalCanCreate === true && (
-                  <button
-                    onClick={() => {
-                      setEditingOfferId(null);
-                      setEditingOfferData(null);
-                      setModalOpen(true);
-                    }}
-                    className="inline-flex items-center justify-center gap-1.5 bg-gray-800 hover:bg-gray-900 text-white px-3 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs sm:text-sm font-medium"
+                <div className="flex gap-2">
+                  {finalCanCreate === true && (
+                    <button
+                      onClick={() => {
+                        setEditingOfferId(null);
+                        setEditingOfferData(null);
+                        setModalOpen(true);
+                      }}
+                      className="inline-flex items-center justify-center gap-1.5 bg-teal-800 hover:bg-teal-900 text-white px-3 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs sm:text-sm font-medium"
+                    >
+                      <PlusCircle className="h-3.5 w-3.5" />
+                      <span>Create New Offer</span>
+                    </button>
+                  )}
+                  {/* <button
+                    onClick={exportOffersToCSV}
+                    className="inline-flex items-center justify-center gap-1.5 bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-xs sm:text-sm font-medium"
                   >
-                    <PlusCircle className="h-3.5 w-3.5" />
-                    <span>Create New Offer</span>
-                  </button>
-                )}
+                    <Download className="h-3.5 w-3.5" />
+                    <span>Export</span>
+                  </button> */}
+                </div>
               </div>
             </div>
 
             {/* Enhanced Stats Cards - Compact */}
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-2 sm:gap-3">
-              <div className="bg-white rounded-lg shadow-sm border-l-4 border-gray-800 p-2.5 sm:p-3">
+              <div className="bg-white rounded-lg shadow-sm border-l-4 border-teal-800 p-2.5 sm:p-3">
                 <div className="flex items-center gap-2 mb-1">
-                  <div className="w-6 h-6 bg-gray-800 rounded-lg flex items-center justify-center">
+                  <div className="w-6 h-6 bg-teal-800 rounded-lg flex items-center justify-center">
                     <Package className="h-3.5 w-3.5 text-white" />
                   </div>
-                  <p className="text-[10px] font-semibold text-gray-600 uppercase">Total</p>
+                  <p className="text-[10px] font-semibold text-teal-600 uppercase">Total</p>
                 </div>
-                <p className="text-lg sm:text-xl font-bold text-gray-900">{offers.length}</p>
+                <p className="text-lg sm:text-xl font-bold text-teal-900">{offers.length}</p>
               </div>
 
               <div className="bg-white rounded-lg shadow-sm border-l-4 border-green-600 p-2.5 sm:p-3">
@@ -717,19 +700,19 @@ function OffersPage() {
                   <div className="w-6 h-6 bg-green-600 rounded-lg flex items-center justify-center">
                     <TrendingUp className="h-3.5 w-3.5 text-white" />
                   </div>
-                  <p className="text-[10px] font-semibold text-gray-600 uppercase">Active</p>
+                  <p className="text-[10px] font-semibold text-teal-600 uppercase">Active</p>
                 </div>
                 <p className="text-lg sm:text-xl font-bold text-green-600">{activeOffers}</p>
               </div>
 
-              <div className="bg-white rounded-lg shadow-sm border-l-4 border-gray-500 p-2.5 sm:p-3">
+              <div className="bg-white rounded-lg shadow-sm border-l-4 border-teal-500 p-2.5 sm:p-3">
                 <div className="flex items-center gap-2 mb-1">
-                  <div className="w-6 h-6 bg-gray-500 rounded-lg flex items-center justify-center">
+                  <div className="w-6 h-6 bg-teal-500 rounded-lg flex items-center justify-center">
                     <Package className="h-3.5 w-3.5 text-white" />
                   </div>
-                  <p className="text-[10px] font-semibold text-gray-600 uppercase">Inactive</p>
+                  <p className="text-[10px] font-semibold text-teal-600 uppercase">Inactive</p>
                 </div>
-                <p className="text-lg sm:text-xl font-bold text-gray-700">{inactiveOffers}</p>
+                <p className="text-lg sm:text-xl font-bold text-teal-700">{inactiveOffers}</p>
               </div>
 
               <div className="bg-white rounded-lg shadow-sm border-l-4 border-blue-600 p-2.5 sm:p-3">
@@ -737,7 +720,7 @@ function OffersPage() {
                   <div className="w-6 h-6 bg-blue-600 rounded-lg flex items-center justify-center">
                     <span className="text-[10px] font-bold text-white">%</span>
                   </div>
-                  <p className="text-[10px] font-semibold text-gray-600 uppercase">Percent</p>
+                  <p className="text-[10px] font-semibold text-teal-600 uppercase">Percent</p>
                 </div>
                 <p className="text-lg sm:text-xl font-bold text-blue-600">{percentageOffers}</p>
               </div>
@@ -747,7 +730,7 @@ function OffersPage() {
                   <div className="w-6 h-6 bg-purple-600 rounded-lg flex items-center justify-center">
                     <span className="text-[8px] font-bold text-white">د.إ</span>
                   </div>
-                  <p className="text-[10px] font-semibold text-gray-600 uppercase">Fixed</p>
+                  <p className="text-[10px] font-semibold text-teal-600 uppercase">Fixed</p>
                 </div>
                 <p className="text-lg sm:text-xl font-bold text-purple-600">{fixedOffers}</p>
               </div>
@@ -757,7 +740,7 @@ function OffersPage() {
                   <div className="w-6 h-6 bg-amber-600 rounded-lg flex items-center justify-center">
                     <Calendar className="h-3.5 w-3.5 text-white" />
                   </div>
-                  <p className="text-[10px] font-semibold text-gray-600 uppercase">Expiring</p>
+                  <p className="text-[10px] font-semibold text-teal-600 uppercase">Expiring</p>
                 </div>
                 <p className="text-lg sm:text-xl font-bold text-amber-600">{expiringSoon}</p>
               </div>
@@ -767,19 +750,19 @@ function OffersPage() {
                   <div className="w-6 h-6 bg-indigo-600 rounded-lg flex items-center justify-center">
                     <span className="text-[8px] font-bold text-white">د.إ</span>
                   </div>
-                  <p className="text-[10px] font-semibold text-gray-600 uppercase">Avg Value</p>
+                  <p className="text-[10px] font-semibold text-teal-600 uppercase">Avg Value</p>
                 </div>
                 <p className="text-base sm:text-lg font-bold text-indigo-600">د.إ{Math.round(averageDiscount)}</p>
               </div>
             </div>
 
             {/* Compact Offers Table */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-              <div className="px-3 py-2.5 border-b border-gray-200 bg-gray-50">
+            <div className="bg-white rounded-lg shadow-sm border border-teal-200 overflow-hidden">
+              <div className="px-3 py-2.5 border-b border-teal-200 bg-teal-50">
                 <div className="flex items-center gap-2">
-                  <Package className="h-4 w-4 text-gray-800" />
-                  <h2 className="text-sm sm:text-base font-bold text-gray-900">All Offers</h2>
-                  <span className="ml-auto text-[10px] text-gray-600 bg-gray-100 px-2 py-0.5 rounded-md">
+                  <Package className="h-4 w-4 text-teal-800" />
+                  <h2 className="text-sm sm:text-base font-bold text-teal-900">All Offers</h2>
+                  <span className="ml-auto text-[10px] text-teal-600 bg-teal-100 px-2 py-0.5 rounded-md">
                     {offers.length} {offers.length === 1 ? 'offer' : 'offers'}
                   </span>
                 </div>
@@ -788,14 +771,14 @@ function OffersPage() {
               <div className="p-2.5 sm:p-3">
                 {offers.length === 0 ? (
                   <div className="text-center py-8">
-                    <div className="inline-flex items-center justify-center w-10 h-10 bg-gray-100 rounded-lg mb-2">
-                      <Package className="h-5 w-5 text-gray-800" />
+                    <div className="inline-flex items-center justify-center w-10 h-10 bg-teal-100 rounded-lg mb-2">
+                      <Package className="h-5 w-5 text-teal-800" />
                     </div>
-                    <h3 className="text-sm font-bold text-gray-900 mb-1">No offers yet</h3>
+                    <h3 className="text-sm font-bold text-teal-900 mb-1">No offers yet</h3>
                     {finalCanRead === true ? (
-                      <p className="text-gray-600 text-xs mb-3">Get started by creating your first promotional offer</p>
+                      <p className="text-teal-600 text-xs mb-3">Get started by creating your first promotional offer</p>
                     ) : (
-                      <p className="text-gray-600 text-xs mb-3">You don't have permission to view offers, but you can create new ones</p>
+                      <p className="text-teal-600 text-xs mb-3">You don't have permission to view offers, but you can create new ones</p>
                     )}
                     {finalCanCreate === true && (
                       <button
@@ -804,7 +787,7 @@ function OffersPage() {
                           setEditingOfferData(null);
                           setModalOpen(true);
                         }}
-                        className="inline-flex items-center gap-1.5 bg-gray-800 hover:bg-gray-900 text-white px-3 py-1.5 rounded-lg text-xs transition-colors font-medium"
+                        className="inline-flex items-center gap-1.5 bg-teal-800 hover:bg-teal-900 text-white px-3 py-1.5 rounded-lg text-xs transition-colors font-medium"
                       >
                         <PlusCircle className="h-3.5 w-3.5" />
                         <span>Create Your First Offer</span>
@@ -818,59 +801,59 @@ function OffersPage() {
                   <div className="overflow-x-auto">
                     <table className="w-full">
                       <thead>
-                        <tr className="border-b border-gray-200">
-                          <th className="px-2 py-2 text-left text-[10px] font-semibold text-gray-700 uppercase tracking-wider">
+                        <tr className="border-b border-teal-200">
+                          <th className="px-2 py-2 text-left text-[10px] font-semibold text-teal-700 uppercase tracking-wider">
                             Offer Details
                           </th>
-                          <th className="px-2 py-2 text-left text-[10px] font-semibold text-gray-700 uppercase tracking-wider">
+                          <th className="px-2 py-2 text-left text-[10px] font-semibold text-teal-700 uppercase tracking-wider">
                             Type
                           </th>
-                          <th className="px-2 py-2 text-left text-[10px] font-semibold text-gray-700 uppercase tracking-wider">
+                          <th className="px-2 py-2 text-left text-[10px] font-semibold text-teal-700 uppercase tracking-wider">
                             Value
                           </th>
-                          <th className="px-2 py-2 text-left text-[10px] font-semibold text-gray-700 uppercase tracking-wider">
+                          <th className="px-2 py-2 text-left text-[10px] font-semibold text-teal-700 uppercase tracking-wider">
                             Validity
                           </th>
-                          <th className="px-2 py-2 text-left text-[10px] font-semibold text-gray-700 uppercase tracking-wider">
+                          <th className="px-2 py-2 text-left text-[10px] font-semibold text-teal-700 uppercase tracking-wider">
                             Status
                           </th>
-                          <th className="px-2 py-2 text-right text-[10px] font-semibold text-gray-700 uppercase tracking-wider">
+                          <th className="px-2 py-2 text-right text-[10px] font-semibold text-teal-700 uppercase tracking-wider">
                             Actions
                           </th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-gray-100">
+                      <tbody className="divide-y divide-teal-100">
                         {offers.map((offer) => {
                           const isExpiringSoon = offer.endsAt && offer.status === "active" && 
                             new Date(offer.endsAt) <= new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) &&
                             new Date(offer.endsAt) >= new Date();
                           
                           return (
-                            <tr key={offer._id} className="hover:bg-gray-50 transition-colors">
+                            <tr key={offer._id} className="hover:bg-teal-50 transition-colors">
                               <td className="px-2 py-2">
                                 <div className="flex items-center gap-2">
-                                  <div className="w-6 h-6 bg-gray-800 rounded-lg flex items-center justify-center flex-shrink-0">
+                                  <div className="w-6 h-6 bg-teal-800 rounded-lg flex items-center justify-center flex-shrink-0">
                                     <Package className="h-3 w-3 text-white" />
                                   </div>
                                   <div className="min-w-0">
-                                    <p className="font-bold text-gray-900 text-xs truncate">{offer.title}</p>
-                                    <p className="text-[10px] text-gray-500">ID: {offer._id.slice(-6)}</p>
+                                    <p className="font-bold text-teal-900 text-xs truncate">{offer.title}</p>
+                                    <p className="text-[10px] text-teal-500">ID: {offer._id.slice(-6)}</p>
                                   </div>
                                 </div>
                               </td>
                               <td className="px-2 py-2">
-                                <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-gray-100 text-gray-800 capitalize">
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-medium bg-teal-100 text-teal-800 capitalize">
                                   {offer.type}
                                 </span>
                               </td>
                               <td className="px-2 py-2">
-                                <span className="text-xs sm:text-sm font-bold text-gray-900">
+                                <span className="text-xs sm:text-sm font-bold text-teal-900">
                                   {offer.type === "percentage" ? `${offer.value}%` : `د.إ${offer.value}`}
                                 </span>
                               </td>
                               <td className="px-2 py-2">
-                                <div className="flex items-center gap-1 text-gray-700">
-                                  <Calendar className="h-3 w-3 text-gray-400 flex-shrink-0" />
+                                <div className="flex items-center gap-1 text-teal-700">
+                                  <Calendar className="h-3 w-3 text-teal-400 flex-shrink-0" />
                                   <span className="text-[10px] sm:text-xs">
                                     {offer.endsAt
                                       ? new Date(offer.endsAt).toLocaleDateString("en-US", {
@@ -892,12 +875,12 @@ function OffersPage() {
                                   className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold ${
                                     offer.status === "active"
                                       ? "bg-green-100 text-green-700"
-                                      : "bg-gray-200 text-gray-700"
+                                      : "bg-teal-200 text-teal-700"
                                   }`}
                                 >
                                   <span
                                     className={`w-1.5 h-1.5 rounded-full mr-1 ${
-                                      offer.status === "active" ? "bg-green-500" : "bg-gray-500"
+                                      offer.status === "active" ? "bg-green-500" : "bg-teal-500"
                                     }`}
                                   ></span>
                                   {offer.status}
@@ -908,7 +891,7 @@ function OffersPage() {
                                   {finalCanUpdate === true && (
                                     <button
                                       onClick={() => openEditModal(offer._id)}
-                                      className="inline-flex items-center justify-center w-6 h-6 rounded bg-gray-100 text-gray-800 hover:bg-gray-200 transition-colors"
+                                      className="inline-flex items-center justify-center w-6 h-6 rounded bg-teal-100 text-teal-800 hover:bg-teal-200 transition-colors"
                                       title="Edit offer"
                                     >
                                       <Edit className="h-3 w-3" />
@@ -924,7 +907,7 @@ function OffersPage() {
                                     </button>
                                   )}
                                   {!finalCanUpdate && !finalCanDelete && (
-                                    <span className="text-[10px] text-gray-400">—</span>
+                                    <span className="text-[10px] text-teal-400">—</span>
                                   )}
                                 </div>
                               </td>
@@ -972,14 +955,14 @@ function OffersPage() {
             className="bg-white rounded-lg shadow-xl max-w-md w-full overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between bg-red-50">
+            <div className="px-4 py-3 border-b border-teal-200 flex items-center justify-between bg-red-50">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-lg bg-red-100 flex items-center justify-center">
                   <Trash2 className="w-4 h-4 text-red-600" />
                 </div>
                 <div>
-                  <p className="text-sm font-bold text-gray-900">Delete Offer</p>
-                  <p className="text-[10px] text-gray-700 truncate max-w-[200px]">"{confirmModal.offerTitle}"</p>
+                  <p className="text-sm font-bold text-teal-900">Delete Offer</p>
+                  <p className="text-[10px] text-teal-700 truncate max-w-[200px]">"{confirmModal.offerTitle}"</p>
                 </div>
               </div>
               <button
@@ -987,15 +970,15 @@ function OffersPage() {
                   setConfirmModal({ isOpen: false, offerId: null, offerTitle: "" });
                   toast("Deletion cancelled", { duration: 2000, icon: "ℹ️" });
                 }}
-                className="p-1 rounded-lg hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-500 text-gray-500 hover:text-gray-700"
+                className="p-1 rounded-lg hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-red-500 text-teal-500 hover:text-teal-700"
                 aria-label="Close confirmation dialog"
               >
                 ×
               </button>
             </div>
-            <div className="p-4 text-xs sm:text-sm text-gray-700 space-y-1.5">
+            <div className="p-4 text-xs sm:text-sm text-teal-700 space-y-1.5">
               <p>Are you sure you want to delete this offer? This action cannot be undone.</p>
-              <p className="text-[10px] text-gray-600">All references to this offer will be removed.</p>
+              <p className="text-[10px] text-teal-600">All references to this offer will be removed.</p>
             </div>
             <div className="flex gap-2 px-4 pb-4">
               <button
@@ -1003,7 +986,7 @@ function OffersPage() {
                   setConfirmModal({ isOpen: false, offerId: null, offerTitle: "" });
                   toast("Deletion cancelled", { duration: 2000, icon: "ℹ️" });
                 }}
-                className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-xs sm:text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                className="flex-1 px-3 py-2 border border-teal-200 rounded-lg text-xs sm:text-sm font-medium text-teal-700 hover:bg-teal-50 transition-colors"
               >
                 Cancel
               </button>

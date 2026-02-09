@@ -198,9 +198,10 @@ export default async function handler(req, res) {
     }
 
     // Validate referral enum
-    if (referral && !["direct", "referral"].includes(referral)) {
-      return res.status(400).json({ success: false, message: "Invalid referral value" });
-    }
+    // REMOVED: Allow any string for referral to support specific referral names
+    // if (referral && !["direct", "referral"].includes(referral)) {
+    //   return res.status(400).json({ success: false, message: "Invalid referral value" });
+    // }
 
     // Validate emergency enum
     if (emergency && !["yes", "no"].includes(emergency)) {
@@ -217,7 +218,7 @@ export default async function handler(req, res) {
       startDate: new Date(startDate),
       fromTime,
       toTime,
-      referral: referral || "direct",
+      referral: referral || "No",
       emergency: emergency || "no",
       notes: notes || "",
     };

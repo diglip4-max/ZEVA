@@ -31,9 +31,15 @@ export default async function handler(req, res) {
     }
 
     // Get filter parameters from query
-    const { search, jobType, location, department, salaryMin, salaryMax } = req.query;
+    const { search, jobType, location, department, salaryMin, salaryMax, page, limit, status } = req.query;
     
-    console.log('🔍 API called with filters:', { search, jobType, location, department, salaryMin, salaryMax });
+    // Pagination parameters
+    const pageNumber = parseInt(page) || 1;
+    const pageSize = parseInt(limit) || 9; // Default 9 items per page
+    const skip = (pageNumber - 1) * pageSize;
+    const requestedStatus = status || null; // If status is provided, only paginate that status
+    
+    // console.log('🔍 API called with filters:', { search, jobType, location, department, salaryMin, salaryMax });
 
     // Build filter object for each status
     const buildFilter = (status) => {
@@ -66,12 +72,7 @@ export default async function handler(req, res) {
       return filter;
     };
 
-    // Fetch jobs grouped by status with filters
-    const pendingJobs = await JobPosting.find(buildFilter('pending')).populate('postedBy', 'name email role');
-    const approvedJobs = await JobPosting.find(buildFilter('approved')).populate('postedBy', 'name email role');
-    const declinedJobs = await JobPosting.find(buildFilter('declined')).populate('postedBy', 'name email role');
-
-    // Apply salary filter in memory (since salary is stored as string)
+    // Apply salary filter helper
     const filterBySalary = (jobs) => {
       if (!salaryMin && !salaryMax) return jobs;
       
@@ -85,6 +86,40 @@ export default async function handler(req, res) {
         return salaryNum >= min && salaryNum <= max;
       });
     };
+
+    // If status is provided, only fetch and paginate that status
+    if (requestedStatus) {
+      const allJobsForStatus = await JobPosting.find(buildFilter(requestedStatus))
+        .populate('postedBy', 'name email role')
+        .select('+slug +slugLocked')
+        .sort({ createdAt: -1 });
+      
+      const salaryFiltered = filterBySalary(allJobsForStatus);
+      const totalCount = salaryFiltered.length;
+      const paginatedJobs = salaryFiltered.slice(skip, skip + pageSize);
+      
+      const result = {
+        pending: requestedStatus === 'pending' ? paginatedJobs : [],
+        approved: requestedStatus === 'approved' ? paginatedJobs : [],
+        declined: requestedStatus === 'declined' ? paginatedJobs : [],
+      };
+      
+      return res.status(200).json({
+        success: true,
+        ...result,
+        pagination: {
+          currentPage: pageNumber,
+          totalPages: Math.ceil(totalCount / pageSize),
+          totalJobs: totalCount,
+          limit: pageSize
+        }
+      });
+    }
+
+    // Fetch all jobs grouped by status with filters (no pagination when all statuses requested)
+    const pendingJobs = await JobPosting.find(buildFilter('pending')).populate('postedBy', 'name email role').select('+slug +slugLocked');
+    const approvedJobs = await JobPosting.find(buildFilter('approved')).populate('postedBy', 'name email role').select('+slug +slugLocked');
+    const declinedJobs = await JobPosting.find(buildFilter('declined')).populate('postedBy', 'name email role').select('+slug +slugLocked');
 
     const filteredPending = filterBySalary(pendingJobs);
     const filteredApproved = filterBySalary(approvedJobs);

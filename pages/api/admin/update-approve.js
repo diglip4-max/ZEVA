@@ -3,7 +3,8 @@ import dbConnect from "../../../lib/database";
 import Clinic from "../../../models/Clinic";
 import { getUserFromReq } from "../lead-ms/auth";
 import { checkAgentPermission } from "../agent/permissions-helper";
-import { slugify, generateUniqueSlug } from "../../../lib/utils";
+import { generateAndLockSlug } from "../../../lib/slugService";
+import { runSEOPipeline } from "../../../lib/seo/SEOOrchestrator";
 
 export default async function handler(req, res) {
   await dbConnect();
@@ -52,90 +53,15 @@ export default async function handler(req, res) {
       });
     }
 
-    // Generate slug if not already locked
-    let slug = clinicBeforeUpdate.slug;
-    if (!clinicBeforeUpdate.slug || !clinicBeforeUpdate.slugLocked) {
-      if (clinicBeforeUpdate.name) {
-        const baseSlug = slugify(clinicBeforeUpdate.name);
-        
-        if (baseSlug) {
-          // Check if slug exists (excluding current clinic)
-          const checkSlugExists = async (slugToCheck) => {
-            const existing = await Clinic.findOne({
-              slug: slugToCheck,
-              _id: { $ne: clinicId },
-              slugLocked: true // Only check locked slugs to avoid conflicts
-            });
-            return !!existing;
-          };
-
-          // Generate unique slug
-          slug = await generateUniqueSlug(baseSlug, checkSlugExists);
-        }
-      }
-    }
-
-    // ✅ Handle duplicate key race condition
-    // Retry logic for MongoDB duplicate key errors (E11000)
-    let retries = 3;
-    let updateSuccess = false;
-    let finalSlug = slug;
-    let clinic = null;
-
-    while (retries > 0 && !updateSuccess) {
-      try {
-        // ✅ Update clinic with approval status and slug
-        clinic = await Clinic.findByIdAndUpdate(
-          clinicId,
-          {
-            isApproved: true,
-            declined: false,
-            ...(finalSlug && !clinicBeforeUpdate.slugLocked ? { 
-              slug: finalSlug,
-              slugLocked: true 
-            } : {}),
-          },
-          { new: true } // ✅ Return the updated document
-        );
-
-        if (clinic) {
-          updateSuccess = true;
-        }
-      } catch (updateError) {
-        // Handle duplicate key error (E11000)
-        if (updateError.code === 11000 || updateError.codeName === 'DuplicateKey') {
-          // Slug was taken by another process, generate a new one
-          retries--;
-          if (retries > 0 && finalSlug && !clinicBeforeUpdate.slugLocked) {
-            // Generate a new unique slug with a different counter
-            const baseSlug = slugify(clinicBeforeUpdate.name);
-            if (baseSlug) {
-              const checkSlugExists = async (slugToCheck) => {
-                const existing = await Clinic.findOne({
-                  slug: slugToCheck,
-                  _id: { $ne: clinicId },
-                  slugLocked: true
-                });
-                return !!existing;
-              };
-              const newBaseSlug = `${baseSlug}-${Date.now()}`;
-              finalSlug = await generateUniqueSlug(newBaseSlug, checkSlugExists);
-              continue;
-            }
-          }
-          // If retries exhausted or slug generation failed, fetch current state
-          clinic = await Clinic.findById(clinicId);
-          if (clinic && clinic.slug && clinic.slugLocked) {
-            // Slug was set by another process, use it
-            updateSuccess = true;
-            break;
-          }
-        } else {
-          // Other error, throw it
-          throw updateError;
-        }
-      }
-    }
+    // Step 1: First approve the clinic (slug generation requires approval)
+    const clinic = await Clinic.findByIdAndUpdate(
+      clinicId,
+      {
+        isApproved: true,
+        declined: false,
+      },
+      { new: true }
+    );
 
     if (!clinic) {
       return res.status(404).json({
@@ -144,17 +70,169 @@ export default async function handler(req, res) {
       });
     }
 
-    // If slug was set by another process during race condition, use it
-    const actualSlug = clinic.slug || finalSlug;
-    const slugMessage = actualSlug && clinic.slugLocked 
+    // Step 2: Generate and lock slug using central slug service (after approval)
+    let slugGenerated = false;
+    let finalClinic = clinic;
+    
+    try {
+      if (!clinic.slugLocked && clinic.isApproved) {
+        console.log(`🔄 Generating slug for clinic: ${clinic.name} (ID: ${clinicId})`);
+        
+        // Use central slug service to generate and lock slug
+        const updatedClinic = await generateAndLockSlug('clinic', clinicId.toString());
+        slugGenerated = !!updatedClinic.slug && updatedClinic.slugLocked;
+        
+        // Refresh clinic data to get updated slug
+        finalClinic = await Clinic.findById(clinicId);
+        
+        if (slugGenerated) {
+          console.log(`✅ Slug generated successfully: ${finalClinic.slug}`);
+          
+          // Step 3: Run SEO pipeline after slug generation
+          let seoResult = null;
+          let seoMessages = [];
+          
+          try {
+            console.log(`🚀 Running SEO pipeline for clinic: ${clinicId}`);
+            seoResult = await runSEOPipeline('clinic', clinicId.toString(), finalClinic);
+            
+            if (seoResult.success) {
+              console.log(`✅ SEO pipeline completed successfully`);
+              
+              // Generate user-friendly messages from SEO results
+              if (seoResult.indexing) {
+                if (!seoResult.indexing.shouldIndex) {
+                  seoMessages.push({
+                    type: 'info',
+                    message: `🚧 Your clinic page is saved as draft. ${seoResult.indexing.reason}. Complete your profile to appear on Google search results.`,
+                  });
+                } else {
+                  seoMessages.push({
+                    type: 'success',
+                    message: `✅ Your clinic page is ready for Google search!`,
+                  });
+                }
+              }
+              
+              if (seoResult.robots) {
+                const robotsMsg = seoResult.robots.noindex 
+                  ? 'Search engines will wait until your profile is complete.'
+                  : 'Search engines can now index your clinic page.';
+                seoMessages.push({
+                  type: 'info',
+                  message: robotsMsg,
+                });
+              }
+              
+              if (seoResult.meta) {
+                seoMessages.push({
+                  type: 'success',
+                  message: `✨ We optimized your clinic page for Google search to improve visibility.`,
+                });
+              }
+              
+              if (seoResult.headings) {
+                seoMessages.push({
+                  type: 'success',
+                  message: `🧾 Page headings are optimized to avoid duplication on search engines.`,
+                });
+              }
+              
+              if (seoResult.canonical) {
+                seoMessages.push({
+                  type: 'success',
+                  message: `🔗 Your clinic page has a single official link to avoid confusion on Google.`,
+                });
+              }
+              
+              if (seoResult.duplicateCheck) {
+                if (seoResult.duplicateCheck.isDuplicate) {
+                  seoMessages.push({
+                    type: 'warning',
+                    message: `⚠️ Similar clinic found: ${seoResult.duplicateCheck.reason}`,
+                  });
+                } else {
+                  seoMessages.push({
+                    type: 'success',
+                    message: `✅ Your clinic is recognized as a separate and unique business.`,
+                  });
+                }
+              }
+              
+              if (seoResult.sitemapUpdated) {
+                seoMessages.push({
+                  type: 'success',
+                  message: `📡 Your clinic page has been submitted for discovery on search engines.`,
+                });
+              }
+              
+              if (seoResult.pinged) {
+                seoMessages.push({
+                  type: 'success',
+                  message: `🚀 Search engines have been notified. Your page will start appearing soon.`,
+                });
+              }
+              
+            } else {
+              console.warn(`⚠️ SEO pipeline completed with warnings:`, seoResult.errors);
+              seoMessages.push({
+                type: 'warning',
+                message: `⚠️ SEO setup completed with some warnings. Please review your clinic profile.`,
+              });
+            }
+          } catch (seoError) {
+            // SEO errors are non-fatal - log but continue
+            console.error("❌ SEO pipeline error (non-fatal):", seoError.message);
+            seoMessages.push({
+              type: 'error',
+              message: `❌ SEO setup encountered an error. Your clinic is approved but SEO features may be limited.`,
+            });
+          }
+          
+          // Store SEO messages in response
+          finalClinic._seoMessages = seoMessages;
+          finalClinic._seoResult = seoResult;
+        } else {
+          console.log(`⚠️ Slug generation completed but slugLocked is false`);
+        }
+      } else {
+        console.log(`⏭️ Skipping slug generation - slugLocked: ${clinic.slugLocked}, isApproved: ${clinic.isApproved}`);
+      }
+    } catch (slugError) {
+      // If slug generation fails but clinic is approved, continue with approval
+      console.error("❌ Slug generation error (non-fatal):", slugError.message);
+      console.error("Error stack:", slugError.stack);
+      // Continue with approval even if slug generation fails
+    }
+
+    const slugMessage = slugGenerated && finalClinic.slugLocked 
       ? " and slug generated" 
       : "";
 
-    res.status(200).json({
+    // Generate final response with SEO information
+    const response = {
       success: true,
       message: "Clinic approved" + slugMessage,
-      clinic,
-    });
+      clinic: finalClinic,
+    };
+    
+    // Add SEO messages if available
+    if (finalClinic._seoMessages) {
+      response.seo_messages = finalClinic._seoMessages;
+      response.seo_result = finalClinic._seoResult;
+      
+      // Clean up temporary fields before sending
+      delete finalClinic._seoMessages;
+      delete finalClinic._seoResult;
+    }
+    
+    // Add slug lock message
+    if (slugGenerated && finalClinic.slugLocked) {
+      response.slug_locked = true;
+      response.slug_lock_message = "🔒 Your clinic link is now permanent and cannot be changed to protect SEO rankings.";
+    }
+
+    res.status(200).json(response);
   } catch (error) {
     console.error("❌ Clinic Approval Error:", error);
     res.status(500).json({

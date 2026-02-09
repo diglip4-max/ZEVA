@@ -1,15 +1,10 @@
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 :root {
   --background: #ffffff;
   --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -33,7 +28,7 @@ select.form-input:invalid:focus {
   border-color: #059669 !important;
 }
 
-/* ✅ Hide the Next.js Feedback Button */
+/* Hide Next.js feedback button */
 [data-nextjs-feedback-button] {
   display: none !important;
 }
@@ -52,4 +47,23 @@ select.form-input:invalid:focus {
 
 .animate-slide-in {
   animation: slide-in 0.3s ease-out;
+}
+
+/* Custom Scrollbar */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
 }

@@ -10,24 +10,24 @@ function BagIcon(props: { className?: string }) {
   );
 }
 
-function ArrowRightIcon(props: { className?: string }) {
-  return (
-    <svg className={props.className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14" />
-      <path strokeLinecap="round" strokeLinejoin="round" d="M13 6l6 6-6 6" />
-    </svg>
-  );
-}
+// function ArrowRightIcon(props: { className?: string }) {
+//   return (
+//     <svg className={props.className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+//       <path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14" />
+//       <path strokeLinecap="round" strokeLinejoin="round" d="M13 6l6 6-6 6" />
+//     </svg>
+//   );
+// }
 
 type MarketplaceCardProps = {
   title: string;
   subtitle: string;
-  price: string;
+  // price: string;
   items: string[];
   delayMs?: number;
 };
 
-function MarketplaceCard({ title, subtitle, price, items, delayMs = 0 }: MarketplaceCardProps): ReactElement {
+function MarketplaceCard({ title, subtitle,  items, delayMs = 0 }: MarketplaceCardProps): ReactElement {
   return (
     <div
       style={{ animationDelay: `${delayMs}ms` }}
@@ -42,15 +42,15 @@ function MarketplaceCard({ title, subtitle, price, items, delayMs = 0 }: Marketp
           <div className="grid h-12 w-12 place-items-center rounded-2xl bg-yellow-50">
             <BagIcon className="h-7 w-7 text-yellow-600" />
           </div>
-
-          <div className="text-right">
+</div>
+          {/* <div className="text-right">
             <div className="text-[11px] font-bold tracking-wide text-gray-500">FROM</div>
             <div className="text-xl font-extrabold text-blue-700">
               {price}
               <span className="text-xs font-semibold text-gray-500">/mo</span>
             </div>
           </div>
-        </div>
+        </div> */}
 
         <div className="mt-5">
           <div className="text-lg font-extrabold text-gray-900">{title}</div>
@@ -70,10 +70,10 @@ function MarketplaceCard({ title, subtitle, price, items, delayMs = 0 }: Marketp
           type="button"
           className={[
             "mt-5 flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-bold transition-colors",
-            "border-yellow-500/40 bg-white text-gray-700 hover:bg-yellow-500 hover:text-gray-900",
+            "border-yellow-500/40 bg-yellow-500 text-gray-900 hover:bg-yellow-500 hover:text-gray-900",
           ].join(" ")}
         >
-          Learn More <ArrowRightIcon className="h-4 w-4" />
+            Coming Soon 
         </button>
       </div>
     </div>
@@ -85,7 +85,7 @@ export default function MarketplaceSection(): ReactElement {
     <section className="bg-white">
       <div className="mx-auto max-w-6xl px-4 pb-10 pt-2 sm:pb-14">
         <div className="text-center">
-          <div className="mt-3 flex items-center justify-center gap-6 text-2xl font-extrabold text-blue-700 sm:text-3xl">
+          <div className="mt-10 flex items-center justify-center gap-6 text-2xl font-extrabold text-blue-700 sm:text-3xl">
             <span className="h-[3px] w-12 rounded-full bg-yellow-400" />
             <span>Marketplace</span>
             <span className="h-[3px] w-12 rounded-full bg-yellow-400" />
@@ -101,7 +101,7 @@ export default function MarketplaceSection(): ReactElement {
             delayMs={0}
             title="Business Listings"
             subtitle="Expand your opportunities"
-            price="$49"
+            // price="$49"
             items={["List your business", "Browse opportunities", "Secure transactions", "Due diligence tools"]}
           />
 
@@ -109,7 +109,7 @@ export default function MarketplaceSection(): ReactElement {
             delayMs={80}
             title="Franchise Opportunities"
             subtitle="Grow with proven models"
-            price="$—"
+            // price="$—"
             items={["Verified franchise listings", "Territory insights", "Cost breakdowns", "Application flow"]}
           />
 
@@ -117,7 +117,7 @@ export default function MarketplaceSection(): ReactElement {
             delayMs={160}
             title="Investors & Funding"
             subtitle="Find capital & partners"
-            price="$—"
+            // price="$—"
             items={["Investor matching", "Pitch-ready profiles", "Deal rooms", "Milestone tracking"]}
           />
 
@@ -125,7 +125,7 @@ export default function MarketplaceSection(): ReactElement {
             delayMs={240}
             title="Vendor Marketplace"
             subtitle="Tools & services for your business"
-            price="$—"
+            // price="$—"
             items={["Compare vendors", "Request quotes", "Ratings & reviews", "Contract templates"]}
           />
 
@@ -133,7 +133,7 @@ export default function MarketplaceSection(): ReactElement {
             delayMs={320}
             title="Partnerships"
             subtitle="Collaborate & cross-refer"
-            price="$—"
+            // price="$—"
             items={["Partner directory", "Referral tracking", "Co-marketing kits", "Shared leads"]}
           />
 
@@ -141,7 +141,7 @@ export default function MarketplaceSection(): ReactElement {
             delayMs={400}
             title="Resources & Templates"
             subtitle="Docs to move faster"
-            price="$—"
+            // price="$—"
             items={["SOP templates", "Policy docs", "Finance sheets", "Launch checklists"]}
           />
         </div>

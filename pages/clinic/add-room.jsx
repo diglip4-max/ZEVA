@@ -5,7 +5,7 @@ import axios from "axios";
 import { useRouter } from "next/router";
 import withClinicAuth from "../../components/withClinicAuth";
 import ClinicLayout from "../../components/ClinicLayout";
-import { Loader2, Trash2, AlertCircle, CheckCircle, X, Building2, DoorOpen, Plus, Edit2, Calendar, Package, ChevronDown } from "lucide-react";
+import { Loader2, Trash2, AlertCircle, CheckCircle, X, Building2, DoorOpen, Plus, Edit2, Calendar, Package, ChevronDown, Download } from "lucide-react";
 import { useAgentPermissions } from "../../hooks/useAgentPermissions";
 import { Toaster, toast } from "react-hot-toast";
 
@@ -82,19 +82,11 @@ function AddRoomPage({ contextOverride = null }) {
   const router = useRouter();
   const [rooms, setRooms] = useState([]);
   const [departments, setDepartments] = useState([]);
-  const [packages, setPackages] = useState([]);
   const [roomName, setRoomName] = useState("");
   const [departmentName, setDepartmentName] = useState("");
-  const [packageName, setPackageName] = useState("");
-  const [packagePrice, setPackagePrice] = useState("");
-  const [treatments, setTreatments] = useState([]);
-  const [selectedTreatments, setSelectedTreatments] = useState([]); // Array of { treatmentName, treatmentSlug, sessions }
-  const [treatmentDropdownOpen, setTreatmentDropdownOpen] = useState(false);
-  const [treatmentSearchQuery, setTreatmentSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [submittingDept, setSubmittingDept] = useState(false);
-  const [submittingPackage, setSubmittingPackage] = useState(false);
   const [message, setMessage] = useState({
     type: "info",
     text: "",
@@ -116,11 +108,8 @@ function AddRoomPage({ contextOverride = null }) {
   const [editingDeptId, setEditingDeptId] = useState(null);
   const [editingDeptName, setEditingDeptName] = useState("");
   const [deptUpdateLoading, setDeptUpdateLoading] = useState(false);
-  const [editingPackageId, setEditingPackageId] = useState(null);
-  const [editingPackageName, setEditingPackageName] = useState("");
-  const [editingPackagePrice, setEditingPackagePrice] = useState("");
-  const [packageUpdateLoading, setPackageUpdateLoading] = useState(false);
-  const [viewMode, setViewMode] = useState("room"); // "room", "department", or "package"
+
+  const [viewMode, setViewMode] = useState("room"); // "room" or "department"
   const [confirmModal, setConfirmModal] = useState({
     isOpen: false,
     title: "",
@@ -423,40 +412,7 @@ function AddRoomPage({ contextOverride = null }) {
     }
   };
 
-  const loadPackages = async (showToast = true) => {
-    const headers = getHeadersOrNotify();
-    if (!headers) return;
-    try {
-      const res = await axios.get("/api/clinic/packages", { headers });
-      if (res.data.success) {
-        setPackages(res.data.packages || []);
-        if (showToast) {
-          toast.success(`Loaded ${res.data.packages?.length || 0} package(s)`, { duration: 2000 });
-        }
-      } else {
-        const errorMsg = res.data.message || "Failed to load packages";
-        setMessage({ type: "error", text: errorMsg });
-        if (showToast) {
-          toast.error(errorMsg, { duration: 3000 });
-        }
-      }
-    } catch (error) {
-      // Silently handle 403 (Forbidden) and other permission errors
-      const status = error.response?.status;
-      if (status === 403 || status === 401) {
-        // Permission denied - silently handle without showing error
-        setPackages([]);
-        return;
-      }
-      // For other errors, log but don't show runtime error
-      const errorMessage = error.response?.data?.message || "Failed to load packages";
-      // Only show error message if it's not a permission issue
-      if (showToast && status !== 403 && status !== 401) {
-        toast.error(errorMessage, { duration: 3000 });
-      }
-      setMessage({ type: "error", text: errorMessage });
-    }
-  };
+
 
   const loadTreatments = async () => {
     const headers = getHeadersOrNotify();
@@ -519,10 +475,8 @@ function AddRoomPage({ contextOverride = null }) {
       toast.dismiss();
       try {
         await Promise.all([
-          loadRooms(false), 
-          loadDepartments(false), 
-          loadPackages(false), 
-          loadTreatments()
+          loadRooms(false),
+          loadDepartments(false)
         ]);
         if (!cancelled) {
           // Only show success toast on initial load
@@ -552,18 +506,7 @@ function AddRoomPage({ contextOverride = null }) {
   }, [permissionsLoaded, permissions.canRead]);
 
   // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (treatmentDropdownOpen && !event.target.closest('.treatment-dropdown-container')) {
-        setTreatmentDropdownOpen(false);
-        setTreatmentSearchQuery(""); // Clear search when closing
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [treatmentDropdownOpen]);
+
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -826,213 +769,93 @@ function AddRoomPage({ contextOverride = null }) {
     });
   };
 
-  const handleTreatmentToggle = (treatment) => {
-    setSelectedTreatments((prev) => {
-      const exists = prev.find((t) => t.slug === treatment.slug);
-      if (exists) {
-        return prev.filter((t) => t.slug !== treatment.slug);
-      } else {
-        setTreatmentDropdownOpen(false); // Close dropdown after selection
-        return [...prev, { treatmentName: treatment.name, treatmentSlug: treatment.slug, sessions: 1 }];
-      }
-    });
-  };
 
-  const handleRemoveTreatment = (treatmentSlug, e) => {
-    if (e) {
-      e.preventDefault();
-      e.stopPropagation();
-    }
-    setSelectedTreatments((prev) => {
-      // Filter out the treatment by matching treatmentSlug (or slug for backward compatibility)
-      return prev.filter((t) => t.treatmentSlug !== treatmentSlug && t.slug !== treatmentSlug);
-    });
-  };
 
-  const handleSelectAllTreatments = () => {
-    if (selectedTreatments.length === treatments.length) {
-      setSelectedTreatments([]);
-    } else {
-      setSelectedTreatments(
-        treatments.map((t) => ({ treatmentName: t.name, treatmentSlug: t.slug, sessions: 1 }))
-      );
-    }
-  };
 
-  const handleSessionChange = (slug, sessions) => {
-    setSelectedTreatments((prev) =>
-      prev.map((t) => (t.treatmentSlug === slug ? { ...t, sessions: parseInt(sessions) || 1 } : t))
-    );
-  };
 
-  const handlePackageSubmit = async (e) => {
-    e.preventDefault();
-    if (!permissions.canCreate) {
-      setMessage({ type: "error", text: "You do not have permission to create packages" });
-      return;
-    }
-    if (!packageName.trim()) {
-      setMessage({ type: "error", text: "Please enter a package name" });
-      return;
-    }
-    if (!packagePrice || parseFloat(packagePrice) < 0) {
-      setMessage({ type: "error", text: "Please enter a valid price" });
-      return;
-    }
-    if (selectedTreatments.length === 0) {
-      setMessage({ type: "error", text: "Please select at least one treatment" });
-      return;
-    }
 
-    const headers = getHeadersOrNotify();
-    if (!headers) return;
-    setSubmittingPackage(true);
-    setMessage({ type: "info", text: "" });
 
-    try {
-      const res = await axios.post(
-        "/api/clinic/packages",
-        {
-          name: packageName.trim(),
-          price: parseFloat(packagePrice),
-          treatments: selectedTreatments,
-        },
-        { headers }
-      );
-      if (res.data.success) {
-        const successMsg = res.data.message || "Package created successfully";
-        setMessage({ type: "success", text: successMsg });
-        toast.success(successMsg, { duration: 3000 });
-        setPackageName("");
-        setPackagePrice("");
-        setSelectedTreatments([]);
-        setTreatmentDropdownOpen(false); // Close dropdown
-        await loadPackages();
-      } else {
-        const errorMsg = res.data.message || "Failed to create package";
-        setMessage({ type: "error", text: errorMsg });
-        toast.error(errorMsg, { duration: 3000 });
-      }
-    } catch (error) {
-      console.error("Error creating package", error);
-      const errorMessage = error.response?.data?.message || "Failed to create package";
-      setMessage({ type: "error", text: errorMessage });
-      toast.error(errorMessage, { duration: 3000 });
-    } finally {
-      setSubmittingPackage(false);
-    }
-  };
 
-  const handlePackageUpdate = async () => {
-    if (!editingPackageId) return;
-    if (!permissions.canUpdate) {
-      setMessage({ type: "error", text: "You do not have permission to update packages" });
-      return;
-    }
-    if (!editingPackageName.trim()) {
-      setMessage({ type: "error", text: "Package name cannot be empty" });
-      return;
-    }
-    if (!editingPackagePrice || parseFloat(editingPackagePrice) < 0) {
-      setMessage({ type: "error", text: "Please enter a valid price" });
-      return;
-    }
-    if (selectedTreatments.length === 0) {
-      setMessage({ type: "error", text: "Please select at least one treatment" });
-      return;
-    }
-    const headers = getHeadersOrNotify();
-    if (!headers) return;
-
-    setPackageUpdateLoading(true);
-    try {
-      const res = await axios.put(
-        "/api/clinic/packages",
-        {
-          packageId: editingPackageId,
-          name: editingPackageName.trim(),
-          price: parseFloat(editingPackagePrice),
-          treatments: selectedTreatments,
-        },
-        { headers }
-      );
-      if (res.data.success) {
-        const successMsg = res.data.message || "Package updated successfully";
-        setMessage({ type: "success", text: successMsg });
-        toast.success(successMsg, { duration: 3000 });
-        setEditingPackageId(null);
-        setEditingPackageName("");
-        setEditingPackagePrice("");
-        setSelectedTreatments([]);
-        setTreatmentDropdownOpen(false); // Close dropdown
-        await loadPackages();
-      } else {
-        const errorMsg = res.data.message || "Failed to update package";
-        setMessage({ type: "error", text: errorMsg });
-        toast.error(errorMsg, { duration: 3000 });
-      }
-    } catch (error) {
-      console.error("Error updating package", error);
-      const errorMessage = error.response?.data?.message || "Failed to update package";
-      setMessage({ type: "error", text: errorMessage });
-      toast.error(errorMessage, { duration: 3000 });
-    } finally {
-      setPackageUpdateLoading(false);
-    }
-  };
-
-  const handleDeletePackage = async (packageId) => {
-    if (!permissions.canDelete) {
-      const errorMsg = "You do not have permission to delete packages";
-      setMessage({ type: "error", text: errorMsg });
-      toast.error(errorMsg, { duration: 3000 });
-      return;
-    }
-    const pkg = packages.find((p) => p._id === packageId);
-    setConfirmModal({
-      isOpen: true,
-      title: "Delete Package",
-      message: `Are you sure you want to delete "${pkg?.name || "this package"}"? This action cannot be undone.`,
-      onConfirm: async () => {
-        const headers = getHeadersOrNotify();
-        if (!headers) return;
-
-        try {
-          const res = await axios.delete(`/api/clinic/packages?packageId=${packageId}`, {
-            headers,
-          });
-          if (res.data.success) {
-            const successMsg = res.data.message || "Package deleted successfully";
-            setMessage({ type: "success", text: successMsg });
-            toast.success(successMsg, { duration: 3000 });
-            if (editingPackageId === packageId) {
-              setEditingPackageId(null);
-              setEditingPackageName("");
-              setEditingPackagePrice("");
-            }
-            await loadPackages();
-          } else {
-            const errorMsg = res.data.message || "Failed to delete package";
-            setMessage({ type: "error", text: errorMsg });
-            toast.error(errorMsg, { duration: 3000 });
-          }
-        } catch (error) {
-          console.error("Error deleting package", error);
-          const errorMessage = error.response?.data?.message || "Failed to delete package";
-          setMessage({ type: "error", text: errorMessage });
-          toast.error(errorMessage, { duration: 3000 });
-        }
-        setConfirmModal({ ...confirmModal, isOpen: false });
-      },
-      type: "package",
-    });
-  };
 
   const roomCreateDisabled = submitting || !permissions.canCreate;
   const deptCreateDisabled = submittingDept || !permissions.canCreate;
 
+  const exportAllData = () => {
+    if (rooms.length === 0 && departments.length === 0) {
+      toast.error("No data available to export");
+      return;
+    }
+
+    const csvRows = [];
+    
+    // Add instruction for Excel to use comma as separator
+    csvRows.push(["sep=,"]);
+
+    // Departments section
+    csvRows.push(["--- DEPARTMENTS ---"]);
+    csvRows.push(["Department Name", "Created At"]);
+    if (departments.length > 0) {
+      departments.forEach((dept) => {
+        csvRows.push([
+          `"${(dept.name || "").replace(/"/g, '""')}"`,
+          `"${dept.createdAt ? new Date(dept.createdAt).toLocaleString() : "N/A"}"`,
+        ]);
+      });
+    } else {
+      csvRows.push(["No departments available"]);
+    }
+    csvRows.push([]); // Blank row
+
+    // Rooms section
+    csvRows.push(["--- ROOMS ---"]);
+    csvRows.push(["Room Name", "Created At"]);
+    if (rooms.length > 0) {
+      rooms.forEach((room) => {
+        csvRows.push([
+          `"${(room.name || "").replace(/"/g, '""')}"`,
+          `"${room.createdAt ? new Date(room.createdAt).toLocaleString() : "N/A"}"`,
+        ]);
+      });
+    } else {
+      csvRows.push(["No rooms available"]);
+    }
+    csvRows.push([]); // Blank row
+
+    // Packages section
+    csvRows.push(["--- PACKAGES ---"]);
+    csvRows.push(["Package Name", "Price", "Treatments", "Created At"]);
+    if (packages.length > 0) {
+      packages.forEach((pkg) => {
+        const treatmentList = (pkg.treatments || [])
+          .map(t => `${t.treatmentName || t.name} (${t.sessions || 1} sessions)`)
+          .join("; ");
+        csvRows.push([
+          `"${(pkg.name || "").replace(/"/g, '""')}"`,
+          `"${pkg.price || "0"}"`,
+          `"${treatmentList.replace(/"/g, '""')}"`,
+          `"${pkg.createdAt ? new Date(pkg.createdAt).toLocaleString() : "N/A"}"`,
+        ]);
+      });
+    } else {
+      csvRows.push(["No packages available"]);
+    }
+
+    const csvContent = csvRows.map((e) => e.join(",")).join("\n");
+    // Add UTF-8 BOM for Excel
+    const blob = new Blob(["\ufeff" + csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `clinic_add_room_export_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success("All data exported successfully!");
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-teal-50">
       <style dangerouslySetInnerHTML={{__html: `
         [data-hot-toast][data-type="error"] button[aria-label="Close"] {
           color: #fff !important;
@@ -1098,21 +921,21 @@ function AddRoomPage({ contextOverride = null }) {
         }}
       />
       {!permissionsLoaded ? (
-        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 text-center text-gray-700">
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 text-center text-teal-700">
           <Loader2 className="w-5 h-5 mx-auto mb-2 animate-spin" />
           <p className="text-xs sm:text-sm">Checking your permissions...</p>
         </div>
       ) : !permissions.canRead ? (
-        <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="min-h-screen bg-teal-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-lg shadow-lg border border-red-200 p-8 text-center max-w-md">
             <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <Building2 className="w-8 h-8 text-red-600" />
             </div>
-            <h2 className="text-xl font-bold text-gray-900 mb-2">Access Denied</h2>
-            <p className="text-sm text-gray-700 mb-4">
+            <h2 className="text-xl font-bold text-teal-900 mb-2">Access Denied</h2>
+            <p className="text-sm text-teal-700 mb-4">
               You do not have permission to view rooms, departments, and packages.
             </p>
-            <p className="text-xs text-gray-600">
+            <p className="text-xs text-teal-600">
               Please contact your administrator to request access to the Add Room module.
             </p>
           </div>
@@ -1123,28 +946,37 @@ function AddRoomPage({ contextOverride = null }) {
           <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
               <div className="flex-1">
-                <div className="flex items-center gap-2 mb-2">
-                  <Building2 className="w-5 h-5 text-gray-700" />
-                  <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
-                    Room, Department & Package Management
-                  </h1>
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <div className="flex items-center gap-2">
+                    <Building2 className="w-5 h-5 text-teal-700" />
+                    <h1 className="text-xl sm:text-2xl font-bold text-teal-900">
+                      Room, Department & Package Management
+                    </h1>
+                  </div>
+                  {/* <button
+                    onClick={exportAllData}
+                    className="inline-flex items-center gap-1.5 bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-lg text-xs transition-colors font-medium shadow-sm hover:shadow-md"
+                    title="Export all data to CSV"
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                    <span>Export All</span>
+                  </button> */}
                 </div>
-                <p className="text-xs sm:text-sm text-gray-600">
+                <p className="text-xs sm:text-sm text-teal-600">
                   Create and manage rooms, departments, and packages for your clinic
                 </p>
               </div>
-              <div className="flex flex-wrap items-center gap-2 bg-gray-100 rounded-lg p-1 border border-gray-200">
+              <div className="flex flex-wrap items-center gap-2 bg-teal-100 rounded-lg p-1 border border-gray-200">
                 <button
                   type="button"
                   onClick={() => {
                     setViewMode("room");
                     setMessage({ type: "info", text: "" }); // Clear message when switching view
-                    setTreatmentDropdownOpen(false); // Close dropdown
                   }}
                   className={`px-3 sm:px-4 py-2 rounded-md text-xs sm:text-sm font-medium transition-all flex items-center gap-1.5 sm:gap-2 flex-1 sm:flex-none justify-center ${
                     viewMode === "room"
-                      ? "bg-white text-gray-900 shadow-sm"
-                      : "text-gray-600 hover:text-gray-900"
+                      ? "bg-white text-teal-900 shadow-sm"
+                      : "text-teal-600 hover:text-teal-900"
                   }`}
                 >
                   <DoorOpen className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
@@ -1155,62 +987,26 @@ function AddRoomPage({ contextOverride = null }) {
                   onClick={() => {
                     setViewMode("department");
                     setMessage({ type: "info", text: "" }); // Clear message when switching view
-                    setTreatmentDropdownOpen(false); // Close dropdown
                   }}
                   className={`px-3 sm:px-4 py-2 rounded-md text-xs sm:text-sm font-medium transition-all flex items-center gap-1.5 sm:gap-2 flex-1 sm:flex-none justify-center ${
                     viewMode === "department"
-                      ? "bg-white text-gray-900 shadow-sm"
-                      : "text-gray-600 hover:text-gray-900"
+                      ? "bg-white text-teal-900 shadow-sm"
+                      : "text-teal-600 hover:text-teal-900"
                   }`}
                 >
                   <Building2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                   <span className="whitespace-nowrap">Departments</span>
                 </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setViewMode("package");
-                    setMessage({ type: "info", text: "" }); // Clear message when switching view
-                    setTreatmentDropdownOpen(false); // Close dropdown
-                  }}
-                  className={`px-3 sm:px-4 py-2 rounded-md text-xs sm:text-sm font-medium transition-all flex items-center gap-1.5 sm:gap-2 flex-1 sm:flex-none justify-center ${
-                    viewMode === "package"
-                      ? "bg-white text-gray-900 shadow-sm"
-                      : "text-gray-600 hover:text-gray-900"
-                  }`}
-                >
-                  <Package className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                  <span className="whitespace-nowrap">Packages</span>
-                </button>
-              </div>
-            </div>
-          </div>
 
-          {/* Stats Cards - Matching Dashboard Theme */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
-              <div className="flex items-center gap-2 mb-2">
-                <DoorOpen className="w-4 h-4 text-gray-700" />
-                <span className="text-xs font-semibold text-gray-700">Total Rooms</span>
+                {/* <button
+                  onClick={exportAllData}
+                  className="inline-flex items-center gap-1.5 bg-green-600 hover:bg-green-700 text-white px-2.5 py-1.5 rounded-lg text-xs transition-colors font-medium shadow-sm hover:shadow-md"
+                  title="Export all data to CSV"
+                >
+                  <Download className="h-3 w-3" />
+                  <span>Export</span>
+                </button> */}
               </div>
-              <p className="text-2xl font-bold text-gray-900 mb-1">{rooms.length}</p>
-              <p className="text-xs text-gray-600">Active rooms in your clinic</p>
-            </div>
-            <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
-              <div className="flex items-center gap-2 mb-2">
-                <Building2 className="w-4 h-4 text-gray-700" />
-                <span className="text-xs font-semibold text-gray-700">Total Departments</span>
-              </div>
-              <p className="text-2xl font-bold text-gray-900 mb-1">{departments.length}</p>
-              <p className="text-xs text-gray-600">Active departments in your clinic</p>
-            </div>
-            <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
-              <div className="flex items-center gap-2 mb-2">
-                <Package className="w-4 h-4 text-gray-700" />
-                <span className="text-xs font-semibold text-gray-700">Total Packages</span>
-              </div>
-              <p className="text-2xl font-bold text-gray-900 mb-1">{packages.length}</p>
-              <p className="text-xs text-gray-600">Active packages in your clinic</p>
             </div>
           </div>
 
@@ -1218,9 +1014,9 @@ function AddRoomPage({ contextOverride = null }) {
           <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
 
             <div className="flex items-center gap-2 mb-3">
-              <Plus className="w-4 h-4 text-gray-700" />
-              <h2 className="text-base sm:text-lg font-semibold text-gray-900">
-                {viewMode === "room" ? "Create New Room" : viewMode === "department" ? "Create New Department" : "Create New Package"}
+              <Plus className="w-4 h-4 text-teal-700" />
+              <h2 className="text-base sm:text-lg font-semibold text-teal-900">
+                {viewMode === "room" ? "Create New Room" : "Create New Department"}
               </h2>
             </div>
 
@@ -1239,7 +1035,7 @@ function AddRoomPage({ contextOverride = null }) {
             {viewMode === "room" && permissions.canCreate && (
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-teal-700 mb-2">
                     Room Name <span className="text-red-500">*</span>
                   </label>
                   <input
@@ -1254,7 +1050,7 @@ function AddRoomPage({ contextOverride = null }) {
                 <button
                   type="submit"
                   disabled={roomCreateDisabled}
-                  className="inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800 active:bg-gray-950 disabled:opacity-60 transition-all duration-200 shadow-sm hover:shadow-md"
+                  className="inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700 active:bg-teal-950 disabled:opacity-60 transition-all duration-200 shadow-sm hover:shadow-md"
                 >
                   {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
                   {submitting ? "Creating..." : "Create Room"}
@@ -1266,7 +1062,7 @@ function AddRoomPage({ contextOverride = null }) {
             {viewMode === "department" && permissions.canCreate && (
               <form onSubmit={handleDepartmentSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-teal-700 mb-2">
                     Department Name <span className="text-red-500">*</span>
                   </label>
                   <input
@@ -1281,7 +1077,7 @@ function AddRoomPage({ contextOverride = null }) {
                 <button
                   type="submit"
                   disabled={deptCreateDisabled}
-                  className="inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800 active:bg-gray-950 disabled:opacity-60 transition-all duration-200 shadow-sm hover:shadow-md"
+                  className="inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700 active:bg-teal-950 disabled:opacity-60 transition-all duration-200 shadow-sm hover:shadow-md"
                 >
                   {submittingDept ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
                   {submittingDept ? "Creating..." : "Create Department"}
@@ -1293,7 +1089,7 @@ function AddRoomPage({ contextOverride = null }) {
             {viewMode === "package" && permissions.canCreate && (
               <form onSubmit={handlePackageSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-teal-700 mb-2">
                     Package Name <span className="text-red-500">*</span>
                   </label>
                   <input
@@ -1306,7 +1102,7 @@ function AddRoomPage({ contextOverride = null }) {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-teal-700 mb-2">
                     Price <span className="text-red-500">*</span>
                   </label>
                   <input
@@ -1324,11 +1120,11 @@ function AddRoomPage({ contextOverride = null }) {
                 {/* Treatment Selection */}
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label className="block text-sm font-medium text-teal-700 mb-2">
                       Select Treatment <span className="text-red-500">*</span>
                     </label>
                     {treatments.length === 0 ? (
-                      <div className="text-sm text-gray-500 py-2">No treatments available. Please add treatments to your clinic first.</div>
+                      <div className="text-sm text-teal-500 py-2">No treatments available. Please add treatments to your clinic first.</div>
                     ) : (
                       <div className="relative treatment-dropdown-container">
                         <button
@@ -1339,10 +1135,10 @@ function AddRoomPage({ contextOverride = null }) {
                               setTreatmentSearchQuery(""); // Clear search when opening
                             }
                           }}
-                          className="w-full flex items-center justify-between px-4 py-2.5 bg-white border border-gray-300 rounded-lg text-sm text-gray-700 hover:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                          className="w-full flex items-center justify-between px-4 py-2.5 bg-white border border-gray-300 rounded-lg text-sm text-teal-700 hover:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
                         >
-                          <span className="text-gray-500">Select a treatment to add...</span>
-                          <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${treatmentDropdownOpen ? 'rotate-180' : ''}`} />
+                          <span className="text-teal-500">Select a treatment to add...</span>
+                          <ChevronDown className={`w-4 h-4 text-teal-400 transition-transform ${treatmentDropdownOpen ? 'rotate-180' : ''}`} />
                         </button>
                         {treatmentDropdownOpen && (
                           <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-hidden flex flex-col">
@@ -1367,7 +1163,7 @@ function AddRoomPage({ contextOverride = null }) {
                                 // Only show treatments when user has typed something
                                 if (!treatmentSearchQuery.trim()) {
                                   return (
-                                    <div className="p-4 text-center text-sm text-gray-500">
+                                    <div className="p-4 text-center text-sm text-teal-500">
                                       Start typing to search for treatments...
                                     </div>
                                   );
@@ -1382,7 +1178,7 @@ function AddRoomPage({ contextOverride = null }) {
 
                                 if (filteredTreatments.length === 0) {
                                   return (
-                                    <div className="p-4 text-center text-sm text-gray-500">
+                                    <div className="p-4 text-center text-sm text-teal-500">
                                       No treatments found matching "{treatmentSearchQuery}"
                                     </div>
                                   );
@@ -1403,14 +1199,14 @@ function AddRoomPage({ contextOverride = null }) {
                                           className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${
                                             isSelected
                                               ? "bg-blue-50 text-blue-700 font-medium"
-                                              : "text-gray-700 hover:bg-gray-50"
+                                              : "text-teal-700 hover:bg-teal-50"
                                           }`}
                                         >
                                           <div className="flex items-center justify-between">
                                             <span>
                                               {treatment.name}
                                               {treatment.type === "sub" && (
-                                                <span className="text-xs text-gray-500 ml-1">({treatment.mainTreatment})</span>
+                                                <span className="text-xs text-teal-500 ml-1">({treatment.mainTreatment})</span>
                                               )}
                                             </span>
                                             {isSelected && (
@@ -1433,7 +1229,7 @@ function AddRoomPage({ contextOverride = null }) {
                   {/* Selected Treatments with Sessions - Compact Tile Design */}
                   {selectedTreatments.length > 0 && (
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className="block text-sm font-medium text-teal-700 mb-2">
                         Selected Treatments & Sessions <span className="text-red-500">*</span>
                       </label>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -1445,11 +1241,11 @@ function AddRoomPage({ contextOverride = null }) {
                               className="flex items-center justify-between p-2.5 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200 hover:border-blue-300 transition-all"
                             >
                               <div className="flex-1 min-w-0 mr-2">
-                                <span className="text-sm font-medium text-gray-900 block truncate">
+                                <span className="text-sm font-medium text-teal-900 block truncate">
                                   {selectedTreatment.treatmentName}
                                 </span>
                                 {treatment?.type === "sub" && (
-                                  <span className="text-xs text-gray-500 truncate block">
+                                  <span className="text-xs text-teal-500 truncate block">
                                     {treatment.mainTreatment}
                                   </span>
                                 )}
@@ -1483,7 +1279,7 @@ function AddRoomPage({ contextOverride = null }) {
                           );
                         })}
                       </div>
-                      <div className="mt-2 text-xs text-gray-500 text-center">
+                      <div className="mt-2 text-xs text-teal-500 text-center">
                         {selectedTreatments.length} treatment(s) selected
                       </div>
                     </div>
@@ -1493,7 +1289,7 @@ function AddRoomPage({ contextOverride = null }) {
                 <button
                   type="submit"
                   disabled={submittingPackage || !permissions.canCreate}
-                  className="inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800 active:bg-gray-950 disabled:opacity-60 transition-all duration-200 shadow-sm hover:shadow-md"
+                  className="inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700 active:bg-teal-950 disabled:opacity-60 transition-all duration-200 shadow-sm hover:shadow-md"
                 >
                   {submittingPackage ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
                   {submittingPackage ? "Creating..." : "Create Package"}
@@ -1502,36 +1298,57 @@ function AddRoomPage({ contextOverride = null }) {
             )}
           </div>
 
+          {/* Stats Cards - Matching Dashboard Theme */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+              <div className="flex items-center gap-2 mb-2">
+                <DoorOpen className="w-4 h-4 text-teal-700" />
+                <span className="text-xs font-semibold text-teal-700">Total Rooms</span>
+              </div>
+              <p className="text-2xl font-bold text-teal-900 mb-1">{rooms.length}</p>
+              <p className="text-xs text-teal-600">Active rooms in your clinic</p>
+            </div>
+            <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+              <div className="flex items-center gap-2 mb-2">
+                <Building2 className="w-4 h-4 text-teal-700" />
+                <span className="text-xs font-semibold text-teal-700">Total Departments</span>
+              </div>
+              <p className="text-2xl font-bold text-teal-900 mb-1">{departments.length}</p>
+              <p className="text-xs text-teal-600">Active departments in your clinic</p>
+            </div>
+
+          </div>
+
           {/* Rooms List - Only show when viewMode is "room" */}
           {viewMode === "room" && (
             <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
               <div className="flex items-center gap-2 mb-4">
-                <DoorOpen className="w-5 h-5 text-gray-700" />
-                <h2 className="text-lg sm:text-xl font-bold text-gray-900">All Rooms</h2>
-                <span className="ml-auto px-2.5 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-semibold">
+                <DoorOpen className="w-5 h-5 text-teal-700" />
+                <h2 className="text-lg sm:text-xl font-bold text-teal-900">All Rooms</h2>
+                <span className="ml-auto px-2.5 py-1 bg-teal-50 text-teal-700 rounded-full text-xs font-semibold">
                   {rooms.length} {rooms.length === 1 ? 'Room' : 'Rooms'}
                 </span>
               </div>
 
         {loading ? (
-          <div className="flex items-center justify-center py-12 text-gray-600">
+          <div className="flex items-center justify-center py-12 text-teal-600">
             <Loader2 className="w-5 h-5 mr-2 animate-spin" />
             <span className="text-sm">Loading rooms...</span>
           </div>
         ) : rooms.length === 0 ? (
           <div className="text-center py-12">
-            <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-gray-100 flex items-center justify-center">
-              <DoorOpen className="w-8 h-8 text-gray-400" />
+            <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-teal-100 flex items-center justify-center">
+              <DoorOpen className="w-8 h-8 text-teal-400" />
             </div>
-            <p className="text-sm font-medium text-gray-900 mb-1">No rooms created yet</p>
-            <p className="text-xs text-gray-600">Use the form above to create your first room</p>
+            <p className="text-sm font-medium text-teal-900 mb-1">No rooms created yet</p>
+            <p className="text-xs text-teal-600">Use the form above to create your first room</p>
           </div>
         ) : (
           <div className="space-y-2">
             {rooms.map((room) => (
               <div
                 key={room._id}
-                className="border border-gray-200 rounded-lg p-3 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 hover:bg-gray-50 hover:border-gray-300 transition-all group"
+                className="border border-gray-200 rounded-lg p-3 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 hover:bg-teal-50 hover:border-gray-300 transition-all group"
               >
                 <div className="flex-1 min-w-0">
                   {editingRoomId === room._id ? (
@@ -1547,7 +1364,7 @@ function AddRoomPage({ contextOverride = null }) {
                         <button
                           onClick={handleRoomUpdate}
                           disabled={roomUpdateLoading}
-                          className="flex-1 sm:flex-none px-3 py-2 bg-gray-900 text-white text-sm rounded-lg hover:bg-gray-800 disabled:opacity-60 transition-colors flex items-center justify-center"
+                          className="flex-1 sm:flex-none px-3 py-2 bg-teal-600 text-white text-sm rounded-lg hover:bg-teal-700 disabled:opacity-60 transition-colors flex items-center justify-center"
                         >
                           {roomUpdateLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save"}
                         </button>
@@ -1556,7 +1373,7 @@ function AddRoomPage({ contextOverride = null }) {
                             setEditingRoomId(null);
                             setEditingRoomName("");
                           }}
-                          className="flex-1 sm:flex-none px-3 py-2 bg-gray-100 text-gray-700 text-sm rounded-lg hover:bg-gray-200 transition-colors"
+                          className="flex-1 sm:flex-none px-3 py-2 bg-teal-100 text-teal-700 text-sm rounded-lg hover:bg-teal-200 transition-colors"
                         >
                           Cancel
                         </button>
@@ -1565,13 +1382,13 @@ function AddRoomPage({ contextOverride = null }) {
                   ) : (
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center">
-                        <DoorOpen className="w-5 h-5 text-blue-600" />
+                        <DoorOpen className="w-5 h-5 text-teal-600" />
                       </div>
                       <div>
-                        <h3 className="text-sm font-semibold text-gray-900">{room.name}</h3>
+                        <h3 className="text-sm font-semibold text-teal-900">{room.name}</h3>
                         <div className="flex items-center gap-1.5 mt-0.5">
-                          <Calendar className="w-3 h-3 text-gray-400" />
-                          <span className="text-xs text-gray-500">
+                          <Calendar className="w-3 h-3 text-teal-400" />
+                          <span className="text-xs text-teal-500">
                             Created {new Date(room.createdAt).toLocaleDateString()}
                           </span>
                         </div>
@@ -1587,7 +1404,7 @@ function AddRoomPage({ contextOverride = null }) {
                           setEditingRoomId(room._id);
                           setEditingRoomName(room.name);
                         }}
-                        className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                        className="p-2 text-teal-600 hover:bg-teal-100 rounded-lg transition-colors"
                         title="Edit room"
                       >
                         <Edit2 className="w-4 h-4" />
@@ -1615,32 +1432,32 @@ function AddRoomPage({ contextOverride = null }) {
           {viewMode === "department" && (
             <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
               <div className="flex items-center gap-2 mb-4">
-                <Building2 className="w-5 h-5 text-gray-700" />
-                <h2 className="text-lg sm:text-xl font-bold text-gray-900">All Departments</h2>
+                <Building2 className="w-5 h-5 text-teal-700" />
+                <h2 className="text-lg sm:text-xl font-bold text-teal-900">All Departments</h2>
                 <span className="ml-auto px-2.5 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-semibold">
                   {departments.length} {departments.length === 1 ? 'Department' : 'Departments'}
                 </span>
               </div>
 
             {loading ? (
-              <div className="flex items-center justify-center py-12 text-gray-600">
+              <div className="flex items-center justify-center py-12 text-teal-600">
                 <Loader2 className="w-5 h-5 mr-2 animate-spin" />
                 <span className="text-sm">Loading departments...</span>
               </div>
             ) : departments.length === 0 ? (
               <div className="text-center py-12">
-                <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-gray-100 flex items-center justify-center">
-                  <Building2 className="w-8 h-8 text-gray-400" />
+                <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-teal-100 flex items-center justify-center">
+                  <Building2 className="w-8 h-8 text-teal-400" />
                 </div>
-                <p className="text-sm font-medium text-gray-900 mb-1">No departments created yet</p>
-                <p className="text-xs text-gray-600">Use the form above to create your first department</p>
+                <p className="text-sm font-medium text-teal-900 mb-1">No departments created yet</p>
+                <p className="text-xs text-teal-600">Use the form above to create your first department</p>
               </div>
             ) : (
               <div className="space-y-2">
                 {departments.map((dept) => (
                   <div
                     key={dept._id}
-                    className="border border-gray-200 rounded-lg p-3 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 hover:bg-gray-50 hover:border-gray-300 transition-all group"
+                    className="border border-gray-200 rounded-lg p-3 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 hover:bg-teal-50 hover:border-gray-300 transition-all group"
                   >
                     <div className="flex-1 min-w-0">
                       {editingDeptId === dept._id ? (
@@ -1656,7 +1473,7 @@ function AddRoomPage({ contextOverride = null }) {
                             <button
                               onClick={handleDepartmentUpdate}
                               disabled={deptUpdateLoading}
-                              className="flex-1 sm:flex-none px-3 py-2 bg-gray-900 text-white text-sm rounded-lg hover:bg-gray-800 disabled:opacity-60 transition-colors"
+                              className="flex-1 sm:flex-none px-3 py-2 bg-teal-600 text-white text-sm rounded-lg hover:bg-teal-700 disabled:opacity-60 transition-colors"
                             >
                               {deptUpdateLoading ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : "Save"}
                             </button>
@@ -1665,7 +1482,7 @@ function AddRoomPage({ contextOverride = null }) {
                                 setEditingDeptId(null);
                                 setEditingDeptName("");
                               }}
-                              className="flex-1 sm:flex-none px-3 py-2 bg-gray-100 text-gray-700 text-sm rounded-lg hover:bg-gray-200 transition-colors"
+                              className="flex-1 sm:flex-none px-3 py-2 bg-teal-100 text-teal-700 text-sm rounded-lg hover:bg-teal-200 transition-colors"
                             >
                               Cancel
                             </button>
@@ -1673,14 +1490,14 @@ function AddRoomPage({ contextOverride = null }) {
                         </div>
                       ) : (
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-lg bg-purple-50 flex items-center justify-center">
-                            <Building2 className="w-5 h-5 text-purple-600" />
+                          <div className="w-10 h-10 rounded-lg bg-teal-50 flex items-center justify-center">
+                            <Building2 className="w-5 h-5 text-teal-600" />
                           </div>
                           <div>
-                            <h3 className="text-sm font-semibold text-gray-900">{dept.name}</h3>
+                            <h3 className="text-sm font-semibold text-teal-900">{dept.name}</h3>
                             <div className="flex items-center gap-1.5 mt-0.5">
-                              <Calendar className="w-3 h-3 text-gray-400" />
-                              <span className="text-xs text-gray-500">
+                              <Calendar className="w-3 h-3 text-teal-400" />
+                              <span className="text-xs text-teal-500">
                                 Created {new Date(dept.createdAt).toLocaleDateString()}
                               </span>
                             </div>
@@ -1696,7 +1513,7 @@ function AddRoomPage({ contextOverride = null }) {
                               setEditingDeptId(dept._id);
                               setEditingDeptName(dept.name);
                             }}
-                            className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                            className="p-2 text-teal-600 hover:bg-teal-100 rounded-lg transition-colors"
                             title="Edit department"
                           >
                             <Edit2 className="w-4 h-4" />
@@ -1724,32 +1541,32 @@ function AddRoomPage({ contextOverride = null }) {
           {viewMode === "package" && (
             <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
               <div className="flex items-center gap-2 mb-4">
-                <Package className="w-5 h-5 text-gray-700" />
-                <h2 className="text-lg sm:text-xl font-bold text-gray-900">All Packages</h2>
+                <Package className="w-5 h-5 text-teal-700" />
+                <h2 className="text-lg sm:text-xl font-bold text-teal-900">All Packages</h2>
                 <span className="ml-auto px-2.5 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-semibold">
                   {packages.length} {packages.length === 1 ? 'Package' : 'Packages'}
                 </span>
               </div>
 
             {loading ? (
-              <div className="flex items-center justify-center py-12 text-gray-600">
+              <div className="flex items-center justify-center py-12 text-teal-600">
                 <Loader2 className="w-5 h-5 mr-2 animate-spin" />
                 <span className="text-sm">Loading packages...</span>
               </div>
             ) : packages.length === 0 ? (
               <div className="text-center py-12">
-                <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-gray-100 flex items-center justify-center">
-                  <Package className="w-8 h-8 text-gray-400" />
+                <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-teal-100 flex items-center justify-center">
+                  <Package className="w-8 h-8 text-teal-400" />
                 </div>
-                <p className="text-sm font-medium text-gray-900 mb-1">No packages created yet</p>
-                <p className="text-xs text-gray-600">Use the form above to create your first package</p>
+                <p className="text-sm font-medium text-teal-900 mb-1">No packages created yet</p>
+                <p className="text-xs text-teal-600">Use the form above to create your first package</p>
               </div>
             ) : (
               <div className="space-y-2">
                 {packages.map((pkg) => (
                   <div
                     key={pkg._id}
-                    className="border border-gray-200 rounded-lg p-3 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 hover:bg-gray-50 hover:border-gray-300 transition-all group"
+                    className="border border-gray-200 rounded-lg p-3 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 hover:bg-teal-50 hover:border-gray-300 transition-all group"
                   >
                     <div className="flex-1 min-w-0">
                       {editingPackageId === pkg._id ? (
@@ -1768,47 +1585,41 @@ function AddRoomPage({ contextOverride = null }) {
                               step="0.01"
                               min="0"
                               value={editingPackagePrice}
-                              onChange={(e) => setEditingPackagePrice(e.target.value)}
-                              placeholder="Price"
-                              className="w-full sm:w-32 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                              onChange={() => {}}
+                              placeholder="Total Price"
+                              disabled
+                              className="w-full sm:w-32 bg-teal-100 border border-gray-300 rounded-lg px-3 py-2 text-sm cursor-not-allowed"
                             />
                           </div>
                           {/* Treatment Selection for Edit */}
                           <div className="space-y-3">
                             <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-2">
+                              <label className="block text-sm font-medium text-teal-700 mb-2">
                                 Select Treatment
                               </label>
                               {treatments.length === 0 ? (
-                                <div className="text-sm text-gray-500 py-2">No treatments available.</div>
+                                <div className="text-sm text-teal-500 py-2">No treatments available.</div>
                               ) : (
                                 <div className="relative treatment-dropdown-container">
                                   <button
                                     type="button"
-                                    onClick={() => {
-                                      setTreatmentDropdownOpen(!treatmentDropdownOpen);
-                                      if (!treatmentDropdownOpen) {
-                                        setTreatmentSearchQuery(""); // Clear search when opening
-                                      }
-                                    }}
-                                    className="w-full flex items-center justify-between px-4 py-2.5 bg-white border border-gray-300 rounded-lg text-sm text-gray-700 hover:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                                    onClick={() => {}}
+                                    disabled
+                                    className="w-full flex items-center justify-between px-4 py-2.5 bg-white border border-gray-300 rounded-lg text-sm text-teal-700 hover:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
                                   >
-                                    <span className="text-gray-500">Select a treatment to add...</span>
-                                    <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${treatmentDropdownOpen ? 'rotate-180' : ''}`} />
+                                    <span className="text-teal-500">Select a treatment to add...</span>
+                                    <ChevronDown className={`w-4 h-4 text-teal-400 transition-transform ${treatmentDropdownOpen ? 'rotate-180' : ''}`} />
                                   </button>
-                                  {treatmentDropdownOpen && (
+                                  {false && (
                                     <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-hidden flex flex-col">
                                       {/* Search Input */}
                                       <div className="p-2 border-b border-gray-200 sticky top-0 bg-white">
-                                        <input
+                                          <input
                                           type="text"
                                           placeholder="Search treatments..."
                                           value={treatmentSearchQuery}
-                                          onChange={(e) => {
-                                            e.stopPropagation();
-                                            setTreatmentSearchQuery(e.target.value);
-                                          }}
-                                          onClick={(e) => e.stopPropagation()}
+                                            onChange={() => {}}
+                                            onClick={() => {}}
                                           className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                                           autoFocus
                                         />
@@ -1819,7 +1630,7 @@ function AddRoomPage({ contextOverride = null }) {
                                           // Only show treatments when user has typed something
                                           if (!treatmentSearchQuery.trim()) {
                                             return (
-                                              <div className="p-4 text-center text-sm text-gray-500">
+                                              <div className="p-4 text-center text-sm text-teal-500">
                                                 Start typing to search for treatments...
                                               </div>
                                             );
@@ -1834,7 +1645,7 @@ function AddRoomPage({ contextOverride = null }) {
 
                                           if (filteredTreatments.length === 0) {
                                             return (
-                                              <div className="p-4 text-center text-sm text-gray-500">
+                                              <div className="p-4 text-center text-sm text-teal-500">
                                                 No treatments found matching "{treatmentSearchQuery}"
                                               </div>
                                             );
@@ -1855,14 +1666,14 @@ function AddRoomPage({ contextOverride = null }) {
                                                     className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${
                                                       isSelected
                                                         ? "bg-blue-50 text-blue-700 font-medium"
-                                                        : "text-gray-700 hover:bg-gray-50"
+                                                        : "text-teal-700 hover:bg-teal-50"
                                                     }`}
                                                   >
                                                     <div className="flex items-center justify-between">
                                                       <span>
                                                         {treatment.name}
                                                         {treatment.type === "sub" && (
-                                                          <span className="text-xs text-gray-500 ml-1">({treatment.mainTreatment})</span>
+                                                          <span className="text-xs text-teal-500 ml-1">({treatment.mainTreatment})</span>
                                                         )}
                                                       </span>
                                                       {isSelected && (
@@ -1885,7 +1696,7 @@ function AddRoomPage({ contextOverride = null }) {
                             {/* Selected Treatments with Sessions for Edit - Compact Tile Design */}
                             {selectedTreatments.length > 0 && (
                               <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                <label className="block text-sm font-medium text-teal-700 mb-2">
                                   Selected Treatments & Sessions
                                 </label>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -1897,11 +1708,11 @@ function AddRoomPage({ contextOverride = null }) {
                                         className="flex items-center justify-between p-2.5 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200 hover:border-blue-300 transition-all"
                                       >
                                         <div className="flex-1 min-w-0 mr-2">
-                                          <span className="text-sm font-medium text-gray-900 block truncate">
+                                          <span className="text-sm font-medium text-teal-900 block truncate">
                                             {selectedTreatment.treatmentName}
                                           </span>
                                           {treatment?.type === "sub" && (
-                                            <span className="text-xs text-gray-500 truncate block">
+                                            <span className="text-xs text-teal-500 truncate block">
                                               {treatment.mainTreatment}
                                             </span>
                                           )}
@@ -1911,20 +1722,15 @@ function AddRoomPage({ contextOverride = null }) {
                                             type="number"
                                             min="1"
                                             value={selectedTreatment.sessions || 1}
-                                            onChange={(e) => {
-                                              const value = parseInt(e.target.value) || 1;
-                                              handleSessionChange(selectedTreatment.treatmentSlug, value);
-                                            }}
-                                            className="w-16 px-2 py-1.5 text-sm font-semibold text-center border border-blue-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white shadow-sm"
+                                            onChange={() => {}}
+                                            disabled
+                                            className="w-16 px-2 py-1.5 text-sm font-semibold text-center border border-blue-300 rounded-md bg-teal-100 shadow-sm cursor-not-allowed"
                                             placeholder="1"
                                           />
                                           <button
                                             type="button"
-                                            onClick={(e) => {
-                                              e.preventDefault();
-                                              e.stopPropagation();
-                                              handleRemoveTreatment(selectedTreatment.treatmentSlug, e);
-                                            }}
+                                            onClick={() => {}}
+                                            disabled
                                             className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
                                             title="Remove treatment"
                                           >
@@ -1935,7 +1741,7 @@ function AddRoomPage({ contextOverride = null }) {
                                     );
                                   })}
                                 </div>
-                                <div className="mt-2 text-xs text-gray-500 text-center">
+                                <div className="mt-2 text-xs text-teal-500 text-center">
                                   {selectedTreatments.length} treatment(s) selected
                                 </div>
                               </div>
@@ -1945,7 +1751,7 @@ function AddRoomPage({ contextOverride = null }) {
                             <button
                               onClick={handlePackageUpdate}
                               disabled={packageUpdateLoading}
-                              className="flex-1 sm:flex-none px-3 py-2 bg-gray-900 text-white text-sm rounded-lg hover:bg-gray-800 disabled:opacity-60 transition-colors"
+                              className="flex-1 sm:flex-none px-3 py-2 bg-teal-600 text-white text-sm rounded-lg hover:bg-teal-700 disabled:opacity-60 transition-colors"
                             >
                               {packageUpdateLoading ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : "Save"}
                             </button>
@@ -1956,7 +1762,7 @@ function AddRoomPage({ contextOverride = null }) {
                                 setEditingPackagePrice("");
                                 setSelectedTreatments([]);
                               }}
-                              className="flex-1 sm:flex-none px-3 py-2 bg-gray-100 text-gray-700 text-sm rounded-lg hover:bg-gray-200 transition-colors"
+                              className="flex-1 sm:flex-none px-3 py-2 bg-teal-100 text-teal-700 text-sm rounded-lg hover:bg-teal-200 transition-colors"
                             >
                               Cancel
                             </button>
@@ -1968,22 +1774,22 @@ function AddRoomPage({ contextOverride = null }) {
                             <Package className="w-5 h-5 text-green-600" />
                           </div>
                           <div>
-                            <h3 className="text-sm font-semibold text-gray-900">{pkg.name}</h3>
+                            <h3 className="text-sm font-semibold text-teal-900">{pkg.name}</h3>
                             <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                              <span className="text-xs text-gray-500 font-medium">
-                                Price: ${parseFloat(pkg.price).toFixed(2)}
+                              <span className="text-xs text-teal-500 font-medium">
+                                Price: ${parseFloat(pkg.totalPrice).toFixed(2)}
                               </span>
                               {pkg.treatments && pkg.treatments.length > 0 && (
                                 <>
-                                  <span className="text-xs text-gray-400">•</span>
-                                  <span className="text-xs text-gray-500">
+                                  <span className="text-xs text-teal-400">•</span>
+                                  <span className="text-xs text-teal-500">
                                     {pkg.treatments.length} treatment(s)
                                   </span>
                                 </>
                               )}
-                              <span className="text-xs text-gray-400">•</span>
-                              <Calendar className="w-3 h-3 text-gray-400" />
-                              <span className="text-xs text-gray-500">
+                              <span className="text-xs text-teal-400">•</span>
+                              <Calendar className="w-3 h-3 text-teal-400" />
+                              <span className="text-xs text-teal-500">
                                 Created {new Date(pkg.createdAt).toLocaleDateString()}
                               </span>
                             </div>
@@ -1998,7 +1804,7 @@ function AddRoomPage({ contextOverride = null }) {
                                   </span>
                                 ))}
                                 {pkg.treatments.length > 3 && (
-                                  <span className="text-xs px-2 py-0.5 bg-gray-100 text-gray-600 rounded">
+                                  <span className="text-xs px-2 py-0.5 bg-teal-100 text-teal-600 rounded">
                                     +{pkg.treatments.length - 3} more
                                   </span>
                                 )}
@@ -2015,7 +1821,7 @@ function AddRoomPage({ contextOverride = null }) {
                             onClick={() => {
                               setEditingPackageId(pkg._id);
                               setEditingPackageName(pkg.name);
-                              setEditingPackagePrice(pkg.price.toString());
+                              setEditingPackagePrice((pkg.totalPrice ?? pkg.price).toString());
                               // Load treatments for this package
                               if (pkg.treatments && Array.isArray(pkg.treatments)) {
                                 setSelectedTreatments(
@@ -2029,7 +1835,7 @@ function AddRoomPage({ contextOverride = null }) {
                                 setSelectedTreatments([]);
                               }
                             }}
-                            className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                            className="p-2 text-teal-600 hover:bg-teal-100 rounded-lg transition-colors"
                             title="Edit package"
                           >
                             <Edit2 className="w-4 h-4" />
@@ -2079,7 +1885,7 @@ function AddRoomPage({ contextOverride = null }) {
                 <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
                   <AlertCircle className="w-5 h-5 text-red-600" />
                 </div>
-                <h2 id="confirm-modal-title" className="text-base sm:text-lg font-semibold text-gray-900">
+                <h2 id="confirm-modal-title" className="text-base sm:text-lg font-semibold text-teal-900">
                   {confirmModal.title}
                 </h2>
               </div>
@@ -2091,13 +1897,13 @@ function AddRoomPage({ contextOverride = null }) {
                 className="p-1.5 hover:bg-red-100 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-red-500"
                 aria-label="Close modal"
               >
-                <X className="w-5 h-5 text-gray-700" />
+                <X className="w-5 h-5 text-teal-700" />
               </button>
             </div>
 
             {/* Content */}
             <div className="p-4 sm:p-6">
-              <p className="text-sm sm:text-base text-gray-700 leading-relaxed">
+              <p className="text-sm sm:text-base text-teal-700 leading-relaxed">
                 {confirmModal.message}
               </p>
             </div>
@@ -2109,7 +1915,7 @@ function AddRoomPage({ contextOverride = null }) {
                   setConfirmModal({ ...confirmModal, isOpen: false });
                   toast("Deletion cancelled", { duration: 2000, icon: "ℹ️" });
                 }}
-                className="flex-1 px-3 sm:px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-900 transition-colors"
+                className="flex-1 px-3 sm:px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-teal-700 hover:bg-teal-50 focus:outline-none focus:ring-2 focus:ring-teal-900 transition-colors"
               >
                 Cancel
               </button>

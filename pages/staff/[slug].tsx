@@ -153,6 +153,13 @@ const routeMap: { [key: string]: () => Promise<any> } = {
   'permission': () => import('../agent/lead/permission'),
   'create-lead': () => import('../agent/lead-create-lead'),
   'create-offer': () => import('../agent/lead-create-offer'),
+  
+  // Inbox
+  'clinic-inbox': () => import('../clinic/inbox'),
+'clinic-all-templates': () => import('../clinic/all-templates'),
+'clinic-providers': () => import('../clinic/providers'),
+  
+ 
 };
 
 const StaffDynamicPage = () => {

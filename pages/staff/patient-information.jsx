@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import axios from "axios";
-import { Package, TrendingUp, Eye, Search, ChevronLeft, ChevronRight, X, AlertCircle, CheckCircle2, Info, Edit3, User, DollarSign, Mail, Phone, Calendar, FileText, MapPin, Building2, CreditCard, Trash2 } from "lucide-react";
+import { Package, TrendingUp, Eye, Search, ChevronLeft, ChevronRight, X, AlertCircle, CheckCircle2, Info, Edit3, User, DollarSign, Mail, Phone, Calendar, FileText, MapPin, Building2, CreditCard, Trash2, Download } from "lucide-react";
 import { useRouter } from "next/router";
 import ClinicLayout from '../../components/staffLayout';
 import withClinicAuth from '../../components/withStaffAuth';
@@ -70,7 +70,7 @@ const PatientDetailsModal = ({ isOpen, onClose, patient }) => {
               </h4>
               <div className="space-y-2 text-xs">
                 <div className="flex items-center gap-2"><span className="text-gray-700 w-20">Name:</span> <span className="font-medium text-gray-900">{patient.firstName} {patient.lastName}</span></div>
-                <div className="flex items-center gap-2"><span className="text-gray-700 w-20">Gender:</span> <span className="font-medium text-gray-900">{patient.gender}</span></div>
+                <div className="flex items-center gap-2"><span className="text-gray-700 w-20">Gender:</span> <span className="font-medium text-gray-900">{patient.gender || '-'}</span></div>
                 <div className="flex items-center gap-2"><Mail className="w-3.5 h-3.5 text-gray-400" /><span className="text-gray-700 w-20">Email:</span> <span className="font-medium text-gray-900">{patient.email}</span></div>
                 <div className="flex items-center gap-2"><Phone className="w-3.5 h-3.5 text-gray-400" /><span className="text-gray-700 w-20">Mobile:</span> <span className="font-medium text-gray-900">{patient.mobileNumber}</span></div>
                 <div className="flex items-center gap-2"><span className="text-gray-700 w-20">Type:</span> <span className="font-medium text-gray-900">{patient.patientType}</span></div>
@@ -168,7 +168,7 @@ const PatientCard = ({ patient, onUpdate, onViewDetails, canUpdate = true }) => 
   </div>
 );
 
-function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { canRead: true, canUpdate: true, canDelete: true, canCreate: true } }) {
+function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { canRead: true, canUpdate: true, canDelete: true, canCreate: true }, routeContext = "clinic" }) {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const [patients, setPatients] = useState([]);
@@ -203,7 +203,7 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
   const totalPatients = patients.length;
   const activePatients = patients.filter(p => p.status === 'Active' || p.applicationStatus === 'Active').length;
 
-  const fetchPatients = async () => {
+  const fetchPatients = async (showSuccessToast = true) => {
     const headers = getAuthHeaders();
     if (!headers) {
       addToast("Authentication required. Please login again.", "error");
@@ -211,10 +211,14 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
     }
     setLoading(true);
     try {
-      const { data } = await axios.get("/api/staff/get-patient-registrations", { headers });
+      // Always use clinic API endpoint for consistency - it supports clinic, agent, and doctorStaff roles
+      const apiEndpoint = "/api/clinic/patient-information";
+      const { data } = await axios.get(apiEndpoint, { headers });
       setPatients(data.success ? data.data : []);
       setPage(1);
-      addToast("Data loaded successfully", "success");
+      if (showSuccessToast) {
+        addToast("Data loaded successfully", "success");
+      }
     } catch (err) {
       console.error(err);
       setPatients([]);
@@ -224,7 +228,54 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
     }
   };
 
-  useEffect(() => { fetchPatients(); }, []);
+  useEffect(() => { fetchPatients(); }, [routeContext]);
+
+  const exportPatientsToCSV = () => {
+    if (patients.length === 0) {
+      addToast("No patients to export", "error");
+      return;
+    }
+
+    const headers = [
+      "First Name",
+      "Last Name",
+      "Email",
+      "Mobile Number",
+      "Gender",
+      "Patient Type",
+      "EMR Number",
+      "Invoice Number",
+      "Insurance",
+      "Created At"
+    ];
+
+    const csvContent = [
+      headers.join(","),
+      ...patients.map(p => [
+        `"${(p.firstName || "").replace(/"/g, '""')}"`,
+        `"${(p.lastName || "").replace(/"/g, '""')}"`,
+        `"${(p.email || "").replace(/"/g, '""')}"`,
+        `"${(p.mobileNumber || "").replace(/"/g, '""')}"`,
+        `"${(p.gender || "").replace(/"/g, '""')}"`,
+        `"${(p.patientType || "").replace(/"/g, '""')}"`,
+        `"${(p.emrNumber || "").replace(/"/g, '""')}"`,
+        `"${(p.invoiceNumber || "").replace(/"/g, '""')}"`,
+        `"${(p.insurance || "").replace(/"/g, '""')}"`,
+        `"${p.createdAt ? new Date(p.createdAt).toLocaleString() : ""}"`
+      ].join(","))
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `patients_export_${new Date().toISOString().split("T")[0]}.csv`);
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    addToast("Patients exported successfully", "success");
+  };
 
   const handleUpdate = (id) => {
     if (typeof onEditPatient === "function") {
@@ -251,7 +302,8 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
     }
 
     try {
-      const response = await axios.delete("/api/staff/get-patient-registrations", {
+      // Use clinic API endpoint for consistency - it supports clinic, agent, and doctorStaff roles
+      const response = await axios.delete("/api/clinic/patient-information", {
         headers,
         data: { id: patientId }
       });
@@ -259,8 +311,28 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
       if (response.data.success) {
         // Show success popup
         setDeleteSuccessModal({ isOpen: true, patientName: patientName });
-        // Refresh the patient list
-        fetchPatients();
+        // Refresh the patient list without showing duplicate success toast from fetchPatients
+        const refreshHeaders = getAuthHeaders();
+        if (!refreshHeaders) {
+          addToast("Authentication required. Please login again.", "error");
+          return;
+        }
+        setLoading(true);
+        try {
+          // Always use clinic API endpoint for consistency - it supports clinic, agent, and doctorStaff roles
+          const apiEndpoint = "/api/clinic/patient-information";
+          const { data } = await axios.get(apiEndpoint, { headers: refreshHeaders });
+          setPatients(data.success ? data.data : []);
+          setPage(1);
+          // Changed message to show patient deletion success
+          addToast("Patient deleted successfully", "success");
+        } catch (err) {
+          console.error(err);
+          setPatients([]);
+          addToast("Failed to load data", "error");
+        } finally {
+          setLoading(false);
+        }
       } else {
         addToast(response.data.message || "Failed to delete patient", "error");
       }
@@ -319,11 +391,11 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
         </div>
       )}
       
-      <div className={hideHeader ? "p-3 sm:p-4 md:p-6" : "min-h-screen bg-gray-50 p-3 sm:p-4 md:p-6"}>
-        <div className="max-w-7xl mx-auto space-y-3">
+      <div className={hideHeader ? "p-2 sm:p-3" : "min-h-screen bg-gray-50 p-2 sm:p-3"}>
+        <div className="max-w-6xl mx-auto space-y-1">
           {/* Header Section */}
           {!hideHeader && (
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
+            <div className="bg-white rounded-lg mt-3 shadow-sm border border-gray-200 p-3">
               <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2.5">
                 <div>
                   <h1 className="text-xl font-semibold text-gray-900 mb-0.5">Patient Management</h1>
@@ -334,22 +406,31 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
           )}
           
           {/* Simple Search Bar */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <input
-                type="text"
-                placeholder="Search by name, phone, EMR number, invoice number, or email..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 outline-none text-sm text-gray-900"
-              />
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 -mt-1">
+            <div className="flex flex-col sm:flex-row gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <input
+                  type="text"
+                  placeholder="Search by name, phone, EMR number, invoice number, or email..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-gray-900 outline-none text-sm text-gray-900"
+                />
+              </div>
+              {/* <button
+                onClick={exportPatientsToCSV}
+                className="inline-flex items-center justify-center gap-1.5 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-sm font-medium"
+              >
+                <Download className="h-4 w-4" />
+                <span>Export</span>
+              </button> */}
             </div>
           </div>
 
           {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
+          <div className="grid grid-cols-1  md:grid-cols-2 gap-3">
+            <div className="bg-white rounded-lg mt-3 shadow-sm border border-gray-200 p-3">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-[11px] font-medium text-gray-700 mb-0.5">Total Patients</p>
@@ -361,7 +442,7 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
               </div>
             </div>
 
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
+            <div className="bg-white mt-3 rounded-lg shadow-sm border border-gray-200 p-3">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-[11px] font-medium text-gray-700 mb-0.5">Active Patients</p>
@@ -375,8 +456,8 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
           </div>
 
           {/* Patients Table */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-            <div className="px-4 py-3 border-b border-gray-200 bg-gray-50">
+          <div className="bg-white rounded-lg shadow-sm border mt-3 border-gray-200 overflow-hidden">
+            <div className="px-4 py-3 border-b border-gray-200  bg-gray-50">
               <div className="flex items-center gap-3">
                 <Package className="h-4 w-4 text-gray-700" />
                 <h2 className="text-base font-semibold text-gray-900">All Patients</h2>
@@ -395,6 +476,7 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
                     <thead>
                       <tr className="border-b border-gray-200">
                         <th className="text-left py-2.5 px-3 text-[11px] font-semibold text-gray-700 uppercase">NAME</th>
+                        <th className="text-left py-2.5 px-3 text-[11px] font-semibold text-gray-700 uppercase">EMR NUMBER</th>
                         <th className="text-left py-2.5 px-3 text-[11px] font-semibold text-gray-700 uppercase">GENDER</th>
                         <th className="text-left py-2.5 px-3 text-[11px] font-semibold text-gray-700 uppercase">EMAIL</th>
                         <th className="text-left py-2.5 px-3 text-[11px] font-semibold text-gray-700 uppercase">MOBILE</th>
@@ -405,7 +487,7 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
                     <tbody>
                       {displayedPatients.length === 0 ? (
                         <tr>
-                          <td colSpan="6" className="py-10 text-center">
+                          <td colSpan="7" className="py-10 text-center">
                             <div className="inline-flex items-center justify-center w-12 h-12 bg-gray-100 rounded-full mb-2.5">
                               <User className="h-6 w-6 text-gray-500" />
                             </div>
@@ -418,6 +500,9 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
                           <tr key={patient._id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
                             <td className="py-3 px-3">
                               <p className="text-xs font-medium text-gray-900">{patient.firstName} {patient.lastName}</p>
+                            </td>
+                            <td className="py-3 px-3">
+                              <p className="text-xs font-medium text-gray-900">{patient.emrNumber || '-'}</p>
                             </td>
                             <td className="py-3 px-3">
                               <p className="text-xs text-gray-900">{patient.gender || '-'}</p>
@@ -494,4 +579,7 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
 PatientFilterUI.getLayout = function PageLayout(page) { return <ClinicLayout>{page}</ClinicLayout>; };
 const ProtectedDashboard = withClinicAuth(PatientFilterUI);
 ProtectedDashboard.getLayout = PatientFilterUI.getLayout;
+
+// Export PatientFilterUI as named export for use in other components
+export { PatientFilterUI as PatientInformation };
 export default ProtectedDashboard;

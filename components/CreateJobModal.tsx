@@ -1,7 +1,7 @@
 // components/CreateJobModal.tsx
 import React, { useState } from 'react';
 import JobPostingForm, { JobFormData } from './JobPostingForm';
-import { jobPostingService } from '../services/jobService';
+import { jobPostingService, JobCreationResponse } from '../services/jobService';
 import { X, Plus } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -30,23 +30,31 @@ const CreateJobModal: React.FC<CreateJobModalProps> = ({
 
     setIsSubmitting(true);
     try {
+      let response: JobCreationResponse;
       // Use the appropriate service method based on role
       switch (role) {
         case 'doctor':
-          await jobPostingService.createDoctorJob(formData);
+          response = await jobPostingService.createDoctorJob(formData);
           break;
         case 'hospital':
-          await jobPostingService.createHospitalJob(formData);
+          response = await jobPostingService.createHospitalJob(formData);
           break;
         case 'admin':
-          await jobPostingService.createAdminJob(formData);
+          response = await jobPostingService.createAdminJob(formData);
           break;
         case 'clinic':
         default:
-          await jobPostingService.createClinicJob(formData);
+          response = await jobPostingService.createClinicJob(formData);
           break;
       }
-      toast.success("Job posted successfully!");
+      
+      // Show slug preview message if available
+      if (response?.slug_preview?.user_message) {
+        toast.success(response.slug_preview.user_message);
+      } else {
+        toast.success("Job posted successfully!");
+      }
+      
       if (onJobCreated) {
         onJobCreated();
       }

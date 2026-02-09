@@ -77,18 +77,83 @@ export default async function handler(req, res) {
 
     try {
       const { emrNumber, invoiceNumber, name, phone, claimStatus, applicationStatus } = req.query;
-      const query = { userId: user._id };
+      
+      // Build query based on user role - CRITICAL: userId filter must be applied first
+      let query = {};
+      
+      // For clinic role: show all patients belonging to the clinic (clinic owner + all agents/doctorStaff linked to clinic)
+      if (user.role === 'clinic') {
+        const clinic = await Clinic.findOne({ owner: user._id });
+        if (clinic) {
+          // Find all users belonging to this clinic (clinic owner + agents + doctorStaff)
+          const User = (await import("../../../models/Users")).default;
+          const clinicUsers = await User.find({
+            $or: [
+              { _id: user._id }, // Clinic owner
+              { clinicId: clinic._id } // Agents and doctorStaff linked to clinic
+            ]
+          }).select("_id");
+          
+          const clinicUserIds = clinicUsers.map(u => u._id);
+          query.userId = { $in: clinicUserIds };
+        } else {
+          // Fallback: only show clinic owner's patients
+          query.userId = user._id;
+        }
+      } 
+      // For agent/doctorStaff: show all patients belonging to the clinic
+      else if (user.role === 'agent' || user.role === 'doctorStaff') {
+        if (user.clinicId) {
+          const Clinic = (await import("../../../models/Clinic")).default;
+          const clinic = await Clinic.findById(user.clinicId);
+          if (clinic) {
+            const User = (await import("../../../models/Users")).default;
+            const clinicUsers = await User.find({
+              $or: [
+                { _id: clinic.owner }, // Clinic owner
+                { clinicId: user.clinicId } // All agents/staff linked to this clinic
+              ]
+            }).select("_id");
+            query.userId = { $in: clinicUsers.map(u => u._id) };
+          } else {
+            query.userId = user._id;
+          }
+        } else {
+          query.userId = user._id;
+        }
+      }
+      // For other roles: show their own patients
+      else {
+        query.userId = user._id;
+      }
 
-      if (emrNumber) query.emrNumber = { $regex: emrNumber, $options: "i" };
-      if (invoiceNumber) query.invoiceNumber = { $regex: invoiceNumber, $options: "i" };
-      if (phone) query.mobileNumber = { $regex: phone, $options: "i" };
-      if (claimStatus) query.advanceClaimStatus = claimStatus;
-      if (applicationStatus) query.status = applicationStatus;
+      // Handle name search - if name filter exists, use $and to combine with userId filter
       if (name) {
-        query.$or = [
-          { firstName: { $regex: name, $options: "i" } },
-          { lastName: { $regex: name, $options: "i" } },
-        ];
+        const nameFilter = {
+          $or: [
+            { firstName: { $regex: name, $options: "i" } },
+            { lastName: { $regex: name, $options: "i" } },
+          ]
+        };
+        // Store userId filter before reconstructing query
+        const userIdFilter = { userId: query.userId };
+        // Reconstruct query with $and to ensure userId filter is preserved
+        query = {
+          $and: [userIdFilter, nameFilter]
+        };
+        // Add other filters to the $and array
+        if (emrNumber) query.$and.push({ emrNumber: { $regex: emrNumber, $options: "i" } });
+        if (invoiceNumber) query.$and.push({ invoiceNumber: { $regex: invoiceNumber, $options: "i" } });
+        if (phone) query.$and.push({ mobileNumber: { $regex: phone, $options: "i" } });
+        if (claimStatus) query.$and.push({ advanceClaimStatus: claimStatus });
+        if (applicationStatus) query.$and.push({ status: applicationStatus });
+      } else {
+        // Apply additional filters normally when no name filter
+        if (emrNumber) query.emrNumber = { $regex: emrNumber, $options: "i" };
+        if (invoiceNumber) query.invoiceNumber = { $regex: invoiceNumber, $options: "i" };
+        if (phone) query.mobileNumber = { $regex: phone, $options: "i" };
+        if (claimStatus) query.advanceClaimStatus = claimStatus;
+        if (applicationStatus) query.status = applicationStatus;
       }
 
       const patients = await PatientRegistration.find(query).sort({ createdAt: -1 });
@@ -175,6 +240,12 @@ export default async function handler(req, res) {
         advanceClaimStatus,
         advanceClaimReleasedBy,
         notes,
+        membership,
+        membershipStartDate,
+        membershipEndDate,
+        membershipId,
+        package: pkgToggle,
+        packageId,
       } = req.body;
 
       const computedInvoicedBy =
@@ -189,12 +260,11 @@ export default async function handler(req, res) {
       if (
         !invoiceNumber ||
         !firstName ||
-        !gender ||
         !mobileNumber
       ) {
         return res.status(400).json({
           success: false,
-          message: "Missing required fields: invoiceNumber, firstName, gender, and mobileNumber are required",
+          message: "Missing required fields: invoiceNumber, firstName, and mobileNumber are required",
         });
       }
 
@@ -215,7 +285,7 @@ export default async function handler(req, res) {
         emrNumber: emrNumber || "",
         firstName,
         lastName: lastName || "",
-        gender,
+        gender: gender || undefined,
         email: email || "",
         mobileNumber,
         referredBy: referredBy || "",
@@ -227,6 +297,12 @@ export default async function handler(req, res) {
         advanceClaimStatus: advanceClaimStatus || "Pending",
         advanceClaimReleasedBy: advanceClaimReleasedBy || null,
         notes: notes || "",
+        membership: membership || "No",
+        membershipStartDate: membership === "Yes" && membershipStartDate ? new Date(membershipStartDate) : null,
+        membershipEndDate: membership === "Yes" && membershipEndDate ? new Date(membershipEndDate) : null,
+        membershipId: membership === "Yes" && membershipId ? membershipId : null,
+        package: pkgToggle || "No",
+        packageId: pkgToggle === "Yes" && packageId ? packageId : null,
       });
 
       return res.status(201).json({

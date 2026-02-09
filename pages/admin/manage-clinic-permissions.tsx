@@ -152,7 +152,7 @@ const Toast = ({ toast, onClose }: { toast: Toast; onClose: () => void }) => {
 
 // Toast Container
 const ToastContainer = ({ toasts, removeToast }: { toasts: Toast[]; removeToast: (id: string) => void }) => (
-  <div className="fixed top-4 right-4 z-50 space-y-2">
+  <div className="fixed top-4 right-4 z-[100] space-y-2">
     {toasts.map((toast) => (
       <Toast key={toast.id} toast={toast} onClose={() => removeToast(toast.id)} />
     ))}
@@ -305,9 +305,6 @@ const ManageClinicPermissionsPage: NextPageWithLayout = () => {
       const data = await response.json();
       const clinicsData: Clinic[] = data?.clinics || [];
       setClinics(clinicsData);
-      if (clinicsData.length > 0) {
-        showToast(`Loaded ${clinicsData.length} clinic(s)`, 'success');
-      }
       return clinicsData;
     } catch (error) {
       console.error('Error fetching clinics:', error);
@@ -357,9 +354,6 @@ const ManageClinicPermissionsPage: NextPageWithLayout = () => {
       }));
 
       setDoctors(normalizedDoctors);
-      if (normalizedDoctors.length > 0) {
-        showToast(`Loaded ${normalizedDoctors.length} doctor(s)`, 'success');
-      }
       return normalizedDoctors;
     } catch (error) {
       console.error('Error fetching doctors:', error);
@@ -782,15 +776,15 @@ const ManageClinicPermissionsPage: NextPageWithLayout = () => {
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
               <div className="flex items-start gap-4">
-                <div className="bg-gray-800 p-3 rounded-lg">
-                  <Cog6ToothIcon className="w-8 h-8 text-white" />
+                <div className="bg-blue-800 p-3 rounded-lg">
+                  <Cog6ToothIcon className="w-6 h-6 text-white" />
                 </div>
                 <div>
-                  <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
+                  <h1 className="text-xl sm:text-2xl font-bold text-blue-800 mb-2">
                     Clinic Permission Management
                   </h1>
-                  <p className="text-gray-700">
-                    Manage and configure permissions for doctors. Note: Clinic role has full access by default and does not require permission management. Only doctorStaff and agent roles need permissions to be set.
+                  <p className="text-blue-600 text-base ">
+                  This page enables you to manage module-wise and action-based permissions for registered clinics and doctors on the platform. For example, when the “Read” permission is disabled, the clinic or doctor will not be able to access the data.
                   </p>
                 </div>
               </div>
@@ -798,28 +792,28 @@ const ManageClinicPermissionsPage: NextPageWithLayout = () => {
             {/* Stats and Filters */}
             <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {/* Entity Count Card */}
-              <div className="bg-gray-50 rounded-lg border border-gray-200 p-4">
-                <p className="text-xs font-medium text-gray-700 uppercase tracking-wider mb-1">
+              <div className="bg-blue-50 rounded-lg border border-blue-200 p-4">
+                <p className="text-xs font-medium text-blue-700 uppercase tracking-wider mb-1">
                   {entityCardLabel}
                 </p>
-                <p className="text-2xl font-bold text-gray-900">
+                <p className="text-2xl font-bold text-blue-900">
                   {roleLoading ? '...' : entityCount}
                 </p>
               </div>
 
               {/* Navigation Items Count */}
-              <div className="bg-gray-50 rounded-lg border border-gray-200 p-4">
-                <p className="text-xs font-medium text-gray-700 uppercase tracking-wider mb-1">
+              <div className="bg-blue-50 rounded-lg border border-blue-200 p-4">
+                <p className="text-xs font-medium text-blue-700 uppercase tracking-wider mb-1">
                   Permission Sets
                 </p>
-                <p className="text-2xl font-bold text-gray-900">
+                <p className="text-2xl font-bold text-blue-900">
                   {roleLoading ? '...' : navigationItems.length}
                 </p>
               </div>
 
               {/* Role Selector */}
-              <div className="bg-gray-50 rounded-lg border border-gray-200 p-4">
-                <label className="block text-xs font-medium text-gray-700 uppercase tracking-wider mb-2">
+              <div className="bg-blue-50 rounded-lg border border-blue-200 p-4">
+                <label className="block text-xs font-medium text-blue-700 uppercase tracking-wider mb-2">
                   Role Filter
                 </label>
                 <select
@@ -829,7 +823,7 @@ const ManageClinicPermissionsPage: NextPageWithLayout = () => {
                     showToast(`Switched to ${e.target.value} view`, 'info');
                   }}
                   disabled={roleLoading}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-gray-800 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full px-3 py-2 border border-blue-300 rounded-lg bg-white text-blue-900 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-800 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {roleOptions.map((roleOption) => (
                     <option key={roleOption.value} value={roleOption.value}>
@@ -840,15 +834,15 @@ const ManageClinicPermissionsPage: NextPageWithLayout = () => {
               </div>
 
               {/* Entity Selector */}
-              <div className="bg-gray-50 rounded-lg border border-gray-200 p-4">
-                <label className="block text-xs font-medium text-gray-700 uppercase tracking-wider mb-2">
+              <div className="bg-blue-50 rounded-lg border border-blue-200 p-4">
+                <label className="block text-xs font-medium text-blue-700 uppercase tracking-wider mb-2">
                   {entitySelectLabel}
                 </label>
                 <select
                   value={selectedEntity}
                   onChange={(e) => handleEntitySelect(e.target.value)}
                   disabled={roleLoading || entityOptions.length === 0}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-gray-800 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full px-3 py-2 border border-blue-300 rounded-lg bg-white text-blue-900 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-800 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <option value="">{entityPlaceholder}</option>
                   {entityOptions.map((entity) => (

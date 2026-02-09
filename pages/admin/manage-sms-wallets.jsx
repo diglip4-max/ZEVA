@@ -358,8 +358,8 @@ const ManageSmsWallets = () => {
         <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-4 sm:p-5 mb-5 sm:mb-6">
           <div className="flex items-center justify-between mb-4 sm:mb-5">
             <div>
-              <h1 className="text-xl sm:text-2xl font-bold text-slate-900">SMS Wallet Management</h1>
-              <p className="text-slate-600 mt-1 text-sm">Manage SMS credits for clinics and doctors</p>
+              <h1 className="text-xl sm:text-2xl font-bold text-blue-900">SMS Wallet Management</h1>
+              <p className="text-blue-600 mt-1 text-sm">Manage SMS credits for clinics and doctors</p>
             </div>
             <button
               onClick={handleRefresh}

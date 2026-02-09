@@ -16,11 +16,33 @@ export default async function handler(req, res) {
   }
 
   try {
-    const profile = await DoctorProfile.findById(id)
-      .populate({ path: 'user', model: User, select: 'name email phone' })
-      .lean();
+    // Check if id is ObjectId or slug
+    const isObjectId = /^[0-9a-fA-F]{24}$/.test(id);
+    
+    let profile;
+    if (isObjectId) {
+      // Fetch by ObjectId
+      profile = await DoctorProfile.findById(id)
+        .populate({ path: 'user', model: User, select: 'name email phone isApproved' })
+        .lean();
+    } else {
+      // Fetch by slug
+      const { findBySlug } = await import('../../../../lib/slugService');
+      const doctorProfile = await findBySlug('doctor', id);
+      
+      if (doctorProfile) {
+        profile = await DoctorProfile.findById(doctorProfile._id)
+          .populate({ path: 'user', model: User, select: 'name email phone isApproved' })
+          .lean();
+      }
+    }
 
     if (!profile) {
+      return res.status(404).json({ success: false, message: 'Doctor not found' });
+    }
+
+    // Only return approved doctors
+    if (!profile.user?.isApproved) {
       return res.status(404).json({ success: false, message: 'Doctor not found' });
     }
 

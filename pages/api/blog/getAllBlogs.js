@@ -9,6 +9,7 @@ export default async function handler(req, res) {
     try {
       const blogs = await Blog.find({ status: "published" })
         .populate("postedBy", "name email") // optional: show who posted
+        .select("+paramlink +slugLocked") // Include slug fields
         .sort({ createdAt: -1 })
         .lean(); // Convert to plain JS objects
 

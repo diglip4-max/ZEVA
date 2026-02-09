@@ -16,6 +16,8 @@ type Job = {
   department?: string;
   experience?: string;
   jobTitle?: string;
+  slug?: string;
+  slugLocked?: boolean;
 };
 
 type Filters = {
@@ -361,7 +363,7 @@ const AllJobs: React.FC = () => {
       <div className="bg-gradient-to-r from-teal-800 via-teal-700 to-teal-800 text-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-10">
           <div className="text-center mb-6">
-            <h1 className="text-3xl md:text-4xl font-bold mb-2 tracking-tight">
+            <h1 className="text-3xl md:text-4xl font-bold mt-8 mb-2 tracking-tight">
               Find Your Dream Job
             </h1>
             <p className="text-base md:text-lg text-teal-100 max-w-2xl mx-auto">
@@ -659,7 +661,10 @@ const AllJobs: React.FC = () => {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {currentJobs.map((job) => {
-                  const jobSlug = createJobSlug(job.jobTitle || "", job._id);
+                  // Use database slug if available and locked, otherwise fallback to generated slug
+                  const jobSlug = (job.slug && job.slugLocked) 
+                    ? job.slug 
+                    : createJobSlug(job.jobTitle || "", job._id);
                   return (
                     <Link key={job._id} href={`/job-details/${jobSlug}`} className="block">
                     <div className="bg-white border border-gray-200 rounded-xl p-6 hover:border-teal-800 hover:shadow-lg transition-all duration-200 group h-full flex flex-col">
@@ -670,11 +675,11 @@ const AllJobs: React.FC = () => {
                         </div>
 
                         {/* Save Button */}
-                        <button className="ml-auto flex-shrink-0 w-9 h-9 flex items-center justify-center rounded-lg border-2 border-gray-200 text-gray-400 hover:border-teal-800 hover:text-teal-800 hover:bg-teal-50 transition-all">
+                        {/* <button className="ml-auto flex-shrink-0 w-9 h-9 flex items-center justify-center rounded-lg border-2 border-gray-200 text-gray-400 hover:border-teal-800 hover:text-teal-800 hover:bg-teal-50 transition-all">
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
                           </svg>
-                        </button>
+                        </button> */}
                       </div>
 
                       {/* Job Info */}

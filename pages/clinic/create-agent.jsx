@@ -11,6 +11,8 @@ import {
   RefreshCw,
   Trash2,
   X,
+  Eye,
+  Upload,
 } from 'lucide-react';
 import { Toaster, toast } from 'react-hot-toast';
 import CreateAgentModal from '../../components/CreateAgentModal';
@@ -18,7 +20,7 @@ import AgentPermissionModal from '../../components/AgentPermissionModal';
 import DoctorTreatmentModal from '../../components/DoctorTreatmentModal';
 import ClinicLayout from '../../components/ClinicLayout';
 import withClinicAuth from '../../components/withClinicAuth';
-import { useAgentPermissions } from '../../hooks/useAgentPermissions';
+import Loader from '../../components/Loader';
 
 const TOKEN_PRIORITY = [
   'clinicToken',
@@ -48,6 +50,31 @@ const ManageAgentsPage = () => {
   const [doctorStaff, setDoctorStaff] = useState([]);
   const [activeView, setActiveView] = useState('agents');
   const [menuAgentId, setMenuAgentId] = useState(null);
+  const [profileAgent, setProfileAgent] = useState(null);
+  const [viewAgent, setViewAgent] = useState(null);
+  const [viewProfile, setViewProfile] = useState(null);
+  const [viewLoading, setViewLoading] = useState(false);
+  const [profileForm, setProfileForm] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    idType: "aadhaar",
+    idNumber: "",
+    idDocumentUrl: "",
+    passportNumber: "",
+    passportDocumentUrl: "",
+    emergencyPhone: "",
+    baseSalary: "",
+    commissionType: "flat",
+    commissionPercentage: "",
+    contractUrl: "",
+    contractType: "full"
+  });
+  const [uploadingIdDoc, setUploadingIdDoc] = useState(false);
+  const [uploadingPassportDoc, setUploadingPassportDoc] = useState(false);
+  const [uploadingContract, setUploadingContract] = useState(false);
+  const [completionMap, setCompletionMap] = useState({});
+  const [agentProfiles, setAgentProfiles] = useState({});
   const [passwordAgent, setPasswordAgent] = useState(null);
   const [permissionAgent, setPermissionAgent] = useState(null);
   const [treatmentAgent, setTreatmentAgent] = useState(null);
@@ -57,6 +84,13 @@ const ManageAgentsPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [deleteAgent, setDeleteAgent] = useState(null);
+  const [permissions, setPermissions] = useState({
+    canCreate: false,
+    canUpdate: false,
+    canDelete: false,
+    canRead: false,
+  });
+  const [permissionsLoaded, setPermissionsLoaded] = useState(false);
 
   // Get the appropriate token based on what's available (clinic > doctor > admin)
   // This ensures we use the correct token for the logged-in user
@@ -69,69 +103,6 @@ const ManageAgentsPage = () => {
   // Priority: clinicToken > doctorToken > adminToken
   const token = clinicToken || doctorToken || adminToken || agentToken;
 
-  const [isAgentRoute, setIsAgentRoute] = useState(false);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const agentRoute =
-      router.pathname?.startsWith('/agent/') ||
-      window.location.pathname?.startsWith('/agent/');
-    
-    // Check for any token that might be used in agent portal
-    const hasAnyToken = Boolean(
-      agentToken || 
-      (typeof window !== 'undefined' && (localStorage.getItem('userToken') || sessionStorage.getItem('userToken'))) ||
-      clinicToken ||
-      doctorToken ||
-      adminToken
-    );
-    
-    setIsAgentRoute(hasAnyToken && agentRoute);
-  }, [router.pathname, agentToken, clinicToken, doctorToken, adminToken]);
-
-  // Check if user has agentToken or userToken (doctorStaff) - these need agent-level permissions
-  const hasAgentOrUserToken = typeof window !== 'undefined' ? 
-    Boolean(localStorage.getItem('agentToken') || localStorage.getItem('userToken')) : false;
-
-  const { permissions: agentPermissions, loading: permissionsLoading } = useAgentPermissions(
-    hasAgentOrUserToken ? 'clinic_create_agent' : null
-  );
-
-  // Use strict boolean checks - only true if explicitly true
-  const agentCanRead = hasAgentOrUserToken && !permissionsLoading ? 
-    (agentPermissions.canAll === true || agentPermissions.canRead === true) : false;
-  const agentCanCreate = hasAgentOrUserToken && !permissionsLoading ? 
-    (agentPermissions.canAll === true || agentPermissions.canCreate === true) : false;
-  const agentCanUpdate = hasAgentOrUserToken && !permissionsLoading ? 
-    (agentPermissions.canAll === true || agentPermissions.canUpdate === true) : false;
-  const agentCanDelete = hasAgentOrUserToken && !permissionsLoading ? 
-    (agentPermissions.canAll === true || agentPermissions.canDelete === true) : false;
-
-  // Debug logging to track permission values
-  useEffect(() => {
-    if (isAgentRoute && !permissionsLoading) {
-      console.log('🔍 Agent Permissions Debug:', {
-        rawPermissions: agentPermissions,
-        parsed: {
-          agentCanRead,
-          agentCanCreate,
-          agentCanUpdate,
-          agentCanDelete
-        },
-        context: {
-          isAgentRoute,
-          isOwnerUser
-        },
-        final: {
-          canRead,
-          canCreate,
-          canUpdate,
-          canDelete
-        }
-      });
-    }
-  }, [isAgentRoute, permissionsLoading]);
-
   // Helper function to get user role from token
   const getUserRole = () => {
     if (typeof window === 'undefined') return null;
@@ -140,16 +111,8 @@ const ManageAgentsPage = () => {
         const token = localStorage.getItem(key) || sessionStorage.getItem(key);
         if (token) {
           try {
-            const base64Url = token.split('.')[1];
-            const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-            const jsonPayload = decodeURIComponent(
-              atob(base64)
-                .split('')
-                .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
-                .join('')
-            );
-            const decoded = JSON.parse(jsonPayload);
-            return decoded.role || decoded.userRole || null;
+            const payload = JSON.parse(atob(token.split('.')[1]));
+            return payload.role || null;
           } catch (e) {
             continue;
           }
@@ -161,296 +124,207 @@ const ManageAgentsPage = () => {
     return null;
   };
 
-  const [clinicPerms, setClinicPerms] = useState({
-    canCreate: true,
-    canRead: true,
-    canUpdate: true,
-    canDelete: true,
-  });
-  const [clinicPermsLoading, setClinicPermsLoading] = useState(false);
-
+  // Fetch permissions - same pattern as myallClinic.tsx and create-offer.jsx
   useEffect(() => {
-    const userRole = getUserRole();
-    const authToken = clinicToken || doctorToken;
-    
-    // ✅ For admin role, grant full access (bypass permission checks)
-    if (userRole === 'admin') {
-      setClinicPerms({
-        canCreate: true,
-        canRead: true,
-        canUpdate: true,
-        canDelete: true,
-      });
-      setClinicPermsLoading(false);
-      return;
-    }
+    const fetchPermissions = async () => {
+      try {
+        const authHeaders = getAuthHeaders();
+        if (!authHeaders) {
+          setPermissions({
+            canCreate: false,
+            canUpdate: false,
+            canDelete: false,
+            canRead: false,
+          });
+          setPermissionsLoaded(true);
+          return;
+        }
 
-    // ✅ Check permissions based on token type, not userRole
-    // If clinicToken exists: fetch admin-level permissions from /api/clinic/sidebar-permissions
-    // If agentToken exists: fetch agent-level permissions (handled separately via useAgentPermissions)
-    if (clinicToken || doctorToken) {
-      if (!authToken) {
-        setClinicPerms({
-          canCreate: false,
-          canRead: false,
-          canUpdate: false,
-          canDelete: false,
-        });
-        setClinicPermsLoading(false);
-        return;
-      }
-
-      setClinicPermsLoading(true);
-      const headers = getAuthHeaders();
-      if (!headers) {
-        setClinicPerms({
-          canCreate: false,
-          canRead: false,
-          canUpdate: false,
-          canDelete: false,
-        });
-        setClinicPermsLoading(false);
-        return;
-      }
-
-      axios
-        .get('/api/clinic/sidebar-permissions', { headers })
-        .then(({ data }) => {
-          if (data.success) {
-            // Debug: Log the API response
-            console.log('Clinic Sidebar Permissions API Response:', {
-              permissions: data.permissions,
-              permissionsLength: data.permissions?.length,
-              permissionsType: typeof data.permissions,
-              isArray: Array.isArray(data.permissions)
+        const userRole = getUserRole();
+        
+        // For clinic and doctor roles, fetch admin-level permissions from /api/clinic/sidebar-permissions
+        if (userRole === "clinic" || userRole === "doctor") {
+          try {
+            const res = await axios.get("/api/clinic/sidebar-permissions", {
+              headers: authHeaders,
             });
             
-            // Check if permissions array exists and is not null
-            // If permissions is null, admin hasn't set any restrictions yet - allow full access (backward compatibility)
-            if (data.permissions === null || !Array.isArray(data.permissions) || data.permissions.length === 0) {
-              // No admin restrictions set yet - default to full access for backward compatibility
-              console.log('No permissions found, granting full access');
-              setClinicPerms({
+            if (res.data.success) {
+              // Check if permissions array exists and is not null
+              // If permissions is null, admin hasn't set any restrictions yet - allow full access (backward compatibility)
+              if (res.data.permissions === null || !Array.isArray(res.data.permissions) || res.data.permissions.length === 0) {
+                // No admin restrictions set yet - default to full access for backward compatibility
+                setPermissions({
+                  canCreate: true,
+                  canRead: true,
+                  canUpdate: true,
+                  canDelete: true,
+                });
+              } else {
+                // Admin has set permissions - check the clinic_create_agent module
+                const modulePermission = res.data.permissions.find((p) => {
+                  if (!p?.module) return false;
+                  // Check for clinic_create_agent module
+                  if (p.module === "clinic_create_agent") return true;
+                  if (p.module === "create_agent") return true;
+                  if (p.module === "clinic-create-agent") return true;
+                  if (p.module === "create-agent") return true;
+                  return false;
+                });
+
+                if (modulePermission) {
+                  const actions = modulePermission.actions || {};
+                  
+                  // Check if "all" is true, which grants all permissions
+                  const moduleAll = actions.all === true || actions.all === "true" || String(actions.all).toLowerCase() === "true";
+                  const moduleCreate = actions.create === true || actions.create === "true" || String(actions.create).toLowerCase() === "true";
+                  const moduleRead = actions.read === true || actions.read === "true" || String(actions.read).toLowerCase() === "true";
+                  const moduleUpdate = actions.update === true || actions.update === "true" || String(actions.update).toLowerCase() === "true";
+                  const moduleDelete = actions.delete === true || actions.delete === "true" || String(actions.delete).toLowerCase() === "true";
+
+                  setPermissions({
+                    canCreate: moduleAll || moduleCreate,
+                    canRead: moduleAll || moduleRead,
+                    canUpdate: moduleAll || moduleUpdate,
+                    canDelete: moduleAll || moduleDelete,
+                  });
+                } else {
+                  // Module permission not found in the permissions array - default to read-only
+                  setPermissions({
+                    canCreate: false,
+                    canRead: true, // Clinic/doctor can always read their own data
+                    canUpdate: false,
+                    canDelete: false,
+                  });
+                }
+              }
+            } else {
+              // API response doesn't have permissions, default to full access (backward compatibility)
+              setPermissions({
                 canCreate: true,
                 canRead: true,
                 canUpdate: true,
                 canDelete: true,
               });
-            } else {
-              // Admin has set permissions - check the clinic_create_agent module
-              // Try multiple variations of the module key to ensure we find it
-              console.log('Searching for clinic_create_agent in permissions:', data.permissions);
-              
-              const modulePerm = data.permissions.find(
-                (perm) => {
-                  const moduleKey = (perm.module || '').toString().trim();
-                  const normalizedKey = moduleKey.toLowerCase().replace(/[-_]/g, '_');
-                  
-                  return (
-                    moduleKey === 'clinic_create_agent' ||
-                    moduleKey === 'create_agent' ||
-                    moduleKey === 'clinic-create-agent' ||
-                    moduleKey === 'create-agent' ||
-                    normalizedKey === 'clinic_create_agent' ||
-                    normalizedKey === 'create_agent' ||
-                    moduleKey.endsWith('create_agent') ||
-                    moduleKey.endsWith('create-agent') ||
-                    moduleKey.includes('create_agent') ||
-                    moduleKey.includes('create-agent') ||
-                    normalizedKey.includes('create_agent')
-                  );
-                }
-              );
-
-              console.log('Module permission search result:', modulePerm ? {
-                found: true,
-                module: modulePerm.module,
-                actions: modulePerm.actions
-              } : {
-                found: false,
-                availableModules: data.permissions?.map(p => p.module) || []
-              });
-
-              if (modulePerm) {
-                const actions = modulePerm.actions || {};
-                
-                // Debug: Log the found module permission
-                console.log('Found module permission:', {
-                  module: modulePerm.module,
-                  actions: actions,
-                  all: actions.all,
-                  allType: typeof actions.all,
-                  read: actions.read,
-                  readType: typeof actions.read
-                });
-                
-                // Check if "all" is true, which grants all permissions
-                // Handle both boolean true and string "true"
-                const moduleAll = actions.all === true || 
-                                 actions.all === 'true' || 
-                                 String(actions.all).toLowerCase() === 'true' ||
-                                 actions.all === 1 ||
-                                 actions.all === '1';
-                
-                console.log('Module all permission check:', { moduleAll, allValue: actions.all, allType: typeof actions.all });
-                
-                // If "all" is true, grant all permissions immediately
-                if (moduleAll) {
-                  console.log('✅ Granting all permissions because all=true');
-                  setClinicPerms({
-                    canCreate: true,
-                    canRead: true,
-                    canUpdate: true,
-                    canDelete: true,
-                  });
-                } else {
-                  // Otherwise check individual permissions
-                  const moduleCreate = actions.create === true || actions.create === 'true' || String(actions.create).toLowerCase() === 'true' || actions.create === 1 || actions.create === '1';
-                  const moduleRead = actions.read === true || actions.read === 'true' || String(actions.read).toLowerCase() === 'true' || actions.read === 1 || actions.read === '1';
-                  const moduleUpdate = actions.update === true || actions.update === 'true' || String(actions.update).toLowerCase() === 'true' || actions.update === 1 || actions.update === '1';
-                  const moduleDelete = actions.delete === true || actions.delete === 'true' || String(actions.delete).toLowerCase() === 'true' || actions.delete === 1 || actions.delete === '1';
-
-                  console.log('Setting individual permissions:', { moduleCreate, moduleRead, moduleUpdate, moduleDelete });
-                  setClinicPerms({
-                    canCreate: moduleCreate,
-                    canRead: moduleRead,
-                    canUpdate: moduleUpdate,
-                    canDelete: moduleDelete,
-                  });
-                }
-              } else {
-                // Module permission not found in the permissions array
-                // Check if ANY permission has all:true or read:true as a fallback
-                const hasAnyReadPermission = data.permissions?.some(perm => {
-                  const actions = perm.actions || {};
-                  return actions.all === true || 
-                         actions.all === 'true' || 
-                         actions.read === true || 
-                         actions.read === 'true' ||
-                         String(actions.all).toLowerCase() === 'true' ||
-                         String(actions.read).toLowerCase() === 'true';
-                });
-                
-                // Log for debugging
-                console.warn('❌ Module permission not found for clinic_create_agent. Available modules:', 
-                  data.permissions?.map(p => ({ module: p.module, actions: p.actions })) || []);
-                console.log('Has any read permission (fallback):', hasAnyReadPermission);
-                
-                // If any permission has read access, grant it (fallback)
-                // Otherwise, grant read-only access by default
-                setClinicPerms({
-                  canRead: hasAnyReadPermission !== false, // Grant read if any permission has it, or default to true
-                  canCreate: false,
-                  canUpdate: false,
-                  canDelete: false,
-                });
-              }
             }
-          } else {
-            // API response doesn't have permissions, default to full access (backward compatibility)
-            setClinicPerms({
+          } catch (err) {
+            console.error("Error fetching clinic sidebar permissions:", err);
+            // On error, default to full access (backward compatibility)
+            setPermissions({
               canCreate: true,
               canRead: true,
               canUpdate: true,
               canDelete: true,
             });
           }
-        })
-        .catch((err) => {
-          console.error('Error fetching clinic sidebar permissions:', err);
-          // On error, default to full access (backward compatibility)
-          setClinicPerms({
-            canCreate: true,
-            canRead: true,
-            canUpdate: true,
-            canDelete: true,
+          setPermissionsLoaded(true);
+          return;
+        }
+
+        // For agents, staff, and doctorStaff, fetch from /api/agent/permissions
+        if (["agent", "staff", "doctorStaff"].includes(userRole || "")) {
+          let permissionsData = null;
+          try {
+            // Get agentId from token
+            const token = getStoredToken();
+            if (token) {
+              const payload = JSON.parse(atob(token.split('.')[1]));
+              const agentId = payload.userId || payload.id;
+              
+              if (agentId) {
+                const res = await axios.get(`/api/agent/permissions?agentId=${agentId}`, {
+                  headers: authHeaders,
+                });
+                
+                if (res.data.success && res.data.data) {
+                  permissionsData = res.data.data;
+                }
+              }
+            }
+          } catch (err) {
+            console.error("Error fetching agent permissions:", err);
+          }
+
+          if (permissionsData && permissionsData.permissions) {
+            const modulePermission = permissionsData.permissions.find((p) => {
+              if (!p?.module) return false;
+              if (p.module === "create_agent") return true;
+              if (p.module === "clinic_create_agent") return true;
+              if (p.module === "clinic-create-agent") return true;
+              if (p.module === "create-agent") return true;
+              if (p.module.startsWith("clinic_") && p.module.slice(7) === "create_agent") {
+                return true;
+              }
+              return false;
+            });
+
+            if (modulePermission) {
+              const actions = modulePermission.actions || {};
+              
+              // Module-level "all" grants all permissions
+              const moduleAll = actions.all === true || actions.all === "true" || String(actions.all).toLowerCase() === "true";
+              const moduleCreate = actions.create === true || actions.create === "true" || String(actions.create).toLowerCase() === "true";
+              const moduleRead = actions.read === true || actions.read === "true" || String(actions.read).toLowerCase() === "true";
+              const moduleUpdate = actions.update === true || actions.update === "true" || String(actions.update).toLowerCase() === "true";
+              const moduleDelete = actions.delete === true || actions.delete === "true" || String(actions.delete).toLowerCase() === "true";
+
+              setPermissions({
+                canCreate: moduleAll || moduleCreate,
+                canRead: moduleAll || moduleRead,
+                canUpdate: moduleAll || moduleUpdate,
+                canDelete: moduleAll || moduleDelete,
+              });
+            } else {
+              // No permissions found for this module, default to false
+              setPermissions({
+                canCreate: false,
+                canRead: false,
+                canUpdate: false,
+                canDelete: false,
+              });
+            }
+          } else {
+            // API failed or no permissions data, default to false
+            setPermissions({
+              canCreate: false,
+              canRead: false,
+              canUpdate: false,
+              canDelete: false,
+            });
+          }
+        } else {
+          // Unknown role, default to false
+          setPermissions({
+            canCreate: false,
+            canRead: false,
+            canUpdate: false,
+            canDelete: false,
           });
-        })
-        .finally(() => setClinicPermsLoading(false));
-      return;
-    }
+        }
+        setPermissionsLoaded(true);
+      } catch (err) {
+        console.error("Error fetching permissions:", err);
+        // On error, default to false (no permissions)
+        setPermissions({
+          canCreate: false,
+          canRead: false,
+          canUpdate: false,
+          canDelete: false,
+        });
+        setPermissionsLoaded(true);
+      }
+    };
 
-    // For other roles or if no token, set default permissions
-    setClinicPerms({
-      canCreate: false,
-      canRead: false,
-      canUpdate: false,
-      canDelete: false,
-    });
-    setClinicPermsLoading(false);
-  }, [clinicToken, doctorToken]);
+    fetchPermissions();
+  }, []);
 
-  const isClinicUser = Boolean(clinicToken);
-  const isDoctorUser = Boolean(doctorToken);
-  const isAdminUser = Boolean(adminToken);
-  const isOwnerUser = false; // Owner role not currently implemented
   const userRole = getUserRole();
   
-  const canClinicRead = clinicPerms.canRead;
-  const canClinicCreate = clinicPerms.canCreate;
-  const canClinicUpdate = clinicPerms.canUpdate;
-  const canClinicDelete = clinicPerms.canDelete;
-
-  // Use permissions from API - respect actual permissions from the API response
-  // Priority: 
-  // 1. Admin users get full access regardless of route
-  // 2. If agentToken or userToken exists: use agent permissions (agent-level) from API
-  // 3. If clinicToken/doctorToken exists: use clinic permissions (admin-level permissions)
-  // 4. Otherwise: use clinic permissions if available
-  
-  const canRead = userRole === 'admin' 
-    ? true  // Admin gets full access
-    : (hasAgentOrUserToken && !permissionsLoading)
-      ? agentCanRead  // Agent/user token: use agent permissions (agent-level)
-      : (clinicToken || doctorToken) 
-        ? canClinicRead  // Clinic/doctor token: use clinic permissions (admin-level)
-        : canClinicRead;
-    
-  const canCreate = userRole === 'admin' 
-    ? true  // Admin gets full access
-    : (hasAgentOrUserToken && !permissionsLoading)
-      ? agentCanCreate  // Agent/user token: use agent permissions (agent-level)
-      : (clinicToken || doctorToken) 
-        ? canClinicCreate  // Clinic/doctor token: use clinic permissions (admin-level)
-        : canClinicCreate;
-    
-  const canUpdate = userRole === 'admin' 
-    ? true  // Admin gets full access
-    : (hasAgentOrUserToken && !permissionsLoading)
-      ? agentCanUpdate  // Agent/user token: use agent permissions (agent-level)
-      : (clinicToken || doctorToken) 
-        ? canClinicUpdate  // Clinic/doctor token: use clinic permissions (admin-level)
-        : canClinicUpdate;
-    
-  const canDelete = userRole === 'admin' 
-    ? true  // Admin gets full access
-    : (hasAgentOrUserToken && !permissionsLoading)
-      ? agentCanDelete  // Agent/user token: use agent permissions (agent-level)
-      : (clinicToken || doctorToken) 
-        ? canClinicDelete  // Clinic/doctor token: use clinic permissions (admin-level)
-        : canClinicDelete;
-
-  // Debug: Log final permission values
-  useEffect(() => {
-    if (!clinicPermsLoading && !permissionsLoading) {
-      console.log('🔍 Final Permission Check:', {
-        userRole,
-        isAgentRoute,
-        clinicPerms: {
-          canRead: canClinicRead,
-          canCreate: canClinicCreate,
-          canUpdate: canClinicUpdate,
-          canDelete: canClinicDelete
-        },
-        finalPermissions: {
-          canRead,
-          canCreate,
-          canUpdate,
-          canDelete
-        }
-      });
-    }
-  }, [canRead, canCreate, canUpdate, canDelete, clinicPermsLoading, permissionsLoading, userRole, isAgentRoute, canClinicRead, canClinicCreate, canClinicUpdate, canClinicDelete]);
+  // Admin role bypasses all permission checks
+  const canRead = userRole === 'admin' ? true : permissions.canRead;
+  const canCreate = userRole === 'admin' ? true : permissions.canCreate;
+  const canUpdate = userRole === 'admin' ? true : permissions.canUpdate;
+  const canDelete = userRole === 'admin' ? true : permissions.canDelete;
 
   async function loadAgents() {
     try {
@@ -511,9 +385,194 @@ const ManageAgentsPage = () => {
     }
   }
 
+  async function fetchAgentProfile(agentId) {
+    try {
+      const authHeaders = getAuthHeaders();
+      if (!authHeaders) return null;
+      const res = await axios.get(`/api/lead-ms/get-agents?agentId=${agentId}`, { headers: authHeaders });
+      if (res.data.success) return res.data.profile || {};
+    } catch {
+      return null;
+    }
+    return null;
+  }
+
+  function computeCompletion(agent, profile) {
+    let total = 7;
+    let score = 0;
+    if (profile?.emergencyPhone) score += 1;
+    if (agent?.phone) score += 1;
+    if (profile?.idNumber && profile?.idDocumentUrl) score += 1;
+    if (profile?.passportNumber && profile?.passportDocumentUrl) score += 1;
+    if (profile?.contractUrl) score += 1;
+    if (typeof profile?.baseSalary === "number" ? profile.baseSalary > 0 : parseFloat(profile?.baseSalary) > 0) score += 1;
+    if (profile?.commissionType) score += 1;
+    return Math.round((score / total) * 100);
+  }
+
+  useEffect(() => {
+    async function loadCompletions() {
+      const authHeaders = getAuthHeaders();
+      if (!authHeaders) return;
+      const list = activeView === "agents" ? agents : doctorStaff;
+      const updates = {};
+      const profiles = {};
+      await Promise.all(
+        list.map(async (u) => {
+          const profile = await fetchAgentProfile(u._id);
+          updates[u._id] = computeCompletion(u, profile || {});
+          profiles[u._id] = profile || {};
+        })
+      );
+      setCompletionMap((prev) => ({ ...prev, ...updates }));
+      setAgentProfiles((prev) => ({ ...prev, ...profiles }));
+    }
+    if (canRead === true && (agents.length > 0 || doctorStaff.length > 0)) {
+      loadCompletions();
+    }
+  }, [agents, doctorStaff, activeView, canRead]);
+
+  async function openProfile(agent) {
+    const authHeaders = getAuthHeaders();
+    if (!authHeaders) return;
+    setProfileAgent(agent);
+    setProfileForm((f) => ({
+      ...f,
+      name: agent.name || "",
+      email: agent.email || "",
+      phone: agent.phone || ""
+    }));
+    try {
+      const res = await axios.get(`/api/lead-ms/get-agents?agentId=${agent._id}`, { headers: authHeaders });
+      if (res.data.success) {
+        const p = res.data.profile || {};
+        setProfileForm({
+          name: agent.name || "",
+          email: agent.email || "",
+          phone: agent.phone || "",
+          idType: p.idType || "aadhaar",
+          idNumber: p.idNumber || "",
+          idDocumentUrl: p.idDocumentUrl || "",
+          passportNumber: p.passportNumber || "",
+          passportDocumentUrl: p.passportDocumentUrl || "",
+          emergencyPhone: p.emergencyPhone || "",
+          baseSalary: typeof p.baseSalary === "number" ? String(p.baseSalary) : (p.baseSalary || ""),
+          commissionType: p.commissionType || "flat",
+          commissionPercentage: p.commissionPercentage || "",
+          contractUrl: p.contractUrl || "",
+          contractType: p.contractType || "full"
+        });
+      }
+    } catch {}
+  }
+
+  const getFileNameFromUrl = (url) => {
+    try {
+      if (!url || typeof url !== 'string') return '';
+      const u = new URL(url);
+      const pathname = u.pathname || '';
+      const name = pathname.split('/').filter(Boolean).pop() || '';
+      return name || url.split('?')[0].split('/').pop() || '';
+    } catch {
+      return url?.split('?')[0]?.split('/')?.pop() || '';
+    }
+  };
+
+  async function openView(agent) {
+    const authHeaders = getAuthHeaders();
+    if (!authHeaders) return;
+    setViewAgent(agent);
+    setViewLoading(true);
+    try {
+      const res = await axios.get(`/api/lead-ms/get-agents?agentId=${agent._id}`, { headers: authHeaders });
+      if (res.data.success) {
+        setViewProfile(res.data.profile || {});
+      } else {
+        setViewProfile(null);
+      }
+    } catch {
+      setViewProfile(null);
+    } finally {
+      setViewLoading(false);
+    }
+  }
+
+  async function uploadFile(file, setUrl, setLoading) {
+    if (!file) return;
+    const authHeaders = getAuthHeaders();
+    setLoading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await axios.post("/api/upload", formData, {
+        headers: { ...(authHeaders || {}), "Content-Type": "multipart/form-data" }
+      });
+      if (res.data.success && res.data.url) {
+        setUrl(res.data.url);
+        toast.success("Uploaded");
+      } else {
+        toast.error(res.data.message || "Upload failed");
+      }
+    } catch (e) {
+      toast.error("Upload failed");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function saveProfile() {
+    if (!profileAgent) return;
+    const authHeaders = getAuthHeaders();
+    if (!authHeaders) return;
+    try {
+      const payload = {
+        agentId: profileAgent._id,
+        action: "updateProfile",
+        name: profileForm.name,
+        email: profileForm.email,
+        phone: profileForm.phone,
+        emergencyPhone: profileForm.emergencyPhone,
+        idType: profileForm.idType,
+        idNumber: profileForm.idNumber,
+        idDocumentUrl: profileForm.idDocumentUrl,
+        passportNumber: profileForm.passportNumber,
+        passportDocumentUrl: profileForm.passportDocumentUrl,
+        contractUrl: profileForm.contractUrl,
+        contractType: profileForm.contractType,
+        baseSalary: parseFloat(profileForm.baseSalary || "0"),
+        commissionType: profileForm.commissionType,
+        commissionPercentage: profileForm.commissionPercentage
+      };
+      const res = await axios.patch("/api/lead-ms/get-agents", payload, { headers: authHeaders });
+      if (res.data.success) {
+        const pct = computeCompletion(
+          { ...profileAgent, phone: payload.phone },
+          {
+            emergencyPhone: payload.emergencyPhone,
+            idNumber: payload.idNumber,
+            idDocumentUrl: payload.idDocumentUrl,
+            passportNumber: payload.passportNumber,
+            passportDocumentUrl: payload.passportDocumentUrl,
+            contractUrl: payload.contractUrl,
+            baseSalary: payload.baseSalary,
+            commissionType: payload.commissionType,
+            commissionPercentage: payload.commissionPercentage
+          }
+        );
+        setCompletionMap((prev) => ({ ...prev, [profileAgent._id]: pct }));
+        setProfileAgent(null);
+        toast.success("Profile updated");
+      } else {
+        toast.error(res.data.message || "Failed to update");
+      }
+    } catch {
+      toast.error("Failed to update");
+    }
+  }
+
   useEffect(() => {
     if (!token) return;
-    if ((hasAgentOrUserToken && permissionsLoading) || ((isClinicUser || isDoctorUser) && clinicPermsLoading)) return;
+    if (!permissionsLoaded) return;
     if (canRead !== true) {
       setAgents([]);
       setDoctorStaff([]);
@@ -521,15 +580,7 @@ const ManageAgentsPage = () => {
       return;
     }
     loadAll(true);
-  }, [
-    token,
-    hasAgentOrUserToken,
-    permissionsLoading,
-    canRead,
-    isClinicUser,
-    isDoctorUser,
-    clinicPermsLoading,
-  ]);
+  }, [token, permissionsLoaded, canRead]);
 
   async function handleAction(agentId, action) {
     if (canRead !== true) return;
@@ -663,30 +714,8 @@ const ManageAgentsPage = () => {
   };
 
   // Wait for permissions to load before showing UI
-  if ((hasAgentOrUserToken && permissionsLoading) || (isClinicUser && clinicPermsLoading) || isLoading) {
-    return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-        <div className="text-center">
-          <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-gray-200 dark:border-gray-700 border-t-gray-900 dark:border-t-blue-500" />
-          <p className="text-sm text-gray-700 dark:text-gray-300">Loading team data...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Debug: Log when access denied check happens
-  if (canRead !== true) {
-    console.log('🚫 Access Denied Check Triggered:', {
-      canRead,
-      canCreate,
-      userRole,
-      isClinicUser,
-      hasAgentOrUserToken,
-      clinicPermsLoading,
-      permissionsLoading,
-      clinicPerms,
-      canClinicRead
-    });
+  if (!permissionsLoaded || isLoading) {
+    return <Loader />;
   }
 
   // If read permission is false, show access denied
@@ -694,8 +723,8 @@ const ManageAgentsPage = () => {
     if (canCreate === true) {
       // Show create button only
       return (
-        <div className="w-full min-h-screen bg-gray-50 dark:bg-gray-900 py-6 px-4 sm:px-6 lg:px-8">
-          <Toaster
+      <div className="w-full min-h-screen bg-gray-50 dark:bg-gray-900 py-6 px-4 sm:px-6 lg:px-8">
+        <Toaster
             position="top-right"
             toastOptions={{
               className: 'text-sm font-medium',
@@ -706,21 +735,21 @@ const ManageAgentsPage = () => {
             {/* Header Section */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
-                <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100">Team Management</h1>
-                <p className="text-xs sm:text-sm text-gray-700 dark:text-gray-400 mt-1">Manage agents and doctor staff accounts</p>
+                <h1 className="text-xl sm:text-2xl font-bold text-teal-900 dark:text-teal-100">Team Management</h1>
+                <p className="text-xs sm:text-sm text-teal-700 dark:text-teal-400 mt-1">Manage agents and doctor staff accounts</p>
               </div>
             </div>
 
             {/* Access Denied Message */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-8 text-center">
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">Access Denied</h2>
-              <p className="text-sm text-gray-700 dark:text-gray-400 mb-4">
+            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray200 dark:border-gray700 p-8 text-center">
+              <h2 className="text-xl font-semibold text-teal-900 dark:text-teal-100 mb-2">Access Denied</h2>
+              <p className="text-sm text-teal-700 dark:text-teal-400 mb-4">
                 You do not have permission to view team members. However, you can create new members.
               </p>
               {canCreate === true && (
                 <button
                   onClick={handleCreateClick}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-gray-900 dark:bg-blue-600 hover:bg-gray-800 dark:hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm"
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-teal-600 dark:bg-teal-600 hover:bg-teal-700 dark:hover:bg-teal-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm"
                 >
                   <UserPlus className="w-4 h-4" />
                   Add {activeView === 'agents' ? 'Agent' : 'Doctor'}
@@ -745,9 +774,9 @@ const ManageAgentsPage = () => {
       // Show full access denied
       return (
         <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-          <div className="max-w-md mx-auto text-center bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-6 shadow-sm">
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">Access denied</h2>
-            <p className="text-sm text-gray-700 dark:text-gray-400">
+          <div className="max-w-md mx-auto text-center bg-white dark:bg-gray-800 border border-gray200 dark:border-gray700 rounded-xl p-6 shadow-sm">
+            <h2 className="text-xl font-semibold text-teal-900 dark:text-teal-100 mb-2">Access denied</h2>
+            <p className="text-sm text-teal-700 dark:text-teal-400">
               You do not have permission to view the Create Agent module. Please contact your
               administrator.
             </p>
@@ -771,13 +800,13 @@ const ManageAgentsPage = () => {
         {/* Header Section */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-gray-100">Team Management</h1>
-            <p className="text-xs sm:text-sm text-gray-700 dark:text-gray-400 mt-1">Manage agents and doctor staff accounts</p>
+            <h1 className="text-xl sm:text-2xl font-bold text-teal-900 dark:text-teal-100">Team Management</h1>
+            <p className="text-xs sm:text-sm text-teal-700 dark:text-teal-400 mt-1">Manage agents and doctor staff accounts</p>
           </div>
           <button
             onClick={() => loadAll(false)}
             disabled={isRefreshing || !canRead}
-            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 w-full sm:w-auto justify-center"
+            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-teal-700 dark:text-teal-300 bg-white dark:bg-gray-800 border border-gray300 dark:border-gray600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 w-full sm:w-auto justify-center"
           >
             <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
             Refresh
@@ -789,12 +818,12 @@ const ManageAgentsPage = () => {
           <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wide">Total Team</p>
-                <p className="text-3xl font-bold text-gray-900 dark:text-gray-100 mt-2">{totalTeam}</p>
-                <p className="text-xs text-gray-700 dark:text-gray-400 mt-1">{approvalRate}% approved</p>
+                <p className="text-xs font-medium text-teal-700 dark:text-teal-300 uppercase tracking-wide">Total Team</p>
+                <p className="text-3xl font-bold text-teal-900 dark:text-teal-100 mt-2">{totalTeam}</p>
+                <p className="text-xs text-teal-700 dark:text-teal-400 mt-1">{approvalRate}% approved</p>
               </div>
               <div className="h-12 w-12 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
-                <Users className="w-6 h-6 text-gray-700 dark:text-gray-300" />
+                <Users className="w-6 h-6 text-teal-700 dark:text-teal-300" />
               </div>
             </div>
           </div>
@@ -802,9 +831,9 @@ const ManageAgentsPage = () => {
           <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wide">Approved</p>
+                <p className="text-xs font-medium text-teal-700 dark:text-teal-300 uppercase tracking-wide">Approved</p>
                 <p className="text-3xl font-bold text-green-600 dark:text-green-400 mt-2">{totalApproved}</p>
-                <p className="text-xs text-gray-700 dark:text-gray-400 mt-1">Active members</p>
+                <p className="text-xs text-teal-700 dark:text-teal-400 mt-1">Active members</p>
               </div>
               <div className="h-12 w-12 rounded-lg bg-green-50 dark:bg-green-900/30 flex items-center justify-center">
                 <CheckCircle className="w-6 h-6 text-green-600 dark:text-green-400" />
@@ -812,12 +841,12 @@ const ManageAgentsPage = () => {
             </div>
           </div>
 
-          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 shadow-sm">
+          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray200 dark:border-gray700 p-6 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wide">Pending</p>
+                <p className="text-xs font-medium text-teal-700 dark:text-teal-300 uppercase tracking-wide">Pending</p>
                 <p className="text-3xl font-bold text-yellow-600 dark:text-yellow-400 mt-2">{totalPending}</p>
-                <p className="text-xs text-gray-700 dark:text-gray-400 mt-1">Awaiting review</p>
+                <p className="text-xs text-teal-700 dark:text-teal-400 mt-1">Awaiting review</p>
               </div>
               <div className="h-12 w-12 rounded-lg bg-yellow-50 dark:bg-yellow-900/30 flex items-center justify-center">
                 <Clock className="w-6 h-6 text-yellow-600 dark:text-yellow-400" />
@@ -828,9 +857,9 @@ const ManageAgentsPage = () => {
           <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs font-medium text-gray-700 dark:text-gray-300 uppercase tracking-wide">Declined</p>
+                <p className="text-xs font-medium text-teal-700 dark:text-teal-300 uppercase tracking-wide">Declined</p>
                 <p className="text-3xl font-bold text-red-600 dark:text-red-400 mt-2">{totalDeclined}</p>
-                <p className="text-xs text-gray-700 dark:text-gray-400 mt-1">Not approved</p>
+                <p className="text-xs text-teal-700 dark:text-teal-400 mt-1">Not approved</p>
               </div>
               <div className="h-12 w-12 rounded-lg bg-red-50 dark:bg-red-900/30 flex items-center justify-center">
                 <XCircle className="w-6 h-6 text-red-600 dark:text-red-400" />
@@ -840,12 +869,12 @@ const ManageAgentsPage = () => {
         </div>
 
         {/* Action Bar */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 shadow-sm">
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray200 dark:border-gray700 p-4 shadow-sm">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="flex items-center gap-4">
               <div>
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Team Members</h2>
-                <p className="text-sm text-gray-700 dark:text-gray-400 mt-0.5">
+                <h2 className="text-lg font-semibold text-teal-900 dark:text-teal-100">Team Members</h2>
+                <p className="text-sm text-teal-700 dark:text-teal-400 mt-0.5">
                   {currentList.length} {activeView === 'agents' ? 'agents' : 'doctors'} total
                 </p>
               </div>
@@ -855,8 +884,8 @@ const ManageAgentsPage = () => {
                   onClick={() => setActiveView('agents')}
                   className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
                     activeView === 'agents'
-                      ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-gray-100 shadow-sm'
-                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                      ? 'bg-white dark:bg-gray-600 text-teal-900 dark:text-teal-100 shadow-sm'
+                      : 'text-teal-600 dark:text-teal-400 hover:text-teal-900 dark:hover:text-teal-200'
                   }`}
                 >
                   Agents ({agents.length})
@@ -865,8 +894,8 @@ const ManageAgentsPage = () => {
                   onClick={() => setActiveView('doctorStaff')}
                   className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
                     activeView === 'doctorStaff'
-                      ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-gray-100 shadow-sm'
-                      : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                      ? 'bg-white dark:bg-gray-600 text-teal-900 dark:text-teal-100 shadow-sm'
+                      : 'text-teal-600 dark:text-teal-400 hover:text-teal-900 dark:hover:text-teal-200'
                   }`}
                 >
                   Doctors ({doctorStaff.length})
@@ -876,7 +905,7 @@ const ManageAgentsPage = () => {
             {canCreate === true && (
               <button
                 onClick={handleCreateClick}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-gray-900 dark:bg-blue-600 hover:bg-gray-800 dark:hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm w-full sm:w-auto justify-center"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-teal-600 dark:bg-teal-600 hover:bg-teal-800 dark:hover:bg-teal-700 text-white text-sm font-medium rounded-lg transition-colors shadow-sm w-full sm:w-auto justify-center"
               >
                 <UserPlus className="w-4 h-4" />
                 Add {activeView === 'agents' ? 'Agent' : 'Doctor'}
@@ -886,16 +915,16 @@ const ManageAgentsPage = () => {
         </div>
 
         {/* Agents/Doctors Cards */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray200 dark:border-gray700 shadow-sm overflow-hidden">
 
           {currentList.length === 0 ? (
             <div className="px-5 py-16 text-center">
               <div className="flex flex-col items-center justify-center">
                 <div className="h-16 w-16 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center mb-4">
-                  <Users className="w-8 h-8 text-gray-700 dark:text-gray-300" />
+                  <Users className="w-8 h-8 text-teal-700 dark:text-teal-300" />
                 </div>
-                <p className="text-base font-semibold text-gray-900 dark:text-gray-100">No {activeView === 'agents' ? 'agents' : 'doctors'} found</p>
-                <p className="text-sm text-gray-700 dark:text-gray-400 mt-1 mb-4">
+                <p className="text-base font-semibold text-teal-900 dark:text-teal-100">No {activeView === 'agents' ? 'agents' : 'doctors'} found</p>
+                <p className="text-sm text-teal-700 dark:text-teal-400 mt-1 mb-4">
                   {canCreate === true
                     ? `Get started by adding your first ${activeView === 'agents' ? 'agent' : 'doctor'} to the team`
                     : 'You have read-only access.'}
@@ -917,16 +946,16 @@ const ManageAgentsPage = () => {
                 {currentList.map((agent) => (
                   <div
                     key={agent._id}
-                    className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-5 hover:shadow-lg transition-all duration-200"
+                    className="bg-white dark:bg-gray-800 border border-gray200 dark:border-gray700 rounded-xl p-5 hover:shadow-lg transition-all duration-200"
                   >
                     {/* Card Header */}
                     <div className="flex items-start justify-between mb-4">
                       <div className="flex items-center gap-3 flex-1 min-w-0">
-                        <div className="h-12 w-12 flex-shrink-0 rounded-full bg-gradient-to-br from-gray-700 to-gray-900 text-white flex items-center justify-center text-base font-semibold shadow-md">
+                        <div className="h-12 w-12 flex-shrink-0 rounded-full bg-gradient-to-br from-teal-700 to-teal-900 text-white flex items-center justify-center text-base font-semibold shadow-md">
                           {agent.name?.charAt(0).toUpperCase()}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="text-base font-semibold text-gray-900 dark:text-gray-100 truncate">
+                          <div className="text-base font-semibold text-teal-900 dark:text-teal-100 truncate">
                             {agent.name}
                           </div>
                           <div className="mt-1.5">
@@ -957,10 +986,10 @@ const ManageAgentsPage = () => {
                               e.stopPropagation();
                               setMenuAgentId(menuAgentId === agent._id ? null : agent._id);
                             }}
-                            className="w-8 h-8 inline-flex items-center justify-center rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-600 transition-colors"
+                            className="w-8 h-8 inline-flex items-center justify-center rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 border border-gray200 dark:border-gray600 transition-colors"
                             aria-label="More actions"
                           >
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4 text-gray-600 dark:text-gray-400">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4 text-teal-600 dark:text-teal-400">
                               <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 12a.75.75 0 11-1.5 0 .75.75 0 011.5 0zM12.75 12a.75.75 0 11-1.5 0 .75.75 0 011.5 0zM18.75 12a.75.75 0 11-1.5 0 .75.75 0 011.5 0z" />
                             </svg>
                           </button>
@@ -973,11 +1002,31 @@ const ManageAgentsPage = () => {
                                   setMenuAgentId(null);
                                 }}
                               />
-                              <div className="absolute right-0 mt-1 w-40 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg z-20">
+                              <div className="absolute right-0 mt-1 w-40 bg-white dark:bg-gray-800 border border-gray200 dark:border-gray700 rounded-md shadow-lg z-20">
+                            <button
+                              className="w-full text-left px-3 py-2 text-[11px] hover:bg-gray-50 dark:hover:bg-gray-700 text-teal-700 dark:text-teal-300 transition-colors"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setMenuAgentId(null);
+                                openView(agent);
+                              }}
+                            >
+                              View
+                            </button>
+                                <button
+                                  className="w-full text-left px-3 py-2 text-[11px] hover:bg-gray-50 dark:hover:bg-gray-700 text-teal-700 dark:text-teal-300 transition-colors"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setMenuAgentId(null);
+                                    openProfile(agent);
+                                  }}
+                                >
+                                  Profile
+                                </button>
                                 {canUpdate === true && (
                                   <>
                                     <button
-                                      className="w-full text-left px-3 py-2 text-[11px] hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 transition-colors"
+                                      className="w-full text-left px-3 py-2 text-[11px] hover:bg-gray-50 dark:hover:bg-gray-700 text-teal-700 dark:text-teal-300 transition-colors"
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         setPasswordAgent(agent);
@@ -987,7 +1036,7 @@ const ManageAgentsPage = () => {
                                       Change password
                                     </button>
                                     <button
-                                      className="w-full text-left px-3 py-2 text-[11px] hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 transition-colors border-t border-gray-200 dark:border-gray-700"
+                                      className="w-full text-left px-3 py-2 text-[11px] hover:bg-gray-50 dark:hover:bg-gray-700 text-teal-700 dark:text-teal-300 transition-colors border-t border-gray200 dark:border-gray700"
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         setPermissionAgent(agent);
@@ -998,7 +1047,7 @@ const ManageAgentsPage = () => {
                                     </button>
                                     {agent.role === 'doctorStaff' && (
                                       <button
-                                        className="w-full text-left px-3 py-2 text-[11px] hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 transition-colors border-t border-gray-200 dark:border-gray-700"
+                                        className="w-full text-left px-3 py-2 text-[11px] hover:bg-gray-50 dark:hover:bg-gray-700 text-teal-700 dark:text-teal-300 transition-colors border-t border-gray200 dark:border-gray700"
                                         onClick={(e) => {
                                           e.stopPropagation();
                                           setTreatmentAgent(agent);
@@ -1012,7 +1061,7 @@ const ManageAgentsPage = () => {
                                 )}
                                 {canDelete === true && (
                                   <button
-                                    className="w-full text-left px-3 py-2 text-[11px] hover:bg-red-50 dark:hover:bg-red-900/30 text-red-700 dark:text-red-400 transition-colors border-t border-gray-200 dark:border-gray-700 flex items-center gap-2"
+                                    className="w-full text-left px-3 py-2 text-[11px] hover:bg-red-50 dark:hover:bg-red-900/30 text-red-700 dark:text-red-400 transition-colors border-t border-gray200 dark:border-gray700 flex items-center gap-2"
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       setDeleteAgent(agent);
@@ -1032,16 +1081,30 @@ const ManageAgentsPage = () => {
 
                     {/* Card Body */}
                     <div className="space-y-2.5 mb-4">
-                      <div className="text-sm text-gray-700 dark:text-gray-300 truncate">
-                        <span className="font-medium text-gray-800 dark:text-gray-200">Email:</span> {agent.email}
+                      <div className="text-sm text-teal-700 dark:text-teal-300 truncate">
+                        <span className="font-medium text-teal-800 dark:text-teal-200">Name:</span> {agent.name}
                       </div>
-                      <div className="text-sm text-gray-700 dark:text-gray-300">
-                        <span className="font-medium text-gray-800 dark:text-gray-200">Phone:</span> {agent.phone || 'N/A'}
+                      <div className="text-sm text-teal-700 dark:text-teal-300">
+                        <span className="font-medium text-teal-800 dark:text-teal-200">Email:</span> {agent.email || 'N/A'}
+                      </div>
+                      <div className="text-sm text-teal-700 dark:text-teal-300">
+                        <span className="font-medium text-teal-800 dark:text-teal-200">Mobile Number:</span> {agent.phone || 'N/A'}
+                      </div>
+                      <div className="mt-1">
+                        <div className="h-2 bg-gray-100 dark:bg-gray-700 rounded">
+                          <div
+                            className="h-2 bg-gray-900 dark:bg-blue-600 rounded"
+                            style={{ width: `${completionMap[agent._id] || 0}%` }}
+                          />
+                        </div>
+                        <div className="text-[11px] text-teal-700 dark:text-teal-300 mt-1">
+                          Profile {completionMap[agent._id] || 0}% complete
+                        </div>
                       </div>
                     </div>
 
                     {/* Card Footer - Actions */}
-                    <div className="flex gap-2 pt-4 border-t border-gray-100 dark:border-gray-700">
+                    <div className="flex gap-2 pt-4 border-t border-gray100 dark:border-gray700">
                       {canUpdate === true && (
                         <>
                           <button
@@ -1052,7 +1115,7 @@ const ManageAgentsPage = () => {
                             disabled={agent.isApproved}
                             className={`flex-1 px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
                               agent.isApproved
-                                ? 'bg-gray-50 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed border border-gray-200 dark:border-gray-600'
+                                ? 'bg-gray-50 dark:bg-gray-700 text-teal-400 dark:text-teal-500 cursor-not-allowed border border-gray200 dark:border-gray600'
                                 : 'bg-gray-900 dark:bg-blue-600 text-white hover:bg-gray-800 dark:hover:bg-blue-700 shadow-sm hover:shadow-md'
                             }`}
                           >
@@ -1066,8 +1129,8 @@ const ManageAgentsPage = () => {
                             disabled={agent.declined}
                             className={`flex-1 px-3 py-2 rounded-lg text-xs font-semibold transition-all ${
                               agent.declined
-                                ? 'bg-gray-50 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed border border-gray-200 dark:border-gray-600'
-                                : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 border border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
+                                ? 'bg-gray-50 dark:bg-gray-700 text-teal-400 dark:text-teal-500 cursor-not-allowed border border-gray200 dark:border-gray600'
+                                : 'bg-gray-100 dark:bg-gray-700 text-teal-700 dark:text-teal-300 hover:bg-gray-200 dark:hover:bg-gray-600 border border-gray200 dark:border-gray600 hover:border-gray300 dark:hover:border-gray500'
                             }`}
                           >
                             Decline
@@ -1120,17 +1183,17 @@ const ManageAgentsPage = () => {
 
       {/* Change Password Modal */}
       {passwordAgent && (
-        <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-sm bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-xl">
-            <div className="px-5 py-3.5 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 flex items-start justify-between">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-sm bg-white dark:bg-gray-800 rounded-lg border border-gray200 dark:border-gray700 shadow-xl">
+            <div className="px-5 py-3.5 border-b border-gray200 dark:border-gray700 bg-gray-50 dark:bg-gray-900 flex items-start justify-between">
               <div className="flex-1 min-w-0 pr-2">
-                <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Change password</h3>
-                <p className="text-[11px] text-gray-700 dark:text-gray-400 mt-0.5">{passwordAgent.name} • {passwordAgent.email}</p>
+                <h3 className="text-sm font-semibold text-teal-900 dark:text-teal-100">Change password</h3>
+                <p className="text-[11px] text-teal-700 dark:text-teal-400 mt-0.5">{passwordAgent.name} • {passwordAgent.email}</p>
               </div>
               <button
                 type="button"
                 onClick={() => { setPasswordAgent(null); setNewPassword(''); setConfirmPassword(''); }}
-                className="flex-shrink-0 p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+                className="flex-shrink-0 p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-teal-500 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-200"
                 aria-label="Close"
               >
                 <X className="w-4 h-4" />
@@ -1139,24 +1202,24 @@ const ManageAgentsPage = () => {
             <form onSubmit={handleResetPasswordSubmit} className="p-5">
               <div className="space-y-3.5">
                 <div>
-                  <label className="block text-[11px] font-medium text-gray-700 dark:text-gray-300 mb-1.5">New password</label>
+                  <label className="block text-[11px] font-medium text-teal-700 dark:text-teal-300 mb-1.5">New password</label>
                   <input
                     type="password"
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-xs bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-400 focus:ring-1 focus:ring-gray-900 dark:focus:ring-blue-500 focus:border-gray-900 dark:focus:border-blue-500 outline-none transition-colors"
+                    className="w-full px-3 py-2 border border-gray300 dark:border-gray600 rounded-md text-xs bg-white dark:bg-gray-700 text-teal-900 dark:text-teal-100 placeholder-teal-400 dark:placeholder-teal-400 focus:ring-1 focus:ring-teal-900 dark:focus:ring-blue-500 focus:border-gray900 dark:focus:border-blue-500 outline-none transition-colors"
                     placeholder="Enter new password"
                     required
                     minLength={6}
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-medium text-gray-700 dark:text-gray-300 mb-1.5">Confirm password</label>
+                  <label className="block text-[11px] font-medium text-teal-700 dark:text-teal-300 mb-1.5">Confirm password</label>
                   <input
                     type="password"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-xs bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-400 focus:ring-1 focus:ring-gray-900 dark:focus:ring-blue-500 focus:border-gray-900 dark:focus:border-blue-500 outline-none transition-colors"
+                    className="w-full px-3 py-2 border border-gray300 dark:border-gray600 rounded-md text-xs bg-white dark:bg-gray-700 text-teal-900 dark:text-teal-100 placeholder-teal-400 dark:placeholder-teal-400 focus:ring-1 focus:ring-teal-900 dark:focus:ring-blue-500 focus:border-gray900 dark:focus:border-blue-500 outline-none transition-colors"
                     placeholder="Re-enter password"
                     required
                     minLength={6}
@@ -1167,7 +1230,7 @@ const ManageAgentsPage = () => {
                 <button
                   type="button"
                   onClick={() => { setPasswordAgent(null); setNewPassword(''); setConfirmPassword(''); }}
-                  className="px-3.5 py-2 rounded-md border border-gray-300 dark:border-gray-600 text-[11px] font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+                  className="px-3.5 py-2 rounded-md border border-gray300 dark:border-gray600 text-[11px] font-medium text-teal-700 dark:text-teal-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
                 >
                   Cancel
                 </button>
@@ -1183,10 +1246,415 @@ const ManageAgentsPage = () => {
         </div>
       )}
 
+      {profileAgent && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 overflow-y-auto bg-black/60 backdrop-blur-md">
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto flex flex-col border border-teal-100">
+            <div className="sticky top-0 bg-gray-50 px-4 sm:px-6 py-3 flex items-center justify-between z-10 rounded-t-2xl">
+              <h2 className="text-base sm:text-lg font-bold text-gray-900 flex items-center gap-2">
+                <UserPlus className="w-5 h-5" />
+                Profile Information
+              </h2>
+              <button
+                onClick={() => { setProfileAgent(null); }}
+                className="p-2 hover:bg-white/20 rounded-lg text-white hover:text-white transition-colors flex-shrink-0 backdrop-blur-sm"
+                aria-label="Close modal"
+              >
+                <X className="w-5 h-5 text-gray-900" />
+              </button>
+            </div>
+            <div className="p-4 sm:p-6 flex-1 overflow-y-auto bg-gray-50">
+              <div className="space-y-6">
+                {/* Basic Information Section */}
+                <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5">
+                  <h3 className="text-sm font-semibold text-teal-900 mb-4">Basic Information</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-xs font-medium text-teal-700 mb-1.5">Name *</label>
+                      <input
+                        type="text"
+                        value={profileForm.name}
+                        onChange={(e) => setProfileForm((f) => ({ ...f, name: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition-colors"
+                        placeholder="Enter name"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-teal-700 mb-1.5">Email *</label>
+                      <input
+                        type="email"
+                        value={profileForm.email}
+                        onChange={(e) => setProfileForm((f) => ({ ...f, email: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition-colors"
+                        placeholder="Enter email"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-teal-700 mb-1.5">Mobile Number *</label>
+                      <input
+                        type="tel"
+                        value={profileForm.phone}
+                        onChange={(e) => setProfileForm((f) => ({ ...f, phone: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition-colors"
+                        placeholder="Enter mobile number"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Identity Information Section */}
+                <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5">
+                  <h3 className="text-sm font-semibold text-teal-900 mb-4">Identity Information</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-xs font-medium text-teal-700 mb-1.5">ID Type</label>
+                      <select
+                        value={profileForm.idType}
+                        onChange={(e) => setProfileForm((f) => ({ ...f, idType: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition-colors"
+                      >
+                        <option value="aadhaar">Aadhaar</option>
+                        <option value="pan">PAN</option>
+                        <option value="passport">Passport</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-teal-700 mb-1.5">ID Number</label>
+                      <input
+                        type="text"
+                        value={profileForm.idNumber}
+                        onChange={(e) => setProfileForm((f) => ({ ...f, idNumber: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition-colors"
+                        placeholder="Enter ID number"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-teal-700 mb-1.5">Upload ID Document</label>
+                      <label className="flex flex-col gap-1.5 w-full cursor-pointer group">
+                        <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 group-hover:bg-gray-100 transition-colors">
+                          {uploadingIdDoc ? (
+                            <span className="animate-pulse text-teal-600">Uploading...</span>
+                          ) : (
+                            <>
+                              <Upload className="w-4 h-4 mr-2 text-teal-600" />
+                              <span className="text-teal-600">Choose file</span>
+                            </>
+                          )}
+                        </div>
+                        <input
+                          type="file"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) uploadFile(file, (url) => setProfileForm((f) => ({ ...f, idDocumentUrl: url })), setUploadingIdDoc);
+                          }}
+                        />
+                        <span className="text-xs text-gray-600 truncate">
+                          {profileForm.idDocumentUrl ? getFileNameFromUrl(profileForm.idDocumentUrl) : "No file chosen"}
+                        </span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Additional Information Section */}
+                <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5">
+                  <h3 className="text-sm font-semibold text-teal-900 mb-4">Additional Information</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-xs font-medium text-teal-700 mb-1.5">Passport Number</label>
+                      <input
+                        type="text"
+                        value={profileForm.passportNumber}
+                        onChange={(e) => setProfileForm((f) => ({ ...f, passportNumber: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition-colors"
+                        placeholder="Enter passport number"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-teal-700 mb-1.5">Upload Passport</label>
+                      <label className="flex flex-col gap-1.5 w-full cursor-pointer group">
+                        <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 group-hover:bg-gray-100 transition-colors">
+                          {uploadingPassportDoc ? (
+                            <span className="animate-pulse text-teal-600">Uploading...</span>
+                          ) : (
+                            <>
+                              <Upload className="w-4 h-4 mr-2 text-teal-600" />
+                              <span className="text-teal-600">Choose file</span>
+                            </>
+                          )}
+                        </div>
+                        <input
+                          type="file"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) uploadFile(file, (url) => setProfileForm((f) => ({ ...f, passportDocumentUrl: url })), setUploadingPassportDoc);
+                          }}
+                        />
+                        <span className="text-xs text-gray-600 truncate">
+                          {profileForm.passportDocumentUrl ? getFileNameFromUrl(profileForm.passportDocumentUrl) : "No file chosen"}
+                        </span>
+                      </label>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-teal-700 mb-1.5">Emergency Contact</label>
+                      <input
+                        type="tel"
+                        value={profileForm.emergencyPhone}
+                        onChange={(e) => setProfileForm((f) => ({ ...f, emergencyPhone: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition-colors"
+                        placeholder="Enter emergency contact"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Employment Information Section */}
+                <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5">
+                  <h3 className="text-sm font-semibold text-teal-900 mb-4">Employment Information</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-xs font-medium text-teal-700 mb-1.5">Base Salary</label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={profileForm.baseSalary}
+                        onChange={(e) => setProfileForm((f) => ({ ...f, baseSalary: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition-colors"
+                        placeholder="Enter salary"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-teal-700 mb-1.5">Commission Type</label>
+                      <select
+                        value={profileForm.commissionType}
+                        onChange={(e) => setProfileForm((f) => ({ ...f, commissionType: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition-colors"
+                      >
+                        <option value="no_commission">No Commission</option>
+                        <option value="flat">Flat</option>
+                        <option value="after_deduction">After deduction</option>
+                        <option value="target_based">Target based</option>
+                        <option value="target_plus_expense">Target + expense</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-teal-700 mb-1.5">Commission Percentage</label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={profileForm.commissionPercentage}
+                        onChange={(e) => setProfileForm((f) => ({ ...f, commissionPercentage: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition-colors"
+                        placeholder="Enter commission %"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+                    <div>
+                      <label className="block text-xs font-medium text-teal-700 mb-1.5">Contract Type</label>
+                      <select
+                        value={profileForm.contractType}
+                        onChange={(e) => setProfileForm((f) => ({ ...f, contractType: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition-colors"
+                      >
+                        <option value="full">Full</option>
+                        <option value="part">Part</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-teal-700 mb-1.5">Upload Contract</label>
+                      <label className="flex flex-col gap-1.5 w-full cursor-pointer group">
+                        <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 group-hover:bg-gray-100 transition-colors">
+                          {uploadingContract ? (
+                            <span className="animate-pulse text-teal-600">Uploading...</span>
+                          ) : (
+                            <>
+                              <Upload className="w-4 h-4 mr-2 text-teal-600" />
+                              <span className="text-teal-600">Choose file</span>
+                            </>
+                          )}
+                        </div>
+                        <input
+                          type="file"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) uploadFile(file, (url) => setProfileForm((f) => ({ ...f, contractUrl: url })), setUploadingContract);
+                          }}
+                        />
+                        <span className="text-xs text-gray-600 truncate">
+                          {profileForm.contractUrl ? getFileNameFromUrl(profileForm.contractUrl) : "No file chosen"}
+                        </span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-200">
+                  <button
+                    type="button"
+                    onClick={() => { setProfileAgent(null); }}
+                    className="px-5 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={saveProfile}
+                    className="px-5 py-2.5 text-sm font-medium text-white bg-teal-600 hover:bg-teal-700 rounded-lg transition-colors shadow-sm"
+                  >
+                    Save Changes
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {viewAgent && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-4xl bg-white dark:bg-gray-800 rounded-lg border border-gray200 dark:border-gray700 shadow-xl max-h-[90vh] overflow-y-auto mx-auto">
+            <div className="px-5 py-3.5 border-b border-gray200 dark:border-gray700 bg-gray-50 dark:bg-gray-900 flex items-start justify-between sticky top-0 z-10">
+              <div className="flex-1 min-w-0 pr-2">
+                <h3 className="text-sm font-semibold text-teal-900 dark:text-teal-100">View profile</h3>
+                <p className="text-[11px] text-teal-700 dark:text-teal-400 mt-0.5">{viewAgent.name} • {viewAgent.email}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => { setViewAgent(null); setViewProfile(null); }}
+                className="flex-shrink-0 p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-teal-500 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-200"
+                aria-label="Close"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="p-5 space-y-4">
+              {viewLoading ? (
+                <div className="py-8 text-center text-sm text-teal-700 dark:text-teal-300">Loading...</div>
+              ) : (
+                <>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div className="text-xs text-teal-700 dark:text-teal-300"><span className="font-semibold">Name:</span> {viewAgent.name || 'N/A'}</div>
+                    <div className="text-xs text-teal-700 dark:text-teal-300"><span className="font-semibold">Email:</span> {viewAgent.email || 'N/A'}</div>
+                    <div className="text-xs text-teal-700 dark:text-teal-300"><span className="font-semibold">Mobile Number:</span> {viewAgent.phone || 'N/A'}</div>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div className="text-xs text-teal-700 dark:text-teal-300"><span className="font-semibold">Role:</span> {viewAgent.role}</div>
+                    <div className="text-xs text-teal-700 dark:text-teal-300"><span className="font-semibold">Status:</span> {viewAgent.declined ? 'Declined' : viewAgent.isApproved ? 'Approved' : 'Pending'}</div>
+                    <div className="text-xs text-teal-700 dark:text-teal-300"><span className="font-semibold">Commission:</span> {viewProfile?.commissionType === 'no_commission' ? 'No Commission' : viewProfile?.commissionType || '—'} {viewProfile?.commissionPercentage ? `(${viewProfile.commissionPercentage}%)` : ''}</div>
+                  </div>
+                  <div className="border border-gray200 dark:border-gray700 rounded-lg p-4 bg-gray-50 dark:bg-gray-900">
+                    <h4 className="text-sm font-semibold text-teal-900 dark:text-teal-100 mb-3">Identity Information</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <div className="text-xs text-teal-700 dark:text-teal-300"><span className="font-semibold">Identity Type:</span> {viewProfile?.idType || '—'}</div>
+                        <div className="text-xs text-teal-700 dark:text-teal-300"><span className="font-semibold">Identity No:</span> {viewProfile?.idNumber || '—'}</div>
+                        <div className="text-xs text-teal-700 dark:text-teal-300">
+                          <span className="font-semibold">ID Document:</span>{' '}
+                          {viewProfile?.idDocumentUrl ? (
+                            <>
+                              <a href={viewProfile.idDocumentUrl} target="_blank" rel="noreferrer" className="text-teal-900 dark:text-blue-400 underline">Open</a>
+                              <span className="ml-2 text-[11px]">{getFileNameFromUrl(viewProfile.idDocumentUrl)}</span>
+                            </>
+                          ) : '—'}
+                        </div>
+                      </div>
+                      {viewProfile?.idDocumentUrl && /\.(png|jpe?g|gif|webp)$/i.test(viewProfile.idDocumentUrl) ? (
+                        <div className="flex items-center justify-center">
+                          <img src={viewProfile.idDocumentUrl} alt="ID Document" className="rounded border border-gray200 dark:border-gray700 max-h-32 object-contain shadow-sm" />
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-center text-gray-400 text-sm">
+                          No ID image available
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="border border-gray200 dark:border-gray700 rounded-lg p-4 bg-gray-50 dark:bg-gray-900">
+                    <h4 className="text-sm font-semibold text-teal-900 dark:text-teal-100 mb-3">Passport Information</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <div className="text-xs text-teal-700 dark:text-teal-300"><span className="font-semibold">Passport No:</span> {viewProfile?.passportNumber || '—'}</div>
+                        <div className="text-xs text-teal-700 dark:text-teal-300">
+                          <span className="font-semibold">Passport Doc:</span>{' '}
+                          {viewProfile?.passportDocumentUrl ? (
+                            <>
+                              <a href={viewProfile.passportDocumentUrl} target="_blank" rel="noreferrer" className="text-teal-900 dark:text-blue-400 underline">Open</a>
+                              <span className="ml-2 text-[11px]">{getFileNameFromUrl(viewProfile.passportDocumentUrl)}</span>
+                            </>
+                          ) : '—'}
+                        </div>
+                        <div className="text-xs text-teal-700 dark:text-teal-300"><span className="font-semibold">Emergency Phone:</span> {viewProfile?.emergencyPhone || '—'}</div>
+                      </div>
+                      {viewProfile?.passportDocumentUrl && /\.(png|jpe?g|gif|webp)$/i.test(viewProfile.passportDocumentUrl) ? (
+                        <div className="flex items-center justify-center">
+                          <img src={viewProfile.passportDocumentUrl} alt="Passport Document" className="rounded border border-gray200 dark:border-gray700 max-h-32 object-contain shadow-sm" />
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-center text-gray-400 text-sm">
+                          No passport image available
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="border border-gray200 dark:border-gray700 rounded-lg p-4 bg-gray-50 dark:bg-gray-900">
+                    <h4 className="text-sm font-semibold text-teal-900 dark:text-teal-100 mb-3">Employment Information</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <div className="text-xs text-teal-700 dark:text-teal-300"><span className="font-semibold">Salary:</span> {typeof viewProfile?.baseSalary === 'number' ? viewProfile.baseSalary : (viewProfile?.baseSalary || '—')}</div>
+                        <div className="text-xs text-teal-700 dark:text-teal-300"><span className="font-semibold">Contract Type:</span> {viewProfile?.contractType || '—'}</div>
+                        <div className="text-xs text-teal-700 dark:text-teal-300">
+                          <span className="font-semibold">Contract:</span>{' '}
+                          {viewProfile?.contractUrl ? (
+                            <>
+                              <a href={viewProfile.contractUrl} target="_blank" rel="noreferrer" className="text-teal-900 dark:text-blue-400 underline">Open</a>
+                              <span className="ml-2 text-[11px]">{getFileNameFromUrl(viewProfile.contractUrl)}</span>
+                            </>
+                          ) : '—'}
+                        </div>
+                      </div>
+                      {viewProfile?.contractUrl && /\.(png|jpe?g|gif|webp)$/i.test(viewProfile.contractUrl) ? (
+                        <div className="flex items-center justify-center">
+                          <img src={viewProfile.contractUrl} alt="Contract Document" className="rounded border border-gray200 dark:border-gray700 max-h-32 object-contain shadow-sm" />
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-center text-gray-400 text-sm">
+                          No contract image available
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="border border-gray200 dark:border-gray700 rounded-lg p-4 bg-gray-50 dark:bg-gray-900">
+                    <h4 className="text-sm font-semibold text-teal-900 dark:text-teal-100 mb-3">Additional Information</h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                      <div className="text-xs text-teal-700 dark:text-teal-300"><span className="font-semibold">Joining Date:</span> {viewProfile?.joiningDate ? new Date(viewProfile.joiningDate).toLocaleDateString() : '—'}</div>
+                      <div className="text-xs text-teal-700 dark:text-teal-300"><span className="font-semibold">Active:</span> {viewProfile?.isActive === false ? 'No' : 'Yes'}</div>
+                      <div />
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-end">
+                    <button
+                      type="button"
+                      onClick={() => { setViewAgent(null); setViewProfile(null); }}
+                      className="px-3.5 py-2 rounded-md border border-gray300 dark:border-gray600 text-[11px] font-medium text-teal-700 dark:text-teal-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+                    >
+                      Close
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
       {/* Delete Confirmation Modal */}
       {deleteAgent && (
         <div 
-          className="fixed inset-0 z-30 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
           onClick={(e) => {
             if (e.target === e.currentTarget) {
               setDeleteAgent(null);
@@ -1207,10 +1675,10 @@ const ManageAgentsPage = () => {
             </div>
             <div className="p-6">
               <div className="mb-6">
-                <p className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
+                <p className="text-sm font-medium text-teal-900 dark:text-teal-100 mb-2">
                   Are you sure you want to delete this {deleteAgent.role === 'doctorStaff' ? 'doctor' : 'agent'}?
                 </p>
-                <p className="text-sm text-gray-700 dark:text-gray-400">
+                <p className="text-sm text-teal-700 dark:text-teal-400">
                   This action cannot be undone. All data associated with this {deleteAgent.role === 'doctorStaff' ? 'doctor' : 'agent'} will be permanently removed.
                 </p>
               </div>
@@ -1218,7 +1686,7 @@ const ManageAgentsPage = () => {
                 <button
                   type="button"
                   onClick={() => setDeleteAgent(null)}
-                  className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+                  className="px-4 py-2 rounded-lg border border-gray300 dark:border-gray600 text-sm font-medium text-teal-700 dark:text-teal-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
                 >
                   Cancel
                 </button>

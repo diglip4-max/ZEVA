@@ -2,7 +2,7 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
-import { Eye, Edit, Trash2, Power, PowerOff, X, Building2, MapPin, Clock, Briefcase, GraduationCap, Users, DollarSign, Calendar, FileText } from 'lucide-react';
+import { Eye, Edit, Trash2, Power, PowerOff, X, Building2, MapPin, Clock, Briefcase, GraduationCap, Users, DollarSign, Calendar, FileText} from 'lucide-react';
 import JobPostingForm, { JobFormData } from './JobPostingForm';
 
 // Type definitions
@@ -212,6 +212,53 @@ const JobManagement: React.FC<JobManagementProps> = ({
   useEffect(() => {
     fetchJobs();
   }, [fetchJobs]);
+
+  const exportJobsToCSV = () => {
+    if (jobs.length === 0) {
+      toast.error("No jobs to export");
+      return;
+    }
+
+    const headers = [
+      "Job Title",
+      "Department",
+      "Job Type",
+      "Location",
+      "Salary",
+      "Status",
+      "Openings",
+      "Experience",
+      "Created At"
+    ];
+
+    const csvContent = [
+      headers.join(","),
+      ...jobs.map(job => [
+        `"${(job.jobTitle || "").replace(/"/g, '""')}"`,
+        `"${(job.department || "").replace(/"/g, '""')}"`,
+        `"${(job.jobType || "").replace(/"/g, '""')}"`,
+        `"${(job.location || "").replace(/"/g, '""')}"`,
+        `"${(job.salary || "").replace(/"/g, '""')}"`,
+        `"${(job.status || "").replace(/"/g, '""')}"`,
+        `"${job.noOfOpenings || 0}"`,
+        `"${(job.experience || "").replace(/"/g, '""')}"`,
+        `"${job.createdAt ? new Date(job.createdAt).toLocaleString() : ""}"`
+      ].join(","))
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `jobs_export_${new Date().toISOString().split("T")[0]}.csv`);
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success("Jobs exported successfully");
+  };
+  
+  void exportJobsToCSV;
 
   // Get unique departments and job types for filters
   const uniqueDepartments = useMemo(() => {
@@ -670,6 +717,14 @@ const JobManagement: React.FC<JobManagementProps> = ({
                     </svg>
                     Clear
                   </button>
+                  
+                  {/* <button
+                    onClick={exportJobsToCSV}
+                    className="px-2.5 sm:px-3 py-1.5 sm:py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-all duration-200 text-[9px] sm:text-[10px] font-medium flex items-center gap-1.5"
+                  >
+                    <Download className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                    Export
+                  </button> */}
                 </div>
               </div>
 

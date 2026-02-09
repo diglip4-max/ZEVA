@@ -8,26 +8,35 @@ const PackageSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
+
     name: {
       type: String,
       required: true,
       trim: true,
     },
-    price: {
+
+    totalPrice: {
       type: Number,
       required: true,
       min: 0,
     },
+
+    totalSessions: {
+      type: Number,
+      required: true,
+      min: 1,
+    },
+
+    sessionPrice: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
+
     treatments: [
       {
-        treatmentName: {
-          type: String,
-          required: true,
-        },
-        treatmentSlug: {
-          type: String,
-          required: false,
-        },
+        treatmentName: String,
+        treatmentSlug: String,
         sessions: {
           type: Number,
           required: true,
@@ -36,6 +45,7 @@ const PackageSchema = new mongoose.Schema(
         },
       },
     ],
+
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
@@ -45,8 +55,10 @@ const PackageSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Ensure unique package names per clinic
 PackageSchema.index({ clinicId: 1, name: 1 }, { unique: true });
+
+// Ensure schema updates take effect in Next.js dev by resetting the cached model
+delete mongoose.models.Package;
 
 export default mongoose.models.Package || mongoose.model("Package", PackageSchema);
 

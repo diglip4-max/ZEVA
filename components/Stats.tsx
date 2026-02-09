@@ -618,10 +618,12 @@ const JobStats: React.FC<JobStatsProps> = ({
                       cx="50%"
                       cy="50%"
                       labelLine={false}
-                      label={({ name, percentage}) => {
-                        if (window.innerWidth < 640) return `${percentage}%`;
-                        if (window.innerWidth < 768) return `${name.length > 8 ? name.substring(0, 8) + '...' : name} (${percentage}%)`;
-                        return `${name} (${percentage}%)`;
+                      label={({ name, percent }) => {
+                        const p = Math.round((percent || 0) * 100);
+                        const displayName = name || '';
+                        if (window.innerWidth < 640) return `${p}%`;
+                        if (window.innerWidth < 768) return `${displayName.length > 8 ? displayName.substring(0, 8) + '...' : displayName} (${p}%)`;
+                        return `${displayName} (${p}%)`;
                       }}
                       innerRadius={window.innerWidth < 640 ? 40 : window.innerWidth < 768 ? 60 : pieInnerRadius}
                       outerRadius={window.innerWidth < 640 ? 80 : window.innerWidth < 768 ? 100 : pieOuterRadius}

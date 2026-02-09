@@ -26,16 +26,7 @@ const ClinicLayout = ({ children, hideSidebar = false, hideHeader = false }: Cli
   }
 
   return (
-    <div className="flex min-h-screen bg-gray-100" role="application">
-      {/* Mobile Overlay - Shows when mobile sidebar is open */}
-      {!hideSidebar && isMobileOpen && (
-        <div
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 lg:hidden"
-          onClick={handleToggleMobile}
-          aria-hidden="true"
-        />
-      )}
-
+    <div className="flex min-h-screen bg-gray-50" role="application">
       {/* Sidebar - ClinicSidebar with external state */}
       {!hideSidebar && (
         <div className={`h-screen ${isMobileOpen ? 'fixed lg:sticky' : 'sticky'} top-0 z-50`}>
@@ -49,10 +40,10 @@ const ClinicLayout = ({ children, hideSidebar = false, hideHeader = false }: Cli
       )}
 
       {/* Main Content Area */}
-      <div className="flex flex-col flex-1 min-h-screen max-h-screen" style={{ overflowX: 'visible', minWidth: 0 }}>
+      <div className="flex flex-col flex-1 min-h-screen max-h-screen relative" style={{ overflowX: 'visible', minWidth: 0 }}>
         {/* Header - Visible on both mobile and desktop */}
         {!hideHeader && (
-          <div className="sticky top-0 z-10">
+          <div className={`${isMobileOpen ? 'w-1/2 ml-auto' : 'w-full'} transition-all duration-300`}>
             <ClinicHeader 
               handleToggleDesktop={handleToggleDesktop}
               handleToggleMobile={handleToggleMobile}
@@ -64,17 +55,25 @@ const ClinicLayout = ({ children, hideSidebar = false, hideHeader = false }: Cli
 
         {/* Page Content */}
         <main 
-          className={`flex-1 ${hideSidebar && hideHeader ? '' : ''}`} 
+          className={`flex-1 ${isMobileOpen ? 'w-1/2 ml-auto' : 'w-full'} transition-all duration-300`} 
           role="main" 
           style={{ 
             overflowY: 'auto', 
             overflowX: 'visible',
-            minWidth: 0,
-            width: '100%'
+            minWidth: 0
           }}
         >
           {children}
         </main>
+
+        {/* Mobile Overlay - Shows when mobile sidebar is open */}
+        {!hideSidebar && isMobileOpen && (
+          <div
+            className="fixed inset-y-0 right-0 w-1/2 bg-black/20 backdrop-blur-sm z-40 lg:hidden"
+            onClick={handleToggleMobile}
+            aria-hidden="true"
+          />
+        )}
       </div>
     </div>
   );

@@ -404,12 +404,11 @@ const ClinicDashboard: NextPageWithLayout = () => {
   );
   const [quickActions] = useState([
     { label: 'New Review', icon: Star, path: '/clinic/getAllReview', color: 'bg-yellow-500' },
-    { label: 'New Enquiry', icon: Mail, path: '/clinic/get-Enquiry', color: 'bg-blue-500' },
-    { label: 'Add Staff', icon: Users, path: '/clinic/patient-information', color: 'bg-green-500' },
-    { label: 'Create Blog', icon: FileText, path: '/clinic/BlogForm', color: 'bg-purple-500' },
+    { label: 'New Enquiry', icon: Mail, path: '/clinic/get-Enquiry', color: 'bg-teal-500' },
+    { label: 'Create Blog', icon: FileText, path: '/clinic/BlogForm', color: 'bg-teal-500' },
     { label: 'Job Posting', icon: Briefcase, path: '/clinic/job-posting', color: 'bg-indigo-500' },
-    { label: 'Create Agent', icon: UserPlus, path: '/lead/create-agent', color: 'bg-teal-500' },
-    { label: 'Create Lead', icon: UserPlus, path: '/lead/create-lead', color: 'bg-orange-500' },
+    { label: 'Create Agent', icon: UserPlus, path: '/clinic/create-agent', color: 'bg-teal-500' },
+    { label: 'Create Lead', icon: UserPlus, path: '/clinic/create-lead', color: 'bg-orange-500' },
   ]);
 
   // Icon mapping
@@ -2226,33 +2225,33 @@ const ClinicDashboard: NextPageWithLayout = () => {
       <div
         ref={setNodeRef}
         style={style}
-        className={`relative ${isDragging ? 'z-50 ring-2 ring-blue-500 ring-opacity-50' : ''} ${!widget.visible ? 'opacity-50' : ''}`}
+        className={`relative ${isDragging ? 'z-50 ring-2 ring-teal-500 ring-opacity-50' : ''} ${!widget.visible ? 'opacity-50' : ''}`}
       >
         {isEditMode && (
           <>
-            {/* Blue grip icon and eye icon outside the div for section-level control */}
+            {/* teal grip icon and eye icon outside the div for section-level control */}
             <div className="absolute top-1/2 -left-10 transform -translate-y-1/2 z-50 flex flex-col gap-2">
               {/* Eye icon for show/hide section */}
               <button
                 onClick={() => toggleWidgetVisibility(widget.id)}
-                className="p-2 bg-white rounded-full shadow-xl border-2 border-gray-300 hover:bg-gray-50 transition-all hover:scale-110 z-50"
+                className="p-1 bg-white rounded-full shadow-xl border-2 border-gray-300 hover:bg-gray-50 transition-all hover:scale-110 z-50"
                 title={widget.visible ? 'Hide section' : 'Show section'}
                 style={{ borderWidth: '2px' }}
               >
                 {widget.visible ? (
-                  <Eye className="w-4 h-4 text-gray-700" />
+                  <Eye className="w-3 h-3 text-gray-700" />
                 ) : (
-                  <EyeOff className="w-4 h-4 text-gray-400" />
+                  <EyeOff className="w-3 h-3 text-gray-400" />
                 )}
               </button>
-              {/* Blue grip icon for section-level swapping */}
+              {/* teal grip icon for section-level swapping */}
               <div
                 {...attributes}
                 {...listeners}
-                className="p-2.5 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full shadow-2xl cursor-grab active:cursor-grabbing hover:from-blue-600 hover:to-blue-700 transition-all border-2 border-white hover:scale-110 z-50"
+                className="p-2.5 bg-gradient-to-br from-red-500 to-blue-600 rounded-full shadow-2xl cursor-grab active:cursor-grabbing hover:from-teal-600 hover:to-teal-700 transition-all border-2 border-white hover:scale-110 z-50"
                 title="Drag to reorder entire section"
               >
-                <GripVertical className="w-5 h-5 text-white" />
+                <GripVertical className="w-3 h-3 text-white" />
               </div>
             </div>
           </>
@@ -2298,13 +2297,13 @@ const ClinicDashboard: NextPageWithLayout = () => {
           <div className="absolute top-2 left-2 z-30 flex flex-col gap-1.5">
             <button
               onClick={() => onToggleVisibility(section.id)}
-              className="p-1.5 bg-white rounded-full shadow-lg border border-gray-200 hover:bg-gray-50 transition-colors"
+              className="p-1 bg-white rounded-full shadow-lg border border-gray-200 hover:bg-gray-50 transition-colors"
               title={section.visible ? 'Hide section' : 'Show section'}
             >
               {section.visible ? (
-                <Eye className="w-3.5 h-3.5 text-gray-600" />
+                <Eye className="w-3 h-3 text-gray-600" />
               ) : (
-                <EyeOff className="w-3.5 h-3.5 text-gray-400" />
+                <EyeOff className="w-3 h-3 text-gray-400" />
               )}
             </button>
             <div
@@ -2313,7 +2312,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
               className="p-1.5 bg-teal-500 rounded-full shadow-lg cursor-grab active:cursor-grabbing hover:bg-teal-600 transition-colors"
               title="Drag to move section"
             >
-              <GripVertical className="w-3.5 h-3.5 text-white" />
+              <GripVertical className="w-3 h-3 text-white" />
             </div>
           </div>
         )}
@@ -2358,13 +2357,13 @@ const ClinicDashboard: NextPageWithLayout = () => {
           <div className="absolute top-2 left-2 z-30 flex flex-col gap-1.5">
             <button
               onClick={() => togglePackageOfferVisibility(card.id)}
-              className="p-1.5 bg-white rounded-full shadow-lg border border-gray-200 hover:bg-gray-50 transition-colors"
+              className="p-1 bg-white rounded-full shadow-lg border border-gray-200 hover:bg-gray-50 transition-colors"
               title={card.visible ? 'Hide card' : 'Show card'}
             >
               {card.visible ? (
-                <Eye className="w-3.5 h-3.5 text-gray-600" />
+                <Eye className="w-3 h-3 text-gray-600" />
               ) : (
-                <EyeOff className="w-3.5 h-3.5 text-gray-400" />
+                <EyeOff className="w-3 h-3 text-gray-400" />
               )}
             </button>
             <div
@@ -2418,13 +2417,13 @@ const ClinicDashboard: NextPageWithLayout = () => {
           <div className="absolute top-2 left-2 z-30 flex flex-col gap-1.5">
             <button
               onClick={() => toggleChartVisibility(chart.id)}
-              className="p-1.5 bg-white rounded-full shadow-lg border border-gray-200 hover:bg-gray-50 transition-colors"
+              className="p-1 bg-white rounded-full shadow-lg border border-gray-200 hover:bg-gray-50 transition-colors"
               title={chart.visible ? 'Hide chart' : 'Show chart'}
             >
               {chart.visible ? (
-                <Eye className="w-3.5 h-3.5 text-gray-600" />
+                <Eye className="w-3 h-3 text-gray-600" />
               ) : (
-                <EyeOff className="w-3.5 h-3.5 text-gray-400" />
+                <EyeOff className="w-3 h-3 text-gray-400" />
               )}
             </button>
             <div
@@ -2487,9 +2486,9 @@ const ClinicDashboard: NextPageWithLayout = () => {
       <div
         ref={setNodeRef}
         style={style}
-        className={`relative ${isDragging ? 'z-50 ring-2 ring-purple-500 ring-opacity-50' : ''} ${!card.visible ? 'opacity-50' : ''}`}
+        className={`relative ${isDragging ? 'z-50 ring-2 ring-teal-500 ring-opacity-50' : ''} ${!card.visible ? 'opacity-50' : ''}`}
       >
-        <div className={`bg-gradient-to-br from-white to-gray-50 rounded-xl ${paddingClass} border-2 ${isDragging ? 'border-purple-500' : 'border-gray-200'} shadow-sm hover:shadow-xl transition-all duration-300 group relative overflow-hidden`}>
+        <div className={`bg-gradient-to-br from-white to-gray-50 rounded-xl ${paddingClass} border-2 ${isDragging ? 'border-teal-500' : 'border-gray-200'} shadow-sm hover:shadow-xl transition-all duration-300 group relative overflow-hidden`}>
           {isEditMode && (
             <div className="absolute top-2 left-2 z-30 flex flex-col gap-1.5">
               <button
@@ -2497,23 +2496,23 @@ const ClinicDashboard: NextPageWithLayout = () => {
                   e.stopPropagation();
                   toggleCardVisibility(card.id);
                 }}
-                className="p-1.5 bg-white rounded-full shadow-lg border border-gray-200 hover:bg-gray-50 transition-colors z-40"
+                className="p-1 bg-white rounded-full shadow-lg border border-gray-200 hover:bg-gray-50 transition-colors z-40"
                 title={card.visible ? 'Hide card' : 'Show card'}
               >
                 {card.visible ? (
-                  <Eye className="w-3.5 h-3.5 text-gray-600" />
+                  <Eye className="w-3 h-3 text-gray-600" />
                 ) : (
-                  <EyeOff className="w-3.5 h-3.5 text-gray-400" />
+                  <EyeOff className="w-3 h-3 text-gray-400" />
                 )}
               </button>
               <div
                 {...attributes}
                 {...listeners}
-                className="p-2 bg-gradient-to-br from-purple-500 to-purple-600 rounded-full shadow-lg cursor-grab active:cursor-grabbing hover:from-purple-600 hover:to-purple-700 transition-all transform hover:scale-110 z-40"
+                className="p-2 bg-gradient-to-br from-teal-500 to-teal-600 rounded-full shadow-lg cursor-grab active:cursor-grabbing hover:from-teal-600 hover:to-teal-700 transition-all transform hover:scale-110 z-40"
                 title="Drag to move or swap cards"
                 onClick={(e) => e.stopPropagation()}
               >
-                <GripVertical className="w-4 h-4 text-white" />
+                <GripVertical className="w-3 h-3 text-white" />
               </div>
             </div>
           )}
@@ -2551,8 +2550,8 @@ const ClinicDashboard: NextPageWithLayout = () => {
     return (
       <div className="flex items-center justify-center min-h-screen px-4 bg-gray-50">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-sm text-gray-700">Loading dashboard...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600 mx-auto mb-4"></div>
+          <p className="text-sm text-gray-700">Loading dashboard..</p>
         </div>
       </div>
     );
@@ -2601,10 +2600,10 @@ const ClinicDashboard: NextPageWithLayout = () => {
         <div className="mb-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-1">
+              <h1 className="text-2xl sm:text-3xl font-bold text-teal-800 mb-1">
                     {clinicInfo.name || 'Clinic Dashboard'}
                   </h1>
-              <div className="flex items-center gap-3 text-sm text-gray-600">
+              <div className="flex items-center gap-3 text-sm text-teal-600">
                 <div className="flex items-center gap-1.5">
                   <User className="w-4 h-4" />
                   <span>{clinicInfo.ownerName || clinicUser?.name || 'N/A'}</span>
@@ -2660,14 +2659,14 @@ const ClinicDashboard: NextPageWithLayout = () => {
                 </>
               ) : (
                 <>
-            <div className="bg-gray-900 text-white px-4 py-2 rounded-lg">
+            <div className="bg-yellow-400 text-white px-4 py-2 rounded-lg">
               <p className="text-sm font-medium">{getGreeting()}</p>
             </div>
                   <button
                     onClick={() => setIsEditMode(true)}
-                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+                    className="flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors shadow-sm"
                   >
-                    <Edit2 className="w-4 h-4" />
+                    <Edit2 className="w-3 h-3" />
                     <span>Customize</span>
                   </button>
                 </>
@@ -2675,9 +2674,9 @@ const ClinicDashboard: NextPageWithLayout = () => {
           </div>
           </div>
           {isEditMode && (
-            <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-              <p className="text-sm text-blue-800">
-                <strong>Edit Mode:</strong> Drag widgets (blue grip) to reorder sections. Drag stat cards (purple grip) to move between grids. Drag charts (orange grip) to reorder. Drag stats sections (teal grip) to reorder. Use eye icons to show/hide. Keyboard: Ctrl+Z (undo), Ctrl+Y (redo).
+            <div className="mt-4 p-3 bg-teal-50 border border-teal-200 rounded-lg">
+              <p className="text-sm text-teal-800">
+                <strong>Edit Mode:</strong> Drag widgets (teal grip) to reorder sections. Drag stat cards (teal grip) to move between grids. Drag charts (orange grip) to reorder. Drag stats sections (teal grip) to reorder. Use eye icons to show/hide. Keyboard: Ctrl+Z (undo), Ctrl+Y (redo).
               </p>
             </div>
           )}
@@ -2715,15 +2714,15 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                   if (card.type === 'package') {
                                     return (
                                       <SortablePackageOffer key={card.id} card={card}>
-          <div className="bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 rounded-lg border-2 border-indigo-200 shadow-md p-4 hover:shadow-lg transition-all duration-300 relative overflow-hidden group">
+          <div className="bg-gradient-to-br from-indigo-50 via-teal-50 to-pink-50 rounded-lg border-2 border-indigo-200 shadow-md p-4 hover:shadow-lg transition-all duration-300 relative overflow-hidden group">
             {/* Decorative Background Elements */}
-            <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-indigo-200/30 to-purple-200/30 rounded-full blur-xl -mr-10 -mt-10"></div>
-            <div className="absolute bottom-0 left-0 w-16 h-16 bg-gradient-to-tr from-pink-200/30 to-purple-200/30 rounded-full blur-lg -ml-8 -mb-8"></div>
+            <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-indigo-200/30 to-teal-200/30 rounded-full blur-xl -mr-10 -mt-10"></div>
+            <div className="absolute bottom-0 left-0 w-16 h-16 bg-gradient-to-tr from-pink-200/30 to-teal-200/30 rounded-full blur-lg -ml-8 -mb-8"></div>
             
             <div className="relative z-10">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
-                  <div className="p-2 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg shadow-md group-hover:scale-105 transition-transform">
+                  <div className="p-2 bg-gradient-to-br from-indigo-500 to-teal-600 rounded-lg shadow-md group-hover:scale-105 transition-transform">
                     <Package className="w-5 h-5 text-white" />
                   </div>
                   <div>
@@ -2737,7 +2736,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
               </div>
               
               <div className="mb-3">
-                <div className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600 mb-1">
+                <div className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-teal-600 mb-1">
                   {stats.totalPackages || 0}
                 </div>
                 <div className="flex items-center gap-1.5 text-xs text-gray-600">
@@ -2758,39 +2757,39 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                   } else {
                                     return (
                                       <SortablePackageOffer key={card.id} card={card}>
-          <div className="bg-gradient-to-br from-amber-50 via-orange-50 to-red-50 rounded-lg border-2 border-amber-200 shadow-md p-4 hover:shadow-lg transition-all duration-300 relative overflow-hidden group">
+          <div className="bg-gradient-to-br from-amber-300 via-amber-200 to-amber-100 rounded-lg border-2 border-amber-400 shadow-md p-4 hover:shadow-lg transition-all duration-300 relative overflow-hidden group">
             {/* Decorative Background Elements */}
-            <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-amber-200/30 to-orange-200/30 rounded-full blur-xl -mr-10 -mt-10"></div>
-            <div className="absolute bottom-0 left-0 w-16 h-16 bg-gradient-to-tr from-red-200/30 to-orange-200/30 rounded-full blur-lg -ml-8 -mb-8"></div>
+            <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-amber-400/30 to-amber-300/30 rounded-full blur-xl -mr-10 -mt-10"></div>
+            <div className="absolute bottom-0 left-0 w-16 h-16 bg-gradient-to-tr from-amber-200/30 to-amber-300/30 rounded-full blur-lg -ml-8 -mb-8"></div>
             
             <div className="relative z-10">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
-                  <div className="p-2 bg-gradient-to-br from-amber-500 to-orange-600 rounded-lg shadow-md group-hover:scale-105 transition-transform">
+                  <div className="p-2 bg-gradient-to-br from-amber-600 to-amber-700 rounded-lg shadow-md group-hover:scale-105 transition-transform">
                     <Gift className="w-5 h-5 text-white" />
                   </div>
                   <div>
                     <h3 className="text-sm font-bold text-gray-900">Offers</h3>
-                    <p className="text-[10px] text-gray-600">Current active offers</p>
+                    <p className="text-[10px] text-gray-700">Current active offers</p>
                   </div>
                 </div>
-                <div className="px-2 py-0.5 bg-amber-100 rounded-full">
-                  <span className="text-[10px] font-semibold text-amber-700">ACTIVE</span>
+                <div className="px-2 py-0.5 bg-amber-200 rounded-full">
+                  <span className="text-[10px] font-semibold text-amber-800">ACTIVE</span>
                 </div>
               </div>
               
               <div className="mb-3">
-                <div className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-amber-600 to-orange-600 mb-1">
+                <div className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-amber-700 to-amber-800 mb-1">
                   {stats.totalOffers || 0}
                 </div>
-                <div className="flex items-center gap-1.5 text-xs text-gray-600">
-                  <div className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-pulse"></div>
+                <div className="flex items-center gap-1.5 text-xs text-gray-700">
+                  <div className="w-1.5 h-1.5 bg-amber-600 rounded-full animate-pulse"></div>
                   <span>Active offers</span>
                 </div>
               </div>
               
-              <div className="pt-3 border-t border-amber-200/50">
-                <div className="text-[10px] text-gray-600">
+              <div className="pt-3 border-t border-amber-400/50">
+                <div className="text-[10px] text-gray-700">
                   <span className="font-semibold text-gray-900">Status:</span> Active
                 </div>
               </div>
@@ -2858,7 +2857,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                     return (
                                       <SortableChart key={chart.id} chart={chart}>
                 <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4 overflow-hidden">
-                  <h3 className="text-sm font-semibold text-gray-900 mb-4">Appointment Status</h3>
+                  <h3 className="text-sm font-semibold text-teal-800 mb-4">Appointment Status</h3>
                   <div className="h-56">
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart margin={{ top: 10, right: 20, bottom: 40, left: 20 }}>
@@ -2898,7 +2897,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                     return (
                                       <SortableChart key={chart.id} chart={chart}>
                 <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4 overflow-hidden">
-                  <h3 className="text-sm font-semibold text-gray-900 mb-4">Lead Status</h3>
+                  <h3 className="text-sm font-semibold text-teal-800 mb-4">Lead Status</h3>
                   <div className="h-56">
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart margin={{ top: 10, right: 20, bottom: 40, left: 20 }}>
@@ -2938,7 +2937,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                     return (
                                       <SortableChart key={chart.id} chart={chart}>
                 <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4 overflow-hidden">
-                  <h3 className="text-sm font-semibold text-gray-900 mb-4">Offer Status</h3>
+                  <h3 className="text-sm font-semibold text-teal-800 mb-4">Offer Status</h3>
                   <div className="h-56">
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart margin={{ top: 10, right: 20, bottom: 40, left: 20 }}>
@@ -2985,7 +2984,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                         }
                         return (
           <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 mb-6">
-            <h3 className="text-base font-semibold text-gray-900 mb-6">Analytics Overview</h3>
+            <h3 className="text-base font-semibold text-teal-800 mb-6">Analytics Overview</h3>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
               <div className="h-80">
                 <h4 className="text-sm font-medium text-gray-700 mb-2">Appointments, Leads, Offers & Jobs</h4>
@@ -3016,11 +3015,13 @@ const ClinicDashboard: NextPageWithLayout = () => {
                         borderRadius: '6px',
                         fontSize: '11px'
                       }}
-                        formatter={(value: number, name: string, props: any) => {
+                        formatter={(value: number | undefined, name: string | undefined, props: any) => {
+                          const displayValue = value ?? 0;
+                          const displayName = name ?? '';
                           if (props.payload?.fullName) {
-                            return [`${value}`, props.payload.fullName];
+                            return [`${displayValue}`, props.payload.fullName];
                           }
-                          return [value, name];
+                          return [displayValue, displayName];
                         }}
                       />
                       <Bar dataKey="value" radius={[4, 4, 0, 0]} fill="#3b82f6">
@@ -3078,7 +3079,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
               </div>
             </div>
             <div className="h-80">
-              <h3 className="text-base font-semibold text-gray-900 mb-4">Active vs Inactive</h3>
+              <h3 className="text-base font-semibold text-teal-800 mb-4">Active vs Inactive</h3>
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart 
                   data={[
@@ -3137,11 +3138,11 @@ const ClinicDashboard: NextPageWithLayout = () => {
         <div className="bg-gradient-to-br from-white to-gray-50 rounded-xl border border-gray-200 shadow-lg p-6 mb-6">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-3">
-              <div className="p-3 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg shadow-md">
+              <div className="p-3 bg-gradient-to-br from-teal-500 to-teal-600 rounded-lg shadow-md">
                 <Crown className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h3 className="text-lg font-bold text-gray-900">Subscription Status</h3>
+                <h3 className="text-lg font-bold text-teal-800">Subscription Status</h3>
                 <p className="text-xs text-gray-500">Manage your module access</p>
               </div>
             </div>
@@ -3175,24 +3176,24 @@ const ClinicDashboard: NextPageWithLayout = () => {
                 )}
               </div>
             </div>
-            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg border border-blue-200 p-4 hover:shadow-md transition-all">
+            <div className="bg-gradient-to-br from-teal-50 to-indigo-50 rounded-lg border border-teal-200 p-4 hover:shadow-md transition-all">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
-                  <div className="p-2 bg-blue-500 rounded-lg">
+                  <div className="p-2 bg-teal-500 rounded-lg">
                     <Crown className="w-5 h-5 text-white" />
                   </div>
                   <span className="text-sm font-semibold text-gray-700">Subscription</span>
                 </div>
-                <span className="text-2xl font-bold text-blue-700">{subscriptionSummary.subscriptionPercentage}%</span>
+                <span className="text-2xl font-bold text-teal-700">{subscriptionSummary.subscriptionPercentage}%</span>
               </div>
-              <div className="w-full bg-blue-100 rounded-full h-3 overflow-hidden">
+              <div className="w-full bg-teal-100 rounded-full h-3 overflow-hidden">
                 <div 
-                  className="bg-gradient-to-r from-blue-500 to-indigo-500 h-3 rounded-full transition-all duration-500 shadow-sm"
+                  className="bg-gradient-to-r from-teal-500 to-indigo-500 h-3 rounded-full transition-all duration-500 shadow-sm"
                   style={{ width: `${subscriptionSummary.subscriptionPercentage}%` }}
                 ></div>
               </div>
               <div className="mt-2 text-xs text-gray-600">
-                <span className="text-blue-600 font-medium">
+                <span className="text-teal-600 font-medium">
                   {subscriptionSummary.subscribedModules} of {subscriptionSummary.totalModules} modules
                 </span>
               </div>
@@ -3226,9 +3227,9 @@ const ClinicDashboard: NextPageWithLayout = () => {
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <Activity className="w-5 h-5 text-gray-600" />
-                <span className="text-sm font-semibold text-gray-900">Module Summary</span>
+                <span className="text-sm font-semibold text-teal-800">Module Summary</span>
               </div>
-              <span className="text-lg font-bold text-gray-900">{subscriptionSummary.totalModules} Total</span>
+              <span className="text-lg font-bold text-teal-800">{subscriptionSummary.totalModules} Total</span>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="text-center p-3 bg-green-50 rounded-lg border border-green-100">
@@ -3239,12 +3240,12 @@ const ClinicDashboard: NextPageWithLayout = () => {
                 <div className="text-2xl font-bold text-gray-700">{subscriptionSummary.restrictedCount}</div>
                 <div className="text-xs text-gray-600 mt-1">Locked</div>
               </div>
-              <div className="text-center p-3 bg-blue-50 rounded-lg border border-blue-100">
-                <div className="text-2xl font-bold text-blue-700">{subscriptionSummary.subscriptionPercentage}%</div>
+              <div className="text-center p-3 bg-teal-50 rounded-lg border border-teal-100">
+                <div className="text-2xl font-bold text-teal-700">{subscriptionSummary.subscriptionPercentage}%</div>
                 <div className="text-xs text-gray-600 mt-1">Coverage</div>
               </div>
-              <div className="text-center p-3 bg-purple-50 rounded-lg border border-purple-100">
-                <div className="text-2xl font-bold text-purple-700">{subscriptionSummary.totalModules}</div>
+              <div className="text-center p-3 bg-teal-50 rounded-lg border border-teal-100">
+                <div className="text-2xl font-bold text-teal-700">{subscriptionSummary.totalModules}</div>
                 <div className="text-xs text-gray-600 mt-1">Total</div>
               </div>
             </div>
@@ -3299,8 +3300,8 @@ const ClinicDashboard: NextPageWithLayout = () => {
                               {activeStatsSectionId && sortedStatsSections.find(s => s.id === activeStatsSectionId) ? (
                                 <div className="bg-white rounded-lg border-2 border-teal-500 shadow-xl p-4 opacity-90">
                                   <div className="flex items-center gap-2">
-                                    <GripVertical className="w-4 h-4 text-teal-500" />
-                                    <span className="text-sm font-semibold text-gray-700">
+                                    <GripVertical className="w-3 h-3 text-teal-500" />
+                                    <span className="text-sm font-semibold text-teal-800">
                                       {sortedStatsSections.find(s => s.id === activeStatsSectionId)?.title || 'Section'}
                                     </span>
                                   </div>
@@ -3330,9 +3331,9 @@ const ClinicDashboard: NextPageWithLayout = () => {
                     const widget = widgets.find(w => w.id === activeId);
                     if (widget) {
                       return (
-                        <div className="bg-white rounded-lg border-2 border-blue-500 shadow-2xl p-4 opacity-95 min-w-[200px]">
+                        <div className="bg-white rounded-lg border-2 border-teal-500 shadow-2xl p-4 opacity-95 min-w-[200px]">
                           <div className="flex items-center gap-2">
-                            <GripVertical className="w-5 h-5 text-blue-500" />
+                            <GripVertical className="w-3 h-3 text-teal-500" />
                             <div className="flex flex-col">
                               <span className="text-sm font-semibold text-gray-700">{widget.title}</span>
                               <span className="text-xs text-gray-500">Section</span>
@@ -3349,9 +3350,9 @@ const ClinicDashboard: NextPageWithLayout = () => {
                     const draggedCard = allCards.find(c => c.id === activeCardId);
                     if (draggedCard) {
                       return (
-                        <div className="bg-white rounded-lg border-2 border-purple-500 shadow-xl p-4 opacity-90 min-w-[200px]">
+                        <div className="bg-white rounded-lg border-2 border-teal-500 shadow-xl p-4 opacity-90 min-w-[200px]">
                 <div className="flex items-center gap-2">
-                            <GripVertical className="w-5 h-5 text-purple-500" />
+                            <GripVertical className="w-3 h-3 text-teal-500" />
                             <div className="flex flex-col">
                               <span className="text-sm font-semibold text-gray-700">{draggedCard.label}</span>
                               <span className="text-xs text-gray-500">{draggedCard.value}</span>
@@ -3368,7 +3369,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
                       return (
                         <div className="bg-white rounded-lg border-2 border-orange-500 shadow-xl p-4 opacity-90 min-w-[200px]">
                           <div className="flex items-center gap-2">
-                            <GripVertical className="w-5 h-5 text-orange-500" />
+                            <GripVertical className="w-3 h-3 text-orange-500" />
                             <span className="text-sm font-semibold text-gray-700">{draggedChart.title}</span>
                           </div>
                         </div>
@@ -3381,8 +3382,8 @@ const ClinicDashboard: NextPageWithLayout = () => {
                       return (
                         <div className="bg-white rounded-lg border-2 border-indigo-500 shadow-xl p-4 opacity-90 min-w-[200px]">
                           <div className="flex items-center gap-2">
-                            <GripVertical className="w-5 h-5 text-indigo-500" />
-                            <span className="text-sm font-semibold text-gray-700">{draggedPackage.title}</span>
+                            <GripVertical className="w-3 h-3 text-indigo-500" />
+                            <span className="text-sm font-semibold text-teal-800">{draggedPackage.title}</span>
                           </div>
                         </div>
                       );

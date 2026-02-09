@@ -48,8 +48,7 @@ const AppointmentSchema = new mongoose.Schema(
     },
     referral: {
       type: String,
-      enum: ["direct", "referral"],
-      default: "direct",
+      default: "No",
     },
     emergency: {
       type: String,

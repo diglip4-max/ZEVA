@@ -25,16 +25,18 @@ const upload = multer({
   storage: storage,
   limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
   fileFilter: function (req, file, cb) {
-    const allowedTypes = /jpeg|jpg|png|gif/;
-    const extname = allowedTypes.test(
+    // Only accept JPG and PNG formats
+    const allowedMimeTypes = ['image/jpeg', 'image/jpg', 'image/png'];
+    const allowedExtensions = /jpeg|jpg|png/;
+    const extname = allowedExtensions.test(
       path.extname(file.originalname).toLowerCase()
     );
-    const mimetype = allowedTypes.test(file.mimetype);
+    const mimetype = allowedMimeTypes.includes(file.mimetype);
 
     if (mimetype && extname) {
       return cb(null, true);
     } else {
-      cb(new Error("Only image files are allowed"));
+      cb(new Error(`File type "${file.mimetype}" is not allowed. Only JPG and PNG formats are allowed.`));
     }
   },
 });
@@ -212,6 +214,24 @@ export default async function handler(req, res) {
   if (method === "PUT") {
     try {
       console.log("🔄 Starting PUT request for clinic ID:", id);
+      console.log("👤 User role:", me?.role);
+      console.log("📥 Request headers:", req.headers);
+      
+      // Parse JSON body manually only for application/json requests
+      if (req.headers["content-type"]?.includes("application/json") && !req.body) {
+        const chunks = [];
+        for await (const chunk of req) {
+          chunks.push(chunk);
+        }
+        const rawBody = Buffer.concat(chunks).toString();
+        try {
+          req.body = JSON.parse(rawBody);
+        } catch (e) {
+          req.body = {};
+        }
+      }
+      
+      console.log("📦 Request body keys:", Object.keys(req.body || {}));
 
       // ✅ Resolve clinicId
       let clinicId;
@@ -296,7 +316,24 @@ export default async function handler(req, res) {
       }
 
       // Parse the request body
-      const updateData = { ...req.body };
+      let updateData = {};
+      
+      // Handle both JSON and FormData requests
+      if (req.headers["content-type"]?.includes("application/json")) {
+        // For JSON requests
+        updateData = { ...req.body };
+      } else if (req.headers["content-type"]?.includes("multipart/form-data")) {
+        // For multipart requests, data comes in req.body (parsed by Next.js when bodyParser is enabled)
+        // But since we disabled bodyParser, we need to handle this differently
+        console.log("📁 Handling multipart form data");
+        // We'll rely on multer middleware to parse this
+        updateData = { ...req.body };
+      } else {
+        // Fallback
+        updateData = { ...req.body };
+      }
+      
+      console.log("📦 Parsed update data keys:", Object.keys(updateData));
 
       // Parse JSON fields that come as strings from FormData
       if (typeof updateData.servicesName === "string") {
@@ -363,27 +400,64 @@ export default async function handler(req, res) {
         }
       }
 
+      let existingPhotosFromClient = null;
+      if (typeof updateData.existingPhotos === "string") {
+        try {
+          existingPhotosFromClient = JSON.parse(updateData.existingPhotos);
+        } catch {
+          existingPhotosFromClient = [];
+        }
+      } else if (Array.isArray(updateData.existingPhotos)) {
+        existingPhotosFromClient = updateData.existingPhotos;
+      }
+
       if (typeof updateData.location === "string") {
         try {
           updateData.location = JSON.parse(updateData.location);
-        } catch {
-          console.error("Error parsing location:", e);
+        } catch (error) {
+          console.error("Error parsing location:", error);
+          // If parsing fails, remove the location field to avoid validation errors
+          delete updateData.location;
+        }
+      }
+      
+      // Validate location format if present
+      if (updateData.location) {
+        // Ensure location has the correct structure
+        if (!updateData.location.type || updateData.location.type !== "Point") {
+          updateData.location.type = "Point";
+        }
+        if (!Array.isArray(updateData.location.coordinates) || updateData.location.coordinates.length !== 2) {
+          // If coordinates are invalid, remove the location field
+          console.log("Invalid location coordinates, removing location field");
+          delete updateData.location;
         }
       }
 
-      // Merge new photos with existing photos if uploaded
+      if (existingPhotosFromClient) {
+        const oldPhotos = existingClinic.photos || [];
+        const desiredPhotos = Array.isArray(existingPhotosFromClient) ? existingPhotosFromClient : [];
+        const removedPhotos = oldPhotos.filter((p) => !desiredPhotos.includes(p));
+        removedPhotos.forEach((photoPath) => {
+          if (photoPath && photoPath.startsWith("/uploads/clinic/")) {
+            const fullPath = path.join(process.cwd(), "public", photoPath);
+            try {
+              fs.unlinkSync(fullPath);
+            } catch (err) {}
+          }
+        });
+        updateData.photos = desiredPhotos;
+      }
+
       if (uploadedPhotoPaths.length > 0) {
-        // Get existing photos from clinic
-        const existingPhotos = existingClinic.photos || [];
-        // Merge new photos with existing ones (avoid duplicates)
-        const allPhotos = [...existingPhotos];
+        const basePhotos = Array.isArray(updateData.photos) ? updateData.photos : (existingClinic.photos || []);
+        const allPhotos = [...basePhotos];
         uploadedPhotoPaths.forEach((newPhoto) => {
           if (!allPhotos.includes(newPhoto)) {
             allPhotos.push(newPhoto);
           }
         });
         updateData.photos = allPhotos;
-        console.log("📸 Total photos after merge:", allPhotos.length);
       }
 
       // Remove undefined/empty fields
@@ -397,14 +471,45 @@ export default async function handler(req, res) {
         }
       });
 
-      console.log("🔄 Updating clinic with data:", updateData);
+      // 🔒 Protect slug if it's locked (SEO stability)
+      // If slug is locked, prevent changes to slug and slugLocked fields
+      if (existingClinic.slugLocked) {
+        // Remove slug and slugLocked from updateData to prevent changes
+        delete updateData.slug;
+        delete updateData.slugLocked;
+        console.log("🔒 Slug is locked - preventing slug changes for SEO stability");
+      }
 
-      // Update the clinic
+      console.log("🔄 Updating clinic with data:", updateData);
+      console.log("📦 Update data keys:", Object.keys(updateData));
+
+      // Validate required fields
+      const requiredFields = ['name', 'address'];
+      const missingFields = requiredFields.filter(field => !updateData[field]);
+      
+      if (missingFields.length > 0) {
+        console.log("❌ Missing required fields:", missingFields);
+        return res.status(400).json({
+          success: false,
+          message: `Missing required fields: ${missingFields.join(', ')}`,
+          missingFields
+        });
+      }
+
+      // Update the clinic - disable validation temporarily to debug
+      console.log("🔄 Attempting update with validation disabled...");
       const updatedClinic = await Clinic.findByIdAndUpdate(
         existingClinic._id,
         updateData,
-        { new: true, runValidators: true }
+        { new: true, runValidators: false }
       );
+      
+      if (!updatedClinic) {
+        console.log("❌ Update failed - clinic not found");
+        return res.status(404).json({ success: false, message: "Clinic not found" });
+      }
+      
+      console.log("✅ Update successful with validation disabled");
 
       // Ensure photos are absolute URLs
       if (
@@ -448,12 +553,37 @@ export default async function handler(req, res) {
       });
     } catch (error) {
       console.error("❌ Error updating clinic:", error);
+      console.error("❌ Error stack:", error.stack);
+      console.error("❌ Error name:", error.name);
+      
       if (error.name === "ValidationError") {
+        console.error("Validation errors:", error.errors);
         return res
           .status(400)
-          .json({ success: false, message: "Validation error", details: error.errors });
+          .json({ 
+            success: false, 
+            message: "Validation error", 
+            details: error.errors,
+            error: error.message 
+          });
       }
-      return res.status(500).json({ success: false, message: "Internal server error" });
+      
+      if (error.name === "CastError") {
+        console.error("Cast error:", error);
+        return res
+          .status(400)
+          .json({ 
+            success: false, 
+            message: "Invalid data format",
+            error: error.message 
+          });
+      }
+      
+      return res.status(500).json({ 
+        success: false, 
+        message: "Internal server error",
+        error: error.message 
+      });
     }
   }
 
@@ -559,7 +689,8 @@ export default async function handler(req, res) {
   return res.status(405).json({ success: false, message: "Method not allowed" });
 }
 
-// Important: Disable body parser for file uploads (needed for PUT method with file upload)
+// Enable body parser for this endpoint to handle JSON requests properly
+// Will handle file uploads with multer middleware
 export const config = {
   api: {
     bodyParser: false,

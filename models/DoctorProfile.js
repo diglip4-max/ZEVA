@@ -29,6 +29,13 @@ const DoctorProfileSchema = new mongoose.Schema(
     clinicContact: { type: String, required: false },
     timeSlots: [TimeSlotSchema],
     resumeUrl: { type: String, required: true },
+    slug: { 
+      type: String, 
+      unique: true, 
+      sparse: true, // Only unique when exists
+      index: true 
+    },
+    slugLocked: { type: Boolean, default: false }, // Lock slug once approved
   },
 
   { timestamps: true }

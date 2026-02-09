@@ -35,12 +35,32 @@ export default async function handler(req, res) {
     }
     // Admin users bypass permission checks
 
+    // Pagination parameters
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 6;
+    const skip = (page - 1) * limit;
+
+    // Fetch total count
+    const totalBlogs = await Blog.countDocuments({ status: "published" });
+
+    // Fetch paginated blogs
     const blogs = await Blog.find({ status: "published" }) // ✅ Only published
       .populate("postedBy", "name email role")
       .populate("comments.user", "name email")
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
 
-    return res.status(200).json({ success: true, blogs });
+    return res.status(200).json({ 
+      success: true, 
+      blogs,
+      pagination: {
+        currentPage: page,
+        totalPages: Math.ceil(totalBlogs / limit),
+        totalBlogs,
+        limit
+      }
+    });
   } catch (error) {
     console.error("Error fetching blogs:", error);
     return res.status(401).json({ message: "Invalid token" });

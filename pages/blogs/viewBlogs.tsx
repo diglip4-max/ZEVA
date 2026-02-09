@@ -20,6 +20,8 @@ type Blog = {
   likesCount?: number;
   commentsCount?: number;
   liked?: boolean;
+  paramlink?: string;
+  slugLocked?: boolean;
 };
 
 export default function BlogList() {
@@ -273,7 +275,15 @@ export default function BlogList() {
 
   // Helper: create SEO-friendly slug from blog title with full ID
   // Format: blog-title-abc12345def67890 (title slug + full 24-char ID)
-  const createBlogSlug = (blogTitle: string, blogId: string): string => {
+  const createBlogSlug = (blog: Blog): string => {
+    // Use database paramlink if available and locked, otherwise generate from title
+    if (blog.paramlink && blog.slugLocked) {
+      return blog.paramlink;
+    }
+    
+    // Fallback: generate slug from title and ID
+    const blogTitle = blog.title || '';
+    const blogId = blog._id || '';
     if (!blogTitle) return blogId; // Fallback to ID if no title
     
     const titleSlug = blogTitle
@@ -396,7 +406,7 @@ return (
         {/* Main Content Area */}
         <div className="flex-1">
           {/* Compact Heading */}
-          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-center mb-3 sm:mb-4 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
+          <h1 className="text-xl mt-5 sm:text-2xl md:text-3xl font-bold text-center mb-3 sm:mb-4 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
             {searchTerm ? `Search Results` : sortBy === "popular" ? "Popular Articles" : "Latest Articles"}
           </h1>
 
@@ -636,7 +646,7 @@ return (
                                 onClick={(e) => {
                                   e.preventDefault();
                                   e.stopPropagation();
-                                  router.push(`/blogs/${createBlogSlug(blog.title, blog._id)}`);
+                                  router.push(`/blogs/${createBlogSlug(blog)}`);
                                 }}
                                 className="flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-gray-100 text-gray-600 hover:bg-blue-50 hover:text-blue-600 transition-all"
                               >
@@ -648,7 +658,7 @@ return (
                               </button>
                             </div>
 
-                            <Link href={`/blogs/${createBlogSlug(blog.title, blog._id)}`}>
+                            <Link href={`/blogs/${createBlogSlug(blog)}`}>
                               <button className="inline-flex items-center gap-1 px-3 py-1 bg-indigo-600 text-white font-medium rounded-md hover:bg-indigo-700 transition-all text-xs cursor-pointer">
                                 Read
                                 <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -758,7 +768,7 @@ return (
         {/* Compact Right Sidebar */}
         <div className="lg:w-72 space-y-4">
           {/* Trending Now Section */}
-          <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+          <div className="bg-white mt-4 border border-gray-200 rounded-lg p-4 shadow-sm">
             <div className="flex items-center gap-2 mb-4">
               <svg className="w-4 h-4 text-red-500" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M12.395 2.553a1 1 0 00-1.45-.385c-.345.23-.614.558-.822.88-.214.33-.403.713-.57 1.116-.334.804-.614 1.768-.84 2.734a31.365 31.365 0 00-.613 3.58 2.64 2.64 0 01-.945-1.067c-.328-.68-.398-1.534-.398-2.654A1 1 0 005.05 6.05 6.981 6.981 0 003 11a7 7 0 1011.95-4.95c-.592-.591-.98-.985-1.348-1.467-.363-.476-.724-1.063-1.207-2.03zM12.12 15.12A3 3 0 017 13s.879.5 2.5.5c0-1 .5-4 1.25-4.5.5 1 .786 1.293 1.371 1.879A2.99 2.99 0 0113 13a2.99 2.99 0 01-.879 2.121z" clipRule="evenodd" />
@@ -777,7 +787,7 @@ return (
                     !trendingBlog.image.includes('video') ? trendingBlog.image : null);
 
                 return (
-                  <Link key={trendingBlog._id} href={`/blogs/${createBlogSlug(trendingBlog.title, trendingBlog._id)}`}>
+                  <Link key={trendingBlog._id} href={`/blogs/${createBlogSlug(trendingBlog)}`}>
                     <div className="flex gap-3 group cursor-pointer">
                       <div className="w-16 h-16 flex-shrink-0 bg-gray-100 rounded-md overflow-hidden">
                         {trendingImage ? (

@@ -8,6 +8,7 @@ import CalculatorGames from "../../components/CalculatorGames";
 import { useAuth } from "../../context/AuthContext";
 import AuthModal from "../../components/AuthModal";
 import toast, { Toaster } from "react-hot-toast";
+import { normalizeImagePath } from "../../lib/utils";
 
 interface DoctorProfile {
   _id: string;
@@ -43,8 +44,6 @@ export default function DoctorDetail() {
   const router = useRouter();
   // 'id' from path will be the slug (doctor name)
   const slug = router.query.id as string | undefined;
-  // Get the actual doctor ID from query parameter (passed as ?d=... in URL to avoid conflict)
-  const doctorId = router.query.d as string | undefined;
   const [profile, setProfile] = useState<DoctorProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -68,31 +67,54 @@ export default function DoctorDetail() {
   });
   const [prescriptionLoading, setPrescriptionLoading] = useState(false);
   useEffect(() => {
-    if (!router.isReady) return;
+    if (!router.isReady || !slug) return;
     
-    // Get doctor ID from query parameter (passed as ?d=... in URL)
-    // If no query param, check if the path param is actually an ObjectId (24 hex chars) for backward compatibility
-    const isObjectId = slug && /^[0-9a-fA-F]{24}$/.test(slug);
-    // Use query param 'd' if available, otherwise use slug if it's an ObjectId (backward compatibility)
-    const idToUse = doctorId || (isObjectId ? slug : null);
-    
-    if (!idToUse) return;
     const fetchProfile = async () => {
       try {
         setLoading(true);
         setError(null);
-        const res = await axios.get<{ profile: DoctorProfile }>(
-          `/api/doctor/profile/${idToUse}`
-        );
+        
+        // Check if slug is an ObjectId (for backward compatibility)
+        const isObjectId = /^[0-9a-fA-F]{24}$/.test(slug);
+        
+        let res;
+        if (isObjectId) {
+          // Old ObjectId-based URL - fetch by ObjectId first
+          try {
+            res = await axios.get(`/api/doctor/profile/${slug}`);
+            const profile = res.data?.profile;
+            
+            // If doctor has a slug, redirect to slug-based URL
+            if (profile?.slug && profile?.slugLocked) {
+              router.replace(`/doctor/${profile.slug}`, undefined, { shallow: false });
+              return;
+            }
+          } catch (err: any) {
+            // If fetch fails, try redirect API
+            try {
+              // Redirect API will handle slug generation if needed
+              window.location.href = `/api/doctors/redirect/${slug}`;
+              return;
+            } catch (redirectErr) {
+              throw err;
+            }
+          }
+        } else {
+          // New slug-based URL - fetch by slug
+          res = await axios.get(`/api/doctors/by-slug/${slug}`);
+        }
+        
         setProfile(res.data?.profile ?? null);
-      } catch {
-        setError("Failed to load doctor");
+      } catch (err: any) {
+        console.error("Error fetching doctor:", err);
+        setError(err.response?.data?.message || "Failed to load doctor");
       } finally {
         setLoading(false);
       }
     };
+    
     fetchProfile();
-  }, [slug, doctorId, router.isReady]);
+  }, [slug, router.isReady, router]);
 
   useEffect(() => {
     if (!profile?._id) return;
@@ -333,7 +355,7 @@ export default function DoctorDetail() {
               {profile.photos?.[0] ? (
                 <div className="w-32 h-32 sm:w-40 sm:h-40 rounded-full border-4 border-white shadow-lg overflow-hidden bg-white">
                   <img
-                    src={profile.photos[0]}
+                    src={normalizeImagePath(profile.photos[0])}
                     alt={profile.user?.name}
                     className="w-full h-full object-cover"
                   />

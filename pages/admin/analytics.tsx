@@ -1,11 +1,10 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/router';
 import AdminLayout from '../../components/AdminLayout';
 import withAdminAuth from '../../components/withAdminAuth';
 import { useAgentPermissions } from '../../hooks/useAgentPermissions';
 import {
   UserGroupIcon,
-  MagnifyingGlassIcon,
   ArrowDownTrayIcon,
   FunnelIcon,
   ChevronLeftIcon,
@@ -18,22 +17,8 @@ import {
   InformationCircleIcon,
   ExclamationTriangleIcon,
   XMarkIcon,
-  ChartBarSquareIcon,
-  ChartPieIcon,
 } from '@heroicons/react/24/outline';
 import type { NextPageWithLayout } from '../_app';
-import {
-  BarChart,
-  Bar,
-  PieChart,
-  Pie,
-  Cell,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from 'recharts';
 
 type User = {
   _id: string;
@@ -94,7 +79,7 @@ const Toast = ({ toast, onClose }: { toast: Toast; onClose: () => void }) => {
 
 // Toast Container
 const ToastContainer = ({ toasts, removeToast }: { toasts: Toast[]; removeToast: (id: string) => void }) => (
-  <div className="fixed top-4 right-4 z-50 space-y-2">
+  <div className="fixed top-4 right-4 z-[99999] space-y-2" style={{ zIndex: 99999 }}>
     {toasts.map((toast) => (
       <Toast key={toast.id} toast={toast} onClose={() => removeToast(toast.id)} />
     ))}
@@ -106,13 +91,14 @@ function UserProfile() {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const [usersPerPage] = useState(20);
+  const [usersPerPage] = useState(9);
   const [sortField, setSortField] = useState<SortableField>('name');
   const [sortDirection, setSortDirection] = useState('asc');
   const [loading, setLoading] = useState(true);
   const [selectedRole, setSelectedRole] = useState<string>('all');
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalUsers, setTotalUsers] = useState(0);
 
   // Toast helper functions
   const showToast = useCallback((message: string, type: Toast['type'] = 'info') => {
@@ -162,7 +148,7 @@ function UserProfile() {
         const agentToken = typeof window !== 'undefined' ? localStorage.getItem('agentToken') : null;
         const token = adminToken || agentToken;
 
-        const res = await fetch('/api/admin/analytics', {
+        const res = await fetch(`/api/admin/analytics?page=${currentPage}&limit=${usersPerPage}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
 
@@ -180,9 +166,29 @@ function UserProfile() {
         const data = await res.json();
         const usersData = data.users || [];
         setUsers(usersData);
-        setFilteredUsers(usersData);
-        if (usersData.length > 0) {
-          showToast(`Loaded ${usersData.length} user(s)`, 'success');
+        
+        // Apply current sort to the fetched data
+        const sortedData = [...usersData].sort((a, b) => {
+          if (sortField === 'name') {
+            return sortDirection === 'asc' 
+              ? a.name.localeCompare(b.name)
+              : b.name.localeCompare(a.name);
+          } else if (sortField === 'email') {
+            return sortDirection === 'asc'
+              ? a.email.localeCompare(b.email)
+              : b.email.localeCompare(a.email);
+          } else if (sortField === 'phone') {
+            return sortDirection === 'asc'
+              ? a.phone.localeCompare(b.phone)
+              : b.phone.localeCompare(a.phone);
+          }
+          return 0;
+        });
+        setFilteredUsers(sortedData);
+        
+        if (data.pagination) {
+          setTotalPages(data.pagination.totalPages);
+          setTotalUsers(data.pagination.totalUsers);
         }
       } catch (error: any) {
         console.error('Failed to fetch users:', error);
@@ -205,25 +211,7 @@ function UserProfile() {
     } else {
       setLoading(false);
     }
-  }, [isAdmin, isAgent, permissionsLoading, agentPermissions, showToast]);
-
-  // Filter users based on search term
-  useEffect(() => {
-    if (!searchTerm) {
-      setFilteredUsers(users);
-    } else {
-      const filtered = users.filter(user =>
-        user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        user.phone.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-      setFilteredUsers(filtered);
-      if (filtered.length === 0) {
-        showToast('No users found matching your search', 'info');
-      }
-    }
-    setCurrentPage(1);
-  }, [searchTerm, users, showToast]);
+  }, [isAdmin, isAgent, permissionsLoading, agentPermissions, currentPage, usersPerPage, sortField, sortDirection, showToast]);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -246,16 +234,16 @@ function UserProfile() {
     showToast(`Sorted by ${field} (${direction})`, 'info');
   };
 
-  const roleFilteredUsers =
-    selectedRole === 'all'
-      ? filteredUsers
-      : filteredUsers.filter((user) => user.role === selectedRole);
+  // Filter by role - fix "all" filter to show all users from current page
+  const roleFilteredUsers = useMemo(() => {
+    if (selectedRole === 'all') {
+      return filteredUsers; // Show all users from current page when "all" is selected
+    }
+    return filteredUsers.filter((user: User) => user.role === selectedRole);
+  }, [filteredUsers, selectedRole]);
 
-  // Pagination
-  const indexOfLastUser = currentPage * usersPerPage;
-  const indexOfFirstUser = indexOfLastUser - usersPerPage;
-  const currentUsers: User[] = roleFilteredUsers.slice(indexOfFirstUser, indexOfLastUser);
-  const totalPages = Math.ceil(roleFilteredUsers.length / usersPerPage);
+  // Pagination - use backend pagination, no client-side slicing needed
+  const currentUsers: User[] = roleFilteredUsers;
 
   // Download CSV
   const downloadCSV = () => {
@@ -390,90 +378,14 @@ function UserProfile() {
       meta: 'Members per category',
     },
   ];
-  const roleDistribution = uniqueRoles
-    .map((role) => ({
-      role,
-      count: roleCounts[role],
-      percentage: Math.round((roleCounts[role] / users.length) * 100),
-    }))
-    .sort((a, b) => b.count - a.count);
 
-  const allowedGenders = ['male', 'female', 'other'];
-  const genderCounts = users.reduce((acc, user) => {
-    const normalized = user.gender
-      ? user.gender.toLowerCase().trim()
-      : 'unspecified';
-    const bucket = allowedGenders.includes(normalized)
-      ? normalized
-      : 'unspecified';
-    acc[bucket] = (acc[bucket] || 0) + 1;
-    return acc;
-  }, {} as Record<string, number>);
-  const genderDistribution = Object.entries(genderCounts).map(
-    ([gender, count]) => ({
-      gender,
-      count,
-      percentage: users.length
-        ? Math.round((count / users.length) * 100)
-        : 0,
-    })
-  );
-
-  // Age distribution
-  const ageGroups = {
-    '0-17': 0,
-    '18-25': 0,
-    '26-35': 0,
-    '36-45': 0,
-    '46-55': 0,
-    '56-65': 0,
-    '66+': 0,
-    'unspecified': 0
-  };
-
-  users.forEach((user) => {
-    const age = user.age;
-    if (!age || age < 0) {
-      ageGroups['unspecified']++;
-    } else if (age <= 17) {
-      ageGroups['0-17']++;
-    } else if (age <= 25) {
-      ageGroups['18-25']++;
-    } else if (age <= 35) {
-      ageGroups['26-35']++;
-    } else if (age <= 45) {
-      ageGroups['36-45']++;
-    } else if (age <= 55) {
-      ageGroups['46-55']++;
-    } else if (age <= 65) {
-      ageGroups['56-65']++;
-    } else {
-      ageGroups['66+']++;
-    }
-  });
-
-  const ageDistribution = Object.entries(ageGroups)
-    .filter(([_, count]) => count > 0)
-    .map(([ageGroup, count]) => ({
-      ageGroup,
-      count,
-      percentage: users.length
-        ? Math.round((count / users.length) * 100)
-        : 0,
-    }))
-    .sort((a, b) => {
-      // Sort by age group order
-      const order = ['0-17', '18-25', '26-35', '36-45', '46-55', '56-65', '66+', 'unspecified'];
-      return order.indexOf(a.ageGroup) - order.indexOf(b.ageGroup);
-    });
-
-  // Quick stats for current view (fills empty space beside filters)
+  // Quick stats for current view
   const usersInView = roleFilteredUsers.length;
   const usersWithAgeInView = roleFilteredUsers.filter(
-    (user) => typeof user.age === 'number' && !Number.isNaN(user.age)
+    (user: User) => typeof user.age === 'number' && !Number.isNaN(user.age)
   );
   const averageAgeInView = usersWithAgeInView.length
-    ? (usersWithAgeInView.reduce((sum, user) => sum + (user.age || 0), 0) / usersWithAgeInView.length).toFixed(1)
+    ? (usersWithAgeInView.reduce((sum: number, user: User) => sum + (user.age || 0), 0) / usersWithAgeInView.length).toFixed(1)
     : null;
   const ageCoveragePercent = usersInView
     ? Math.round((usersWithAgeInView.length / usersInView) * 100)
@@ -492,7 +404,7 @@ return (
     <ToastContainer toasts={toasts} removeToast={removeToast} />
 
     <div className="mx-auto max-w-7xl space-y-3">
-      <section className="rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4 sm:p-5 text-white shadow-xl">
+      <section className="rounded-2xl border border-slate-200 bg-gradient-to-br from-blue-600 via-slate-600 to-blue-600 p-4 sm:p-5 text-white shadow-xl">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="space-y-1.5">
             <p className="text-[10px] uppercase tracking-wide text-slate-300">
@@ -506,11 +418,11 @@ return (
             </p>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            <div className="rounded-xl border border-white/30 bg-white/10 px-4 py-2.5 text-center">
-              <p className="text-[10px] uppercase tracking-wide text-slate-200">
+            <div className="rounded-xl border border-white/30 bg-white/10 px-2 py-1.5 text-center">
+              <p className="text-[8px] uppercase tracking-wide text-slate-200">
                 Active profiles
               </p>
-              <p className="text-2xl font-semibold">{roleFilteredUsers.length}</p>
+              <p className="text-sm font-normal">{roleFilteredUsers.length}</p>
             </div>
             {canExport && (
               <button
@@ -525,16 +437,16 @@ return (
         </div>
       </section>
 
-      <section className="grid gap-2.5 grid-cols-2 md:grid-cols-4">
+      <section className="grid gap-2.5 text-blue-800 grid-cols-2 md:grid-cols-4">
         {summaryStats.map((stat) => (
           <div
             key={stat.label}
-            className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm"
+            className="rounded-xl border border-slate-200  bg-white p-3 shadow-sm"
           >
-            <p className="text-[10px] font-medium uppercase tracking-wide text-slate-500">
+            <p className="text-[10px] font-medium uppercase tracking-wide text-blue-500">
               {stat.label}
             </p>
-            <p className="mt-1.5 text-2xl font-semibold text-slate-900">
+            <p className="mt-1.5 text-2xl font-semibold text-blue-800">
               {stat.value}
             </p>
             <p className="text-[10px] text-slate-500 mt-0.5">{stat.meta}</p>
@@ -542,296 +454,78 @@ return (
         ))}
       </section>
 
-      <section className="grid gap-2.5 lg:grid-cols-5">
-        <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm lg:col-span-3">
-          <div className="flex flex-col gap-2.5">
-            <div className="relative">
-              <MagnifyingGlassIcon className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
-              <input
-                type="text"
-                placeholder="Search by name, email, or phone…"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full rounded-lg border border-slate-200 bg-slate-50 py-2 pl-9 pr-3 text-xs text-slate-900 placeholder:text-slate-400 focus:border-slate-400 focus:bg-white focus:outline-none focus:ring-1 focus:ring-slate-900/10"
-              />
-            </div>
+      <section className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+        <div className="flex flex-col gap-2.5">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-blue-500">
+              Filter:
+            </span>
+            {['all', ...uniqueRoles].map((role) => {
+              const chipCount = role === 'all'
+                ? totalUsers
+                : roleCounts[role] || 0;
+              return (
+                <button
+                  key={role}
+                  onClick={() => setSelectedRole(role)}
+                  className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold transition ${
+                    selectedRole === role
+                      ? 'border-slate-900 bg-blue-900 text-white shadow-sm'
+                      : 'border-slate-200 bg-white text-blue-600 hover:border-blue-300'
+                  }`}
+                >
+                  {role === 'all' ? 'All' : role}{' '}
+                  <span className="text-[9px] opacity-80">({chipCount})</span>
+                </button>
+              );
+            })}
+          </div>
 
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-                Filter:
-              </span>
-              {['all', ...uniqueRoles].map((role) => {
-                const chipCount = role === 'all'
-                  ? filteredUsers.length
-                  : roleCounts[role] || 0;
-                return (
-                  <button
-                    key={role}
-                    onClick={() => setSelectedRole(role)}
-                    className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold transition ${
-                      selectedRole === role
-                        ? 'border-slate-900 bg-slate-900 text-white shadow-sm'
-                        : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
-                    }`}
-                  >
-                    {role === 'all' ? 'All' : role}{' '}
-                    <span className="text-[9px] opacity-80">({chipCount})</span>
-                  </button>
-                );
-              })}
+          <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex items-center gap-1.5 text-[10px] text-slate-500">
+              <FunnelIcon className="h-3.5 w-3.5 text-blue-400" />
+              Sort by:
             </div>
-
-            <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
-              <div className="flex items-center gap-1.5 text-[10px] text-slate-500">
-                <FunnelIcon className="h-3.5 w-3.5 text-slate-400" />
-                Sort by:
-              </div>
-              <select
+            <select
               value={sortField}
               onChange={(e) => sortUsers(e.target.value as SortableField)}
-                className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-900 focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-900/10 lg:w-40"
-              >
-                <option value="name">Name (A-Z)</option>
-                <option value="email">Email</option>
-                <option value="phone">Phone</option>
-              </select>
-            </div>
-
-            {usersInView > 0 && (
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-slate-100">
-                <div className="rounded-lg border border-slate-100 bg-slate-50 px-2.5 py-1.5">
-                  <p className="text-[9px] uppercase tracking-wide text-slate-500">In view</p>
-                  <p className="text-base font-semibold text-slate-900">{usersInView}</p>
-                </div>
-                <div className="rounded-lg border border-slate-100 bg-slate-50 px-2.5 py-1.5">
-                  <p className="text-[9px] uppercase tracking-wide text-slate-500">Avg age</p>
-                  <p className="text-base font-semibold text-slate-900">
-                    {averageAgeInView ? `${averageAgeInView}` : 'N/A'}
-                  </p>
-                </div>
-                <div className="rounded-lg border border-slate-100 bg-slate-50 px-2.5 py-1.5">
-                  <p className="text-[9px] uppercase tracking-wide text-slate-500">Age coverage</p>
-                  <p className="text-base font-semibold text-slate-900">{ageCoveragePercent}%</p>
-                </div>
-                <div className="rounded-lg border border-slate-100 bg-slate-50 px-2.5 py-1.5">
-                  <p className="text-[9px] uppercase tracking-wide text-slate-500">Latest user</p>
-                  <p className="text-[11px] font-semibold text-slate-900 truncate">
-                    {latestUser?.name || '—'}
-                  </p>
-                  {latestUser?.createdAt && (
-                    <p className="text-[9px] text-slate-500">
-                      {new Date(latestUser.createdAt).toLocaleDateString()}
-                    </p>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-        <div className="lg:col-span-2 grid grid-cols-1 gap-2.5">
-          {/* Role Distribution - Compact */}
-          <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
-            <div className="flex items-center gap-2 mb-2">
-              <ChartBarSquareIcon className="h-4 w-4 text-slate-600" />
-              <p className="text-xs font-semibold text-slate-700">Role Distribution</p>
-            </div>
-            <div className="space-y-1.5">
-              {roleDistribution.length === 0 ? (
-                <p className="text-xs text-slate-500">No roles available.</p>
-              ) : (
-                roleDistribution.map((role) => (
-                  <div key={role.role}>
-                    <div className="flex items-center justify-between text-[10px] text-slate-500 mb-0.5">
-                      <span className="font-medium text-slate-700 text-xs">{role.role}</span>
-                      <span>{role.count} ({role.percentage || 0}%)</span>
-                    </div>
-                    <div className="h-1.5 rounded-full bg-slate-100">
-                      <div
-                        className="h-full rounded-full bg-slate-900"
-                        style={{ width: `${role.percentage || 0}%` }}
-                      />
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
+              className="w-full rounded-lg border border-blue-200 bg-white px-2.5 py-1.5 text-xs text-slate-900 focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-900/10 lg:w-40"
+            >
+              <option value="name">Name (A-Z)</option>
+              <option value="email">Email</option>
+              <option value="phone">Phone</option>
+            </select>
           </div>
 
-          {/* Gender & Age - Side by Side on larger screens */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-2.5 lg:col-span-2">
-            {/* Gender Breakdown - Enhanced with Pie Chart */}
-            <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <ChartPieIcon className="h-4 w-4 text-slate-600" />
-                  <p className="text-xs font-semibold text-slate-700">Gender Breakdown</p>
-                </div>
-                <div className="text-[9px] text-slate-500">
-                  {users.length} total
-                </div>
+          {usersInView > 0 && (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-slate-100">
+              <div className="rounded-lg border border-slate-100 bg-slate-50 px-2.5 py-1.5">
+                <p className="text-[9px] uppercase tracking-wide text-blue-500">In view</p>
+                <p className="text-base font-semibold text-blue-900">{usersInView}</p>
               </div>
-              <div className="grid grid-cols-2 gap-1.5">
-                {/* Pie Chart */}
-                <div className="h-28">
-                  {genderDistribution.length > 0 ? (
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={genderDistribution}
-                          cx="50%"
-                          cy="50%"
-                          innerRadius={20}
-                          outerRadius={35}
-                          paddingAngle={2}
-                          dataKey="count"
-                        >
-                          {genderDistribution.map((_entry, index) => {
-                            const colors = ['#3b82f6', '#10b981', '#f59e0b', '#6b7280'];
-                            return <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />;
-                          })}
-                        </Pie>
-                        <Tooltip 
-                          contentStyle={{ 
-                            backgroundColor: '#fff', 
-                            border: '1px solid #e5e7eb',
-                            borderRadius: '6px',
-                            fontSize: '10px',
-                            padding: '4px 6px'
-                          }}
-                          formatter={(value: number, _name: string, props: any) => [
-                            `${value} (${props.payload.percentage}%)`,
-                            'Count'
-                          ]}
-                        />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  ) : (
-                    <div className="h-full flex items-center justify-center text-[10px] text-slate-400">
-                      No data
-                    </div>
-                  )}
-                </div>
-                {/* Stats List */}
-                <div className="space-y-1">
-                {genderDistribution.length === 0 ? (
-                    <p className="text-[10px] text-slate-500">No gender data.</p>
-                  ) : (
-                    genderDistribution.map((item, idx) => {
-                      const colors = ['#3b82f6', '#10b981', '#f59e0b', '#6b7280'];
-                      return (
-                        <div key={item.gender} className="flex items-center justify-between">
-                          <div className="flex items-center gap-1">
-                            <div 
-                              className="w-1.5 h-1.5 rounded-full" 
-                              style={{ backgroundColor: colors[idx % colors.length] }}
-                            />
-                            <span className="text-[9px] font-medium text-slate-700 capitalize">
-                          {item.gender}
-                        </span>
-                      </div>
-                          <div className="text-[9px] text-slate-600">
-                            <span className="font-semibold">{item.count}</span>
-                            <span className="text-slate-400 ml-0.5">({item.percentage}%)</span>
-                      </div>
-                    </div>
-                      );
-                    })
-                  )}
-                </div>
-              </div>
-              {genderDistribution.length > 0 && (
-                <p className="text-[8px] text-slate-400 mt-1.5 pt-1 border-t border-slate-100">
-                  Missing = "unspecified"
+              <div className="rounded-lg border border-slate-100 bg-slate-50 px-2.5 py-1.5">
+                <p className="text-[9px] uppercase tracking-wide text-blue-500">Avg age</p>
+                <p className="text-base font-semibold text-blue-900">
+                  {averageAgeInView ? `${averageAgeInView}` : 'N/A'}
                 </p>
-              )}
-            </div>
-
-            {/* Age Distribution - Horizontal Bar Chart with Inline Stats */}
-            <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <ChartBarSquareIcon className="h-4 w-4 text-slate-600" />
-                  <p className="text-xs font-semibold text-slate-700">Age Distribution</p>
-                </div>
-                <div className="text-[9px] text-slate-500">
-                  {users.filter(u => u.age).length} users
-                </div>
               </div>
-              {ageDistribution.length === 0 ? (
-                <p className="text-[10px] text-slate-500 text-center py-2">No age data.</p>
-              ) : (
-                <div className="space-y-2">
-                  {/* Horizontal Bar Chart - Clean and Readable */}
-                  <div className="h-32">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart
-                        data={ageDistribution.filter(item => item.ageGroup !== 'unspecified')}
-                        layout="vertical"
-                        margin={{ top: 0, right: 10, left: 50, bottom: 0 }}
-                      >
-                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" horizontal={true} vertical={false} />
-                        <XAxis 
-                          type="number"
-                          stroke="#6b7280" 
-                          fontSize={9}
-                          tick={{ fill: '#6b7280' }}
-                          domain={[0, 'dataMax']}
-                        />
-                        <YAxis 
-                          type="category"
-                          dataKey="ageGroup"
-                          stroke="#6b7280" 
-                          fontSize={9}
-                          tick={{ fill: '#6b7280' }}
-                          width={45}
-                        />
-                        <Tooltip 
-                          contentStyle={{ 
-                            backgroundColor: '#fff', 
-                            border: '1px solid #e5e7eb',
-                            borderRadius: '6px',
-                            fontSize: '10px',
-                            padding: '4px 6px',
-                            boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
-                          }}
-                          formatter={(value: number, _name: string, props: any) => [
-                            `${value} users (${props.payload.percentage}%)`,
-                            'Count'
-                          ]}
-                          labelFormatter={(label) => `${label} years`}
-                        />
-                        <Bar 
-                          dataKey="count" 
-                          radius={[0, 4, 4, 0]}
-                        >
-                          {ageDistribution.filter(item => item.ageGroup !== 'unspecified').map((_entry, index) => {
-                            const colors = ['#3b82f6', '#10b981', '#8b5cf6', '#f59e0b', '#ef4444', '#06b6d4', '#ec4899'];
-                            return <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />;
-                          })}
-                        </Bar>
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                  {/* Inline Age Stats - No Gap */}
-                  <div className="grid grid-cols-4 gap-0.5 pt-1.5 border-t border-slate-100">
-                    {ageDistribution.map((item) => (
-                      <div key={item.ageGroup} className="text-center py-0.5">
-                        <div className="text-[8px] font-semibold text-slate-700">
-                          {item.ageGroup === 'unspecified' ? 'N/A' : item.ageGroup}
-                        </div>
-                        <div className="text-[8px] text-slate-600 font-medium">
-                          {item.count}
-                        </div>
-                        <div className="text-[7px] text-slate-400">
-                          {item.percentage}%
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+              <div className="rounded-lg border border-slate-100 bg-slate-50 px-2.5 py-1.5">
+                <p className="text-[9px] uppercase tracking-wide text-blue-500">Age coverage</p>
+                <p className="text-base font-semibold text-blue-900">{ageCoveragePercent}%</p>
+              </div>
+              <div className="rounded-lg border border-slate-100 bg-slate-50 px-2.5 py-1.5">
+                <p className="text-[9px] uppercase tracking-wide text-blue-500">Latest user</p>
+                <p className="text-[11px] font-semibold text-blue-900 truncate">
+                  {latestUser?.name || '—'}
+                </p>
+                {latestUser?.createdAt && (
+                  <p className="text-[9px] text-slate-500">
+                    {new Date(latestUser.createdAt).toLocaleDateString()}
+                  </p>
+                )}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </section>
 
@@ -841,19 +535,20 @@ return (
             No users match the current filters.
           </div>
         ) : (
-          <div className="grid gap-2.5 p-4 sm:grid-cols-2 xl:grid-cols-3">
-            {currentUsers.map((user) => (
+          <div className="pagination-wrapper">
+            <div className="grid grid-cols-3 gap-4 p-4 mb-6">
+              {currentUsers.map((user) => (
               <div
                 key={user._id}
                 className="rounded-xl border border-slate-100 bg-slate-50/40 p-3 shadow-sm transition hover:border-slate-200 hover:bg-white"
               >
                 <div className="flex items-center justify-between mb-2.5">
                   <div className="flex items-center gap-2">
-                    <div className="rounded-lg bg-slate-900/90 p-1.5 text-white">
-                      <UserIcon className="h-3 w-3" />
+                    <div className="rounded-lg bg-blue-900/90 p-1.5 text-white">
+                      <UserIcon className="h-4 w-3" />
                     </div>
                     <div>
-                      <p className="font-semibold text-sm text-slate-900">{user.name}</p>
+                      <p className="font-semibold text-sm text-blue-900">{user.name}</p>
                       <p className="text-[10px] text-slate-500">ID: {user._id.slice(-6)}</p>
                     </div>
                   </div>
@@ -885,72 +580,40 @@ return (
                 </div>
               </div>
             ))}
+            {/* Empty placeholder cards to maintain grid layout when cards are less than 9 */}
+            {currentUsers.length < usersPerPage && 
+              Array.from({ length: usersPerPage - currentUsers.length }).map((_, index) => (
+                <div key={`empty-${index}`} className="bg-transparent border-0" aria-hidden="true"></div>
+              ))
+            }
+            </div>
           </div>
         )}
       </section>
 
-      {totalPages > 1 && (
-        <section className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-[10px] text-slate-500">
-              Showing {roleFilteredUsers.length === 0 ? 0 : indexOfFirstUser + 1} –
-              {Math.min(indexOfLastUser, roleFilteredUsers.length)} of {roleFilteredUsers.length} users
-            </p>
-            <div className="flex items-center gap-1.5">
-              <button
-                onClick={() => {
-                  setCurrentPage((prev) => Math.max(prev - 1, 1));
-                  showToast('Previous page', 'info');
-                }}
-                disabled={currentPage === 1}
-                className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1 text-[10px] font-semibold text-slate-600 hover:border-slate-300 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                <ChevronLeftIcon className="h-3 w-3" />
-                Prev
-              </button>
-              <div className="flex gap-0.5">
-                {[...Array(Math.min(totalPages, 7))].map((_, index) => {
-                  let pageNum;
-                  if (totalPages <= 7) {
-                    pageNum = index + 1;
-                  } else if (currentPage <= 4) {
-                    pageNum = index + 1;
-                  } else if (currentPage >= totalPages - 3) {
-                    pageNum = totalPages - 6 + index;
-                  } else {
-                    pageNum = currentPage - 3 + index;
-                  }
-
-                  return (
-                    <button
-                      key={pageNum}
-                      onClick={() => {
-                        setCurrentPage(pageNum);
-                        showToast(`Page ${pageNum}`, 'info');
-                      }}
-                      className={`rounded-lg px-2.5 py-1 text-[10px] font-semibold ${
-                        currentPage === pageNum
-                          ? 'bg-slate-900 text-white'
-                          : 'border border-slate-200 text-slate-600 hover:border-slate-300'
-                      }`}
-                    >
-                      {pageNum}
-                    </button>
-                  );
-                })}
-              </div>
-              <button
-                onClick={() => {
-                  setCurrentPage((prev) => Math.min(prev + 1, totalPages));
-                  showToast('Next page', 'info');
-                }}
-                disabled={currentPage === totalPages}
-                className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2.5 py-1 text-[10px] font-semibold text-slate-600 hover:border-slate-300 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                Next
-                <ChevronRightIcon className="h-3 w-3" />
-              </button>
-            </div>
+      {totalUsers > usersPerPage && (
+        <section className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm mt-4">
+          <div className="flex items-center justify-center gap-3">
+            <button
+              onClick={() => {
+                setCurrentPage((prev) => Math.max(prev - 1, 1));
+              }}
+              disabled={currentPage === 1}
+              className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 transition-colors"
+            >
+              <ChevronLeftIcon className="h-4 w-4" />
+              Previous
+            </button>
+            <button
+              onClick={() => {
+                setCurrentPage((prev) => Math.min(prev + 1, totalPages));
+              }}
+              disabled={currentPage === totalPages}
+              className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 transition-colors"
+            >
+              Next
+              <ChevronRightIcon className="h-4 w-4" />
+            </button>
           </div>
         </section>
       )}

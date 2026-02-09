@@ -1,4 +1,3 @@
-// pages/api/clinics/search.ts
 import dbConnect from '../../../lib/database';
 import Treatment from '../../../models/Treatment';
 
