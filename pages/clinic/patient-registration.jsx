@@ -1087,14 +1087,14 @@ function PatientInformationWithButton({ onRegisterClick, onImportClick, refreshK
     <div>
       {/* Header with Register Button - Enhanced modern UI */}
       <div className="bg-white rounded-2xl shadow-lg border border-teal-100 mb-6 overflow-hidden">
-        <div className="bg-gradient-to-r from-teal-600 to-blue-600 px-4 sm:px-6 py-4">
+        <div className="bg-white px-4 sm:px-6 py-4">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             <div>
-              <h1 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2">
-                <UserPlus className="w-6 h-6" />
+              <h1 className="text-lg sm:text-xl font-bold text-gray-800 flex items-center gap-2">
+               
                 Patient Management
               </h1>
-              <p className="text-teal-100 mt-1 text-sm">View and manage all patient records</p>
+              <p className="text-teal-600 mt-1 text-sm">View and manage all patient records</p>
             </div>
             {permissions.canCreate && (
               <div className="flex items-center gap-3">
@@ -1107,14 +1107,14 @@ function PatientInformationWithButton({ onRegisterClick, onImportClick, refreshK
                 </button>
                 <button
                   onClick={onImportClick}
-                  className="inline-flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 text-white border border-white/30 px-4 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-sm font-medium backdrop-blur-sm"
+                  className="inline-flex items-center justify-center gap-2 bg-teal-600 hover:bg-teal-700 text-white border border-white/30 px-4 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-sm font-medium backdrop-blur-sm"
                 >
                   <Upload className="h-4 w-4"/>
                   <span>Import Patients</span>
                 </button>
                 <button
                   onClick={onRegisterClick}
-                  className="inline-flex items-center justify-center gap-2 bg-white text-teal-700 hover:bg-gray-100 px-4 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-sm font-medium"
+                  className="inline-flex items-center justify-center gap-2 bg-teal-600 text-white hover:bg-teal-700 px-4 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-sm font-medium"
                 >
                   <UserPlus className="h-4 w-4"/>
                   <span>Register Patient</span>

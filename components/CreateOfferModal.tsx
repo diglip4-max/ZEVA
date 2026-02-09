@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 
 interface Props {
   isOpen: boolean;
@@ -19,6 +19,17 @@ export default function CreateOfferModal({
   offer,
   actorRole = "clinic",
 }: Props) {
+  const isUpdate = mode === "update";
+  const headerClass = isUpdate ? "bg-teal-800" : "bg-gray-800";
+  const subtitleClass = isUpdate ? "text-teal-100" : "text-gray-300";
+  const formBgClass = isUpdate ? "bg-teal-50" : "";
+  const footerBgClass = isUpdate ? "border-t bg-teal-50" : "border-t bg-gray-50";
+  const cancelBtnVariant = isUpdate
+    ? "border-teal-600 text-teal-700 hover:bg-teal-100"
+    : "border-gray-200 text-gray-700 hover:bg-gray-100";
+  const submitBtnVariant = isUpdate
+    ? "bg-teal-700 hover:bg-teal-800"
+    : "bg-gray-800 hover:bg-gray-900";
   const getInitialForm = () => ({
     title: "",
     description: "",
@@ -446,12 +457,12 @@ export default function CreateOfferModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-3 sm:p-4">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[95vh]">
         {/* Compact Header */}
-        <div className="bg-gray-800 px-4 py-3 flex justify-between items-center">
+        <div className={`${headerClass} px-4 py-3 flex justify-between items-center`}>
           <div>
             <h2 className="text-base sm:text-lg font-bold text-white">
               {mode === "create" ? "Create New Offer" : "Update Offer"}
             </h2>
-            <p className="text-gray-300 text-[10px] sm:text-xs mt-0.5">
+            <p className={`${subtitleClass} text-[10px] sm:text-xs mt-0.5`}>
               {mode === "create" 
                 ? "Fill in the details to create a promotional offer" 
                 : !offer ? "Loading offer..." : "Modify the offer details below"}
@@ -469,7 +480,7 @@ export default function CreateOfferModal({
 
         {/* Compact Form Content */}
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto">
-          <div className="px-4 py-3 space-y-4">
+          <div className={`${formBgClass} px-4 py-3 space-y-4`}>
             {/* Basic Information Section */}
             <div className="space-y-3">
               <h3 className="text-sm font-bold text-gray-900 border-b border-gray-200 pb-1.5">Basic Information</h3>
@@ -752,18 +763,18 @@ export default function CreateOfferModal({
           </div>
 
           {/* Compact Footer Actions */}
-          <div className="border-t bg-gray-50 px-4 py-3 flex justify-end gap-2">
+          <div className={`${footerBgClass} px-4 py-3 flex justify-end gap-2`}>
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-lg border border-gray-200 text-gray-700 text-xs sm:text-sm font-medium hover:bg-gray-100 transition-colors"
+              className={["px-4 py-2 rounded-lg border text-xs sm:text-sm font-medium transition-colors", cancelBtnVariant].join(" ")}
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={loading || (mode === "create" && !permissions.canCreate) || (mode === "update" && !permissions.canUpdate)}
-              className="px-4 py-2 rounded-lg bg-gray-800 text-white text-xs sm:text-sm font-medium hover:bg-gray-900 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors shadow-sm"
+              className={["px-4 py-2 rounded-lg text-white text-xs sm:text-sm font-medium disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors shadow-sm", submitBtnVariant].join(" ")}
               title={
                 mode === "create" && !permissions.canCreate
                   ? "You do not have permission to create offers"
