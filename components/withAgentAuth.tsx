@@ -5,17 +5,18 @@ import { ComponentType } from 'react';
 import { toast, Toaster } from 'react-hot-toast'; // 👈 import toast and Toaster
 
 export default function withAgentAuth<P extends object>(
-  WrappedComponent: ComponentType<P>
+  WrappedComponent: ComponentType<P & { user?: any }>
 ) {
   return function WithAgentAuth(props: P) {
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
+    const [userData, setUserData] = useState(null);
     const router = useRouter();
 
     useEffect(() => {
       const clearStorage = () => {
         // Remove stored auth tokens
-        const keys = ['token', 'userToken', 'agentToken'];
+        const keys = ['token', 'userToken', 'agentToken', 'doctorToken'];
         keys.forEach((k) => {
           try { localStorage.removeItem(k); } catch {}
           try { sessionStorage.removeItem(k); } catch {}
@@ -27,11 +28,14 @@ export default function withAgentAuth<P extends object>(
         const agentToken = typeof window !== 'undefined'
           ? (localStorage.getItem('agentToken') || sessionStorage.getItem('agentToken'))
           : null;
+        const doctorToken = typeof window !== 'undefined'
+          ? (localStorage.getItem('doctorToken') || sessionStorage.getItem('doctorToken'))
+          : null;
         const userToken = typeof window !== 'undefined'
           ? (localStorage.getItem('userToken') || sessionStorage.getItem('userToken'))
           : null;
 
-        const token = agentToken || userToken;
+        const token = agentToken || doctorToken || userToken;
 
         if (!token) {
           toast.error('Please login to continue');
@@ -42,8 +46,24 @@ export default function withAgentAuth<P extends object>(
         }
 
         try {
-          // Use agent verify-token API which should handle both agentToken and userToken
-          const response = await fetch('/api/agent/verify-token', {
+          // Decode token to get role
+          let decoded = null;
+          try {
+            const payload = token.split('.')[1];
+            if (payload) {
+              decoded = JSON.parse(atob(payload));
+            }
+          } catch (e) {
+            console.error('Error decoding token:', e);
+          }
+
+          // Use appropriate verify-token API based on role
+          let verifyEndpoint = '/api/agent/verify-token';
+          if (decoded?.role === 'doctor' || decoded?.role === 'doctorStaff') {
+            verifyEndpoint = '/api/doctor/verify-token';
+          }
+
+          const response = await fetch(verifyEndpoint, {
             headers: {
               Authorization: `Bearer ${token}`,
             },
@@ -53,6 +73,7 @@ export default function withAgentAuth<P extends object>(
 
           if (response.ok && data.valid) {
             setIsAuthenticated(true);
+            setUserData(data.user || decoded);
           } else {
             const message = data.message === 'Token expired'
               ? 'Session expired. Please login again.'
@@ -118,7 +139,7 @@ export default function withAgentAuth<P extends object>(
             },
           }}
         />
-        {isAuthenticated ? <WrappedComponent {...props} /> : null}
+        {isAuthenticated ? <WrappedComponent {...props} user={userData} /> : null}
       </>
     );
   };
