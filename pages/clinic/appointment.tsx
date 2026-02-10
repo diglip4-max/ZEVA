@@ -2217,7 +2217,11 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
         return { bg: "bg-gray-500", text: "text-white", border: "border-gray-600" };
     }
   };
-  if (loading || !permissionsLoaded) return <Loader />;
+
+  if (loading || !permissionsLoaded) {
+    return <Loader />;
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 p-1 sm:p-1 md:p-2 space-y-1 sm:space-y-2">
       <Toaster position="top-right" />
