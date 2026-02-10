@@ -444,13 +444,17 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
           return;
         }
 
+        console.log("ClinicSidebar: Using token:", token ? "Token exists" : "No token found");
+        
         let res;
         try {
           res = await axios.get("/api/clinic/sidebar-permissions", {
             headers: { Authorization: `Bearer ${token}` },
           });
         } catch (error: any) {
-          // Handle 401, 404, and other errors gracefully
+          console.error("ClinicSidebar API Error:", error.response?.status, error.response?.data);
+          
+          // Handle 401, 403, 404, and other errors gracefully
           if (error.response?.status === 401) {
             console.log("ClinicSidebar: Unauthorized - token may be invalid or expired");
             setItems([]);

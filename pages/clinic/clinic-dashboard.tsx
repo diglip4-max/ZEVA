@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Star, Mail, Settings, Lock, TrendingUp, Users, FileText, Briefcase, MessageSquare, Calendar, CreditCard, BarChart3, Activity, CheckCircle2, User, Crown, Stethoscope, Building2, Package, Gift, DoorOpen, UserPlus, GripVertical, Eye, EyeOff, Save, RotateCcw, Edit2, X, Undo2, Redo2 } from 'lucide-react';
+import { Star, Mail, Settings, Lock, TrendingUp, Users, FileText, Briefcase, MessageSquare, Calendar, CreditCard, BarChart3, Activity, CheckCircle2, User, Crown, Stethoscope, Building2, Package, Gift, DoorOpen, UserPlus, GripVertical, Eye, EyeOff, Save, RotateCcw, Edit2, X, Undo2, Redo2, ChevronLeft, ChevronRight, LayoutDashboard, Zap, Target, Home, Tag, Percent, ShoppingCart, ShoppingBag, Receipt, DollarSign, Wallet, Shield, UserCheck, UserCog, UserCircle, Inbox, Award } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, LabelList, LineChart, Line, Tooltip, PieChart, Pie, Cell, Legend } from 'recharts';
 import Stats from '../../components/Stats';
 import ClinicLayout from '../../components/ClinicLayout';
@@ -223,6 +223,140 @@ const ClinicDashboard: NextPageWithLayout = () => {
   const [navigationItemsLoaded, setNavigationItemsLoaded] = useState(false);
   const [userRole, setUserRole] = useState<string | null>(null);
   
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [showCalendar, setShowCalendar] = useState<boolean>(false);
+  
+  // Close calendar when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (showCalendar && !target.closest('.calendar-container')) {
+        setShowCalendar(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showCalendar]);
+  
+  // Calendar functions
+  const getDaysInMonth = (date: Date): number => {
+    return new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+  };
+
+  const getFirstDayOfMonth = (date: Date): number => {
+    return new Date(date.getFullYear(), date.getMonth(), 1).getDay();
+  };
+
+  const navigateMonth = (direction: 'prev' | 'next') => {
+    const newDate = new Date(selectedDate);
+    if (direction === 'prev') {
+      newDate.setMonth(newDate.getMonth() - 1);
+    } else {
+      newDate.setMonth(newDate.getMonth() + 1);
+    }
+    setSelectedDate(newDate);
+  };
+
+  const selectDate = (day: number) => {
+    const newDate = new Date(selectedDate);
+    newDate.setDate(day);
+    
+    // Check if selected date is in the future
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Reset time for comparison
+    const selectedDateTime = new Date(newDate);
+    selectedDateTime.setHours(0, 0, 0, 0);
+    
+    if (selectedDateTime > today) {
+      // Don't allow future dates
+      return;
+    }
+    
+    setSelectedDate(newDate);
+    setShowCalendar(false);
+  };
+
+  const isDateSelected = (day: number): boolean => {
+    const currentDate = new Date(selectedDate);
+    return (
+      currentDate.getDate() === day &&
+      currentDate.getMonth() === selectedDate.getMonth() &&
+      currentDate.getFullYear() === selectedDate.getFullYear()
+    );
+  };
+
+  const isFutureDate = (day: number): boolean => {
+    const dateToCheck = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), day);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    dateToCheck.setHours(0, 0, 0, 0);
+    return dateToCheck > today;
+  };
+
+  const renderCalendar = () => {
+    const daysInMonth = getDaysInMonth(selectedDate);
+    const firstDay = getFirstDayOfMonth(selectedDate);
+    const days = [];
+
+    // Empty cells for days before the first day of the month
+    for (let i = 0; i < firstDay; i++) {
+      days.push(<div key={`empty-${i}`} className="h-8"></div>);
+    }
+
+    // Days of the month
+    for (let day = 1; day <= daysInMonth; day++) {
+      const isFuture = isFutureDate(day);
+      days.push(
+        <button
+          key={day}
+          onClick={() => !isFuture && selectDate(day)}
+          disabled={isFuture}
+          className={`h-8 w-8 rounded-full text-sm font-medium transition-all ${
+            isFuture
+              ? 'text-gray-300 cursor-not-allowed'
+              : isDateSelected(day)
+                ? 'bg-blue-500 text-white'
+                : 'text-gray-700 hover:text-blue-600 hover:bg-blue-100'
+          }`}
+        >
+          {day}
+        </button>
+      );
+    }
+
+    return days;
+  };
+
+  const [dailyStats, setDailyStats] = useState({
+    booked: 0,
+    enquiry: 0,
+    discharge: 0,
+    arrived: 0,
+    consultation: 0,
+    cancelled: 0,
+    approved: 0,
+    rescheduled: 0,
+    waiting: 0,
+    rejected: 0,
+    completed: 0,
+    daily: {
+      patients: 0,
+      jobs: 0,
+      offers: 0,
+      leads: 0,
+      reviews: 0,
+      enquiries: 0,
+      applications: 0
+    },
+    totals: {
+      membership: 0,
+      jobs: 0
+    }
+  });
+
   // Drag and drop state
   const [isEditMode, setIsEditMode] = useState(false);
   const [widgets, setWidgets] = useState<DashboardWidget[]>(() => {
@@ -241,7 +375,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
   const [activeId, setActiveId] = useState<string | null>(null);
   
   // Individual stat card state
-  const STAT_CARDS_STORAGE_KEY = 'clinic-dashboard-stat-cards';
+  const STAT_CARDS_STORAGE_KEY = 'clinic-dashboard-stat-cards-v3';
   const [statCards, setStatCards] = useState<{ primary: StatCard[]; secondary: StatCard[] }>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem(STAT_CARDS_STORAGE_KEY);
@@ -250,21 +384,6 @@ const ClinicDashboard: NextPageWithLayout = () => {
           return JSON.parse(saved);
         } catch {
           // Return default cards
-          return {
-            primary: [
-              { id: 'p1', label: 'Total Reviews', value: 0, icon: 'star', moduleKey: 'reviews', gridType: 'primary' as const, order: 0, visible: true },
-              { id: 'p2', label: 'Total Enquiries', value: 0, icon: 'mail', moduleKey: 'enquiries', gridType: 'primary' as const, order: 1, visible: true },
-              { id: 'p3', label: 'Active Modules', value: 0, icon: 'check', moduleKey: 'modules', gridType: 'primary' as const, order: 2, visible: true },
-              { id: 'p4', label: 'Subscription', value: '0%', icon: 'crown', moduleKey: 'subscription', gridType: 'primary' as const, order: 3, visible: true },
-            ],
-            secondary: [
-              { id: 's1', label: 'Appointments', value: 0, icon: 'calendar', moduleKey: 'appointments', gridType: 'secondary' as const, order: 0, visible: true },
-              { id: 's2', label: 'Leads', value: 0, icon: 'users', moduleKey: 'leads', gridType: 'secondary' as const, order: 1, visible: true },
-              { id: 's3', label: 'Treatments', value: 0, icon: 'stethoscope', moduleKey: 'treatments', gridType: 'secondary' as const, order: 2, visible: true },
-              { id: 's4', label: 'Rooms', value: 0, icon: 'door', moduleKey: 'rooms', gridType: 'secondary' as const, order: 3, visible: true },
-              { id: 's5', label: 'Departments', value: 0, icon: 'building', moduleKey: 'departments', gridType: 'secondary' as const, order: 4, visible: true },
-            ],
-          };
         }
       }
     }
@@ -272,15 +391,24 @@ const ClinicDashboard: NextPageWithLayout = () => {
       primary: [
         { id: 'p1', label: 'Total Reviews', value: 0, icon: 'star', moduleKey: 'reviews', gridType: 'primary' as const, order: 0, visible: true },
         { id: 'p2', label: 'Total Enquiries', value: 0, icon: 'mail', moduleKey: 'enquiries', gridType: 'primary' as const, order: 1, visible: true },
-        { id: 'p3', label: 'Active Modules', value: 0, icon: 'check', moduleKey: 'modules', gridType: 'primary' as const, order: 2, visible: true },
-        { id: 'p4', label: 'Subscription', value: '0%', icon: 'crown', moduleKey: 'subscription', gridType: 'primary' as const, order: 3, visible: true },
+        { id: 'p3', label: 'Active Modules', value: 0, icon: 'check', moduleKey: 'modules', gridType: 'primary' as const, order: 2, visible: false },
+        { id: 'p4', label: 'Subscription', value: '0%', icon: 'crown', moduleKey: 'subscription', gridType: 'primary' as const, order: 3, visible: false },
+        { id: 'p5', label: 'Total Membership', value: 0, icon: 'users', moduleKey: 'membership', gridType: 'primary' as const, order: 4, visible: true },
+        { id: 'p6', label: 'Total Jobs', value: 0, icon: 'briefcase', moduleKey: 'jobs', gridType: 'primary' as const, order: 5, visible: true },
       ],
       secondary: [
         { id: 's1', label: 'Appointments', value: 0, icon: 'calendar', moduleKey: 'appointments', gridType: 'secondary' as const, order: 0, visible: true },
         { id: 's2', label: 'Leads', value: 0, icon: 'users', moduleKey: 'leads', gridType: 'secondary' as const, order: 1, visible: true },
-        { id: 's3', label: 'Treatments', value: 0, icon: 'stethoscope', moduleKey: 'treatments', gridType: 'secondary' as const, order: 2, visible: true },
-        { id: 's4', label: 'Rooms', value: 0, icon: 'door', moduleKey: 'rooms', gridType: 'secondary' as const, order: 3, visible: true },
-        { id: 's5', label: 'Departments', value: 0, icon: 'building', moduleKey: 'departments', gridType: 'secondary' as const, order: 4, visible: true },
+        { id: 's3', label: 'Booked', value: 0, icon: 'calendar', moduleKey: 'booked', gridType: 'secondary' as const, order: 2, visible: true },
+        { id: 's4', label: 'Arrived', value: 0, icon: 'check', moduleKey: 'arrived', gridType: 'secondary' as const, order: 3, visible: true },
+        { id: 's5', label: 'Consultation', value: 0, icon: 'stethoscope', moduleKey: 'consultation', gridType: 'secondary' as const, order: 4, visible: true },
+        { id: 's6', label: 'Cancelled', value: 0, icon: 'x', moduleKey: 'cancelled', gridType: 'secondary' as const, order: 5, visible: true },
+        { id: 's7', label: ' Discharge', value: 0, icon: 'door', moduleKey: 'discharge', gridType: 'secondary' as const, order: 6, visible: true },
+        // New Daily Activity Cards
+        { id: 's8', label: 'Patients', value: 0, icon: 'users', moduleKey: 'daily_patients', gridType: 'secondary' as const, order: 7, visible: true },
+        { id: 's9', label: 'Jobs', value: 0, icon: 'briefcase', moduleKey: 'daily_jobs', gridType: 'secondary' as const, order: 8, visible: true },
+        { id: 's10', label: 'Offers', value: 0, icon: 'gift', moduleKey: 'daily_offers', gridType: 'secondary' as const, order: 9, visible: true },
+        { id: 's11', label: 'Leads', value: 0, icon: 'users', moduleKey: 'daily_leads', gridType: 'secondary' as const, order: 10, visible: true },
       ],
     };
   });
@@ -290,7 +418,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
   const [gridSize] = useState<'compact' | 'normal' | 'spacious'>('normal');
   
   // Chart components state
-  const CHARTS_STORAGE_KEY = 'clinic-dashboard-charts';
+  const CHARTS_STORAGE_KEY = 'clinic-dashboard-charts-v2';
   const [chartComponents, setChartComponents] = useState<{
     'status-charts': ChartComponent[];
     'analytics-overview': ChartComponent[];
@@ -306,11 +434,13 @@ const ClinicDashboard: NextPageWithLayout = () => {
               { id: 'chart-appointment', type: 'pie' as const, title: 'Appointment Status', section: 'status-charts' as const, order: 0, visible: true },
               { id: 'chart-lead', type: 'pie' as const, title: 'Lead Status', section: 'status-charts' as const, order: 1, visible: true },
               { id: 'chart-offer', type: 'pie' as const, title: 'Offer Status', section: 'status-charts' as const, order: 2, visible: true },
+              { id: 'chart-daily-activities', type: 'pie' as const, title: 'Daily Activities', section: 'status-charts' as const, order: 3, visible: true },
             ],
             'analytics-overview': [
               { id: 'chart-bar', type: 'bar' as const, title: 'Appointments, Leads, Offers & Jobs', section: 'analytics-overview' as const, order: 0, visible: true },
               { id: 'chart-line', type: 'line' as const, title: 'Reviews, Enquiries, Patients & Rooms', section: 'analytics-overview' as const, order: 1, visible: true },
               { id: 'chart-active', type: 'bar' as const, title: 'Active vs Inactive', section: 'analytics-overview' as const, order: 2, visible: true },
+              { id: 'chart-daily-appointment', type: 'bar' as const, title: 'Daily Appointment Status', section: 'analytics-overview' as const, order: 3, visible: true },
             ],
           };
         }
@@ -321,11 +451,13 @@ const ClinicDashboard: NextPageWithLayout = () => {
         { id: 'chart-appointment', type: 'pie' as const, title: 'Appointment Status', section: 'status-charts' as const, order: 0, visible: true },
         { id: 'chart-lead', type: 'pie' as const, title: 'Lead Status', section: 'status-charts' as const, order: 1, visible: true },
         { id: 'chart-offer', type: 'pie' as const, title: 'Offer Status', section: 'status-charts' as const, order: 2, visible: true },
+        { id: 'chart-daily-activities', type: 'pie' as const, title: 'Daily Activities', section: 'status-charts' as const, order: 3, visible: true },
       ],
       'analytics-overview': [
         { id: 'chart-bar', type: 'bar' as const, title: 'Appointments, Leads, Offers & Jobs', section: 'analytics-overview' as const, order: 0, visible: true },
         { id: 'chart-line', type: 'line' as const, title: 'Reviews, Enquiries, Patients & Rooms', section: 'analytics-overview' as const, order: 1, visible: true },
         { id: 'chart-active', type: 'bar' as const, title: 'Active vs Inactive', section: 'analytics-overview' as const, order: 2, visible: true },
+        { id: 'chart-daily-appointment', type: 'bar' as const, title: 'Daily Appointment Status', section: 'analytics-overview' as const, order: 3, visible: true },
       ],
     };
   });
@@ -402,17 +534,11 @@ const ClinicDashboard: NextPageWithLayout = () => {
       coordinateGetter: sortableKeyboardCoordinates,
     })
   );
-  const [quickActions] = useState([
-    { label: 'New Review', icon: Star, path: '/clinic/getAllReview', color: 'bg-yellow-500' },
-    { label: 'New Enquiry', icon: Mail, path: '/clinic/get-Enquiry', color: 'bg-teal-500' },
-    { label: 'Create Blog', icon: FileText, path: '/clinic/BlogForm', color: 'bg-teal-500' },
-    { label: 'Job Posting', icon: Briefcase, path: '/clinic/job-posting', color: 'bg-indigo-500' },
-    { label: 'Create Agent', icon: UserPlus, path: '/clinic/create-agent', color: 'bg-teal-500' },
-    { label: 'Create Lead', icon: UserPlus, path: '/clinic/create-lead', color: 'bg-orange-500' },
-  ]);
+  const [quickActions, setQuickActions] = useState<any[]>([]);
 
   // Icon mapping
   const iconMap: { [key: string]: React.ReactNode } = {
+    // Standard keys
     '📊': <BarChart3 className="w-5 h-5" />,
     '👥': <Users className="w-5 h-5" />,
     '📝': <FileText className="w-5 h-5" />,
@@ -425,7 +551,112 @@ const ClinicDashboard: NextPageWithLayout = () => {
     '⚙️': <Settings className="w-5 h-5" />,
     '📈': <TrendingUp className="w-5 h-5" />,
     '🔒': <Lock className="w-5 h-5" />,
+    
+    // Sidebar specific keys
+    'home': <Home className="w-5 h-5" />,
+    'dashboard': <LayoutDashboard className="w-5 h-5" />,
+    'analytics': <BarChart3 className="w-5 h-5" />,
+    'reports': <FileText className="w-5 h-5" />,
+    'overview': <Activity className="w-5 h-5" />,
+    'users': <Users className="w-5 h-5" />,
+    'patients': <UserCircle className="w-5 h-5" />,
+    'doctors': <Stethoscope className="w-5 h-5" />,
+    'staff': <UserCog className="w-5 h-5" />,
+    'agents': <UserPlus className="w-5 h-5" />,
+    'team': <Users className="w-5 h-5" />,
+    'profile': <UserCircle className="w-5 h-5" />,
+    'user-circle': <UserCircle className="w-5 h-5" />,
+    'testimonials': <Award className="w-5 h-5" />,
+    'offers': <Tag className="w-5 h-5" />,
+    'promotions': <Gift className="w-5 h-5" />,
+    'discounts': <Percent className="w-5 h-5" />,
+    'deals': <ShoppingCart className="w-5 h-5" />,
+    'packages': <Package className="w-5 h-5" />,
+    'payments': <CreditCard className="w-5 h-5" />,
+    'billing': <Receipt className="w-5 h-5" />,
+    'invoices': <FileText className="w-5 h-5" />,
+    'transactions': <DollarSign className="w-5 h-5" />,
+    'revenue': <TrendingUp className="w-5 h-5" />,
+    'expenses': <TrendingUp className="w-5 h-5" />,
+    'wallet': <Wallet className="w-5 h-5" />,
+    'finance': <DollarSign className="w-5 h-5" />,
+    'accounts': <DollarSign className="w-5 h-5" />,
+    'security': <Shield className="w-5 h-5" />,
+    'permissions': <Lock className="w-5 h-5" />,
+    'access': <UserCheck className="w-5 h-5" />,
+    
+    // Legacy/String keys
+    'star': <Star className="w-5 h-5" />,
+    'mail': <Mail className="w-5 h-5" />,
+    'check': <CheckCircle2 className="w-5 h-5" />,
+    'crown': <Crown className="w-5 h-5" />,
+    'calendar': <Calendar className="w-5 h-5" />,
+    'users': <Users className="w-5 h-5" />,
+    'stethoscope': <Stethoscope className="w-5 h-5" />,
+    'door': <DoorOpen className="w-5 h-5" />,
+    'building': <Building2 className="w-5 h-5" />,
+    'x': <X className="w-5 h-5" />,
+    'package': <Package className="w-5 h-5" />,
+    'gift': <Gift className="w-5 h-5" />,
   };
+
+  // Populate quick actions from navigation items
+  useEffect(() => {
+    if (navigationItems.length > 0) {
+      const actions: any[] = [];
+      const colors = ['bg-blue-500', 'bg-green-500', 'bg-purple-500', 'bg-orange-500', 'bg-pink-500', 'bg-teal-500', 'bg-indigo-500', 'bg-yellow-500', 'bg-red-500', 'bg-cyan-500'];
+      let colorIdx = 0;
+
+      const processItem = (item: NavigationItem) => {
+        if (item.subModules && item.subModules.length > 0) {
+          item.subModules.forEach(sub => {
+            if (sub.path) {
+              actions.push({
+                label: sub.name,
+                iconNode: iconMap[sub.icon] || iconMap[item.icon] || <Activity className="w-5 h-5" />,
+                path: sub.path,
+                color: colors[colorIdx % colors.length]
+              });
+              colorIdx++;
+            }
+          });
+        } else if (item.path) {
+          actions.push({
+            label: item.label,
+            iconNode: iconMap[item.icon] || <Activity className="w-5 h-5" />,
+            path: item.path,
+            color: colors[colorIdx % colors.length]
+          });
+          colorIdx++;
+        }
+      };
+
+      navigationItems.forEach(processItem);
+      
+      if (actions.length > 0) {
+        setQuickActions(actions);
+      } else {
+         setQuickActions([
+          { label: 'New Review', icon: Star, path: '/clinic/getAllReview', color: 'bg-yellow-500' },
+          { label: 'New Enquiry', icon: Mail, path: '/clinic/get-Enquiry', color: 'bg-teal-500' },
+          { label: 'Create Blog', icon: FileText, path: '/clinic/BlogForm', color: 'bg-teal-500' },
+          { label: 'Job Posting', icon: Briefcase, path: '/clinic/job-posting', color: 'bg-indigo-500' },
+          { label: 'Create Agent', icon: UserPlus, path: '/clinic/create-agent', color: 'bg-teal-500' },
+          { label: 'Create Lead', icon: UserPlus, path: '/clinic/create-lead', color: 'bg-orange-500' },
+        ]);
+      }
+    } else {
+       // Initialize default if navigation items not loaded yet or empty
+       setQuickActions([
+          { label: 'New Review', icon: Star, path: '/clinic/getAllReview', color: 'bg-yellow-500' },
+          { label: 'New Enquiry', icon: Mail, path: '/clinic/get-Enquiry', color: 'bg-teal-500' },
+          { label: 'Create Blog', icon: FileText, path: '/clinic/BlogForm', color: 'bg-teal-500' },
+          { label: 'Job Posting', icon: Briefcase, path: '/clinic/job-posting', color: 'bg-indigo-500' },
+          { label: 'Create Agent', icon: UserPlus, path: '/clinic/create-agent', color: 'bg-teal-500' },
+          { label: 'Create Lead', icon: UserPlus, path: '/clinic/create-lead', color: 'bg-orange-500' },
+        ]);
+    }
+  }, [navigationItems]);
 
   // Get clinic user data from localStorage (same as ClinicHeader)
   useEffect(() => {
@@ -1312,6 +1543,8 @@ const ClinicDashboard: NextPageWithLayout = () => {
     return () => clearInterval(timeInterval);
   }, [permissionsLoaded, moduleAccess.canRead, userRole]);
 
+
+
   const getGreeting = (): string => {
     const hour = currentTime.getHours();
     if (hour < 12) return 'Good Morning';
@@ -1488,12 +1721,30 @@ const ClinicDashboard: NextPageWithLayout = () => {
 
   // Prepare breakdown chart data
   const appointmentStatusData = useMemo(() => {
-    if (!stats.appointmentStatusBreakdown) return [];
-    return Object.entries(stats.appointmentStatusBreakdown).map(([status, count]) => ({
-      name: status,
-      value: count,
-    }));
-  }, [stats.appointmentStatusBreakdown]);
+    // Use dailyStats for the chart - showing ALL appointment statuses
+    return [
+      { name: 'Booked', value: dailyStats.booked },
+      { name: 'Enquiry', value: dailyStats.enquiry },
+      { name: 'Discharge', value: dailyStats.discharge },
+      { name: 'Arrived', value: dailyStats.arrived },
+      { name: 'Consultation', value: dailyStats.consultation },
+      { name: 'Cancelled', value: dailyStats.cancelled },
+      { name: 'Approved', value: dailyStats.approved },
+      { name: 'Rescheduled', value: dailyStats.rescheduled },
+      { name: 'Waiting', value: dailyStats.waiting },
+      { name: 'Rejected', value: dailyStats.rejected },
+      { name: 'Completed', value: dailyStats.completed },
+    ];
+    // Note: Not filtering out zero values to show all statuses in chart
+  }, [dailyStats]);
+
+  const dailyAppointmentChartData = useMemo(() => [
+    { name: 'Booked', value: dailyStats.booked, fill: '#3b82f6' },
+    { name: 'Arrived', value: dailyStats.arrived, fill: '#22c55e' },
+    { name: 'Consultation', value: dailyStats.consultation, fill: '#eab308' },
+    { name: 'Cancelled', value: dailyStats.cancelled, fill: '#ef4444' },
+    { name: 'Discharge', value: dailyStats.discharge, fill: '#8b5cf6' },
+  ], [dailyStats]);
 
   const leadStatusData = useMemo(() => {
     if (!stats.leadStatusBreakdown) return [];
@@ -1510,6 +1761,18 @@ const ClinicDashboard: NextPageWithLayout = () => {
       value: count,
     }));
   }, [stats.offerStatusBreakdown]);
+
+  const dailyActivitiesData = useMemo(() => {
+    if (!dailyStats.daily) return [];
+    return [
+      { name: 'Patients', value: dailyStats.daily.patients },
+      { name: 'Jobs', value: dailyStats.daily.jobs },
+      { name: 'Offers', value: dailyStats.daily.offers },
+      { name: 'Leads', value: dailyStats.daily.leads },
+      { name: 'Reviews', value: dailyStats.daily.reviews },
+      { name: 'Enquiries', value: dailyStats.daily.enquiries },
+    ].filter(item => item.value > 0);
+  }, [dailyStats.daily]);
 
   // Colors for pie charts
   const pieColors = ['#2D9AA5', '#22c55e', '#a855f7', '#f97316', '#ec4899', '#6366f1', '#ef4444', '#10b981', '#3b82f6', '#f59e0b'];
@@ -1599,6 +1862,8 @@ const ClinicDashboard: NextPageWithLayout = () => {
           { id: 'p2', label: 'Total Enquiries', value: 0, icon: 'mail', moduleKey: 'enquiries', gridType: 'primary' as const, order: 1, visible: true },
           { id: 'p3', label: 'Active Modules', value: 0, icon: 'check', moduleKey: 'modules', gridType: 'primary' as const, order: 2, visible: true },
           { id: 'p4', label: 'Subscription', value: '0%', icon: 'crown', moduleKey: 'subscription', gridType: 'primary' as const, order: 3, visible: true },
+          { id: 'p5', label: 'Total Membership', value: 0, icon: 'users', moduleKey: 'membership', gridType: 'primary' as const, order: 4, visible: true },
+          { id: 'p6', label: 'Total Jobs', value: 0, icon: 'briefcase', moduleKey: 'jobs', gridType: 'primary' as const, order: 5, visible: true },
         ],
         secondary: [
           { id: 's1', label: 'Appointments', value: 0, icon: 'calendar', moduleKey: 'appointments', gridType: 'secondary' as const, order: 0, visible: true },
@@ -2134,7 +2399,115 @@ const ClinicDashboard: NextPageWithLayout = () => {
     }
   };
 
-  // Update stat card values when stats change
+  // Fetch daily appointment stats
+  useEffect(() => {
+    const fetchDailyStats = async () => {
+      try {
+        const token = localStorage.getItem('clinicToken') || sessionStorage.getItem('clinicToken');
+        if (!token) return;
+
+        // Use selectedDate to fetch stats for that specific day
+        // Format date as YYYY-MM-DD to match database records
+        const formattedDate = selectedDate.toISOString().split('T')[0];
+        console.log('Fetching stats for date:', formattedDate);
+        const res = await axios.get('/api/clinics/dailyAppointmentStats', {
+          params: { date: formattedDate },
+          headers: { Authorization: `Bearer ${token}` }
+        });
+
+        if (res.data.success) {
+          console.log('API Response:', res.data);
+          setDailyStats({
+            ...res.data.stats,
+            daily: res.data.daily || { patients: 0, jobs: 0, offers: 0, leads: 0, reviews: 0, enquiries: 0 },
+            totals: res.data.totals || { membership: 0, jobs: 0 }
+          });
+          console.log('Updated dailyStats:', {
+            ...res.data.stats,
+            daily: res.data.daily || { patients: 0, jobs: 0, offers: 0, leads: 0, reviews: 0, enquiries: 0 },
+            totals: res.data.totals || { membership: 0, jobs: 0 }
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching daily stats:', error);
+      }
+    };
+
+    fetchDailyStats();
+  }, [selectedDate]);
+
+  // Migration effect to ensure new components are added to existing localStorage state
+  useEffect(() => {
+    // Migrate Stat Cards
+    setStatCards(prev => {
+      const hasMembership = prev.primary.some(c => c.moduleKey === 'membership');
+      const hasJobs = prev.primary.some(c => c.moduleKey === 'jobs');
+      const hasDailyPatients = prev.secondary.some(c => c.moduleKey === 'daily_patients');
+      const hasDailyApplications = prev.secondary.some(c => c.moduleKey === 'daily_applications');
+      const hasDailyReviews = prev.secondary.some(c => c.moduleKey === 'daily_reviews');
+      
+      // Also hide unwanted cards as per user request
+      const unwantedKeys = ['modules', 'subscription'];
+      const needsHiding = prev.primary.some(c => c.moduleKey && unwantedKeys.includes(c.moduleKey) && c.visible);
+
+      if (hasMembership && hasJobs && hasDailyPatients && hasDailyApplications && hasDailyReviews && !needsHiding) return prev; // Already migrated
+
+      const newPrimary = [...prev.primary];
+      if (!hasMembership) {
+        newPrimary.push({ id: 'p5', label: 'Total Membership', value: 0, icon: 'users', moduleKey: 'membership', gridType: 'primary' as const, order: newPrimary.length, visible: true });
+      }
+      if (!hasJobs) {
+        newPrimary.push({ id: 'p6', label: 'Total Jobs', value: 0, icon: 'briefcase', moduleKey: 'jobs', gridType: 'primary' as const, order: newPrimary.length, visible: true });
+      }
+      
+      const updatedPrimary = newPrimary.map(card => {
+        if (unwantedKeys.includes(card.moduleKey)) {
+          return { ...card, visible: false };
+        }
+        return card;
+      });
+
+      const newSecondary = [...prev.secondary];
+      if (!hasDailyPatients) {
+         newSecondary.push({ id: 's8', label: 'Patients', value: 0, icon: 'users', moduleKey: 'daily_patients', gridType: 'secondary' as const, order: 7, visible: true });
+         newSecondary.push({ id: 's9', label: 'Jobs', value: 0, icon: 'briefcase', moduleKey: 'daily_jobs', gridType: 'secondary' as const, order: 8, visible: true });
+         newSecondary.push({ id: 's10', label: 'Offers', value: 0, icon: 'gift', moduleKey: 'daily_offers', gridType: 'secondary' as const, order: 9, visible: true });
+         newSecondary.push({ id: 's11', label: 'Leads', value: 0, icon: 'users', moduleKey: 'daily_leads', gridType: 'secondary' as const, order: 10, visible: true });
+         newSecondary.push({ id: 's12', label: 'Applications', value: 0, icon: 'file-text', moduleKey: 'daily_applications', gridType: 'secondary' as const, order: 11, visible: true });
+         newSecondary.push({ id: 's13', label: 'Reviews', value: 0, icon: 'star', moduleKey: 'daily_reviews', gridType: 'secondary' as const, order: 12, visible: true });
+         newSecondary.push({ id: 's14', label: 'Enquiries', value: 0, icon: 'message-square', moduleKey: 'daily_enquiries', gridType: 'secondary' as const, order: 13, visible: true });
+      } else {
+         if (!hasDailyApplications) {
+            newSecondary.push({ id: 's12', label: 'Applications', value: 0, icon: 'file-text', moduleKey: 'daily_applications', gridType: 'secondary' as const, order: 11, visible: true });
+         }
+         if (!hasDailyReviews) {
+            newSecondary.push({ id: 's13', label: 'Reviews', value: 0, icon: 'star', moduleKey: 'daily_reviews', gridType: 'secondary' as const, order: 12, visible: true });
+            newSecondary.push({ id: 's14', label: 'Enquiries', value: 0, icon: 'message-square', moduleKey: 'daily_enquiries', gridType: 'secondary' as const, order: 13, visible: true });
+         }
+      }
+
+      return {
+        primary: updatedPrimary,
+        secondary: newSecondary
+      };
+    });
+
+    // Migrate Chart Components
+    setChartComponents(prev => {
+      const hasDailyActivities = prev['status-charts'].some(c => c.id === 'chart-daily-activities');
+      if (hasDailyActivities) return prev;
+
+      const newStatusCharts = [...prev['status-charts']];
+      newStatusCharts.push({ id: 'chart-daily-activities', type: 'pie' as const, title: 'Daily Activities', section: 'status-charts' as const, order: newStatusCharts.length, visible: true });
+
+      return {
+        ...prev,
+        'status-charts': newStatusCharts
+      };
+    });
+  }, []);
+
+  // Update stat card values when stats or dailyStats change
   useEffect(() => {
     setStatCards((prev) => ({
       primary: prev.primary.map(card => {
@@ -2152,6 +2525,12 @@ const ClinicDashboard: NextPageWithLayout = () => {
           case 'subscription':
             value = `${subscriptionSummary.subscriptionPercentage}%`;
             break;
+          case 'membership':
+            value = dailyStats.totals?.membership || 0;
+            break;
+          case 'jobs':
+            value = dailyStats.totals?.jobs || 0;
+            break;
         }
         return { ...card, value };
       }),
@@ -2159,25 +2538,55 @@ const ClinicDashboard: NextPageWithLayout = () => {
         let value: number | string = 0;
         switch (card.moduleKey) {
           case 'appointments':
-            value = stats.totalAppointments || 0;
+            // Sum of daily stats
+            value = dailyStats.booked + dailyStats.arrived + dailyStats.consultation + dailyStats.cancelled + dailyStats.discharge;
             break;
           case 'leads':
             value = stats.totalLeads || 0;
             break;
-          case 'treatments':
-            value = stats.totalTreatments || 0;
+          case 'booked':
+            value = dailyStats.booked;
             break;
-          case 'rooms':
-            value = stats.totalRooms || 0;
+          case 'arrived':
+            value = dailyStats.arrived;
             break;
-          case 'departments':
-            value = stats.totalDepartments || 0;
+          case 'consultation':
+            value = dailyStats.consultation;
+            break;
+          case 'cancelled':
+            value = dailyStats.cancelled;
+            break;
+          case 'discharge':
+            value = dailyStats.discharge;
+            break;
+          case 'daily_patients':
+            value = dailyStats.daily.patients || 0;
+            break;
+          case 'daily_jobs':
+            console.log('Setting daily_jobs value:', dailyStats.daily.jobs || 0);
+            value = dailyStats.daily.jobs || 0;
+            break;
+          case 'daily_offers':
+            console.log('Setting daily_offers value:', dailyStats.daily.offers || 0);
+            value = dailyStats.daily.offers || 0;
+            break;
+          case 'daily_leads':
+            value = dailyStats.daily.leads || 0;
+            break;
+          case 'daily_applications':
+            value = dailyStats.daily.applications || 0;
+            break;
+          case 'daily_reviews':
+            value = dailyStats.daily.reviews || 0;
+            break;
+          case 'daily_enquiries':
+            value = dailyStats.daily.enquiries || 0;
             break;
         }
         return { ...card, value };
       }),
     }));
-  }, [stats, navigationItems.length, subscriptionSummary.subscriptionPercentage]);
+  }, [stats, dailyStats, navigationItems.length, subscriptionSummary.subscriptionPercentage]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -2314,6 +2723,47 @@ const ClinicDashboard: NextPageWithLayout = () => {
             >
               <GripVertical className="w-3 h-3 text-white" />
             </div>
+            {chartComponents['analytics-overview'].find(c => c.id === 'chart-daily-appointment')?.visible && (
+              <div className="h-80 mt-6 border-t border-gray-100 pt-6">
+                <h3 className="text-base font-semibold text-teal-800 mb-4">Daily Appointment Status</h3>
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={dailyAppointmentChartData} margin={{ top: 10, right: 20, left: 10, bottom: 40 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                    <XAxis
+                      dataKey="name"
+                      tick={{ fill: '#6b7280', fontSize: 11 }}
+                      axisLine={{ stroke: '#d1d5db' }}
+                      tickLine={{ stroke: '#d1d5db' }}
+                    />
+                    <YAxis
+                      tick={{ fill: '#6b7280', fontSize: 11 }}
+                      axisLine={{ stroke: '#d1d5db' }}
+                      tickLine={{ stroke: '#d1d5db' }}
+                    />
+                    <Tooltip 
+                      contentStyle={{ 
+                        backgroundColor: '#fff', 
+                        border: '1px solid #e5e7eb',
+                        borderRadius: '6px',
+                        fontSize: '11px'
+                      }}
+                    />
+                    <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                      <LabelList
+                        dataKey="value"
+                        position="top"
+                        fill="#1f2937"
+                        fontSize={11}
+                        fontWeight={500}
+                      />
+                      {dailyAppointmentChartData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.fill} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
           </div>
         )}
         <div className={isEditMode ? 'pl-14' : ''}>
@@ -2478,17 +2928,25 @@ const ClinicDashboard: NextPageWithLayout = () => {
       building: <Building2 className="w-5 h-5" />,
       package: <Package className="w-5 h-5" />,
       gift: <Gift className="w-5 h-5" />,
+      briefcase: <Briefcase className="w-5 h-5" />,
+      'file-text': <FileText className="w-5 h-5" />,
+      'message-square': <MessageSquare className="w-5 h-5" />,
     };
 
     const paddingClass = gridSize === 'compact' ? 'p-3' : gridSize === 'spacious' ? 'p-6' : 'p-4';
-
+        
+    // Check if this is a Today's Data card
+    const isTodayCard = card.moduleKey?.startsWith('daily_');
+    const cardBackground = isTodayCard ? 'bg-teal-100' : 'bg-white';
+    const containerBackground = 'bg-white';
+    
     return (
       <div
         ref={setNodeRef}
         style={style}
-        className={`relative ${isDragging ? 'z-50 ring-2 ring-teal-500 ring-opacity-50' : ''} ${!card.visible ? 'opacity-50' : ''}`}
+        className={`relative h-full ${isDragging ? 'z-50 ring-2 ring-teal-500 ring-opacity-50' : ''} ${!card.visible ? 'opacity-50' : ''} ${containerBackground}`}
       >
-        <div className={`bg-gradient-to-br from-white to-gray-50 rounded-xl ${paddingClass} border-2 ${isDragging ? 'border-teal-500' : 'border-gray-200'} shadow-sm hover:shadow-xl transition-all duration-300 group relative overflow-hidden`}>
+        <div className={`${cardBackground} rounded-xl ${paddingClass} border-2 ${isDragging ? 'border-teal-500' : 'border-gray-200'} shadow-sm hover:shadow-xl transition-all duration-300 group relative overflow-hidden h-full flex flex-col justify-between`}>
           {isEditMode && (
             <div className="absolute top-2 left-2 z-30 flex flex-col gap-1.5">
               <button
@@ -2535,9 +2993,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
             ) : (
               <>
                 <p className="text-2xl sm:text-3xl font-bold text-gray-900 mb-1">{card.value}</p>
-                {card.value === 0 && (
-                  <p className="text-[10px] text-gray-500 mt-0.5">No data</p>
-                )}
+                <p className={`text-[10px] text-gray-500 mt-0.5 ${card.value === 0 ? '' : 'invisible'}`}>No data</p>
               </>
             )}
           </div>
@@ -2599,21 +3055,83 @@ const ClinicDashboard: NextPageWithLayout = () => {
         {/* Dashboard Header */}
         <div className="mb-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                <div>
+            <div>
               <h1 className="text-2xl sm:text-3xl font-bold text-teal-800 mb-1">
-                    {clinicInfo.name || 'Clinic Dashboard'}
-                  </h1>
+                {clinicInfo.name || 'Clinic Dashboard'}
+              </h1>
               <div className="flex items-center gap-3 text-sm text-teal-600">
                 <div className="flex items-center gap-1.5">
                   <User className="w-4 h-4" />
                   <span>{clinicInfo.ownerName || clinicUser?.name || 'N/A'}</span>
                 </div>
                 <span>•</span>
-                <span>{formatDate(currentTime)}</span>
-                <span>•</span>
-                  <span className="font-semibold">{formatTime(currentTime)}</span>
+                <span className="font-semibold">{formatTime(currentTime)}</span>
+              </div>
+            </div>
+
+            {/* Date Picker Center */}
+            <div className="flex items-center gap-1 bg-white border border-gray-200 rounded-lg p-1 shadow-sm">
+              <button 
+                onClick={() => {
+                  const today = new Date();
+                  setSelectedDate(today);
+                }}
+                className="px-2 py-1 hover:bg-gray-100 rounded text-gray-600 transition-colors text-xs font-medium"
+                title="Go to Today"
+              >
+                Today
+              </button>
+              <div className="relative">
+                <div 
+                  className="flex items-center gap-0 px-3 py-1 cursor-pointer hover:bg-gray-50 rounded-md transition-colors"
+                  onClick={() => setShowCalendar(!showCalendar)}
+                >
+                  <span className="text-sm font-medium text-gray-700">
+                    {selectedDate.toLocaleDateString('en-GB').replace(/\//g, '-')}
+                  </span>
                 </div>
-                </div>
+                
+                {/* Calendar Dropdown */}
+                {showCalendar && (
+                  <div className="absolute z-50 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg p-3 w-64 calendar-container">
+                    <div className="flex items-center justify-between mb-2">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigateMonth('prev');
+                        }}
+                        className="p-1 hover:bg-gray-100 rounded transition-colors"
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                      </button>
+                      <span className="text-sm font-medium text-gray-700">
+                        {selectedDate.toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })}
+                      </span>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigateMonth('next');
+                        }}
+                        className="p-1 hover:bg-gray-100 rounded transition-colors"
+                      >
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-7 gap-1 mb-1">
+                      {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(day => (
+                        <div key={day} className="text-center text-xs font-medium text-gray-500 py-1">
+                          {day}
+                        </div>
+                      ))}
+                    </div>
+                    <div className="grid grid-cols-7 gap-1">
+                      {renderCalendar()}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
             <div className="flex items-center gap-2 flex-wrap">
               {isEditMode ? (
                 <>
@@ -2815,35 +3333,107 @@ const ClinicDashboard: NextPageWithLayout = () => {
                       
                       case 'secondary-stats':
                         const secondaryCards = statCards.secondary.sort((a, b) => a.order - b.order);
+                        const dailyCards = secondaryCards.filter(card => card.moduleKey?.startsWith('daily_'));
+                        const otherCards = secondaryCards.filter(card => !card.moduleKey?.startsWith('daily_'));
                         const gapClass2 = gridSize === 'compact' ? 'gap-1.5' : gridSize === 'spacious' ? 'gap-4' : 'gap-3';
                         return (
-                              <div className={`grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 ${gapClass2}`}>
-                                {secondaryCards.map((card) => (
-                                  <SortableStatCard key={card.id} card={card} />
-                                ))}
-                </div>
+                              <div className="space-y-4">
+                                {/* Today's Data Heading and All Cards - moved to top */}
+                                {dailyCards.length > 0 && (
+                                  <div>
+                                    <h3 className="text-sm font-semibold text-gray-900 mb-3">Today's Data ({selectedDate.toLocaleDateString('en-GB').replace(/\//g, '-')})</h3>
+                                    <div className={`grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 ${gapClass2}`}>
+                                      {dailyCards.map((card) => (
+                                        <SortableStatCard key={card.id} card={card} />
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                                                       
+                                {/* Other secondary cards - now below Today's Data */}
+                                {otherCards.length > 0 && (
+                                  <div className="mt-6">
+                                    <div className={`grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 ${gapClass2}`}>
+                                      {otherCards.map((card) => (
+                                        <SortableStatCard key={card.id} card={card} />
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
                         );
                       
                       case 'quick-actions':
                         return (
-            <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
-              <h3 className="text-sm font-semibold text-gray-900 mb-3">Quick Actions</h3>
-              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
-                {quickActions.map((action, idx) => {
-                  const Icon = action.icon;
-                  return (
-                    <a
-                      key={idx}
-                      href={action.path}
-                      className="flex flex-col items-center justify-center p-3 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 hover:border-gray-300 transition-all group"
+            <div>
+              <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4 mb-6">
+                <h3 className="text-sm font-semibold text-gray-900 mb-3">Quick Actions</h3>
+                <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-3">
+                  {quickActions.map((action, idx) => {
+                    return (
+                      <a
+                        key={idx}
+                        href={action.path}
+                        className="flex flex-col items-center justify-center p-3 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 hover:border-gray-300 transition-all group"
+                      >
+                        <div className={`p-2 ${action.color} rounded-lg mb-2 group-hover:scale-110 transition-transform`}>
+                          {action.iconNode && React.isValidElement(action.iconNode) ? (
+                            React.cloneElement(action.iconNode, { className: "w-4 h-4 text-white" })
+                          ) : action.icon ? (
+                            (() => {
+                              const Icon = action.icon;
+                              return <Icon className="w-4 h-4 text-white" />;
+                            })()
+                          ) : (
+                            <Activity className="w-4 h-4 text-white" />
+                          )}
+                        </div>
+                        <p className="text-xs font-medium text-gray-700 text-center line-clamp-2 h-8 flex items-center">{action.label}</p>
+                      </a>
+                    );
+                  })}
+                </div>
+              </div>
+              
+              {/* Appointment Status Bar Chart */}
+              <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
+                <h3 className="text-sm font-semibold text-teal-800 mb-4">Appointment Status Overview</h3>
+                <div className="h-64">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={appointmentStatusData}
+                      margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
                     >
-                      <div className={`p-2 ${action.color} rounded-lg mb-2 group-hover:scale-110 transition-transform`}>
-                        <Icon className="w-4 h-4 text-white" />
-                      </div>
-                      <p className="text-xs font-medium text-gray-700 text-center">{action.label}</p>
-                    </a>
-                  );
-                })}
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis 
+                        dataKey="name" 
+                        angle={-45}
+                        textAnchor="end"
+                        height={60}
+                        interval={0}
+                        tick={{ fontSize: 10 }}
+                      />
+                      <YAxis tick={{ fontSize: 10 }} />
+                      <Tooltip 
+                        formatter={(value) => [value, 'Count']}
+                        labelStyle={{ fontWeight: 'bold' }}
+                      />
+                      <Bar 
+                        dataKey="value" 
+                        fill="#0d9488"
+                        radius={[4, 4, 0, 0]}
+                        minPointSize={2}
+                      >
+                        <LabelList 
+                          dataKey="value" 
+                          position="top" 
+                          style={{ fontSize: 10, fill: '#374151' }}
+                          formatter={(value: number) => value > 0 ? value : '0'}
+                        />
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
               </div>
             </div>
                         );
@@ -2857,36 +3447,39 @@ const ClinicDashboard: NextPageWithLayout = () => {
                                     return (
                                       <SortableChart key={chart.id} chart={chart}>
                 <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4 overflow-hidden">
-                  <h3 className="text-sm font-semibold text-teal-800 mb-4">Appointment Status</h3>
+                  <h3 className="text-sm font-semibold text-teal-800 mb-4">Appointment Status Overview</h3>
                   <div className="h-56">
                     <ResponsiveContainer width="100%" height="100%">
-                      <PieChart margin={{ top: 10, right: 20, bottom: 40, left: 20 }}>
-                        <Pie
-                          data={appointmentStatusData}
-                          cx="50%"
-                          cy="45%"
-                          labelLine={false}
-                          label={false}
-                          outerRadius={55}
-                          fill="#8884d8"
-                          dataKey="value"
-                        >
-                          {appointmentStatusData.map((_entry, index) => (
-                            <Cell key={`cell-${index}`} fill={pieColors[index % pieColors.length]} />
-                          ))}
-                        </Pie>
-                        <Tooltip />
-                        <Legend 
-                          wrapperStyle={{ fontSize: '10px', paddingTop: '15px' }}
-                          iconType="circle"
-                          formatter={(value: any, entry: any) => {
-                            const v = Number(entry?.payload?.value ?? 0);
-                            const total = appointmentStatusData.reduce((sum, d) => sum + Number(d.value || 0), 0);
-                            const pct = total ? (v / total) * 100 : 0;
-                            return `${value}: ${pct.toFixed(0)}%`;
-                          }}
+                      <BarChart
+                        data={appointmentStatusData}
+                        margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis 
+                          dataKey="name" 
+                          angle={-45}
+                          textAnchor="end"
+                          height={60}
+                          interval={0}
+                          tick={{ fontSize: 10 }}
                         />
-                      </PieChart>
+                        <YAxis tick={{ fontSize: 10 }} />
+                        <Tooltip 
+                          formatter={(value) => [value, 'Count']}
+                          labelStyle={{ fontWeight: 'bold' }}
+                        />
+                        <Bar 
+                          dataKey="value" 
+                          fill="#0d9488"
+                          radius={[4, 4, 0, 0]}
+                        >
+                          <LabelList 
+                            dataKey="value" 
+                            position="top" 
+                            style={{ fontSize: 10, fill: '#374151' }}
+                          />
+                        </Bar>
+                      </BarChart>
                     </ResponsiveContainer>
                   </div>
                 </div>
@@ -2970,6 +3563,46 @@ const ClinicDashboard: NextPageWithLayout = () => {
                     </ResponsiveContainer>
                   </div>
                 </div>
+                                      </SortableChart>
+                                    );
+                                  }
+                                  if (chart.id === 'chart-daily-activities' && dailyActivitiesData.length > 0) {
+                                    return (
+                                      <SortableChart key={chart.id} chart={chart}>
+                                        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4 overflow-hidden">
+                                          <h3 className="text-sm font-semibold text-teal-800 mb-4">Daily Activities</h3>
+                                          <div className="h-56">
+                                            <ResponsiveContainer width="100%" height="100%">
+                                              <PieChart margin={{ top: 10, right: 20, bottom: 40, left: 20 }}>
+                                                <Pie
+                                                  data={dailyActivitiesData}
+                                                  cx="50%"
+                                                  cy="45%"
+                                                  labelLine={false}
+                                                  label={false}
+                                                  outerRadius={55}
+                                                  fill="#8884d8"
+                                                  dataKey="value"
+                                                >
+                                                  {dailyActivitiesData.map((_entry, index) => (
+                                                    <Cell key={`cell-${index}`} fill={pieColors[index % pieColors.length]} />
+                                                  ))}
+                                                </Pie>
+                                                <Tooltip />
+                                                <Legend 
+                                                  wrapperStyle={{ fontSize: '10px', paddingTop: '15px' }}
+                                                  iconType="circle"
+                                                  formatter={(value: any, entry: any) => {
+                                                    const v = Number(entry?.payload?.value ?? 0);
+                                                    const total = dailyActivitiesData.reduce((sum, d) => sum + Number(d.value || 0), 0);
+                                                    const pct = total ? (v / total) * 100 : 0;
+                                                    return `${value}: ${pct.toFixed(0)}%`;
+                                                  }}
+                                                />
+                                              </PieChart>
+                                            </ResponsiveContainer>
+                                          </div>
+                                        </div>
                                       </SortableChart>
                                     );
                                   }
