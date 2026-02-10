@@ -64,14 +64,6 @@ export default async function handler(req, res) {
     const end = new Date();
     end.setHours(23, 59, 59, 999);
 
-
-    // const calProductivityPercentage = (productiveSeconds, timeAtWorkSeconds) => {
-    //   if (timeAtWorkSeconds === 0) return 0;
-    //   return Math.round((productiveSeconds / timeAtWorkSeconds) * 100);
-    // }
-
-    // console.log('ProductivityPercentage function:', calProductivityPercentage);
-
     // Find today's work session
     let workSession = await WorkSession.findOne({
       agentId: agentId,
