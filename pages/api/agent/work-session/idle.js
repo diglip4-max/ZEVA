@@ -1,3 +1,4 @@
+// pages/api/agent/work-session/idle.js
 import dbConnect from '../../../../lib/database';
 import WorkSession from '../../../../models/WorkSession';
 import withAgentApiAuth from '../../../../middleware/withAgentApiAuth';
@@ -12,10 +13,6 @@ export default withAgentApiAuth(async function handler(req, res) {
     const agentId = req.user.id;
     const { duration } = req.body;
 
-    if (!duration || duration < 1) {
-      return res.status(400).json({ success: false, message: 'Invalid duration' });
-    }
-
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const tomorrow = new Date(today);
@@ -26,31 +23,68 @@ export default withAgentApiAuth(async function handler(req, res) {
       date: { $gte: today, $lt: tomorrow },
     });
 
+    const now = new Date();
+
     if (!session) {
-      return res.status(404).json({ success: false, message: 'No active session' });
+      //Create new session with ALL required fields
+      session = new WorkSession({
+        agentId,
+        userId: agentId,
+        role: 'agent',
+        date: today,
+        arrivalTime: now,
+        deskTimeSeconds: 0,
+        productiveSeconds: 0,
+        idleTimeSeconds: duration,
+        productivityPercentage: 0,
+        status: 'ONLINE',
+        lastActivity: now,
+        activityLogs: [{
+          timestamp: now,
+          isActive: false,
+          duration,
+          activityType: 'idle'
+        }]
+      });
+      console.log('Created new agent idle session:', agentId);
+    } else {
+      // Update existing session
+      session.idleTimeSeconds = (session.idleTimeSeconds || 0) + duration;
+      session.lastActivity = now;
+      
+      // Ensure activityLogs array exists
+      if (!session.activityLogs) {
+        session.activityLogs = [];
+      }
+      
+      session.activityLogs.push({
+        timestamp: now,
+        isActive: false,
+        duration,
+        activityType: 'idle'
+      });
     }
 
-    // Add idle time (does NOT count toward deskTime or productiveTime)
-    session.activityLogs.push({
-      timestamp: new Date(),
-      isActive: false,
-      duration,
-      activityType: 'idle'
-    });
+    // DOUBLE CHECK: Ensure required fields are set
+    if (!session.userId) session.userId = agentId;
+    if (!session.role) session.role = 'agent';
 
     await session.save();
 
     return res.json({
       success: true,
       message: 'Idle time recorded',
-      idleSecondsAdded: duration
+      idleTimeSeconds: session.idleTimeSeconds,
     });
   } catch (error) {
-    console.error('IDLE RECORD ERROR:', error);
+    console.error('IDLE TIME ERROR:', error);
+    console.error('Validation errors:', error.errors || 'No validation errors');
+    
     return res.status(500).json({ 
       success: false, 
       message: 'Server error',
-      error: error.message 
+      error: error.message,
+      validationErrors: error.errors ? Object.keys(error.errors) : null
     });
   }
 });

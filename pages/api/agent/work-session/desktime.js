@@ -24,34 +24,58 @@ export default withAgentApiAuth(async function handler(req, res) {
       date: { $gte: today, $lt: tomorrow },
     });
 
+    const now = new Date();
+
     if (!session) {
-      // Create new session if none exists
       session = new WorkSession({
         agentId,
+        userId: agentId,
+        role: 'agent',
         date: today,
+        arrivalTime: now,
         deskTimeSeconds: duration,
-        lastActivity: new Date(),
+        productiveSeconds: 0,
+        idleTimeSeconds: 0,
+        productivityPercentage: 0,
+        status: 'ONLINE',
+        lastActivity: now,
+        activityLogs: [{
+          timestamp: now,
+          isActive: true,
+          duration,
+          activityType: 'desktime'
+        }]
       });
+      console.log('Created new agent desktime session:', agentId);
     } else {
       // Update existing session
       session.deskTimeSeconds = (session.deskTimeSeconds || 0) + duration;
-      session.lastActivity = new Date();
+      session.lastActivity = now;
+      
+      // Ensure activityLogs array exists
+      if (!session.activityLogs) {
+        session.activityLogs = [];
+      }
+      
+      session.activityLogs.push({
+        timestamp: now,
+        isActive: true,
+        duration,
+        activityType: 'desktime'
+      });
+
+      // Recalculate productivity percentage
+      if (session.deskTimeSeconds > 0) {
+        session.productivityPercentage = Math.min(100, 
+          Math.round(((session.productiveSeconds || 0) / session.deskTimeSeconds) * 100)
+        );
+      }
+      console.log('Updated agent desktime:', agentId, 'Total:', session.deskTimeSeconds);
     }
 
-    // Add to activity logs
-    session.activityLogs.push({
-      timestamp: new Date(),
-      isActive: true,
-      duration,
-      activityType: 'desktime'
-    });
-
-    // Recalculate productivity percentage
-    if (session.deskTimeSeconds > 0) {
-      session.productivityPercentage = Math.min(100, 
-        Math.round((session.productiveSeconds / session.deskTimeSeconds) * 100)
-      );
-    }
+    // Ensure required fields are set
+    if (!session.userId) session.userId = agentId;
+    if (!session.role) session.role = 'agent';
 
     await session.save();
 
@@ -63,10 +87,13 @@ export default withAgentApiAuth(async function handler(req, res) {
     });
   } catch (error) {
     console.error('DESK TIME ERROR:', error);
+    console.error('Validation errors:', error.errors || 'No validation errors');
+    
     return res.status(500).json({ 
       success: false, 
       message: 'Server error',
-      error: error.message 
+      error: error.message,
+      validationErrors: error.errors ? Object.keys(error.errors) : null
     });
   }
 });

@@ -24,11 +24,11 @@ const TrackMembersPage = () => {
 
 
   // Filter dropdown state
-const [filteredAgents, setFilteredAgents] = useState([]);
-const [filteredDoctors, setFilteredDoctors] = useState([]);
-const [showAgentDropdown, setShowAgentDropdown] = useState(false);
-const [showDoctorDropdown, setShowDoctorDropdown] = useState(false);
-const [loading, setLoading] = useState(false);
+  const [filteredAgents, setFilteredAgents] = useState([]);
+  const [filteredDoctors, setFilteredDoctors] = useState([]);
+  const [showAgentDropdown, setShowAgentDropdown] = useState(false);
+  const [showDoctorDropdown, setShowDoctorDropdown] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   // Screenshot modal state
   const [selectedMember, setSelectedMember] = useState(null);
@@ -103,7 +103,19 @@ const [loading, setLoading] = useState(false);
     try {
       const rolePath = activeTab === 'agents' ? 'agent' : 'doctor';
 
-      const res = await axios.get(`/api/${rolePath}/work-session/today?userId=${userId}`, {
+      // Use clinicToken for admin access
+      const token = localStorage.getItem('clinicToken');
+
+      // IMPORTANT: Use different query parameters based on role
+      let queryParams;
+      if (activeTab === 'agents') {
+        queryParams = `userId=${userId}`;
+      } else {
+        // For doctors/doctorStaff, use doctorId parameter
+        queryParams = `doctorId=${userId}`;
+      }
+
+      const res = await axios.get(`/api/${rolePath}/work-session/today?${queryParams}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.data?.success && res.data.data?.arrivalTime) {
@@ -239,24 +251,6 @@ const [loading, setLoading] = useState(false);
     fetchScreenshots(member._id);
   };
 
-  // const handleViewWork = (member) => {
-  //   setSelectedWorkMember(member);
-  //   setWorkModalOpen(true);
-  // };
-
-  // const handleViewWork = (member) => {
-  //   console.log('🔍 handleViewWork called:', {
-  //     memberId: member._id,
-  //     memberName: member.name,
-  //     activeTab: activeTab, // Should be 'doctorStaff'
-  //     userRole: activeTab === 'agents' ? 'agent' : 'doctor',
-  //     token: token ? 'Present' : 'Missing'
-  //   });
-
-  //   setSelectedWorkMember(member);
-  //   setWorkModalOpen(true);
-  // };
-
   const handleViewWork = async (member) => {
     console.log('🔍 handleViewWork called:', {
       memberId: member._id,
@@ -342,87 +336,41 @@ const [loading, setLoading] = useState(false);
     document.body.removeChild(link);
   };
 
+  const fetchProductivityData = async (role, filterType) => {
+    try {
+      setLoading(true);
+      const response = await fetch(`/api/productivity?role=${role}&filter=${filterType}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await response.json();
 
-
-
-
-
-  // const handleFilterAgents = (filterType) => {
-  //   setShowAgentDropdown(false);
-
-  //   if (filterType === 'mostProductive') {
-  //     // Filter or sort agents for most productive
-  //     const filteredAgents = [...agents].sort((a, b) => b.productivity - a.productivity);
-  //     setFilteredAgents(filteredAgents);
-  //     console.log('Filter: Most Productive Agents');
-  //   } else if (filterType === 'leastProductive') {
-  //     // Filter or sort agents for least productive
-  //     const filteredAgents = [...agents].sort((a, b) => a.productivity - b.productivity);
-  //     setFilteredAgents(filteredAgents);
-  //     console.log('Filter: Least Productive Agents');
-  //   } else {
-  //     // Show all agents
-  //     setFilteredAgents(agents);
-  //     console.log('Filter: All Agents');
-  //   }
-  // };
-
-  // const handleFilterDoctors = (filterType) => {
-  //   setShowDoctorDropdown(false);
-
-  //   if (filterType === 'mostProductive') {
-  //     // Filter or sort doctors for most productive
-  //   const filteredDoctors = [...doctorStaff].sort((a, b) => b.patientsTreated - a.patientsTreated);
-  //     setFilteredDoctors(filteredDoctors);
-  //     console.log('Filter: Most Productive Doctors');
-  //   } else if (filterType === 'leastProductive') {
-  //     // Filter or sort doctors for least productive
-  //    const filteredDoctors = [...doctorStaff].sort((a, b) => a.patientsTreated - b.patientsTreated);
-  //     setFilteredDoctors(filteredDoctors);
-  //     console.log('Filter: Least Productive Doctors');
-  //   } else {
-  //     setFilteredDoctors(doctorStaff);
-  //     console.log('Filter: All Doctors');
-  //   }
-  // };
-
-
-
-const fetchProductivityData = async (role, filterType) => {
-  try {
-    setLoading(true);
-    const response = await fetch(`/api/productivity?role=${role}&filter=${filterType}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    const data = await response.json();
-    
-    if (role === 'agent') {
-      setFilteredAgents(data);
-    } else {
-      setFilteredDoctors(data);
+      if (role === 'agent') {
+        setFilteredAgents(data);
+      } else {
+        setFilteredDoctors(data);
+      }
+    } catch (error) {
+      console.error('Error fetching productivity data:', error);
+    } finally {
+      setLoading(false);
     }
-  } catch (error) {
-    console.error('Error fetching productivity data:', error);
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
-// Initial fetch when component mounts
-useEffect(() => {
-  fetchProductivityData('agent', 'all');
-  fetchProductivityData('doctor', 'all');
-}, []);
+  // Initial fetch when component mounts
+  useEffect(() => {
+    fetchProductivityData('agent', 'all');
+    fetchProductivityData('doctor', 'all');
+  }, []);
 
-const handleFilterAgents = async (filterType) => {
-  setShowAgentDropdown(false);
-  await fetchProductivityData('agent', filterType);
-};
+  const handleFilterAgents = async (filterType) => {
+    setShowAgentDropdown(false);
+    await fetchProductivityData('agent', filterType);
+  };
 
-const handleFilterDoctors = async (filterType) => {
-  setShowDoctorDropdown(false);
-  await fetchProductivityData('doctor', filterType);
-};
+  const handleFilterDoctors = async (filterType) => {
+    setShowDoctorDropdown(false);
+    await fetchProductivityData('doctor', filterType);
+  };
 
 
   const currentList = activeTab === 'agents' ? agents : doctorStaff;
@@ -462,29 +410,6 @@ const handleFilterDoctors = async (filterType) => {
       </div>
       {/* Tabs */}
       <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm mb-6">
-        {/* <div className="border-b border-gray-200 dark:border-gray-700">
-          <nav className="flex -mb-px">
-            <button
-              onClick={() => setActiveTab('agents')}
-              className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${activeTab === 'agents'
-                ? 'border-blue-600 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
-                }`}
-            >
-              Agents ({agents.length})
-            </button>
-            <button
-              onClick={() => setActiveTab('doctorStaff')}
-              className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${activeTab === 'doctorStaff'
-                ? 'border-blue-600 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
-                }`}
-            >
-              Doctors ({doctorStaff.length})
-            </button>
-          </nav>
-        </div> */}
-
 
         {/* Tabs */}
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm mb-6">
@@ -933,27 +858,6 @@ const handleFilterDoctors = async (filterType) => {
               userRole={activeTab === 'agents' ? 'agent' : 'doctorStaff'}
               clinicToken={token}
             />
-
-
-
-
-            {/* i am going to use AgentDesktime And DoctorDesktime component instead of WorkSessionModal for the work-session in track-members page */}
-
-            {/* <div className="flex-1 overflow-auto">
-              {activeTab === 'agents' ? (
-                <AgentDesktime
-                  agentId={selectedWorkMember._id}
-                  agentName={selectedWorkMember.name}
-                  clinicToken={token}
-                />
-              ) : (
-                <DoctorDesktime
-                  doctorStaffId={selectedWorkMember._id}
-                  doctorStaffName={selectedWorkMember.name}
-                  clinicToken={token}
-                />
-              )}
-              </div> */}
 
           </div>
         </div>

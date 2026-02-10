@@ -25,9 +25,6 @@ export default async function handler(req, res) {
       return res.status(401).json({ success: false, message: 'Invalid token' });
     }
 
-    // Debug log to see what's in the token
-    console.log('Decoded token:', decoded);
-
     // Try different possible token structures
     const agentId = decoded.id || decoded.userId || decoded.agentId || decoded._id;
 
@@ -36,9 +33,10 @@ export default async function handler(req, res) {
       return res.status(400).json({ 
         success: false, 
         message: 'Invalid token structure',
-        // tokenContents: decoded // Remove this in production
       });
     }
+
+    console.log('Processing arrival for agent:', agentId);
 
     const start = new Date();
     start.setHours(0, 0, 0, 0);
@@ -51,19 +49,35 @@ export default async function handler(req, res) {
       date: { $gte: start, $lte: end },
     });
 
+    const now = new Date();
+
     if (!session) {
+      //Create session with ALL required fields
       session = await WorkSession.create({
         agentId,
+        userId: agentId,
         role: 'agent',
         date: start,
-        arrivalTime: new Date(),
+        arrivalTime: now,
         deskTimeSeconds: 0,
         productiveSeconds: 0,
+        idleTimeSeconds: 0,
         productivityPercentage: 0,
+        status: 'ONLINE',
+        lastActivity: now
       });
+      console.log('Created new arrival session for agent:', agentId);
     } else if (!session.arrivalTime) {
-      session.arrivalTime = new Date();
+      session.arrivalTime = now;
+      session.status = 'ONLINE';
+      session.lastActivity = now;
+      
+      // Ensure required fields are set
+      if (!session.userId) session.userId = agentId;
+      if (!session.role) session.role = 'agent';
+      
       await session.save();
+      console.log('Updated arrival time for agent:', agentId);
     }
 
     return res.json({
@@ -72,10 +86,13 @@ export default async function handler(req, res) {
     });
   } catch (err) {
     console.error('ARRIVAL ERROR:', err);
+    console.error('Validation errors:', err.errors || 'No validation errors');
+    
     return res.status(500).json({ 
       success: false,
       message: 'Server error',
-      error: err.message 
+      error: err.message,
+      validationErrors: err.errors ? Object.keys(err.errors) : null
     });
   }
 }

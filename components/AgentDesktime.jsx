@@ -385,17 +385,9 @@ const AgentDesktime = ({
   console.log('Agent Desktime Response:', { userId, name, isDoctor });
 
 
-  // const token = typeof window !== 'undefined'
-  //   ? (localStorage.getItem('agentToken') ||
-  //     localStorage.getItem('doctorToken') ||
-  //     localStorage.getItem('clinicToken') ||
-  //     localStorage.getItem('adminToken') ||
-  //     null)
-  //   : null;
-
   const token = typeof window !== 'undefined'
     ? isDoctor
-      ? localStorage.getItem('doctorToken')
+      ? localStorage.getItem('userToken')
       : localStorage.getItem('agentToken')
     : null;
 
