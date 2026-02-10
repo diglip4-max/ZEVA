@@ -538,6 +538,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
   const roomFilterRef = useRef<HTMLDivElement | null>(null);
   const dragStopTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const timeDragSelectionRef = useRef(timeDragSelection);
+  const dateInputRef = useRef<HTMLInputElement | null>(null);
   
   // Keep ref in sync with state
   useEffect(() => {
@@ -2156,9 +2157,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
     }
   };
 
-  if (loading || !permissionsLoaded) {
-    return <Loader />;
-  }
+  if (loading || !permissionsLoaded) return <Loader />;
 
   // Show access denied message if no permission
   if (!permissions.canRead) {
@@ -2224,41 +2223,9 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-3 sm:p-4 md:p-6 space-y-3 sm:space-y-4">
-      <Toaster
-        position="top-right"
-        toastOptions={{
-          duration: 3000,
-          style: {
-            background: "#1f2937",
-            color: "#f9fafb",
-            fontSize: "12px",
-            padding: "8px 12px",
-            borderRadius: "6px",
-          },
-          success: {
-            iconTheme: {
-              primary: "#10b981",
-              secondary: "#fff",
-            },
-            style: {
-              background: "#10b981",
-              color: "#fff",
-            },
-          },
-          error: {
-            iconTheme: {
-              primary: "#ef4444",
-              secondary: "#fff",
-            },
-            style: {
-              background: "#ef4444",
-              color: "#fff",
-            },
-          },
-        }}
-      />
-      <div className="bg-white dark:bg-gray-50 rounded-lg border border-gray-200 dark:border-gray-200 shadow-sm p-3 sm:p-4">
+    <div className="min-h-screen bg-gray-50 p-1 sm:p-1 md:p-2 space-y-1 sm:space-y-2">
+      <Toaster position="top-right" />
+      <div className="bg-white dark:bg-gray-50 rounded-lg border border-gray-200 dark:border-gray-200 shadow-sm p-1 sm:p-2">
         {doctorStaff.length === 0 && rooms.length === 0 ? (
           <div className="flex flex-col items-center justify-center min-h-[60vh] py-12">
             <div className="bg-gradient-to-br from-gray-50 to-gray-50 dark:from-gray-900/20 dark:to-indigo-900/20 rounded-full p-6 mb-6">
@@ -2278,55 +2245,54 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
           </div>
         ) : (
           <>
-            <div className="flex flex-col gap-3 mb-3">
-              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+            <div className="flex flex-col gap-2">
+              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2">
                 <div>
                   <h1 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-900">Appointment Schedule</h1>
                   <p className="text-xs text-gray-700 dark:text-gray-800">
                     {clinic?.name} • {clinic?.timings || "No timings set"}
                   </p>
                 </div>
-                <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                <div className="flex sm:flex-row sm:items-center gap-3">
                   {permissions.canCreate === true && (
                     <button
                       onClick={() => setImportModalOpen(true)}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded border border-blue-600 dark:border-blue-500 bg-blue-600 dark:bg-blue-500 text-xs font-medium text-white hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors"
+                      className="inline-flex items-center gap-1 px-2 py-1 rounded border border-blue-600 dark:border-blue-500 bg-blue-600 dark:bg-blue-500 text-[10px] font-medium text-white hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors"
                       type="button"
                       title="Import appointments from CSV or Excel"
                     >
-                      <Upload className="w-3.5 h-3.5" />
+                      <Upload className="w-3 h-3" />
                       Import
                     </button>
                   )}
-                  <div className="flex flex-col items-center gap-2">
-                    <div className="flex items-center gap-2">
-                      <label className="text-xs font-medium text-gray-700 dark:text-gray-800 whitespace-nowrap">Date:</label>
-                      <input
-                        type="date"
-                        value={selectedDate}
-                        onChange={(e) => {
-                          const newDate = e.target.value;
-                          setSelectedDate(newDate);
-                          // Persist to localStorage
-                          if (typeof window !== "undefined") {
-                            localStorage.setItem("appointmentSelectedDate", newDate);
-                          }
-                          toast(`Viewing appointments for ${new Date(newDate).toLocaleDateString()}`, {
-                            duration: 2000,
-                            icon: "ℹ️",
-                          });
-                        }}
-                        className="border border-gray-300 dark:border-gray-300 bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 rounded px-3 py-1.5 text-xs focus:ring-1 focus:ring-gray-900 dark:focus:ring-gray-700 focus:border-gray-900 dark:focus:border-gray-700 transition-all"
-                      />
-                    </div>
-                    <div className="flex items-center gap-1">
+                  
+                  </div>
+                </div>
+                <div className="mt-1 flex items-center gap-2">
+                  <input
+                    ref={dateInputRef}
+                    type="date"
+                    value={selectedDate}
+                    onChange={(e) => {
+                      const newDate = e.target.value;
+                      setSelectedDate(newDate);
+                      if (typeof window !== "undefined") {
+                        localStorage.setItem("appointmentSelectedDate", newDate);
+                      }
+                      toast(`Viewing appointments for ${new Date(newDate).toLocaleDateString()}`, {
+                        duration: 2000,
+                        icon: "ℹ️",
+                      });
+                    }}
+                    className="absolute -left-[9999px] -top-[9999px] opacity-0 pointer-events-none"
+                  />
+                  <div className="flex items-center gap-1">
                     <button
                       onClick={() => {
                         const current = new Date(selectedDate);
                         current.setDate(current.getDate() - 1);
                         const newDate = current.toISOString().split("T")[0];
                         setSelectedDate(newDate);
-                        // Persist to localStorage
                         if (typeof window !== "undefined") {
                           localStorage.setItem("appointmentSelectedDate", newDate);
                         }
@@ -2337,20 +2303,40 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                     >
                       <ChevronLeft className="w-3.5 h-3.5" />
                     </button>
+                    <span
+                      onMouseEnter={() => {
+                        const el = dateInputRef.current;
+                        if (el && typeof (el as any).showPicker === "function") {
+                          (el as any).showPicker();
+                        }
+                      }}
+                      onClick={() => {
+                        const el = dateInputRef.current;
+                        if (el && typeof (el as any).showPicker === "function") {
+                          (el as any).showPicker();
+                        } else {
+                          el?.click();
+                        }
+                      }}
+                      className="text-[10px] font-bold text-teal-600 cursor-pointer select-none"
+                      title="Change date"
+                    >
+                      {new Date(selectedDate).toLocaleDateString("en-GB").replace(/\//g, "-")}
+                    </span>
                     <button
                       onClick={() => {
-                        const todayDate = new Date().toISOString().split("T")[0];
-                        setSelectedDate(todayDate);
-                        // Persist to localStorage
-                        if (typeof window !== "undefined") {
-                          localStorage.setItem("appointmentSelectedDate", todayDate);
+                        const el = dateInputRef.current;
+                        if (el && typeof (el as any).showPicker === "function") {
+                          (el as any).showPicker();
+                        } else {
+                          el?.click();
                         }
-                        toast.success("Switched to today", { duration: 2000 });
                       }}
-                      className="px-2 py-0.5 rounded border border-gray-300 dark:border-gray-300 bg-white dark:bg-gray-100 text-[10px] font-medium text-gray-700 dark:text-gray-800 hover:bg-gray-50 dark:hover:bg-gray-200 transition-colors"
+                      className="p-1 rounded hover:bg-gray-100 text-gray-600"
                       type="button"
+                      title="Open calendar"
                     >
-                      Today
+                      <Calendar className="w-3.5 h-3.5" />
                     </button>
                     <button
                       onClick={() => {
@@ -2358,7 +2344,6 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                         current.setDate(current.getDate() + 1);
                         const newDate = current.toISOString().split("T")[0];
                         setSelectedDate(newDate);
-                        // Persist to localStorage
                         if (typeof window !== "undefined") {
                           localStorage.setItem("appointmentSelectedDate", newDate);
                         }
@@ -2370,6 +2355,15 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                       <ChevronRight className="w-3.5 h-3.5" />
                     </button>
                   </div>
+                </div>
+                <div className="mt-1 flex items-center gap-4 text-[10px]">
+                  <div className="flex items-center gap-1">
+                    <span className="inline-block w-2 h-2 rounded-full bg-blue-600"></span>
+                    <span className="text-gray-700 dark:text-gray-800">Doctor</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span className="inline-block w-2 h-2 rounded-full bg-green-600"></span>
+                    <span className="text-gray-700 dark:text-gray-800">Clinic</span>
                   </div>
                 </div>
               </div>
@@ -2663,9 +2657,9 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                         </div>
                         <div className="min-w-0 flex-1">
                           <p className="text-[8px] sm:text-[9px] font-semibold text-gray-900 dark:text-gray-900 truncate">{doctor.name}</p>
-                          <span className="inline-block mt-0.5 px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 border border-blue-200 text-[8px]">
+                          {/* <span className="inline-block mt-0.5 px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 border border-blue-200 text-[8px]">
                             Doctor
-                          </span>
+                          </span> */}
                         </div>
                         {permissions.canUpdate && (
                           <div className="flex-shrink-0 cursor-grab active:cursor-grabbing opacity-40 hover:opacity-70 transition-opacity" title="Drag to reorder">
@@ -2723,9 +2717,9 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                         </div>
                         <div className="min-w-0 flex-1">
                           <p className="text-[8px] sm:text-[9px] font-semibold text-gray-900 dark:text-gray-900 truncate">{room.name}</p>
-                          <span className="inline-block mt-0.5 px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200 text-[8px]">
+                          {/* <span className="inline-block mt-0.5 px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200 text-[8px]">
                             Room
-                          </span>
+                          </span> */}
                         </div>
                         {permissions.canUpdate && (
                           <div className="flex-shrink-0 cursor-grab active:cursor-grabbing opacity-40 hover:opacity-70 transition-opacity" title="Drag to reorder">

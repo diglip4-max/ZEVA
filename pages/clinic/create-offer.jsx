@@ -10,6 +10,7 @@ import {
   TrendingUp,
   Calendar,
   Download,
+  Eye,
 } from "lucide-react";
 import { Toaster, toast } from "react-hot-toast";
 import CreateOfferModal from "../../components/CreateOfferModal";
@@ -67,6 +68,7 @@ function OffersPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingOfferId, setEditingOfferId] = useState(null);
   const [editingOfferData, setEditingOfferData] = useState(null);
+  const [viewingOffer, setViewingOffer] = useState(null);
   const [permissions, setPermissions] = useState({
     canCreate: false,
     canUpdate: false,
@@ -888,6 +890,15 @@ function OffersPage() {
                               </td>
                               <td className="px-2 py-2">
                                 <div className="flex items-center justify-end gap-1">
+                                  {finalCanRead === true && (
+                                    <button
+                                      onClick={() => setViewingOffer(offer)}
+                                      className="inline-flex items-center justify-center w-6 h-6 rounded bg-teal-100 text-teal-800 hover:bg-teal-200 transition-colors"
+                                      title="View offer"
+                                    >
+                                      <Eye className="h-3 w-3" />
+                                    </button>
+                                  )}
                                   {finalCanUpdate === true && (
                                     <button
                                       onClick={() => openEditModal(offer._id)}
@@ -937,6 +948,237 @@ function OffersPage() {
         offer={editingOfferData}
         mode={editingOfferId ? "update" : "create"}
       />
+      {/* View Offer Modal */}
+      {viewingOffer && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/30 backdrop-blur-sm"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setViewingOffer(null);
+            }
+          }}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div
+            className="bg-white rounded-lg shadow-xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[95vh]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="bg-teal-100 px-4 py-3 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center border border-teal-200">
+                  <Eye className="w-4 h-4 text-teal-700" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-teal-900">Offer Details</p>
+                  <p className="text-[10px] text-teal-700 truncate max-w-[320px]">{viewingOffer.title}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setViewingOffer(null)}
+                className="text-teal-700 hover:bg-teal-200 rounded-lg p-1.5 transition-colors"
+                aria-label="Close details dialog"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto bg-white px-4 py-3 text-xs sm:text-sm text-gray-700">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-3">
+                  <div>
+                    <p className="text-[10px] font-medium text-teal-700 mb-1">Title</p>
+                    <p className="text-sm font-semibold text-gray-900">{viewingOffer.title || "—"}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-medium text-teal-700 mb-1">Description</p>
+                    {viewingOffer.description && viewingOffer.description.trim().length > 0 ? (
+                      <p className="text-sm text-gray-900 break-words">{viewingOffer.description}</p>
+                    ) : (
+                      <div className="border border-gray-200 rounded-md px-2 py-2 min-h-[36px] bg-white"></div>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <p className="text-[10px] font-medium text-teal-700 mb-1">Type</p>
+                      <span className="inline-flex items-center px-2 py-1 bg-white text-gray-800 rounded-md text-[10px] border border-gray-200 capitalize">
+                        {viewingOffer.type || "—"}
+                      </span>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-medium text-teal-700 mb-1">Value</p>
+                      <span className="inline-flex items-center px-2 py-1 bg-white text-gray-800 rounded-md text-[10px] border border-gray-200">
+                        {typeof viewingOffer.value === "number" ? viewingOffer.value : "—"}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <p className="text-[10px] font-medium text-teal-700 mb-1">Currency</p>
+                      <span className="inline-flex items-center px-2 py-1 bg-white text-gray-800 rounded-md text-[10px] border border-gray-200">
+                        {viewingOffer.currency || "—"}
+                      </span>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-medium text-teal-700 mb-1">Starts At</p>
+                      <p className="text-sm text-gray-900">
+                        {viewingOffer.startsAt ? new Date(viewingOffer.startsAt).toLocaleString() : "—"}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <p className="text-[10px] font-medium text-teal-700 mb-1">Max Uses</p>
+                      <span className="inline-flex items-center px-2 py-1 bg-white text-gray-800 rounded-md text-[10px] border border-gray-200">
+                        {viewingOffer.maxUses ?? "—"}
+                      </span>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-medium text-teal-700 mb-1">Uses Count</p>
+                      <span className="inline-flex items-center px-2 py-1 bg-white text-gray-800 rounded-md text-[10px] border border-gray-200">
+                        {viewingOffer.usesCount ?? "—"}
+                      </span>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-medium text-teal-700 mb-1">Per User Limit</p>
+                      <span className="inline-flex items-center px-2 py-1 bg-white text-gray-800 rounded-md text-[10px] border border-gray-200">
+                        {viewingOffer.perUserLimit ?? "—"}
+                      </span>
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-medium text-teal-700 mb-1">Status</p>
+                    <span className="inline-flex items-center px-2 py-1 bg-white text-gray-800 rounded-md text-[10px] border border-gray-200">
+                      {viewingOffer.status || "—"}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <p className="text-[10px] font-medium text-teal-700 mb-1">Code</p>
+                      <p className="text-sm text-gray-900">{viewingOffer.code || "—"}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-medium text-teal-700 mb-1">Channels</p>
+                      {Array.isArray(viewingOffer.channels) && viewingOffer.channels.length > 0 ? (
+                        <div className="flex flex-wrap gap-1.5">
+                          {viewingOffer.channels.map((ch, idx) => (
+                            <span key={idx} className="inline-flex items-center px-2 py-1 bg-white text-gray-800 rounded-md text-[10px] border border-gray-200">
+                              {ch}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-gray-900">—</p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <p className="text-[10px] font-medium text-teal-700 mb-1">UTM Source</p>
+                      <p className="text-sm text-gray-900">{viewingOffer?.utm?.source || "—"}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-medium text-teal-700 mb-1">UTM Medium</p>
+                      <p className="text-sm text-gray-900">{viewingOffer?.utm?.medium || "—"}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-medium text-teal-700 mb-1">UTM Campaign</p>
+                      <p className="text-sm text-gray-900">{viewingOffer?.utm?.campaign || "—"}</p>
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-medium text-teal-700 mb-1">Conditions</p>
+                    <div className="rounded-md border border-gray-200 bg-white p-2">
+                      <pre className="text-[11px] text-gray-900 whitespace-pre-wrap break-words">
+                        {viewingOffer?.conditions ? JSON.stringify(viewingOffer.conditions, null, 2) : "—"}
+                      </pre>
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-medium text-teal-700 mb-1">Treatments</p>
+                    {Array.isArray(viewingOffer.treatments) && viewingOffer.treatments.length > 0 ? (
+                      <div className="flex flex-wrap gap-1.5">
+                        {viewingOffer.treatments.map((t, idx) => (
+                          <span key={idx} className="inline-flex items-center px-2 py-1 bg-white text-gray-800 rounded-md text-[10px] border border-gray-200">
+                            {typeof t === "string" ? t : t?._id || "—"}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-900">—</p>
+                    )}
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <p className="text-[10px] font-medium text-teal-700 mb-1">Timezone</p>
+                      <span className="inline-flex items-center px-2 py-1 bg-white text-gray-800 rounded-md text-[10px] border border-gray-200">
+                        {viewingOffer.timezone || "—"}
+                      </span>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-medium text-teal-700 mb-1">Ends At</p>
+                      <p className="text-sm text-gray-900">
+                        {viewingOffer.endsAt ? new Date(viewingOffer.endsAt).toLocaleString() : "—"}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <p className="text-[10px] font-medium text-teal-700 mb-1">Slug</p>
+                      <p className="text-sm text-gray-900 break-words">{viewingOffer.slug || "—"}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-medium text-teal-700 mb-1">SubTreatments</p>
+                      {Array.isArray(viewingOffer.subTreatments) && viewingOffer.subTreatments.length > 0 ? (
+                        <div className="flex flex-wrap gap-1.5">
+                          {viewingOffer.subTreatments.map((st, idx) => (
+                            <span key={idx} className="inline-flex items-center px-2 py-1 bg-white text-gray-800 rounded-md text-[10px] border border-gray-200">
+                              {st?.name || st?.slug || "—"}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-gray-900">—</p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <p className="text-[10px] font-medium text-teal-700 mb-1">Clinic ID</p>
+                      <p className="text-sm text-gray-900">{viewingOffer?.clinicId || "—"}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-medium text-teal-700 mb-1">Created By</p>
+                      <p className="text-sm text-gray-900">{viewingOffer?.createdBy || "—"}</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <p className="text-[10px] font-medium text-teal-700 mb-1">Updated By</p>
+                      <p className="text-sm text-gray-900">{viewingOffer?.updatedBy || "—"}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-medium text-teal-700 mb-1">Created At</p>
+                      <p className="text-sm text-gray-900">
+                        {viewingOffer?.createdAt ? new Date(viewingOffer.createdAt).toLocaleString() : "—"}
+                      </p>
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-medium text-teal-700 mb-1">Updated At</p>
+                    <p className="text-sm text-gray-900">
+                      {viewingOffer?.updatedAt ? new Date(viewingOffer.updatedAt).toLocaleString() : "—"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
       {/* Compact Delete Confirmation Modal */}
       {confirmModal.isOpen && (
