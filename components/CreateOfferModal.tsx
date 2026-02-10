@@ -19,7 +19,6 @@ export default function CreateOfferModal({
   offer,
   actorRole = "clinic",
 }: Props) {
-  const isUpdate = mode === "update";
   const headerClass = "bg-teal-100";
   const subtitleClass = "text-teal-700";
   const formBgClass = "bg-white";
