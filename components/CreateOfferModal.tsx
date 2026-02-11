@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 
 interface Props {
   isOpen: boolean;
@@ -19,6 +19,12 @@ export default function CreateOfferModal({
   offer,
   actorRole = "clinic",
 }: Props) {
+  const headerClass = "bg-teal-100";
+  const subtitleClass = "text-teal-700";
+  const formBgClass = "bg-white";
+  const footerBgClass = "border-t bg-white";
+  const cancelBtnVariant = "border-gray-300 text-gray-700 hover:bg-gray-100";
+  const submitBtnVariant = "bg-gray-800 hover:bg-gray-900";
   const getInitialForm = () => ({
     title: "",
     description: "",
@@ -446,12 +452,12 @@ export default function CreateOfferModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-3 sm:p-4">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[95vh]">
         {/* Compact Header */}
-        <div className="bg-gray-800 px-4 py-3 flex justify-between items-center">
+        <div className={`${headerClass} px-4 py-3 flex justify-between items-center`}>
           <div>
-            <h2 className="text-base sm:text-lg font-bold text-white">
+            <h2 className="text-base sm:text-lg font-bold text-gray-900">
               {mode === "create" ? "Create New Offer" : "Update Offer"}
             </h2>
-            <p className="text-gray-300 text-[10px] sm:text-xs mt-0.5">
+            <p className={`${subtitleClass} text-[10px] sm:text-xs mt-0.5`}>
               {mode === "create" 
                 ? "Fill in the details to create a promotional offer" 
                 : !offer ? "Loading offer..." : "Modify the offer details below"}
@@ -459,7 +465,7 @@ export default function CreateOfferModal({
           </div>
           <button
             onClick={onClose}
-            className="text-white hover:bg-white/20 rounded-lg p-1.5 transition-colors"
+            className="text-teal-700 hover:bg-teal-200 rounded-lg p-1.5 transition-colors"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -469,13 +475,13 @@ export default function CreateOfferModal({
 
         {/* Compact Form Content */}
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto">
-          <div className="px-4 py-3 space-y-4">
+          <div className={`${formBgClass} px-4 py-3 space-y-4`}>
             {/* Basic Information Section */}
             <div className="space-y-3">
-              <h3 className="text-sm font-bold text-gray-900 border-b border-gray-200 pb-1.5">Basic Information</h3>
+              <h3 className="text-sm font-bold text-teal-800 border-b border-gray-200 pb-1.5">Basic Information</h3>
               
               <div>
-                <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">
+                <label className="block text-[10px] sm:text-xs font-medium text-teal-700 mb-1">
                   Offer Title <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -495,7 +501,7 @@ export default function CreateOfferModal({
               </div>
 
               <div>
-                <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">Description</label>
+                <label className="block text-[10px] sm:text-xs font-medium text-teal-700 mb-1">Description</label>
                 <textarea
                   name="description"
                   value={form.description}
@@ -508,7 +514,7 @@ export default function CreateOfferModal({
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">
+                  <label className="block text-[10px] sm:text-xs font-medium text-teal-700 mb-1">
                     Discount Type <span className="text-red-500">*</span>
                   </label>
                   <select
@@ -524,7 +530,7 @@ export default function CreateOfferModal({
                   </select>
                 </div>
                 <div>
-                  <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">
+                  <label className="block text-[10px] sm:text-xs font-medium text-teal-700 mb-1">
                     {form.type === "percentage" ? "Discount (%)" : `Amount (د.إ)`}
                   </label>
                   <input
@@ -548,11 +554,11 @@ export default function CreateOfferModal({
 
             {/* Compact Schedule Section */}
             <div className="space-y-3">
-              <h3 className="text-sm font-bold text-gray-900 border-b border-gray-200 pb-1.5">Schedule & Limits</h3>
+              <h3 className="text-sm font-bold text-teal-800 border-b border-gray-200 pb-1.5">Schedule & Limits</h3>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">Start Date & Time</label>
+                  <label className="block text-[10px] sm:text-xs font-medium text-teal-700 mb-1">Start Date & Time</label>
                   <input
                     type="datetime-local"
                     name="startsAt"
@@ -567,7 +573,7 @@ export default function CreateOfferModal({
                   )}
                 </div>
                 <div>
-                  <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">End Date & Time</label>
+                  <label className="block text-[10px] sm:text-xs font-medium text-teal-700 mb-1">End Date & Time</label>
                   <input
                     type="datetime-local"
                     name="endsAt"
@@ -585,7 +591,7 @@ export default function CreateOfferModal({
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">Maximum Total Uses</label>
+                  <label className="block text-[10px] sm:text-xs font-medium text-teal-700 mb-1">Maximum Total Uses</label>
                   <input
                     type="number"
                     name="maxUses"
@@ -602,7 +608,7 @@ export default function CreateOfferModal({
                   )}
                 </div>
                 <div>
-                  <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">Uses Per User</label>
+                  <label className="block text-[10px] sm:text-xs font-medium text-teal-700 mb-1">Uses Per User</label>
                   <input
                     type="number"
                     name="perUserLimit"
@@ -623,7 +629,7 @@ export default function CreateOfferModal({
 
             {/* Compact Distribution Channels */}
             <div className="space-y-2.5">
-              <h3 className="text-sm font-bold text-gray-900 border-b border-gray-200 pb-1.5">Distribution Channels</h3>
+              <h3 className="text-sm font-bold text-teal-800 border-b border-gray-200 pb-1.5">Distribution Channels</h3>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                 {["email", "sms", "web", "affiliate"].map((c) => (
                   <label key={c} className="flex items-center space-x-2 p-2 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors">
@@ -635,7 +641,7 @@ export default function CreateOfferModal({
                       onChange={handleChange}
                       className="w-3.5 h-3.5 text-gray-800 rounded focus:ring-gray-800"
                     />
-                    <span className="text-[10px] sm:text-xs font-medium text-gray-700 capitalize">{c}</span>
+                    <span className="text-[10px] sm:text-xs font-medium text-teal-700 capitalize">{c}</span>
                   </label>
                 ))}
               </div>
@@ -643,10 +649,10 @@ export default function CreateOfferModal({
 
             {/* Compact UTM Parameters */}
             <div className="space-y-2.5">
-              <h3 className="text-sm font-bold text-gray-900 border-b border-gray-200 pb-1.5">Tracking (UTM Parameters)</h3>
+              <h3 className="text-sm font-bold text-teal-800 border-b border-gray-200 pb-1.5">Tracking (UTM Parameters)</h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">UTM Source</label>
+                  <label className="block text-[10px] sm:text-xs font-medium text-teal-700 mb-1">UTM Source</label>
                   <input
                     type="text"
                     name="utm.source"
@@ -662,7 +668,7 @@ export default function CreateOfferModal({
                   )}
                 </div>
                 <div>
-                  <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">UTM Medium</label>
+                  <label className="block text-[10px] sm:text-xs font-medium text-teal-700 mb-1">UTM Medium</label>
                   <input
                     type="text"
                     name="utm.medium"
@@ -673,7 +679,7 @@ export default function CreateOfferModal({
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] sm:text-xs font-medium text-gray-700 mb-1">UTM Campaign</label>
+                  <label className="block text-[10px] sm:text-xs font-medium text-teal-700 mb-1">UTM Campaign</label>
                   <input
                     type="text"
                     name="utm.campaign"
@@ -688,7 +694,7 @@ export default function CreateOfferModal({
 
             {/* Compact Status */}
             <div className="space-y-2.5">
-              <h3 className="text-sm font-bold text-gray-900 border-b border-gray-200 pb-1.5">Status</h3>
+              <h3 className="text-sm font-bold text-teal-800 border-b border-gray-200 pb-1.5">Status</h3>
               <select
                 name="status"
                 value={form.status}
@@ -705,7 +711,7 @@ export default function CreateOfferModal({
 
             {/* Compact Treatments Selection */}
             <div className="space-y-2.5">
-              <h3 className="text-sm font-bold text-gray-900 border-b border-gray-200 pb-1.5">Applicable Treatments</h3>
+              <h3 className="text-sm font-bold text-teal-800 border-b border-gray-200 pb-1.5">Applicable Treatments</h3>
               <div className="border border-gray-200 rounded-lg p-2.5 bg-gray-50 max-h-56 overflow-y-auto">
                 {treatments.length === 0 ? (
                   <p className="text-gray-500 text-center py-2 text-xs sm:text-sm">No treatments available</p>
@@ -752,18 +758,18 @@ export default function CreateOfferModal({
           </div>
 
           {/* Compact Footer Actions */}
-          <div className="border-t bg-gray-50 px-4 py-3 flex justify-end gap-2">
+          <div className={`${footerBgClass} px-4 py-3 flex justify-end gap-2`}>
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-lg border border-gray-200 text-gray-700 text-xs sm:text-sm font-medium hover:bg-gray-100 transition-colors"
+              className={["px-4 py-2 rounded-lg border text-xs sm:text-sm font-medium transition-colors", cancelBtnVariant].join(" ")}
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={loading || (mode === "create" && !permissions.canCreate) || (mode === "update" && !permissions.canUpdate)}
-              className="px-4 py-2 rounded-lg bg-gray-800 text-white text-xs sm:text-sm font-medium hover:bg-gray-900 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors shadow-sm"
+              className={["px-4 py-2 rounded-lg text-white text-xs sm:text-sm font-medium disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors shadow-sm", submitBtnVariant].join(" ")}
               title={
                 mode === "create" && !permissions.canCreate
                   ? "You do not have permission to create offers"

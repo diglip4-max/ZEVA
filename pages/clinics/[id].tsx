@@ -126,6 +126,7 @@ export default function ClinicDetail() {
     Record<string, { averageRating: number; totalReviews: number }>
   >({});
   const [reviewsLoaded, setReviewsLoaded] = useState(false);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authModalMode, setAuthModalMode] = useState<"login" | "register">("login");
   const shouldNavigateAfterLogin = useRef(false);
@@ -348,9 +349,9 @@ export default function ClinicDetail() {
   const hasRating = clinicReviews[clinic._id]?.totalReviews > 0;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+    <div className="min-h-screen bg-gradient-to-br from-gray-100 to-gray-200">
       {/* Main Content */}
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 mt-8">
         {/* Back Button */}
         <div className="flex justify-end">
           <button 
@@ -368,21 +369,66 @@ export default function ClinicDetail() {
             <div className="flex flex-col lg:flex-row gap-6 items-start">
               {(() => {
                 const photosArray = clinic.photos || [];
-                const latestPhoto = photosArray.length > 0 ? photosArray[photosArray.length - 1] : null;
-                
-                return latestPhoto && (
-                <div className="w-full max-w-sm lg:max-w-xs flex-shrink-0">
-                  <div className="relative w-full h-48 sm:h-56 lg:h-60 rounded-2xl overflow-hidden shadow-lg border-4 border-white bg-white">
-                    <Image
-                        src={normalizePhotoUrl(latestPhoto)}
-                      alt={clinic.name}
-                      fill
-                      className="object-contain"
-                      sizes="(max-width: 1024px) 80vw, 320px"
-                      priority
-                    />
+                if (photosArray.length === 0) return null;
+
+                const hasMultipleImages = photosArray.length > 1;
+                // Ensure index is valid
+                const safeIndex = currentImageIndex >= photosArray.length ? 0 : currentImageIndex;
+                const currentSrc = normalizePhotoUrl(photosArray[safeIndex]);
+
+                return (
+                  <div className="w-full max-w-sm lg:max-w-xs flex-shrink-0">
+                    <div className="relative w-full h-48 sm:h-56 lg:h-60 rounded-2xl overflow-hidden shadow-lg border-4 border-white bg-white group">
+                      <Image
+                        src={currentSrc}
+                        alt={`${clinic.name} - Photo ${safeIndex + 1}`}
+                        fill
+                        className="object-contain transition-opacity duration-300"
+                        sizes="(max-width: 1024px) 80vw, 320px"
+                        priority
+                      />
+
+                      {/* Navigation Buttons */}
+                      {hasMultipleImages && (
+                        <>
+                          <button
+                            onClick={(e) => {
+                              e.preventDefault();
+                              setCurrentImageIndex((prev) => (prev - 1 + photosArray.length) % photosArray.length);
+                            }}
+                            className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white text-teal-800 p-1.5 rounded-full shadow-md opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                            aria-label="Previous image"
+                          >
+                            <ChevronLeft className="w-5 h-5" />
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.preventDefault();
+                              setCurrentImageIndex((prev) => (prev + 1) % photosArray.length);
+                            }}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white text-teal-800 p-1.5 rounded-full shadow-md opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                            aria-label="Next image"
+                          >
+                            <ChevronRight className="w-5 h-5" />
+                          </button>
+
+                          {/* Dots Indicator */}
+                          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5 z-10 bg-black/20 px-2 py-1 rounded-full backdrop-blur-sm">
+                            {photosArray.map((_, idx) => (
+                              <div
+                                key={idx}
+                                className={`w-1.5 h-1.5 rounded-full shadow-sm transition-all ${
+                                  idx === safeIndex
+                                    ? "bg-white scale-125"
+                                    : "bg-white/50"
+                                }`}
+                              />
+                            ))}
+                          </div>
+                        </>
+                      )}
+                    </div>
                   </div>
-                </div>
                 );
               })()}
 

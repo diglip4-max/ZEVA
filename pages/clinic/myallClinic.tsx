@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { toast, Toaster } from "react-hot-toast";
 import axios from "axios";
-import { Building2, Edit3, X, Plus, Camera, ChevronLeft, ChevronRight, Clock, MapPin, DollarSign, Users, Star, Heart, Activity, Eye } from "lucide-react";
+import { Building2, Edit3, X, Plus, Camera, ChevronLeft, ChevronRight, Clock, MapPin, DollarSign, Users, Star, Heart, Activity, Eye, Check } from "lucide-react";
 import ClinicLayout from "@/components/ClinicLayout";
 import withClinicAuth from "@/components/withClinicAuth";
 import type { NextPageWithLayout } from "../_app";
@@ -102,6 +102,7 @@ function ClinicManagementDashboard() {
   const [statsLoading, setStatsLoading] = useState(false);
   const [reviewsData, setReviewsData] = useState<any>(null);
   const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [customAdded, setCustomAdded] = useState(false);
 
   // Fetch clinics
   useEffect(() => {
@@ -425,7 +426,11 @@ function ClinicManagementDashboard() {
             }
           } else {
             const msg = err?.response?.data?.message || "Update failed";
-            toast.error(msg);
+            if (msg === "File upload failed") {
+              toast.error("File upload failed: only JPG/PNG up to 5MB are allowed.");
+            } else {
+              toast.error(msg);
+            }
             return;
           }
         }
@@ -514,7 +519,12 @@ function ClinicManagementDashboard() {
     } catch (error: any) {
       console.error("❌ Update error:", error);
       console.error("❌ Error response:", error.response?.data);
-      toast.error(error.response?.data?.message || "Failed to update clinic");
+      const msg = error.response?.data?.message || "Failed to update clinic";
+      if (msg === "File upload failed") {
+        toast.error("File upload failed: only JPG/PNG up to 5MB are allowed.");
+      } else {
+        toast.error(msg);
+      }
     } finally {
       setUpdating(false);
     }
@@ -584,7 +594,10 @@ function ClinicManagementDashboard() {
     });
     setNewSubTreatment("");
     setNewSubTreatmentPrice("");
-    setSelectedTreatmentIndex(null);
+    setCustomAdded(true);
+    setTimeout(() => setCustomAdded(false), 2000);
+    // Keep the selection active so the user can add more or see the list
+    // setSelectedTreatmentIndex(null);
   };
 
   const handleRemoveSubTreatment = (treatmentIndex: number, subIndex: number) => {
@@ -658,7 +671,7 @@ function ClinicManagementDashboard() {
             {clinics.length > 0 && !isEditing && permissions.canUpdate && (
               <button
                 onClick={() => handleEdit(clinics[0])}
-                className="self-end sm:self-auto px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-50 font-medium transition-all shadow-md hover:shadow-lg flex items-center gap-2"
+                className="self-end sm:self-auto px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 font-medium transition-all shadow-md hover:shadow-lg flex items-center gap-2"
               >
                 <Edit3 className="w-4 h-4" />
                 <span className="hidden sm:inline">Edit Profile</span>
@@ -855,12 +868,66 @@ function ClinicManagementDashboard() {
                             ))}
                           </div>
                         )}
+                        
+                        {/* Custom Sub-treatment Form */}
+                        <div className="border-t border-gray-200 pt-3 mt-3">
+                          <div className="text-xs font-medium text-teal-700 mb-2">
+                            Add Custom Sub-treatment
+                          </div>
+                          <div className="flex flex-col sm:flex-row gap-2">
+                            <input
+                              type="text"
+                              value={newSubTreatment}
+                              onChange={(e) => setNewSubTreatment(e.target.value)}
+                              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 placeholder-teal-400 text-teal-700 bg-white text-sm"
+                              placeholder="Sub-treatment name"
+                              onKeyPress={(e) => {
+                                if (e.key === "Enter") {
+                                  handleAddSubTreatment();
+                                }
+                              }}
+                            />
+                            <div className="flex gap-2">
+                              <input
+                                type="number"
+                                value={newSubTreatmentPrice}
+                                onChange={(e) => setNewSubTreatmentPrice(e.target.value)}
+                                className="flex-1 sm:w-24 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 placeholder-teal-400 text-teal-700 bg-white text-sm"
+                                placeholder="Price"
+                                onKeyPress={(e) => {
+                                  if (e.key === "Enter") {
+                                    handleAddSubTreatment();
+                                  }
+                                }}
+                              />
+                              <button
+                                onClick={handleAddSubTreatment}
+                                className={`px-3 py-2 text-white rounded-lg transition-colors text-sm flex-shrink-0 flex items-center gap-1 ${
+                                  customAdded ? "bg-teal-600" : "bg-teal-600 hover:bg-teal-700"
+                                }`}
+                                disabled={!newSubTreatment.trim() || customAdded}
+                              >
+                                {customAdded ? (
+                                  <>
+                                    <Check className="w-3 h-3" />
+                                    Saved
+                                  </>
+                                ) : (
+                                  <>
+                                    <Plus className="w-3 h-3" />
+                                    Add
+                                  </>
+                                )}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     )}
                     {/* Add from available treatments */}
                     <div className="space-y-2 mb-3">
                       <label className="text-xs font-medium text-teal-700">Add from list</label>
-                      <div className="flex gap-2">
+                      <div className="flex flex-col sm:flex-row gap-2">
                         <select
                           value={selectedAvailableTreatmentId}
                           onChange={(e) => {
@@ -881,7 +948,7 @@ function ClinicManagementDashboard() {
                             const t = availableTreatments.find(at => String(at._id) === selectedAvailableTreatmentId);
                             if (t) addTreatmentFromAvailable(t);
                           }}
-                          className="px-3 py-2.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors text-sm"
+                          className="px-3 py-2.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors text-sm w-full sm:w-auto"
                         >
                           Add
                         </button>
@@ -889,20 +956,32 @@ function ClinicManagementDashboard() {
                       {selectedAvailableTreatmentId && (
                         <div className="mt-2">
                           <div className="text-xs font-medium text-teal-700 mb-1">Sub-treatments</div>
-                          <div className="max-h-40 overflow-y-auto border border-gray-200 rounded-lg p-2 bg-white">
-                            {(availableTreatments.find(at => String(at._id) === selectedAvailableTreatmentId)?.subcategories || []).map((sc, i) => (
-                              <div key={i} className="flex items-center justify-between gap-2 py-1.5">
-                                <div className="text-xs text-teal-800">
-                                  {sc.name} {typeof sc.price === "number" && sc.price > 0 ? <span className="font-semibold text-teal-900">د.إ{sc.price}</span> : null}
+                          <div className="max-h-56 sm:max-h-64 overflow-y-auto border border-gray-200 rounded-lg p-2 bg-white pb-1">
+                            {(availableTreatments.find(at => String(at._id) === selectedAvailableTreatmentId)?.subcategories || []).map((sc, i) => {
+                              const isAdded = selectedTreatmentIndex !== null && 
+                                editForm.treatments?.[selectedTreatmentIndex]?.subTreatments?.some(
+                                  (st: any) => st.name === sc.name
+                                );
+                              
+                              return (
+                                <div key={i} className="flex items-center justify-between gap-2 py-1.5">
+                                  <div className="text-xs text-teal-800">
+                                    {sc.name} {typeof sc.price === "number" && sc.price > 0 ? <span className="font-semibold text-teal-900">د.إ{sc.price}</span> : null}
+                                  </div>
+                                  <button
+                                    onClick={() => !isAdded && addSubTreatmentFromAvailable(sc, selectedTreatmentIndex)}
+                                    disabled={!!isAdded}
+                                    className={`px-2 py-1 text-white text-[11px] rounded transition-colors ${
+                                      isAdded 
+                                        ? "bg-teal-600 cursor-default" 
+                                        : "bg-gray-900 hover:bg-gray-800"
+                                    }`}
+                                  >
+                                    {isAdded ? "Saved" : "Add"}
+                                  </button>
                                 </div>
-                                <button
-                                  onClick={() => addSubTreatmentFromAvailable(sc, selectedTreatmentIndex)}
-                                  className="px-2 py-1 bg-gray-900 text-white text-[11px] rounded hover:bg-gray-800"
-                                >
-                                  Add
-                                </button>
-                              </div>
-                            ))}
+                              );
+                            })}
                           </div>
                         </div>
                       )}
@@ -971,7 +1050,7 @@ function ClinicManagementDashboard() {
                               <div className="text-xs font-medium text-teal-700 mb-2">
                                 Add Sub-Treatment
                               </div>
-                              <div className="flex gap-2">
+                              <div className="flex flex-col sm:flex-row gap-2">
                                 <input
                                   type="text"
                                   value={selectedTreatmentIndex === index ? newSubTreatment : ""}
@@ -988,32 +1067,34 @@ function ClinicManagementDashboard() {
                                     }
                                   }}
                                 />
-                                <input
-                                  type="number"
-                                  value={selectedTreatmentIndex === index ? newSubTreatmentPrice : ""}
-                                  onChange={(e) => {
-                                    setSelectedTreatmentIndex(index);
-                                    setNewSubTreatmentPrice(e.target.value);
-                                  }}
-                                  className="w-24 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 placeholder-teal-400 text-teal-700 bg-white text-sm"
-                                  placeholder="Price"
-                                  onKeyPress={(e) => {
-                                    if (e.key === "Enter") {
+                                <div className="flex gap-2">
+                                  <input
+                                    type="number"
+                                    value={selectedTreatmentIndex === index ? newSubTreatmentPrice : ""}
+                                    onChange={(e) => {
+                                      setSelectedTreatmentIndex(index);
+                                      setNewSubTreatmentPrice(e.target.value);
+                                    }}
+                                    className="flex-1 sm:w-24 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 placeholder-teal-400 text-teal-700 bg-white text-sm"
+                                    placeholder="Price"
+                                    onKeyPress={(e) => {
+                                      if (e.key === "Enter") {
+                                        setSelectedTreatmentIndex(index);
+                                        handleAddSubTreatment();
+                                      }
+                                    }}
+                                  />
+                                  <button
+                                    onClick={() => {
                                       setSelectedTreatmentIndex(index);
                                       handleAddSubTreatment();
-                                    }
-                                  }}
-                                />
-                                <button
-                                  onClick={() => {
-                                    setSelectedTreatmentIndex(index);
-                                    handleAddSubTreatment();
-                                  }}
-                                  className="px-3 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors text-sm"
-                                  disabled={selectedTreatmentIndex !== index || !newSubTreatment.trim()}
-                                >
-                                  <Plus className="w-3 h-3" />
-                                </button>
+                                    }}
+                                    className="px-3 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors text-sm flex-shrink-0"
+                                    disabled={selectedTreatmentIndex !== index || !newSubTreatment.trim()}
+                                  >
+                                    <Plus className="w-3 h-3" />
+                                  </button>
+                                </div>
                               </div>
                             </div>
                           </div>
@@ -1043,7 +1124,27 @@ function ClinicManagementDashboard() {
                           multiple
                           onChange={(e) => {
                             if (e.target.files && e.target.files.length > 0) {
-                              const filesArray = Array.from(e.target.files);
+                              const rawFiles = Array.from(e.target.files);
+                              const allowedTypes = new Set(["image/jpeg", "image/jpg", "image/png"]);
+                              const maxSize = 5 * 1024 * 1024;
+                              const validFiles: File[] = [];
+                              const invalids: string[] = [];
+                              rawFiles.forEach((f) => {
+                                if (!allowedTypes.has((f.type || "").toLowerCase())) {
+                                  invalids.push(`${f.name}: unsupported type ${f.type || "unknown"}`);
+                                  return;
+                                }
+                                if (f.size > maxSize) {
+                                  invalids.push(`${f.name}: exceeds 5MB`);
+                                  return;
+                                }
+                                validFiles.push(f);
+                              });
+                              if (invalids.length > 0) {
+                                toast.error(`Invalid files:\n${invalids.join("\n")}`);
+                              }
+                              if (validFiles.length === 0) return;
+                              const filesArray = validFiles;
                               setSelectedFiles(filesArray);
                               const baseLen = (editForm.photos || []).length;
                               handleInputChange("photos", [
@@ -1359,9 +1460,9 @@ function ClinicManagementDashboard() {
                         className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all overflow-hidden"
                       >
                         <div className="p-5 sm:p-6">
-                          <div className="flex flex-col lg:flex-row lg:items-start gap-3 lg:gap-5">
+                          <div className="flex flex-col md:flex-row md:items-start gap-4 lg:gap-6">
                             {/* Left Column - Basic Info */}
-                            <div className="lg:w-2/3 space-y-4">
+                            <div className="md:w-2/3 space-y-4">
                               <div className="flex items-start justify-between gap-3">
                                 <div className="flex-1">
                                   <div className="flex items-center gap-2 mb-2">
@@ -1421,7 +1522,7 @@ function ClinicManagementDashboard() {
                                   <h4 className="text-sm font-semibold text-teal-800 mb-2">
                                     Treatments
                                   </h4>
-                                  <div className={`space-y-2 ${clinic.treatments.length > 5 ? 'max-h-96 overflow-y-auto pr-2' : ''}`}>
+                                  <div className={`space-y-2 ${clinic.treatments.length > 4 ? 'max-h-[28rem] sm:max-h-[36rem] overflow-y-auto pr-2 pb-1' : ''}`}>
                                     {clinic.treatments.map((treatment, index) => (
                                       <div
                                         key={index}
@@ -1462,7 +1563,7 @@ function ClinicManagementDashboard() {
                             </div>
 
                             {/* Right Column - Photos and Stats */}
-                            <div className="lg:w-1/3 space-y-4">
+                            <div className="md:w-1/3 space-y-4">
                               {/* Photos */}
                               <div>
                                 <h4 className="text-sm font-semibold text-teal-800 mb-2">
@@ -1629,7 +1730,7 @@ function ClinicManagementDashboard() {
                                     {reviewsData.reviews && reviewsData.reviews.length > 0 && (
                                       <div>
                                         <p className="text-xs text-teal-700 mb-2">Recent Reviews:</p>
-                                        <div className="space-y-2 max-h-40 overflow-y-auto">
+                                        <div className="space-y-2 max-h-40 sm:max-h-60 overflow-y-auto">
                                           {reviewsData.reviews.slice(0, 3).map((review: any, index: number) => (
                                             <div 
                                               key={review._id || index} 
@@ -1890,7 +1991,7 @@ const getImagePath = (photoPath: string | File) => {
         ? window.location.origin
         : (process.env.NEXT_PUBLIC_SITE_ORIGIN || 'http://localhost:3000');
     const defaultUploadsOrigin =
-      process.env.NODE_ENV !== 'production' ? 'http://localhost:3001' : siteOrigin;
+      process.env.NEXT_PUBLIC_UPLOADS_ORIGIN || siteOrigin;
     const uploadsOrigin =
       process.env.NEXT_PUBLIC_UPLOADS_ORIGIN || defaultUploadsOrigin;
     

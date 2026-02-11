@@ -4,8 +4,7 @@ import axios from 'axios';
 import CreateAgentModal from '../../../components/CreateAgentModal';
 import AgentPermissionModal from '../../../components/AgentPermissionModal';
 import DoctorLayout from '../../../components/DoctorLayout';
-import withDoctorAuth from '../../../components/withDoctorAuth';
-import { clinicNavigationItems } from '../../../data/clinicNavigationItems';
+ import withDoctorAuth from '../../../components/withDoctorAuth';
 
 const ManageAgentsPage = () => {
   const [agents, setAgents] = useState([]);
@@ -630,14 +629,19 @@ const ManageAgentsPage = () => {
                   <div className="flex items-center gap-2">
                     <input
                       type="file"
+                      disabled={uploadingIdDoc}
                       onChange={(e) => {
                         const file = e.target.files?.[0];
                         if (file) uploadFile(file, (url) => setProfileForm((f) => ({ ...f, idDocumentUrl: url })), setUploadingIdDoc);
                       }}
                     />
-                    <span className="text-[11px] text-gray-600 truncate flex-1 min-w-0">
-                      {profileForm.idDocumentUrl ? getFileNameFromUrl(profileForm.idDocumentUrl) : 'No file chosen'}
-                    </span>
+                    {uploadingIdDoc ? (
+                      <span className="text-[11px] text-blue-600 animate-pulse">Uploading...</span>
+                    ) : (
+                      <span className="text-[11px] text-gray-600 truncate flex-1 min-w-0">
+                        {profileForm.idDocumentUrl ? getFileNameFromUrl(profileForm.idDocumentUrl) : 'No file chosen'}
+                      </span>
+                    )}
                   </div>
                 </div>
                 <div>
@@ -654,14 +658,19 @@ const ManageAgentsPage = () => {
                   <div className="flex items-center gap-2">
                     <input
                       type="file"
+                      disabled={uploadingPassportDoc}
                       onChange={(e) => {
                         const file = e.target.files?.[0];
                         if (file) uploadFile(file, (url) => setProfileForm((f) => ({ ...f, passportDocumentUrl: url })), setUploadingPassportDoc);
                       }}
                     />
-                    <span className="text-[11px] text-gray-600 truncate flex-1 min-w-0">
-                      {profileForm.passportDocumentUrl ? getFileNameFromUrl(profileForm.passportDocumentUrl) : 'No file chosen'}
-                    </span>
+                    {uploadingPassportDoc ? (
+                      <span className="text-[11px] text-blue-600 animate-pulse">Uploading...</span>
+                    ) : (
+                      <span className="text-[11px] text-gray-600 truncate flex-1 min-w-0">
+                        {profileForm.passportDocumentUrl ? getFileNameFromUrl(profileForm.passportDocumentUrl) : 'No file chosen'}
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -671,14 +680,19 @@ const ManageAgentsPage = () => {
                   <div className="flex items-center gap-2">
                     <input
                       type="file"
+                      disabled={uploadingContract}
                       onChange={(e) => {
                         const file = e.target.files?.[0];
                         if (file) uploadFile(file, (url) => setProfileForm((f) => ({ ...f, contractUrl: url })), setUploadingContract);
                       }}
                     />
-                    <span className="text-[11px] text-gray-600 truncate flex-1 min-w-0">
-                      {profileForm.contractUrl ? getFileNameFromUrl(profileForm.contractUrl) : 'No file chosen'}
-                    </span>
+                    {uploadingContract ? (
+                      <span className="text-[11px] text-blue-600 animate-pulse">Uploading...</span>
+                    ) : (
+                      <span className="text-[11px] text-gray-600 truncate flex-1 min-w-0">
+                        {profileForm.contractUrl ? getFileNameFromUrl(profileForm.contractUrl) : 'No file chosen'}
+                      </span>
+                    )}
                   </div>
                 </div>
                 <div>

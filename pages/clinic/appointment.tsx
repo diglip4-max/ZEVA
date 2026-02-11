@@ -5,7 +5,7 @@ import axios from "axios";
 import withClinicAuth from "../../components/withClinicAuth";
 import ClinicLayout from "../../components/ClinicLayout";
 import type { NextPageWithLayout } from "../_app";
-import { Loader2, Calendar, Clock, X, Upload } from "lucide-react";
+import { Loader2, Calendar, Clock, X, Upload, ChevronLeft, ChevronRight } from "lucide-react";
 import Loader from "../../components/Loader";
 import AppointmentBookingModal from "../../components/AppointmentBookingModal";
 import ImportAppointmentsModal from "../../components/ImportAppointmentsModal";
@@ -538,6 +538,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
   const roomFilterRef = useRef<HTMLDivElement | null>(null);
   const dragStopTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const timeDragSelectionRef = useRef(timeDragSelection);
+  const dateInputRef = useRef<HTMLInputElement | null>(null);
   
   // Keep ref in sync with state
   useEffect(() => {
@@ -1573,10 +1574,14 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
 
   // Get appointments for a specific doctor and row
   // IMPORTANT: Show ALL appointments regardless of status (booked, Arrived, Consultation, Cancelled, etc.)
-  // Show appointments in doctor column if they match the doctor (regardless of bookedFrom)
+  // Show appointments in doctor column if they match the doctor AND were not booked specifically from room view
   const getAppointmentsForRow = (doctorId: string, slotTime: string): Appointment[] => {
     return appointments.filter((apt) => {
       if (apt.doctorId !== doctorId) return false;
+      
+      // Filter out appointments booked from the room view
+      if (apt.bookedFrom === 'room') return false;
+
       // Compare dates in local timezone to match the selectedDate
       const aptDate = formatDateLocal(apt.startDate);
       if (aptDate !== selectedDate) {
@@ -1595,10 +1600,14 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
 
   // Get appointments for a specific room and row
   // IMPORTANT: Show ALL appointments regardless of status (booked, Arrived, Consultation, Cancelled, etc.)
-  // Show appointments in room column if they match the room (regardless of bookedFrom)
+  // Show appointments in room column if they match the room AND were not booked specifically from doctor view
   const getRoomAppointmentsForRow = (roomId: string, slotTime: string): Appointment[] => {
     return appointments.filter((apt) => {
       if (apt.roomId !== roomId) return false;
+
+      // Filter out appointments booked from the doctor view
+      if (apt.bookedFrom === 'doctor') return false;
+
       // Compare dates in local timezone to match the selectedDate
       const aptDate = formatDateLocal(apt.startDate);
       if (aptDate !== selectedDate) return false;
@@ -2148,9 +2157,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
     }
   };
 
-  if (loading || !permissionsLoaded) {
-    return <Loader />;
-  }
+  if (loading || !permissionsLoaded) return <Loader />;
 
   // Show access denied message if no permission
   if (!permissions.canRead) {
@@ -2210,43 +2217,11 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
         return { bg: "bg-gray-500", text: "text-white", border: "border-gray-600" };
     }
   };
-
+  if (loading || !permissionsLoaded) return <Loader />;
   return (
-    <div className="min-h-screen bg-gray-50 p-3 sm:p-4 md:p-6 space-y-3 sm:space-y-4">
-      <Toaster
-        position="top-right"
-        toastOptions={{
-          duration: 3000,
-          style: {
-            background: "#1f2937",
-            color: "#f9fafb",
-            fontSize: "12px",
-            padding: "8px 12px",
-            borderRadius: "6px",
-          },
-          success: {
-            iconTheme: {
-              primary: "#10b981",
-              secondary: "#fff",
-            },
-            style: {
-              background: "#10b981",
-              color: "#fff",
-            },
-          },
-          error: {
-            iconTheme: {
-              primary: "#ef4444",
-              secondary: "#fff",
-            },
-            style: {
-              background: "#ef4444",
-              color: "#fff",
-            },
-          },
-        }}
-      />
-      <div className="bg-white dark:bg-gray-50 rounded-lg border border-gray-200 dark:border-gray-200 shadow-sm p-3 sm:p-4">
+    <div className="min-h-screen bg-gray-50 p-1 sm:p-1 md:p-2 space-y-1 sm:space-y-2">
+      <Toaster position="top-right" />
+      <div className="bg-white dark:bg-gray-50 rounded-lg border border-gray-200 dark:border-gray-200 shadow-sm p-1 sm:p-2">
         {doctorStaff.length === 0 && rooms.length === 0 ? (
           <div className="flex flex-col items-center justify-center min-h-[60vh] py-12">
             <div className="bg-gradient-to-br from-gray-50 to-gray-50 dark:from-gray-900/20 dark:to-indigo-900/20 rounded-full p-6 mb-6">
@@ -2266,57 +2241,98 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
           </div>
         ) : (
           <>
-            <div className="flex flex-col gap-3 mb-3">
-              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+            <div className="flex flex-col gap-2">
+              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2">
                 <div>
                   <h1 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-900">Appointment Schedule</h1>
                   <p className="text-xs text-gray-700 dark:text-gray-800">
                     {clinic?.name} • {clinic?.timings || "No timings set"}
                   </p>
                 </div>
-                <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                <div className="flex sm:flex-row sm:items-center gap-3">
                   {permissions.canCreate === true && (
                     <button
                       onClick={() => setImportModalOpen(true)}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded border border-blue-600 dark:border-blue-500 bg-blue-600 dark:bg-blue-500 text-xs font-medium text-white hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors"
+                      className="inline-flex items-center gap-1 px-2 py-1 rounded border border-blue-600 dark:border-blue-500 bg-blue-600 dark:bg-blue-500 text-[10px] font-medium text-white hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors"
                       type="button"
                       title="Import appointments from CSV or Excel"
                     >
-                      <Upload className="w-3.5 h-3.5" />
+                      <Upload className="w-3 h-3" />
                       Import
                     </button>
                   )}
-                  <div className="flex items-center gap-2">
+                  
+                  </div>
+                </div>
+                <div className="mt-1 flex items-center gap-2">
+                  <input
+                    ref={dateInputRef}
+                    type="date"
+                    value={selectedDate}
+                    onChange={(e) => {
+                      const newDate = e.target.value;
+                      setSelectedDate(newDate);
+                      if (typeof window !== "undefined") {
+                        localStorage.setItem("appointmentSelectedDate", newDate);
+                      }
+                      toast(`Viewing appointments for ${new Date(newDate).toLocaleDateString()}`, {
+                        duration: 2000,
+                        icon: "ℹ️",
+                      });
+                    }}
+                    className="absolute -left-[9999px] -top-[9999px] opacity-0 pointer-events-none"
+                  />
+                  <div className="flex items-center gap-1">
                     <button
                       onClick={() => {
                         const current = new Date(selectedDate);
                         current.setDate(current.getDate() - 1);
                         const newDate = current.toISOString().split("T")[0];
                         setSelectedDate(newDate);
-                        // Persist to localStorage
                         if (typeof window !== "undefined") {
                           localStorage.setItem("appointmentSelectedDate", newDate);
                         }
                       }}
-                      className="px-3 py-1.5 rounded border border-gray-300 dark:border-gray-300 bg-white dark:bg-gray-100 text-xs font-medium text-gray-700 dark:text-gray-800 hover:bg-gray-50 dark:hover:bg-gray-200 transition-colors"
+                      className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-200 text-gray-600 dark:text-gray-700 transition-colors"
                       type="button"
+                      title="Previous Day"
                     >
-                      Prev
+                      <ChevronLeft className="w-3.5 h-3.5" />
                     </button>
+                    <span
+                      onMouseEnter={() => {
+                        const el = dateInputRef.current;
+                        if (el && typeof (el as any).showPicker === "function") {
+                          (el as any).showPicker();
+                        }
+                      }}
+                      onClick={() => {
+                        const el = dateInputRef.current;
+                        if (el && typeof (el as any).showPicker === "function") {
+                          (el as any).showPicker();
+                        } else {
+                          el?.click();
+                        }
+                      }}
+                      className="text-[10px] font-bold text-teal-600 cursor-pointer select-none"
+                      title="Change date"
+                    >
+                      {new Date(selectedDate).toLocaleDateString("en-GB").replace(/\//g, "-")}
+                    </span>
                     <button
                       onClick={() => {
-                        const todayDate = new Date().toISOString().split("T")[0];
-                        setSelectedDate(todayDate);
-                        // Persist to localStorage
-                        if (typeof window !== "undefined") {
-                          localStorage.setItem("appointmentSelectedDate", todayDate);
+                        const el = dateInputRef.current;
+                        if (el && typeof (el as any).showPicker === "function") {
+                          (el as any).showPicker();
+                        } else {
+                          el?.click();
                         }
-                        toast.success("Switched to today", { duration: 2000 });
                       }}
-                      className="px-3 py-1.5 rounded border border-gray-900 dark:border-gray-300 bg-teal-600 dark:bg-teal-600 text-xs font-medium text-white dark:text-gray-900 hover:bg-teal-700 dark:hover:bg-gray-300 transition-colors"
+                      className="p-1 rounded hover:bg-gray-100 text-gray-600"
                       type="button"
+                      title="Open calendar"
                     >
-                      Today
+                      <Calendar className="w-3.5 h-3.5" />
                     </button>
                     <button
                       onClick={() => {
@@ -2324,36 +2340,26 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                         current.setDate(current.getDate() + 1);
                         const newDate = current.toISOString().split("T")[0];
                         setSelectedDate(newDate);
-                        // Persist to localStorage
                         if (typeof window !== "undefined") {
                           localStorage.setItem("appointmentSelectedDate", newDate);
                         }
                       }}
-                      className="px-3 py-1.5 rounded border border-gray-300 dark:border-gray-300 bg-white dark:bg-gray-100 text-xs font-medium text-gray-700 dark:text-gray-800 hover:bg-gray-50 dark:hover:bg-gray-200 transition-colors"
+                      className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-200 text-gray-600 dark:text-gray-700 transition-colors"
                       type="button"
+                      title="Next Day"
                     >
-                      Next
+                      <ChevronRight className="w-3.5 h-3.5" />
                     </button>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <label className="text-xs font-medium text-gray-700 dark:text-gray-800 whitespace-nowrap">Date:</label>
-                    <input
-                      type="date"
-                      value={selectedDate}
-                      onChange={(e) => {
-                        const newDate = e.target.value;
-                        setSelectedDate(newDate);
-                        // Persist to localStorage
-                        if (typeof window !== "undefined") {
-                          localStorage.setItem("appointmentSelectedDate", newDate);
-                        }
-                        toast(`Viewing appointments for ${new Date(newDate).toLocaleDateString()}`, {
-                          duration: 2000,
-                          icon: "ℹ️",
-                        });
-                      }}
-                      className="border border-gray-300 dark:border-gray-300 bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 rounded px-3 py-1.5 text-xs focus:ring-1 focus:ring-gray-900 dark:focus:ring-gray-700 focus:border-gray-900 dark:focus:border-gray-700 transition-all"
-                    />
+                </div>
+                <div className="mt-1 flex items-center gap-4 text-[10px]">
+                  <div className="flex items-center gap-1">
+                    <span className="inline-block w-2 h-2 rounded-full bg-blue-600"></span>
+                    <span className="text-gray-700 dark:text-gray-800">Doctor</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span className="inline-block w-2 h-2 rounded-full bg-green-600"></span>
+                    <span className="text-gray-700 dark:text-gray-800">Clinic</span>
                   </div>
                 </div>
               </div>
@@ -2580,7 +2586,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                   }`}
                 >
                   <Clock className="w-3 h-3" />
-                  {useCustomTimeSlots ? "Custom Time" : "Time Slots"}
+                  {useCustomTimeSlots ? "Set Time" : "Time Slots"}
                   {useCustomTimeSlots && customStartTime && customEndTime && (
                     <span className="text-[10px]">
                       ({formatTime(customStartTime)} - {formatTime(customEndTime)})
@@ -2596,8 +2602,8 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
             {/* Scrollable container */}
             <div className="overflow-x-auto max-h-[75vh] overflow-y-auto relative">
             {/* Header with doctor names and rooms */}
-              <div className="flex bg-gray-50 dark:bg-gray-200 border-b border-gray-200 dark:border-gray-300 sticky top-0 z-20">
-                <div className="w-16 sm:w-18 flex-shrink-0 border-r border-gray-200 dark:border-gray-300 p-1 bg-white dark:bg-gray-50 sticky left-0 z-[70] relative after:content-[''] after:absolute after:top-0 after:bottom-0 after:right-[-2px] after:w-[2px] after:bg-white dark:after:bg-gray-50 after:pointer-events-none">
+              <div className="flex bg-gray-50 dark:bg-gray-200 border-b border-gray-200 dark:border-gray-300 sticky top-0 z-[40]">
+                <div className="w-16 sm:w-18 flex-shrink-0 border-r border-gray-200 dark:border-gray-300 p-1 bg-white dark:bg-gray-50 sticky left-0 z-[70] after:content-[''] after:absolute after:top-0 after:bottom-0 after:right-[-2px] after:w-[2px] after:bg-white dark:after:bg-gray-50 after:pointer-events-none">
                   <div className="flex items-center gap-0.5 text-[8px] sm:text-[9px] font-semibold text-gray-900 dark:text-gray-900">
                     <Clock className="w-2.5 h-2.5" />
                   <span>Time</span>
@@ -2647,9 +2653,9 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                         </div>
                         <div className="min-w-0 flex-1">
                           <p className="text-[8px] sm:text-[9px] font-semibold text-gray-900 dark:text-gray-900 truncate">{doctor.name}</p>
-                          <span className="inline-block mt-0.5 px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 border border-blue-200 text-[8px]">
+                          {/* <span className="inline-block mt-0.5 px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700 border border-blue-200 text-[8px]">
                             Doctor
-                          </span>
+                          </span> */}
                         </div>
                         {permissions.canUpdate && (
                           <div className="flex-shrink-0 cursor-grab active:cursor-grabbing opacity-40 hover:opacity-70 transition-opacity" title="Drag to reorder">
@@ -2707,9 +2713,9 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                         </div>
                         <div className="min-w-0 flex-1">
                           <p className="text-[8px] sm:text-[9px] font-semibold text-gray-900 dark:text-gray-900 truncate">{room.name}</p>
-                          <span className="inline-block mt-0.5 px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200 text-[8px]">
+                          {/* <span className="inline-block mt-0.5 px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200 text-[8px]">
                             Room
-                          </span>
+                          </span> */}
                         </div>
                         {permissions.canUpdate && (
                           <div className="flex-shrink-0 cursor-grab active:cursor-grabbing opacity-40 hover:opacity-70 transition-opacity" title="Drag to reorder">
@@ -2743,7 +2749,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                   <div key={slot.time} className="flex hover:bg-gray-50/50 dark:hover:bg-gray-100/50 transition-colors min-w-max">
                     {/* Time column */}
                     <div
-                      className="w-16 sm:w-18 flex-shrink-0 border-r border-gray-200 dark:border-gray-300 border-b border-gray-100 dark:border-gray-300 p-1 bg-white dark:bg-gray-50 relative sticky left-0 z-[15] after:content-[''] after:absolute after:top-0 after:bottom-0 after:right-[-2px] after:w-[2px] after:bg-white dark:after:bg-gray-50 after:pointer-events-none"
+                      className="w-16 sm:w-18 flex-shrink-0 border-r border-gray-200 dark:border-gray-300 border-b border-gray-100 dark:border-gray-300 p-1 bg-white dark:bg-gray-50 sticky left-0 z-[30] after:content-[''] after:absolute after:top-0 after:bottom-0 after:right-[-2px] after:w-[2px] after:bg-white dark:after:bg-gray-50 after:pointer-events-none"
                       style={{ height: ROW_HEIGHT_PX }}
                     >
                       <p className="text-[8px] sm:text-[9px] font-semibold text-gray-900 dark:text-gray-900">{slot.displayTime}</p>
@@ -2880,8 +2886,16 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                           {/* ✅ Only show appointments if user has read permission */}
                           {permissions.canRead && rowAppointments.length > 0
                             ? (() => {
+                                // Filter to only show appointments that START in this row to avoid duplication across rows
+                                const startingAppointments = rowAppointments.filter(apt => {
+                                  const aptStart = timeStringToMinutes(apt.fromTime);
+                                  return aptStart >= rowStartMinutes && aptStart < rowStartMinutes + ROW_INTERVAL_MINUTES;
+                                });
+
+                                if (startingAppointments.length === 0) return null;
+
                                 // Group appointments by their start time within the row to position them correctly
-                                const appointmentsBySlot = rowAppointments.map((apt) => {
+                                const appointmentsBySlot = startingAppointments.map((apt) => {
                                   const aptStart = timeStringToMinutes(apt.fromTime);
                                   const aptEnd = timeStringToMinutes(apt.toTime);
                                   const slotOffset = aptStart - rowStartMinutes; // Offset from row start in minutes
@@ -2911,25 +2925,27 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                                       return (
                                         <div
                                           key={`slot-${groupIndex}`}
-                                          className="absolute left-0.5 right-0.5 flex flex-row items-center"
+                                          className="absolute left-[2px] right-[2px] flex flex-row items-center"
                                           style={{
                                             top: `${Math.max(0, firstAppt.topOffset + 1)}px`,
-                                            height: `${Math.min(maxHeight, ROW_HEIGHT_PX - 2)}px`,
+                                            height: `${maxHeight - 2}px`,
                                             zIndex: 10,
-                                            gap: '2px',
                                           }}
                                         >
                                           {slotAppointments.map((item, sameIndex) => {
                                             const statusColor = getStatusColor(item.apt.status);
-                                            // Make cards expand to fill available space
-                                            const shouldExpand = slotAppointments.length < 3; // Expand if 1-2 patients
+                                            // Calculate card width based on number of patients
+                                            const patientCount = slotAppointments.length;
+                                            const cardWidthPercent = patientCount > 1 ? `${Math.floor(100 / patientCount)}%` : '100%';
+                                            
                                             return (
                                               <div
                                                 key={item.apt._id}
-                                                className={`flex items-center ${shouldExpand ? 'flex-1' : ''} px-1 py-0.5 rounded-sm ${statusColor.bg} ${statusColor.text} ${statusColor.border} border transition-all hover:shadow-sm ${permissions.canUpdate ? "cursor-pointer" : "cursor-default"} ${draggedAppointmentId === item.apt._id ? "opacity-50" : ""} ${shouldExpand ? '' : 'flex-shrink-0 min-w-0'}`}
+                                                className={`flex items-center flex-1 min-w-0 px-0.5 py-0.5 ${sameIndex === 0 ? 'rounded-l-sm' : ''} ${sameIndex === slotAppointments.length - 1 ? 'rounded-r-sm' : ''} ${statusColor.bg} ${statusColor.text} ${statusColor.border} border-y ${sameIndex === 0 ? 'border-l' : ''} ${sameIndex === slotAppointments.length - 1 ? 'border-r' : 'border-r border-r-gray-400/30'} transition-all hover:shadow-sm ${permissions.canUpdate ? "cursor-pointer" : "cursor-default"} ${draggedAppointmentId === item.apt._id ? "opacity-50" : ""}`}
                                                 style={{ 
-                                                  height: `${Math.min(item.height, ROW_HEIGHT_PX - 2)}px`,
-                                                  borderWidth: '1px',
+                                                  height: `${item.height - 2}px`,
+                                                  width: cardWidthPercent,
+                                                  flexBasis: cardWidthPercent,
                                                 }}
                                                 draggable={permissions.canUpdate}
                                                 onDragStart={(e) => handleAppointmentDragStart(e, item.apt._id)}
@@ -2977,13 +2993,17 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                                                 }}
                                                 title={`${item.apt.patientName} - ${formatTime(item.apt.fromTime)} - ${formatTime(item.apt.toTime)}`}
                                               >
-                                                <div className={`w-0.5 h-0.5 rounded-full ${statusColor.bg} ${statusColor.border} border flex-shrink-0`} style={{ borderWidth: '1px' }} />
-                                                <p className="font-semibold text-[6px] sm:text-[7px] leading-tight truncate min-w-0 flex-1 overflow-hidden" style={{ lineHeight: '1', maxWidth: '100%' }}>
-                                                  {slotAppointments.length > 1 ? item.apt.patientName.split(' ').slice(0, 2).join(' ') : item.apt.patientName}
-                                                </p>
-                                                {sameIndex < slotAppointments.length - 1 && (
-                                                  <div className="w-px h-2 bg-gray-300 dark:bg-gray-400 mx-0.5 flex-shrink-0" />
-                                                )}
+                                                <div className={`w-0.5 h-0.5 rounded-full ${statusColor.bg} ${statusColor.border} border flex-shrink-0 mr-1`} style={{ borderWidth: '1px' }} />
+                                                <div className="flex flex-col min-w-0 flex-1 overflow-hidden">
+                                                  <p className="font-semibold text-[6px] sm:text-[7px] leading-tight truncate w-full" style={{ lineHeight: '1' }}>
+                                                    {slotAppointments.length > 1 ? item.apt.patientName.split(' ').slice(0, 2).join(' ') : item.apt.patientName}
+                                                  </p>
+                                                  {slotAppointments.length <= 2 && (
+                                                    <p className="text-[6px] leading-tight truncate w-full opacity-75" style={{ lineHeight: '1', marginTop: '1px' }}>
+                                                      {formatTime(item.apt.fromTime)} - {formatTime(item.apt.toTime)}
+                                                    </p>
+                                                  )}
+                                                </div>
                                               </div>
                                             );
                                           })}
@@ -3119,8 +3139,16 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                           {/* ✅ Only show appointments if user has read permission */}
                           {permissions.canRead && roomAppointments.length > 0
                             ? (() => {
+                                // Filter to only show appointments that START in this row to avoid duplication across rows
+                                const startingAppointments = roomAppointments.filter(apt => {
+                                  const aptStart = timeStringToMinutes(apt.fromTime);
+                                  return aptStart >= rowStartMinutes && aptStart < rowStartMinutes + ROW_INTERVAL_MINUTES;
+                                });
+
+                                if (startingAppointments.length === 0) return null;
+
                                 // Group appointments by their start time within the row to position them correctly
-                                const appointmentsBySlot = roomAppointments.map((apt) => {
+                                const appointmentsBySlot = startingAppointments.map((apt) => {
                                   const aptStart = timeStringToMinutes(apt.fromTime);
                                   const aptEnd = timeStringToMinutes(apt.toTime);
                                   const slotOffset = aptStart - rowStartMinutes; // Offset from row start in minutes
@@ -3153,7 +3181,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                                           className="absolute left-0.5 right-0.5 flex flex-row items-center"
                                           style={{
                                             top: `${Math.max(0, firstAppt.topOffset + 1)}px`,
-                                            height: `${Math.min(maxHeight, ROW_HEIGHT_PX - 2)}px`,
+                                            height: `${maxHeight - 2}px`,
                                             zIndex: 10,
                                             gap: '2px',
                                           }}
@@ -3170,7 +3198,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                                                 key={item.apt._id}
                                                 className={`flex items-center flex-1 min-w-0 px-0.5 py-0.5 rounded-sm ${statusColor.bg} ${statusColor.text} ${statusColor.border} border transition-all hover:shadow-sm ${permissions.canUpdate ? "cursor-pointer" : "cursor-default"} ${draggedAppointmentId === item.apt._id ? "opacity-50" : ""}`}
                                                 style={{ 
-                                                  height: `${Math.min(item.height, ROW_HEIGHT_PX - 2)}px`,
+                                                  height: `${item.height - 2}px`,
                                                   borderWidth: '1px',
                                                   width: cardWidthPercent,
                                                   maxWidth: maxCardWidth,
@@ -3222,10 +3250,17 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                                                 }}
                                                 title={`${item.apt.patientName} - ${formatTime(item.apt.fromTime)} - ${formatTime(item.apt.toTime)}`}
                                               >
-                                                <div className={`w-0.5 h-0.5 rounded-full ${statusColor.bg} ${statusColor.border} border flex-shrink-0`} style={{ borderWidth: '1px' }} />
-                                                <p className="font-semibold text-[6px] sm:text-[7px] leading-tight truncate min-w-0 flex-1 text-gray-900 dark:text-gray-900 overflow-hidden" style={{ lineHeight: '1', maxWidth: '100%' }}>
-                                                  {slotAppointments.length > 1 ? item.apt.patientName.split(' ').slice(0, 2).join(' ') : item.apt.patientName}
-                                                </p>
+                                                <div className={`w-0.5 h-0.5 rounded-full ${statusColor.bg} ${statusColor.border} border flex-shrink-0 mr-0.5`} style={{ borderWidth: '1px' }} />
+                                                <div className="flex flex-col min-w-0 flex-1 overflow-hidden">
+                                                  <p className="font-semibold text-[6px] sm:text-[7px] leading-tight truncate w-full text-gray-900 dark:text-gray-900" style={{ lineHeight: '1' }}>
+                                                    {slotAppointments.length > 1 ? item.apt.patientName.split(' ').slice(0, 2).join(' ') : item.apt.patientName}
+                                                  </p>
+                                                  {slotAppointments.length <= 2 && (
+                                                    <p className="text-[6px] leading-tight truncate w-full opacity-75 text-gray-700 dark:text-gray-700" style={{ lineHeight: '1', marginTop: '1px' }}>
+                                                      {formatTime(item.apt.fromTime)} - {formatTime(item.apt.toTime)}
+                                                    </p>
+                                                  )}
+                                                </div>
                                                 {sameIndex < slotAppointments.length - 1 && (
                                                   <div className="w-px h-2 bg-gray-300 dark:bg-gray-400 mx-0.5 flex-shrink-0" />
                                                 )}
