@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import { useRouter } from "next/router";
 import axios from "axios";
 import withClinicAuth from "../../components/withClinicAuth";
@@ -2157,36 +2157,6 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
     }
   };
 
-  if (loading || !permissionsLoaded) return <Loader />;
-
-  // Show access denied message if no permission
-  if (!permissions.canRead) {
-    return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-8 text-center max-w-md">
-          <div className="w-16 h-16 bg-yellow-100 dark:bg-yellow-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Calendar className="w-8 h-8 text-yellow-600 dark:text-yellow-400" />
-          </div>
-          <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-2">Access Denied</h3>
-          <p className="text-sm text-gray-700 dark:text-gray-400">
-            You do not have permission to view appointments. Please contact your administrator.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
-        <div className="flex items-center gap-3 text-red-600">
-          <Calendar className="w-5 h-5" />
-          <p className="font-medium">{error}</p>
-        </div>
-      </div>
-    );
-  }
-
   // Get status color for appointments
   const getStatusColor = (status: string): { bg: string; text: string; border: string } => {
     const statusLower = status.toLowerCase();
@@ -2217,11 +2187,42 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
         return { bg: "bg-gray-500", text: "text-white", border: "border-gray-600" };
     }
   };
+
+  if (loading || !permissionsLoaded) return <Loader />;
+
+  // Show access denied message if no permission
+  if (!permissions.canRead) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-8 text-center max-w-md">
+          <div className="w-16 h-16 bg-yellow-100 dark:bg-yellow-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Calendar className="w-8 h-8 text-yellow-600 dark:text-yellow-400" />
+          </div>
+          <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-2">Access Denied</h3>
+          <p className="text-sm text-gray-700 dark:text-gray-400">
+            You do not have permission to view appointments. Please contact your administrator.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
+        <div className="flex items-center gap-3 text-red-600">
+          <Calendar className="w-5 h-5" />
+          <p className="font-medium">{error}</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 p-1 sm:p-1 md:p-2 space-y-1 sm:space-y-2">
       <Toaster position="top-right" />
       <div className="bg-white dark:bg-gray-50 rounded-lg border border-gray-200 dark:border-gray-200 shadow-sm p-1 sm:p-2">
-        {doctorStaff.length === 0 && rooms.length === 0 && (
+        {doctorStaff.length === 0 && rooms.length === 0 ? (
           <div className="flex flex-col items-center justify-center min-h-[60vh] py-12">
             <div className="bg-gradient-to-br from-gray-50 to-gray-50 dark:from-gray-900/20 dark:to-indigo-900/20 rounded-full p-6 mb-6">
               <div className="w-20 h-20 mx-auto flex items-center justify-center bg-white dark:bg-gray-800 rounded-full shadow-lg">
@@ -2238,9 +2239,8 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
               Once you've added them, you'll be able to manage your appointment schedule here
             </p>
           </div>
-        )}
-        {(doctorStaff.length > 0 || rooms.length > 0) && (
-          <div>
+        ) : (
+          <>
             <div className="flex flex-col gap-2">
               <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2">
                 <div>
@@ -2265,23 +2265,6 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                   </div>
                 </div>
                 <div className="mt-1 flex items-center gap-2">
-                  <input
-                    ref={dateInputRef}
-                    type="date"
-                    value={selectedDate}
-                    onChange={(e) => {
-                      const newDate = e.target.value;
-                      setSelectedDate(newDate);
-                      if (typeof window !== "undefined") {
-                        localStorage.setItem("appointmentSelectedDate", newDate);
-                      }
-                      toast(`Viewing appointments for ${new Date(newDate).toLocaleDateString()}`, {
-                        duration: 2000,
-                        icon: "ℹ️",
-                      });
-                    }}
-                    className="absolute -left-[9999px] -top-[9999px] opacity-0 pointer-events-none"
-                  />
                   <div className="flex items-center gap-1">
                     <button
                       onClick={() => {
@@ -2299,41 +2282,32 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                     >
                       <ChevronLeft className="w-3.5 h-3.5" />
                     </button>
-                    <span
-                      onMouseEnter={() => {
-                        const el = dateInputRef.current;
-                        if (el && typeof (el as any).showPicker === "function") {
-                          (el as any).showPicker();
-                        }
-                      }}
-                      onClick={() => {
-                        const el = dateInputRef.current;
-                        if (el && typeof (el as any).showPicker === "function") {
-                          (el as any).showPicker();
-                        } else {
-                          el?.click();
-                        }
-                      }}
-                      className="text-[10px] font-bold text-teal-600 cursor-pointer select-none"
-                      title="Change date"
-                    >
-                      {new Date(selectedDate).toLocaleDateString("en-GB").replace(/\//g, "-")}
-                    </span>
-                    <button
-                      onClick={() => {
-                        const el = dateInputRef.current;
-                        if (el && typeof (el as any).showPicker === "function") {
-                          (el as any).showPicker();
-                        } else {
-                          el?.click();
-                        }
-                      }}
-                      className="p-1 rounded hover:bg-gray-100 text-gray-600"
-                      type="button"
-                      title="Open calendar"
-                    >
-                      <Calendar className="w-3.5 h-3.5" />
-                    </button>
+                    
+                    <div className="relative inline-flex items-center gap-1">
+                      <input
+                        ref={dateInputRef}
+                        type="date"
+                        value={selectedDate}
+                        onChange={(e) => {
+                          const newDate = e.target.value;
+                          setSelectedDate(newDate);
+                          if (typeof window !== "undefined") {
+                            localStorage.setItem("appointmentSelectedDate", newDate);
+                          }
+                          toast(`Viewing appointments for ${new Date(newDate).toLocaleDateString()}`, {
+                            duration: 2000,
+                            icon: "ℹ️",
+                          });
+                        }}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                        title="Select date"
+                      />
+                      <span className="text-[10px] font-bold text-teal-600 select-none pointer-events-none">
+                        {new Date(selectedDate).toLocaleDateString("en-GB").replace(/\//g, "-")}
+                      </span>
+                      <Calendar className="w-3.5 h-3.5 text-gray-600 dark:text-gray-700 pointer-events-none" />
+                    </div>
+                    
                     <button
                       onClick={() => {
                         const current = new Date(selectedDate);
@@ -2596,6 +2570,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
               </div>
             </div>
             )}
+
             <div className="border border-gray-200 dark:border-gray-300 rounded overflow-hidden bg-white dark:bg-gray-50">
             {/* Scrollable container */}
             <div className="overflow-x-auto max-h-[75vh] overflow-y-auto relative">
@@ -3282,8 +3257,14 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
               </div>
             </div>
           </div>
+        {visibleDoctors.length === 0 && visibleRooms.length === 0 && (doctorStaff.length > 0 || rooms.length > 0) && (
+          <div className="mt-2 rounded border border-dashed border-gray-300 dark:border-gray-300 bg-gray-50 dark:bg-gray-100 p-2 text-center text-xs text-gray-700 dark:text-gray-800">
+            No doctor or room columns selected. Use the filters above to choose which schedules to display.
+          </div>
         )}
-
+          </>
+        )}
+      </div>
 
       {/* Custom Time Slot Modal */}
       {customTimeSlotModalOpen && (
