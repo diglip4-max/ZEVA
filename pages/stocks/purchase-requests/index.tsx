@@ -17,6 +17,7 @@ import DeletePurchaseRequestModal from "./_components/DeletePurchaseRequestModal
 import EditPurchaseRequestModal from "./_components/EditPurchaseRequestModal";
 import PurchaseRequestDetailModal from "./_components/PurchaseRequestDetailModal";
 import FilterModal from "./_components/FilterModal";
+import { Printer } from "lucide-react";
 
 const PurchaseRequestsPage: NextPageWithLayout = () => {
   const token = getTokenByPath();
@@ -801,6 +802,31 @@ const PurchaseRequestsPage: NextPageWithLayout = () => {
                                   <div className="flex items-center">
                                     <PencilIcon className="h-4 w-4 mr-2" />
                                     Edit
+                                  </div>
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    // Open print page in new tab
+                                    const printUrl = `/stocks/purchase-requests/print-purchase-request?purId=${request?._id}`;
+                                    window.open(
+                                      printUrl,
+                                      "_blank",
+                                      "noopener,noreferrer",
+                                    );
+                                    // Close the dropdown after clicking
+                                    const menuEl = document.getElementById(
+                                      `menu-${request?._id}`,
+                                    );
+                                    if (menuEl) {
+                                      menuEl.classList.remove("block");
+                                      menuEl.classList.add("hidden");
+                                    }
+                                  }}
+                                  className="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+                                >
+                                  <div className="flex items-center">
+                                    <Printer className="h-4 w-4 mr-2" />
+                                    Print
                                   </div>
                                 </button>
                                 <button

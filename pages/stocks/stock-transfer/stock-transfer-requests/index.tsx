@@ -10,7 +10,7 @@ import {
   TrashIcon,
   EllipsisVerticalIcon,
 } from "@heroicons/react/24/outline";
-import { ArrowRight, Filter, Info } from "lucide-react";
+import { ArrowRight, Filter, Info, Printer } from "lucide-react";
 import debounce from "lodash.debounce";
 import AddStockTransferRequestModal from "./_components/AddStockTransferRequestModal";
 import EditStockTransferRequestModal from "./_components/EditStockTransferRequestModal";
@@ -561,6 +561,31 @@ const StockTransferRequestPage: NextPageWithLayout = () => {
                                   <div className="flex items-center">
                                     <PencilIcon className="h-4 w-4 mr-2" />
                                     Edit
+                                  </div>
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    // Open print page in new tab
+                                    const printUrl = `/stocks/stock-transfer/print-stock-transfer-request/?strId=${r?._id}`;
+                                    window.open(
+                                      printUrl,
+                                      "_blank",
+                                      "noopener,noreferrer",
+                                    );
+                                    // Close the dropdown after clicking
+                                    const menuEl = document.getElementById(
+                                      `menu-${r?._id}`,
+                                    );
+                                    if (menuEl) {
+                                      menuEl.classList.remove("block");
+                                      menuEl.classList.add("hidden");
+                                    }
+                                  }}
+                                  className="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+                                >
+                                  <div className="flex items-center">
+                                    <Printer className="h-4 w-4 mr-2" />
+                                    Print
                                   </div>
                                 </button>
                                 <button
