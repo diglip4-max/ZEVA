@@ -60,19 +60,31 @@ const ManageAgentsPage = () => {
     phone: "",
     idType: "aadhaar",
     idNumber: "",
-    idDocumentUrl: "",
+    idDocumentFrontUrl: "",
+    idDocumentBackUrl: "",
     passportNumber: "",
-    passportDocumentUrl: "",
+    passportDocumentFrontUrl: "",
+    passportDocumentBackUrl: "",
     emergencyPhone: "",
+    emergencyName: "",
     baseSalary: "",
     commissionType: "flat",
     commissionPercentage: "",
-    contractUrl: "",
+    contractFrontUrl: "",
+    contractBackUrl: "",
     contractType: "full"
+    ,
+    employeeVisaFrontUrl: "",
+    employeeVisaBackUrl: ""
   });
-  const [uploadingIdDoc, setUploadingIdDoc] = useState(false);
-  const [uploadingPassportDoc, setUploadingPassportDoc] = useState(false);
-  const [uploadingContract, setUploadingContract] = useState(false);
+  const [uploadingIdDocFront, setUploadingIdDocFront] = useState(false);
+  const [uploadingIdDocBack, setUploadingIdDocBack] = useState(false);
+  const [uploadingPassportDocFront, setUploadingPassportDocFront] = useState(false);
+  const [uploadingPassportDocBack, setUploadingPassportDocBack] = useState(false);
+  const [uploadingContractFront, setUploadingContractFront] = useState(false);
+  const [uploadingContractBack, setUploadingContractBack] = useState(false);
+  const [uploadingEmployeeVisaFront, setUploadingEmployeeVisaFront] = useState(false);
+  const [uploadingEmployeeVisaBack, setUploadingEmployeeVisaBack] = useState(false);
   const [completionMap, setCompletionMap] = useState({});
   const [agentProfiles, setAgentProfiles] = useState({});
   const [passwordAgent, setPasswordAgent] = useState(null);
@@ -402,9 +414,9 @@ const ManageAgentsPage = () => {
     let score = 0;
     if (profile?.emergencyPhone) score += 1;
     if (agent?.phone) score += 1;
-    if (profile?.idNumber && profile?.idDocumentUrl) score += 1;
-    if (profile?.passportNumber && profile?.passportDocumentUrl) score += 1;
-    if (profile?.contractUrl) score += 1;
+    if (profile?.idNumber && profile?.idDocumentFrontUrl && profile?.idDocumentBackUrl) score += 1;
+    if (profile?.passportNumber && profile?.passportDocumentFrontUrl && profile?.passportDocumentBackUrl) score += 1;
+    if (profile?.contractFrontUrl && profile?.contractBackUrl) score += 1;
     if (typeof profile?.baseSalary === "number" ? profile.baseSalary > 0 : parseFloat(profile?.baseSalary) > 0) score += 1;
     if (profile?.commissionType) score += 1;
     return Math.round((score / total) * 100);
@@ -452,15 +464,21 @@ const ManageAgentsPage = () => {
           phone: agent.phone || "",
           idType: p.idType || "aadhaar",
           idNumber: p.idNumber || "",
-          idDocumentUrl: p.idDocumentUrl || "",
+          idDocumentFrontUrl: p.idDocumentFrontUrl || "",
+          idDocumentBackUrl: p.idDocumentBackUrl || "",
           passportNumber: p.passportNumber || "",
-          passportDocumentUrl: p.passportDocumentUrl || "",
+          passportDocumentFrontUrl: p.passportDocumentFrontUrl || "",
+          passportDocumentBackUrl: p.passportDocumentBackUrl || "",
           emergencyPhone: p.emergencyPhone || "",
+          emergencyName: p.emergencyName || "",
           baseSalary: typeof p.baseSalary === "number" ? String(p.baseSalary) : (p.baseSalary || ""),
           commissionType: p.commissionType || "flat",
           commissionPercentage: p.commissionPercentage || "",
-          contractUrl: p.contractUrl || "",
-          contractType: p.contractType || "full"
+          contractFrontUrl: p.contractFrontUrl || "",
+          contractBackUrl: p.contractBackUrl || "",
+          contractType: p.contractType || "full",
+          employeeVisaFrontUrl: p.employeeVisaFrontUrl || "",
+          employeeVisaBackUrl: p.employeeVisaBackUrl || ""
         });
       }
     } catch {}
@@ -532,16 +550,22 @@ const ManageAgentsPage = () => {
         email: profileForm.email,
         phone: profileForm.phone,
         emergencyPhone: profileForm.emergencyPhone,
+        emergencyName: profileForm.emergencyName,
         idType: profileForm.idType,
         idNumber: profileForm.idNumber,
-        idDocumentUrl: profileForm.idDocumentUrl,
+        idDocumentFrontUrl: profileForm.idDocumentFrontUrl,
+        idDocumentBackUrl: profileForm.idDocumentBackUrl,
         passportNumber: profileForm.passportNumber,
-        passportDocumentUrl: profileForm.passportDocumentUrl,
-        contractUrl: profileForm.contractUrl,
+        passportDocumentFrontUrl: profileForm.passportDocumentFrontUrl,
+        passportDocumentBackUrl: profileForm.passportDocumentBackUrl,
+        contractFrontUrl: profileForm.contractFrontUrl,
+        contractBackUrl: profileForm.contractBackUrl,
         contractType: profileForm.contractType,
         baseSalary: parseFloat(profileForm.baseSalary || "0"),
         commissionType: profileForm.commissionType,
-        commissionPercentage: profileForm.commissionPercentage
+        commissionPercentage: profileForm.commissionPercentage,
+        employeeVisaFrontUrl: profileForm.employeeVisaFrontUrl,
+        employeeVisaBackUrl: profileForm.employeeVisaBackUrl
       };
       const res = await axios.patch("/api/lead-ms/get-agents", payload, { headers: authHeaders });
       if (res.data.success) {
@@ -550,10 +574,13 @@ const ManageAgentsPage = () => {
           {
             emergencyPhone: payload.emergencyPhone,
             idNumber: payload.idNumber,
-            idDocumentUrl: payload.idDocumentUrl,
+            idDocumentFrontUrl: payload.idDocumentFrontUrl,
+            idDocumentBackUrl: payload.idDocumentBackUrl,
             passportNumber: payload.passportNumber,
-            passportDocumentUrl: payload.passportDocumentUrl,
-            contractUrl: payload.contractUrl,
+            passportDocumentFrontUrl: payload.passportDocumentFrontUrl,
+            passportDocumentBackUrl: payload.passportDocumentBackUrl,
+            contractFrontUrl: payload.contractFrontUrl,
+            contractBackUrl: payload.contractBackUrl,
             baseSalary: payload.baseSalary,
             commissionType: payload.commissionType,
             commissionPercentage: payload.commissionPercentage
@@ -736,7 +763,7 @@ const ManageAgentsPage = () => {
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
                 <h1 className="text-xl sm:text-2xl font-bold text-teal-900 dark:text-teal-100">Team Management</h1>
-                <p className="text-xs sm:text-sm text-teal-700 dark:text-teal-400 mt-1">Manage agents and doctor staff accounts</p>
+                <p className="text-xs sm:text-sm text-teal-700 dark:text-teal-400 mt-1">Manage Staffs and Doctors accounts</p>
               </div>
             </div>
 
@@ -1328,10 +1355,10 @@ const ManageAgentsPage = () => {
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-teal-700 mb-1.5">Upload ID Document</label>
+                      <label className="block text-xs font-medium text-teal-700 mb-1.5">Upload ID Front</label>
                       <label className="flex flex-col gap-1.5 w-full cursor-pointer group">
                         <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 group-hover:bg-gray-100 transition-colors">
-                          {uploadingIdDoc ? (
+                          {uploadingIdDocFront ? (
                             <span className="animate-pulse text-teal-600">Uploading...</span>
                           ) : (
                             <>
@@ -1345,11 +1372,37 @@ const ManageAgentsPage = () => {
                           className="hidden"
                           onChange={(e) => {
                             const file = e.target.files?.[0];
-                            if (file) uploadFile(file, (url) => setProfileForm((f) => ({ ...f, idDocumentUrl: url })), setUploadingIdDoc);
+                            if (file) uploadFile(file, (url) => setProfileForm((f) => ({ ...f, idDocumentFrontUrl: url })), setUploadingIdDocFront);
                           }}
                         />
                         <span className="text-xs text-gray-600 truncate">
-                          {profileForm.idDocumentUrl ? getFileNameFromUrl(profileForm.idDocumentUrl) : "No file chosen"}
+                          {profileForm.idDocumentFrontUrl ? getFileNameFromUrl(profileForm.idDocumentFrontUrl) : "No file chosen"}
+                        </span>
+                      </label>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-teal-700 mb-1.5">Upload ID Back</label>
+                      <label className="flex flex-col gap-1.5 w-full cursor-pointer group">
+                        <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 group-hover:bg-gray-100 transition-colors">
+                          {uploadingIdDocBack ? (
+                            <span className="animate-pulse text-teal-600">Uploading...</span>
+                          ) : (
+                            <>
+                              <Upload className="w-4 h-4 mr-2 text-teal-600" />
+                              <span className="text-teal-600">Choose file</span>
+                            </>
+                          )}
+                        </div>
+                        <input
+                          type="file"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) uploadFile(file, (url) => setProfileForm((f) => ({ ...f, idDocumentBackUrl: url })), setUploadingIdDocBack);
+                          }}
+                        />
+                        <span className="text-xs text-gray-600 truncate">
+                          {profileForm.idDocumentBackUrl ? getFileNameFromUrl(profileForm.idDocumentBackUrl) : "No file chosen"}
                         </span>
                       </label>
                     </div>
@@ -1371,10 +1424,10 @@ const ManageAgentsPage = () => {
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-teal-700 mb-1.5">Upload Passport</label>
+                      <label className="block text-xs font-medium text-teal-700 mb-1.5">Upload Passport Front</label>
                       <label className="flex flex-col gap-1.5 w-full cursor-pointer group">
                         <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 group-hover:bg-gray-100 transition-colors">
-                          {uploadingPassportDoc ? (
+                          {uploadingPassportDocFront ? (
                             <span className="animate-pulse text-teal-600">Uploading...</span>
                           ) : (
                             <>
@@ -1388,11 +1441,37 @@ const ManageAgentsPage = () => {
                           className="hidden"
                           onChange={(e) => {
                             const file = e.target.files?.[0];
-                            if (file) uploadFile(file, (url) => setProfileForm((f) => ({ ...f, passportDocumentUrl: url })), setUploadingPassportDoc);
+                            if (file) uploadFile(file, (url) => setProfileForm((f) => ({ ...f, passportDocumentFrontUrl: url })), setUploadingPassportDocFront);
                           }}
                         />
                         <span className="text-xs text-gray-600 truncate">
-                          {profileForm.passportDocumentUrl ? getFileNameFromUrl(profileForm.passportDocumentUrl) : "No file chosen"}
+                          {profileForm.passportDocumentFrontUrl ? getFileNameFromUrl(profileForm.passportDocumentFrontUrl) : "No file chosen"}
+                        </span>
+                      </label>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-teal-700 mb-1.5">Upload Passport Back</label>
+                      <label className="flex flex-col gap-1.5 w-full cursor-pointer group">
+                        <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 group-hover:bg-gray-100 transition-colors">
+                          {uploadingPassportDocBack ? (
+                            <span className="animate-pulse text-teal-600">Uploading...</span>
+                          ) : (
+                            <>
+                              <Upload className="w-4 h-4 mr-2 text-teal-600" />
+                              <span className="text-teal-600">Choose file</span>
+                            </>
+                          )}
+                        </div>
+                        <input
+                          type="file"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) uploadFile(file, (url) => setProfileForm((f) => ({ ...f, passportDocumentBackUrl: url })), setUploadingPassportDocBack);
+                          }}
+                        />
+                        <span className="text-xs text-gray-600 truncate">
+                          {profileForm.passportDocumentBackUrl ? getFileNameFromUrl(profileForm.passportDocumentBackUrl) : "No file chosen"}
                         </span>
                       </label>
                     </div>
@@ -1404,6 +1483,16 @@ const ManageAgentsPage = () => {
                         onChange={(e) => setProfileForm((f) => ({ ...f, emergencyPhone: e.target.value }))}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition-colors"
                         placeholder="Enter emergency contact"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-teal-700 mb-1.5">Emergency Name</label>
+                      <input
+                        type="text"
+                        value={profileForm.emergencyName}
+                        onChange={(e) => setProfileForm((f) => ({ ...f, emergencyName: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition-colors"
+                        placeholder="Enter emergency contact name"
                       />
                     </div>
                   </div>
@@ -1465,10 +1554,10 @@ const ManageAgentsPage = () => {
                       </select>
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-teal-700 mb-1.5">Upload Contract</label>
+                      <label className="block text-xs font-medium text-teal-700 mb-1.5">Upload Contract Front</label>
                       <label className="flex flex-col gap-1.5 w-full cursor-pointer group">
                         <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 group-hover:bg-gray-100 transition-colors">
-                          {uploadingContract ? (
+                          {uploadingContractFront ? (
                             <span className="animate-pulse text-teal-600">Uploading...</span>
                           ) : (
                             <>
@@ -1482,11 +1571,96 @@ const ManageAgentsPage = () => {
                           className="hidden"
                           onChange={(e) => {
                             const file = e.target.files?.[0];
-                            if (file) uploadFile(file, (url) => setProfileForm((f) => ({ ...f, contractUrl: url })), setUploadingContract);
+                            if (file) uploadFile(file, (url) => setProfileForm((f) => ({ ...f, contractFrontUrl: url })), setUploadingContractFront);
                           }}
                         />
                         <span className="text-xs text-gray-600 truncate">
-                          {profileForm.contractUrl ? getFileNameFromUrl(profileForm.contractUrl) : "No file chosen"}
+                          {profileForm.contractFrontUrl ? getFileNameFromUrl(profileForm.contractFrontUrl) : "No file chosen"}
+                        </span>
+                      </label>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-teal-700 mb-1.5">Upload Contract Back</label>
+                      <label className="flex flex-col gap-1.5 w-full cursor-pointer group">
+                        <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 group-hover:bg-gray-100 transition-colors">
+                          {uploadingContractBack ? (
+                            <span className="animate-pulse text-teal-600">Uploading...</span>
+                          ) : (
+                            <>
+                              <Upload className="w-4 h-4 mr-2 text-teal-600" />
+                              <span className="text-teal-600">Choose file</span>
+                            </>
+                          )}
+                        </div>
+                        <input
+                          type="file"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) uploadFile(file, (url) => setProfileForm((f) => ({ ...f, contractBackUrl: url })), setUploadingContractBack);
+                          }}
+                        />
+                        <span className="text-xs text-gray-600 truncate">
+                          {profileForm.contractBackUrl ? getFileNameFromUrl(profileForm.contractBackUrl) : "No file chosen"}
+                        </span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Other Document Section */}
+                <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5">
+                  <h3 className="text-sm font-semibold text-teal-900 mb-4">Other Document</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-medium text-teal-700 mb-1.5">Employee Visa Front</label>
+                      <label className="flex flex-col gap-1.5 w-full cursor-pointer group">
+                        <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 group-hover:bg-gray-100 transition-colors">
+                          {uploadingEmployeeVisaFront ? (
+                            <span className="animate-pulse text-teal-600">Uploading...</span>
+                          ) : (
+                            <>
+                              <Upload className="w-4 h-4 mr-2 text-teal-600" />
+                              <span className="text-teal-600">Choose file</span>
+                            </>
+                          )}
+                        </div>
+                        <input
+                          type="file"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) uploadFile(file, (url) => setProfileForm((f) => ({ ...f, employeeVisaFrontUrl: url })), setUploadingEmployeeVisaFront);
+                          }}
+                        />
+                        <span className="text-xs text-gray-600 truncate">
+                          {profileForm.employeeVisaFrontUrl ? getFileNameFromUrl(profileForm.employeeVisaFrontUrl) : "No file chosen"}
+                        </span>
+                      </label>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-teal-700 mb-1.5">Employee Visa Back</label>
+                      <label className="flex flex-col gap-1.5 w-full cursor-pointer group">
+                        <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 group-hover:bg-gray-100 transition-colors">
+                          {uploadingEmployeeVisaBack ? (
+                            <span className="animate-pulse text-teal-600">Uploading...</span>
+                          ) : (
+                            <>
+                              <Upload className="w-4 h-4 mr-2 text-teal-600" />
+                              <span className="text-teal-600">Choose file</span>
+                            </>
+                          )}
+                        </div>
+                        <input
+                          type="file"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) uploadFile(file, (url) => setProfileForm((f) => ({ ...f, employeeVisaBackUrl: url })), setUploadingEmployeeVisaBack);
+                          }}
+                        />
+                        <span className="text-xs text-gray-600 truncate">
+                          {profileForm.employeeVisaBackUrl ? getFileNameFromUrl(profileForm.employeeVisaBackUrl) : "No file chosen"}
                         </span>
                       </label>
                     </div>
@@ -1554,24 +1728,44 @@ const ManageAgentsPage = () => {
                         <div className="text-xs text-teal-700 dark:text-teal-300"><span className="font-semibold">Identity Type:</span> {viewProfile?.idType || '—'}</div>
                         <div className="text-xs text-teal-700 dark:text-teal-300"><span className="font-semibold">Identity No:</span> {viewProfile?.idNumber || '—'}</div>
                         <div className="text-xs text-teal-700 dark:text-teal-300">
-                          <span className="font-semibold">ID Document:</span>{' '}
-                          {viewProfile?.idDocumentUrl ? (
+                          <span className="font-semibold">ID Front:</span>{' '}
+                          {viewProfile?.idDocumentFrontUrl ? (
                             <>
-                              <a href={viewProfile.idDocumentUrl} target="_blank" rel="noreferrer" className="text-teal-900 dark:text-blue-400 underline">Open</a>
-                              <span className="ml-2 text-[11px]">{getFileNameFromUrl(viewProfile.idDocumentUrl)}</span>
+                              <a href={viewProfile.idDocumentFrontUrl} target="_blank" rel="noreferrer" className="text-teal-900 dark:text-blue-400 underline">Open</a>
+                              <span className="ml-2 text-[11px]">{getFileNameFromUrl(viewProfile.idDocumentFrontUrl)}</span>
+                            </>
+                          ) : '—'}
+                        </div>
+                        <div className="text-xs text-teal-700 dark:text-teal-300">
+                          <span className="font-semibold">ID Back:</span>{' '}
+                          {viewProfile?.idDocumentBackUrl ? (
+                            <>
+                              <a href={viewProfile.idDocumentBackUrl} target="_blank" rel="noreferrer" className="text-teal-900 dark:text-blue-400 underline">Open</a>
+                              <span className="ml-2 text-[11px]">{getFileNameFromUrl(viewProfile.idDocumentBackUrl)}</span>
                             </>
                           ) : '—'}
                         </div>
                       </div>
-                      {viewProfile?.idDocumentUrl && /\.(png|jpe?g|gif|webp)$/i.test(viewProfile.idDocumentUrl) ? (
-                        <div className="flex items-center justify-center">
-                          <img src={viewProfile.idDocumentUrl} alt="ID Document" className="rounded border border-gray200 dark:border-gray700 max-h-32 object-contain shadow-sm" />
-                        </div>
-                      ) : (
-                        <div className="flex items-center justify-center text-gray-400 text-sm">
-                          No ID image available
-                        </div>
-                      )}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {viewProfile?.idDocumentFrontUrl && /\.(png|jpe?g|gif|webp)$/i.test(viewProfile.idDocumentFrontUrl) ? (
+                          <div className="flex items-center justify-center">
+                            <img src={viewProfile.idDocumentFrontUrl} alt="ID Front" className="rounded border border-gray200 dark:border-gray700 max-h-32 object-contain shadow-sm" />
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-center text-gray-400 text-sm">
+                            No ID front image
+                          </div>
+                        )}
+                        {viewProfile?.idDocumentBackUrl && /\.(png|jpe?g|gif|webp)$/i.test(viewProfile.idDocumentBackUrl) ? (
+                          <div className="flex items-center justify-center">
+                            <img src={viewProfile.idDocumentBackUrl} alt="ID Back" className="rounded border border-gray200 dark:border-gray700 max-h-32 object-contain shadow-sm" />
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-center text-gray-400 text-sm">
+                            No ID back image
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                   <div className="border border-gray200 dark:border-gray700 rounded-lg p-4 bg-gray-50 dark:bg-gray-900">
@@ -1579,26 +1773,47 @@ const ManageAgentsPage = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <div className="text-xs text-teal-700 dark:text-teal-300"><span className="font-semibold">Passport No:</span> {viewProfile?.passportNumber || '—'}</div>
+                        <div className="text-xs text-teal-700 dark:text-teal-300"><span className="font-semibold">Emergency Phone:</span> {viewProfile?.emergencyPhone || '—'}</div>
+                        <div className="text-xs text-teal-700 dark:text-teal-300"><span className="font-semibold">Emergency Name:</span> {viewProfile?.emergencyName || '—'}</div>
                         <div className="text-xs text-teal-700 dark:text-teal-300">
-                          <span className="font-semibold">Passport Doc:</span>{' '}
-                          {viewProfile?.passportDocumentUrl ? (
+                          <span className="font-semibold">Passport Front:</span>{' '}
+                          {viewProfile?.passportDocumentFrontUrl ? (
                             <>
-                              <a href={viewProfile.passportDocumentUrl} target="_blank" rel="noreferrer" className="text-teal-900 dark:text-blue-400 underline">Open</a>
-                              <span className="ml-2 text-[11px]">{getFileNameFromUrl(viewProfile.passportDocumentUrl)}</span>
+                              <a href={viewProfile.passportDocumentFrontUrl} target="_blank" rel="noreferrer" className="text-teal-900 dark:text-blue-400 underline">Open</a>
+                              <span className="ml-2 text-[11px]">{getFileNameFromUrl(viewProfile.passportDocumentFrontUrl)}</span>
                             </>
                           ) : '—'}
                         </div>
-                        <div className="text-xs text-teal-700 dark:text-teal-300"><span className="font-semibold">Emergency Phone:</span> {viewProfile?.emergencyPhone || '—'}</div>
+                        <div className="text-xs text-teal-700 dark:text-teal-300">
+                          <span className="font-semibold">Passport Back:</span>{' '}
+                          {viewProfile?.passportDocumentBackUrl ? (
+                            <>
+                              <a href={viewProfile.passportDocumentBackUrl} target="_blank" rel="noreferrer" className="text-teal-900 dark:text-blue-400 underline">Open</a>
+                              <span className="ml-2 text-[11px]">{getFileNameFromUrl(viewProfile.passportDocumentBackUrl)}</span>
+                            </>
+                          ) : '—'}
+                        </div>
                       </div>
-                      {viewProfile?.passportDocumentUrl && /\.(png|jpe?g|gif|webp)$/i.test(viewProfile.passportDocumentUrl) ? (
-                        <div className="flex items-center justify-center">
-                          <img src={viewProfile.passportDocumentUrl} alt="Passport Document" className="rounded border border-gray200 dark:border-gray700 max-h-32 object-contain shadow-sm" />
-                        </div>
-                      ) : (
-                        <div className="flex items-center justify-center text-gray-400 text-sm">
-                          No passport image available
-                        </div>
-                      )}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {viewProfile?.passportDocumentFrontUrl && /\.(png|jpe?g|gif|webp)$/i.test(viewProfile.passportDocumentFrontUrl) ? (
+                          <div className="flex items-center justify-center">
+                            <img src={viewProfile.passportDocumentFrontUrl} alt="Passport Front" className="rounded border border-gray200 dark:border-gray700 max-h-32 object-contain shadow-sm" />
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-center text-gray-400 text-sm">
+                            No passport front image
+                          </div>
+                        )}
+                        {viewProfile?.passportDocumentBackUrl && /\.(png|jpe?g|gif|webp)$/i.test(viewProfile.passportDocumentBackUrl) ? (
+                          <div className="flex items-center justify-center">
+                            <img src={viewProfile.passportDocumentBackUrl} alt="Passport Back" className="rounded border border-gray200 dark:border-gray700 max-h-32 object-contain shadow-sm" />
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-center text-gray-400 text-sm">
+                            No passport back image
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                   <div className="border border-gray200 dark:border-gray700 rounded-lg p-4 bg-gray-50 dark:bg-gray-900">
@@ -1608,24 +1823,44 @@ const ManageAgentsPage = () => {
                         <div className="text-xs text-teal-700 dark:text-teal-300"><span className="font-semibold">Salary:</span> {typeof viewProfile?.baseSalary === 'number' ? viewProfile.baseSalary : (viewProfile?.baseSalary || '—')}</div>
                         <div className="text-xs text-teal-700 dark:text-teal-300"><span className="font-semibold">Contract Type:</span> {viewProfile?.contractType || '—'}</div>
                         <div className="text-xs text-teal-700 dark:text-teal-300">
-                          <span className="font-semibold">Contract:</span>{' '}
-                          {viewProfile?.contractUrl ? (
+                          <span className="font-semibold">Contract Front:</span>{' '}
+                          {viewProfile?.contractFrontUrl ? (
                             <>
-                              <a href={viewProfile.contractUrl} target="_blank" rel="noreferrer" className="text-teal-900 dark:text-blue-400 underline">Open</a>
-                              <span className="ml-2 text-[11px]">{getFileNameFromUrl(viewProfile.contractUrl)}</span>
+                              <a href={viewProfile.contractFrontUrl} target="_blank" rel="noreferrer" className="text-teal-900 dark:text-blue-400 underline">Open</a>
+                              <span className="ml-2 text-[11px]">{getFileNameFromUrl(viewProfile.contractFrontUrl)}</span>
+                            </>
+                          ) : '—'}
+                        </div>
+                        <div className="text-xs text-teal-700 dark:text-teal-300">
+                          <span className="font-semibold">Contract Back:</span>{' '}
+                          {viewProfile?.contractBackUrl ? (
+                            <>
+                              <a href={viewProfile.contractBackUrl} target="_blank" rel="noreferrer" className="text-teal-900 dark:text-blue-400 underline">Open</a>
+                              <span className="ml-2 text-[11px]">{getFileNameFromUrl(viewProfile.contractBackUrl)}</span>
                             </>
                           ) : '—'}
                         </div>
                       </div>
-                      {viewProfile?.contractUrl && /\.(png|jpe?g|gif|webp)$/i.test(viewProfile.contractUrl) ? (
-                        <div className="flex items-center justify-center">
-                          <img src={viewProfile.contractUrl} alt="Contract Document" className="rounded border border-gray200 dark:border-gray700 max-h-32 object-contain shadow-sm" />
-                        </div>
-                      ) : (
-                        <div className="flex items-center justify-center text-gray-400 text-sm">
-                          No contract image available
-                        </div>
-                      )}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {viewProfile?.contractFrontUrl && /\.(png|jpe?g|gif|webp)$/i.test(viewProfile.contractFrontUrl) ? (
+                          <div className="flex items-center justify-center">
+                            <img src={viewProfile.contractFrontUrl} alt="Contract Front" className="rounded border border-gray200 dark:border-gray700 max-h-32 object-contain shadow-sm" />
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-center text-gray-400 text-sm">
+                            No contract front image
+                          </div>
+                        )}
+                        {viewProfile?.contractBackUrl && /\.(png|jpe?g|gif|webp)$/i.test(viewProfile.contractBackUrl) ? (
+                          <div className="flex items-center justify-center">
+                            <img src={viewProfile.contractBackUrl} alt="Contract Back" className="rounded border border-gray200 dark:border-gray700 max-h-32 object-contain shadow-sm" />
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-center text-gray-400 text-sm">
+                            No contract back image
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                   <div className="border border-gray200 dark:border-gray700 rounded-lg p-4 bg-gray-50 dark:bg-gray-900">
@@ -1634,6 +1869,51 @@ const ManageAgentsPage = () => {
                       <div className="text-xs text-teal-700 dark:text-teal-300"><span className="font-semibold">Joining Date:</span> {viewProfile?.joiningDate ? new Date(viewProfile.joiningDate).toLocaleDateString() : '—'}</div>
                       <div className="text-xs text-teal-700 dark:text-teal-300"><span className="font-semibold">Active:</span> {viewProfile?.isActive === false ? 'No' : 'Yes'}</div>
                       <div />
+                    </div>
+                  </div>
+                  <div className="border border-gray200 dark:border-gray700 rounded-lg p-4 bg-gray-50 dark:bg-gray-900">
+                    <h4 className="text-sm font-semibold text-teal-900 dark:text-teal-100 mb-3">Other Document</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <div className="text-xs text-teal-700 dark:text-teal-300">
+                          <span className="font-semibold">Employee Visa Front:</span>{' '}
+                          {viewProfile?.employeeVisaFrontUrl ? (
+                            <>
+                              <a href={viewProfile.employeeVisaFrontUrl} target="_blank" rel="noreferrer" className="text-teal-900 dark:text-blue-400 underline">Open</a>
+                              <span className="ml-2 text-[11px]">{getFileNameFromUrl(viewProfile.employeeVisaFrontUrl)}</span>
+                            </>
+                          ) : '—'}
+                        </div>
+                        <div className="text-xs text-teal-700 dark:text-teal-300">
+                          <span className="font-semibold">Employee Visa Back:</span>{' '}
+                          {viewProfile?.employeeVisaBackUrl ? (
+                            <>
+                              <a href={viewProfile.employeeVisaBackUrl} target="_blank" rel="noreferrer" className="text-teal-900 dark:text-blue-400 underline">Open</a>
+                              <span className="ml-2 text-[11px]">{getFileNameFromUrl(viewProfile.employeeVisaBackUrl)}</span>
+                            </>
+                          ) : '—'}
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {viewProfile?.employeeVisaFrontUrl && /\.(png|jpe?g|gif|webp)$/i.test(viewProfile.employeeVisaFrontUrl) ? (
+                          <div className="flex items-center justify-center">
+                            <img src={viewProfile.employeeVisaFrontUrl} alt="Employee Visa Front" className="rounded border border-gray200 dark:border-gray700 max-h-32 object-contain shadow-sm" />
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-center text-gray-400 text-sm">
+                            No visa front image
+                          </div>
+                        )}
+                        {viewProfile?.employeeVisaBackUrl && /\.(png|jpe?g|gif|webp)$/i.test(viewProfile.employeeVisaBackUrl) ? (
+                          <div className="flex items-center justify-center">
+                            <img src={viewProfile.employeeVisaBackUrl} alt="Employee Visa Back" className="rounded border border-gray200 dark:border-gray700 max-h-32 object-contain shadow-sm" />
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-center text-gray-400 text-sm">
+                            No visa back image
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                   <div className="flex items-center justify-end">

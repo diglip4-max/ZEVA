@@ -1991,7 +1991,7 @@ const getImagePath = (photoPath: string | File) => {
         ? window.location.origin
         : (process.env.NEXT_PUBLIC_SITE_ORIGIN || 'http://localhost:3000');
     const defaultUploadsOrigin =
-      process.env.NODE_ENV !== 'production' ? 'http://localhost:3001' : siteOrigin;
+      process.env.NEXT_PUBLIC_UPLOADS_ORIGIN || siteOrigin;
     const uploadsOrigin =
       process.env.NEXT_PUBLIC_UPLOADS_ORIGIN || defaultUploadsOrigin;
     

@@ -2261,10 +2261,6 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                       Import
                     </button>
                   )}
-                 
-                  </div>
-                </div>
-                <div className="mt-1 flex items-center gap-2">
                   <div className="flex items-center gap-1">
                     <button
                       onClick={() => {
@@ -2325,6 +2321,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                       <ChevronRight className="w-3.5 h-3.5" />
                     </button>
                   </div>
+                  </div>
                 </div>
                 <div className="mt-1 flex items-center gap-4 text-[10px]">
                   <div className="flex items-center gap-1">
@@ -2333,7 +2330,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                   </div>
                   <div className="flex items-center gap-1">
                     <span className="inline-block w-2 h-2 rounded-full bg-green-600"></span>
-                    <span className="text-gray-700 dark:text-gray-800">Clinic</span>
+                    <span className="text-gray-700 dark:text-gray-800">Room</span>
                   </div>
                 </div>
               </div>

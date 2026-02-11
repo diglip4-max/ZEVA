@@ -11,6 +11,7 @@ type ProviderCard = {
   name: string;
   address: string;
   image: string;
+  photos?: string[];
   startingFrom: string;
   averageRating: number;
   totalReviews: number;
@@ -77,20 +78,42 @@ const TabButton: React.FC<{
 );
 
 const Card: React.FC<{ p: ProviderCard }> = ({ p }) => {
+  const [imgIndex, setImgIndex] = useState(0);
+
   const badge = p.__isPremium
     ? "Premium"
     : p.averageRating >= 4.8
     ? "Top Rated"
     : "Most Booked";
 
+  const gallery = useMemo(() => {
+    if (p.photos && p.photos.length > 0) return p.photos;
+    return [p.image];
+  }, [p.photos, p.image]);
+
+  const hasMultipleImages = gallery.length > 1;
+  const currentSrc = normalizeImagePath(gallery[imgIndex]) || DEFAULT_IMG;
+
+  const handlePrev = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setImgIndex((prev) => (prev - 1 + gallery.length) % gallery.length);
+  };
+
+  const handleNext = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setImgIndex((prev) => (prev + 1) % gallery.length);
+  };
+
   return (
     <Link href={ProviderHref(p)} className="group">
       <div className="bg-white rounded-2xl border overflow-hidden hover:shadow-xl transition h-full flex flex-col">
         <div className="relative bg-gray-100 overflow-hidden" style={{ aspectRatio: '4/3' }}>
           <img
-            src={normalizeImagePath(p.image) || DEFAULT_IMG}
+            src={currentSrc}
             alt={p.name}
-            className="w-full h-full object-cover"
+            className="w-full h-full object-cover transition-opacity duration-300"
             style={{
               objectFit: 'cover',
               width: '100%',
@@ -102,11 +125,41 @@ const Card: React.FC<{ p: ProviderCard }> = ({ p }) => {
             }}
           />
 
-          <span className="absolute top-3 left-3 bg-amber-300 px-3 py-1 rounded-full text-xs font-semibold">
+          {/* Navigation Buttons */}
+          {hasMultipleImages && (
+            <>
+              <button
+                onClick={handlePrev}
+                className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white text-teal-800 p-1 rounded-full shadow-md opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                aria-label="Previous image"
+              >
+                <ChevronLeft className="w-5 h-5" />
+              </button>
+              <button
+                onClick={handleNext}
+                className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white text-teal-800 p-1 rounded-full shadow-md opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                aria-label="Next image"
+              >
+                <ChevronRight className="w-5 h-5" />
+              </button>
+              
+              {/* Dots Indicator */}
+              <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1 z-10">
+                {gallery.map((_, idx) => (
+                  <div 
+                    key={idx} 
+                    className={`w-1.5 h-1.5 rounded-full shadow-sm transition-colors ${idx === imgIndex ? 'bg-white' : 'bg-white/50'}`}
+                  />
+                ))}
+              </div>
+            </>
+          )}
+
+          <span className="absolute top-3 left-3 bg-amber-300 px-3 py-1 rounded-full text-xs font-semibold z-10">
             {badge}
           </span>
 
-          <span className="absolute top-3 right-3 w-8 h-8 bg-teal-800 text-white rounded-full flex items-center justify-center">
+          <span className="absolute top-3 right-3 w-8 h-8 bg-teal-800 text-white rounded-full flex items-center justify-center z-10">
             <Shield className="w-4 h-4" />
           </span>
         </div>

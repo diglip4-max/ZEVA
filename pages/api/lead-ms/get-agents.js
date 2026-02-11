@@ -387,7 +387,10 @@ export default async function handler(req, res) {
       const {
         name, email, phone, // User fields
         agentCode, emergencyPhone, relativePhone, idType, idNumber, idDocumentUrl,
-        passportNumber, passportDocumentUrl, contractUrl, contractType, baseSalary, commissionType, commissionPercentage,
+        idDocumentFrontUrl, idDocumentBackUrl,
+        passportNumber, passportDocumentUrl, passportDocumentFrontUrl, passportDocumentBackUrl,
+        contractUrl, contractFrontUrl, contractBackUrl, contractType, baseSalary, commissionType, commissionPercentage,
+        emergencyName, employeeVisaFrontUrl, employeeVisaBackUrl,
         joiningDate, isActive
       } = req.body;
 
@@ -412,15 +415,24 @@ export default async function handler(req, res) {
       if (idType !== undefined) profile.idType = idType;
       if (idNumber !== undefined) profile.idNumber = idNumber;
       if (idDocumentUrl !== undefined) profile.idDocumentUrl = idDocumentUrl;
+      if (idDocumentFrontUrl !== undefined) profile.idDocumentFrontUrl = idDocumentFrontUrl;
+      if (idDocumentBackUrl !== undefined) profile.idDocumentBackUrl = idDocumentBackUrl;
       if (passportNumber !== undefined) profile.passportNumber = passportNumber;
       if (passportDocumentUrl !== undefined) profile.passportDocumentUrl = passportDocumentUrl;
+      if (passportDocumentFrontUrl !== undefined) profile.passportDocumentFrontUrl = passportDocumentFrontUrl;
+      if (passportDocumentBackUrl !== undefined) profile.passportDocumentBackUrl = passportDocumentBackUrl;
       if (contractUrl !== undefined) profile.contractUrl = contractUrl;
+      if (contractFrontUrl !== undefined) profile.contractFrontUrl = contractFrontUrl;
+      if (contractBackUrl !== undefined) profile.contractBackUrl = contractBackUrl;
       if (contractType !== undefined) profile.contractType = contractType;
       if (baseSalary !== undefined) profile.baseSalary = baseSalary;
       if (commissionType !== undefined) profile.commissionType = commissionType;
       if (commissionPercentage !== undefined) profile.commissionPercentage = commissionPercentage;
+      if (emergencyName !== undefined) profile.emergencyName = emergencyName;
       if (joiningDate !== undefined) profile.joiningDate = joiningDate;
       if (isActive !== undefined) profile.isActive = isActive;
+      if (employeeVisaFrontUrl !== undefined) profile.employeeVisaFrontUrl = employeeVisaFrontUrl;
+      if (employeeVisaBackUrl !== undefined) profile.employeeVisaBackUrl = employeeVisaBackUrl;
 
       await profile.save();
       updatedProfile = profile;

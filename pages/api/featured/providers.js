@@ -153,6 +153,7 @@ export default async function handler(req, res) {
           name: c.name || "Clinic",
           address: c.address || "",
           image: normalizeImageUrl(latestPhoto),
+          photos: photosArray.map(normalizeImageUrl),
           startingFrom: c.pricing ? `AED ${c.pricing}` : "",
           averageRating: round1(c.averageRating),
           totalReviews: c.totalReviews || 0,
