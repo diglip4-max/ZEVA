@@ -60,6 +60,35 @@ const PatientDetailsModal = ({ isOpen, onClose, patient, memberships = [], packa
     const p = packages.find((x) => x._id === patient.packageId);
     return p?.name || null;
   })();
+  const isExpired = (() => {
+    if (patient.membership !== 'Yes') return false;
+    if (!patient.membershipEndDate) return false;
+    try {
+      const end = new Date(patient.membershipEndDate);
+      const now = new Date();
+      return end < now;
+    } catch {
+      return false;
+    }
+  })();
+  const isPriority = (() => {
+    if (patient.membership !== 'Yes' || !patient.membershipId) return false;
+    const m = memberships.find((x) => x._id === patient.membershipId);
+    const hasPriority = !!m?.benefits?.priorityBooking;
+    return hasPriority && !isExpired;
+  })();
+  const monthsToExpire = (() => {
+    if (patient.membership !== 'Yes' || !patient.membershipEndDate) return null;
+    try {
+      const end = new Date(patient.membershipEndDate);
+      const now = new Date();
+      let months = (end.getFullYear() - now.getFullYear()) * 12 + (end.getMonth() - now.getMonth());
+      if (end.getDate() < now.getDate()) months -= 1;
+      return months;
+    } catch {
+      return null;
+    }
+  })();
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
@@ -68,6 +97,16 @@ const PatientDetailsModal = ({ isOpen, onClose, patient, memberships = [], packa
           <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1">
             <User className="w-4 h-4 sm:w-5 sm:h-5 text-gray-700 flex-shrink-0" />
             <h3 className="text-base sm:text-lg font-bold text-gray-900 truncate">Patient Details</h3>
+            {isPriority && (
+              <span className="ml-2 inline-flex px-2 py-0.5 rounded bg-amber-100 text-amber-700 text-[11px] font-medium">
+                Priority
+              </span>
+            )}
+            {isExpired && (
+              <span className="ml-2 inline-flex px-2 py-0.5 rounded bg-red-100 text-red-700 text-[11px] font-medium">
+                Expired
+              </span>
+            )}
           </div>
           <button onClick={onClose} className="p-1.5 hover:bg-gray-200 rounded-lg text-gray-400 hover:text-gray-700 transition-colors flex-shrink-0 ml-2"><X className="w-4 h-4 sm:w-5 sm:h-5" /></button>
         </div>
@@ -139,6 +178,14 @@ const PatientDetailsModal = ({ isOpen, onClose, patient, memberships = [], packa
                     <div className="flex items-center gap-2"><span className="text-gray-700 w-24">Name:</span> <span className="font-medium text-gray-900">{membershipName || '-'}</span></div>
                     <div className="flex items-center gap-2"><span className="text-gray-700 w-24">Start:</span> <span className="font-medium text-gray-900">{patient.membershipStartDate ? new Date(patient.membershipStartDate).toLocaleDateString() : '-'}</span></div>
                     <div className="flex items-center gap-2"><span className="text-gray-700 w-24">End:</span> <span className="font-medium text-gray-900">{patient.membershipEndDate ? new Date(patient.membershipEndDate).toLocaleDateString() : '-'}</span></div>
+                    {monthsToExpire !== null && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-gray-700 w-24">Expires In:</span>
+                        <span className={`font-medium ${isExpired ? 'text-red-700' : 'text-teal-700'}`}>
+                          {isExpired ? `${Math.abs(monthsToExpire)} months ago` : `${monthsToExpire} months`}
+                        </span>
+                      </div>
+                    )}
                   </>
                 )}
               </div>
@@ -578,9 +625,45 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
                         </tr>
                       ) : (
                         displayedPatients.map((patient) => (
-                          <tr key={patient._id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
+                          <tr
+                            key={patient._id}
+                            className={`border-b border-gray-100 transition-colors ${
+                              (() => {
+                                const hasPriorityPlan = (patient.membership === 'Yes' && memberships.find(m => m._id === patient.membershipId)?.benefits?.priorityBooking);
+                                const isExpired = (() => {
+                                  if (patient.membership !== 'Yes' || !patient.membershipEndDate) return false;
+                                  try { return new Date(patient.membershipEndDate) < new Date(); } catch { return false; }
+                                })();
+                                return hasPriorityPlan && !isExpired;
+                              })()
+                                ? 'hover:bg-amber-50 border-l-4 border-amber-500'
+                                : 'hover:bg-gray-50'
+                            }`}
+                          >
                             <td className="py-3 px-3">
-                              <p className="text-xs font-medium text-gray-900">{patient.firstName} {patient.lastName}</p>
+                              <p className="text-xs font-medium text-gray-900">
+                                {patient.firstName} {patient.lastName}
+                                {(() => {
+                                  const hasPriorityPlan = (patient.membership === 'Yes' && memberships.find(m => m._id === patient.membershipId)?.benefits?.priorityBooking);
+                                  const isExpired = (() => {
+                                    if (patient.membership !== 'Yes' || !patient.membershipEndDate) return false;
+                                    try { return new Date(patient.membershipEndDate) < new Date(); } catch { return false; }
+                                  })();
+                                  return hasPriorityPlan && !isExpired;
+                                })() && (
+                                  <span className="ml-2 inline-flex px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 text-[10px] font-medium">
+                                    Priority
+                                  </span>
+                                )}
+                                {(() => {
+                                  if (patient.membership !== 'Yes' || !patient.membershipEndDate) return false;
+                                  try { return new Date(patient.membershipEndDate) < new Date(); } catch { return false; }
+                                })() && (
+                                  <span className="ml-2 inline-flex px-1.5 py-0.5 rounded bg-red-100 text-red-700 text-[10px] font-medium">
+                                    Expired
+                                  </span>
+                                )}
+                              </p>
                             </td>
                             <td className="py-3 px-3">
                               <p className="text-xs font-medium text-gray-900">{patient.emrNumber || '-'}</p>

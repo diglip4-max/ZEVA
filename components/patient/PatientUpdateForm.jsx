@@ -148,6 +148,12 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
   const [memberships, setMemberships] = useState([]);
   const [packages, setPackages] = useState([]);
   const [errors, setErrors] = useState({});
+  const formatDate = useCallback((dateObj) => {
+    const y = dateObj.getFullYear();
+    const m = String(dateObj.getMonth() + 1).padStart(2, "0");
+    const d = String(dateObj.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  }, []);
 
   const authToken = getStoredToken();
   const showToast = (message, type = "success") => setToast({ message, type });
@@ -222,6 +228,31 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
     
     fetchReferrals();
   }, [authToken]);
+  useEffect(() => {
+    if (formData.membership === "Yes" && formData.membershipId) {
+      const selected = memberships.find((m) => m._id === formData.membershipId);
+      if (!selected) return;
+      const start = new Date();
+      const end = new Date(start);
+      const months = Number(selected.durationMonths) || 1;
+      end.setMonth(end.getMonth() + months);
+      const startStr = formatDate(start);
+      const endStr = formatDate(end);
+      setFormData((prev) => ({
+        ...prev,
+        membershipStartDate: startStr,
+        membershipEndDate: endStr,
+      }));
+    }
+    if (formData.membership === "No") {
+      setFormData((prev) => ({
+        ...prev,
+        membershipId: "",
+        membershipStartDate: "",
+        membershipEndDate: "",
+      }));
+    }
+  }, [formData.membershipId, formData.membership, memberships, formatDate]);
 
   useEffect(() => {
     if (!authToken) return;

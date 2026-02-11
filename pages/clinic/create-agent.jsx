@@ -70,6 +70,8 @@ const ManageAgentsPage = () => {
     baseSalary: "",
     commissionType: "flat",
     commissionPercentage: "",
+    targetMultiplier: "1",
+    targetAmount: "",
     contractFrontUrl: "",
     contractBackUrl: "",
     contractType: "full"
@@ -474,6 +476,8 @@ const ManageAgentsPage = () => {
           baseSalary: typeof p.baseSalary === "number" ? String(p.baseSalary) : (p.baseSalary || ""),
           commissionType: p.commissionType || "flat",
           commissionPercentage: p.commissionPercentage || "",
+          targetMultiplier: p.targetMultiplier != null ? String(p.targetMultiplier) : "1",
+          targetAmount: typeof p.targetAmount === "number" ? String(p.targetAmount) : (p.targetAmount || ""),
           contractFrontUrl: p.contractFrontUrl || "",
           contractBackUrl: p.contractBackUrl || "",
           contractType: p.contractType || "full",
@@ -564,6 +568,13 @@ const ManageAgentsPage = () => {
         baseSalary: parseFloat(profileForm.baseSalary || "0"),
         commissionType: profileForm.commissionType,
         commissionPercentage: profileForm.commissionPercentage,
+        targetMultiplier: parseFloat(profileForm.targetMultiplier || "1"),
+        targetAmount: (() => {
+          const isTarget = profileForm.commissionType === 'target_based' || profileForm.commissionType === 'target_plus_expense';
+          const base = parseFloat(profileForm.baseSalary || "0");
+          const mult = parseFloat(profileForm.targetMultiplier || "1");
+          return isTarget ? base * mult : parseFloat(profileForm.targetAmount || "0");
+        })(),
         employeeVisaFrontUrl: profileForm.employeeVisaFrontUrl,
         employeeVisaBackUrl: profileForm.employeeVisaBackUrl
       };
@@ -1509,7 +1520,19 @@ const ManageAgentsPage = () => {
                         min="0"
                         step="0.01"
                         value={profileForm.baseSalary}
-                        onChange={(e) => setProfileForm((f) => ({ ...f, baseSalary: e.target.value }))}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setProfileForm((f) => {
+                            const isTarget = f.commissionType === 'target_based' || f.commissionType === 'target_plus_expense';
+                            const base = parseFloat(val || "0");
+                            const mult = parseFloat(f.targetMultiplier || "1");
+                            return {
+                              ...f,
+                              baseSalary: val,
+                              targetAmount: isTarget ? String(base * mult) : f.targetAmount
+                            };
+                          });
+                        }}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition-colors"
                         placeholder="Enter salary"
                       />
@@ -1518,7 +1541,19 @@ const ManageAgentsPage = () => {
                       <label className="block text-xs font-medium text-teal-700 mb-1.5">Commission Type</label>
                       <select
                         value={profileForm.commissionType}
-                        onChange={(e) => setProfileForm((f) => ({ ...f, commissionType: e.target.value }))}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setProfileForm((f) => {
+                            const isTarget = val === 'target_based' || val === 'target_plus_expense';
+                            const base = parseFloat(f.baseSalary || "0");
+                            const mult = parseFloat(f.targetMultiplier || "1");
+                            return {
+                              ...f,
+                              commissionType: val,
+                              targetAmount: isTarget ? String(base * mult) : ""
+                            };
+                          });
+                        }}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition-colors"
                       >
                         <option value="no_commission">No Commission</option>
@@ -1540,6 +1575,49 @@ const ManageAgentsPage = () => {
                         placeholder="Enter commission %"
                       />
                     </div>
+                    {(profileForm.commissionType === 'target_based' || profileForm.commissionType === 'target_plus_expense') && (
+                      <>
+                        <div>
+                          <label className="block text-xs font-medium text-teal-700 mb-1.5">Target</label>
+                          <select
+                            value={profileForm.targetMultiplier}
+                            onChange={(e) => {
+                              const mult = e.target.value;
+                              setProfileForm((f) => {
+                                const base = parseFloat(f.baseSalary || "0");
+                                const m = parseFloat(mult || "1");
+                                return {
+                                  ...f,
+                                  targetMultiplier: mult,
+                                  targetAmount: String(base * m)
+                                };
+                              });
+                            }}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-gray-900 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition-colors"
+                          >
+                            <option value="1">1x</option>
+                            <option value="2">2x</option>
+                            <option value="3">3x</option>
+                            <option value="4">4x</option>
+                            <option value="5">5x</option>
+                            <option value="6">6x</option>
+                            <option value="7">7x</option>
+                            <option value="8">8x</option>
+                            <option value="9">9x</option>
+                            <option value="10">10x</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-teal-700 mb-1.5">Target Amount</label>
+                          <input
+                            type="number"
+                            value={profileForm.targetAmount}
+                            readOnly
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-gray-50 text-gray-900 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition-colors"
+                          />
+                        </div>
+                      </>
+                    )}
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
                     <div>
@@ -1822,6 +1900,14 @@ const ManageAgentsPage = () => {
                       <div className="space-y-2">
                         <div className="text-xs text-teal-700 dark:text-teal-300"><span className="font-semibold">Salary:</span> {typeof viewProfile?.baseSalary === 'number' ? viewProfile.baseSalary : (viewProfile?.baseSalary || '—')}</div>
                         <div className="text-xs text-teal-700 dark:text-teal-300"><span className="font-semibold">Contract Type:</span> {viewProfile?.contractType || '—'}</div>
+                        <div className="text-xs text-teal-700 dark:text-teal-300"><span className="font-semibold">Commission Type:</span> {viewProfile?.commissionType || '—'}</div>
+                        <div className="text-xs text-teal-700 dark:text-teal-300"><span className="font-semibold">Commission %:</span> {typeof viewProfile?.commissionPercentage === 'number' ? viewProfile.commissionPercentage : (viewProfile?.commissionPercentage || '—')}</div>
+                        {(viewProfile?.commissionType === 'target_based' || viewProfile?.commissionType === 'target_plus_expense') && (
+                          <>
+                            <div className="text-xs text-teal-700 dark:text-teal-300"><span className="font-semibold">Target:</span> {viewProfile?.targetMultiplier ? `${viewProfile.targetMultiplier}x` : '—'}</div>
+                            <div className="text-xs text-teal-700 dark:text-teal-300"><span className="font-semibold">Target Amount:</span> {typeof viewProfile?.targetAmount === 'number' ? viewProfile.targetAmount : (viewProfile?.targetAmount || '—')}</div>
+                          </>
+                        )}
                         <div className="text-xs text-teal-700 dark:text-teal-300">
                           <span className="font-semibold">Contract Front:</span>{' '}
                           {viewProfile?.contractFrontUrl ? (

@@ -391,6 +391,7 @@ export default async function handler(req, res) {
         passportNumber, passportDocumentUrl, passportDocumentFrontUrl, passportDocumentBackUrl,
         contractUrl, contractFrontUrl, contractBackUrl, contractType, baseSalary, commissionType, commissionPercentage,
         emergencyName, employeeVisaFrontUrl, employeeVisaBackUrl,
+        targetMultiplier, targetAmount,
         joiningDate, isActive
       } = req.body;
 
@@ -428,6 +429,16 @@ export default async function handler(req, res) {
       if (baseSalary !== undefined) profile.baseSalary = baseSalary;
       if (commissionType !== undefined) profile.commissionType = commissionType;
       if (commissionPercentage !== undefined) profile.commissionPercentage = commissionPercentage;
+      if (targetMultiplier !== undefined) profile.targetMultiplier = targetMultiplier;
+      // Compute target amount server-side for consistency if applicable
+      const isTargetType = profile.commissionType === 'target_based' || profile.commissionType === 'target_plus_expense';
+      if (isTargetType) {
+        const base = typeof profile.baseSalary === 'number' ? profile.baseSalary : parseFloat(profile.baseSalary || '0');
+        const mult = typeof profile.targetMultiplier === 'number' ? profile.targetMultiplier : parseFloat(profile.targetMultiplier || '1');
+        profile.targetAmount = base * mult;
+      } else if (targetAmount !== undefined) {
+        profile.targetAmount = targetAmount;
+      }
       if (emergencyName !== undefined) profile.emergencyName = emergencyName;
       if (joiningDate !== undefined) profile.joiningDate = joiningDate;
       if (isActive !== undefined) profile.isActive = isActive;

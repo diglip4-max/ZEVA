@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { toast, Toaster } from "react-hot-toast";
 import axios from "axios";
 import { Building2, Edit3, X, Plus, Camera, ChevronLeft, ChevronRight, Clock, MapPin, DollarSign, Users, Star, Heart, Activity, Eye, Check } from "lucide-react";
@@ -8,7 +8,7 @@ import type { NextPageWithLayout } from "../_app";
 import Loader from "@/components/Loader";
 import { getUserRole } from "@/lib/helper";
 import { getAuthHeaders } from "@/lib/helper";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Cell } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from "recharts";
 
 // Types
 interface Clinic {
@@ -27,7 +27,7 @@ interface Clinic {
       price?: number;
     }>;
   }>;
-  photos: string[];
+  photos: (string | File)[];
   createdAt: string;
   slug: string;
   averageRating?: number;
@@ -79,7 +79,6 @@ function ClinicManagementDashboard() {
   const [isEditing, setIsEditing] = useState(false);
   const [editingClinicId, setEditingClinicId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<Partial<Clinic>>({});
-  const [newService, setNewService] = useState("");
   const [newTreatment, setNewTreatment] = useState("");
   const [newSubTreatment, setNewSubTreatment] = useState("");
   const [newSubTreatmentPrice, setNewSubTreatmentPrice] = useState("");
@@ -88,16 +87,13 @@ function ClinicManagementDashboard() {
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState<number>(0);
   const [updating, setUpdating] = useState(false);
   const [availableTreatments, setAvailableTreatments] = useState<Treatment[]>([]);
-  const [showCustomTreatmentInput, setShowCustomTreatmentInput] = useState(false);
   const [selectedAvailableTreatmentId, setSelectedAvailableTreatmentId] = useState<string>("");
-  const [geocodingStatus, setGeocodingStatus] = useState<string>("");
-  const addressDebounceTimer = useRef<NodeJS.Timeout | null>(null);
-  const [permissions, setPermissions] = useState({
+  const [permissions] = useState({
     canRead: true,
     canUpdate: true,
     canDelete: true,
   });
-  const [permissionsLoaded, setPermissionsLoaded] = useState(false);
+  const [permissionsLoaded] = useState(false);
   const [dashboardStats, setDashboardStats] = useState<any>(null);
   const [statsLoading, setStatsLoading] = useState(false);
   const [reviewsData, setReviewsData] = useState<any>(null);
@@ -284,7 +280,7 @@ function ClinicManagementDashboard() {
   }, [clinics]);
 
   // Handle input changes
-  const handleInputChange = (field: string, value: string | string[] | File[]) => {
+  const handleInputChange = (field: string, value: string | string[] | File[] | (string | File)[]) => {
     setEditForm((prev) => ({ ...prev, [field]: value }));
   };
 
@@ -530,21 +526,7 @@ function ClinicManagementDashboard() {
     }
   };
 
-  const handleAddService = () => {
-    if (!newService.trim()) return;
-    setEditForm(prev => ({
-      ...prev,
-      servicesName: [...(prev.servicesName || []), newService.trim()]
-    }));
-    setNewService("");
-  };
-
-  const handleRemoveService = (index: number) => {
-    setEditForm(prev => ({
-      ...prev,
-      servicesName: (prev.servicesName || []).filter((_, i) => i !== index)
-    }));
-  };
+ 
 
   const handleAddTreatment = () => {
     if (!newTreatment.trim()) return;

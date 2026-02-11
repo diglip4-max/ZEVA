@@ -46,6 +46,9 @@ const AgentProfileSchema = new mongoose.Schema(
     
     commissionPercentage: { type: Number, default: 0 },
 
+    targetMultiplier: { type: Number, default: 1 },
+    targetAmount: { type: Number, default: 0 },
+
     emergencyName: String,
     joiningDate: Date,
     isActive: { type: Boolean, default: true },
