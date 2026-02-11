@@ -1,3 +1,5 @@
+import { User } from "./users";
+
 export type UOMStatus = "Active" | "Inactive" | "Allocated";
 export type StockLocationStatus = "Active" | "Inactive" | "Allocated";
 export type SupplierStatus = "Active" | "Inactive" | "Allocated";
@@ -67,6 +69,10 @@ export type PurchaseRecord = {
   branch: any;
   date: string;
   enqNo?: string;
+  quotationNo?: string;
+  quotationDate?: string;
+  validityDays?: string;
+  paymentTermsDays?: string;
   supplier: any; // Reference to Supplier
   type: PurchaseRecordType;
   supplierInvoiceNo?: string;
@@ -91,7 +97,7 @@ export type PurchaseRecord = {
     email?: string;
   };
   items: PurchaseRecordItem[];
-  createdBy: string;
+  createdBy: User;
   createdAt: string;
   updatedAt: string;
 };
