@@ -54,6 +54,7 @@
     "next-seo": "^6.8.0",
     "node-cron": "^4.2.1",
     "nodemailer": "^7.0.10",
+    "number-to-words": "^1.2.4",
     "papaparse": "^5.5.3",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
@@ -70,34 +71,20 @@
     "three": "^0.178.0",
     "xlsx": "^0.18.5"
   },
- "devDependencies": {
-  "@eslint/eslintrc": "^3",
-  "autoprefixer": "^10.4.20",
-  "postcss": "^8.4.38",
-  "tailwindcss": "^3.4.13",
-  "@types/lodash.debounce": "^4.0.9",
-  "@types/node": "^20",
-  "@types/papaparse": "^5.5.1",
-  "@types/react": "^19",
-  "@types/react-dom": "^19",
-  "@types/styled-jsx": "^2.2.9",
-  "eslint": "^9",
-  "eslint-config-next": "15.3.4",
-  "typescript": "^5"
-},
-"devDependencies": {
-  "@eslint/eslintrc": "^3",
-  "autoprefixer": "^10.4.20",
-  "postcss": "^8.4.38",
-  "tailwindcss": "^3.4.13",
-  "@types/lodash.debounce": "^4.0.9",
-  "@types/node": "^20",
-  "@types/papaparse": "^5.5.1",
-  "@types/react": "^19",
-  "@types/react-dom": "^19",
-  "@types/styled-jsx": "^2.2.9",
-  "eslint": "^9",
-  "eslint-config-next": "15.3.4",
-  "typescript": "^5"
-}
+  "devDependencies": {
+    "@eslint/eslintrc": "^3",
+    "@types/lodash.debounce": "^4.0.9",
+    "@types/node": "^20",
+    "@types/number-to-words": "^1.2.3",
+    "@types/papaparse": "^5.5.1",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@types/styled-jsx": "^2.2.9",
+    "autoprefixer": "^10.4.20",
+    "eslint": "^9",
+    "eslint-config-next": "15.3.4",
+    "postcss": "^8.4.38",
+    "tailwindcss": "^3.4.13",
+    "typescript": "^5"
+  }
 }

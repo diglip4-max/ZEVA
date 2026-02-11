@@ -1,44 +1,46 @@
 import React, { useState, useEffect, useRef } from "react";
 import { PlusCircle, X, Search, ChevronDown } from "lucide-react";
-import useClinicBranches from "@/hooks/useClinicBranches";
+// import useClinicBranches from "@/hooks/useClinicBranches";
 import useLocations from "@/hooks/useLocations";
 
 interface StockItem {
   _id?: string;
-  branch: string;
+  clinicId: string;
   name: string;
   description?: string;
   code?: string;
   type: "Stock" | "Service" | "Fixed_Asset";
-  group?: string;
+  location: string;
   brand?: string;
   dosage?: string;
   strength?: string;
-  status: "Active" | "Inactive" | "Allocated";
+  status: "Active" | "Inactive";
   vatPercentage: number;
   minQuantity: number;
   maxQuantity: number;
-  location: string;
   level0: {
-    quantity: number;
-    uom: string;
     costPrice: number;
+    uom: string;
     salePrice: number;
   };
   packagingStructure: {
     level1: {
       multiplier: number;
-      quantity: number;
+      costPrice: number;
       uom: string;
+      salePrice: number;
     };
     level2: {
       multiplier: number;
-      quantity: number;
-      uom: string;
       costPrice: number;
+      uom: string;
+      salePrice: number;
     };
   };
   imageUrl?: string;
+  createdBy?: string;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 interface AddStockItemModalProps {
@@ -56,46 +58,44 @@ const AddStockItemModal: React.FC<AddStockItemModalProps> = ({
   onClose,
   onSuccess,
 }) => {
-  const { clinicBranches } = useClinicBranches();
+  // const { clinicBranches } = useClinicBranches();
   const [locationSearch, setLocationSearch] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLocationDropdownOpen, setIsLocationDropdownOpen] = useState(false);
   const locationDropdownRef = useRef<HTMLDivElement>(null);
 
-  // Form state
+  // Form state - corrected to match API model
   const [formData, setFormData] = useState({
-    branch: "",
     name: "",
     description: "",
     code: "",
     type: "Stock" as "Stock" | "Service" | "Fixed_Asset",
-    group: "",
+    location: "",
     brand: "",
     dosage: "",
     strength: "",
-    status: "Active" as "Active" | "Inactive" | "Allocated",
+    status: "Active" as "Active" | "Inactive",
     vatPercentage: 0,
     minQuantity: 0,
     maxQuantity: 0,
-    location: "",
     level0: {
-      quantity: 0,
-      uom: "",
       costPrice: 0,
+      uom: "",
       salePrice: 0,
     },
     packagingStructure: {
       level1: {
         multiplier: 1,
-        quantity: 0,
+        costPrice: 0,
         uom: "",
+        salePrice: 0,
       },
       level2: {
         multiplier: 1,
-        quantity: 0,
-        uom: "",
         costPrice: 0,
+        uom: "",
+        salePrice: 0,
       },
     },
     imageUrl: "",
@@ -142,7 +142,6 @@ const AddStockItemModal: React.FC<AddStockItemModalProps> = ({
             ...(prev as any)[parent],
             [child]:
               child === "multiplier" ||
-              child === "quantity" ||
               child === "costPrice" ||
               child === "salePrice" ||
               child === "vatPercentage" ||
@@ -162,7 +161,6 @@ const AddStockItemModal: React.FC<AddStockItemModalProps> = ({
               ...(prev as any)[parent][subParent],
               [child]:
                 child === "multiplier" ||
-                child === "quantity" ||
                 child === "costPrice" ||
                 child === "salePrice"
                   ? parseFloat(value) || 0
@@ -190,14 +188,14 @@ const AddStockItemModal: React.FC<AddStockItemModalProps> = ({
       level0: {
         ...prev.level0,
         [field]:
-          field === "quantity" || field === "costPrice" || field === "salePrice"
+          field === "costPrice" || field === "salePrice"
             ? parseFloat(value) || 0
             : value,
       },
     }));
   };
 
-  // Auto-calculate level1 quantity based on multiplier
+  // Auto-calculate level1 sale price based on multiplier
   const handleLevel1MultiplierChange = (multiplier: number) => {
     setFormData((prev) => ({
       ...prev,
@@ -206,13 +204,14 @@ const AddStockItemModal: React.FC<AddStockItemModalProps> = ({
         level1: {
           ...prev.packagingStructure.level1,
           multiplier: multiplier,
-          quantity: prev.level0.quantity * multiplier,
+          costPrice: prev.level0.costPrice * multiplier,
+          salePrice: prev.level0.salePrice * multiplier,
         },
       },
     }));
   };
 
-  // Auto-calculate level2 quantity based on multiplier
+  // Auto-calculate level2 sale price based on multiplier
   const handleLevel2MultiplierChange = (multiplier: number) => {
     setFormData((prev) => ({
       ...prev,
@@ -221,7 +220,8 @@ const AddStockItemModal: React.FC<AddStockItemModalProps> = ({
         level2: {
           ...prev.packagingStructure.level2,
           multiplier: multiplier,
-          quantity: prev.packagingStructure.level1.quantity * multiplier,
+          costPrice: prev.packagingStructure.level1.costPrice * multiplier,
+          salePrice: prev.packagingStructure.level1.salePrice * multiplier,
         },
       },
     }));
@@ -233,37 +233,82 @@ const AddStockItemModal: React.FC<AddStockItemModalProps> = ({
     if (!file) return;
 
     // Here you would typically upload to your server/cloud storage
-    // For now, we'll simulate getting a URL
     const allowedFormats = ["image/jpeg", "image/png", "image/gif"];
     if (!allowedFormats.includes(file.type)) {
       setError("Only JPG, PNG, and GIF formats are allowed");
       return;
     }
 
-    // Simulate upload - replace with actual upload logic
-    setFormData((prev) => ({
-      ...prev,
-      imageUrl: URL.createObjectURL(file), // Temporary URL for preview
-    }));
+    // Create FormData for upload
+    const formData = new FormData();
+    formData.append("image", file);
+
+    try {
+      const response = await fetch("/api/upload", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      const result = await response.json();
+      if (result.success && result.url) {
+        setFormData((prev) => ({
+          ...prev,
+          imageUrl: result.url,
+        }));
+      } else {
+        setError("Failed to upload image");
+      }
+    } catch (err) {
+      console.error("Error uploading image:", err);
+      setError("Error uploading image");
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (
-      !formData.branch.trim() ||
-      !formData.location.trim() ||
-      !formData.name.trim()
-    )
-      return;
+    if (!formData.location.trim() || !formData.name.trim()) return;
 
     setLoading(true);
     setError(null);
 
     try {
-      // Prepare the payload
+      // Prepare the payload - match API expected format
       const payload = {
-        ...formData,
-        clinicId: clinicId,
+        name: formData.name.trim(),
+        description: formData.description.trim(),
+        code: formData.code.trim(),
+        type: formData.type,
+        location: formData.location,
+        brand: formData.brand.trim(),
+        dosage: formData.dosage.trim(),
+        strength: formData.strength.trim(),
+        status: formData.status,
+        vatPercentage: formData.vatPercentage,
+        minQuantity: formData.minQuantity,
+        maxQuantity: formData.maxQuantity,
+        level0: {
+          costPrice: formData.level0.costPrice,
+          uom: formData.level0.uom.trim(),
+          salePrice: formData.level0.salePrice,
+        },
+        packagingStructure: {
+          level1: {
+            multiplier: formData.packagingStructure.level1.multiplier,
+            costPrice: formData.packagingStructure.level1.costPrice,
+            uom: formData.packagingStructure.level1.uom.trim(),
+            salePrice: formData.packagingStructure.level1.salePrice,
+          },
+          level2: {
+            multiplier: formData.packagingStructure.level2.multiplier,
+            costPrice: formData.packagingStructure.level2.costPrice,
+            uom: formData.packagingStructure.level2.uom.trim(),
+            salePrice: formData.packagingStructure.level2.salePrice,
+          },
+        },
+        imageUrl: formData.imageUrl.trim(),
       };
 
       const response = await fetch("/api/stocks/stock-items/add-stock-item", {
@@ -281,7 +326,12 @@ const AddStockItemModal: React.FC<AddStockItemModalProps> = ({
         onSuccess(result.data);
         handleClose();
       } else {
-        setError(result.message || "Failed to add stock item");
+        // Handle validation errors
+        if (result.errors && Array.isArray(result.errors)) {
+          setError(result.errors.join(", "));
+        } else {
+          setError(result.message || "Failed to add stock item");
+        }
       }
     } catch (err) {
       console.error("Error adding stock item:", err);
@@ -293,12 +343,11 @@ const AddStockItemModal: React.FC<AddStockItemModalProps> = ({
 
   const handleClose = () => {
     setFormData({
-      branch: "",
       name: "",
       description: "",
       code: "",
       type: "Stock",
-      group: "",
+      location: "",
       brand: "",
       dosage: "",
       strength: "",
@@ -306,30 +355,30 @@ const AddStockItemModal: React.FC<AddStockItemModalProps> = ({
       vatPercentage: 0,
       minQuantity: 0,
       maxQuantity: 0,
-      location: "",
       level0: {
-        quantity: 0,
-        uom: "",
         costPrice: 0,
+        uom: "",
         salePrice: 0,
       },
       packagingStructure: {
         level1: {
           multiplier: 1,
-          quantity: 0,
+          costPrice: 0,
           uom: "",
+          salePrice: 0,
         },
         level2: {
           multiplier: 1,
-          quantity: 0,
-          uom: "",
           costPrice: 0,
+          uom: "",
+          salePrice: 0,
         },
       },
       imageUrl: "",
     });
     setLocationSearch("");
     setIsLocationDropdownOpen(false);
+    setError(null);
     onClose();
   };
 
@@ -369,32 +418,8 @@ const AddStockItemModal: React.FC<AddStockItemModalProps> = ({
           )}
 
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Row 1: Branch, Code/Barcode */}
+            {/* Row 1: Code/Barcode, Type */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Branch */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <label className="block text-sm font-bold text-gray-900">
-                    Branch <span className="text-red-500">*</span>
-                  </label>
-                </div>
-                <select
-                  value={formData.branch}
-                  onChange={handleInputChange}
-                  name="branch"
-                  className="w-full px-3 py-2.5 text-sm border border-gray-300 text-gray-500 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
-                  disabled={loading}
-                  required
-                >
-                  <option value="">Please Select</option>
-                  {clinicBranches?.map((branch) => (
-                    <option key={branch._id} value={branch._id}>
-                      {branch.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
               {/* Code/Barcode */}
               <div className="space-y-2">
                 <label className="block text-sm font-bold text-gray-900">
@@ -405,15 +430,12 @@ const AddStockItemModal: React.FC<AddStockItemModalProps> = ({
                   name="code"
                   value={formData.code}
                   onChange={handleInputChange}
-                  placeholder="Ex: IT-00001"
+                  placeholder="Ex: MED001"
                   className="w-full px-3 py-2.5 text-sm border border-gray-300 text-gray-500 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
                   disabled={loading}
                 />
               </div>
-            </div>
 
-            {/* Row 2: Type, Group */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Type */}
               <div className="space-y-2">
                 <label className="block text-sm font-bold text-gray-900">
@@ -427,13 +449,33 @@ const AddStockItemModal: React.FC<AddStockItemModalProps> = ({
                   disabled={loading}
                   required
                 >
-                  <option value="">Select Type</option>
                   <option value="Stock">Stock</option>
                   <option value="Service">Service</option>
                   <option value="Fixed_Asset">Fixed Asset</option>
                 </select>
               </div>
-              {/* Row 3: Location */}
+            </div>
+
+            {/* Row 2: Name, Location */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Name */}
+              <div className="space-y-2">
+                <label className="block text-sm font-bold text-gray-900">
+                  Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  name="name"
+                  value={formData.name}
+                  onChange={handleInputChange}
+                  placeholder="Ex: Paracetamol 500mg"
+                  className="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
+                  disabled={loading}
+                  required
+                />
+              </div>
+
+              {/* Location */}
               <div className="space-y-2 text-gray-500">
                 <div className="flex items-center justify-between">
                   <label className="block text-sm font-bold text-gray-900">
@@ -512,46 +554,7 @@ const AddStockItemModal: React.FC<AddStockItemModalProps> = ({
               </div>
             </div>
 
-            {/* Row 4: Name, VAT % */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Name */}
-              <div className="space-y-2">
-                <label className="block text-sm font-bold text-gray-900">
-                  Name <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  name="name"
-                  value={formData.name}
-                  onChange={handleInputChange}
-                  placeholder="Ex: Paracetamol"
-                  className="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
-                  disabled={loading}
-                  required
-                />
-              </div>
-
-              {/* VAT Percentage */}
-              <div className="space-y-2">
-                <label className="block text-sm font-bold text-gray-900">
-                  VAT %
-                </label>
-                <input
-                  type="number"
-                  name="vatPercentage"
-                  value={formData.vatPercentage}
-                  onChange={handleInputChange}
-                  placeholder="0.00"
-                  min="0"
-                  max="100"
-                  step="0.01"
-                  className="w-full px-3 py-2.5 text-sm border border-gray-300 text-gray-500 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
-                  disabled={loading}
-                />
-              </div>
-            </div>
-
-            {/* Row 5: Brand, Dosage */}
+            {/* Row 3: Brand, Dosage */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Brand */}
               <div className="space-y-2">
@@ -563,7 +566,7 @@ const AddStockItemModal: React.FC<AddStockItemModalProps> = ({
                   name="brand"
                   value={formData.brand}
                   onChange={handleInputChange}
-                  placeholder="Ex: ADOL"
+                  placeholder="Ex: Generic"
                   className="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
                   disabled={loading}
                 />
@@ -579,14 +582,14 @@ const AddStockItemModal: React.FC<AddStockItemModalProps> = ({
                   name="dosage"
                   value={formData.dosage}
                   onChange={handleInputChange}
-                  placeholder="Ex: SYRUP (100ML, BOTTLE)"
+                  placeholder="Ex: 500mg"
                   className="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
                   disabled={loading}
                 />
               </div>
             </div>
 
-            {/* Row 6: Strength, Description */}
+            {/* Row 4: Strength, VAT Percentage */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Strength */}
               <div className="space-y-2">
@@ -598,29 +601,34 @@ const AddStockItemModal: React.FC<AddStockItemModalProps> = ({
                   name="strength"
                   value={formData.strength}
                   onChange={handleInputChange}
-                  placeholder="Ex: ORAL"
+                  placeholder="Ex: Tablet"
                   className="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
                   disabled={loading}
                 />
               </div>
 
-              {/* Description */}
+              {/* VAT Percentage */}
               <div className="space-y-2">
                 <label className="block text-sm font-bold text-gray-900">
-                  Description
+                  VAT % <span className="text-red-500">*</span>
                 </label>
-                <textarea
-                  name="description"
-                  value={formData.description}
+                <input
+                  type="number"
+                  name="vatPercentage"
+                  value={formData.vatPercentage}
                   onChange={handleInputChange}
-                  rows={2}
+                  placeholder="0.00"
+                  min="0"
+                  max="100"
+                  step="0.01"
                   className="w-full px-3 py-2.5 text-sm border border-gray-300 text-gray-500 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
                   disabled={loading}
+                  required
                 />
               </div>
             </div>
 
-            {/* Row 7: Min Qty, Max Qty */}
+            {/* Row 5: Min Qty, Max Qty */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <label className="block text-sm font-bold text-gray-900">
@@ -656,27 +664,32 @@ const AddStockItemModal: React.FC<AddStockItemModalProps> = ({
               </div>
             </div>
 
+            {/* Description */}
+            <div className="space-y-2">
+              <label className="block text-sm font-bold text-gray-900">
+                Description
+              </label>
+              <textarea
+                name="description"
+                value={formData.description}
+                onChange={handleInputChange}
+                rows={2}
+                placeholder="Item description..."
+                className="w-full px-3 py-2.5 text-sm border border-gray-300 text-gray-500 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
+                disabled={loading}
+              />
+            </div>
+
             {/* Level 0 Detail Section */}
             <div className="border border-gray-200 rounded-lg p-4">
               <h3 className="text-lg font-bold text-gray-900 mb-4">
-                Level 0 Detail <span className="text-red-500">*</span>
+                Level 0 Detail (Base Unit)
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-2">
-                  <input
-                    type="number"
-                    value={formData.level0.quantity}
-                    onChange={(e) =>
-                      handleLevel0Change("quantity", e.target.value)
-                    }
-                    placeholder="0.00"
-                    min="0"
-                    step="0.01"
-                    className="w-full px-3 py-2.5 text-sm border border-gray-300 text-gray-500 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
-                    disabled={loading}
-                  />
-                </div>
-                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    UOM
+                  </label>
                   <select
                     value={formData.level0.uom}
                     onChange={(e) => handleLevel0Change("uom", e.target.value)}
@@ -685,23 +698,45 @@ const AddStockItemModal: React.FC<AddStockItemModalProps> = ({
                   >
                     <option value="">Select UOM</option>
                     <option value="pcs">PCS</option>
+                    <option value="tablet">Tablet</option>
+                    <option value="capsule">Capsule</option>
                     <option value="ml">ML</option>
                     <option value="mg">MG</option>
                     <option value="g">G</option>
                     <option value="kg">KG</option>
                     <option value="l">L</option>
-                    <option value="box">BOX</option>
-                    <option value="pack">PACK</option>
+                    <option value="session">Session</option>
+                    <option value="unit">Unit</option>
                   </select>
                 </div>
                 <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Cost Price
+                  </label>
                   <input
                     type="number"
                     value={formData.level0.costPrice}
                     onChange={(e) =>
                       handleLevel0Change("costPrice", e.target.value)
                     }
-                    placeholder="Cost Price"
+                    placeholder="0.00"
+                    min="0"
+                    step="0.01"
+                    className="w-full px-3 py-2.5 text-sm border border-gray-300 text-gray-500 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
+                    disabled={loading}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Sale Price
+                  </label>
+                  <input
+                    type="number"
+                    value={formData.level0.salePrice}
+                    onChange={(e) =>
+                      handleLevel0Change("salePrice", e.target.value)
+                    }
+                    placeholder="0.00"
                     min="0"
                     step="0.01"
                     className="w-full px-3 py-2.5 text-sm border border-gray-300 text-gray-500 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
@@ -711,47 +746,33 @@ const AddStockItemModal: React.FC<AddStockItemModalProps> = ({
               </div>
             </div>
 
-            {/* M Factor #1 */}
-            <div className="space-y-2">
-              <label className="block text-sm font-bold text-gray-900">
-                M Factor #1 <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="number"
-                name="packagingStructure.level1.multiplier"
-                value={formData.packagingStructure.level1.multiplier}
-                onChange={(e) =>
-                  handleLevel1MultiplierChange(parseFloat(e.target.value) || 1)
-                }
-                placeholder="1"
-                min="1"
-                step="1"
-                className="w-full md:w-1/4 px-3 py-2.5 text-sm border border-gray-300 text-gray-500 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
-                disabled={loading}
-                required
-              />
-            </div>
-
-            {/* Level 1 Detail */}
-            <div className="border border-gray-200 rounded-lg p-4">
-              <h3 className="text-lg font-bold text-gray-900 mb-4">
-                Level 1 Detail
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* M Factor #1 & Level 1 Detail */}
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div className="space-y-2">
+                  <label className="block text-sm font-bold text-gray-900">
+                    M Factor #1
+                  </label>
                   <input
                     type="number"
-                    name="packagingStructure.level1.quantity"
-                    value={formData.packagingStructure.level1.quantity}
-                    onChange={handleInputChange}
-                    placeholder="0.00"
-                    min="0"
-                    step="0.01"
+                    name="packagingStructure.level1.multiplier"
+                    value={formData.packagingStructure.level1.multiplier}
+                    onChange={(e) =>
+                      handleLevel1MultiplierChange(
+                        parseFloat(e.target.value) || 1,
+                      )
+                    }
+                    placeholder="1"
+                    min="1"
+                    step="1"
                     className="w-full px-3 py-2.5 text-sm border border-gray-300 text-gray-500 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
                     disabled={loading}
                   />
                 </div>
                 <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Level 1 UOM
+                  </label>
                   <select
                     name="packagingStructure.level1.uom"
                     value={formData.packagingStructure.level1.uom}
@@ -760,52 +781,21 @@ const AddStockItemModal: React.FC<AddStockItemModalProps> = ({
                     disabled={loading}
                   >
                     <option value="">Select UOM</option>
-                    <option value="pcs">PCS</option>
-                    <option value="strip">STRIP</option>
-                    <option value="box">BOX</option>
-                    <option value="pack">PACK</option>
+                    <option value="strip">Strip</option>
+                    <option value="box">Box</option>
+                    <option value="pack">Pack</option>
+                    <option value="carton">Carton</option>
+                    <option value="bottle">Bottle</option>
                   </select>
                 </div>
                 <div className="space-y-2">
-                  <div className="text-center py-2.5 text-sm text-gray-500 border border-gray-300 rounded-lg">
-                    Cost Price - UOM
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* M Factor #2 */}
-            <div className="space-y-2">
-              <label className="block text-sm font-bold text-gray-900">
-                M Factor #2 <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="number"
-                name="packagingStructure.level2.multiplier"
-                value={formData.packagingStructure.level2.multiplier}
-                onChange={(e) =>
-                  handleLevel2MultiplierChange(parseFloat(e.target.value) || 1)
-                }
-                placeholder="1"
-                min="1"
-                step="1"
-                className="w-full md:w-1/4 px-3 py-2.5 text-sm border border-gray-300 text-gray-500 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
-                disabled={loading}
-                required
-              />
-            </div>
-
-            {/* Level 2 Detail */}
-            <div className="border border-gray-200 rounded-lg p-4">
-              <h3 className="text-lg font-bold text-gray-900 mb-4">
-                Level 2 Detail
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Cost Price
+                  </label>
                   <input
                     type="number"
-                    name="packagingStructure.level2.quantity"
-                    value={formData.packagingStructure.level2.quantity}
+                    name="packagingStructure.level1.costPrice"
+                    value={formData.packagingStructure.level1.costPrice}
                     onChange={handleInputChange}
                     placeholder="0.00"
                     min="0"
@@ -815,6 +805,51 @@ const AddStockItemModal: React.FC<AddStockItemModalProps> = ({
                   />
                 </div>
                 <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Sale Price
+                  </label>
+                  <input
+                    type="number"
+                    name="packagingStructure.level1.salePrice"
+                    value={formData.packagingStructure.level1.salePrice}
+                    onChange={handleInputChange}
+                    placeholder="0.00"
+                    min="0"
+                    step="0.01"
+                    className="w-full px-3 py-2.5 text-sm border border-gray-300 text-gray-500 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
+                    disabled={loading}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* M Factor #2 & Level 2 Detail */}
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="space-y-2">
+                  <label className="block text-sm font-bold text-gray-900">
+                    M Factor #2
+                  </label>
+                  <input
+                    type="number"
+                    name="packagingStructure.level2.multiplier"
+                    value={formData.packagingStructure.level2.multiplier}
+                    onChange={(e) =>
+                      handleLevel2MultiplierChange(
+                        parseFloat(e.target.value) || 1,
+                      )
+                    }
+                    placeholder="1"
+                    min="1"
+                    step="1"
+                    className="w-full px-3 py-2.5 text-sm border border-gray-300 text-gray-500 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
+                    disabled={loading}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Level 2 UOM
+                  </label>
                   <select
                     name="packagingStructure.level2.uom"
                     value={formData.packagingStructure.level2.uom}
@@ -823,19 +858,39 @@ const AddStockItemModal: React.FC<AddStockItemModalProps> = ({
                     disabled={loading}
                   >
                     <option value="">Select UOM</option>
-                    <option value="box">BOX</option>
-                    <option value="carton">CARTON</option>
-                    <option value="case">CASE</option>
-                    <option value="pallet">PALLET</option>
+                    <option value="box">Box</option>
+                    <option value="carton">Carton</option>
+                    <option value="case">Case</option>
+                    <option value="pallet">Pallet</option>
+                    <option value="container">Container</option>
                   </select>
                 </div>
                 <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Cost Price
+                  </label>
                   <input
                     type="number"
                     name="packagingStructure.level2.costPrice"
                     value={formData.packagingStructure.level2.costPrice}
                     onChange={handleInputChange}
-                    placeholder="Cost Price"
+                    placeholder="0.00"
+                    min="0"
+                    step="0.01"
+                    className="w-full px-3 py-2.5 text-sm border border-gray-300 text-gray-500 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
+                    disabled={loading}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Sale Price
+                  </label>
+                  <input
+                    type="number"
+                    name="packagingStructure.level2.salePrice"
+                    value={formData.packagingStructure.level2.salePrice}
+                    onChange={handleInputChange}
+                    placeholder="0.00"
                     min="0"
                     step="0.01"
                     className="w-full px-3 py-2.5 text-sm border border-gray-300 text-gray-500 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
@@ -892,17 +947,17 @@ const AddStockItemModal: React.FC<AddStockItemModalProps> = ({
             disabled={loading}
             className="px-4 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:ring-2 focus:ring-gray-800/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Close
+            Cancel
           </button>
           <button
             type="submit"
+            onClick={handleSubmit}
             disabled={
               loading ||
-              !formData.branch ||
               !formData.name ||
               !formData.location ||
               !formData.type ||
-              !formData.group ||
+              !formData.vatPercentage ||
               !formData.minQuantity ||
               !formData.maxQuantity
             }
@@ -916,7 +971,7 @@ const AddStockItemModal: React.FC<AddStockItemModalProps> = ({
             ) : (
               <>
                 <PlusCircle className="w-4 h-4" />
-                Add
+                Add Item
               </>
             )}
           </button>

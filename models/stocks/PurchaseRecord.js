@@ -29,6 +29,22 @@ const PurchaseRecordSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
+    quotationNo: {
+      type: String,
+      trim: true,
+    },
+    quotationDate: {
+      type: Date,
+      trim: true,
+    },
+    validityDays: {
+      type: Number,
+      default: 0,
+    },
+    paymentTermsDays: {
+      type: Number,
+      default: 0,
+    },
     supplier: {
       // it will actuall branch reference not string
       type: mongoose.Schema.Types.ObjectId,

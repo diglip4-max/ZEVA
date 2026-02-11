@@ -747,7 +747,12 @@ const PurchaseRequestDetailModal: React.FC<PurchaseRequestDetailModalProps> = ({
             Close
           </button>
           <button
-            onClick={onClose}
+            onClick={() => {
+              // Open print page in new tab
+              const printUrl = `/stocks/purchase-requests/print-purchase-request?purId=${purchaseRequest?._id}`;
+              window.open(printUrl, "_blank", "noopener,noreferrer");
+              onClose();
+            }}
             className="px-4 py-2.5 text-sm font-medium text-white bg-gray-800 border border-gray-800 rounded-lg hover:bg-gray-700 hover:border-gray-700 focus:ring-2 focus:ring-gray-700/20 transition-all duration-200 shadow-sm"
           >
             Print

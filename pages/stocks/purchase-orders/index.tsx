@@ -10,7 +10,7 @@ import {
   TrashIcon,
   EllipsisVerticalIcon,
 } from "@heroicons/react/24/outline";
-import { FileText, ShoppingCart, Filter } from "lucide-react";
+import { FileText, ShoppingCart, Filter, Printer } from "lucide-react";
 import { PurchaseRecord } from "@/types/stocks";
 import debounce from "lodash.debounce";
 import AddPurchaseOrderModal from "./_components/AddPurchaseOrderModal";
@@ -827,6 +827,31 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
                                   <div className="flex items-center">
                                     <PencilIcon className="h-4 w-4 mr-2" />
                                     Edit
+                                  </div>
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    // Open print page in new tab
+                                    const printUrl = `/stocks/purchase-orders/print-purchase-order?poId=${order?._id}`;
+                                    window.open(
+                                      printUrl,
+                                      "_blank",
+                                      "noopener,noreferrer",
+                                    );
+                                    // Close the dropdown after clicking
+                                    const menuEl = document.getElementById(
+                                      `menu-${order._id}`,
+                                    );
+                                    if (menuEl) {
+                                      menuEl.classList.remove("block");
+                                      menuEl.classList.add("hidden");
+                                    }
+                                  }}
+                                  className="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+                                >
+                                  <div className="flex items-center">
+                                    <Printer className="h-4 w-4 mr-2" />
+                                    Print
                                   </div>
                                 </button>
                                 <button

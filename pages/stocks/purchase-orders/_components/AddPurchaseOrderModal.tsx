@@ -13,6 +13,7 @@ import useClinicBranches from "@/hooks/useClinicBranches";
 import useSuppliers from "@/hooks/useSuppliers";
 import useUoms from "@/hooks/useUoms";
 import AddStockItemModal from "@/components/shared/AddStockItemModal";
+import useStockItems from "@/hooks/useStockItems";
 
 interface AddPurchaseOrderModalProps {
   token: string;
@@ -28,6 +29,7 @@ const AddPurchaseOrderModal: React.FC<AddPurchaseOrderModalProps> = ({
   onSuccess,
 }) => {
   const { clinicBranches } = useClinicBranches();
+  const { stockItems } = useStockItems();
   const [supplierSearch, setSupplierSearch] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -41,6 +43,7 @@ const AddPurchaseOrderModal: React.FC<AddPurchaseOrderModalProps> = ({
     date: new Date().toISOString().split("T")[0],
     enqNo: "",
     quotationNo: "",
+    quotationDate: "",
     validityDays: "",
     paymentTermsDays: "",
     supplier: "",
@@ -76,15 +79,6 @@ const AddPurchaseOrderModal: React.FC<AddPurchaseOrderModalProps> = ({
     search: supplierSearch,
     branchId: formData.branch,
   });
-
-  // Define default item names
-  const defaultItemNames = [
-    "Paracetamol",
-    "Aspirin",
-    "Ibuprofen",
-    "Amoxicillin",
-    "Omeprazole",
-  ];
 
   // Show supplier invoice number field only for specific types
   const showSupplierInvoiceNo =
@@ -202,9 +196,18 @@ const AddPurchaseOrderModal: React.FC<AddPurchaseOrderModalProps> = ({
     field: keyof PurchaseRecordItem,
     value: any,
   ) => {
+    let discountAmount = 0;
+    if (field === "discount" && currentItem?.discountType === "Fixed") {
+      discountAmount = value || 0;
+    }
+    if (field === "discount" && currentItem?.discountType === "Percentage") {
+      discountAmount =
+        (currentItem.quantity * currentItem.unitPrice * (value || 0)) / 100;
+    }
     setCurrentItem((prev) => ({
       ...prev,
       [field]: value,
+      ...(field === "discount" && { discountAmount }),
     }));
   };
 
@@ -294,6 +297,7 @@ const AddPurchaseOrderModal: React.FC<AddPurchaseOrderModalProps> = ({
       date: new Date().toISOString().split("T")[0],
       enqNo: "",
       quotationNo: "",
+      quotationDate: "",
       validityDays: "",
       paymentTermsDays: "",
       supplier: "",
@@ -671,6 +675,23 @@ const AddPurchaseOrderModal: React.FC<AddPurchaseOrderModalProps> = ({
                   </p>
                 </div>
               )}
+
+              {/* Quotation Date */}
+              <div className="space-y-2">
+                <label className="block text-sm font-bold text-gray-900">
+                  Quotation Date <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="date"
+                  name="quotationDate"
+                  value={formData.quotationDate}
+                  onChange={handleInputChange}
+                  className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed"
+                  disabled={loading}
+                  required
+                />
+                <p className="text-xs text-gray-500 mt-1">Quotation date</p>
+              </div>
             </div>
 
             {/* Notes */}
@@ -929,9 +950,9 @@ const AddPurchaseOrderModal: React.FC<AddPurchaseOrderModalProps> = ({
                       required
                     >
                       <option value="">Select a Item</option>
-                      {defaultItemNames.map((name) => (
-                        <option key={name} value={name}>
-                          {name}
+                      {stockItems.map((item) => (
+                        <option key={item?._id} value={item?.name}>
+                          {item?.name}
                         </option>
                       ))}
                     </select>
@@ -1058,27 +1079,6 @@ const AddPurchaseOrderModal: React.FC<AddPurchaseOrderModalProps> = ({
                       disabled={loading}
                       placeholder="0"
                     />
-                  </div>
-
-                  {/* Disc. Type */}
-                  <div className="sm:col-span-2 space-y-1">
-                    <label className="block text-xs font-bold text-gray-900">
-                      Disc. Type
-                    </label>
-                    <select
-                      value={currentItem.discountType}
-                      onChange={(e) =>
-                        handleCurrentItemChange(
-                          "discountType",
-                          e.target.value as "Fixed" | "Percentage",
-                        )
-                      }
-                      className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed h-10"
-                      disabled={loading}
-                    >
-                      <option value="Fixed">Fixed</option>
-                      <option value="Percentage">%</option>
-                    </select>
                   </div>
 
                   {/* Disc. Value */}

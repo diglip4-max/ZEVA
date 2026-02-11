@@ -30,7 +30,7 @@ const StockItemSchema = new mongoose.Schema(
     },
     location: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Location",
+      ref: "StockLocation",
       required: true,
     },
     brand: {
@@ -47,12 +47,8 @@ const StockItemSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["Active", "Inactive", "Allocated"],
-      default: "Allocated",
-    },
-    createdBy: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
+      enum: ["Active", "Inactive"],
+      default: "Active",
     },
     vatPercentage: {
       type: Number,
@@ -72,17 +68,13 @@ const StockItemSchema = new mongoose.Schema(
 
     // Level 0 Details (Base/Primary level)
     level0: {
-      quantity: {
+      costPrice: {
         type: Number,
         default: 0,
       },
       uom: {
         type: String,
         trim: true,
-      },
-      costPrice: {
-        type: Number,
-        default: 0,
       },
       salePrice: {
         type: Number,
@@ -97,13 +89,17 @@ const StockItemSchema = new mongoose.Schema(
           type: Number,
           default: 1,
         },
-        quantity: {
+        costPrice: {
           type: Number,
           default: 0,
         },
         uom: {
           type: String,
           trim: true,
+        },
+        salePrice: {
+          type: Number,
+          default: 0,
         },
       },
       level2: {
@@ -111,7 +107,7 @@ const StockItemSchema = new mongoose.Schema(
           type: Number,
           default: 1,
         },
-        quantity: {
+        costPrice: {
           type: Number,
           default: 0,
         },
@@ -119,7 +115,7 @@ const StockItemSchema = new mongoose.Schema(
           type: String,
           trim: true,
         },
-        costPrice: {
+        salePrice: {
           type: Number,
           default: 0,
         },
@@ -130,10 +126,14 @@ const StockItemSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
   },
   {
     timestamps: true,
-  }
+  },
 );
 
 // Indexes for better performance
