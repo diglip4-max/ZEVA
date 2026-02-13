@@ -147,6 +147,8 @@ export default async function handler(req, res) {
           membershipId,
           package: pkgToggle,
           packageId,
+          memberships: membershipsArray,
+          packages: packagesArray,
         } = req.body;
 
         if (!firstName || !gender) {
@@ -181,6 +183,20 @@ export default async function handler(req, res) {
         } else if (pkgToggle === "No") {
           invoice.package = "No";
           invoice.packageId = null;
+        }
+
+        if (Array.isArray(membershipsArray)) {
+          invoice.memberships = membershipsArray.map((m) => ({
+            membershipId: m.membershipId,
+            startDate: m.startDate ? new Date(m.startDate) : undefined,
+            endDate: m.endDate ? new Date(m.endDate) : undefined,
+          }));
+        }
+        if (Array.isArray(packagesArray)) {
+          invoice.packages = packagesArray.map((p) => ({
+            packageId: p.packageId,
+            assignedDate: p.assignedDate ? new Date(p.assignedDate) : undefined,
+          }));
         }
 
         invoice.notes = notes || "";

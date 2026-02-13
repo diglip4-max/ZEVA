@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Star, Mail, Settings, Lock, TrendingUp, Users, FileText, Briefcase, MessageSquare, Calendar, CreditCard, BarChart3, Activity, CheckCircle2, User, Crown, Stethoscope, Building2, Package, Gift, DoorOpen, UserPlus, GripVertical, Eye, EyeOff, Save, RotateCcw, Edit2, X, Undo2, Redo2, ChevronLeft, ChevronRight, LayoutDashboard, Zap, Target, Home, Tag, Percent, ShoppingCart, ShoppingBag, Receipt, DollarSign, Wallet, Shield, UserCheck, UserCog, UserCircle, Inbox, Award } from 'lucide-react';
+import { Star, Mail, Settings, Lock, TrendingUp, Users, FileText, Briefcase, MessageSquare, Calendar, CreditCard, BarChart3, Activity, CheckCircle2, User, Crown, Stethoscope, Building2, Package, Gift, DoorOpen, UserPlus, GripVertical, Eye, EyeOff, Save, RotateCcw, Edit2, X, Undo2, Redo2, ChevronLeft, ChevronRight, LayoutDashboard, Home, Tag, Percent, ShoppingCart, Receipt, DollarSign, Wallet, Shield, UserCheck, UserCog, UserCircle, Award } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, LabelList, LineChart, Line, Tooltip, PieChart, Pie, Cell, Legend } from 'recharts';
 import Stats from '../../components/Stats';
 import ClinicLayout from '../../components/ClinicLayout';
@@ -591,7 +591,6 @@ const ClinicDashboard: NextPageWithLayout = () => {
     'check': <CheckCircle2 className="w-5 h-5" />,
     'crown': <Crown className="w-5 h-5" />,
     'calendar': <Calendar className="w-5 h-5" />,
-    'users': <Users className="w-5 h-5" />,
     'stethoscope': <Stethoscope className="w-5 h-5" />,
     'door': <DoorOpen className="w-5 h-5" />,
     'building': <Building2 className="w-5 h-5" />,
@@ -1552,15 +1551,6 @@ const ClinicDashboard: NextPageWithLayout = () => {
     return 'Good Evening';
   };
 
-  const formatDate = (date: Date): string => {
-    return date.toLocaleDateString('en-US', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
-  };
-
   const formatTime = (date: Date): string => {
     return date.toLocaleTimeString('en-US', {
       hour: '2-digit',
@@ -2461,7 +2451,7 @@ const ClinicDashboard: NextPageWithLayout = () => {
       }
       
       const updatedPrimary = newPrimary.map(card => {
-        if (unwantedKeys.includes(card.moduleKey)) {
+        if (card.moduleKey && unwantedKeys.includes(card.moduleKey)) {
           return { ...card, visible: false };
         }
         return card;
@@ -3428,7 +3418,12 @@ const ClinicDashboard: NextPageWithLayout = () => {
                           dataKey="value" 
                           position="top" 
                           style={{ fontSize: 10, fill: '#374151' }}
-                          formatter={(value: number) => value > 0 ? value : '0'}
+                          formatter={(value) => {
+                            if (typeof value === 'number' && value > 0) {
+                              return value;
+                            }
+                            return '0';
+                          }}
                         />
                       </Bar>
                     </BarChart>

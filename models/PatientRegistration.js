@@ -105,6 +105,19 @@ const patientRegistrationSchema = new mongoose.Schema(
 
     // Payment History
     paymentHistory: [paymentHistorySchema],
+    memberships: [
+      {
+        membershipId: { type: mongoose.Schema.Types.ObjectId, ref: "MembershipPlan" },
+        startDate: { type: Date },
+        endDate: { type: Date },
+      }
+    ],
+    packages: [
+      {
+        packageId: { type: mongoose.Schema.Types.ObjectId, ref: "Package" },
+        assignedDate: { type: Date, default: Date.now },
+      }
+    ],
   },
   { timestamps: true }
 );

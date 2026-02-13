@@ -387,7 +387,11 @@ export default async function handler(req, res) {
       const {
         name, email, phone, // User fields
         agentCode, emergencyPhone, relativePhone, idType, idNumber, idDocumentUrl,
-        passportNumber, passportDocumentUrl, contractUrl, contractType, baseSalary, commissionType, commissionPercentage,
+        idDocumentFrontUrl, idDocumentBackUrl,
+        passportNumber, passportDocumentUrl, passportDocumentFrontUrl, passportDocumentBackUrl,
+        contractUrl, contractFrontUrl, contractBackUrl, contractType, baseSalary, commissionType, commissionPercentage,
+        emergencyName, employeeVisaFrontUrl, employeeVisaBackUrl,
+        targetMultiplier, targetAmount,
         joiningDate, isActive
       } = req.body;
 
@@ -412,15 +416,34 @@ export default async function handler(req, res) {
       if (idType !== undefined) profile.idType = idType;
       if (idNumber !== undefined) profile.idNumber = idNumber;
       if (idDocumentUrl !== undefined) profile.idDocumentUrl = idDocumentUrl;
+      if (idDocumentFrontUrl !== undefined) profile.idDocumentFrontUrl = idDocumentFrontUrl;
+      if (idDocumentBackUrl !== undefined) profile.idDocumentBackUrl = idDocumentBackUrl;
       if (passportNumber !== undefined) profile.passportNumber = passportNumber;
       if (passportDocumentUrl !== undefined) profile.passportDocumentUrl = passportDocumentUrl;
+      if (passportDocumentFrontUrl !== undefined) profile.passportDocumentFrontUrl = passportDocumentFrontUrl;
+      if (passportDocumentBackUrl !== undefined) profile.passportDocumentBackUrl = passportDocumentBackUrl;
       if (contractUrl !== undefined) profile.contractUrl = contractUrl;
+      if (contractFrontUrl !== undefined) profile.contractFrontUrl = contractFrontUrl;
+      if (contractBackUrl !== undefined) profile.contractBackUrl = contractBackUrl;
       if (contractType !== undefined) profile.contractType = contractType;
       if (baseSalary !== undefined) profile.baseSalary = baseSalary;
       if (commissionType !== undefined) profile.commissionType = commissionType;
       if (commissionPercentage !== undefined) profile.commissionPercentage = commissionPercentage;
+      if (targetMultiplier !== undefined) profile.targetMultiplier = targetMultiplier;
+      // Compute target amount server-side for consistency if applicable
+      const isTargetType = profile.commissionType === 'target_based' || profile.commissionType === 'target_plus_expense';
+      if (isTargetType) {
+        const base = typeof profile.baseSalary === 'number' ? profile.baseSalary : parseFloat(profile.baseSalary || '0');
+        const mult = typeof profile.targetMultiplier === 'number' ? profile.targetMultiplier : parseFloat(profile.targetMultiplier || '1');
+        profile.targetAmount = base * mult;
+      } else if (targetAmount !== undefined) {
+        profile.targetAmount = targetAmount;
+      }
+      if (emergencyName !== undefined) profile.emergencyName = emergencyName;
       if (joiningDate !== undefined) profile.joiningDate = joiningDate;
       if (isActive !== undefined) profile.isActive = isActive;
+      if (employeeVisaFrontUrl !== undefined) profile.employeeVisaFrontUrl = employeeVisaFrontUrl;
+      if (employeeVisaBackUrl !== undefined) profile.employeeVisaBackUrl = employeeVisaBackUrl;
 
       await profile.save();
       updatedProfile = profile;

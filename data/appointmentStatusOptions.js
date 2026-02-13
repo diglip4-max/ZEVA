@@ -11,6 +11,7 @@ export const APPOINTMENT_STATUS_OPTIONS = [
   { value: "Waiting", label: "Waiting" },
   { value: "Rejected", label: "Rejected" },
   { value: "Completed", label: "Completed" },
+  { value: "invoice", label: "Invoiced" },
 ];
 
 

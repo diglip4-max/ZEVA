@@ -107,16 +107,38 @@
         window.location.pathname?.startsWith("/agent/") ?? false;
       setRouteContext(isAgentRoute ? "agent" : "clinic");
     }, [contextOverride]);
+    // Helper to get today's date in YYYY-MM-DD format
+    const getTodayDateString = () => {
+      const today = new Date();
+      return today.toISOString().split('T')[0];
+    };
+
     const [appointments, setAppointments] = useState<Appointment[]>([]);
     const [doctors, setDoctors] = useState<Doctor[]>([]);
     const [rooms, setRooms] = useState<Room[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string>("");
+    
+    // Applied filters (used for API calls)
     const [filters, setFilters] = useState<FilterState>({
       search: "",
       emrNumber: "",
-      fromDate: "",
-      toDate: "",
+      fromDate: getTodayDateString(),
+      toDate: getTodayDateString(),
+      doctorId: "",
+      roomId: "",
+      status: "",
+      followType: "",
+      referral: "",
+      emergency: "",
+    });
+    
+    // Pending filters (for the filter inputs before applying)
+    const [pendingFilters, setPendingFilters] = useState<FilterState>({
+      search: "",
+      emrNumber: "",
+      fromDate: getTodayDateString(),
+      toDate: getTodayDateString(),
       doctorId: "",
       roomId: "",
       status: "",
@@ -556,13 +578,26 @@
 
     // Close action menu when clicking outside - handled by backdrop div
 
+    // Handle filter input changes (updates pending filters only)
     const handleFilterChange = (key: keyof FilterState, value: string) => {
-      setFilters((prev) => ({ ...prev, [key]: value }));
-      setPage(1); // Reset to first page when filters change
+      setPendingFilters((prev) => ({ ...prev, [key]: value }));
+    };
+
+    // Apply filters - copies pending filters to applied filters and triggers API call
+    const applyFilters = () => {
+      setFilters(pendingFilters);
+      setPage(1); // Reset to first page when filters are applied
+    };
+
+    // Handle Enter key in search input
+    const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === "Enter") {
+        applyFilters();
+      }
     };
 
     const clearFilters = () => {
-      setFilters({
+      const emptyFilters = {
         search: "",
         emrNumber: "",
         fromDate: "",
@@ -573,7 +608,9 @@
         followType: "",
         referral: "",
         emergency: "",
-      });
+      };
+      setPendingFilters(emptyFilters);
+      setFilters(emptyFilters);
       setPage(1);
     };
 
@@ -716,15 +753,11 @@
                 <input
                   type="text"
                   placeholder="Search by patient name, mobile, visit ID..."
-                  value={filters.search}
+                  value={pendingFilters.search}
                   onChange={(e) => {
                     handleFilterChange("search", e.target.value);
                   }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      fetchAppointments();
-                    }
-                  }}
+                  onKeyDown={handleSearchKeyDown}
                         className="w-full pl-7 sm:pl-9 md:pl-10 pr-2 sm:pr-3 md:pr-4 py-1.5 sm:py-2 text-[11px] sm:text-xs md:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-900 focus:border-gray-900 outline-none text-teal-900"
                 />
                     </div>
@@ -744,7 +777,7 @@
                       </label>
                       <input
                         type="text"
-                        value={filters.emrNumber}
+                        value={pendingFilters.emrNumber}
                         onChange={(e) => handleFilterChange("emrNumber", e.target.value)}
                         placeholder="Enter EMR number"
                             className="w-full px-3 py-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-900 focus:border-gray-900 outline-none text-teal-900"
@@ -758,7 +791,7 @@
                       </label>
                       <input
                         type="date"
-                        value={filters.fromDate}
+                        value={pendingFilters.fromDate}
                         onChange={(e) => handleFilterChange("fromDate", e.target.value)}
                             className="w-full px-3 py-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-900 focus:border-gray-900 outline-none text-teal-900"
                       />
@@ -771,7 +804,7 @@
                       </label>
                       <input
                         type="date"
-                        value={filters.toDate}
+                        value={pendingFilters.toDate}
                         onChange={(e) => handleFilterChange("toDate", e.target.value)}
                             className="w-full px-3 py-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-900 focus:border-gray-900 outline-none text-teal-900"
                       />
@@ -783,7 +816,7 @@
                         Doctor
                       </label>
                       <select
-                        value={filters.doctorId}
+                        value={pendingFilters.doctorId}
                         onChange={(e) => handleFilterChange("doctorId", e.target.value)}
                             className="w-full px-3 py-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-900 focus:border-gray-900 outline-none text-teal-900"
                       >
@@ -802,7 +835,7 @@
                         Room
                       </label>
                       <select
-                        value={filters.roomId}
+                        value={pendingFilters.roomId}
                         onChange={(e) => handleFilterChange("roomId", e.target.value)}
                             className="w-full px-3 py-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-900 focus:border-gray-900 outline-none text-teal-900"
                       >
@@ -821,7 +854,7 @@
                         Status
                       </label>
                       <select
-                        value={filters.status}
+                        value={pendingFilters.status}
                         onChange={(e) => handleFilterChange("status", e.target.value)}
                             className="w-full px-3 py-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-900 focus:border-gray-900 outline-none text-teal-900"
                       >
@@ -840,7 +873,7 @@
                         Follow Type
                       </label>
                       <select
-                        value={filters.followType}
+                        value={pendingFilters.followType}
                         onChange={(e) => handleFilterChange("followType", e.target.value)}
                             className="w-full px-3 py-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-900 focus:border-gray-900 outline-none text-teal-900"
                       >
@@ -857,7 +890,7 @@
                         Source
                       </label>
                       <select
-                        value={filters.referral}
+                        value={pendingFilters.referral}
                         onChange={(e) => handleFilterChange("referral", e.target.value)}
                             className="w-full px-3 py-2 text-xs sm:text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-teal-900 focus:border-gray-900 outline-none text-teal-900"
                       >
@@ -868,13 +901,19 @@
                     </div>
                   </div>
 
-                  {/* Clear Filters Button */}
-                  <div className="mt-3 sm:mt-4 flex justify-end">
+                  {/* Apply and Clear Filters Buttons */}
+                  <div className="mt-3 sm:mt-4 flex justify-end gap-2">
                     <button
                       onClick={clearFilters}
                           className="px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 text-[10px] sm:text-xs md:text-sm text-teal-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition font-medium"
                     >
                       Clear All Filters
+                    </button>
+                    <button
+                      onClick={applyFilters}
+                      className="px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 text-[10px] sm:text-xs md:text-sm text-white bg-teal-600 border border-teal-600 rounded-lg hover:bg-teal-700 transition font-medium"
+                    >
+                      Apply Filters
                     </button>
                   </div>
                 </div>

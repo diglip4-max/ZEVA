@@ -17,11 +17,17 @@ const AgentProfileSchema = new mongoose.Schema(
     idType: { type: String, enum: ["aadhaar", "pan", "passport"] },
     idNumber: String,
     idDocumentUrl: String,
+    idDocumentFrontUrl: String,
+    idDocumentBackUrl: String,
 
     passportNumber: String,
     passportDocumentUrl: String,
+    passportDocumentFrontUrl: String,
+    passportDocumentBackUrl: String,
 
     contractUrl: String,
+    contractFrontUrl: String,
+    contractBackUrl: String,
     contractType: { type: String, enum: ["full", "part"] },
 
     baseSalary: { type: Number, default: 0 },
@@ -40,8 +46,15 @@ const AgentProfileSchema = new mongoose.Schema(
     
     commissionPercentage: { type: Number, default: 0 },
 
+    targetMultiplier: { type: Number, default: 1 },
+    targetAmount: { type: Number, default: 0 },
+
+    emergencyName: String,
     joiningDate: Date,
     isActive: { type: Boolean, default: true },
+
+    employeeVisaFrontUrl: String,
+    employeeVisaBackUrl: String,
   },
   { timestamps: true }
 );

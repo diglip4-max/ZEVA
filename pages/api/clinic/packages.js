@@ -130,6 +130,18 @@ export default async function handler(req, res) {
         if (!treatment.sessions || treatment.sessions < 1) {
           return res.status(400).json({ success: false, message: "Valid sessions (minimum 1) is required for all treatments" });
         }
+        if (treatment.allocatedPrice === undefined || treatment.allocatedPrice === null || isNaN(treatment.allocatedPrice) || treatment.allocatedPrice < 0) {
+          return res.status(400).json({ success: false, message: "Valid allocated price is required for all treatments" });
+        }
+      }
+
+      // Validate total allocated price equals total package price
+      const calculatedTotalAllocated = treatments.reduce((sum, t) => sum + (parseFloat(t.allocatedPrice) || 0), 0);
+      if (Math.abs(calculatedTotalAllocated - totalPrice) > 0.01) {
+        return res.status(400).json({ 
+          success: false, 
+          message: `Total allocated treatment prices (${calculatedTotalAllocated.toFixed(2)}) must equal the package price (${totalPrice.toFixed(2)})` 
+        });
       }
 
       // Check if package with same name already exists for this clinic
@@ -145,13 +157,26 @@ export default async function handler(req, res) {
         });
       }
 
-      const normalizedTreatments = treatments.map((t) => ({
-        treatmentName: t.treatmentName.trim(),
-        treatmentSlug: t.treatmentSlug || "",
-        sessions: parseInt(t.sessions) || 1,
-      }));
+      const normalizedTreatments = treatments.map((t) => {
+        const allocatedPrice = parseFloat(t.allocatedPrice) || 0;
+        const sessions = parseInt(t.sessions) || 1;
+        const sessionPrice = sessions > 0 ? Number((allocatedPrice / sessions).toFixed(2)) : 0;
+        return {
+          treatmentName: t.treatmentName.trim(),
+          treatmentSlug: t.treatmentSlug || "",
+          allocatedPrice,
+          sessions,
+          sessionPrice,
+        };
+      });
+      
+      // Recalculate total sessions from normalized treatments
       const totalSessions = normalizedTreatments.reduce((sum, t) => sum + (t.sessions || 1), 0);
+      
+      // Calculate overall session price (for backward compatibility)
       const sessionPrice = totalSessions > 0 ? Number((totalPrice / totalSessions).toFixed(2)) : Number(totalPrice.toFixed(2));
+      
+      // Create the package
       const newPackage = await Package.create({
         clinicId,
         name: name.trim(),
@@ -168,10 +193,10 @@ export default async function handler(req, res) {
         package: {
           _id: newPackage._id.toString(),
           name: newPackage.name,
-          price: newPackage.sessionPrice,
+          price: newPackage.totalSessions > 0 ? Number((newPackage.totalPrice / newPackage.totalSessions).toFixed(2)) : newPackage.totalPrice,
           totalPrice: newPackage.totalPrice,
           totalSessions: newPackage.totalSessions,
-          sessionPrice: newPackage.sessionPrice,
+          sessionPrice: newPackage.totalSessions > 0 ? Number((newPackage.totalPrice / newPackage.totalSessions).toFixed(2)) : newPackage.totalPrice,
           treatments: newPackage.treatments || [],
           createdAt: newPackage.createdAt,
           updatedAt: newPackage.updatedAt,
@@ -216,7 +241,7 @@ export default async function handler(req, res) {
         });
       }
 
-      const { packageId, name } = req.body;
+      const { packageId, name, totalPrice, treatments } = req.body;
 
       if (!packageId || !name || !name.trim()) {
         return res.status(400).json({
@@ -224,8 +249,6 @@ export default async function handler(req, res) {
           message: "Package ID and name are required",
         });
       }
-
-      // Editing is restricted to name only. Ignore totalPrice/treatments changes from client.
 
       const pkg = await Package.findOne({ _id: packageId, clinicId });
       if (!pkg) {
@@ -246,6 +269,53 @@ export default async function handler(req, res) {
         });
       }
 
+      // If treatments are provided, validate and update them
+      if (treatments && Array.isArray(treatments) && treatments.length > 0) {
+        // Validate treatments
+        for (const treatment of treatments) {
+          if (!treatment.treatmentName || !treatment.treatmentName.trim()) {
+            return res.status(400).json({ success: false, message: "Treatment name is required for all treatments" });
+          }
+          if (!treatment.sessions || treatment.sessions < 1) {
+            return res.status(400).json({ success: false, message: "Valid sessions (minimum 1) is required for all treatments" });
+          }
+          if (treatment.allocatedPrice === undefined || treatment.allocatedPrice === null || isNaN(treatment.allocatedPrice) || treatment.allocatedPrice < 0) {
+            return res.status(400).json({ success: false, message: "Valid allocated price is required for all treatments" });
+          }
+        }
+
+        // Validate total allocated price equals total package price
+        const calculatedTotalAllocated = treatments.reduce((sum, t) => sum + (parseFloat(t.allocatedPrice) || 0), 0);
+        const newTotalPrice = totalPrice !== undefined ? parseFloat(totalPrice) : pkg.totalPrice;
+        if (Math.abs(calculatedTotalAllocated - newTotalPrice) > 0.01) {
+          return res.status(400).json({ 
+            success: false, 
+            message: `Total allocated treatment prices (${calculatedTotalAllocated.toFixed(2)}) must equal the package price (${newTotalPrice.toFixed(2)})` 
+          });
+        }
+
+        // Normalize treatments
+        const normalizedTreatments = treatments.map((t) => {
+          const allocatedPrice = parseFloat(t.allocatedPrice) || 0;
+          const sessions = parseInt(t.sessions) || 1;
+          const sessionPrice = sessions > 0 ? Number((allocatedPrice / sessions).toFixed(2)) : 0;
+          return {
+            treatmentName: t.treatmentName.trim(),
+            treatmentSlug: t.treatmentSlug || "",
+            allocatedPrice,
+            sessions,
+            sessionPrice,
+          };
+        });
+
+        pkg.treatments = normalizedTreatments;
+        pkg.totalSessions = normalizedTreatments.reduce((sum, t) => sum + (t.sessions || 1), 0);
+        
+        if (totalPrice !== undefined) {
+          pkg.totalPrice = parseFloat(totalPrice);
+        }
+      }
+
       pkg.name = normalizedName;
       await pkg.save();
 
@@ -255,10 +325,10 @@ export default async function handler(req, res) {
         package: {
           _id: pkg._id.toString(),
           name: pkg.name,
-          price: pkg.sessionPrice,
+          price: pkg.totalSessions > 0 ? Number((pkg.totalPrice / pkg.totalSessions).toFixed(2)) : pkg.totalPrice,
           totalPrice: pkg.totalPrice,
           totalSessions: pkg.totalSessions,
-          sessionPrice: pkg.sessionPrice,
+          sessionPrice: pkg.totalSessions > 0 ? Number((pkg.totalPrice / pkg.totalSessions).toFixed(2)) : pkg.totalPrice,
           treatments: pkg.treatments || [],
           createdAt: pkg.createdAt,
           updatedAt: pkg.updatedAt,

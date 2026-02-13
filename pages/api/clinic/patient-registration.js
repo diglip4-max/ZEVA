@@ -246,6 +246,8 @@ export default async function handler(req, res) {
         membershipId,
         package: pkgToggle,
         packageId,
+        memberships: membershipsArray,
+        packages: packagesArray,
       } = req.body;
 
       const computedInvoicedBy =
@@ -303,6 +305,27 @@ export default async function handler(req, res) {
         membershipId: membership === "Yes" && membershipId ? membershipId : null,
         package: pkgToggle || "No",
         packageId: pkgToggle === "Yes" && packageId ? packageId : null,
+        memberships: Array.isArray(membershipsArray)
+          ? membershipsArray.map((m) => ({
+              membershipId: m.membershipId,
+              startDate: m.startDate ? new Date(m.startDate) : undefined,
+              endDate: m.endDate ? new Date(m.endDate) : undefined,
+            }))
+          : (membership === "Yes" && membershipId
+              ? [{
+                  membershipId,
+                  startDate: membershipStartDate ? new Date(membershipStartDate) : undefined,
+                  endDate: membershipEndDate ? new Date(membershipEndDate) : undefined,
+                }]
+              : []),
+        packages: Array.isArray(packagesArray)
+          ? packagesArray.map((p) => ({
+              packageId: p.packageId,
+              assignedDate: p.assignedDate ? new Date(p.assignedDate) : undefined,
+            }))
+          : (pkgToggle === "Yes" && packageId
+              ? [{ packageId, assignedDate: new Date() }]
+              : []),
       });
 
       return res.status(201).json({

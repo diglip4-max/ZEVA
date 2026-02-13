@@ -72,6 +72,13 @@ const billingSchema = new mongoose.Schema(
       default: 0,
       min: 0,
     },
+    // Package-specific: Track which treatments and their sessions
+    selectedPackageTreatments: [{
+      treatmentName: { type: String, trim: true },
+      treatmentSlug: { type: String, trim: true },
+      sessions: { type: Number, min: 0, default: 0 },
+      _id: false
+    }],
     // Payment details
     amount: {
       type: Number,

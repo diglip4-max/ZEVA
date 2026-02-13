@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { toast, Toaster } from "react-hot-toast";
 import axios from "axios";
 import { Building2, Edit3, X, Plus, Camera, ChevronLeft, ChevronRight, Clock, MapPin, DollarSign, Users, Star, Heart, Activity, Eye, Check } from "lucide-react";
@@ -8,7 +8,7 @@ import type { NextPageWithLayout } from "../_app";
 import Loader from "@/components/Loader";
 import { getUserRole } from "@/lib/helper";
 import { getAuthHeaders } from "@/lib/helper";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Cell } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from "recharts";
 
 // Types
 interface Clinic {
@@ -27,7 +27,7 @@ interface Clinic {
       price?: number;
     }>;
   }>;
-  photos: string[];
+  photos: (string | File)[];
   createdAt: string;
   slug: string;
   averageRating?: number;
@@ -79,7 +79,6 @@ function ClinicManagementDashboard() {
   const [isEditing, setIsEditing] = useState(false);
   const [editingClinicId, setEditingClinicId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<Partial<Clinic>>({});
-  const [newService, setNewService] = useState("");
   const [newTreatment, setNewTreatment] = useState("");
   const [newSubTreatment, setNewSubTreatment] = useState("");
   const [newSubTreatmentPrice, setNewSubTreatmentPrice] = useState("");
@@ -88,16 +87,15 @@ function ClinicManagementDashboard() {
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState<number>(0);
   const [updating, setUpdating] = useState(false);
   const [availableTreatments, setAvailableTreatments] = useState<Treatment[]>([]);
-  const [showCustomTreatmentInput, setShowCustomTreatmentInput] = useState(false);
   const [selectedAvailableTreatmentId, setSelectedAvailableTreatmentId] = useState<string>("");
-  const [geocodingStatus, setGeocodingStatus] = useState<string>("");
-  const addressDebounceTimer = useRef<NodeJS.Timeout | null>(null);
-  const [permissions, setPermissions] = useState({
+  const [customSubTreatmentPrices, setCustomSubTreatmentPrices] = useState<Record<string, number>>({});
+  const [showSubTreatmentDropdown, setShowSubTreatmentDropdown] = useState<number | null>(null);
+  const [permissions] = useState({
     canRead: true,
     canUpdate: true,
     canDelete: true,
   });
-  const [permissionsLoaded, setPermissionsLoaded] = useState(false);
+  const [permissionsLoaded] = useState(false);
   const [dashboardStats, setDashboardStats] = useState<any>(null);
   const [statsLoading, setStatsLoading] = useState(false);
   const [reviewsData, setReviewsData] = useState<any>(null);
@@ -284,7 +282,7 @@ function ClinicManagementDashboard() {
   }, [clinics]);
 
   // Handle input changes
-  const handleInputChange = (field: string, value: string | string[] | File[]) => {
+  const handleInputChange = (field: string, value: string | string[] | File[] | (string | File)[]) => {
     setEditForm((prev) => ({ ...prev, [field]: value }));
   };
 
@@ -530,21 +528,7 @@ function ClinicManagementDashboard() {
     }
   };
 
-  const handleAddService = () => {
-    if (!newService.trim()) return;
-    setEditForm(prev => ({
-      ...prev,
-      servicesName: [...(prev.servicesName || []), newService.trim()]
-    }));
-    setNewService("");
-  };
-
-  const handleRemoveService = (index: number) => {
-    setEditForm(prev => ({
-      ...prev,
-      servicesName: (prev.servicesName || []).filter((_, i) => i !== index)
-    }));
-  };
+ 
 
   const handleAddTreatment = () => {
     if (!newTreatment.trim()) return;
@@ -963,13 +947,50 @@ function ClinicManagementDashboard() {
                                   (st: any) => st.name === sc.name
                                 );
                               
+                              // Generate a unique key for this sub-treatment
+                              const subTreatmentKey = `${selectedAvailableTreatmentId}-${sc.name}`;
+                              
                               return (
                                 <div key={i} className="flex items-center justify-between gap-2 py-1.5">
-                                  <div className="text-xs text-teal-800">
-                                    {sc.name} {typeof sc.price === "number" && sc.price > 0 ? <span className="font-semibold text-teal-900">د.إ{sc.price}</span> : null}
+                                  <div className="flex-1 flex items-center gap-2">
+                                    <div className="text-xs text-teal-800 flex-1">
+                                      {sc.name} {typeof sc.price === "number" && sc.price > 0 ? <span className="font-semibold text-teal-900">د.إ{sc.price}</span> : null}
+                                    </div>
+                                    <input
+                                      type="number"
+                                      placeholder="Price"
+                                      className="w-20 px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-teal-500"
+                                      defaultValue={typeof sc.price === "number" && sc.price > 0 ? sc.price : ""}
+                                      disabled={!!isAdded}
+                                      onChange={(e) => {
+                                        const value = e.target.value ? parseFloat(e.target.value) : 0;
+                                        setCustomSubTreatmentPrices(prev => ({
+                                          ...prev,
+                                          [subTreatmentKey]: value
+                                        }));
+                                      }}
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter' && !isAdded) {
+                                          e.preventDefault();
+                                          const value = e.currentTarget.value ? parseFloat(e.currentTarget.value) : 0;
+                                          const subTreatmentWithPrice = {
+                                            ...sc,
+                                            price: value > 0 ? value : undefined
+                                          };
+                                          addSubTreatmentFromAvailable(subTreatmentWithPrice, selectedTreatmentIndex);
+                                        }
+                                      }}
+                                    />
                                   </div>
                                   <button
-                                    onClick={() => !isAdded && addSubTreatmentFromAvailable(sc, selectedTreatmentIndex)}
+                                    onClick={() => {
+                                      const customPrice = customSubTreatmentPrices[subTreatmentKey];
+                                      const subTreatmentWithPrice = {
+                                        ...sc,
+                                        price: customPrice && customPrice > 0 ? customPrice : (typeof sc.price === "number" && sc.price > 0 ? sc.price : undefined)
+                                      };
+                                      addSubTreatmentFromAvailable(subTreatmentWithPrice, selectedTreatmentIndex);
+                                    }}
                                     disabled={!!isAdded}
                                     className={`px-2 py-1 text-white text-[11px] rounded transition-colors ${
                                       isAdded 
@@ -1051,23 +1072,121 @@ function ClinicManagementDashboard() {
                                 Add Sub-Treatment
                               </div>
                               <div className="flex flex-col sm:flex-row gap-2">
-                                <input
-                                  type="text"
-                                  value={selectedTreatmentIndex === index ? newSubTreatment : ""}
-                                  onChange={(e) => {
-                                    setSelectedTreatmentIndex(index);
-                                    setNewSubTreatment(e.target.value);
-                                  }}
-                                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 placeholder-teal-400 text-teal-700 bg-white text-sm"
-                                  placeholder="Sub-treatment name"
-                                  onKeyPress={(e) => {
-                                    if (e.key === "Enter") {
+                                {/* Dropdown to select from existing sub-treatments */}
+                                <div className="relative flex-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => setShowSubTreatmentDropdown(showSubTreatmentDropdown === index ? null : index)}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-left text-sm text-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                                  >
+                                    Select from existing...
+                                  </button>
+                                  
+                                  {showSubTreatmentDropdown === index && (
+                                    <div className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                                      {(() => {
+                                        // Find the main treatment in availableTreatments to get its subcategories
+                                        const mainTreatmentName = treatment.mainTreatment;
+                                        const mainTreatment = availableTreatments.find(t => t.name === mainTreatmentName);
+                                        
+                                        if (!mainTreatment || !mainTreatment.subcategories || mainTreatment.subcategories.length === 0) {
+                                          return (
+                                            <div className="px-3 py-2 text-xs text-gray-500">
+                                              No sub-treatments available
+                                            </div>
+                                          );
+                                        }
+                                        
+                                        return mainTreatment.subcategories.map((sc, scIndex) => {
+                                          const isAdded = treatment.subTreatments?.some(
+                                            (st: any) => st.name.toLowerCase() === sc.name.toLowerCase()
+                                          );
+                                          
+                                          const subTreatmentKey = `${mainTreatment._id}-${sc.name}`;
+                                          
+                                          return (
+                                            <div 
+                                              key={scIndex} 
+                                              className="flex items-center justify-between gap-2 px-3 py-2 border-b border-gray-100 last:border-b-0 hover:bg-gray-50"
+                                            >
+                                              <div className="flex-1 flex items-center gap-2">
+                                                <div className="text-sm text-teal-800 flex-1">
+                                                  {sc.name} {typeof sc.price === "number" && sc.price > 0 ? <span className="font-semibold text-teal-900">د.إ{sc.price}</span> : null}
+                                                </div>
+                                                <input
+                                                  type="number"
+                                                  placeholder="Price"
+                                                  className="w-20 px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-teal-500"
+                                                  defaultValue={
+                                                    isAdded 
+                                                      ? treatment.subTreatments?.find((st: any) => st.name.toLowerCase() === sc.name.toLowerCase())?.price || ""
+                                                      : (typeof sc.price === "number" && sc.price > 0 ? sc.price : "")
+                                                  }
+                                                  disabled={!!isAdded}
+                                                  onChange={(e) => {
+                                                    const value = e.target.value ? parseFloat(e.target.value) : 0;
+                                                    setCustomSubTreatmentPrices(prev => ({
+                                                      ...prev,
+                                                      [subTreatmentKey]: value
+                                                    }));
+                                                  }}
+                                                  onKeyDown={(e) => {
+                                                    if (e.key === 'Enter' && !isAdded) {
+                                                      e.preventDefault();
+                                                      const value = e.currentTarget.value ? parseFloat(e.currentTarget.value) : 0;
+                                                      const subTreatmentWithPrice = {
+                                                        ...sc,
+                                                        price: value > 0 ? value : undefined
+                                                      };
+                                                      addSubTreatmentFromAvailable(subTreatmentWithPrice, index);
+                                                    }
+                                                  }}
+                                                />
+                                              </div>
+                                              <button
+                                                onClick={() => {
+                                                  const customPrice = customSubTreatmentPrices[subTreatmentKey];
+                                                  const subTreatmentWithPrice = {
+                                                    ...sc,
+                                                    price: customPrice && customPrice > 0 ? customPrice : (typeof sc.price === "number" && sc.price > 0 ? sc.price : undefined)
+                                                  };
+                                                  addSubTreatmentFromAvailable(subTreatmentWithPrice, index);
+                                                }}
+                                                disabled={!!isAdded}
+                                                className={`px-2 py-1 text-white text-[11px] rounded transition-colors ${
+                                                  isAdded 
+                                                    ? "bg-teal-600 cursor-default" 
+                                                    : "bg-gray-900 hover:bg-gray-800"
+                                                }`}
+                                              >
+                                                {isAdded ? "Added" : "Add"}
+                                              </button>
+                                            </div>
+                                          );
+                                        });
+                                      })()}
+                                    </div>
+                                  )}
+                                </div>
+                                
+                                {/* Or add custom sub-treatment */}
+                                <div className="flex gap-2 flex-1">
+                                  <input
+                                    type="text"
+                                    value={selectedTreatmentIndex === index ? newSubTreatment : ""}
+                                    onChange={(e) => {
                                       setSelectedTreatmentIndex(index);
-                                      handleAddSubTreatment();
-                                    }
-                                  }}
-                                />
-                                <div className="flex gap-2">
+                                      setNewSubTreatment(e.target.value);
+                                    }}
+                                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 placeholder-teal-400 text-teal-700 bg-white text-sm"
+                                    placeholder="Or add custom..."
+                                    onKeyPress={(e) => {
+                                      if (e.key === "Enter") {
+                                        setSelectedTreatmentIndex(index);
+                                        handleAddSubTreatment();
+                                      }
+                                    }}
+                                  />
                                   <input
                                     type="number"
                                     value={selectedTreatmentIndex === index ? newSubTreatmentPrice : ""}
