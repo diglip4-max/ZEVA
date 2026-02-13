@@ -88,6 +88,8 @@ const AddPurchaseOrderModal: React.FC<AddPurchaseOrderModalProps> = ({
 
   // Current item being added
   const [currentItem, setCurrentItem] = useState<PurchaseRecordItem>({
+    itemId: "",
+    code: "",
     name: "",
     description: "",
     quantity: 1,
@@ -203,6 +205,16 @@ const AddPurchaseOrderModal: React.FC<AddPurchaseOrderModalProps> = ({
     if (field === "discount" && currentItem?.discountType === "Percentage") {
       discountAmount =
         (currentItem.quantity * currentItem.unitPrice * (value || 0)) / 100;
+    }
+    if (field === "itemId") {
+      const item = stockItems.find((i) => i._id === value);
+      if (item) {
+        setCurrentItem((prev) => ({
+          ...prev,
+          code: item.code,
+          name: item.name,
+        }));
+      }
     }
     setCurrentItem((prev) => ({
       ...prev,
@@ -941,9 +953,9 @@ const AddPurchaseOrderModal: React.FC<AddPurchaseOrderModalProps> = ({
                       Item Name <span className="text-red-500">*</span>
                     </label>
                     <select
-                      value={currentItem.name}
+                      value={currentItem.itemId || ""}
                       onChange={(e) =>
-                        handleCurrentItemChange("name", e.target.value)
+                        handleCurrentItemChange("itemId", e.target.value)
                       }
                       className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed h-10"
                       disabled={loading}
@@ -951,7 +963,7 @@ const AddPurchaseOrderModal: React.FC<AddPurchaseOrderModalProps> = ({
                     >
                       <option value="">Select a Item</option>
                       {stockItems.map((item) => (
-                        <option key={item?._id} value={item?.name}>
+                        <option key={item?._id} value={item?._id}>
                           {item?.name}
                         </option>
                       ))}

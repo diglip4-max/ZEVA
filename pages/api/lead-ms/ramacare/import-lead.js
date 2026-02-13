@@ -88,7 +88,11 @@ export default async function handler(req, res) {
         "create_lead", // Check "create_lead" module permission
         "create",
         null, // No submodule - this is a module-level check
-        me.role === "doctor" ? "doctor" : me.role === "clinic" ? "clinic" : null
+        me.role === "doctor"
+          ? "doctor"
+          : me.role === "clinic"
+            ? "clinic"
+            : null,
       );
 
     if (!clinicHasPermission) {
@@ -100,15 +104,14 @@ export default async function handler(req, res) {
 
     // If user is an agent, also check agent-specific permissions
     if (me.role === "agent") {
-      const { checkAgentPermission } = await import(
-        "../../agent/permissions-helper"
-      );
+      const { checkAgentPermission } =
+        await import("../../agent/permissions-helper");
       const { hasPermission: agentHasPermission, error: agentError } =
         await checkAgentPermission(
           me._id,
           "create_lead", // Check "create_lead" module permission
           "create",
-          null // No submodule
+          null, // No submodule
         );
 
       if (!agentHasPermission) {
@@ -127,9 +130,8 @@ export default async function handler(req, res) {
       email,
       gender = "Male",
       age,
-      source = "Other",
-      customSource = "Rama Care",
       segmentId,
+      additionalInfo,
     } = body;
 
     console.log({ body });
@@ -139,32 +141,29 @@ export default async function handler(req, res) {
         .json({ success: false, message: "Required fields missing" });
     }
 
-    if (
-      ![
-        "Instagram",
-        "Facebook",
-        "Google",
-        "WhatsApp",
-        "Walk-in",
-        "Other",
-      ]?.includes(source)
-    ) {
-      source = "Other";
-      customSource = body?.source || "Rama Care";
-    }
-
     // ✅ Create lead with correct clinicId
     const lead = await Lead.create({
       clinicId,
       name,
       phone,
       email,
-      source,
-      customSource,
+      source: "Website",
       segments: segmentId ? [segmentId] : [],
+      ...(additionalInfo
+        ? {
+            notes: [
+              {
+                text: additionalInfo,
+                addedBy: clinicId,
+              },
+            ],
+          }
+        : {}),
       ...(gender ? { gender } : {}),
       ...(age ? { age } : {}),
     });
+
+    console.log("Created lead:", lead);
 
     await Segment.findByIdAndUpdate(segmentId, {
       $addToSet: {
@@ -172,7 +171,7 @@ export default async function handler(req, res) {
       },
     });
 
-    return res.status(200).json({ success: false, message: "Success", lead });
+    return res.status(200).json({ success: true, message: "Success", lead });
   } catch (err) {
     console.error("Error in importing lead from ramacare:", err);
     return res.status(500).json({

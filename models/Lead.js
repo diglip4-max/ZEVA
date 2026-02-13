@@ -33,7 +33,15 @@ const LeadSchema = new mongoose.Schema(
 
     source: {
       type: String,
-      enum: ["Instagram", "Facebook", "Google", "WhatsApp", "Walk-in", "Other"],
+      enum: [
+        "Instagram",
+        "Facebook",
+        "Google",
+        "WhatsApp",
+        "Walk-in",
+        "Website",
+        "Other",
+      ],
       required: true,
       index: true,
     },
@@ -91,7 +99,7 @@ const LeadSchema = new mongoose.Schema(
       },
     ],
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 delete mongoose.models.Lead;

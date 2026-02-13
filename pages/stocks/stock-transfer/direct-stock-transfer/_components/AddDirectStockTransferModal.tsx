@@ -6,6 +6,7 @@ import useClinicBranches from "@/hooks/useClinicBranches";
 import { getTokenByPath } from "@/lib/helper";
 import { PlusCircle, X, Plus, Trash2 } from "lucide-react";
 import useUoms from "@/hooks/useUoms";
+import useStockItems from "@/hooks/useStockItems";
 
 interface Props {
   isOpen: boolean;
@@ -14,6 +15,8 @@ interface Props {
 }
 
 interface DirectStockTransferItem {
+  itemId?: string;
+  code?: string;
   name: string;
   description: string;
   quantity: number;
@@ -26,22 +29,10 @@ const AddDirectStockTransferModal: React.FC<Props> = ({
   onSuccess,
 }) => {
   const { clinicBranches } = useClinicBranches();
+  const { stockItems } = useStockItems();
   const token = getTokenByPath() || "";
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const defaultItemNames = [
-    "Paracetamol Tablets",
-    "Aspirin Capsules",
-    "Ibuprofen Syrup",
-    "Amoxicillin Injection",
-    "Omeprazole Capsules",
-    "Insulin Vials",
-    "Surgical Gloves",
-    "Bandages",
-    "Syringes",
-    "Gauze Pads",
-  ];
 
   const [formData, setFormData] = useState({
     fromBranch: "",
@@ -53,6 +44,8 @@ const AddDirectStockTransferModal: React.FC<Props> = ({
   const [items, setItems] = useState<DirectStockTransferItem[]>([]);
 
   const [currentItem, setCurrentItem] = useState<DirectStockTransferItem>({
+    code: "",
+    itemId: "",
     name: "",
     description: "",
     quantity: 1,
@@ -101,6 +94,16 @@ const AddDirectStockTransferModal: React.FC<Props> = ({
     field: keyof DirectStockTransferItem,
     value: any,
   ) => {
+    if (field === "itemId") {
+      const item = stockItems.find((i) => i._id === value);
+      if (item) {
+        setCurrentItem((prev) => ({
+          ...prev,
+          code: item.code,
+          name: item.name,
+        }));
+      }
+    }
     setCurrentItem((prev) => ({
       ...prev,
       [field]: value,
@@ -334,17 +337,17 @@ const AddDirectStockTransferModal: React.FC<Props> = ({
                       Item Name <span className="text-red-500">*</span>
                     </label>
                     <select
-                      value={currentItem.name}
+                      value={currentItem.itemId || ""}
                       onChange={(e) =>
-                        handleCurrentItemChange("name", e.target.value)
+                        handleCurrentItemChange("itemId", e.target.value)
                       }
                       className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition-all h-10"
                       required
                     >
                       <option value="">Select Item</option>
-                      {defaultItemNames.map((name) => (
-                        <option key={name} value={name}>
-                          {name}
+                      {stockItems.map((item) => (
+                        <option key={item._id} value={item._id}>
+                          {item.name}
                         </option>
                       ))}
                     </select>

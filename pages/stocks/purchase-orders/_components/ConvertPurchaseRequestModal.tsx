@@ -14,6 +14,7 @@ import { PurchaseRecordItem } from "@/types/stocks";
 import useClinicBranches from "@/hooks/useClinicBranches";
 import useSuppliers from "@/hooks/useSuppliers";
 import useUoms from "@/hooks/useUoms";
+import useStockItems from "@/hooks/useStockItems";
 
 interface IProps {
   token: string;
@@ -23,6 +24,8 @@ interface IProps {
 }
 
 interface PurchaseRequestItem {
+  itemId?: string;
+  code?: string;
   name: string;
   description?: string;
   quantity: number;
@@ -77,6 +80,7 @@ const ConvertPurchaseRequestModal: React.FC<IProps> = ({
   onClose,
   onSuccess,
 }) => {
+  const { stockItems } = useStockItems();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -153,15 +157,6 @@ const ConvertPurchaseRequestModal: React.FC<IProps> = ({
     search: "",
     branchId: formData.branch,
   });
-
-  // Define default item names
-  const defaultItemNames = [
-    "3834-106618-1001 PARACETAMOL KABI 10MG/ML",
-    "Aspirin",
-    "Ibuprofen",
-    "Amoxicillin",
-    "Omeprazole",
-  ];
 
   const { uoms, loading: uomsLoading } = useUoms({
     token: token,
@@ -324,6 +319,8 @@ const ConvertPurchaseRequestModal: React.FC<IProps> = ({
 
     // Convert purchase request items to purchase order items
     const convertedItems = pr.items.map((item) => ({
+      itemId: item?.itemId || "",
+      code: item?.code || "",
       name: item.name || "",
       description: item.description || "",
       quantity: item.quantity || 1,
@@ -384,9 +381,28 @@ const ConvertPurchaseRequestModal: React.FC<IProps> = ({
     field: keyof ExtendedPurchaseRecordItem,
     value: any,
   ) => {
+    let discountAmount = 0;
+    if (field === "discount" && currentItem?.discountType === "Fixed") {
+      discountAmount = value || 0;
+    }
+    if (field === "discount" && currentItem?.discountType === "Percentage") {
+      discountAmount =
+        (currentItem.quantity * currentItem.unitPrice * (value || 0)) / 100;
+    }
+    if (field === "itemId") {
+      const item = stockItems.find((i) => i._id === value);
+      if (item) {
+        setCurrentItem((prev) => ({
+          ...prev,
+          code: item.code,
+          name: item.name,
+        }));
+      }
+    }
     setCurrentItem((prev) => ({
       ...prev,
       [field]: value,
+      ...(field === "discount" && { discountAmount }),
     }));
   };
 
@@ -1137,17 +1153,17 @@ const ConvertPurchaseRequestModal: React.FC<IProps> = ({
                         Item Name <span className="text-red-500">*</span>
                       </label>
                       <select
-                        value={currentItem.name}
+                        value={currentItem.itemId || ""}
                         onChange={(e) =>
-                          handleCurrentItemChange("name", e.target.value)
+                          handleCurrentItemChange("itemId", e.target.value)
                         }
                         className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed h-10"
                         disabled={loading}
                       >
                         <option value="">Select a Item</option>
-                        {defaultItemNames.map((name) => (
-                          <option key={name} value={name}>
-                            {name}
+                        {stockItems.map((item) => (
+                          <option key={item?._id} value={item?._id}>
+                            {item?.name}
                           </option>
                         ))}
                       </select>

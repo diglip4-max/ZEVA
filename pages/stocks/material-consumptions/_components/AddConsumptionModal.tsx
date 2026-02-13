@@ -7,6 +7,7 @@ import useClinicDoctors from "@/hooks/useClinicDoctors";
 import { getTokenByPath } from "@/lib/helper";
 import { PlusCircle, X, Plus, Trash2 } from "lucide-react";
 import useUoms from "@/hooks/useUoms";
+import useStockItems from "@/hooks/useStockItems";
 
 interface Props {
   isOpen: boolean;
@@ -15,6 +16,8 @@ interface Props {
 }
 
 interface ConsumptionItem {
+  itemId?: string;
+  code?: string;
   name: string;
   description: string;
   quantity: number;
@@ -27,29 +30,12 @@ const AddConsumptionModal: React.FC<Props> = ({
   onSuccess,
 }) => {
   const { clinicBranches } = useClinicBranches();
+  const { stockItems } = useStockItems();
   const token = getTokenByPath() || "";
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [rooms, setRooms] = useState<any[]>([]);
   const [roomsLoading, setRoomsLoading] = useState(false);
-
-  const defaultItemNames = [
-    "Surgical Gloves",
-    "Bandages",
-    "Syringes",
-    "Gauze Pads",
-    "Antiseptic Solution",
-    "Cotton Swabs",
-    "Disposable Masks",
-    "Hand Sanitizer",
-    "Medical Tape",
-    "Alcohol Wipes",
-    "Paracetamol Tablets",
-    "Aspirin Capsules",
-    "Ibuprofen Syrup",
-    "Amoxicillin Injection",
-    "Omeprazole Capsules",
-  ];
 
   // Form state
   const [formData, setFormData] = useState({
@@ -74,6 +60,8 @@ const AddConsumptionModal: React.FC<Props> = ({
 
   // Current item being added
   const [currentItem, setCurrentItem] = useState<ConsumptionItem>({
+    code: "",
+    itemId: "",
     name: "",
     description: "",
     quantity: 1,
@@ -143,6 +131,16 @@ const AddConsumptionModal: React.FC<Props> = ({
     field: keyof ConsumptionItem,
     value: any,
   ) => {
+    if (field === "itemId") {
+      const item = stockItems.find((i) => i._id === value);
+      if (item) {
+        setCurrentItem((prev) => ({
+          ...prev,
+          code: item.code,
+          name: item.name,
+        }));
+      }
+    }
     setCurrentItem((prev) => ({
       ...prev,
       [field]: value,
@@ -168,6 +166,8 @@ const AddConsumptionModal: React.FC<Props> = ({
     setItems([...items, { ...currentItem }]);
     // Reset current item
     setCurrentItem({
+      itemId: "",
+      code: "",
       name: "",
       description: "",
       quantity: 1,
@@ -405,17 +405,17 @@ const AddConsumptionModal: React.FC<Props> = ({
                       Item Name <span className="text-red-500">*</span>
                     </label>
                     <select
-                      value={currentItem.name}
+                      value={currentItem.itemId || ""}
                       onChange={(e) =>
-                        handleCurrentItemChange("name", e.target.value)
+                        handleCurrentItemChange("itemId", e.target.value)
                       }
                       className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all h-10"
                       required
                     >
                       <option value="">Select an Item</option>
-                      {defaultItemNames.map((name) => (
-                        <option key={name} value={name}>
-                          {name}
+                      {stockItems.map((item) => (
+                        <option key={item._id} value={item._id}>
+                          {item.name}
                         </option>
                       ))}
                     </select>

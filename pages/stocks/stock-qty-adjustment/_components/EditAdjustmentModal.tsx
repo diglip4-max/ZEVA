@@ -1,113 +1,136 @@
 "use client";
-
 import React, { useState, useEffect } from "react";
+import { Pencil, X, Plus, Trash2, CirclePlus } from "lucide-react";
 import axios from "axios";
 import useClinicBranches from "@/hooks/useClinicBranches";
 import { getTokenByPath } from "@/lib/helper";
-import { X, Plus, Trash2 } from "lucide-react";
 import useUoms from "@/hooks/useUoms";
-import useClinicDoctors from "@/hooks/useClinicDoctors";
 import useStockItems from "@/hooks/useStockItems";
+import AddStockItemModal from "@/components/shared/AddStockItemModal";
 
 interface Props {
   isOpen: boolean;
   onClose: () => void;
+  onSuccess: () => void;
   record: any | null;
-  onSuccess: (data: any) => void;
 }
 
-interface ConsumptionItem {
-  code?: string;
+interface AdjustmentItem {
   itemId?: string;
+  code?: string;
   name: string;
-  description: string;
+  description?: string;
   quantity: number;
-  uom: string;
+  uom?: string;
+  expiryDate?: string;
+  costPrice: number;
+  totalPrice: number;
 }
 
-const EditConsumptionModal: React.FC<Props> = ({
+const EditAdjustmentModal: React.FC<Props> = ({
   isOpen,
   onClose,
-  record,
   onSuccess,
+  record,
 }) => {
-  const { clinicBranches } = useClinicBranches();
   const { stockItems } = useStockItems();
+  const { clinicBranches } = useClinicBranches();
   const token = getTokenByPath() || "";
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [rooms, setRooms] = useState<any[]>([]);
-  const [roomsLoading, setRoomsLoading] = useState(false);
+  const [isOpenAddStockItemModal, setIsOpenAddStockItemModal] = useState(false);
 
+  // Form state
   const [formData, setFormData] = useState({
     branch: "",
-    doctor: "",
-    room: "",
-    date: "",
+    postAc: "",
+    date: new Date().toISOString().split("T")[0],
     notes: "",
-    status: "New",
+    status: "",
   });
-
-  const { doctors, loading: doctorsLoading } = useClinicDoctors(
-    formData?.branch,
-  );
 
   const { uoms, loading: uomsLoading } = useUoms({
     token,
-    branchId: formData.branch,
+    branchId: formData.branch || "",
   });
 
-  const [items, setItems] = useState<ConsumptionItem[]>([]);
-  const [currentItem, setCurrentItem] = useState<ConsumptionItem>({
-    itemId: "",
+  const [items, setItems] = useState<AdjustmentItem[]>([]);
+
+  // Current item being added
+  const [currentItem, setCurrentItem] = useState<AdjustmentItem>({
     code: "",
     name: "",
     description: "",
     quantity: 1,
     uom: "",
+    expiryDate: "",
+    costPrice: 0,
+    totalPrice: 0,
   });
 
+  // Calculate total price when quantity or cost price changes
+  useEffect(() => {
+    const total = currentItem.quantity * currentItem.costPrice;
+    setCurrentItem((prev) => ({
+      ...prev,
+      totalPrice: parseFloat(total.toFixed(2)),
+    }));
+  }, [currentItem.quantity, currentItem.costPrice]);
+
+  // Load record data when modal opens
   useEffect(() => {
     if (isOpen && record) {
       setFormData({
         branch: record.branch?._id || record.branch || "",
-        doctor: record.doctor?._id || record.doctor || "",
-        room: record.room?._id || record.room || "",
+        postAc: record.postAc || "",
         date: record.date
           ? new Date(record.date).toISOString().split("T")[0]
           : new Date().toISOString().split("T")[0],
         notes: record.notes || "",
         status: record.status || "New",
       });
-      setItems(record.items || []);
+      setItems(
+        (record.items || []).map((i: any) => ({
+          code: i.code || "",
+          name: i.name || "",
+          description: i.description || "",
+          quantity: i.quantity || 1,
+          uom: i.uom || "",
+          expiryDate: i.expiryDate
+            ? new Date(i.expiryDate).toISOString().split("T")[0]
+            : "",
+          costPrice: typeof i.costPrice === "number" ? i.costPrice : 0,
+          totalPrice: typeof i.totalPrice === "number" ? i.totalPrice : 0,
+        })),
+      );
       setError(null);
     }
   }, [isOpen, record]);
 
-  // Fetch doctors, rooms, and UOMs when branch is selected
+  // Reset form when modal closes
   useEffect(() => {
-    if (formData.branch) {
-      fetchRooms();
-    } else {
-      setRooms([]);
+    if (!isOpen) {
+      setFormData({
+        branch: "",
+        postAc: "",
+        date: new Date().toISOString().split("T")[0],
+        notes: "",
+        status: "",
+      });
+      setItems([]);
+      setCurrentItem({
+        code: "",
+        name: "",
+        description: "",
+        quantity: 1,
+        uom: "",
+        expiryDate: "",
+        costPrice: 0,
+        totalPrice: 0,
+      });
+      setError(null);
     }
-  }, [formData.branch]);
-
-  const fetchRooms = async () => {
-    try {
-      setRoomsLoading(true);
-      const res = await axios.get(
-        `/api/clinic/rooms?branchId=${formData.branch}`,
-        { headers: { Authorization: `Bearer ${token}` } },
-      );
-      setRooms(res.data?.rooms || []);
-    } catch (err) {
-      console.error("Error fetching rooms:", err);
-      setRooms([]);
-    } finally {
-      setRoomsLoading(false);
-    }
-  };
+  }, [isOpen]);
 
   if (!isOpen || !record) return null;
 
@@ -123,10 +146,11 @@ const EditConsumptionModal: React.FC<Props> = ({
     }));
   };
 
-  const handleCurrentItemChange = (
-    field: keyof ConsumptionItem,
-    value: any,
-  ) => {
+  const handleCurrentItemChange = (field: keyof AdjustmentItem, value: any) => {
+    const parsedValue =
+      field === "quantity" || field === "costPrice" || field === "totalPrice"
+        ? parseFloat(value) || 0
+        : value;
     if (field === "itemId") {
       const item = stockItems.find((i) => i._id === value);
       if (item) {
@@ -139,7 +163,7 @@ const EditConsumptionModal: React.FC<Props> = ({
     }
     setCurrentItem((prev) => ({
       ...prev,
-      [field]: value,
+      [field]: parsedValue,
     }));
   };
 
@@ -148,24 +172,26 @@ const EditConsumptionModal: React.FC<Props> = ({
       setError("Please select an item");
       return;
     }
-
     if (!currentItem.quantity || currentItem.quantity <= 0) {
       setError("Please enter a valid quantity");
       return;
     }
-
-    if (!currentItem.uom?.trim()) {
-      setError("Please select a UOM");
+    if (currentItem.costPrice < 0 || currentItem.totalPrice < 0) {
+      setError("Please enter valid prices");
       return;
     }
 
     setItems([...items, { ...currentItem }]);
     // Reset current item
     setCurrentItem({
+      code: "",
       name: "",
       description: "",
       quantity: 1,
       uom: "",
+      expiryDate: "",
+      costPrice: 0,
+      totalPrice: 0,
     });
     setError(null);
   };
@@ -184,16 +210,14 @@ const EditConsumptionModal: React.FC<Props> = ({
     e.preventDefault();
     setError(null);
 
-    if (
-      !formData.branch ||
-      !formData.doctor ||
-      !formData.room ||
-      !formData.date
-    ) {
-      setError("Branch, doctor, room, and date are required");
+    if (!formData.branch.trim()) {
+      setError("Branch is required");
       return;
     }
-
+    if (!formData.date.trim()) {
+      setError("Date is required");
+      return;
+    }
     if (items.length === 0) {
       setError("At least one item is required");
       return;
@@ -201,26 +225,24 @@ const EditConsumptionModal: React.FC<Props> = ({
 
     try {
       setLoading(true);
-      const payload = {
-        ...formData,
-        items,
-      };
-
       const res = await axios.put(
-        `/api/stocks/material-consumptions/update/${record._id}`,
-        payload,
+        `/api/stocks/stock-qty-adjustment/update/${record._id}`,
+        {
+          ...formData,
+          items,
+        },
         { headers: { Authorization: `Bearer ${token}` } },
       );
 
       if (res.data?.success) {
-        onSuccess(res.data.data);
+        onSuccess();
         handleClose();
       } else {
-        setError(res.data?.message || "Failed to update consumption");
+        setError(res.data?.message || "Failed to update adjustment");
       }
     } catch (err: any) {
       setError(
-        err.response?.data?.message || "Error updating material consumption",
+        err.response?.data?.message || "Error updating stock adjustment",
       );
     } finally {
       setLoading(false);
@@ -230,18 +252,21 @@ const EditConsumptionModal: React.FC<Props> = ({
   const handleClose = () => {
     setFormData({
       branch: "",
-      doctor: "",
-      room: "",
-      date: "",
+      postAc: "",
+      date: new Date().toISOString().split("T")[0],
       notes: "",
-      status: "New",
+      status: "",
     });
     setItems([]);
     setCurrentItem({
+      code: "",
       name: "",
       description: "",
       quantity: 1,
       uom: "",
+      expiryDate: "",
+      costPrice: 0,
+      totalPrice: 0,
     });
     setError(null);
     onClose();
@@ -253,21 +278,13 @@ const EditConsumptionModal: React.FC<Props> = ({
         {/* Header */}
         <div className="bg-gray-800 px-4 py-3 flex justify-between items-center">
           <div className="flex items-center gap-2">
-            <div className="w-5 h-5 text-white">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="currentColor"
-              >
-                <path d="M21.731 2.269a2.625 2.625 0 00-3.712 0l-1.157 1.157 3.712 3.712 1.157-1.157a2.625 2.625 0 000-3.712zM19.513 8.199l-3.712-3.712-12.15 12.15a5.25 5.25 0 00-1.32 2.214l-.8 2.685a.75.75 0 00.933.933l2.685-.8a5.25 5.25 0 002.214-1.32L19.513 8.2z" />
-              </svg>
-            </div>
+            <Pencil className="w-5 h-5 text-white" />
             <div>
               <h2 className="text-base sm:text-lg font-bold text-white">
-                Edit Material Consumption
+                Edit Stock Adjustment
               </h2>
               <p className="text-gray-300 text-[10px] sm:text-xs mt-0.5">
-                {record?.materialConsumptionNo || "Update consumption details"}
+                Update stock quantities
               </p>
             </div>
           </div>
@@ -283,14 +300,14 @@ const EditConsumptionModal: React.FC<Props> = ({
         {/* Main Content */}
         <div className="flex-1 overflow-y-auto p-4">
           {error && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+            <div className="mb-4 p-3 bg-red-50 text-red-700 rounded text-sm">
               {error}
             </div>
           )}
 
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Basic Information */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {/* Branch */}
               <div className="space-y-2">
                 <label className="block text-sm font-bold text-gray-900">
                   Branch <span className="text-red-500">*</span>
@@ -300,6 +317,7 @@ const EditConsumptionModal: React.FC<Props> = ({
                   value={formData.branch}
                   onChange={handleFormChange}
                   className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed"
+                  disabled={loading}
                   required
                 >
                   <option value="">Select Branch</option>
@@ -309,55 +327,12 @@ const EditConsumptionModal: React.FC<Props> = ({
                     </option>
                   ))}
                 </select>
+                <p className="text-xs text-gray-500 mt-1">
+                  Select branch for this adjustment
+                </p>
               </div>
 
-              <div className="space-y-2">
-                <label className="block text-sm font-bold text-gray-900">
-                  Doctor <span className="text-red-500">*</span>
-                </label>
-                <select
-                  name="doctor"
-                  value={formData.doctor}
-                  onChange={handleFormChange}
-                  className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed"
-                  required
-                >
-                  <option value="">Select Doctor</option>
-                  {doctorsLoading ? (
-                    <option value="">Loading doctors...</option>
-                  ) : (
-                    doctors.map((d: any) => (
-                      <option key={d._id} value={d._id}>
-                        {d.name}
-                      </option>
-                    ))
-                  )}
-                </select>
-              </div>
-
-              <div className="space-y-2">
-                <label className="block text-sm font-bold text-gray-900">
-                  Room <span className="text-red-500">*</span>
-                </label>
-                <select
-                  name="room"
-                  value={formData.room}
-                  onChange={handleFormChange}
-                  disabled={!formData.branch || roomsLoading}
-                  className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed"
-                  required
-                >
-                  <option value="">
-                    {roomsLoading ? "Loading rooms..." : "Select Room"}
-                  </option>
-                  {rooms.map((r: any) => (
-                    <option key={r._id} value={r._id}>
-                      {r.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
+              {/* Date */}
               <div className="space-y-2">
                 <label className="block text-sm font-bold text-gray-900">
                   Date <span className="text-red-500">*</span>
@@ -368,10 +343,13 @@ const EditConsumptionModal: React.FC<Props> = ({
                   value={formData.date}
                   onChange={handleFormChange}
                   className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed"
+                  disabled={loading}
                   required
                 />
+                <p className="text-xs text-gray-500 mt-1">Adjustment date</p>
               </div>
 
+              {/* Status */}
               <div className="space-y-2">
                 <label className="block text-sm font-bold text-gray-900">
                   Status
@@ -380,11 +358,36 @@ const EditConsumptionModal: React.FC<Props> = ({
                   name="status"
                   value={formData.status}
                   onChange={handleFormChange}
-                  className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all"
+                  className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed"
+                  disabled={loading}
                 >
                   <option value="New">New</option>
-                  <option value="Verified">Verified</option>
+                  <option value="Partly_Paid">Partly Paid</option>
+                  <option value="Paid">Paid</option>
+                  <option value="Unpaid">Unpaid</option>
                 </select>
+                <p className="text-xs text-gray-500 mt-1">
+                  Current adjustment status
+                </p>
+              </div>
+
+              {/* Post A/c */}
+              <div className="space-y-2 sm:col-span-3">
+                <label className="block text-sm font-bold text-gray-900">
+                  Post A/c
+                </label>
+                <input
+                  type="text"
+                  name="postAc"
+                  value={formData.postAc}
+                  onChange={handleFormChange}
+                  placeholder="Enter account reference"
+                  className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed"
+                  disabled={loading}
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Account reference for this adjustment
+                </p>
               </div>
             </div>
 
@@ -397,26 +400,38 @@ const EditConsumptionModal: React.FC<Props> = ({
                 name="notes"
                 value={formData.notes}
                 onChange={handleFormChange}
-                placeholder="Enter any additional notes"
                 rows={3}
-                className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all"
+                placeholder="Enter notes here"
+                className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed"
+                disabled={loading}
               />
+              <p className="text-xs text-gray-500 mt-1">
+                Additional notes for this adjustment
+              </p>
             </div>
 
             {/* Items Section */}
             <div className="space-y-4">
               <div className="flex justify-between items-center">
                 <div>
-                  <h3 className="text-base font-bold text-gray-900">
-                    Consumed Items <span className="text-red-500">*</span>
-                  </h3>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base font-bold text-gray-900">
+                      Adjustment Items <span className="text-red-500">*</span>
+                    </h3>
+                    <button
+                      onClick={() => setIsOpenAddStockItemModal(true)}
+                      className="flex items-center justify-center gap-1 text-blue-500 hover:text-blue-700 transition-colors"
+                    >
+                      <CirclePlus size={18} />
+                    </button>
+                  </div>
                   <p className="text-xs text-gray-500 mt-1">
-                    Update items consumed during treatment
+                    Add items to adjust stock quantities
                   </p>
                 </div>
               </div>
 
-              {/* Item Form */}
+              {/* Item Form - Compact Design */}
               <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
                 <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
                   {/* Item Name */}
@@ -429,31 +444,17 @@ const EditConsumptionModal: React.FC<Props> = ({
                       onChange={(e) =>
                         handleCurrentItemChange("itemId", e.target.value)
                       }
-                      className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all h-10"
+                      className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed h-10"
+                      disabled={loading}
+                      required
                     >
-                      <option value="">Select an Item</option>
-                      {stockItems.map((item) => (
+                      <option value="">Select Item</option>
+                      {stockItems.map((item: any) => (
                         <option key={item._id} value={item._id}>
                           {item.name}
                         </option>
                       ))}
                     </select>
-                  </div>
-
-                  {/* Description */}
-                  <div className="sm:col-span-3 space-y-1">
-                    <label className="block text-xs font-bold text-gray-900">
-                      Item Description
-                    </label>
-                    <input
-                      type="text"
-                      value={currentItem.description || ""}
-                      onChange={(e) =>
-                        handleCurrentItemChange("description", e.target.value)
-                      }
-                      placeholder="Description"
-                      className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all h-10"
-                    />
                   </div>
 
                   {/* Quantity */}
@@ -463,38 +464,38 @@ const EditConsumptionModal: React.FC<Props> = ({
                     </label>
                     <input
                       type="number"
-                      min="1"
+                      min={1}
                       value={currentItem.quantity}
                       onChange={(e) =>
-                        handleCurrentItemChange(
-                          "quantity",
-                          parseFloat(e.target.value) || 0,
-                        )
+                        handleCurrentItemChange("quantity", e.target.value)
                       }
-                      className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all h-10"
+                      className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed h-10"
                       placeholder="Qty"
+                      disabled={loading}
+                      required
                     />
                   </div>
 
                   {/* UOM */}
                   <div className="sm:col-span-2 space-y-1">
                     <label className="block text-xs font-bold text-gray-900">
-                      UOM <span className="text-red-500">*</span>
+                      UOM
                     </label>
                     <select
                       value={currentItem.uom || ""}
                       onChange={(e) =>
                         handleCurrentItemChange("uom", e.target.value)
                       }
-                      className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all h-10"
+                      className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed h-10"
+                      disabled={loading}
                     >
                       <option value="">Select UOM</option>
                       {uomsLoading ? (
                         <option value="">Loading UOMs...</option>
                       ) : uoms.length > 0 ? (
-                        uoms.map((uom: any) => (
-                          <option key={uom._id} value={uom.name}>
-                            {uom.name}
+                        uoms.map((u: any) => (
+                          <option key={u._id} value={u.name}>
+                            {u.name}
                           </option>
                         ))
                       ) : (
@@ -503,27 +504,94 @@ const EditConsumptionModal: React.FC<Props> = ({
                     </select>
                   </div>
 
+                  {/* Expiry Date */}
+                  <div className="sm:col-span-3 space-y-1">
+                    <label className="block text-xs font-bold text-gray-900">
+                      Expiry Date
+                    </label>
+                    <input
+                      type="date"
+                      value={currentItem.expiryDate || ""}
+                      onChange={(e) =>
+                        handleCurrentItemChange("expiryDate", e.target.value)
+                      }
+                      className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed h-10"
+                      disabled={loading}
+                    />
+                  </div>
+
+                  {/* Cost Price */}
+                  <div className="sm:col-span-2 space-y-1">
+                    <label className="block text-xs font-bold text-gray-900">
+                      Cost Price <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      value={currentItem.costPrice}
+                      onChange={(e) =>
+                        handleCurrentItemChange("costPrice", e.target.value)
+                      }
+                      className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed h-10"
+                      placeholder="0.00"
+                      disabled={loading}
+                      required
+                    />
+                  </div>
+
+                  {/* Total Price */}
+                  <div className="sm:col-span-2 space-y-1">
+                    <label className="block text-xs font-bold text-gray-900">
+                      Total Price <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      readOnly
+                      value={currentItem.totalPrice.toFixed(2)}
+                      className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed h-10"
+                    />
+                  </div>
+
+                  {/* Description */}
+                  <div className="sm:col-span-2 space-y-1">
+                    <label className="block text-xs font-bold text-gray-900">
+                      Description
+                    </label>
+                    <input
+                      value={currentItem.description || ""}
+                      onChange={(e) =>
+                        handleCurrentItemChange("description", e.target.value)
+                      }
+                      className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed h-10"
+                      placeholder="Enter description"
+                      disabled={loading}
+                    />
+                  </div>
+
                   {/* Add Item Button */}
                   <div className="sm:col-span-12 flex justify-end gap-2 mt-2">
                     <button
                       type="button"
                       onClick={resetItems}
-                      disabled={items.length === 0}
-                      className="inline-flex items-center px-3 py-2.5 border border-gray-300 text-xs font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:ring-2 focus:ring-gray-800/20 transition-all disabled:opacity-50"
+                      disabled={loading || items.length === 0}
+                      className="inline-flex items-center px-3 py-2.5 border border-gray-300 text-xs font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:ring-2 focus:ring-gray-800/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      Reset Items
+                      <Trash2 className="w-4 h-4 mr-1" />
+                      Reset
                     </button>
                     <button
                       type="button"
                       onClick={addCurrentItem}
                       disabled={
-                        !currentItem.name?.trim() ||
+                        loading ||
+                        !currentItem.name.trim() ||
                         !currentItem.quantity ||
-                        !currentItem.uom?.trim()
+                        currentItem.costPrice === 0
                       }
-                      className="px-3 py-2.5 border border-transparent text-xs font-medium rounded-lg text-white bg-gray-800 hover:bg-gray-900 focus:ring-2 focus:ring-gray-800/20 transition-all disabled:opacity-50 flex items-center gap-2"
+                      className="inline-flex items-center px-3 py-2.5 border border-transparent text-xs font-medium rounded-lg text-white bg-gray-800 hover:bg-gray-900 focus:ring-2 focus:ring-gray-800/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      <Plus className="w-4 h-4" />
+                      <Plus className="w-4 h-4 mr-1" />
                       Add Item
                     </button>
                   </div>
@@ -543,13 +611,22 @@ const EditConsumptionModal: React.FC<Props> = ({
                           Item Name
                         </th>
                         <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">
-                          Description
+                          Code
                         </th>
                         <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">
-                          Quantity
+                          Qty
                         </th>
                         <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">
                           UOM
+                        </th>
+                        <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">
+                          Expiry
+                        </th>
+                        <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">
+                          Cost Price
+                        </th>
+                        <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">
+                          Total
                         </th>
                         <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">
                           Action
@@ -560,7 +637,7 @@ const EditConsumptionModal: React.FC<Props> = ({
                       {items.length === 0 ? (
                         <tr>
                           <td
-                            colSpan={6}
+                            colSpan={9}
                             className="px-3 py-8 text-sm text-center text-gray-500"
                           >
                             No Items Added
@@ -572,23 +649,32 @@ const EditConsumptionModal: React.FC<Props> = ({
                             <td className="px-3 py-2 text-sm text-gray-900">
                               {index + 1}
                             </td>
-                            <td className="px-3 py-2 text-sm text-gray-900 font-medium">
+                            <td className="px-3 py-2 text-sm text-gray-900">
                               {item.name}
                             </td>
-                            <td className="px-3 py-2 text-sm text-gray-900">
-                              {item.description || "-"}
+                            <td className="px-3 py-2 text-sm text-gray-700">
+                              {item.code || "-"}
                             </td>
                             <td className="px-3 py-2 text-sm text-gray-900">
                               {item.quantity}
                             </td>
                             <td className="px-3 py-2 text-sm text-gray-900">
-                              {item.uom}
+                              {item.uom || "-"}
+                            </td>
+                            <td className="px-3 py-2 text-sm text-gray-900">
+                              {item.expiryDate || "-"}
+                            </td>
+                            <td className="px-3 py-2 text-sm text-gray-900">
+                              {item.costPrice.toFixed(2)}
+                            </td>
+                            <td className="px-3 py-2 text-sm text-gray-900">
+                              {item.totalPrice.toFixed(2)}
                             </td>
                             <td className="px-3 py-2 text-sm">
                               <button
                                 type="button"
                                 onClick={() => removeItem(index)}
-                                className="text-red-600 hover:text-red-900 transition-colors"
+                                className="text-red-600 hover:text-red-900"
                               >
                                 <Trash2 className="w-4 h-4" />
                               </button>
@@ -601,19 +687,15 @@ const EditConsumptionModal: React.FC<Props> = ({
                       <tfoot className="bg-gray-50">
                         <tr>
                           <td
-                            colSpan={3}
+                            colSpan={7}
                             className="px-3 py-2 text-sm font-bold text-gray-900 text-right"
                           >
-                            Total Items:
+                            Total:
                           </td>
                           <td className="px-3 py-2 text-sm font-bold text-gray-900">
-                            {items.reduce(
-                              (sum, item) => sum + (item.quantity || 0),
-                              0,
-                            )}
-                          </td>
-                          <td className="px-3 py-2 text-sm font-bold text-gray-900">
-                            {items.length}
+                            {items
+                              .reduce((sum, item) => sum + item.totalPrice, 0)
+                              .toFixed(2)}
                           </td>
                           <td></td>
                         </tr>
@@ -631,7 +713,7 @@ const EditConsumptionModal: React.FC<Props> = ({
           <button
             onClick={handleClose}
             disabled={loading}
-            className="px-4 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:ring-2 focus:ring-gray-800/20 transition-all disabled:opacity-50"
+            className="px-4 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:ring-2 focus:ring-gray-800/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Cancel
           </button>
@@ -639,12 +721,11 @@ const EditConsumptionModal: React.FC<Props> = ({
             onClick={handleSubmit as any}
             disabled={
               loading ||
-              !formData.branch ||
-              !formData.doctor ||
-              !formData.room ||
+              !formData.branch.trim() ||
+              !formData.date.trim() ||
               items.length === 0
             }
-            className="px-4 py-2.5 text-sm font-medium text-white bg-gray-800 border border-transparent rounded-lg hover:bg-gray-900 focus:ring-2 focus:ring-gray-800/20 transition-all disabled:opacity-50 flex items-center gap-2"
+            className="px-4 py-2.5 text-sm font-medium text-white bg-gray-800 border border-transparent rounded-lg hover:bg-gray-900 focus:ring-2 focus:ring-gray-800/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
           >
             {loading ? (
               <>
@@ -672,26 +753,27 @@ const EditConsumptionModal: React.FC<Props> = ({
               </>
             ) : (
               <>
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 24 24"
-                  fill="currentColor"
-                  className="w-4 h-4"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M19.916 4.626a.75.75 0 01.208 1.04l-9 13.5a.75.75 0 01-1.154.114l-6-6a.75.75 0 011.06-1.06l5.353 5.353 8.493-12.739a.75.75 0 011.04-.208z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-                Update Consumption
+                <Pencil className="w-4 h-4" />
+                Update Adjustment
               </>
             )}
           </button>
         </div>
+
+        {/* Add stock item modal */}
+        <AddStockItemModal
+          token={token || ""}
+          clinicId={formData?.branch || ""}
+          isOpen={isOpenAddStockItemModal}
+          onClose={() => setIsOpenAddStockItemModal(false)}
+          onSuccess={(newStockItem) => {
+            // Handle successful creation
+            console.log("New stock item created:", newStockItem);
+          }}
+        />
       </div>
     </div>
   );
 };
 
-export default EditConsumptionModal;
+export default EditAdjustmentModal;

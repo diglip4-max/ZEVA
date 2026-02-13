@@ -6,6 +6,7 @@ import useClinicBranches from "@/hooks/useClinicBranches";
 import { getTokenByPath } from "@/lib/helper";
 import { Pencil, X, Plus, Trash2 } from "lucide-react";
 import useUoms from "@/hooks/useUoms";
+import useStockItems from "@/hooks/useStockItems";
 
 interface Props {
   isOpen: boolean;
@@ -15,6 +16,8 @@ interface Props {
 }
 
 interface StockTransferItem {
+  itemId?: string;
+  code?: string;
   name: string;
   description: string;
   quantity: number;
@@ -30,25 +33,11 @@ const EditStockTransferRequestModal: React.FC<Props> = ({
   record,
   onSuccess,
 }) => {
-  console.log({ record });
   const { clinicBranches } = useClinicBranches();
+  const { stockItems } = useStockItems();
   const token = getTokenByPath() || "";
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  // Default item names for stock transfers
-  const defaultItemNames = [
-    "Paracetamol Tablets",
-    "Aspirin Capsules",
-    "Ibuprofen Syrup",
-    "Amoxicillin Injection",
-    "Omeprazole Capsules",
-    "Insulin Vials",
-    "Surgical Gloves",
-    "Bandages",
-    "Syringes",
-    "Gauze Pads",
-  ];
 
   // Form state
   const [formData, setFormData] = useState({
@@ -66,6 +55,8 @@ const EditStockTransferRequestModal: React.FC<Props> = ({
 
   // Current item being added
   const [currentItem, setCurrentItem] = useState<StockTransferItem>({
+    code: "",
+    itemId: "",
     name: "",
     description: "",
     quantity: 1,
@@ -113,6 +104,8 @@ const EditStockTransferRequestModal: React.FC<Props> = ({
 
       // Reset current item
       setCurrentItem({
+        code: "",
+        itemId: "",
         name: "",
         description: "",
         quantity: 1,
@@ -140,6 +133,16 @@ const EditStockTransferRequestModal: React.FC<Props> = ({
     field: keyof StockTransferItem,
     value: any,
   ) => {
+    if (field === "itemId") {
+      const item = stockItems.find((i) => i._id === value);
+      if (item) {
+        setCurrentItem((prev) => ({
+          ...prev,
+          code: item.code,
+          name: item.name,
+        }));
+      }
+    }
     setCurrentItem((prev) => ({
       ...prev,
       [field]: value,
@@ -414,18 +417,18 @@ const EditStockTransferRequestModal: React.FC<Props> = ({
                       Item Name <span className="text-red-500">*</span>
                     </label>
                     <select
-                      value={currentItem.name}
+                      value={currentItem.itemId || ""}
                       onChange={(e) =>
-                        handleCurrentItemChange("name", e.target.value)
+                        handleCurrentItemChange("itemId", e.target.value)
                       }
                       className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all h-10"
                       disabled={loading}
                       required
                     >
                       <option value="">Select a Item</option>
-                      {defaultItemNames.map((name) => (
-                        <option key={name} value={name}>
-                          {name}
+                      {stockItems.map((item) => (
+                        <option key={item._id} value={item._id}>
+                          {item.name}
                         </option>
                       ))}
                     </select>

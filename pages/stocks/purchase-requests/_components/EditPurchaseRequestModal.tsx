@@ -4,6 +4,7 @@ import { PurchaseRecord, PurchaseRecordItem } from "@/types/stocks";
 import useClinicBranches from "@/hooks/useClinicBranches";
 import useSuppliers from "@/hooks/useSuppliers";
 import useUoms from "@/hooks/useUoms";
+import useStockItems from "@/hooks/useStockItems";
 
 interface EditPurchaseRequestModalProps {
   token: string;
@@ -20,6 +21,7 @@ const EditPurchaseRequestModal: React.FC<EditPurchaseRequestModalProps> = ({
   purchaseRequestData,
   onSuccess,
 }) => {
+  const { stockItems } = useStockItems();
   const { clinicBranches } = useClinicBranches();
   const [supplierSearch, setSupplierSearch] = useState("");
   const [loading, setLoading] = useState(false);
@@ -87,15 +89,6 @@ const EditPurchaseRequestModal: React.FC<EditPurchaseRequestModalProps> = ({
     search: supplierSearch,
     branchId: formData.branch,
   });
-
-  // Define default item names
-  const defaultItemNames = [
-    "Paracetamol",
-    "Aspirin",
-    "Ibuprofen",
-    "Amoxicillin",
-    "Omeprazole",
-  ];
 
   // Show supplier invoice number field only for specific types
   const showSupplierInvoiceNo =
@@ -230,6 +223,16 @@ const EditPurchaseRequestModal: React.FC<EditPurchaseRequestModalProps> = ({
     field: keyof PurchaseRecordItem,
     value: any,
   ) => {
+    if (field === "itemId") {
+      const item = stockItems.find((i) => i._id === value);
+      if (item) {
+        setCurrentItem((prev) => ({
+          ...prev,
+          code: item.code,
+          name: item.name,
+        }));
+      }
+    }
     setCurrentItem((prev) => ({
       ...prev,
       [field]: value,
@@ -705,18 +708,18 @@ const EditPurchaseRequestModal: React.FC<EditPurchaseRequestModalProps> = ({
                       Item Name <span className="text-red-500">*</span>
                     </label>
                     <select
-                      value={currentItem.name}
+                      value={currentItem.itemId || ""}
                       onChange={(e) =>
-                        handleCurrentItemChange("name", e.target.value)
+                        handleCurrentItemChange("itemId", e.target.value)
                       }
                       className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed h-10"
                       disabled={loading}
                       required
                     >
                       <option value="">Select a Item</option>
-                      {defaultItemNames.map((name) => (
-                        <option key={name} value={name}>
-                          {name}
+                      {stockItems.map((item) => (
+                        <option key={item?._id} value={item?._id}>
+                          {item?.name}
                         </option>
                       ))}
                     </select>
@@ -860,16 +863,16 @@ const EditPurchaseRequestModal: React.FC<EditPurchaseRequestModalProps> = ({
                                 </td>
                                 <td className="px-3 py-2">
                                   <select
-                                    value={editedItem.name}
+                                    value={editedItem.itemId}
                                     onChange={(e) =>
-                                      handleEditChange("name", e.target.value)
+                                      handleEditChange("itemId", e.target.value)
                                     }
                                     className="w-full px-2 py-1 text-sm border border-gray-300 text-gray-500 rounded"
                                   >
                                     <option value="">Select Item</option>
-                                    {defaultItemNames.map((name) => (
-                                      <option key={name} value={name}>
-                                        {name}
+                                    {stockItems.map((item) => (
+                                      <option key={item?._id} value={item?._id}>
+                                        {item?.name}
                                       </option>
                                     ))}
                                   </select>

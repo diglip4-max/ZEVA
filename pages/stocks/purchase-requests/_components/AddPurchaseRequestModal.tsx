@@ -4,6 +4,7 @@ import { PurchaseRecord, PurchaseRecordItem } from "@/types/stocks";
 import useClinicBranches from "@/hooks/useClinicBranches";
 import useSuppliers from "@/hooks/useSuppliers";
 import useUoms from "@/hooks/useUoms";
+import useStockItems from "@/hooks/useStockItems";
 
 interface AddPurchaseRequestModalProps {
   token: string;
@@ -19,6 +20,7 @@ const AddPurchaseRequestModal: React.FC<AddPurchaseRequestModalProps> = ({
   onSuccess,
 }) => {
   const { clinicBranches } = useClinicBranches();
+  const { stockItems } = useStockItems();
   const [supplierSearch, setSupplierSearch] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -64,15 +66,6 @@ const AddPurchaseRequestModal: React.FC<AddPurchaseRequestModalProps> = ({
     search: supplierSearch,
     branchId: formData.branch,
   });
-
-  // Define default item names
-  const defaultItemNames = [
-    "Paracetamol",
-    "Aspirin",
-    "Ibuprofen",
-    "Amoxicillin",
-    "Omeprazole",
-  ];
 
   const [items, setItems] = useState<PurchaseRecordItem[]>([]);
 
@@ -140,9 +133,28 @@ const AddPurchaseRequestModal: React.FC<AddPurchaseRequestModalProps> = ({
     field: keyof PurchaseRecordItem,
     value: any,
   ) => {
+    let discountAmount = 0;
+    if (field === "discount" && currentItem?.discountType === "Fixed") {
+      discountAmount = value || 0;
+    }
+    if (field === "discount" && currentItem?.discountType === "Percentage") {
+      discountAmount =
+        (currentItem.quantity * currentItem.unitPrice * (value || 0)) / 100;
+    }
+    if (field === "itemId") {
+      const item = stockItems.find((i) => i._id === value);
+      if (item) {
+        setCurrentItem((prev) => ({
+          ...prev,
+          code: item.code,
+          name: item.name,
+        }));
+      }
+    }
     setCurrentItem((prev) => ({
       ...prev,
       [field]: value,
+      ...(field === "discount" && { discountAmount }),
     }));
   };
 
@@ -597,18 +609,18 @@ const AddPurchaseRequestModal: React.FC<AddPurchaseRequestModalProps> = ({
                       Item Name <span className="text-red-500">*</span>
                     </label>
                     <select
-                      value={currentItem.name}
+                      value={currentItem.itemId || ""}
                       onChange={(e) =>
-                        handleCurrentItemChange("name", e.target.value)
+                        handleCurrentItemChange("itemId", e.target.value)
                       }
                       className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed h-10"
                       disabled={loading}
                       required
                     >
                       <option value="">Select a Item</option>
-                      {defaultItemNames.map((name) => (
-                        <option key={name} value={name}>
-                          {name}
+                      {stockItems.map((item) => (
+                        <option key={item?._id} value={item?._id}>
+                          {item?.name}
                         </option>
                       ))}
                     </select>

@@ -4,6 +4,7 @@ import { PurchaseRecord, PurchaseRecordItem } from "@/types/stocks";
 import useClinicBranches from "@/hooks/useClinicBranches";
 import useSuppliers from "@/hooks/useSuppliers";
 import useUoms from "@/hooks/useUoms";
+import useStockItems from "@/hooks/useStockItems";
 
 interface EditPurchaseOrderModalProps {
   token: string;
@@ -21,6 +22,7 @@ const EditPurchaseOrderModal: React.FC<EditPurchaseOrderModalProps> = ({
   onSuccess,
 }) => {
   const { clinicBranches } = useClinicBranches();
+  const { stockItems } = useStockItems();
   const [supplierSearch, setSupplierSearch] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -88,15 +90,6 @@ const EditPurchaseOrderModal: React.FC<EditPurchaseOrderModalProps> = ({
     branchId: formData.branch,
   });
 
-  // Define default item names
-  const defaultItemNames = [
-    "Paracetamol",
-    "Aspirin",
-    "Ibuprofen",
-    "Amoxicillin",
-    "Omeprazole",
-  ];
-
   // Show supplier invoice number field only for specific types
   const showSupplierInvoiceNo =
     formData.type === "Purchase_Invoice" || formData.type === "GRN_Regular";
@@ -139,7 +132,6 @@ const EditPurchaseOrderModal: React.FC<EditPurchaseOrderModalProps> = ({
   // Load data when purchaseOrderData changes
   useEffect(() => {
     if (purchaseOrderData) {
-      console.log({ purchaseOrderData });
       setFormData({
         branch:
           typeof purchaseOrderData.branch === "object"
@@ -231,9 +223,29 @@ const EditPurchaseOrderModal: React.FC<EditPurchaseOrderModalProps> = ({
     field: keyof PurchaseRecordItem,
     value: any,
   ) => {
+    let discountAmount = 0;
+    if (field === "discount" && currentItem?.discountType === "Fixed") {
+      discountAmount = value || 0;
+    }
+    if (field === "discount" && currentItem?.discountType === "Percentage") {
+      discountAmount =
+        (currentItem.quantity * currentItem.unitPrice * (value || 0)) / 100;
+    }
+    if (field === "itemId") {
+      const item = stockItems.find((i) => i._id === value);
+      if (item) {
+        setCurrentItem((prev) => ({
+          ...prev,
+          code: item.code,
+          name: item.name,
+        }));
+      }
+    }
+
     setCurrentItem((prev) => ({
       ...prev,
       [field]: value,
+      ...(field === "discount" && { discountAmount }),
     }));
   };
 
@@ -945,18 +957,18 @@ const EditPurchaseOrderModal: React.FC<EditPurchaseOrderModalProps> = ({
                       Item Name <span className="text-red-500">*</span>
                     </label>
                     <select
-                      value={currentItem.name}
+                      value={currentItem.itemId || ""}
                       onChange={(e) =>
-                        handleCurrentItemChange("name", e.target.value)
+                        handleCurrentItemChange("itemId", e.target.value)
                       }
                       className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed h-10"
                       disabled={loading}
                       required
                     >
                       <option value="">Select a Item</option>
-                      {defaultItemNames.map((name) => (
-                        <option key={name} value={name}>
-                          {name}
+                      {stockItems.map((item) => (
+                        <option key={item?._id} value={item?._id}>
+                          {item?.name}
                         </option>
                       ))}
                     </select>
@@ -1308,14 +1320,14 @@ const EditPurchaseOrderModal: React.FC<EditPurchaseOrderModalProps> = ({
                                   <select
                                     value={editedItem.name}
                                     onChange={(e) =>
-                                      handleEditChange("name", e.target.value)
+                                      handleEditChange("itemId", e.target.value)
                                     }
                                     className="w-full px-2 py-1 text-sm border border-gray-300 rounded"
                                   >
                                     <option value="">Select Item</option>
-                                    {defaultItemNames.map((name) => (
-                                      <option key={name} value={name}>
-                                        {name}
+                                    {stockItems.map((item) => (
+                                      <option key={item?._id} value={item?._id}>
+                                        {item?.name}
                                       </option>
                                     ))}
                                   </select>
