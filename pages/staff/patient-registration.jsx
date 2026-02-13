@@ -104,7 +104,9 @@ const INITIAL_FORM_DATA = {
   insurance: "No", advanceGivenAmount: "", coPayPercent: "", advanceClaimStatus: "Pending",
   insuranceType: "Paid",
   membership: "No", membershipStartDate: "", membershipEndDate: "", membershipId: "",
-  package: "No", packageId: ""
+  package: "No", packageId: "",
+  memberships: [],
+  packages: []
 };
 
 const InvoiceManagementSystem = ({ onSuccess, isCompact = false }) => {
@@ -205,13 +207,42 @@ const InvoiceManagementSystem = ({ onSuccess, isCompact = false }) => {
       end.setMonth(end.getMonth() + months);
       const startStr = formatDate(start);
       const endStr = formatDate(end);
-      setFormData((prev) => ({
-        ...prev,
-        membershipStartDate: startStr,
-        membershipEndDate: endStr,
-      }));
+      setFormData((prev) => {
+        const currentMemberships = Array.isArray(prev.memberships) ? prev.memberships : [];
+        const existsIdx = currentMemberships.findIndex((m) => m.membershipId === prev.membershipId);
+        let updated;
+        if (existsIdx >= 0) {
+          updated = currentMemberships.map((m, idx) =>
+            idx === existsIdx ? { ...m, startDate: startStr, endDate: endStr } : m
+          );
+        } else {
+          updated = [...currentMemberships, { membershipId: prev.membershipId, startDate: startStr, endDate: endStr }];
+        }
+        return {
+          ...prev,
+          memberships: updated,
+          membershipStartDate: startStr,
+          membershipEndDate: endStr,
+        };
+      });
     }
   }, [formData.membershipId, formData.membership, memberships, formatDate]);
+
+  useEffect(() => {
+    if (formData.package === "Yes" && formData.packageId) {
+      setFormData((prev) => {
+        const currentPackages = Array.isArray(prev.packages) ? prev.packages : [];
+        const existsIdx = currentPackages.findIndex((p) => p.packageId === prev.packageId);
+        let updated;
+        if (existsIdx >= 0) {
+          updated = currentPackages;
+        } else {
+          updated = [...currentPackages, { packageId: prev.packageId, assignedDate: new Date().toISOString() }];
+        }
+        return { ...prev, packages: updated };
+      });
+    }
+  }, [formData.packageId, formData.package]);
 
   // Auto-generate EMR number when modal opens - via API
   // Works for clinic, agent, and doctorStaff roles on both clinic and staff routes
@@ -818,7 +849,7 @@ return (
                         <AlertCircle className="w-2.5 h-2.5" />{errors.membershipId}
                       </p>
                     )}
-                  </div>
+                    </div>
                 )}
                 
                 {/* Membership Date Fields */}
@@ -856,6 +887,35 @@ return (
                         <p className="text-red-500 text-[9px] mt-0.5 flex items-center gap-0.5">
                           <AlertCircle className="w-2.5 h-2.5" />{errors.membershipEndDate}
                         </p>
+                      )}
+                    </div>
+                    <div className="w-full">
+                      {(Array.isArray(formData.memberships) ? formData.memberships : []).length > 0 && (
+                        <div className="mt-1 border border-gray-200 rounded p-2">
+                          <div className="text-[10px] font-semibold text-gray-900 mb-1">Added Memberships</div>
+                          <div className="space-y-1">
+                            {(formData.memberships || []).map((m, idx) => {
+                              const plan = memberships.find((x) => x._id === m.membershipId);
+                              return (
+                                <div key={`${m.membershipId}-${idx}`} className="flex items-center justify-between text-[10px]">
+                                  <div className="text-gray-800">
+                                    {plan?.name || m.membershipId} • {m.startDate?.slice(0,10)} → {m.endDate?.slice(0,10)}
+                                  </div>
+                                  <button
+                                    type="button"
+                                    className="px-2 py-0.5 bg-red-50 text-red-700 rounded border border-red-200"
+                                    onClick={() => {
+                                      const list = (formData.memberships || []).filter((_, i) => i !== idx);
+                                      setFormData((prev) => ({ ...prev, memberships: list }));
+                                    }}
+                                  >
+                                    Remove
+                                  </button>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
                       )}
                     </div>
                   </>
@@ -904,6 +964,34 @@ return (
                 )}
               </div>
             </div>
+              {(Array.isArray(formData.packages) ? formData.packages : []).length > 0 && (
+                <div className="mt-1 border border-gray-200 rounded p-2">
+                  <div className="text-[10px] font-semibold text-gray-900 mb-1">Added Packages</div>
+                  <div className="space-y-1">
+                    {(formData.packages || []).map((p, idx) => {
+                      const pkg = packages.find((x) => x._id === p.packageId);
+                      return (
+                        <div key={`${p.packageId}-${idx}`} className="flex items-center justify-between text-[10px]">
+                          <div className="text-gray-800">
+                            {pkg?.name || p.packageId}
+                          </div>
+                          <button
+                            type="button"
+                            className="px-2 py-0.5 bg-red-50 text-red-700 rounded border border-red-200"
+                            onClick={() => {
+                              const list = (formData.packages || []).filter((_, i) => i !== idx);
+                              setFormData((prev) => ({ ...prev, packages: list }));
+                            }}
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            
 
             {/* Insurance Details */}
             <div className={`bg-white rounded-lg p-2 border border-gray-200`}>

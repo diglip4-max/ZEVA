@@ -238,11 +238,18 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
       end.setMonth(end.getMonth() + months);
       const startStr = formatDate(start);
       const endStr = formatDate(end);
-      setFormData((prev) => ({
-        ...prev,
-        membershipStartDate: startStr,
-        membershipEndDate: endStr,
-      }));
+      setFormData((prev) => {
+        const list = Array.isArray(prev.memberships) ? prev.memberships : [];
+        const idx = list.findIndex((x) => x.membershipId === prev.membershipId);
+        const item = { membershipId: prev.membershipId, startDate: startStr, endDate: endStr };
+        const updated = idx >= 0 ? list.map((m, i) => (i === idx ? item : m)) : [...list, item];
+        return {
+          ...prev,
+          memberships: updated,
+          membershipStartDate: startStr,
+          membershipEndDate: endStr,
+        };
+      });
     }
     if (formData.membership === "No") {
       setFormData((prev) => ({
@@ -275,6 +282,20 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
     };
     fetchLists();
   }, [authToken]);
+
+  useEffect(() => {
+    if (formData.package === "Yes" && formData.packageId) {
+      setFormData((prev) => {
+        const list = Array.isArray(prev.packages) ? prev.packages : [];
+        const idx = list.findIndex((x) => x.packageId === prev.packageId);
+        const updated = idx >= 0 ? list : [...list, { packageId: prev.packageId, assignedDate: new Date().toISOString() }];
+        return { ...prev, packages: updated };
+      });
+    }
+    if (formData.package === "No") {
+      setFormData((prev) => ({ ...prev, packageId: "" }));
+    }
+  }, [formData.packageId, formData.package]);
 
   // Fetch billing history when payment history tab is active
   useEffect(() => {
@@ -378,6 +399,8 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
       membershipId: formData.membershipId,
       package: formData.package,
       packageId: formData.packageId,
+      memberships: Array.isArray(formData.memberships) ? formData.memberships : [],
+      packages: Array.isArray(formData.packages) ? formData.packages : [],
     };
 
     try {
@@ -715,6 +738,35 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
                             </p>
                           )}
                         </div>
+                        <div className="w-full">
+                          {(Array.isArray(formData.memberships) ? formData.memberships : []).length > 0 && (
+                            <div className="mt-1 border border-gray-200 rounded p-2">
+                              <div className="text-[10px] font-semibold text-gray-900 mb-1">Added Memberships</div>
+                              <div className="space-y-1">
+                                {(formData.memberships || []).map((m, idx) => {
+                                  const plan = memberships.find((x) => x._id === m.membershipId);
+                                  return (
+                                    <div key={`${m.membershipId}-${idx}`} className="flex items-center justify-between text-[10px]">
+                                      <div className="text-gray-800">
+                                        {plan?.name || m.membershipId} • {m.startDate?.slice(0,10)} → {m.endDate?.slice(0,10)}
+                                      </div>
+                                      <button
+                                        type="button"
+                                        className="px-2 py-0.5 bg-red-50 text-red-700 rounded border border-red-200"
+                                        onClick={() => {
+                                          const list = (formData.memberships || []).filter((_, i) => i !== idx);
+                                          setFormData((prev) => ({ ...prev, memberships: list }));
+                                        }}
+                                      >
+                                        Remove
+                                      </button>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       </>
                     )}
                   </div>
@@ -754,6 +806,33 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
                         <p className="text-red-500 text-[9px] mt-0.5 flex items-center gap-0.5">
                           <AlertCircle className="w-2.5 h-2.5" />{errors.packageId}
                         </p>
+                      )}
+                      {(Array.isArray(formData.packages) ? formData.packages : []).length > 0 && (
+                        <div className="mt-1 border border-gray-200 rounded p-2">
+                          <div className="text-[10px] font-semibold text-gray-900 mb-1">Added Packages</div>
+                          <div className="space-y-1">
+                            {(formData.packages || []).map((p, idx) => {
+                              const pkg = packages.find((x) => x._id === p.packageId);
+                              return (
+                                <div key={`${p.packageId}-${idx}`} className="flex items-center justify-between text-[10px]">
+                                  <div className="text-gray-800">
+                                    {pkg?.name || p.packageId}
+                                  </div>
+                                  <button
+                                    type="button"
+                                    className="px-2 py-0.5 bg-red-50 text-red-700 rounded border border-red-200"
+                                    onClick={() => {
+                                      const list = (formData.packages || []).filter((_, i) => i !== idx);
+                                      setFormData((prev) => ({ ...prev, packages: list }));
+                                    }}
+                                  >
+                                    Remove
+                                  </button>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
                       )}
                     </div>
                   )}

@@ -69,19 +69,28 @@ export default async function handler(req, res) {
       // Build query
       let query = { clinicId };
 
-      // Date range filter
-      if (fromDate || toDate) {
-        query.startDate = {};
-        if (fromDate) {
-          const startDate = new Date(fromDate);
-          startDate.setHours(0, 0, 0, 0);
-          query.startDate.$gte = startDate;
-        }
-        if (toDate) {
-          const endDate = new Date(toDate);
-          endDate.setHours(23, 59, 59, 999);
-          query.startDate.$lte = endDate;
-        }
+      // Date range filter - default to today if no dates provided
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const endOfToday = new Date();
+      endOfToday.setHours(23, 59, 59, 999);
+
+      query.startDate = {};
+      if (fromDate) {
+        const startDate = new Date(fromDate);
+        startDate.setHours(0, 0, 0, 0);
+        query.startDate.$gte = startDate;
+      } else {
+        // Default to start of today
+        query.startDate.$gte = today;
+      }
+      if (toDate) {
+        const endDate = new Date(toDate);
+        endDate.setHours(23, 59, 59, 999);
+        query.startDate.$lte = endDate;
+      } else {
+        // Default to end of today
+        query.startDate.$lte = endOfToday;
       }
 
       // Doctor filter

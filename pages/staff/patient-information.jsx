@@ -188,6 +188,26 @@ const PatientDetailsModal = ({ isOpen, onClose, patient, memberships = [], packa
                     )}
                   </>
                 )}
+                {(Array.isArray(patient.memberships) ? patient.memberships : []).length > 0 && (
+                  <div className="mt-2">
+                    <div className="text-[11px] font-semibold text-gray-900 mb-1">All Memberships</div>
+                    <div className="space-y-1">
+                      {patient.memberships.map((m, idx) => {
+                        const plan = memberships.find((x) => x._id === m.membershipId);
+                        const end = m.endDate ? new Date(m.endDate) : null;
+                        const expired = end ? end < new Date() : false;
+                        return (
+                          <div key={`${m.membershipId}-${idx}`} className={`flex items-center justify-between px-2 py-1 rounded ${expired ? 'bg-red-50' : 'bg-gray-50'}`}>
+                            <div className="text-gray-800">
+                              {(plan?.name || m.membershipId)} • {m.startDate ? new Date(m.startDate).toLocaleDateString() : '-'} → {m.endDate ? new Date(m.endDate).toLocaleDateString() : '-'}
+                            </div>
+                            {expired && <span className="text-[10px] font-medium text-red-700">Expired</span>}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
             <div className="bg-white rounded-lg border border-gray-200 p-3">
@@ -201,6 +221,24 @@ const PatientDetailsModal = ({ isOpen, onClose, patient, memberships = [], packa
                   <>
                     <div className="flex items-center gap-2"><span className="text-gray-700 w-24">Name:</span> <span className="font-medium text-gray-900">{packageName || '-'}</span></div>
                   </>
+                )}
+                {(Array.isArray(patient.packages) ? patient.packages : []).length > 0 && (
+                  <div className="mt-2">
+                    <div className="text-[11px] font-semibold text-gray-900 mb-1">All Packages</div>
+                    <div className="space-y-1">
+                      {patient.packages.map((p, idx) => {
+                        const pkg = packages.find((x) => x._id === p.packageId);
+                        return (
+                          <div key={`${p.packageId}-${idx}`} className="flex items-center justify-between px-2 py-1 rounded border border-gray-200 bg-gray-50">
+                            <div className="text-gray-800">{pkg?.name || p.packageId}</div>
+                            {p.assignedDate && (
+                              <div className="text-[10px] text-gray-700">{new Date(p.assignedDate).toLocaleDateString()}</div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
                 )}
               </div>
             </div>

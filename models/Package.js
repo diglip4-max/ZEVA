@@ -37,11 +37,23 @@ const PackageSchema = new mongoose.Schema(
       {
         treatmentName: String,
         treatmentSlug: String,
+        allocatedPrice: {
+          type: Number,
+          required: true,
+          min: 0,
+          default: 0,
+        },
         sessions: {
           type: Number,
           required: true,
           min: 1,
           default: 1,
+        },
+        sessionPrice: {
+          type: Number,
+          required: true,
+          min: 0,
+          default: 0,
         },
       },
     ],

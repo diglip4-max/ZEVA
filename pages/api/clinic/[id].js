@@ -65,21 +65,12 @@ export default async function handler(req, res) {
     // GET: Fetch Invoice + Patient Info
     // -------------------------------
     if (req.method === "GET") {
-      const invoice = await PatientRegistration.findById(id)
-        .populate({
-          path: "doctor",
-          model: "User",
-          select: "name role",
-          match: { role: "doctorStaff" }, // ✅ only populate if doctorStaff
-        })
-        .lean();
+      const invoice = await PatientRegistration.findById(id).lean();
 
       if (!invoice) return res.status(404).json({ message: "Invoice not found" });
 
-      // 🔹 Replace doctor ID with doctor name
-      const invoiceWithDoctor = {
+      const invoiceClean = {
         ...invoice,
-        doctor: invoice.doctor ? invoice.doctor.name : "-", // doctor name or placeholder
         _id: invoice._id.toString(),
         userId: invoice.userId?.toString(),
         invoicedDate: invoice.invoicedDate?.toISOString(),
@@ -88,7 +79,7 @@ export default async function handler(req, res) {
         advanceClaimReleaseDate: invoice.advanceClaimReleaseDate?.toISOString(),
       };
 
-      return res.status(200).json(invoiceWithDoctor);
+      return res.status(200).json(invoiceClean);
     }
 
     // -------------------------------

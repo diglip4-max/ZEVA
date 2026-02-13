@@ -114,6 +114,7 @@ export default async function handler(req, res) {
       emrNumber,
       userId, // PatientRegistration ID from appointment (appointment.patientId)
       referredBy,
+      selectedPackageTreatments, // Array of treatments with sessions used from package
     } = req.body;
 
     // Validate required fields
@@ -217,6 +218,7 @@ export default async function handler(req, res) {
       package: service === "Package" ? (packageName || "") : "",
       quantity: service === "Treatment" ? (parseInt(quantity) || 1) : 1,
       sessions: service === "Package" ? (parseInt(sessions) || 0) : 0,
+      selectedPackageTreatments: service === "Package" && Array.isArray(selectedPackageTreatments) ? selectedPackageTreatments : [],
       amount: amountNum,
       paid: paidNum,
       pending: finalPending,
