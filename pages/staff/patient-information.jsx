@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import axios from "axios";
-import { Package, TrendingUp, Eye, Search, ChevronLeft, ChevronRight, X, AlertCircle, CheckCircle2, Info, Edit3, User, DollarSign, Mail, Phone, Calendar, FileText, MapPin, Building2, CreditCard, Trash2, Download } from "lucide-react";
+import { Package, TrendingUp, Eye, Search, ChevronLeft, ChevronRight, X, AlertCircle, CheckCircle2, Info, Edit3, User, DollarSign, Mail, Phone, Calendar, FileText, MapPin, Building2, CreditCard, Trash2, Download, Activity, ClipboardList, ChevronDown, ChevronUp } from "lucide-react";
 import { useRouter } from "next/router";
 import ClinicLayout from '../../components/staffLayout';
 import withClinicAuth from '../../components/withStaffAuth';
@@ -48,7 +48,342 @@ const ToastContainer = ({ toasts, removeToast }) => (
   </div>
 );
 
-const PatientDetailsModal = ({ isOpen, onClose, patient, memberships = [], packages = [] }) => {
+// Package Usage Modal Component
+const PackageUsageModal = ({ isOpen, onClose, patient, packageUsageData, loading }) => {
+  const [expandedPackages, setExpandedPackages] = useState({});
+
+  useEffect(() => {
+    if (isOpen && packageUsageData) {
+      // Auto-expand first package
+      const firstPkg = packageUsageData[0]?.packageName;
+      if (firstPkg) {
+        setExpandedPackages({ [firstPkg]: true });
+      }
+    }
+  }, [isOpen, packageUsageData]);
+
+  const togglePackage = (pkgName) => {
+    setExpandedPackages(prev => ({
+      ...prev,
+      [pkgName]: !prev[pkgName]
+    }));
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-2 sm:p-4 overflow-y-auto">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative bg-white rounded-xl shadow-2xl max-w-4xl w-full my-2 sm:my-4 max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col animate-scaleIn">
+        {/* Header */}
+        <div className="sticky top-0 bg-gradient-to-r from-teal-600 to-teal-700 px-4 sm:px-6 py-4 flex items-center justify-between z-10">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-white/20 flex items-center justify-center">
+              <Activity className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-white">Package Session Usage</h3>
+              <p className="text-xs text-teal-100">
+                {patient ? `${patient.firstName} ${patient.lastName}` : 'Patient'} - Detailed Overview
+              </p>
+            </div>
+          </div>
+          <button 
+            onClick={onClose} 
+            className="p-2 text-white/80 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-gray-50">
+          {loading ? (
+            <div className="flex flex-col items-center justify-center py-12">
+              <div className="w-12 h-12 border-4 border-teal-200 border-t-teal-600 rounded-full animate-spin mb-4"></div>
+              <p className="text-gray-600">Loading package usage data...</p>
+            </div>
+          ) : !packageUsageData || packageUsageData.length === 0 ? (
+            <div className="text-center py-12">
+              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Package className="w-8 h-8 text-gray-400" />
+              </div>
+              <h4 className="text-lg font-semibold text-gray-700 mb-2">No Package Usage Found</h4>
+              <p className="text-gray-500 text-sm">This patient has no package billing records yet.</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {/* Summary Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+                <div className="bg-white rounded-xl p-4 border border-teal-100 shadow-sm">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-teal-100 flex items-center justify-center">
+                      <Package className="w-5 h-5 text-teal-600" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">Total Packages</p>
+                      <p className="text-xl font-bold text-gray-900">{packageUsageData.length}</p>
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-white rounded-xl p-4 border border-blue-100 shadow-sm">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
+                      <ClipboardList className="w-5 h-5 text-blue-600" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">Total Sessions Used</p>
+                      <p className="text-xl font-bold text-gray-900">
+                        {packageUsageData.reduce((sum, pkg) => sum + (pkg.totalSessions || 0), 0)}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-white rounded-xl p-4 border border-purple-100 shadow-sm">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center">
+                      <Activity className="w-5 h-5 text-purple-600" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">Total Billings</p>
+                      <p className="text-xl font-bold text-gray-900">
+                        {packageUsageData.reduce((sum, pkg) => sum + (pkg.billingHistory?.length || 0), 0)}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Package Details */}
+              {packageUsageData.map((pkg, pkgIndex) => (
+                <div key={pkg.packageName} className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+                  {/* Package Header */}
+                  <button
+                    onClick={() => togglePackage(pkg.packageName)}
+                    className="w-full px-4 sm:px-6 py-4 flex items-center justify-between bg-gradient-to-r from-gray-50 to-white hover:from-teal-50 hover:to-white transition-colors"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-teal-100 flex items-center justify-center">
+                        <span className="text-sm font-bold text-teal-600">#{pkgIndex + 1}</span>
+                      </div>
+                      <div className="text-left">
+                        <h4 className="font-semibold text-gray-900">{pkg.packageName}</h4>
+                        <p className="text-xs text-gray-500">
+                          {pkg.treatments?.length || 0} treatments • {pkg.totalSessions || 0} total sessions used
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs px-2 py-1 rounded-full bg-teal-100 text-teal-700 font-medium">
+                        {pkg.billingHistory?.length || 0} billings
+                      </span>
+                      {expandedPackages[pkg.packageName] ? (
+                        <ChevronUp className="w-5 h-5 text-gray-400" />
+                      ) : (
+                        <ChevronDown className="w-5 h-5 text-gray-400" />
+                      )}
+                    </div>
+                  </button>
+
+                  {/* Package Content */}
+                  {expandedPackages[pkg.packageName] && (
+                    <div className="border-t border-gray-100">
+                      {/* Treatments List */}
+                      <div className="p-4 sm:p-6">
+                        <h5 className="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                          <Activity className="w-4 h-4 text-teal-500" />
+                          Treatment Session Usage
+                        </h5>
+                        
+                        {pkg.treatments && pkg.treatments.length > 0 ? (
+                          <div className="space-y-3">
+                            {pkg.treatments.map((treatment, tIndex) => {
+                              const usagePercent = treatment.maxSessions 
+                                ? Math.round((treatment.totalUsedSessions / treatment.maxSessions) * 100)
+                                : 0;
+                              const isFullyUsed = treatment.maxSessions && treatment.totalUsedSessions >= treatment.maxSessions;
+                              const remainingSessions = (treatment.maxSessions || 0) - (treatment.totalUsedSessions || 0);
+                              
+                              return (
+                                <div 
+                                  key={treatment.treatmentSlug || tIndex} 
+                                  className={`rounded-lg border p-4 ${
+                                    isFullyUsed 
+                                      ? 'bg-green-50 border-green-200' 
+                                      : remainingSessions > 0 
+                                        ? 'bg-amber-50 border-amber-200' 
+                                        : 'bg-gray-50 border-gray-200'
+                                  }`}
+                                >
+                                  <div className="flex items-start justify-between mb-3">
+                                    <div className="flex items-center gap-2">
+                                      <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                                        isFullyUsed 
+                                          ? 'bg-green-500 text-white' 
+                                          : remainingSessions > 0 
+                                            ? 'bg-amber-500 text-white' 
+                                            : 'bg-gray-400 text-white'
+                                      }`}>
+                                        {tIndex + 1}
+                                      </div>
+                                      <span className="font-medium text-gray-900">{treatment.treatmentName}</span>
+                                    </div>
+                                    <span className={`text-xs px-2 py-1 rounded-full font-medium ${
+                                      isFullyUsed 
+                                        ? 'bg-green-100 text-green-700' 
+                                        : remainingSessions > 0 
+                                          ? 'bg-amber-100 text-amber-700' 
+                                          : 'bg-gray-100 text-gray-600'
+                                    }`}>
+                                      {isFullyUsed ? 'Completed' : remainingSessions > 0 ? `${remainingSessions} left` : 'Not Started'}
+                                    </span>
+                                  </div>
+
+                                  {/* Progress Bar */}
+                                  <div className="mb-3">
+                                    <div className="flex justify-between text-xs mb-1">
+                                      <span className="text-gray-600">Session Usage</span>
+                                      <span className="font-medium text-gray-900">
+                                        {treatment.totalUsedSessions || 0} / {treatment.maxSessions || 0} sessions
+                                      </span>
+                                    </div>
+                                    <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                                      <div 
+                                        className={`h-full rounded-full transition-all duration-500 ${
+                                          isFullyUsed 
+                                            ? 'bg-green-500' 
+                                            : remainingSessions > 0 
+                                              ? 'bg-amber-500' 
+                                              : 'bg-gray-400'
+                                        }`}
+                                        style={{ width: `${Math.min(usagePercent, 100)}%` }}
+                                      />
+                                    </div>
+                                  </div>
+
+                                  {/* Usage Details */}
+                                  {treatment.usageDetails && treatment.usageDetails.length > 0 && (
+                                    <div className="mt-3 pt-3 border-t border-gray-200/60">
+                                      <p className="text-xs font-medium text-gray-600 mb-2">Usage History:</p>
+                                      <div className="space-y-1.5">
+                                        {treatment.usageDetails.map((detail, dIndex) => (
+                                          <div 
+                                            key={dIndex} 
+                                            className="flex items-center justify-between text-xs bg-white/60 rounded px-2 py-1.5"
+                                          >
+                                            <div className="flex items-center gap-2">
+                                              <CheckCircle2 className="w-3 h-3 text-green-500" />
+                                              <span className="text-gray-700">
+                                                {detail.sessions} session{detail.sessions !== 1 ? 's' : ''}
+                                              </span>
+                                            </div>
+                                            <div className="flex items-center gap-3 text-gray-500">
+                                              <span>Invoice: <span className="font-medium text-gray-700">{detail.invoiceNumber}</span></span>
+                                              <span>{new Date(detail.date).toLocaleDateString()}</span>
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <p className="text-sm text-gray-500 text-center py-4">No treatment usage recorded</p>
+                        )}
+                      </div>
+
+                      {/* Billing History */}
+                      {pkg.billingHistory && pkg.billingHistory.length > 0 && (
+                        <div className="border-t border-gray-100 p-4 sm:p-6 bg-gray-50/50">
+                          <h5 className="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                            <ClipboardList className="w-4 h-4 text-blue-500" />
+                            Billing History
+                          </h5>
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-xs">
+                              <thead>
+                                <tr className="border-b border-gray-200">
+                                  <th className="text-left py-2 px-2 font-medium text-gray-600">Invoice</th>
+                                  <th className="text-left py-2 px-2 font-medium text-gray-600">Date</th>
+                                  <th className="text-center py-2 px-2 font-medium text-gray-600">Sessions</th>
+                                  <th className="text-right py-2 px-2 font-medium text-gray-600">Amount</th>
+                                  <th className="text-right py-2 px-2 font-medium text-gray-600">Paid</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {pkg.billingHistory.map((billing, bIndex) => (
+                                  <tr key={bIndex} className="border-b border-gray-100 last:border-0 hover:bg-white/50">
+                                    <td className="py-2 px-2 font-medium text-gray-900">{billing.invoiceNumber}</td>
+                                    <td className="py-2 px-2 text-gray-600">{new Date(billing.date).toLocaleDateString()}</td>
+                                    <td className="py-2 px-2 text-center">
+                                      <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-teal-100 text-teal-700 font-medium">
+                                        {billing.sessions || 0}
+                                      </span>
+                                    </td>
+                                    <td className="py-2 px-2 text-right font-medium text-gray-900">₹{billing.amount?.toLocaleString() || 0}</td>
+                                    <td className="py-2 px-2 text-right text-green-600 font-medium">₹{billing.paid?.toLocaleString() || 0}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="sticky bottom-0 bg-white border-t border-gray-200 px-4 sm:px-6 py-4">
+          <button 
+            onClick={onClose} 
+            className="w-full px-4 py-2.5 bg-gray-900 hover:bg-gray-800 text-white rounded-lg text-sm font-medium transition-colors"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const PatientDetailsModal = ({ isOpen, onClose, patient, memberships = [], packages = [], onViewPackageUsage }) => {
+  const [membershipUsage, setMembershipUsage] = useState(null);
+  const [loadingMembershipUsage, setLoadingMembershipUsage] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen || !patient?._id || patient.membership !== 'Yes') {
+      setMembershipUsage(null);
+      return;
+    }
+
+    const fetchMembershipUsage = async () => {
+      setLoadingMembershipUsage(true);
+      try {
+        const headers = getAuthHeaders();
+        if (!headers) return;
+        
+        const response = await axios.get(`/api/clinic/membership-usage/${patient._id}`, { headers });
+        if (response.data.success) {
+          setMembershipUsage(response.data);
+        }
+      } catch (err) {
+        console.error("Error fetching membership usage:", err);
+      } finally {
+        setLoadingMembershipUsage(false);
+      }
+    };
+
+    fetchMembershipUsage();
+  }, [isOpen, patient?._id, patient?.membership]);
+
   if (!isOpen || !patient) return null;
   const membershipName = (() => {
     if (!patient.membershipId) return null;
@@ -186,6 +521,65 @@ const PatientDetailsModal = ({ isOpen, onClose, patient, memberships = [], packa
                         </span>
                       </div>
                     )}
+                    
+                    {/* Free Consultation Usage */}
+                    {loadingMembershipUsage ? (
+                      <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-100">
+                        <span className="text-gray-700 w-24">Free Consults:</span>
+                        <span className="text-gray-500 text-[10px]">Loading...</span>
+                      </div>
+                    ) : membershipUsage?.hasMembership && !membershipUsage?.isExpired && membershipUsage?.hasFreeConsultations ? (
+                      <div className="mt-3 pt-3 border-t border-gray-100">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="text-gray-700 w-24">Free Consults:</span>
+                          <span className="font-medium text-gray-900">
+                            {membershipUsage.usedFreeConsultations} / {membershipUsage.totalFreeConsultations} used
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-gray-700 w-24">Remaining:</span>
+                          <span className={`font-medium ${membershipUsage.remainingFreeConsultations > 0 ? 'text-emerald-600' : 'text-gray-500'}`}>
+                            {membershipUsage.remainingFreeConsultations} left
+                          </span>
+                        </div>
+                        {membershipUsage.discountPercentage > 0 && (
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="text-gray-700 w-24">Discount:</span>
+                            <span className="font-medium text-blue-600">
+                              {membershipUsage.discountPercentage}% off
+                            </span>
+                          </div>
+                        )}
+                        {/* Progress bar */}
+                        <div className="mt-2">
+                          <div className="w-full bg-gray-200 rounded-full h-1.5">
+                            <div 
+                              className={`h-1.5 rounded-full transition-all ${
+                                membershipUsage.remainingFreeConsultations > 0 ? 'bg-emerald-500' : 'bg-gray-400'
+                              }`}
+                              style={{ 
+                                width: `${Math.min(100, (membershipUsage.usedFreeConsultations / membershipUsage.totalFreeConsultations) * 100)}%` 
+                              }}
+                            />
+                          </div>
+                          <div className="text-[10px] text-gray-500 mt-1 text-right">
+                            {membershipUsage.remainingFreeConsultations > 0 
+                              ? `${membershipUsage.remainingFreeConsultations} free consultation(s) remaining`
+                              : 'All free consultations used'
+                            }
+                          </div>
+                        </div>
+                      </div>
+                    ) : membershipUsage?.hasMembership && !membershipUsage?.isExpired && membershipUsage?.discountPercentage > 0 ? (
+                      <div className="mt-3 pt-3 border-t border-gray-100">
+                        <div className="flex items-center gap-2">
+                          <span className="text-gray-700 w-24">Discount:</span>
+                          <span className="font-medium text-blue-600">
+                            {membershipUsage.discountPercentage}% off
+                          </span>
+                        </div>
+                      </div>
+                    ) : null}
                   </>
                 )}
                 {(Array.isArray(patient.memberships) ? patient.memberships : []).length > 0 && (
@@ -211,10 +605,20 @@ const PatientDetailsModal = ({ isOpen, onClose, patient, memberships = [], packa
               </div>
             </div>
             <div className="bg-white rounded-lg border border-gray-200 p-3">
-              <h4 className="text-xs font-semibold text-gray-900 uppercase border-b pb-2 mb-3 flex items-center gap-1.5">
-                <Package className="w-3.5 h-3.5" />
-                Package
-              </h4>
+              <div className="flex items-center justify-between border-b pb-2 mb-3">
+                <h4 className="text-xs font-semibold text-gray-900 uppercase flex items-center gap-1.5">
+                  <Package className="w-3.5 h-3.5" />
+                  Package
+                </h4>
+                <button
+                  onClick={() => onViewPackageUsage && onViewPackageUsage(patient)}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-teal-50 hover:bg-teal-100 text-teal-700 text-[10px] font-medium rounded-lg transition-colors"
+                  title="View detailed package session usage"
+                >
+                  <Activity className="w-3 h-3" />
+                  View Usage
+                </button>
+              </div>
               <div className="space-y-2 text-xs">
                 <div className="flex items-center gap-2"><span className="text-gray-700 w-24">Status:</span> <span className="font-medium text-gray-900">{patient.package || 'No'}</span></div>
                 {patient.package === 'Yes' && (
@@ -319,6 +723,7 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
   const [toasts, setToasts] = useState([]);
   const [detailsModal, setDetailsModal] = useState({ isOpen: false, patient: null });
   const [deleteSuccessModal, setDeleteSuccessModal] = useState({ isOpen: false, patientName: "" });
+  const [packageUsageModal, setPackageUsageModal] = useState({ isOpen: false, patient: null, data: null, loading: false });
   const pageSize = 12;
 
   const addToast = (message, type = "info") => setToasts(prev => [...prev, { id: Date.now(), message, type }]);
@@ -450,6 +855,39 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
     }
   };
 
+  // Fetch package usage data for a patient
+  const fetchPackageUsage = async (patient) => {
+    if (!patient || !patient._id) return;
+    
+    setPackageUsageModal({ isOpen: true, patient, data: null, loading: true });
+    
+    try {
+      const headers = getAuthHeaders();
+      if (!headers) {
+        addToast("Authentication required. Please login again.", "error");
+        setPackageUsageModal(prev => ({ ...prev, loading: false }));
+        return;
+      }
+      
+      const response = await axios.get(`/api/clinic/package-usage/${patient._id}`, { headers });
+      
+      if (response.data.success) {
+        setPackageUsageModal(prev => ({ 
+          ...prev, 
+          data: response.data.packageUsage || [],
+          loading: false 
+        }));
+      } else {
+        addToast(response.data.message || "Failed to fetch package usage", "error");
+        setPackageUsageModal(prev => ({ ...prev, loading: false }));
+      }
+    } catch (err) {
+      console.error("Error fetching package usage:", err);
+      addToast("Failed to fetch package usage data", "error");
+      setPackageUsageModal(prev => ({ ...prev, loading: false }));
+    }
+  };
+
   const handleDelete = async (patientId, patientName) => {
     if (!window.confirm(`Are you sure you want to delete ${patientName || 'this patient'}? This action cannot be undone.`)) {
       return;
@@ -523,6 +961,16 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
         patient={detailsModal.patient}
         memberships={memberships}
         packages={packages}
+        onViewPackageUsage={fetchPackageUsage}
+      />
+      
+      {/* Package Usage Modal */}
+      <PackageUsageModal
+        isOpen={packageUsageModal.isOpen}
+        onClose={() => setPackageUsageModal({ isOpen: false, patient: null, data: null, loading: false })}
+        patient={packageUsageModal.patient}
+        packageUsageData={packageUsageModal.data}
+        loading={packageUsageModal.loading}
       />
       
       {/* Delete Success Modal */}

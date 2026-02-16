@@ -838,7 +838,7 @@ return (
                       className={`text-gray-900 w-full px-2 py-1 text-[10px] border rounded-md focus:ring-1 focus:ring-indigo-500 ${errors.membershipId ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
                     >
                       <option value="">Select membership</option>
-                      {memberships.map(m => (
+                      {memberships.filter(m => m.isActive !== false).map(m => (
                         <option key={m._id} value={m._id}>
                           {m.name}
                         </option>
