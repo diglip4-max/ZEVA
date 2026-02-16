@@ -48,15 +48,22 @@ export default async function handler(req, res) {
           .json({ success: false, message: "clinicId is required for admin" });
     }
 
-    const { branch, supplier, purchasedOrder, date, notes, status } = req.body;
+    const { branch, supplier, purchasedOrder, date, notes, status, items } =
+      req.body;
 
-    if (!branch || !supplier || !purchasedOrder || !date) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "branch, supplier, purchasedOrder and date are required",
-        });
+    if (
+      !branch ||
+      !supplier ||
+      !purchasedOrder ||
+      !date ||
+      !items ||
+      items.length === 0
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "branch, supplier, purchasedOrder, date and items are required",
+      });
     }
 
     // Optionally validate purchasedOrder exists
@@ -74,6 +81,7 @@ export default async function handler(req, res) {
       date: new Date(date),
       notes: notes || "",
       status: status || undefined,
+      items,
       createdBy: me._id,
     });
 
@@ -89,20 +97,16 @@ export default async function handler(req, res) {
       .populate("createdBy", "name email")
       .lean();
 
-    return res
-      .status(201)
-      .json({
-        success: true,
-        message: "Purchase return added",
-        data: populated,
-      });
+    return res.status(201).json({
+      success: true,
+      message: "Purchase return added",
+      data: populated,
+    });
   } catch (err) {
     console.error("Error creating purchase return:", err);
-    return res
-      .status(500)
-      .json({
-        success: false,
-        message: err.message || "Internal Server Error",
-      });
+    return res.status(500).json({
+      success: false,
+      message: err.message || "Internal Server Error",
+    });
   }
 }

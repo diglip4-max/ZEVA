@@ -1,5 +1,6 @@
 import dbConnect from "../../../../lib/database";
 import Clinic from "../../../../models/Clinic";
+import User from "../../../../models/Users";
 import PurchaseRecord from "../../../../models/stocks/PurchaseRecord";
 import Supplier from "../../../../models/stocks/Supplier";
 import { getUserFromReq, requireRole } from "../../lead-ms/auth";
@@ -186,9 +187,9 @@ export default async function handler(req, res) {
     // Execute parallel queries for better performance
     const totalRecords = await PurchaseRecord.countDocuments(query);
     const records = await PurchaseRecord.find(query)
-      .populate("branch", "name")
-      .populate("supplier", "name")
-      .populate("createdBy", "name email")
+      .populate("branch", "name", Clinic)
+      .populate("supplier", "name", Supplier)
+      .populate("createdBy", "name email", User)
       // .sort({ [finalSortBy]: sortOrder })
       .sort({ createdAt: -1 })
       .skip(skip)

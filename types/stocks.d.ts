@@ -45,6 +45,8 @@ export type StockLocation = {
 
 export type PurchaseRecordItem = {
   _id?: string;
+  itemId?: string;
+  code?: string;
   name: string;
   description?: string;
   quantity: number;
