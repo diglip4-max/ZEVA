@@ -45,6 +45,47 @@ const PurchaseReturnSchema = new mongoose.Schema(
       enum: ["Returned", "Deleted"],
       default: "Returned",
     },
+    items: [
+      {
+        itemId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "StockItem",
+          required: true,
+          index: true,
+        },
+        code: {
+          type: String,
+          trim: true,
+        },
+        name: {
+          type: String,
+          required: true,
+        },
+        description: {
+          type: String,
+        },
+        quantity: {
+          type: Number,
+          required: true,
+          default: 1,
+        },
+        uom: {
+          type: String,
+        },
+        expiryDate: {
+          type: Date,
+          default: null,
+        },
+        costPrice: {
+          type: Number,
+          required: true,
+        },
+        totalPrice: {
+          type: Number,
+          required: true,
+        },
+      },
+    ],
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",

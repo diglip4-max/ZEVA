@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from "react";
 import { PlusCircle, X, Search, ChevronDown } from "lucide-react";
 // import useClinicBranches from "@/hooks/useClinicBranches";
 import useLocations from "@/hooks/useLocations";
+import useUoms from "@/hooks/useUoms";
+import { handleUpload } from "@/lib/helper";
 
 interface StockItem {
   _id?: string;
@@ -106,6 +108,7 @@ const AddStockItemModal: React.FC<AddStockItemModalProps> = ({
     clinicId,
     search: locationSearch,
   });
+  const { uoms } = useUoms({ token, branchId: clinicId });
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -204,8 +207,8 @@ const AddStockItemModal: React.FC<AddStockItemModalProps> = ({
         level1: {
           ...prev.packagingStructure.level1,
           multiplier: multiplier,
-          costPrice: prev.level0.costPrice * multiplier,
-          salePrice: prev.level0.salePrice * multiplier,
+          costPrice: prev.level0.costPrice / multiplier,
+          salePrice: prev.level0.salePrice / multiplier,
         },
       },
     }));
@@ -220,8 +223,8 @@ const AddStockItemModal: React.FC<AddStockItemModalProps> = ({
         level2: {
           ...prev.packagingStructure.level2,
           multiplier: multiplier,
-          costPrice: prev.packagingStructure.level1.costPrice * multiplier,
-          salePrice: prev.packagingStructure.level1.salePrice * multiplier,
+          costPrice: prev.packagingStructure.level1.costPrice / multiplier,
+          salePrice: prev.packagingStructure.level1.salePrice / multiplier,
         },
       },
     }));
@@ -239,21 +242,10 @@ const AddStockItemModal: React.FC<AddStockItemModalProps> = ({
       return;
     }
 
-    // Create FormData for upload
-    const formData = new FormData();
-    formData.append("image", file);
-
     try {
-      const response = await fetch("/api/upload", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        body: formData,
-      });
+      const result = await handleUpload(file);
 
-      const result = await response.json();
-      if (result.success && result.url) {
+      if (result?.success && result?.url) {
         setFormData((prev) => ({
           ...prev,
           imageUrl: result.url,
@@ -382,11 +374,41 @@ const AddStockItemModal: React.FC<AddStockItemModalProps> = ({
     onClose();
   };
 
+  useEffect(() => {
+    // update level1 and level2 prices when level0 prices change
+    setFormData((prev) => ({
+      ...prev,
+      packagingStructure: {
+        level1: {
+          ...prev.packagingStructure.level1,
+          costPrice:
+            prev.level0.costPrice / prev.packagingStructure.level1.multiplier,
+          salePrice:
+            prev.level0.salePrice / prev.packagingStructure.level1.multiplier,
+        },
+        level2: {
+          ...prev.packagingStructure.level2,
+          costPrice:
+            prev.packagingStructure.level1.costPrice /
+            prev.packagingStructure.level2.multiplier,
+          salePrice:
+            prev.packagingStructure.level1.salePrice /
+            prev.packagingStructure.level2.multiplier,
+        },
+      },
+    }));
+  }, [
+    formData.level0.costPrice,
+    formData.level0.salePrice,
+    formData.packagingStructure.level1.multiplier,
+    formData.packagingStructure.level2.multiplier,
+  ]);
+
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-3 sm:p-4">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl overflow-hidden flex flex-col max-h-[90vh]">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-6xl overflow-hidden flex flex-col max-h-[90vh]">
         {/* Header */}
         <div className="bg-gray-800 px-4 py-3 flex justify-between items-center">
           <div className="flex items-center gap-2">
@@ -469,7 +491,7 @@ const AddStockItemModal: React.FC<AddStockItemModalProps> = ({
                   value={formData.name}
                   onChange={handleInputChange}
                   placeholder="Ex: Paracetamol 500mg"
-                  className="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
+                  className="w-full px-3 py-2.5 text-sm border border-gray-300 text-gray-500 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
                   disabled={loading}
                   required
                 />
@@ -505,7 +527,7 @@ const AddStockItemModal: React.FC<AddStockItemModalProps> = ({
                   </div>
 
                   {isLocationDropdownOpen && (
-                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg">
+                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 text-gray-500 rounded-lg shadow-lg">
                       <div className="p-2 border-b">
                         <div className="relative">
                           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4" />
@@ -567,7 +589,7 @@ const AddStockItemModal: React.FC<AddStockItemModalProps> = ({
                   value={formData.brand}
                   onChange={handleInputChange}
                   placeholder="Ex: Generic"
-                  className="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
+                  className="w-full px-3 py-2.5 text-sm border border-gray-300 text-gray-500 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
                   disabled={loading}
                 />
               </div>
@@ -583,7 +605,7 @@ const AddStockItemModal: React.FC<AddStockItemModalProps> = ({
                   value={formData.dosage}
                   onChange={handleInputChange}
                   placeholder="Ex: 500mg"
-                  className="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
+                  className="w-full px-3 py-2.5 text-sm border border-gray-300 text-gray-500 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
                   disabled={loading}
                 />
               </div>
@@ -602,7 +624,7 @@ const AddStockItemModal: React.FC<AddStockItemModalProps> = ({
                   value={formData.strength}
                   onChange={handleInputChange}
                   placeholder="Ex: Tablet"
-                  className="w-full px-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
+                  className="w-full px-3 py-2.5 text-sm border border-gray-300 text-gray-500 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
                   disabled={loading}
                 />
               </div>
@@ -641,7 +663,7 @@ const AddStockItemModal: React.FC<AddStockItemModalProps> = ({
                   onChange={handleInputChange}
                   min="0"
                   step="1"
-                  className="w-full px-3 py-2.5 text-sm border border-gray-300 text-gray-500 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
+                  className="w-full px-3 py-2.5 text-sm border border-gray-300 text-gray-500  rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
                   disabled={loading}
                   required
                 />
@@ -682,7 +704,7 @@ const AddStockItemModal: React.FC<AddStockItemModalProps> = ({
 
             {/* Level 0 Detail Section */}
             <div className="border border-gray-200 rounded-lg p-4">
-              <h3 className="text-lg font-bold text-gray-900 mb-4">
+              <h3 className="text-base font-bold text-gray-900 mb-4">
                 Level 0 Detail (Base Unit)
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -697,16 +719,11 @@ const AddStockItemModal: React.FC<AddStockItemModalProps> = ({
                     disabled={loading}
                   >
                     <option value="">Select UOM</option>
-                    <option value="pcs">PCS</option>
-                    <option value="tablet">Tablet</option>
-                    <option value="capsule">Capsule</option>
-                    <option value="ml">ML</option>
-                    <option value="mg">MG</option>
-                    <option value="g">G</option>
-                    <option value="kg">KG</option>
-                    <option value="l">L</option>
-                    <option value="session">Session</option>
-                    <option value="unit">Unit</option>
+                    {uoms.map((uom) => (
+                      <option key={uom._id} value={uom.name}>
+                        {uom.name}
+                      </option>
+                    ))}
                   </select>
                 </div>
                 <div className="space-y-2">
@@ -781,11 +798,11 @@ const AddStockItemModal: React.FC<AddStockItemModalProps> = ({
                     disabled={loading}
                   >
                     <option value="">Select UOM</option>
-                    <option value="strip">Strip</option>
-                    <option value="box">Box</option>
-                    <option value="pack">Pack</option>
-                    <option value="carton">Carton</option>
-                    <option value="bottle">Bottle</option>
+                    {uoms.map((uom) => (
+                      <option key={uom._id} value={uom.name}>
+                        {uom.name}
+                      </option>
+                    ))}
                   </select>
                 </div>
                 <div className="space-y-2">
@@ -801,7 +818,7 @@ const AddStockItemModal: React.FC<AddStockItemModalProps> = ({
                     min="0"
                     step="0.01"
                     className="w-full px-3 py-2.5 text-sm border border-gray-300 text-gray-500 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
-                    disabled={loading}
+                    disabled={true}
                   />
                 </div>
                 <div className="space-y-2">
@@ -817,7 +834,7 @@ const AddStockItemModal: React.FC<AddStockItemModalProps> = ({
                     min="0"
                     step="0.01"
                     className="w-full px-3 py-2.5 text-sm border border-gray-300 text-gray-500 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
-                    disabled={loading}
+                    disabled={true}
                   />
                 </div>
               </div>
@@ -858,11 +875,11 @@ const AddStockItemModal: React.FC<AddStockItemModalProps> = ({
                     disabled={loading}
                   >
                     <option value="">Select UOM</option>
-                    <option value="box">Box</option>
-                    <option value="carton">Carton</option>
-                    <option value="case">Case</option>
-                    <option value="pallet">Pallet</option>
-                    <option value="container">Container</option>
+                    {uoms.map((uom) => (
+                      <option key={uom._id} value={uom.name}>
+                        {uom.name}
+                      </option>
+                    ))}
                   </select>
                 </div>
                 <div className="space-y-2">
@@ -878,7 +895,7 @@ const AddStockItemModal: React.FC<AddStockItemModalProps> = ({
                     min="0"
                     step="0.01"
                     className="w-full px-3 py-2.5 text-sm border border-gray-300 text-gray-500 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
-                    disabled={loading}
+                    disabled={true}
                   />
                 </div>
                 <div className="space-y-2">
@@ -894,7 +911,7 @@ const AddStockItemModal: React.FC<AddStockItemModalProps> = ({
                     min="0"
                     step="0.01"
                     className="w-full px-3 py-2.5 text-sm border border-gray-300 text-gray-500 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
-                    disabled={loading}
+                    disabled={true}
                   />
                 </div>
               </div>

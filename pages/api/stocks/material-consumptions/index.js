@@ -1,5 +1,7 @@
 import dbConnect from "../../../../lib/database";
 import Clinic from "../../../../models/Clinic";
+import Room from "../../../../models/Room";
+import User from "../../../../models/Users";
 import MaterialConsumption from "../../../../models/stocks/MaterialConsumption";
 import { getUserFromReq, requireRole } from "../../lead-ms/auth";
 
@@ -132,10 +134,10 @@ async function handleGet(req, res) {
 
     const total = await MaterialConsumption.countDocuments(query);
     const data = await MaterialConsumption.find(query)
-      .populate("branch", "name")
-      .populate("room", "name")
-      .populate("doctor", "name")
-      .populate("createdBy", "name email")
+      .populate("branch", "name", Clinic)
+      .populate("room", "name", Room)
+      .populate("doctor", "name", User)
+      .populate("createdBy", "name email", User)
       .sort({ [finalSortBy]: sortOrder })
       .skip(skip)
       .limit(limit)
