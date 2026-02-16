@@ -1,30 +1,20 @@
+import { getTokenByPath } from "@/lib/helper";
 import { User } from "@/types/users";
 import React from "react";
 
-const useAgents = () => {
+type UserRole = "agent" | "doctorStaff";
+
+const useAgents = ({ role }: { role: UserRole }) => {
   const [agents, setAgents] = React.useState<User[]>([]);
   const [loading, setLoading] = React.useState<boolean>(false);
 
-  const getTokenByPath = () => {
-    if (typeof window === "undefined") return null;
-
-    const pathname = window.location.pathname;
-
-    if (pathname === "/clinic/inbox") {
-      return localStorage.getItem("clinicToken");
-    } else if (pathname === "/staff/clinic-inbox") {
-      return localStorage.getItem("agentToken");
-    } else {
-      return localStorage.getItem("userToken");
-    }
-  };
-
-  const token = getTokenByPath();
-
-  const fetchAgents = React.useCallback(async (token: string) => {
+  const fetchAgents = React.useCallback(async () => {
     setLoading(true);
     try {
-      const response = await fetch(`/api/lead-ms/get-agents?role=agent`, {
+      const token = getTokenByPath();
+      if (!token || !role) return;
+
+      const response = await fetch(`/api/lead-ms/get-agents?role=${role}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -41,12 +31,12 @@ const useAgents = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [role]);
 
   React.useEffect(() => {
     // This effect can be used to fetch agents when needed
-    if (token) fetchAgents(token);
-  }, [token, fetchAgents]);
+    fetchAgents();
+  }, [fetchAgents]);
 
   const state = {
     agents,

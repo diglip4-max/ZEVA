@@ -1,5 +1,8 @@
 import dbConnect from "../../../../lib/database";
 import Clinic from "../../../../models/Clinic";
+import Supplier from "../../../../models/stocks/Supplier";
+import GRN from "../../../../models/stocks/GRN";
+import User from "../../../../models/Users";
 import PurchaseInvoice from "../../../../models/stocks/PurchaseInvoice";
 import { getUserFromReq, requireRole } from "../../lead-ms/auth";
 
@@ -39,12 +42,10 @@ async function handleGet(req, res) {
     } else if (me.role === "admin") {
       clinicId = req.query.clinicId;
       if (!clinicId)
-        return res
-          .status(400)
-          .json({
-            success: false,
-            message: "clinicId is required for admin in query parameters",
-          });
+        return res.status(400).json({
+          success: false,
+          message: "clinicId is required for admin in query parameters",
+        });
     }
 
     const page = Math.max(1, parseInt(req.query.page) || 1);
@@ -94,11 +95,11 @@ async function handleGet(req, res) {
 
     const total = await PurchaseInvoice.countDocuments(query);
     const data = await PurchaseInvoice.find(query)
-      .populate("branch", "name")
-      .populate("supplier", "name")
-      .populate("grn", "grnNo")
-      .populate("grns", "grnNo")
-      .populate("createdBy", "name email")
+      .populate("branch", "name", Clinic)
+      .populate("supplier", "name", Supplier)
+      .populate("grn", "grnNo", GRN)
+      .populate("grns", "grnNo", GRN)
+      .populate("createdBy", "name email", User)
       .sort({ [finalSortBy]: sortOrder })
       .skip(skip)
       .limit(limit)
@@ -115,12 +116,10 @@ async function handleGet(req, res) {
       filters: { branches, suppliers, statuses },
     });
   } catch (error) {
-    res
-      .status(500)
-      .json({
-        success: false,
-        message: "Failed to fetch purchase invoices",
-        error: error.message,
-      });
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch purchase invoices",
+      error: error.message,
+    });
   }
 }

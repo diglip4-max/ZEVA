@@ -75,19 +75,20 @@ const useInbox = () => {
   console.log({ user });
   const { providers } = useProvider();
   const { templates } = useTemplate();
-  const agents = useAgents()?.state?.agents || [];
-  const agentFetchLoading = useAgents()?.state?.loading || false;
+  const { agents, loading: agentFetchLoading } = useAgents({
+    role: "agent",
+  })?.state;
   const [userId, setUserId] = useState<string | null>(null);
   const [fetchConvLoading, setFetchConvLoading] = useState<boolean>(true);
   const [fetchMsgsLoading, setFetchMsgsLoading] = useState<boolean>(true);
   const [conversations, setConversations] = useState<IState["conversations"]>(
-    []
+    [],
   );
   const [messages, setMessages] = useState<MessageData[]>([]);
   const [selectedConversation, setSelectedConversation] =
     useState<ConversationType | null>(null);
   const [selectedProvider, setSelectedProvider] = useState<Provider | null>(
-    null
+    null,
   );
   const [currentConvPage, setCurrentConvPage] = useState<number>(1);
   const [totalConversations, setTotalConversations] = useState<number>(0);
@@ -98,7 +99,7 @@ const useInbox = () => {
   const [totalMessages, setTotalMessages] = useState<number>(0);
   const [hasMoreMessages, setHasMoreMessages] = useState<boolean>(true);
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(
-    null
+    null,
   );
   const [attachedFile, setAttachedFile] = useState<File | null>(null);
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
@@ -111,7 +112,7 @@ const useInbox = () => {
   const [isLiveChatSelected, setIsLiveChatSelected] = useState<boolean>(false);
   const [subject, setSubject] = useState<string>("");
   const [selectedMessage, setSelectedMessage] = useState<MessageType | null>(
-    null
+    null,
   );
   const [isScrolledToBottom, setIsScrolledToBottom] = useState<boolean>(false);
 
@@ -214,7 +215,7 @@ const useInbox = () => {
                   ? new Date(b.recentMessage.createdAt).getTime()
                   : 0;
                 return dateB - dateA;
-              })
+              }),
             );
           }
           setTotalConversations(res?.data?.pagination?.totalConversations || 0);
@@ -228,7 +229,7 @@ const useInbox = () => {
         setFetchConvLoading(false);
       }
     }, 300),
-    [currentConvPage, token, searchConvInput, filters]
+    [currentConvPage, token, searchConvInput, filters],
   );
 
   const fetchMessages = async (page = 1) => {
@@ -242,7 +243,7 @@ const useInbox = () => {
         {
           params: { page, limit: 5 },
           headers: { Authorization: `Bearer ${token}` },
-        }
+        },
       );
 
       if (!res.data?.success) {
@@ -264,7 +265,7 @@ const useInbox = () => {
 
           // Create set of existing message IDs
           const existingMsgIds = new Set(
-            merged.flatMap((g) => g.messages.map((m) => m._id))
+            merged.flatMap((g) => g.messages.map((m) => m._id)),
           );
 
           incomingGroups.forEach((newGroup) => {
@@ -272,7 +273,7 @@ const useInbox = () => {
 
             // Filter out duplicate messages
             const uniqueMessages = newGroup.messages.filter(
-              (m) => !existingMsgIds.has(m._id)
+              (m) => !existingMsgIds.has(m._id),
             );
 
             if (!uniqueMessages.length) return;
@@ -433,7 +434,7 @@ const useInbox = () => {
             headers: {
               Authorization: `Bearer ${token}`,
             },
-          }
+          },
         );
         data = response?.data;
       } else if (selectedProvider?.type?.includes("email")) {
@@ -467,7 +468,7 @@ const useInbox = () => {
             headers: {
               Authorization: `Bearer ${token}`,
             },
-          }
+          },
         );
         data = response?.data;
       } else {
@@ -496,7 +497,7 @@ const useInbox = () => {
             headers: {
               Authorization: `Bearer ${token}`,
             },
-          }
+          },
         );
         data = response?.data;
       }
@@ -509,10 +510,10 @@ const useInbox = () => {
             ? {
                 ...group,
                 messages: group.messages.map((msg) =>
-                  msg?._id === tempMessageId ? newMessage : msg
+                  msg?._id === tempMessageId ? newMessage : msg,
                 ),
               }
-            : group
+            : group,
         );
 
         // @ts-ignore
@@ -522,14 +523,14 @@ const useInbox = () => {
         let updatedConversations = conversations?.map((c) =>
           c?._id === selectedConversation?._id
             ? { ...selectedConversation, recentMessage: newMessage }
-            : c
+            : c,
         );
 
         // updatedConversations = getUniqueConversations(updatedConversations);
 
         // Move the updated conversation to the front
         const sortedConversations = updatedConversations?.sort((a) =>
-          a?._id === selectedConversation?._id ? -1 : 1
+          a?._id === selectedConversation?._id ? -1 : 1,
         );
 
         setConversations(sortedConversations);
@@ -547,10 +548,10 @@ const useInbox = () => {
           ? {
               ...g,
               messages: g?.messages?.filter(
-                (msg) => msg?._id !== tempMessageId
+                (msg) => msg?._id !== tempMessageId,
               ),
             }
-          : g
+          : g,
       );
       //   @ts-ignore
       setMessages(errorHandledMessages);
@@ -690,7 +691,7 @@ const useInbox = () => {
             headers: {
               Authorization: `Bearer ${token}`,
             },
-          }
+          },
         );
         data = response?.data;
       } else if (selectedProvider?.type?.includes("email")) {
@@ -724,7 +725,7 @@ const useInbox = () => {
             headers: {
               Authorization: `Bearer ${token}`,
             },
-          }
+          },
         );
         data = response?.data;
       } else {
@@ -754,7 +755,7 @@ const useInbox = () => {
             headers: {
               Authorization: `Bearer ${token}`,
             },
-          }
+          },
         );
         data = response?.data;
       }
@@ -767,10 +768,10 @@ const useInbox = () => {
             ? {
                 ...group,
                 messages: group.messages.map((msg) =>
-                  msg?._id === tempMessageId ? newMessage : msg
+                  msg?._id === tempMessageId ? newMessage : msg,
                 ),
               }
-            : group
+            : group,
         );
 
         // @ts-ignore
@@ -780,14 +781,14 @@ const useInbox = () => {
         let updatedConversations = conversations?.map((c) =>
           c?._id === selectedConversation?._id
             ? { ...selectedConversation, recentMessage: newMessage }
-            : c
+            : c,
         );
 
         // updatedConversations = getUniqueConversations(updatedConversations);
 
         // Move the updated conversation to the front
         const sortedConversations = updatedConversations?.sort((a) =>
-          a?._id === selectedConversation?._id ? -1 : 1
+          a?._id === selectedConversation?._id ? -1 : 1,
         );
 
         setConversations(sortedConversations);
@@ -805,10 +806,10 @@ const useInbox = () => {
           ? {
               ...g,
               messages: g?.messages?.filter(
-                (msg) => msg?._id !== tempMessageId
+                (msg) => msg?._id !== tempMessageId,
               ),
             }
-          : g
+          : g,
       );
       //   @ts-ignore
       setMessages(errorHandledMessages);
@@ -828,12 +829,12 @@ const useInbox = () => {
         {},
         {
           headers: { Authorization: `Bearer ${token}` },
-        }
+        },
       );
       if (data && data?.success) {
         // Update conversations state to mark as read
         const updatedConversations = conversations.map((conv) =>
-          conv._id === conversationId ? { ...conv, unreadMessages: [] } : conv
+          conv._id === conversationId ? { ...conv, unreadMessages: [] } : conv,
         );
         setConversations(updatedConversations);
       }
@@ -896,7 +897,7 @@ const useInbox = () => {
           headers: {
             Authorization: `Bearer ${token}`,
           },
-        }
+        },
       );
       if (data && data?.success) {
         setWhatsappRemainingTime(data?.remainingTime);
@@ -914,12 +915,12 @@ const useInbox = () => {
         `/api/conversations/delete-conversation/${conversationId}`,
         {
           headers: { Authorization: `Bearer ${token}` },
-        }
+        },
       );
       if (data && data?.success) {
         // Remove conversation from state
         const updatedConversations = conversations.filter(
-          (conv) => conv._id !== conversationId
+          (conv) => conv._id !== conversationId,
         );
         setConversations(updatedConversations);
         setSelectedConversation(null);
@@ -936,7 +937,7 @@ const useInbox = () => {
 
   const handleAddTagToConversation = async (
     conversationId: string,
-    tag: string
+    tag: string,
   ) => {
     if (!token) return;
     try {
@@ -944,23 +945,23 @@ const useInbox = () => {
       const { data } = await axios.post(
         `/api/conversations/add-tags/${conversationId}`,
         { tags: [tag] },
-        { headers: { Authorization: `Bearer ${token}` } }
+        { headers: { Authorization: `Bearer ${token}` } },
       );
       if (data && data?.success) {
         // Update conversation in state
         const updatedConversations = conversations.map((conv) =>
           conv._id === conversationId
             ? { ...conv, tags: data?.data?.tags || [] }
-            : conv
+            : conv,
         );
         console.log(
           "Updated Conversations after adding tag:",
-          updatedConversations
+          updatedConversations,
         );
         setSelectedConversation((prev) =>
           prev && prev._id === conversationId
             ? { ...prev, tags: data?.data?.tags || [] }
-            : prev
+            : prev,
         );
         console.log({ t: data?.data?.tags });
         setConversations(updatedConversations);
@@ -976,26 +977,26 @@ const useInbox = () => {
 
   const handleRemoveTagFromConversation = async (
     conversationId: string,
-    tag: string
+    tag: string,
   ) => {
     if (!token) return;
     try {
       const { data } = await axios.post(
         `/api/conversations/remove-tag/${conversationId}`,
         { tag: tag },
-        { headers: { Authorization: `Bearer ${token}` } }
+        { headers: { Authorization: `Bearer ${token}` } },
       );
       if (data && data?.success) {
         // Update conversation in state
         const updatedConversations = conversations.map((conv) =>
           conv._id === conversationId
             ? { ...conv, tags: data?.data?.tags || [] }
-            : conv
+            : conv,
         );
         setSelectedConversation((prev) =>
           prev && prev._id === conversationId
             ? { ...prev, tags: data?.data?.tags || [] }
-            : prev
+            : prev,
         );
         setConversations(updatedConversations);
         toast.success("Tag removed successfully");
@@ -1007,7 +1008,7 @@ const useInbox = () => {
 
   const handleAgentSelect = async (
     agent: User | null,
-    conversationId: string
+    conversationId: string,
   ) => {
     setSelectedAgent(agent);
     // Here you would typically make an API call to assign the conversation
@@ -1023,17 +1024,17 @@ const useInbox = () => {
           headers: {
             Authorization: `Bearer ${token}`,
           },
-        }
+        },
       );
       if (data && data?.success) {
         // Update conversation in state
         const updatedConversations = conversations.map((conv) =>
-          conv._id === conversationId ? { ...conv, ownerId: agent?._id } : conv
+          conv._id === conversationId ? { ...conv, ownerId: agent?._id } : conv,
         );
         setSelectedConversation((prev) =>
           prev && prev._id === conversationId
             ? { ...prev, ownerId: agent?._id }
-            : prev
+            : prev,
         );
         setConversations(updatedConversations);
         toast.success("Conversation assigned successfully");
@@ -1071,7 +1072,7 @@ const useInbox = () => {
   useEffect(() => {
     if (selectedConversation && agents?.length > 0) {
       const findConvOwner = agents?.find(
-        (agent) => agent?._id === selectedConversation?.ownerId
+        (agent) => agent?._id === selectedConversation?.ownerId,
       );
       if (findConvOwner) setSelectedAgent(findConvOwner);
       else setSelectedAgent(null);
@@ -1172,7 +1173,7 @@ const useInbox = () => {
               ? -1
               : b._id === message.conversationId
                 ? 1
-                : 0
+                : 0,
           );
           return updatedConversations;
         });
@@ -1188,7 +1189,7 @@ const useInbox = () => {
               return prevMessages.map((group, index) =>
                 index === prevMessages.length - 1
                   ? { ...group, messages: [...group.messages, message] }
-                  : group
+                  : group,
               );
             } else {
               // Create new group for today
@@ -1204,18 +1205,18 @@ const useInbox = () => {
           setMessages((prevMessages) =>
             prevMessages.map((group) => {
               const updatedMessages = group.messages.map((msg) =>
-                msg._id === message._id ? message : msg
+                msg._id === message._id ? message : msg,
               );
 
               // Check if any message was actually updated
               const hasChange = updatedMessages.some(
-                (msg, index) => msg._id !== group.messages[index]?._id
+                (msg, index) => msg._id !== group.messages[index]?._id,
               );
 
               return hasChange
                 ? { ...group, messages: updatedMessages }
                 : group;
-            })
+            }),
           );
         }
       });
