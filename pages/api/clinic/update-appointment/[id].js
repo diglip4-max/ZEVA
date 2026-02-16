@@ -186,7 +186,7 @@ export default async function handler(req, res) {
     }
 
     // Validate status enum
-    const validStatuses = ["booked", "enquiry", "Discharge", "Arrived", "Consultation", "Cancelled", "Approved", "Rescheduled", "Waiting", "Rejected", "Completed"];
+    const validStatuses = ["booked", "enquiry", "Discharge", "Arrived", "Consultation", "Cancelled", "Approved", "Rescheduled", "Waiting", "Rejected", "Completed", "invoice"];
     if (!validStatuses.includes(status)) {
       return res.status(400).json({ success: false, message: "Invalid status" });
     }

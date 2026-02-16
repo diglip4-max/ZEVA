@@ -2166,23 +2166,25 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
       case "enquiry":
         return { bg: "bg-amber-500", text: "text-white", border: "border-amber-600" };
       case "discharge":
-        return { bg: "bg-green-500", text: "text-white", border: "border-green-600" };
+        return { bg: "bg-teal-500", text: "text-white", border: "border-teal-600" };
       case "arrived":
         return { bg: "bg-purple-500", text: "text-white", border: "border-purple-600" };
       case "consultation":
         return { bg: "bg-indigo-500", text: "text-white", border: "border-indigo-600" };
       case "cancelled":
-        return { bg: "bg-red-500", text: "text-white", border: "border-red-600" };
+        return { bg: "bg-red-700", text: "text-white", border: "border-red-800" };
       case "approved":
-        return { bg: "bg-emerald-500", text: "text-white", border: "border-emerald-600" };
+        return { bg: "bg-green-600", text: "text-white", border: "border-green-700" };
       case "rescheduled":
         return { bg: "bg-orange-500", text: "text-white", border: "border-orange-600" };
       case "waiting":
         return { bg: "bg-yellow-500", text: "text-white", border: "border-yellow-600" };
       case "rejected":
-        return { bg: "bg-rose-500", text: "text-white", border: "border-rose-600" };
+        return { bg: "bg-rose-400", text: "text-white", border: "border-rose-500" };
       case "completed":
         return { bg: "bg-gray-500", text: "text-white", border: "border-teal-600" };
+      case "invoice":
+        return { bg: "bg-fuchsia-500", text: "text-white", border: "border-fuchsia-600" };
       default:
         return { bg: "bg-gray-500", text: "text-white", border: "border-gray-600" };
     }
@@ -2965,14 +2967,12 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                                               >
                                                 <div className={`w-0.5 h-0.5 rounded-full ${statusColor.bg} ${statusColor.border} border flex-shrink-0 mr-1`} style={{ borderWidth: '1px' }} />
                                                 <div className="flex flex-col min-w-0 flex-1 overflow-hidden">
-                                                  <p className="font-semibold text-[6px] sm:text-[7px] leading-tight truncate w-full" style={{ lineHeight: '1' }}>
+                                                  <p className="font-semibold text-[8px] sm:text-[9px] leading-tight truncate w-full" style={{ lineHeight: '1.1' }}>
                                                     {slotAppointments.length > 1 ? item.apt.patientName.split(' ').slice(0, 2).join(' ') : item.apt.patientName}
                                                   </p>
-                                                  {slotAppointments.length <= 2 && (
-                                                    <p className="text-[6px] leading-tight truncate w-full opacity-75" style={{ lineHeight: '1', marginTop: '1px' }}>
-                                                      {formatTime(item.apt.fromTime)} - {formatTime(item.apt.toTime)}
-                                                    </p>
-                                                  )}
+                                                  <p className="text-[7px] leading-tight truncate w-full opacity-75" style={{ lineHeight: '1.1', marginTop: '1px' }}>
+                                                    {formatTime(item.apt.fromTime)} - {formatTime(item.apt.toTime)}
+                                                  </p>
                                                 </div>
                                               </div>
                                             );
@@ -3222,14 +3222,12 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                                               >
                                                 <div className={`w-0.5 h-0.5 rounded-full ${statusColor.bg} ${statusColor.border} border flex-shrink-0 mr-0.5`} style={{ borderWidth: '1px' }} />
                                                 <div className="flex flex-col min-w-0 flex-1 overflow-hidden">
-                                                  <p className="font-semibold text-[6px] sm:text-[7px] leading-tight truncate w-full text-gray-900 dark:text-gray-900" style={{ lineHeight: '1' }}>
+                                                  <p className="font-semibold text-[8px] sm:text-[9px] leading-tight truncate w-full text-gray-900 dark:text-gray-900" style={{ lineHeight: '1.1' }}>
                                                     {slotAppointments.length > 1 ? item.apt.patientName.split(' ').slice(0, 2).join(' ') : item.apt.patientName}
                                                   </p>
-                                                  {slotAppointments.length <= 2 && (
-                                                    <p className="text-[6px] leading-tight truncate w-full opacity-75 text-gray-700 dark:text-gray-700" style={{ lineHeight: '1', marginTop: '1px' }}>
-                                                      {formatTime(item.apt.fromTime)} - {formatTime(item.apt.toTime)}
-                                                    </p>
-                                                  )}
+                                                  <p className="text-[7px] leading-tight truncate w-full opacity-75 text-gray-700 dark:text-gray-700" style={{ lineHeight: '1.1', marginTop: '1px' }}>
+                                                    {formatTime(item.apt.fromTime)} - {formatTime(item.apt.toTime)}
+                                                  </p>
                                                 </div>
                                                 {sameIndex < slotAppointments.length - 1 && (
                                                   <div className="w-px h-2 bg-gray-300 dark:bg-gray-400 mx-0.5 flex-shrink-0" />

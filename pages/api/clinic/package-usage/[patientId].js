@@ -63,6 +63,20 @@ export default async function handler(req, res) {
       .select("package selectedPackageTreatments sessions createdAt invoiceNumber amount paid pending")
       .lean();
 
+    // Fetch package definitions to get max sessions for each treatment
+    const Package = (await import("../../../../models/Package")).default;
+    const packageNames = [...new Set(billings.map(b => b.package).filter(Boolean))];
+    const packageDefinitions = await Package.find({
+      clinicId: clinicId,
+      name: { $in: packageNames }
+    }).select("name treatments").lean();
+
+    // Create a map of package name to its treatment definitions
+    const packageDefMap = {};
+    packageDefinitions.forEach(pkg => {
+      packageDefMap[pkg.name] = pkg.treatments || [];
+    });
+
     // Aggregate usage by package and treatment
     const packageUsage = {};
 
@@ -97,10 +111,15 @@ export default async function handler(req, res) {
           if (!slug) return;
 
           if (!packageUsage[pkgName].treatments[slug]) {
+            // Get max sessions from package definition
+            const pkgTreatments = packageDefMap[pkgName] || [];
+            const treatmentDef = pkgTreatments.find(t => t.treatmentSlug === slug);
+            
             packageUsage[pkgName].treatments[slug] = {
               treatmentName: treatment.treatmentName,
               treatmentSlug: treatment.treatmentSlug,
               totalUsedSessions: 0,
+              maxSessions: treatmentDef?.sessions || 0,
               usageDetails: [], // Track each billing's usage
             };
           }

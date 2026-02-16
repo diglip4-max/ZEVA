@@ -109,12 +109,18 @@ export default async function handler(req, res) {
       paid,
       pending,
       advance,
+      advanceUsed,
       paymentMethod,
       notes,
       emrNumber,
       userId, // PatientRegistration ID from appointment (appointment.patientId)
       referredBy,
       selectedPackageTreatments, // Array of treatments with sessions used from package
+      // Membership tracking fields
+      isFreeConsultation,
+      freeConsultationCount,
+      membershipDiscountApplied,
+      originalAmount,
     } = req.body;
 
     // Validate required fields
@@ -180,9 +186,91 @@ export default async function handler(req, res) {
       });
     }
 
+    if (service === "Package") {
+      if (!packageName || !Array.isArray(selectedPackageTreatments) || selectedPackageTreatments.length === 0) {
+        return res.status(400).json({
+          success: false,
+          message: "Please select a package and at least one treatment",
+        });
+      }
+      const Package = (await import("../../../models/Package")).default;
+      const pkgDoc = await Package.findOne({ clinicId: clinic._id, name: packageName }).lean();
+      if (!pkgDoc) {
+        return res.status(404).json({
+          success: false,
+          message: "Selected package not found",
+        });
+      }
+      const maxSessionsMap = new Map();
+      (pkgDoc.treatments || []).forEach((t) => {
+        if (t.treatmentSlug) {
+          maxSessionsMap.set(t.treatmentSlug, parseInt(t.sessions) || 0);
+        }
+      });
+      const previousBillings = await Billing.find({
+        clinicId: clinic._id,
+        patientId: patientRegistration._id,
+        service: "Package",
+        package: packageName,
+      })
+        .select("selectedPackageTreatments")
+        .lean();
+      const previouslyUsedMap = new Map();
+      previousBillings.forEach((b) => {
+        (b.selectedPackageTreatments || []).forEach((t) => {
+          if (!t.treatmentSlug) return;
+          const prev = previouslyUsedMap.get(t.treatmentSlug) || 0;
+          previouslyUsedMap.set(t.treatmentSlug, prev + (parseInt(t.sessions) || 0));
+        });
+      });
+      for (const t of selectedPackageTreatments) {
+        const slug = t.treatmentSlug;
+        const newSessions = parseInt(t.sessions) || 0;
+        const maxSessions = maxSessionsMap.get(slug);
+        if (maxSessions === undefined) {
+          return res.status(400).json({
+            success: false,
+            message: `Treatment not part of package: ${t.treatmentName || slug}`,
+          });
+        }
+        const previouslyUsed = previouslyUsedMap.get(slug) || 0;
+        const remaining = Math.max(0, (maxSessions || 0) - previouslyUsed);
+        if (remaining <= 0) {
+          return res.status(400).json({
+            success: false,
+            message: "This treatment has already used all available sessions.",
+            details: {
+              treatmentSlug: slug,
+              treatmentName: t.treatmentName,
+              totalSessions: maxSessions,
+              usedSessions: previouslyUsed,
+              remainingSessions: 0,
+            },
+          });
+        }
+        if (newSessions < 1 || newSessions > remaining) {
+          return res.status(400).json({
+            success: false,
+            message: `Invalid session count for ${t.treatmentName || slug}. You can bill 1–${remaining} session(s).`,
+            details: {
+              treatmentSlug: slug,
+              treatmentName: t.treatmentName,
+              totalSessions: maxSessions,
+              usedSessions: previouslyUsed,
+              remainingSessions: remaining,
+              requestedSessions: newSessions,
+            },
+          });
+        }
+      }
+      const sumSessions = selectedPackageTreatments.reduce((sum, it) => sum + (parseInt(it.sessions) || 0), 0);
+      req.body.sessions = sumSessions;
+    }
+
     // Calculate pending and advance (use provided values or calculate)
     const amountNum = parseFloat(amount) || 0;
     const paidNum = parseFloat(paid) || 0;
+    const advanceUsedNum = advanceUsed !== undefined ? Math.max(0, parseFloat(advanceUsed) || 0) : 0;
     const pendingNum = pending !== undefined ? parseFloat(pending) || 0 : 0;
     const advanceNum = advance !== undefined ? parseFloat(advance) || 0 : 0;
     
@@ -191,14 +279,10 @@ export default async function handler(req, res) {
     let finalAdvance = advanceNum;
     
     if (pending === undefined && advance === undefined) {
-      // Auto-calculate if not provided
-      if (paidNum >= amountNum) {
-        finalPending = 0;
-        finalAdvance = paidNum - amountNum;
-      } else {
-        finalAdvance = 0;
-        finalPending = amountNum - paidNum;
-      }
+      // Auto-calculate if not provided, considering applied advanceUsed
+      const effectiveDue = Math.max(0, amountNum - advanceUsedNum);
+      finalPending = Math.max(0, effectiveDue - paidNum);
+      finalAdvance = Math.max(0, paidNum - effectiveDue);
     } else {
       // Use provided values (user may have manually edited)
       finalPending = pendingNum;
@@ -221,6 +305,7 @@ export default async function handler(req, res) {
       selectedPackageTreatments: service === "Package" && Array.isArray(selectedPackageTreatments) ? selectedPackageTreatments : [],
       amount: amountNum,
       paid: paidNum,
+      advanceUsed: advanceUsedNum,
       pending: finalPending,
       advance: finalAdvance,
       paymentMethod,
@@ -235,6 +320,11 @@ export default async function handler(req, res) {
         },
       ],
       notes: notes || "",
+      // Membership tracking fields
+      isFreeConsultation: isFreeConsultation || false,
+      freeConsultationCount: freeConsultationCount || 0,
+      membershipDiscountApplied: membershipDiscountApplied || 0,
+      originalAmount: originalAmount || amountNum,
     };
 
     const billing = await Billing.create(billingData);

@@ -68,6 +68,11 @@ export default async function handler(req, res) {
 
       // Build query
       let query = { clinicId };
+      
+      // If user is doctorStaff, only show their appointments
+      if (clinicUser.role === "doctorStaff") {
+        query.doctorId = clinicUser._id;
+      }
 
       // Date range filter - default to today if no dates provided
       const today = new Date();

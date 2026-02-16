@@ -105,6 +105,15 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
   const [activeTab, setActiveTab] = useState<"billing" | "history">("billing");
   const [packageUsageData, setPackageUsageData] = useState<any>(null);
   const [loadingPackageUsage, setLoadingPackageUsage] = useState(false);
+  const [membershipUsage, setMembershipUsage] = useState<any>(null);
+  const [loadingMembershipUsage, setLoadingMembershipUsage] = useState(false);
+
+  // Balances and advance usage
+  const [balances, setBalances] = useState<{ advanceBalance: number; pendingBalance: number }>({
+    advanceBalance: 0,
+    pendingBalance: 0,
+  });
+  const [applyAdvance, setApplyAdvance] = useState(false);
 
   // Form data
   const [formData, setFormData] = useState({
@@ -136,6 +145,8 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     membershipEndDate: "",
     notes: "",
     emrNumber: "",
+    originalAmount: "",
+    advanceUsed: "0.00",
   });
 
   const treatmentDropdownRef = useRef<HTMLDivElement>(null);
@@ -218,6 +229,29 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     fetchPatient();
   }, [isOpen, appointment?.patientId, getAuthHeaders]);
 
+  // Fetch patient balances (advance/pending)
+  useEffect(() => {
+    if (!isOpen || !appointment?.patientId) return;
+    const fetchBalances = async () => {
+      try {
+        const headers = getAuthHeaders();
+        if (!headers.Authorization) return;
+        const res = await axios.get(`/api/clinic/patient-balance/${appointment.patientId}`, { headers });
+        if (res.data?.success && res.data?.balances) {
+          setBalances({
+            advanceBalance: res.data.balances.advanceBalance || 0,
+            pendingBalance: res.data.balances.pendingBalance || 0,
+          });
+        } else {
+          setBalances({ advanceBalance: 0, pendingBalance: 0 });
+        }
+      } catch {
+        setBalances({ advanceBalance: 0, pendingBalance: 0 });
+      }
+    };
+    fetchBalances();
+  }, [isOpen, appointment?.patientId, getAuthHeaders]);
+
   const monthsUntil = (endDate?: string | Date) => {
     if (!endDate) return null;
     try {
@@ -254,6 +288,29 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     fetchBillingHistory();
   }, [isOpen, appointment?.patientId, getAuthHeaders]);
 
+  // Fetch membership usage for the patient
+  useEffect(() => {
+    if (!isOpen || !appointment?.patientId) return;
+
+    const fetchMembershipUsage = async () => {
+      setLoadingMembershipUsage(true);
+      try {
+        const headers = getAuthHeaders();
+        const response = await axios.get(`/api/clinic/membership-usage/${appointment.patientId}`, { headers });
+        if (response.data.success) {
+          setMembershipUsage(response.data);
+        }
+      } catch (error) {
+        console.error("Error fetching membership usage:", error);
+        setMembershipUsage(null);
+      } finally {
+        setLoadingMembershipUsage(false);
+      }
+    };
+
+    fetchMembershipUsage();
+  }, [isOpen, appointment?.patientId, getAuthHeaders]);
+
   // Initialize form data from appointment
   useEffect(() => {
     if (appointment && isOpen) {
@@ -273,12 +330,12 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     }
   }, [appointment, isOpen]);
 
-  // Calculate total price
+  // Calculate total price with membership benefits
   useEffect(() => {
+    let baseTotal = 0;
+    
     if (selectedService === "Treatment") {
-      const total = selectedTreatments.reduce((sum, t) => sum + t.totalPrice, 0);
-      setTotalPrice(total);
-      setFormData((prev) => ({ ...prev, amount: total.toFixed(2) }));
+      baseTotal = selectedTreatments.reduce((sum, t) => sum + t.totalPrice, 0);
     } else if (selectedPackage) {
       // Calculate total based on each treatment's sessionPrice × usedSessions
       const computedTotal = packageTreatmentSessions
@@ -303,37 +360,64 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
         }
       }
       
-      setTotalPrice(finalTotal);
-      setFormData((prev) => ({ ...prev, amount: finalTotal.toFixed(2) }));
-    } else {
-      setTotalPrice(0);
-      setFormData((prev) => ({ ...prev, amount: "0.00" }));
+      baseTotal = finalTotal;
     }
-  }, [selectedTreatments, selectedPackage, selectedService, packageTreatmentSessions]);
+    
+    // Apply membership benefits
+    let finalTotal = baseTotal;
+    let isFreeConsultation = false;
+    let membershipDiscount = 0;
+    
+    // Check if patient has active membership with free consultations
+    if (membershipUsage?.hasMembership && !membershipUsage?.isExpired) {
+      const hasRemainingFreeConsultations = membershipUsage.remainingFreeConsultations > 0;
+      const discountPercentage = membershipUsage.discountPercentage || 0;
+      
+      if (hasRemainingFreeConsultations) {
+        // Free consultation applies - set total to 0
+        isFreeConsultation = true;
+        finalTotal = 0;
+      } else if (discountPercentage > 0 && baseTotal > 0) {
+        // Apply discount percentage
+        membershipDiscount = (baseTotal * discountPercentage) / 100;
+        finalTotal = baseTotal - membershipDiscount;
+      }
+    }
+    
+    setTotalPrice(finalTotal);
+    setFormData((prev) => ({ 
+      ...prev, 
+      amount: finalTotal.toFixed(2),
+      // Store original amount for reference
+      originalAmount: baseTotal.toFixed(2),
+    }));
+  }, [selectedTreatments, selectedPackage, selectedService, packageTreatmentSessions, membershipUsage]);
 
-  // Auto-calculate advance and pending based on amount and paid
+  // Override displayed invoice total to include previous pending
   useEffect(() => {
-    const amount = parseFloat(formData.amount) || 0;
-    const paid = parseFloat(formData.paid) || 0;
+    const baseTotal = parseFloat(formData.originalAmount || "0") || 0;
+    const invoiceTotal = Number((baseTotal + (balances.pendingBalance || 0)).toFixed(2));
+    setFormData((prev) => ({
+      ...prev,
+      amount: invoiceTotal.toFixed(2),
+    }));
+  }, [balances.pendingBalance, formData.originalAmount]);
 
-    if (paid >= amount) {
-      // If paid is more than or equal to amount, calculate advance
-      const calculatedAdvance = paid - amount;
-      setFormData((prev) => ({
-        ...prev,
-        advance: calculatedAdvance.toFixed(2),
-        pending: "0.00",
-      }));
-    } else {
-      // If paid is less than amount, calculate pending
-      const calculatedPending = amount - paid;
-      setFormData((prev) => ({
-        ...prev,
-        pending: calculatedPending.toFixed(2),
-        advance: "0.00",
-      }));
-    }
-  }, [formData.amount, formData.paid]);
+  // Auto-calc pending/advance considering applied advance and paid
+  useEffect(() => {
+    const amountNum = parseFloat(formData.amount) || 0;
+    const paidNum = Math.max(0, parseFloat(formData.paid) || 0);
+    const appliedAdvance = applyAdvance ? Math.min(balances.advanceBalance || 0, amountNum) : 0;
+    const effectiveDue = Math.max(0, amountNum - appliedAdvance);
+    const pendingVal = Math.max(0, effectiveDue - paidNum);
+    const advanceVal = Math.max(0, paidNum - effectiveDue);
+    setFormData((prev) => ({
+      ...prev,
+      pending: pendingVal.toFixed(2),
+      advance: advanceVal.toFixed(2),
+      advanceUsed: appliedAdvance.toFixed(2),
+    }));
+  }, [formData.amount, formData.paid, applyAdvance, balances.advanceBalance]);
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -476,15 +560,21 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
               ...prevErrors,
               [`packageSession_${slug}`]: `Only ${availableSessions} session(s) remaining (${t.previouslyUsedSessions} already used)`,
             }));
-            return t;
-          } else {
-            setErrors((prevErrors) => {
-              const newErrors = { ...prevErrors };
-              delete newErrors[`packageSession_${slug}`];
-              return newErrors;
-            });
-            return { ...t, usedSessions: sessions };
+            return { ...t, usedSessions: availableSessions };
           }
+          if (sessions < 1 && t.isSelected && availableSessions > 0) {
+            setErrors((prevErrors) => ({
+              ...prevErrors,
+              [`packageSession_${slug}`]: `Enter at least 1 session (max ${availableSessions})`,
+            }));
+            return { ...t, usedSessions: 1 };
+          }
+          setErrors((prevErrors) => {
+            const newErrors = { ...prevErrors };
+            delete newErrors[`packageSession_${slug}`];
+            return newErrors;
+          });
+          return { ...t, usedSessions: sessions };
         }
         return t;
       })
@@ -572,6 +662,29 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
         return;
       }
 
+      // Calculate membership benefits
+      const baseAmount = parseFloat(formData.originalAmount || formData.amount) || 0;
+      const finalAmount = parseFloat(formData.amount) || 0;
+      let isFreeConsultation = false;
+      let freeConsultationCount = 0;
+      let membershipDiscountApplied = 0;
+      
+      if (membershipUsage?.hasMembership && !membershipUsage?.isExpired) {
+        const hasRemainingFreeConsultations = membershipUsage.remainingFreeConsultations > 0;
+        const discountPercentage = membershipUsage.discountPercentage || 0;
+        
+        if (hasRemainingFreeConsultations) {
+          // This is a free consultation
+          isFreeConsultation = true;
+          freeConsultationCount = selectedService === "Treatment" 
+            ? selectedTreatments.reduce((sum, t) => sum + t.quantity, 0)
+            : packageTreatmentSessions.filter((t) => t.isSelected).reduce((sum, t) => sum + t.usedSessions, 0);
+        } else if (discountPercentage > 0 && baseAmount > 0) {
+          // Calculate discount applied
+          membershipDiscountApplied = (baseAmount * discountPercentage) / 100;
+        }
+      }
+
       // Prepare payload
       const payload: any = {
         invoiceNumber: formData.invoiceNumber,
@@ -585,14 +698,20 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
         doctor: appointment.doctorName,
         service: selectedService,
         referredBy: formData.referredBy,
-        amount: parseFloat(formData.amount) || 0,
+        amount: finalAmount,
         paid: parseFloat(formData.paid) || 0,
+        advanceUsed: parseFloat(formData.advanceUsed) || 0,
         pending: parseFloat(formData.pending || "0") || 0,
         advance: parseFloat(formData.advance) || 0,
         paymentMethod: formData.paymentMethod,
         notes: formData.notes,
         emrNumber: formData.emrNumber,
         userId: appointment.patientId, // Pass patient ID from appointment
+        // Membership tracking fields
+        isFreeConsultation,
+        freeConsultationCount,
+        membershipDiscountApplied,
+        originalAmount: baseAmount,
       };
 
       if (selectedService === "Treatment") {
@@ -617,16 +736,25 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       const response = await axios.post("/api/clinic/create-patient-registration", payload, { headers });
 
       if (response.data.success) {
-        // Refresh billing history after successful creation
+        // Refresh billing history and balances after successful creation
         if (appointment?.patientId) {
           try {
             const headers = getAuthHeaders();
-            const historyResponse = await axios.get(`/api/clinic/billing-history/${appointment.patientId}`, { headers });
+            const [historyResponse, balanceResponse] = await Promise.all([
+              axios.get(`/api/clinic/billing-history/${appointment.patientId}`, { headers }),
+              axios.get(`/api/clinic/patient-balance/${appointment.patientId}`, { headers }),
+            ]);
             if (historyResponse.data.success) {
               setBillingHistory(historyResponse.data.billings || []);
             }
+            if (balanceResponse.data?.success && balanceResponse.data?.balances) {
+              setBalances({
+                advanceBalance: balanceResponse.data.balances.advanceBalance || 0,
+                pendingBalance: balanceResponse.data.balances.pendingBalance || 0,
+              });
+            }
           } catch (error) {
-            console.error("Error refreshing billing history:", error);
+            console.error("Error refreshing history/balances:", error);
           }
         }
         
@@ -892,6 +1020,121 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
               </div>
             )}
           </div>
+
+          {/* Membership Free Consultation Info */}
+          {membershipUsage?.hasMembership && !membershipUsage?.isExpired && membershipUsage?.hasFreeConsultations && (
+            <div className={`rounded border p-2 mt-2 mb-2 ${
+              membershipUsage.remainingFreeConsultations > 0 
+                ? 'bg-emerald-50 border-emerald-200' 
+                : 'bg-amber-50 border-amber-200'
+            }`}>
+              <div className="flex items-center justify-between mb-1.5">
+                <div className="flex items-center gap-2">
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
+                    membershipUsage.remainingFreeConsultations > 0 ? 'bg-emerald-500' : 'bg-amber-500'
+                  }`}>
+                    <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                  <span className="text-[11px] sm:text-xs font-semibold text-gray-900">
+                    {membershipUsage.membershipName} - Free Consultations
+                  </span>
+                </div>
+                <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
+                  membershipUsage.remainingFreeConsultations > 0 
+                    ? 'bg-emerald-100 text-emerald-700' 
+                    : 'bg-amber-100 text-amber-700'
+                }`}>
+                  {membershipUsage.remainingFreeConsultations > 0 
+                    ? `${membershipUsage.remainingFreeConsultations} Remaining` 
+                    : 'All Used'}
+                </span>
+              </div>
+              
+              {/* Progress Bar */}
+              <div className="mb-2">
+                <div className="flex justify-between text-[9px] sm:text-[10px] mb-1">
+                  <span className="text-gray-600">Usage Progress</span>
+                  <span className="font-medium text-gray-900">
+                    {membershipUsage.usedFreeConsultations} / {membershipUsage.totalFreeConsultations} consultations
+                  </span>
+                </div>
+                <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                  <div 
+                    className={`h-full rounded-full transition-all duration-500 ${
+                      membershipUsage.remainingFreeConsultations > 0 ? 'bg-emerald-500' : 'bg-amber-500'
+                    }`}
+                    style={{ 
+                      width: `${Math.min((membershipUsage.usedFreeConsultations / membershipUsage.totalFreeConsultations) * 100, 100)}%` 
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Free Consultation Message */}
+              {membershipUsage.remainingFreeConsultations > 0 && (
+                <div className="text-[10px] text-emerald-700 bg-emerald-100/50 rounded px-2 py-1.5">
+                  <span className="font-medium">Good news!</span> This session will be counted as a free consultation from your membership. 
+                  <span className="font-semibold"> No charge will be applied.</span>
+                </div>
+              )}
+              
+              {membershipUsage.remainingFreeConsultations === 0 && (
+                <div className="text-[10px] text-amber-700 bg-amber-100/50 rounded px-2 py-1.5">
+                  <span className="font-medium">Note:</span> All free consultations have been used. 
+                  {membershipUsage.discountPercentage > 0 ? (
+                    <span className="font-semibold"> {membershipUsage.discountPercentage}% discount will be applied to the total amount!</span>
+                  ) : (
+                    <span>Regular pricing will apply.</span>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+          
+          {/* Expired Membership Warning */}
+          {membershipUsage?.hasMembership && membershipUsage?.isExpired && (
+            <div className="rounded border bg-red-50 border-red-200 p-2 mt-2 mb-2">
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 rounded-full bg-red-500 flex items-center justify-center">
+                  <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <div>
+                  <span className="text-[11px] sm:text-xs font-semibold text-red-800">
+                    {membershipUsage.membershipName} - Expired
+                  </span>
+                  <p className="text-[9px] sm:text-[10px] text-red-700">
+                    Membership expired on {membershipUsage.membershipEndDate ? new Date(membershipUsage.membershipEndDate).toLocaleDateString() : 'N/A'}. 
+                    Free consultations and discounts no longer apply. Regular pricing will be used.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Membership Discount Info (when free consultations are exhausted but discount exists) */}
+          {membershipUsage?.hasMembership && !membershipUsage?.isExpired && !membershipUsage?.hasFreeConsultations && membershipUsage?.discountPercentage > 0 && (
+            <div className="rounded border bg-blue-50 border-blue-200 p-2 mt-2 mb-2">
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center">
+                  <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <div>
+                  <span className="text-[11px] sm:text-xs font-semibold text-gray-900">
+                    {membershipUsage.membershipName} - {membershipUsage.discountPercentage}% Discount Applied
+                  </span>
+                  <p className="text-[9px] sm:text-[10px] text-blue-700">
+                    Your membership discount will be automatically applied to the total amount.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Treatment Selection */}
           {selectedService === "Treatment" && (
@@ -1163,7 +1406,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                                           {isFullyUsed ? (
                                             <>
                                               <XCircle className="w-3 h-3" />
-                                              <span>All {treatment.maxSessions} sessions have been fully used - Cannot bill again</span>
+                                              <span>This treatment has already used all available sessions.</span>
                                             </>
                                           ) : (
                                             <>
@@ -1195,6 +1438,9 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                                         <span>No sessions used yet - All {treatment.maxSessions} sessions available</span>
                                       </div>
                                     )}
+                                    <div className="mt-1 text-[10px] text-gray-600">
+                                      Total: <span className="font-semibold">{treatment.maxSessions}</span> • Used: <span className="font-semibold">{treatment.previouslyUsedSessions}</span> • Remaining: <span className="font-semibold">{Math.max(0, treatment.maxSessions - treatment.previouslyUsedSessions)}</span>
+                                    </div>
                                   </div>
                                 </div>
                                 
@@ -1207,7 +1453,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                                   </label>
                                   <input
                                     type="number"
-                                    min="0"
+                                    min="1"
                                     max={remainingSessions}
                                     value={treatment.usedSessions}
                                     onChange={(e) => handlePackageSessionChange(treatment.treatmentSlug, parseInt(e.target.value) || 0)}
@@ -1269,6 +1515,68 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
           {/* Payment Details - Inline */}
           <div className="rounded border border-gray-200 dark:border-gray-300 bg-gray-50 dark:bg-gray-100 p-1.5 mt-2 mb-2">
             <h4 className="text-[9px] sm:text-[10px] font-bold text-gray-800 dark:text-gray-900 mb-1 uppercase tracking-wider">Payment Details</h4>
+            
+            {/* Membership Discount Breakdown - Shows when discount is applied */}
+            {membershipUsage?.hasMembership && !membershipUsage?.isExpired && 
+             membershipUsage?.remainingFreeConsultations === 0 && 
+             membershipUsage?.discountPercentage > 0 && 
+             parseFloat(formData.originalAmount || '0') > 0 && (
+              <div className="mb-2 p-2 bg-blue-50 border border-blue-200 rounded">
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center">
+                    <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <span className="text-[10px] sm:text-[11px] font-semibold text-gray-900">
+                    {membershipUsage.membershipName} Discount Applied
+                  </span>
+                </div>
+                <div className="grid grid-cols-3 gap-2 text-[10px] sm:text-[11px]">
+                  <div className="text-center">
+                    <div className="text-gray-600">Original Amount</div>
+                    <div className="font-semibold text-gray-900 line-through">₹{parseFloat(formData.originalAmount || '0').toFixed(2)}</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-blue-600">Discount ({membershipUsage.discountPercentage}%)</div>
+                    <div className="font-semibold text-blue-700">
+                      -₹{((parseFloat(formData.originalAmount || '0') * membershipUsage.discountPercentage) / 100).toFixed(2)}
+                    </div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-emerald-600">Final Amount</div>
+                    <div className="font-bold text-emerald-700">₹{totalPrice.toFixed(2)}</div>
+                  </div>
+                </div>
+                <div className="mt-1 text-[9px] text-blue-700 text-center">
+                  Free consultations exhausted. {membershipUsage.discountPercentage}% membership discount applied.
+                </div>
+              </div>
+            )}
+            
+            {/* Free Consultation Applied Message */}
+            {membershipUsage?.hasMembership && !membershipUsage?.isExpired && 
+             membershipUsage?.remainingFreeConsultations > 0 && 
+             totalPrice === 0 && (
+              <div className="mb-2 p-2 bg-emerald-50 border border-emerald-200 rounded">
+                <div className="flex items-center gap-2">
+                  <div className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center">
+                    <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                  <div>
+                    <span className="text-[10px] sm:text-[11px] font-semibold text-emerald-800">
+                      Free Consultation Applied
+                    </span>
+                    <p className="text-[9px] text-emerald-700">
+                      No charge for this session. {membershipUsage.remainingFreeConsultations - 1} free consultation(s) remaining after this.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+            
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-2">
               <div className="mt-1 mb-1">
                 <label className="block text-[9px] sm:text-[10px] font-medium text-gray-700 dark:text-gray-800 mb-1">
@@ -1277,10 +1585,24 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                 <input
                   type="number"
                   step="0.01"
-                  value={totalPrice.toFixed(2)}
+                  value={formData.amount || "0.00"}
                   readOnly
                   className="w-full px-2 py-1 text-[10px] sm:text-[11px] border border-gray-300 dark:border-gray-300 rounded bg-gray-100 dark:bg-gray-200 text-gray-900 dark:text-gray-900 font-semibold"
                 />
+                {(balances.pendingBalance > 0 || (applyAdvance && balances.advanceBalance > 0)) && (
+                  <div className="mt-1 text-[9px]">
+                    {balances.pendingBalance > 0 && (
+                      <div className="text-red-600">
+                        Includes previous pending ₹{balances.pendingBalance.toFixed(2)} added to total
+                      </div>
+                    )}
+                    {applyAdvance && balances.advanceBalance > 0 && (
+                      <div className="text-emerald-700">
+                        Applying advance ₹{Math.min(balances.advanceBalance, parseFloat(formData.amount)||0).toFixed(2)} to this bill
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
               <div className="mt-1 mb-1">
                 <label className="block text-[9px] sm:text-[10px] font-medium text-gray-700 dark:text-gray-800 mb-1">
@@ -1294,6 +1616,9 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                   className="w-full px-2 py-1 text-[10px] sm:text-[11px] border border-gray-300 dark:border-gray-300 rounded bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-1 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all outline-none"
                   required
                 />
+                <div className="mt-1 text-[9px] text-gray-600">
+                  Net due = ₹{(Math.max(0, (parseFloat(formData.amount)||0) - (applyAdvance ? Math.min(balances.advanceBalance, parseFloat(formData.amount)||0) : 0))).toFixed(2)}
+                </div>
               </div>
               <div className="mt-1 mb-1">
                 <label className="block text-[9px] sm:text-[10px] font-medium text-gray-700 dark:text-gray-800 mb-1">Pending</label>
@@ -1315,6 +1640,19 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                   className="w-full px-2 py-1 text-[10px] sm:text-[11px] border border-gray-300 dark:border-gray-300 rounded bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-1 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all outline-none"
                 />
               </div>
+              {balances.advanceBalance > 0 && (
+                <div className="mt-1 mb-1 flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={applyAdvance}
+                    onChange={(e) => setApplyAdvance(e.target.checked)}
+                    className="w-3.5 h-3.5"
+                  />
+                  <label className="text-[9px] sm:text-[10px] text-gray-800">
+                    Use advance balance now (₹{balances.advanceBalance.toFixed(2)})
+                  </label>
+                </div>
+              )}
               <div className="mt-1 mb-1">
                 <label className="block text-[9px] sm:text-[10px] font-medium text-gray-700 dark:text-gray-800 mb-1">
                   Payment Method <span className="text-red-500">*</span>
@@ -1436,8 +1774,10 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                           <td className="px-2 py-2.5 text-[10px] sm:text-[11px] text-gray-900 dark:text-gray-900 text-right border-r border-gray-200 dark:border-gray-300">
                             {billing.paid?.toFixed(2) || "0.00"}
                           </td>
-                          <td className="px-2 py-2.5 text-[10px] sm:text-[11px] text-gray-900 dark:text-gray-900 text-right border-r border-gray-200 dark:border-gray-300">
-                            {billing.pending?.toFixed(2) || "0.00"}
+                          <td className="px-2 py-2.5 text-[10px] sm:text-[11px] text-right border-r border-gray-200 dark:border-gray-300">
+                            <span className={`${Number(billing.pending || 0) > 0 ? "text-red-600 font-semibold" : "text-gray-900 dark:text-gray-900"}`}>
+                              {billing.pending?.toFixed(2) || "0.00"}
+                            </span>
                           </td>
                           <td className="px-2 py-2.5 text-[10px] sm:text-[11px] text-gray-900 dark:text-gray-900 text-right border-r border-gray-200 dark:border-gray-300">
                             {billing.advance?.toFixed(2) || "0.00"}
