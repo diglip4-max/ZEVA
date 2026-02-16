@@ -28,12 +28,12 @@ const TransferStockPage: NextPageWithLayout = () => {
     uniqueEmployeesCount: 0,
   });
 
-  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
-  const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const [_isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [_isDetailOpen, setIsDetailOpen] = useState(false);
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [recordToDelete, setRecordToDelete] = useState<any | null>(null);
-  const [recordToDetail, setRecordToDetail] = useState<any | null>(null);
+  const [_isDeleting, _setIsDeleting] = useState(false);
+  const [_recordToDelete, setRecordToDelete] = useState<any | null>(null);
+  const [_recordToDetail, setRecordToDetail] = useState<any | null>(null);
 
   // Filter modal
   const [isFilterOpen, setIsFilterOpen] = useState(false);
@@ -115,28 +115,28 @@ const TransferStockPage: NextPageWithLayout = () => {
     setIsDetailOpen(true);
   };
 
-  const handleDeleteConfirm = async () => {
-    if (!recordToDelete?._id) return;
+  // const handleDeleteConfirm = async () => {
+  //   if (!recordToDelete?._id) return;
 
-    try {
-      setIsDeleting(true);
-      const token = getTokenByPath();
-      const res = await axios.delete(
-        `/api/stocks/stock-transfer-requests/delete/${recordToDelete._id}`,
-        { headers: { Authorization: `Bearer ${token}` } },
-      );
+  //   try {
+  //     setIsDeleting(true);
+  //     const token = getTokenByPath();
+  //     const res = await axios.delete(
+  //       `/api/stocks/stock-transfer-requests/delete/${recordToDelete._id}`,
+  //       { headers: { Authorization: `Bearer ${token}` } },
+  //     );
 
-      if (res.data?.success) {
-        setIsDeleteOpen(false);
-        setRecordToDelete(null);
-        fetchRecords(pagination.currentPage, searchTerm, filterData);
-      }
-    } catch (err) {
-      console.error("Error deleting stock transfer request:", err);
-    } finally {
-      setIsDeleting(false);
-    }
-  };
+  //     if (res.data?.success) {
+  //       setIsDeleteOpen(false);
+  //       setRecordToDelete(null);
+  //       fetchRecords(pagination.currentPage, searchTerm, filterData);
+  //     }
+  //   } catch (err) {
+  //     console.error("Error deleting stock transfer request:", err);
+  //   } finally {
+  //     setIsDeleting(false);
+  //   }
+  // };
 
   const toggleRowExpansion = (recordId: string) => {
     setExpandedRows((prev) => ({

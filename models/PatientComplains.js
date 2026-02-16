@@ -37,10 +37,39 @@ const PatientComplainsSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+    items: [
+      {
+        itemId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "StockItem",
+          required: true,
+          index: true,
+        },
+        code: {
+          type: String,
+          trim: true,
+        },
+        name: {
+          type: String,
+          required: true,
+        },
+        description: {
+          type: String,
+        },
+        quantity: {
+          type: Number,
+          required: true,
+          default: 1,
+        },
+        uom: {
+          type: String,
+        },
+      },
+    ],
   },
   {
     timestamps: true,
-  }
+  },
 );
 
 // Helpful compound indexes for analytics / lookups
@@ -55,5 +84,3 @@ if (mongoose.models.PatientComplains) {
 }
 
 export default mongoose.model("PatientComplains", PatientComplainsSchema);
-
-
