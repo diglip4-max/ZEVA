@@ -1,6 +1,6 @@
 import dbConnect from "../../../../lib/database";
+import Clinic from "../../../../models/Clinic";
 import StockItem from "../../../../models/stocks/StockItem";
-import Clinic from "../../../../models/clinic/Clinic";
 import { getUserFromReq, requireRole } from "../../lead-ms/auth";
 
 export default async function handler(req, res) {

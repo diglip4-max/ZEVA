@@ -1,6 +1,8 @@
 import dbConnect from "../../../../lib/database";
 import Clinic from "../../../../models/Clinic";
+import User from "../../../../models/Users";
 import StockItem from "../../../../models/stocks/StockItem";
+import StockLocation from "../../../../models/stocks/StockLocation";
 import { getUserFromReq, requireRole } from "../../lead-ms/auth";
 
 export default async function handler(req, res) {
@@ -113,8 +115,8 @@ export default async function handler(req, res) {
       .sort(sort)
       .skip(skip)
       .limit(parseInt(limit))
-      .populate("location", "name")
-      .populate("createdBy", "name email");
+      .populate("location", "name", StockLocation)
+      .populate("createdBy", "name email", User);
 
     const total = await StockItem.countDocuments(filter);
 

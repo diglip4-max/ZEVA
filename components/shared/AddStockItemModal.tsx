@@ -4,6 +4,7 @@ import { PlusCircle, X, Search, ChevronDown } from "lucide-react";
 import useLocations from "@/hooks/useLocations";
 import useUoms from "@/hooks/useUoms";
 import { handleUpload } from "@/lib/helper";
+import useClinicBranches from "@/hooks/useClinicBranches";
 
 interface StockItem {
   _id?: string;
@@ -60,7 +61,7 @@ const AddStockItemModal: React.FC<AddStockItemModalProps> = ({
   onClose,
   onSuccess,
 }) => {
-  // const { clinicBranches } = useClinicBranches();
+  const { clinicBranches } = useClinicBranches();
   const [locationSearch, setLocationSearch] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -105,7 +106,7 @@ const AddStockItemModal: React.FC<AddStockItemModalProps> = ({
 
   const { locations, loading: locationsLoading } = useLocations({
     token,
-    clinicId,
+    clinicId: clinicId || clinicBranches?.[0]?._id,
     search: locationSearch,
   });
   const { uoms } = useUoms({ token, branchId: clinicId });
