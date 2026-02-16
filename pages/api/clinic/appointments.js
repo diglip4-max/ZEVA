@@ -62,6 +62,12 @@ export default async function handler(req, res) {
       const { date, doctorId, roomId } = req.query;
 
       let query = { clinicId };
+      
+      // If user is doctorStaff, only show their appointments
+      if (clinicUser.role === "doctorStaff") {
+        query.doctorId = clinicUser._id;
+      }
+      
       let parsedDateMatch = null; // Store for debugging later
 
       // Filter by date if provided

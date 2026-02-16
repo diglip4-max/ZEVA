@@ -90,6 +90,12 @@ const billingSchema = new mongoose.Schema(
       required: true,
       min: 0,
     },
+    // Amount of previous advance applied to this invoice
+    advanceUsed: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
     pending: {
       type: Number,
       required: true,
@@ -111,6 +117,26 @@ const billingSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
+    // Membership free consultation tracking
+    isFreeConsultation: {
+      type: Boolean,
+      default: false,
+    },
+    freeConsultationCount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    membershipDiscountApplied: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    originalAmount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
   },
   { timestamps: true }
 );
@@ -119,16 +145,17 @@ const billingSchema = new mongoose.Schema(
 billingSchema.pre("save", function (next) {
   this.amount = Number(this.amount ?? 0);
   this.paid = Number(this.paid ?? 0);
+  this.advanceUsed = Number(this.advanceUsed ?? 0);
   this.advance = Number(this.advance ?? 0);
 
-  // Calculate pending
-  if (this.paid >= this.amount) {
-    this.pending = 0;
-    this.advance = this.paid - this.amount;
-  } else {
-    this.advance = 0;
-    this.pending = this.amount - this.paid;
-  }
+  if (this.advanceUsed < 0) this.advanceUsed = 0;
+
+  // Effective due after applying previous advance to this invoice
+  const effectiveDue = Math.max(0, this.amount - this.advanceUsed);
+  // Pending is any remaining due after today's payment
+  this.pending = Math.max(0, effectiveDue - this.paid);
+  // New advance generated if paid exceeds effective due
+  this.advance = Math.max(0, this.paid - effectiveDue);
 
   next();
 });
