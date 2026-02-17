@@ -365,7 +365,6 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     
     // Apply membership benefits
     let finalTotal = baseTotal;
-    let isFreeConsultation = false;
     let membershipDiscount = 0;
     
     // Check if patient has active membership with free consultations
@@ -375,7 +374,6 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       
       if (hasRemainingFreeConsultations) {
         // Free consultation applies - set total to 0
-        isFreeConsultation = true;
         finalTotal = 0;
       } else if (discountPercentage > 0 && baseTotal > 0) {
         // Apply discount percentage
@@ -1022,6 +1020,12 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
           </div>
 
           {/* Membership Free Consultation Info */}
+          {loadingMembershipUsage && (
+            <div className="rounded border p-2 mt-2 mb-2 bg-gray-50 border-gray-200 text-xs text-gray-600 flex items-center gap-2">
+              <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
+              <span>Loading membership usage...</span>
+            </div>
+          )}
           {membershipUsage?.hasMembership && !membershipUsage?.isExpired && membershipUsage?.hasFreeConsultations && (
             <div className={`rounded border p-2 mt-2 mb-2 ${
               membershipUsage.remainingFreeConsultations > 0 

@@ -22,7 +22,7 @@ const Header = () => {
 
   return (
     <>
-      <header className="bg-white border-b border-gray-200 shadow-sm fixed top-0 left-0 right-0 z-50 w-full">
+      <header className="bg-white border-b border-gray-200 shadow-sm fixed top-0 left-0 right-0 z-50 w-full" data-auth={isAuthenticated ? "1" : "0"}>
         <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-2 sm:py-2.5 md:py-3">
           <div className="flex items-center justify-between h-14 sm:h-16 relative">
 
