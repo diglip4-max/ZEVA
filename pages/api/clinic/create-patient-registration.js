@@ -10,6 +10,7 @@ import AgentProfile from "../../../models/AgentProfile";
 import { getUserFromReq } from "../lead-ms/auth";
 import { checkClinicPermission } from "../lead-ms/permissions-helper";
 import { checkAgentPermission } from "../agent/permissions-helper";
+import { calculateCommissionForStaff } from "../../../lib/commissionCalculator";
 
 export default async function handler(req, res) {
   await dbConnect();
@@ -116,6 +117,9 @@ export default async function handler(req, res) {
       userId, // PatientRegistration ID from appointment (appointment.patientId)
       referredBy,
       selectedPackageTreatments, // Array of treatments with sessions used from package
+      // Multiple payment methods for split payments
+      multiplePayments, // Array of { paymentMethod, amount }
+      pendingUsed, // Amount of previous pending being cleared
       // Membership tracking fields
       isFreeConsultation,
       freeConsultationCount,
@@ -269,10 +273,17 @@ export default async function handler(req, res) {
 
     // Calculate pending and advance (use provided values or calculate)
     const amountNum = parseFloat(amount) || 0;
-    const paidNum = parseFloat(paid) || 0;
     const advanceUsedNum = advanceUsed !== undefined ? Math.max(0, parseFloat(advanceUsed) || 0) : 0;
+    const pendingUsedNum = pendingUsed !== undefined ? Math.max(0, parseFloat(pendingUsed) || 0) : 0;
     const pendingNum = pending !== undefined ? parseFloat(pending) || 0 : 0;
     const advanceNum = advance !== undefined ? parseFloat(advance) || 0 : 0;
+
+    // Calculate paid from multiple payments if provided
+    let paidNum = parseFloat(paid) || 0;
+    const multiPayArr = Array.isArray(multiplePayments) && multiplePayments.length > 0 ? multiplePayments : [];
+    if (multiPayArr.length > 0) {
+      paidNum = multiPayArr.reduce((sum, mp) => sum + (parseFloat(mp.amount) || 0), 0);
+    }
     
     // If pending/advance not provided, calculate them
     let finalPending = pendingNum;
@@ -306,15 +317,24 @@ export default async function handler(req, res) {
       amount: amountNum,
       paid: paidNum,
       advanceUsed: advanceUsedNum,
+      pendingUsed: pendingUsedNum,
       pending: finalPending,
       advance: finalAdvance,
       paymentMethod,
+      multiplePayments: multiPayArr.map(mp => ({
+        paymentMethod: mp.paymentMethod,
+        amount: parseFloat(mp.amount) || 0,
+      })),
       paymentHistory: [
         {
           amount: amountNum,
           paid: paidNum,
           pending: finalPending,
           paymentMethod,
+          multiplePayments: multiPayArr.map(mp => ({
+            paymentMethod: mp.paymentMethod,
+            amount: parseFloat(mp.amount) || 0,
+          })),
           status: "Active",
           updatedAt: new Date(),
         },
@@ -382,30 +402,43 @@ export default async function handler(req, res) {
       // Do not fail the billing creation if commission creation fails
     }
 
-    // Doctor/Staff commission based on AgentProfile (flat type)
+    // Doctor/Staff commission based on AgentProfile (supports flat and target-based)
     try {
       if (paidNum > 0 && appointment?.doctorId) {
-        const doctorProfile = await AgentProfile.findOne({ userId: appointment.doctorId }).lean();
-        if (doctorProfile && String(doctorProfile.commissionType || "flat") === "flat") {
-          const percent = Number(doctorProfile.commissionPercentage || 0);
-          if (percent > 0) {
-            const staffCommissionAmount = Number(((paidNum * percent) / 100).toFixed(2));
-            await Commission.create({
-              clinicId: clinic._id,
-              source: "staff",
-              staffId: appointment.doctorId,
-              commissionType: "flat",
-              appointmentId: appointment._id,
-              patientId: patientRegistration._id,
-              billingId: billing._id,
-              commissionPercent: percent,
-              amountPaid: paidNum,
-              commissionAmount: staffCommissionAmount,
-              invoicedDate: new Date(invoicedDate),
-              notes: notes || "",
-              createdBy: clinicUser._id,
-            });
+        // Use the commission calculator to determine commission
+        const commissionResult = await calculateCommissionForStaff({
+          staffId: appointment.doctorId,
+          clinicId: clinic._id,
+          paidAmount: paidNum,
+        });
+
+        if (commissionResult.shouldCreateCommission) {
+          const commissionData = {
+            clinicId: clinic._id,
+            source: "staff",
+            staffId: appointment.doctorId,
+            commissionType: commissionResult.commissionType,
+            appointmentId: appointment._id,
+            patientId: patientRegistration._id,
+            billingId: billing._id,
+            commissionPercent: commissionResult.commissionPercentage,
+            amountPaid: paidNum,
+            commissionAmount: commissionResult.commissionAmount,
+            invoicedDate: new Date(invoicedDate),
+            notes: notes || "",
+            createdBy: clinicUser._id,
+          };
+
+          // Add target-based specific fields if applicable
+          if (commissionResult.commissionType === "target_based") {
+            commissionData.targetAmount = commissionResult.targetAmount || 0;
+            commissionData.cumulativeAchieved = commissionResult.cumulativeAchieved || 0;
+            commissionData.isAboveTarget = commissionResult.isAboveTarget || false;
           }
+
+          await Commission.create(commissionData);
+        } else {
+          console.log(`Commission not created for staff ${appointment.doctorId}: ${commissionResult.reason}`);
         }
       }
     } catch (staffCommissionErr) {

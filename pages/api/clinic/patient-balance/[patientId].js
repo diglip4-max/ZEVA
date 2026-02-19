@@ -47,19 +47,21 @@ export default async function handler(req, res) {
     if (clinicId) match.clinicId = clinicId;
 
     // We track advance and pending separately (not net)
-    const billings = await Billing.find(match).select("pending advance advanceUsed createdAt").lean();
+    const billings = await Billing.find(match).select("pending advance advanceUsed pendingUsed createdAt").lean();
 
     let totalPending = 0;
+    let totalPendingUsed = 0;
     let totalAdvanceGenerated = 0;
     let totalAdvanceUsed = 0;
 
     for (const b of billings) {
       totalPending += Number(b.pending || 0);
+      totalPendingUsed += Number(b.pendingUsed || 0);
       totalAdvanceGenerated += Number(b.advance || 0);
       totalAdvanceUsed += Number(b.advanceUsed || 0);
     }
 
-    const pendingBalance = Math.max(0, Number(totalPending.toFixed(2)));
+    const pendingBalance = Math.max(0, Number((totalPending - totalPendingUsed).toFixed(2)));
     const advanceBalance = Math.max(0, Number((totalAdvanceGenerated - totalAdvanceUsed).toFixed(2)));
 
     return res.status(200).json({

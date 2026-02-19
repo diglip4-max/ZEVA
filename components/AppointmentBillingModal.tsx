@@ -115,6 +115,13 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
   });
   const [applyAdvance, setApplyAdvance] = useState(false);
 
+  // Multiple payment method support
+  const [useMultiplePayments, setUseMultiplePayments] = useState(false);
+  const [multiplePayments, setMultiplePayments] = useState<Array<{ paymentMethod: string; amount: string }>>([
+    { paymentMethod: "Cash", amount: "" },
+    { paymentMethod: "Card", amount: "" },
+  ]);
+
   // Form data
   const [formData, setFormData] = useState({
     invoiceNumber: "",
@@ -131,6 +138,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     patientType: "New",
     referredBy: "",
     amount: "",
+    discountedAmount: "",
     paid: "",
     pending: "0.00",
     advance: "0.00",
@@ -330,6 +338,28 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     }
   }, [appointment, isOpen]);
 
+  // Fetch and override referredBy with patient's referral name when available
+  useEffect(() => {
+    const fetchReferralName = async () => {
+      if (!isOpen || !appointment?.patientId) return;
+      try {
+        const headers = getAuthHeaders();
+        if (!headers.Authorization) return;
+        const res = await axios.get(`/api/staff/get-patient-data/${appointment.patientId}`, { headers });
+        const patientReferral = res?.data?.referredBy || "";
+        if (patientReferral && typeof patientReferral === "string") {
+          setFormData((prev) => ({
+            ...prev,
+            referredBy: patientReferral,
+          }));
+        }
+      } catch (err) {
+        // Ignore errors, keep existing appointment.referral fallback
+      }
+    };
+    fetchReferralName();
+  }, [isOpen, appointment?.patientId, getAuthHeaders]);
+
   // Calculate total price with membership benefits
   useEffect(() => {
     let baseTotal = 0;
@@ -383,39 +413,51 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
     }
     
     setTotalPrice(finalTotal);
-    setFormData((prev) => ({ 
-      ...prev, 
-      amount: finalTotal.toFixed(2),
-      // Store original amount for reference
+    setFormData((prev) => ({
+      ...prev,
+      discountedAmount: finalTotal.toFixed(2),
       originalAmount: baseTotal.toFixed(2),
     }));
   }, [selectedTreatments, selectedPackage, selectedService, packageTreatmentSessions, membershipUsage]);
 
   // Override displayed invoice total to include previous pending
   useEffect(() => {
-    const baseTotal = parseFloat(formData.originalAmount || "0") || 0;
-    const invoiceTotal = Number((baseTotal + (balances.pendingBalance || 0)).toFixed(2));
+    const discountedTotal = parseFloat(formData.discountedAmount || "0") || 0;
+    const invoiceTotal = Number((discountedTotal + (balances.pendingBalance || 0)).toFixed(2));
     setFormData((prev) => ({
       ...prev,
       amount: invoiceTotal.toFixed(2),
     }));
-  }, [balances.pendingBalance, formData.originalAmount]);
+  }, [balances.pendingBalance, formData.discountedAmount]);
 
-  // Auto-calc pending/advance considering applied advance and paid
+  // Auto-calc pending/advance considering applied advance, pending, and paid
   useEffect(() => {
     const amountNum = parseFloat(formData.amount) || 0;
-    const paidNum = Math.max(0, parseFloat(formData.paid) || 0);
+    // If using multiple payments, sum all amounts as paid
+    let paidNum: number;
+    if (useMultiplePayments) {
+      paidNum = multiplePayments.reduce((sum, mp) => sum + (parseFloat(mp.amount) || 0), 0);
+    } else {
+      paidNum = Math.max(0, parseFloat(formData.paid) || 0);
+    }
     const appliedAdvance = applyAdvance ? Math.min(balances.advanceBalance || 0, amountNum) : 0;
     const effectiveDue = Math.max(0, amountNum - appliedAdvance);
     const pendingVal = Math.max(0, effectiveDue - paidNum);
     const advanceVal = Math.max(0, paidNum - effectiveDue);
-    setFormData((prev) => ({
-      ...prev,
-      pending: pendingVal.toFixed(2),
-      advance: advanceVal.toFixed(2),
-      advanceUsed: appliedAdvance.toFixed(2),
-    }));
-  }, [formData.amount, formData.paid, applyAdvance, balances.advanceBalance]);
+    setFormData((prev) => {
+      const updates: any = {
+        pending: pendingVal.toFixed(2),
+        advance: advanceVal.toFixed(2),
+        advanceUsed: appliedAdvance.toFixed(2),
+      };
+      // Only update paid from multiplePayments when using multi-pay mode
+      if (useMultiplePayments) {
+        updates.paid = paidNum.toFixed(2);
+      }
+      return { ...prev, ...updates };
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.amount, formData.paid, applyAdvance, balances.advanceBalance, useMultiplePayments, multiplePayments]);
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -699,12 +741,19 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
         amount: finalAmount,
         paid: parseFloat(formData.paid) || 0,
         advanceUsed: parseFloat(formData.advanceUsed) || 0,
+        pendingUsed: balances.pendingBalance > 0 ? balances.pendingBalance : 0,
         pending: parseFloat(formData.pending || "0") || 0,
         advance: parseFloat(formData.advance) || 0,
         paymentMethod: formData.paymentMethod,
         notes: formData.notes,
         emrNumber: formData.emrNumber,
         userId: appointment.patientId, // Pass patient ID from appointment
+        // Multiple payment methods
+        multiplePayments: useMultiplePayments
+          ? multiplePayments
+              .filter((mp) => parseFloat(mp.amount) > 0)
+              .map((mp) => ({ paymentMethod: mp.paymentMethod, amount: parseFloat(mp.amount) || 0 }))
+          : [],
         // Membership tracking fields
         isFreeConsultation,
         freeConsultationCount,
@@ -763,6 +812,8 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
         setSelectedPackage(null);
         setPackageTreatmentSessions([]);
         setSelectedService("Treatment");
+        setUseMultiplePayments(false);
+        setMultiplePayments([{ paymentMethod: "Cash", amount: "" }, { paymentMethod: "Card", amount: "" }]);
         generateInvoiceNumber();
       } else {
         setErrors({ general: response.data.message || "Failed to create billing" });
@@ -912,46 +963,29 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
               <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <div className="rounded border border-gray-200 bg-white p-1.5">
                   <div className="text-[10px] font-bold text-gray-900 mb-1">Memberships</div>
-                  {/* Single membership legacy */}
-                  {patientDetails.membership === 'Yes' && (
-                    <div className="text-[10px] text-gray-800 mb-1">
-                      <span className="font-semibold">{(() => {
-                        const m = membershipPlans.find(x => x._id === patientDetails.membershipId);
-                        return m?.name || patientDetails.membershipId || '-';
-                      })()}</span>
-                      <span className="ml-1">• {patientDetails.membershipStartDate ? new Date(patientDetails.membershipStartDate).toLocaleDateString() : '-'}</span>
-                      <span className="ml-1">→ {patientDetails.membershipEndDate ? new Date(patientDetails.membershipEndDate).toLocaleDateString() : '-'}</span>
-                      {(() => {
-                        const months = monthsUntil(patientDetails.membershipEndDate);
-                        const expired = months !== null && months < 0;
-                        return (
-                          <span className={`ml-1 px-1 rounded text-[10px] ${expired ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'}`}>
-                            {months === null ? '-' : expired ? `${Math.abs(months)}m ago` : `${months}m left`}
-                          </span>
-                        );
-                      })()}
-                    </div>
+                  {loadingMembershipUsage && (
+                    <div className="text-[10px] text-gray-500">Checking membership...</div>
                   )}
-                  {(Array.isArray(patientDetails.memberships) ? patientDetails.memberships : []).length > 0 ? (
+                  {!loadingMembershipUsage && (!membershipUsage || !membershipUsage.hasMembership || membershipUsage.isExpired) && (
+                    <div className="text-[10px] text-gray-500">No active membership</div>
+                  )}
+                  {!loadingMembershipUsage && membershipUsage && membershipUsage.hasMembership && !membershipUsage.isExpired && (
                     <div className="space-y-1">
-                      {patientDetails.memberships.map((m: any, idx: number) => {
-                        const plan = membershipPlans.find((x) => x._id === m.membershipId);
-                        const months = monthsUntil(m.endDate);
-                        const expired = months !== null && months < 0;
-                        return (
-                          <div key={`${m.membershipId}-${idx}`} className={`flex items-center justify-between px-2 py-1 rounded border ${expired ? 'bg-red-50 border-red-200' : 'bg-gray-50 border-gray-200'}`}>
-                            <div className="text-[10px] text-gray-800">
-                              {plan?.name || m.membershipId} • {m.startDate ? new Date(m.startDate).toLocaleDateString() : '-'} → {m.endDate ? new Date(m.endDate).toLocaleDateString() : '-'}
-                            </div>
-                            <div className={`text-[10px] font-medium ${expired ? 'text-red-700' : 'text-teal-700'}`}>
+                      <div className="text-[10px] text-gray-800 mb-1">
+                        <span className="font-semibold">{membershipUsage.membershipName || '-'}</span>
+                        <span className="ml-1">• {membershipUsage.membershipStartDate ? new Date(membershipUsage.membershipStartDate).toLocaleDateString() : '-'}</span>
+                        <span className="ml-1">→ {membershipUsage.membershipEndDate ? new Date(membershipUsage.membershipEndDate).toLocaleDateString() : '-'}</span>
+                        {(() => {
+                          const months = monthsUntil(membershipUsage.membershipEndDate);
+                          const expired = months !== null && months < 0;
+                          return (
+                            <span className={`ml-1 px-1 rounded text-[10px] ${expired ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'}`}>
                               {months === null ? '-' : expired ? `${Math.abs(months)}m ago` : `${months}m left`}
-                            </div>
-                          </div>
-                        );
-                      })}
+                            </span>
+                          );
+                        })()}
+                      </div>
                     </div>
-                  ) : (
-                    <div className="text-[10px] text-gray-500">No memberships</div>
                   )}
                 </div>
                 <div className="rounded border border-gray-200 bg-white p-1.5">
@@ -1617,8 +1651,9 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                   step="0.01"
                   value={formData.paid}
                   onChange={(e) => setFormData((prev) => ({ ...prev, paid: e.target.value }))}
-                  className="w-full px-2 py-1 text-[10px] sm:text-[11px] border border-gray-300 dark:border-gray-300 rounded bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-1 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all outline-none"
+                  className={`w-full px-2 py-1 text-[10px] sm:text-[11px] border border-gray-300 dark:border-gray-300 rounded text-gray-900 dark:text-gray-900 focus:ring-1 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all outline-none ${useMultiplePayments ? 'bg-gray-100 dark:bg-gray-200' : 'bg-white dark:bg-gray-100'}`}
                   required
+                  readOnly={useMultiplePayments}
                 />
                 <div className="mt-1 text-[9px] text-gray-600">
                   Net due = ₹{(Math.max(0, (parseFloat(formData.amount)||0) - (applyAdvance ? Math.min(balances.advanceBalance, parseFloat(formData.amount)||0) : 0))).toFixed(2)}
@@ -1664,8 +1699,9 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                 <select
                   value={formData.paymentMethod}
                   onChange={(e) => setFormData((prev) => ({ ...prev, paymentMethod: e.target.value }))}
-                  className="w-full px-2 py-1 text-[10px] sm:text-[11px] border border-gray-300 dark:border-gray-300 rounded bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-1 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all outline-none"
+                  className={`w-full px-2 py-1 text-[10px] sm:text-[11px] border border-gray-300 dark:border-gray-300 rounded bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-1 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all outline-none ${useMultiplePayments ? 'opacity-50' : ''}`}
                   required
+                  disabled={useMultiplePayments}
                 >
                   <option value="Cash">Cash</option>
                   <option value="Card">Card</option>
@@ -1675,6 +1711,103 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                 </select>
               </div>
             </div>
+
+            {/* Add Multiple Payment Method Link */}
+            <div className="mt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setUseMultiplePayments(!useMultiplePayments);
+                  if (!useMultiplePayments) {
+                    // Reset multiple payments when enabling
+                    setMultiplePayments([
+                      { paymentMethod: "Cash", amount: "" },
+                      { paymentMethod: "Card", amount: "" },
+                    ]);
+                  }
+                }}
+                className="text-[10px] sm:text-[11px] text-blue-600 hover:text-blue-800 underline font-medium transition-colors"
+              >
+                {useMultiplePayments ? "← Use single payment method" : "+ Add multiple payment method"}
+              </button>
+            </div>
+
+            {/* Multiple Payment Methods UI */}
+            {useMultiplePayments && (
+              <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-[9px] sm:text-[10px] font-bold text-gray-800 uppercase tracking-wider">Split Payment Methods</label>
+                  <span className="text-[9px] sm:text-[10px] font-semibold text-blue-700">
+                    Total Paid: ₹{multiplePayments.reduce((sum, mp) => sum + (parseFloat(mp.amount) || 0), 0).toFixed(2)}
+                  </span>
+                </div>
+                {multiplePayments.map((mp, idx) => (
+                  <div key={idx} className="flex items-center gap-2">
+                    <select
+                      value={mp.paymentMethod}
+                      onChange={(e) => {
+                        const updated = [...multiplePayments];
+                        updated[idx] = { ...updated[idx], paymentMethod: e.target.value };
+                        setMultiplePayments(updated);
+                      }}
+                      className="px-2 py-1 text-[10px] sm:text-[11px] border border-gray-300 rounded bg-white text-gray-900 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none min-w-[90px]"
+                    >
+                      <option value="Cash">Cash</option>
+                      <option value="Card">Card</option>
+                      <option value="BT">BT</option>
+                      <option value="Tabby">Tabby</option>
+                      <option value="Tamara">Tamara</option>
+                    </select>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="Amount"
+                      value={mp.amount}
+                      onChange={(e) => {
+                        const updated = [...multiplePayments];
+                        updated[idx] = { ...updated[idx], amount: e.target.value };
+                        setMultiplePayments(updated);
+                      }}
+                      className="flex-1 px-2 py-1 text-[10px] sm:text-[11px] border border-gray-300 rounded bg-white text-gray-900 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                    />
+                    {multiplePayments.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMultiplePayments(multiplePayments.filter((_, i) => i !== idx));
+                        }}
+                        className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
+                        title="Remove"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMultiplePayments([...multiplePayments, { paymentMethod: "Cash", amount: "" }]);
+                  }}
+                  className="text-[9px] sm:text-[10px] text-blue-600 hover:text-blue-800 font-medium transition-colors"
+                >
+                  + Add another payment method
+                </button>
+                {/* Validation hint */}
+                {(() => {
+                  const totalMultiPaid = multiplePayments.reduce((sum, mp) => sum + (parseFloat(mp.amount) || 0), 0);
+                  const netDue = Math.max(0, (parseFloat(formData.amount) || 0) - (applyAdvance ? Math.min(balances.advanceBalance, parseFloat(formData.amount) || 0) : 0));
+                  const diff = totalMultiPaid - netDue;
+                  if (diff > 0) {
+                    return <div className="text-[9px] text-emerald-700 font-medium">Excess ₹{diff.toFixed(2)} will be stored as advance balance.</div>;
+                  } else if (diff < 0) {
+                    return <div className="text-[9px] text-red-600 font-medium">Remaining ₹{Math.abs(diff).toFixed(2)} will be pending.</div>;
+                  }
+                  return <div className="text-[9px] text-emerald-700 font-medium">Exact amount covered. No pending or advance.</div>;
+                })()}
+              </div>
+            )}
           </div>
 
           {/* Additional Fields - Inline - Smaller boxes - Same line */}
@@ -1793,7 +1926,17 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                             {billing.sessions || "-"}
                           </td>
                           <td className="px-2 py-2.5 text-[10px] sm:text-[11px] text-gray-700 dark:text-gray-700 text-center">
-                            {billing.paymentMethod || "-"}
+                            {billing.multiplePayments && billing.multiplePayments.length > 0 ? (
+                              <div className="space-y-0.5">
+                                {billing.multiplePayments.map((mp: any, idx: number) => (
+                                  <div key={idx} className="text-[9px]">
+                                    <span className="font-medium">{mp.paymentMethod}</span>: ₹{Number(mp.amount || 0).toFixed(2)}
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              billing.paymentMethod || "-"
+                            )}
                           </td>
                         </tr>
                       </React.Fragment>

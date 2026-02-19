@@ -33,6 +33,7 @@ interface Patient {
   email: string;
   emrNumber: string;
   gender: string;
+  referredBy?: string;
 }
 
 interface AddPatientForm {
@@ -43,6 +44,7 @@ interface AddPatientForm {
   email: string;
   mobileNumber: string;
   referredBy: string;
+  referredById?: string;
   patientType: string;
 }
 
@@ -118,6 +120,7 @@ export default function AppointmentBookingModal({
     email: "",
     mobileNumber: "",
     referredBy: "",
+    referredById: undefined,
     patientType: "New",
   });
   const [followType, setFollowType] = useState<string>("first time");
@@ -273,9 +276,13 @@ export default function AppointmentBookingModal({
       );
 
       if (res.data.success) {
-        setSelectedPatient(res.data.patient);
+        const enrichedPatient: Patient = {
+          ...res.data.patient,
+          referredBy: addPatientForm.referredBy || "",
+        };
+        setSelectedPatient(enrichedPatient);
         setShowAddPatient(false);
-        setPatientSearch(res.data.patient.fullName);
+        setPatientSearch(enrichedPatient.fullName);
         setAddPatientForm({
           emrNumber: "",
           firstName: "",
@@ -284,6 +291,7 @@ export default function AppointmentBookingModal({
           email: "",
           mobileNumber: "",
           referredBy: "",
+          referredById: undefined,
           patientType: "New",
         });
       }
@@ -454,7 +462,7 @@ export default function AppointmentBookingModal({
           startDate,
           fromTime,
           toTime,
-          referral,
+          referral: selectedPatient?.referredBy ? selectedPatient.referredBy : "No",
           emergency,
           notes,
           bookedFrom: valueToSend, // Use the determined value - ensure it's "room" or "doctor"
@@ -942,12 +950,26 @@ export default function AppointmentBookingModal({
                 </div>
                 <div>
                   <label className="block text-[10px] font-medium text-gray-700 dark:text-gray-800 mb-0.5">Referred By</label>
-                  <input
-                    type="text"
-                    value={addPatientForm.referredBy}
-                    onChange={(e) => setAddPatientForm({ ...addPatientForm, referredBy: e.target.value })}
+                  <select
+                    value={addPatientForm.referredById || ""}
+                    onChange={(e) => {
+                      const selected = referrals.find((r) => r._id === e.target.value);
+                      const displayName = selected ? [selected.firstName, selected.lastName].filter(Boolean).join(" ").trim() : "";
+                      setAddPatientForm({
+                        ...addPatientForm,
+                        referredById: e.target.value || undefined,
+                        referredBy: displayName,
+                      });
+                    }}
                     className="w-full border border-gray-300 dark:border-gray-300 rounded-lg px-2 py-1.5 text-[10px] bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm"
-                  />
+                  >
+                    <option value="">Select Referred By</option>
+                    {referrals.map((r) => (
+                      <option key={r._id} value={r._id}>
+                        {[r.firstName, r.lastName].filter(Boolean).join(" ").trim()}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <label className="block text-[10px] font-medium text-gray-700 dark:text-gray-800 mb-0.5">Patient Type</label>
@@ -1004,23 +1026,7 @@ export default function AppointmentBookingModal({
               )}
             </div>
 
-            {/* Referral */}
-            <div>
-              <label className="block text-xs font-medium text-gray-700 dark:text-gray-800 mb-1.5">Referral</label>
-              <select
-                value={referral}
-                onChange={(e) => setReferral(e.target.value)}
-                className="w-full border border-gray-300 dark:border-gray-300 rounded-lg px-3 py-2.5 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm"
-                style={{ zIndex: 1000, position: 'relative' }}
-              >
-                <option value="No">No</option>
-                {referrals.map((ref) => (
-                  <option key={ref._id} value={`${ref.firstName} ${ref.lastName}`.trim()}>
-                    {[ref.firstName, ref.lastName].filter(Boolean).join(" ")}
-                  </option>
-                ))}
-              </select>
-            </div>
+            
 
             {/* Emergency */}
             <div>

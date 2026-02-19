@@ -54,6 +54,7 @@ export default function EditAppointmentModal({
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   const [referrals, setReferrals] = useState<Array<{ _id: string; firstName: string; lastName: string }>>([]);
+  const [patientReferral, setPatientReferral] = useState<string>("");
 
   const fetchReferrals = async () => {
     try {
@@ -73,6 +74,27 @@ export default function EditAppointmentModal({
       fetchReferrals();
     }
   }, [isOpen]);
+
+  useEffect(() => {
+    const fetchPatientReferral = async () => {
+      if (!appointment?.patientId || !isOpen) return;
+      try {
+        const res = await axios.get(`/api/staff/get-patient-data/${appointment.patientId}`, {
+          headers: getAuthHeaders(),
+        });
+        if (res.status === 200 && res.data) {
+          const referredByValue = res.data.referredBy || "";
+          setPatientReferral(referredByValue);
+          if (referredByValue) {
+            setReferral(referredByValue);
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching patient referral:", err);
+      }
+    };
+    fetchPatientReferral();
+  }, [appointment?.patientId, isOpen]);
 
   // Update form when appointment changes
   useEffect(() => {
