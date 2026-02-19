@@ -161,7 +161,7 @@ function ClinicPatientRegistration() {
       )}
 
       {/* Main Content - Patient Information with Register Button */}
-      <div className="max-w-7xl mx-auto">
+      <div className="w-full space-y-1">
         <PatientInformationWithButton 
           onRegisterClick={handleOpenModal}
           onImportClick={handleOpenImportModal}
@@ -172,30 +172,12 @@ function ClinicPatientRegistration() {
       </div>
 
       {editPatientId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 overflow-y-auto bg-black/60 backdrop-blur-md">
-          <div className="relative w-full max-w-6xl max-h-[95vh] sm:max-h-[90vh] bg-white rounded-2xl shadow-2xl flex flex-col border border-teal-100">
-            <div className="sticky top-0 bg-gradient-to-r from-teal-600 to-blue-600 px-4 sm:px-6 py-3 flex items-center justify-between z-10 rounded-t-2xl">
-              <h2 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
-                <Edit className="w-5 h-5" />
-                Edit Patient Information
-              </h2>
-              <button
-                onClick={() => handleCloseEditModal(false)}
-                className="p-2 hover:bg-white/20 rounded-lg text-white hover:text-white transition-colors flex-shrink-0 backdrop-blur-sm"
-                aria-label="Close edit modal"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="p-4 sm:p-6 flex-1 overflow-y-auto bg-gray-50">
-              <PatientUpdateForm
-                patientId={editPatientId}
-                onClose={() => handleCloseEditModal(true)}
-                onUpdated={() => setRefreshKey((prev) => prev + 1)}
-              />
-            </div>
-          </div>
-        </div>
+        <PatientUpdateForm
+          patientId={editPatientId}
+          embedded={true}
+          onClose={() => handleCloseEditModal(true)}
+          onUpdated={() => setRefreshKey((prev) => prev + 1)}
+        />
       )}
 
       {showSavePopup && (
@@ -1086,42 +1068,37 @@ function PatientInformationWithButton({ onRegisterClick, onImportClick, refreshK
   return (
     <div>
       {/* Header with Register Button - Enhanced modern UI */}
-      <div className="bg-white rounded-2xl shadow-lg border border-teal-100 mb-6 overflow-hidden">
-        <div className="bg-white px-4 sm:px-6 py-4">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <div>
-              <h1 className="text-lg sm:text-xl font-bold text-gray-800 flex items-center gap-2">
-               
-                Patient Management
-              </h1>
-              <p className="text-teal-600 mt-1 text-sm">View and manage all patient records</p>
-            </div>
-            {permissions.canCreate && (
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => {
-                    
-                  }}
-                  className="hidden" 
-                >
-                </button>
-                <button
-                  onClick={onImportClick}
-                  className="inline-flex items-center justify-center gap-2 bg-teal-600 hover:bg-teal-700 text-white border border-white/30 px-4 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-sm font-medium backdrop-blur-sm"
-                >
-                  <Upload className="h-4 w-4"/>
-                  <span>Import Patients</span>
-                </button>
-                <button
-                  onClick={onRegisterClick}
-                  className="inline-flex items-center justify-center gap-2 bg-teal-600 text-white hover:bg-teal-700 px-4 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-sm font-medium"
-                >
-                  <UserPlus className="h-4 w-4"/>
-                  <span>Register Patient</span>
-                </button>
-              </div>
-            )}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+          <div>
+            <h1 className="text-xl font-semibold text-gray-900">Patient Management</h1>
+            <p className="text-gray-700 text-xs mt-1">View and manage all patient records and information</p>
           </div>
+          {permissions.canCreate && (
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => {
+                  
+                }}
+                className="hidden" 
+              >
+              </button>
+              <button
+                onClick={onImportClick}
+                className="inline-flex items-center justify-center gap-2 bg-teal-600 hover:bg-teal-700 text-white border border-white/30 px-4 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-sm font-medium backdrop-blur-sm"
+              >
+                <Upload className="h-4 w-4"/>
+                <span>Import Patients</span>
+              </button>
+              <button
+                onClick={onRegisterClick}
+                className="inline-flex items-center justify-center gap-2 bg-teal-600 text-white hover:bg-teal-700 px-4 py-2 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 text-sm font-medium"
+              >
+                <UserPlus className="h-4 w-4"/>
+                <span>Register Patient</span>
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
