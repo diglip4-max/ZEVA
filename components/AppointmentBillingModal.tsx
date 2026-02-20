@@ -1015,6 +1015,12 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                               </div>
                               <div className="text-[10px] text-emerald-700">
                                 {m.startDate ? new Date(m.startDate).toLocaleDateString() : '-'} → {m.endDate ? new Date(m.endDate).toLocaleDateString() : '-'}
+                                {m.endDate && (() => {
+                                  const ml = monthsUntil(m.endDate);
+                                  return typeof ml === "number" && ml >= 0 ? (
+                                    <span className="ml-1 text-emerald-800">({ml} months left)</span>
+                                  ) : null;
+                                })()}
                               </div>
                             </div>
                           );
