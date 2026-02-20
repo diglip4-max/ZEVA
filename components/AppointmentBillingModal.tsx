@@ -88,6 +88,7 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [treatments, setTreatments] = useState<Treatment[]>([]);
   const [packages, setPackages] = useState<Package[]>([]);
+  const [memberships, setMemberships] = useState<any[]>([]);
   const [patientDetails, setPatientDetails] = useState<any>(null);
   const [selectedService, setSelectedService] = useState<"Treatment" | "Package">("Treatment");
   const [selectedTreatments, setSelectedTreatments] = useState<SelectedTreatment[]>([]);
@@ -159,6 +160,14 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
   const treatmentDropdownRef = useRef<HTMLDivElement>(null);
   const packageDropdownRef = useRef<HTMLDivElement>(null);
 
+  // Helper function to check if membership was transferred out
+  const isMembershipTransferredOut = useCallback(() => {
+    if (!membershipUsage?.membershipId || !patientDetails?.membershipTransfers) return false;
+    return patientDetails.membershipTransfers.some(
+      (t: any) => t.type === "out" && String(t.membershipId) === String(membershipUsage.membershipId)
+    );
+  }, [membershipUsage, patientDetails]);
+
   // Generate invoice number
   const generateInvoiceNumber = useCallback(() => {
     const date = new Date();
@@ -205,6 +214,12 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
         const packagesRes = await axios.get("/api/clinic/packages", { headers });
         if (packagesRes.data.success) {
           setPackages(packagesRes.data.packages || []);
+        }
+
+        // Fetch memberships
+        const membershipsRes = await axios.get("/api/clinic/memberships", { headers });
+        if (membershipsRes.data.success) {
+          setMemberships(membershipsRes.data.memberships || []);
         }
       } catch (error) {
         console.error("Error fetching data:", error);
@@ -387,12 +402,17 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
       baseTotal = finalTotal;
     }
     
-    // Apply membership benefits
+    // Apply membership benefits (skip if membership was transferred out)
     let finalTotal = baseTotal;
     let membershipDiscount = 0;
     
+    // Check if membership was transferred out
+    const membershipTransferredOut = membershipUsage?.membershipId && patientDetails?.membershipTransfers?.some(
+      (t: any) => t.type === "out" && String(t.membershipId) === String(membershipUsage.membershipId)
+    );
+    
     // Check if patient has active membership with free consultations
-    if (membershipUsage?.hasMembership && !membershipUsage?.isExpired) {
+    if (membershipUsage?.hasMembership && !membershipUsage?.isExpired && !membershipTransferredOut) {
       const hasRemainingFreeConsultations = membershipUsage.remainingFreeConsultations > 0;
       const discountPercentage = membershipUsage.discountPercentage || 0;
       
@@ -696,14 +716,19 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
         return;
       }
 
-      // Calculate membership benefits
+      // Calculate membership benefits (skip if membership was transferred out)
       const baseAmount = parseFloat(formData.originalAmount || formData.amount) || 0;
       const finalAmount = parseFloat(formData.amount) || 0;
       let isFreeConsultation = false;
       let freeConsultationCount = 0;
       let membershipDiscountApplied = 0;
       
-      if (membershipUsage?.hasMembership && !membershipUsage?.isExpired) {
+      // Check if membership was transferred out
+      const membershipTransferredOut = membershipUsage?.membershipId && patientDetails?.membershipTransfers?.some(
+        (t: any) => t.type === "out" && String(t.membershipId) === String(membershipUsage.membershipId)
+      );
+      
+      if (membershipUsage?.hasMembership && !membershipUsage?.isExpired && !membershipTransferredOut) {
         const hasRemainingFreeConsultations = membershipUsage.remainingFreeConsultations > 0;
         const discountPercentage = membershipUsage.discountPercentage || 0;
         
@@ -960,43 +985,87 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
                   {loadingMembershipUsage && (
                     <div className="text-[10px] text-gray-500">Checking membership...</div>
                   )}
-                  {!loadingMembershipUsage && (!membershipUsage || !membershipUsage.hasMembership || membershipUsage.isExpired) && (
-                    <div className="text-[10px] text-gray-500">No active membership</div>
-                  )}
-                  {!loadingMembershipUsage && membershipUsage && membershipUsage.hasMembership && !membershipUsage.isExpired && (
+                  {/* Show memberships from patientDetails (filter out transferred ones based on membershipTransfers history) */}
+                  {(Array.isArray(patientDetails.memberships) ? patientDetails.memberships : []).filter((m: any) => {
+                    // Filter out memberships that were transferred out (check membershipTransfers history)
+                    const transferredOut = patientDetails.membershipTransfers?.some(
+                      (t: any) => t.type === "out" && String(t.membershipId) === String(m.membershipId)
+                    );
+                    return !transferredOut;
+                  }).length > 0 ? (
                     <div className="space-y-1">
-                      <div className="text-[10px] text-gray-800 mb-1">
-                        <span className="font-semibold">{membershipUsage.membershipName || '-'}</span>
-                        <span className="ml-1">• {membershipUsage.membershipStartDate ? new Date(membershipUsage.membershipStartDate).toLocaleDateString() : '-'}</span>
-                        <span className="ml-1">→ {membershipUsage.membershipEndDate ? new Date(membershipUsage.membershipEndDate).toLocaleDateString() : '-'}</span>
-                        {(() => {
-                          const months = monthsUntil(membershipUsage.membershipEndDate);
-                          const expired = months !== null && months < 0;
-                          return (
-                            <span className={`ml-1 px-1 rounded text-[10px] ${expired ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'}`}>
-                              {months === null ? '-' : expired ? `${Math.abs(months)}m ago` : `${months}m left`}
-                            </span>
+                      {patientDetails.memberships
+                        .filter((m: any) => {
+                          // Filter out memberships that were transferred out
+                          const transferredOut = patientDetails.membershipTransfers?.some(
+                            (t: any) => t.type === "out" && String(t.membershipId) === String(m.membershipId)
                           );
-                        })()}
+                          return !transferredOut;
+                        })
+                        .map((m: any, idx: number) => {
+                          // Look up membership name from the memberships list
+                          const membershipPlan = memberships.find((mem: any) => mem._id === m.membershipId);
+                          const displayName = membershipPlan?.name || m.membershipName || m.membershipId;
+                          return (
+                            <div key={`${m.membershipId}-${idx}`} className="flex items-center justify-between px-2 py-1 rounded border bg-emerald-50 border-emerald-200">
+                              <div className="flex items-center gap-1">
+                                <div className="text-[10px] text-emerald-800 font-medium">
+                                  {displayName}
+                                </div>
+                              </div>
+                              <div className="text-[10px] text-emerald-700">
+                                {m.startDate ? new Date(m.startDate).toLocaleDateString() : '-'} → {m.endDate ? new Date(m.endDate).toLocaleDateString() : '-'}
+                              </div>
+                            </div>
+                          );
+                        })}
+                    </div>
+                  ) : (
+                    (!membershipUsage || !membershipUsage.hasMembership) && (
+                      <div className="text-[10px] text-gray-500">No memberships</div>
+                    )
+                  )}
+                  {/* Also show active membership usage if available (hide if transferred out) */}
+                  {!loadingMembershipUsage && membershipUsage && membershipUsage.hasMembership && !membershipUsage.isExpired && !isMembershipTransferredOut() && (
+                    <div className="mt-2 pt-2 border-t border-gray-200">
+                      <div className="text-[10px] text-gray-600 mb-1">Active Membership Usage:</div>
+                      <div className="text-[10px] text-gray-800">
+                        <span className="font-semibold">{membershipUsage.membershipName || '-'}</span>
+                        <span className="ml-1">• {membershipUsage.remainingFreeConsultations || 0} free consultations remaining</span>
                       </div>
                     </div>
                   )}
                 </div>
                 <div className="rounded border border-gray-200 bg-white p-1.5">
                   <div className="text-[10px] font-bold text-gray-900 mb-1">Packages</div>
-                  {(Array.isArray(patientDetails.packages) ? patientDetails.packages : []).length > 0 ? (
+                  {/* Show packages from patientDetails (filter out transferred ones based on packageTransfers history) */}
+                  {(Array.isArray(patientDetails.packages) ? patientDetails.packages : []).filter((p: any) => {
+                    // Filter out packages that were transferred out (check packageTransfers history)
+                    const transferredOut = patientDetails.packageTransfers?.some(
+                      (t: any) => t.type === "out" && String(t.packageId) === String(p.packageId)
+                    );
+                    return !transferredOut;
+                  }).length > 0 ? (
                     <div className="space-y-1">
-                      {patientDetails.packages.map((p: any, idx: number) => {
-                        const pkg = packages.find((x) => x._id === p.packageId);
-                        return (
-                          <div key={`${p.packageId}-${idx}`} className="flex items-center justify-between px-2 py-1 rounded border bg-gray-50 border-gray-200">
-                            <div className="text-[10px] text-gray-800">{pkg?.name || p.packageId}</div>
-                            {p.assignedDate && (
-                              <div className="text-[10px] text-gray-700">{new Date(p.assignedDate).toLocaleDateString()}</div>
-                            )}
-                          </div>
-                        );
-                      })}
+                      {patientDetails.packages
+                        .filter((p: any) => {
+                          // Filter out packages that were transferred out
+                          const transferredOut = patientDetails.packageTransfers?.some(
+                            (t: any) => t.type === "out" && String(t.packageId) === String(p.packageId)
+                          );
+                          return !transferredOut;
+                        })
+                        .map((p: any, idx: number) => {
+                          const pkg = packages.find((x) => x._id === p.packageId);
+                          return (
+                            <div key={`${p.packageId}-${idx}`} className="flex items-center justify-between px-2 py-1 rounded border bg-gray-50 border-gray-200">
+                              <div className="text-[10px] text-gray-800">{pkg?.name || p.packageId}</div>
+                              {p.assignedDate && (
+                                <div className="text-[10px] text-gray-700">{new Date(p.assignedDate).toLocaleDateString()}</div>
+                              )}
+                            </div>
+                          );
+                        })}
                     </div>
                   ) : (
                     <div className="text-[10px] text-gray-500">No packages</div>
@@ -1047,14 +1116,14 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
             )}
           </div>
 
-          {/* Membership Free Consultation Info */}
+          {/* Membership Free Consultation Info (hide if transferred out) */}
           {loadingMembershipUsage && (
             <div className="rounded border p-2 mt-2 mb-2 bg-gray-50 border-gray-200 text-xs text-gray-600 flex items-center gap-2">
               <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
               <span>Loading membership usage...</span>
             </div>
           )}
-          {membershipUsage?.hasMembership && !membershipUsage?.isExpired && membershipUsage?.hasFreeConsultations && (
+          {membershipUsage?.hasMembership && !membershipUsage?.isExpired && membershipUsage?.hasFreeConsultations && !isMembershipTransferredOut() && (
             <div className={`rounded border p-2 mt-2 mb-2 ${
               membershipUsage.remainingFreeConsultations > 0 
                 ? 'bg-emerald-50 border-emerald-200' 
