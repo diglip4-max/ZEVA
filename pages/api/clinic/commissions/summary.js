@@ -132,25 +132,66 @@ export default async function handler(req, res) {
         const staffId = g._id;
         let name = "";
         let percent = g.lastCommissionPercent || 0;
+        let commissionType = "flat";
+        let targetAmount = 0;
+        let targetProgress = 0;
+        let isAboveTarget = false;
+        
         if (staffId) {
           const user = await User.findById(staffId).select("name role").lean();
           if (user) {
             name = user.name || "";
           }
           const profile = await AgentProfile.findOne({ userId: staffId }).lean();
-          if (profile && profile.commissionPercentage != null) {
-            percent = Number(profile.commissionPercentage);
+          if (profile) {
+            if (profile.commissionPercentage != null) {
+              percent = Number(profile.commissionPercentage);
+            }
+            commissionType = profile.commissionType || "flat";
+            
+            // For target-based commission, calculate progress
+            if (commissionType === "target_based" && profile.targetAmount) {
+              targetAmount = Number(profile.targetAmount);
+              // Get the latest commission record to get cumulative achieved
+              const latestCommission = await Commission.findOne({
+                clinicId,
+                staffId,
+                source: "staff",
+                commissionType: "target_based",
+              }).sort({ createdAt: -1 }).lean();
+              
+              if (latestCommission && latestCommission.cumulativeAchieved) {
+                const currentAchieved = latestCommission.cumulativeAchieved;
+                targetProgress = targetAmount > 0 ? (currentAchieved / targetAmount) * 100 : 0;
+                isAboveTarget = currentAchieved >= targetAmount;
+              } else {
+                // Fallback: use total paid amount
+                targetProgress = targetAmount > 0 ? (g.totalAmountPaid / targetAmount) * 100 : 0;
+                isAboveTarget = g.totalAmountPaid >= targetAmount;
+              }
+            }
           }
         }
-        results.push({
+        
+        const result = {
           source: "staff",
           personId: staffId?.toString() || null,
           name,
           percent,
+          commissionType,
           totalEarned: Number(g.totalCommissionAmount.toFixed(2)),
           totalPaid: Number(g.totalAmountPaid.toFixed(2)),
           count: g.count,
-        });
+        };
+        
+        // Add target-specific fields if applicable
+        if (commissionType === "target_based") {
+          result.targetAmount = targetAmount;
+          result.targetProgress = Number(targetProgress.toFixed(2));
+          result.isAboveTarget = isAboveTarget;
+        }
+        
+        results.push(result);
       }
     }
 

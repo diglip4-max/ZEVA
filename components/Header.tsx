@@ -22,12 +22,12 @@ const Header = () => {
 
   return (
     <>
-      <header className="bg-white border-b border-gray-200 shadow-sm fixed top-0 left-0 right-0 z-50 w-full">
+      <header className="bg-white border-b border-gray-200 shadow-sm fixed top-0 left-0 right-0 z-50 w-full" data-auth={isAuthenticated ? "1" : "0"}>
         <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-2 sm:py-2.5 md:py-3">
-          <div className="flex items-center justify-center h-14 sm:h-16 relative">
+          <div className="flex items-center justify-between h-14 sm:h-16 relative">
 
-            {/* LEFT LOGO (same as old) */}
-            <div className="absolute left-2 sm:left-3 flex items-center">
+            {/* LEFT LOGO */}
+            <div className="flex items-center">
               <Link href="/" className="flex items-center gap-0.5 sm:gap-1">
                 <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-md bg-gradient-to-r from-teal-600 to-blue-600 flex items-center justify-center text-white font-bold text-xs shadow-md">
                   Z
@@ -38,8 +38,8 @@ const Header = () => {
               </Link>
             </div>
 
-            {/* CENTER NAV - Hidden on mobile, shown in hamburger menu */}
-            <nav className="hidden lg:flex lg:items-center gap-2 xl:gap-4 text-xs sm:text-sm text-gray-700">
+            {/* CENTER NAV - Visible only on large desktop */}
+            <nav className="hidden xl:flex xl:items-center gap-2 xl:gap-4 text-xs sm:text-sm text-gray-700">
               <Link href="/clinic/findclinic" className="hover:text-blue-600 px-2 py-1">
                 Find Clinics
               </Link>
@@ -69,38 +69,35 @@ const Header = () => {
               </Link>
             </nav>
 
-            {/* MOBILE LOGIN/SIGNUP AND HAMBURGER MENU */}
-            <div className="absolute right-3 top-2.5 flex items-center gap-1">
+            {/* RIGHT SIDE - AUTH BUTTONS AND HAMBURGER MENU */}
+            <div className="flex items-center gap-2">
               
-              {/* Login button */}
-              <button
-                onClick={() => openAuthModal("register")}
-                className="md:hidden text-blue-600 text-xs font-medium underline py-1 px-2"
-                aria-label="Login"
-              >
-                Login
-              </button>
-              
-              {/* Signup button */}
-              <button
-                onClick={() => openAuthModal("login")}
-                className="md:hidden bg-yellow-300 hover:bg-yellow-500 text-gray-900 px-2 py-0.5 rounded-full text-xs font-medium shadow-sm"
-                aria-label="Sign up"
-              >
-                Sign Up
-              </button>
-              
-              {/* Hamburger menu button */}
+              {/* AUTH BUTTONS - Visible on all screens */}
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => openAuthModal("register")}
+                  className="text-blue-600 text-xs sm:text-sm font-medium underline py-1 px-2"
+                >
+                  Login
+                </button>
+                <button
+                  onClick={() => openAuthModal("login")}
+                  className="bg-yellow-300 hover:bg-yellow-500 text-gray-900 px-2 py-0.5 sm:px-3 sm:py-1 rounded-full text-xs sm:text-sm font-medium shadow-sm"
+                >
+                  Sign Up
+                </button>
+              </div>
+
+              {/* HAMBURGER MENU BUTTON - Visible on mobile, tablet, and laptop (under 1280px) */}
               <button
                 onClick={toggleMenu}
-                id="mobile-menu-toggle"
-                className="md:hidden p-1 rounded-md text-gray-700 hover:bg-gray-100 transition-colors duration-200 z-60"
+                className="xl:hidden p-1 rounded-md text-gray-700 hover:bg-gray-100 transition-colors duration-200"
                 aria-label="Toggle menu"
               >
                 {isMenuOpen ? (
-                  <X className="w-4 h-4" />
+                  <X className="w-5 h-5" />
                 ) : (
-                  <Menu className="w-4 h-4" />
+                  <Menu className="w-5 h-5" />
                 )}
               </button>
             </div>
@@ -108,23 +105,23 @@ const Header = () => {
           </div>
         </div>
 
-        {/* MOBILE MENU BACKDROP - Covers entire screen when menu is open */}
+        {/* MENU BACKDROP - Covers entire screen when menu is open */}
         {isMenuOpen && (
           <div 
-            className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40 md:hidden"
+            className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40"
             onClick={() => setIsMenuOpen(false)}
             aria-hidden="true"
           />
         )}
 
-        {/* MOBILE MENU - Enhanced UI with Close Button */}
+        {/* MOBILE/TABLET MENU - Enhanced UI with Close Button */}
 {isMenuOpen && (
-  <div className="absolute top-0 left-0 right-0 bg-white border-b border-gray-200 shadow-2xl md:hidden z-50">
+  <div className="absolute top-0 left-0 right-0 bg-white border-b border-gray-200 shadow-2xl z-50">
     
     {/* Header */}
     <div className="flex items-center justify-between px-4 py-2 border-b border-gray-100">
       <span className="text-base font-semibold text-gray-800">
-        
+        Menu
       </span>
       <button
         onClick={() => setIsMenuOpen(false)}
@@ -136,7 +133,7 @@ const Header = () => {
     </div>
 
     {/* Navigation */}
-    <nav className="flex flex-col py-3 px-4 space-y-1">
+    <nav className="flex flex-col py-3 px-4 space-y-1 max-h-[70vh] overflow-y-auto">
       {(() => {
         const menuItems = [
         { href: "/clinic/findclinic", icon: "🏥", label: "Find Clinics" },
@@ -190,24 +187,7 @@ const Header = () => {
 )}
 
 
-        {/* DESKTOP AUTH BUTTONS - With clear spacing between buttons */}
-        {!isAuthenticated && (
-          <div className="absolute top-3 right-3 sm:top-4 sm:right-4 flex items-center space-x-2 sm:space-x-3 hidden lg:block">
-            <button
-              onClick={() => openAuthModal("register")}
-              className="text-blue-600 text-xs sm:text-sm font-medium underline py-1 px-2"
-            >
-              Login
-            </button>
 
-            <button
-              onClick={() => openAuthModal("login")}
-              className="bg-yellow-300 hover:bg-yellow-500 text-gray-900 px-3 py-1 rounded-full text-xs sm:text-sm font-medium shadow-md"
-            >
-              Sign Up
-            </button>
-          </div>
-        )}
       </header>
 
       {/* AUTH MODAL (same as old behaviour) */}

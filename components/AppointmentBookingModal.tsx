@@ -1313,7 +1313,7 @@ export default function AppointmentBookingModal({
 
           {/* Notes */}
           <div>
-            <label className="text-xs font-medium text-gray-700 dark:text-gray-800 mb-1.5 flex items-center gap-2">
+            <label className="block text-xs font-medium text-gray-700 dark:text-gray-800 mb-1.5 flex items-center gap-2">
               <span>Notes</span>
               <span className="text-[10px] text-gray-500 dark:text-gray-600 font-normal">
                 (Optional)

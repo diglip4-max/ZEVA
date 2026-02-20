@@ -20,6 +20,10 @@ const CommissionSchema = new mongoose.Schema(
     invoicedDate: { type: Date },
     notes: { type: String, trim: true },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    // Target-based commission fields
+    targetAmount: { type: Number, min: 0, default: 0 }, // Target amount for this staff member
+    cumulativeAchieved: { type: Number, min: 0, default: 0 }, // Total achieved amount until this transaction
+    isAboveTarget: { type: Boolean, default: false }, // Whether this transaction crossed the target
   },
   { timestamps: true }
 );
