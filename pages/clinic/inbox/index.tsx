@@ -31,6 +31,7 @@ import AttachmentModal from "@/components/shared/AttachmentModal";
 import {
   capitalize,
   getFormatedTime,
+  getTokenByPath,
   maskEmail,
   maskPhoneNumber,
   maskSensitiveInfo,
@@ -45,6 +46,7 @@ import ScheduleMessage from "./_components/ScheduleMessage";
 import ConversationSkeleton from "./_components/ConversationSkeleton";
 import MessageSkeleton from "./_components/MessageSkeleton";
 import FilterModal from "./_components/FilterModal";
+import AppointmentBookingModal from "@/components/AppointmentBookingModal";
 
 const InboxPage: NextPageWithLayout = () => {
   const {
@@ -69,6 +71,7 @@ const InboxPage: NextPageWithLayout = () => {
     setIsScheduleModalOpen,
     setIsFilterModalOpen,
     setIsProfileView,
+    setIsOpenBookAppointmentModal,
     handleSendMessage,
     handleScheduleMessage,
     handleConvScroll,
@@ -128,6 +131,9 @@ const InboxPage: NextPageWithLayout = () => {
     isFilterModalOpen,
     mediaUrl,
     scrollMsgsRef,
+    isOpenBookAppointmentModal,
+    rooms,
+    doctors,
   } = state;
 
   return (
@@ -1007,7 +1013,26 @@ const InboxPage: NextPageWithLayout = () => {
           </CollapsibleWrapper>
 
           {/* Action Buttons */}
-          <div className="p-3">
+          <div className="p-3 space-y-2">
+            <button
+              onClick={() => setIsOpenBookAppointmentModal(true)}
+              className="group relative w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-medium rounded-xl cursor-pointer py-2.5 px-4 text-center transition-all duration-300 ease-in-out shadow-md hover:shadow-lg hover:shadow-blue-200 active:scale-[0.98] active:shadow-md border border-blue-400/20 text-sm flex items-center justify-center gap-2"
+            >
+              <svg
+                className="w-4 h-4 mb-0.5 transition-transform group-hover:scale-110"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                />
+              </svg>
+              Book Appointment
+            </button>
             <button
               onClick={() => setIsDeleteConversationModalOpen(true)}
               className="group relative w-full bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-medium rounded-xl cursor-pointer py-2.5 px-4 text-center transition-all duration-300 ease-in-out shadow-md hover:shadow-lg hover:shadow-red-200 active:scale-[0.98] active:shadow-md border border-red-400/20 text-sm flex items-center justify-center gap-2"
@@ -1078,6 +1103,38 @@ const InboxPage: NextPageWithLayout = () => {
         selectedAgentId={filters.agentId || null}
         onAgentSelect={handleAgentFilterChange}
         onApplyFilters={handleApplyFilters}
+      />
+
+      {/* Booking Modal */}
+      <AppointmentBookingModal
+        isOpen={isOpenBookAppointmentModal}
+        onClose={() => setIsOpenBookAppointmentModal(false)}
+        onSuccess={() => {}}
+        doctorId={""}
+        doctorName={""}
+        defaultRoomId={""}
+        slotTime={""}
+        slotDisplayTime={""}
+        defaultDate={""}
+        bookedFrom={"doctor"}
+        fromTime={""}
+        toTime={""}
+        rooms={
+          rooms?.map((room) => ({
+            _id: room._id,
+            name: room.name,
+          })) || []
+        }
+        doctorStaff={
+          doctors?.map((doctor) => ({
+            _id: doctor._id,
+            name: doctor.name,
+          })) || []
+        }
+        getAuthHeaders={() => ({
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${getTokenByPath()}`,
+        })}
       />
     </div>
   );

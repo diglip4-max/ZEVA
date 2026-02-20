@@ -61,8 +61,8 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
     branch: "",
     supplier: "",
     orderNo: "",
-    fromDate: "",
-    toDate: "",
+    fromDate: new Date().toISOString().split("T")[0],
+    toDate: new Date().toISOString().split("T")[0],
     status: "",
   });
 
@@ -810,25 +810,38 @@ const PurchaseOrdersPage: NextPageWithLayout = () => {
                               } z-10 mt-2 w-48 origin-top-right rounded-md bg-white shadow-lg ring-1 ring-gray-200 ring-opacity-5 focus:outline-none`}
                             >
                               <div className="py-1" role="none">
-                                <button
-                                  onClick={() => {
-                                    handleEditClick(order);
-                                    // Close the dropdown after clicking
-                                    const menuEl = document.getElementById(
-                                      `menu-${order._id}`,
-                                    );
-                                    if (menuEl) {
-                                      menuEl.classList.remove("block");
-                                      menuEl.classList.add("hidden");
-                                    }
-                                  }}
-                                  className="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
-                                >
-                                  <div className="flex items-center">
-                                    <PencilIcon className="h-4 w-4 mr-2" />
-                                    Edit
-                                  </div>
-                                </button>
+                                {![
+                                  "Partly_Delivered",
+                                  "Delivered",
+                                  "Partly_Invoiced",
+                                  "Invoiced",
+                                  "Rejected",
+                                  "Cancelled",
+                                  "Deleted",
+                                  "Converted_To_PO",
+                                  "Converted_To_PI",
+                                  "Converted_To_GRN",
+                                ]?.includes(order.status) && (
+                                  <button
+                                    onClick={() => {
+                                      handleEditClick(order);
+                                      // Close the dropdown after clicking
+                                      const menuEl = document.getElementById(
+                                        `menu-${order._id}`,
+                                      );
+                                      if (menuEl) {
+                                        menuEl.classList.remove("block");
+                                        menuEl.classList.add("hidden");
+                                      }
+                                    }}
+                                    className="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+                                  >
+                                    <div className="flex items-center">
+                                      <PencilIcon className="h-4 w-4 mr-2" />
+                                      Edit
+                                    </div>
+                                  </button>
+                                )}
                                 <button
                                   onClick={() => {
                                     // Open print page in new tab

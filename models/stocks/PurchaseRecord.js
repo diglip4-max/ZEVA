@@ -129,6 +129,10 @@ const PurchaseRecordSchema = new mongoose.Schema(
         description: {
           type: String,
         },
+        expiryDate: {
+          type: Date,
+          default: null,
+        },
         quantity: {
           type: Number,
           required: true,

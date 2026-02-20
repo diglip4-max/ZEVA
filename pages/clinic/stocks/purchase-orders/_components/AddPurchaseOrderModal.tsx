@@ -92,6 +92,7 @@ const AddPurchaseOrderModal: React.FC<AddPurchaseOrderModalProps> = ({
     code: "",
     name: "",
     description: "",
+    expiryDate: "",
     quantity: 1,
     uom: "",
     unitPrice: 0,
@@ -214,7 +215,12 @@ const AddPurchaseOrderModal: React.FC<AddPurchaseOrderModalProps> = ({
           ...prev,
           code: item.code,
           name: item.name,
+          description: item.description || "",
           uom: selectedUOM ? selectedUOM.name : "",
+          unitPrice: item.level0?.costPrice || 0,
+          ...(formData?.type !== "Purchase_Order" && {
+            expiryDate: new Date().toISOString().split("T")[0],
+          }),
         }));
       }
     }
@@ -274,7 +280,6 @@ const AddPurchaseOrderModal: React.FC<AddPurchaseOrderModalProps> = ({
       const payload = {
         ...formData,
         items: items,
-        type: "Purchase_Order", // Force type to be Purchase_Order for purchase orders
       };
 
       const response = await fetch(
@@ -340,8 +345,11 @@ const AddPurchaseOrderModal: React.FC<AddPurchaseOrderModalProps> = ({
     });
     setItems([]);
     setCurrentItem({
+      code: "",
+      itemId: "",
       name: "",
       description: "",
+      expiryDate: "",
       quantity: 1,
       uom: "",
       unitPrice: 0,
@@ -366,7 +374,7 @@ const AddPurchaseOrderModal: React.FC<AddPurchaseOrderModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-3 sm:p-4">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-7xl overflow-hidden flex flex-col max-h-[90vh]">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-8xl overflow-hidden flex flex-col max-h-[90vh]">
         {/* Header */}
         <div className="bg-gray-800 px-4 py-3 flex justify-between items-center">
           <div className="flex items-center gap-2">
@@ -988,6 +996,24 @@ const AddPurchaseOrderModal: React.FC<AddPurchaseOrderModalProps> = ({
                     />
                   </div>
 
+                  {/* Expiry date */}
+                  {formData?.type !== "Purchase_Order" && (
+                    <div className="sm:col-span-3 space-y-1">
+                      <label className="block text-xs font-bold text-gray-900">
+                        Expiry Date <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="date"
+                        value={currentItem.expiryDate || ""}
+                        onChange={(e) =>
+                          handleCurrentItemChange("expiryDate", e.target.value)
+                        }
+                        className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed h-10"
+                        disabled={loading}
+                      />
+                    </div>
+                  )}
+
                   {/* Qty */}
                   <div className="sm:col-span-2 space-y-1">
                     <label className="block text-xs font-bold text-gray-900">
@@ -1236,7 +1262,9 @@ const AddPurchaseOrderModal: React.FC<AddPurchaseOrderModalProps> = ({
                         !currentItem.name.trim() ||
                         !currentItem.quantity ||
                         !currentItem.unitPrice ||
-                        !currentItem.uom
+                        !currentItem.uom ||
+                        (formData?.type !== "Purchase_Order" &&
+                          !currentItem.expiryDate)
                       }
                       className="inline-flex items-center px-3 py-2.5 border border-transparent text-xs font-medium rounded-lg text-white bg-gray-800 hover:bg-gray-900 focus:ring-2 focus:ring-gray-800/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                     >
@@ -1262,6 +1290,12 @@ const AddPurchaseOrderModal: React.FC<AddPurchaseOrderModalProps> = ({
                         <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">
                           Description
                         </th>
+                        {formData?.type !== "Purchase_Order" && (
+                          <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">
+                            Exp. Date
+                          </th>
+                        )}
+
                         <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">
                           Qty-UoM
                         </th>
@@ -1316,6 +1350,11 @@ const AddPurchaseOrderModal: React.FC<AddPurchaseOrderModalProps> = ({
                             <td className="px-3 py-2 text-sm text-gray-900">
                               {item.description || "-"}
                             </td>
+                            {formData?.type !== "Purchase_Order" && (
+                              <td className="px-3 py-2 text-sm text-gray-900">
+                                {item.expiryDate || "-"}
+                              </td>
+                            )}
                             <td className="px-3 py-2 text-sm text-gray-900">
                               {item.quantity} {item.uom}
                             </td>

@@ -10,7 +10,7 @@ import {
   TrashIcon,
   EllipsisVerticalIcon,
 } from "@heroicons/react/24/outline";
-import { ShoppingCart, Filter } from "lucide-react";
+import { ShoppingCart, Filter, Printer } from "lucide-react";
 import { PurchaseRecord } from "@/types/stocks";
 import debounce from "lodash.debounce";
 import AddGRNModal from "./_components/AddGRNModal";
@@ -52,8 +52,8 @@ const GRNPage: NextPageWithLayout = () => {
     supplier: "",
     grnNo: "",
     orderCode: "",
-    fromDate: "",
-    toDate: "",
+    fromDate: new Date().toISOString().split("T")[0],
+    toDate: new Date().toISOString().split("T")[0],
     status: "",
   });
 
@@ -825,6 +825,31 @@ const GRNPage: NextPageWithLayout = () => {
                                   <div className="flex items-center">
                                     <PencilIcon className="h-4 w-4 mr-2" />
                                     Edit
+                                  </div>
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    // Open print page in new tab
+                                    const printUrl = `/clinic/stocks/grn/print-good-received-note?grnId=${grn?._id}`;
+                                    window.open(
+                                      printUrl,
+                                      "_blank",
+                                      "noopener,noreferrer",
+                                    );
+                                    // Close the dropdown after clicking
+                                    const menuEl = document.getElementById(
+                                      `menu-${grn._id}`,
+                                    );
+                                    if (menuEl) {
+                                      menuEl.classList.remove("block");
+                                      menuEl.classList.add("hidden");
+                                    }
+                                  }}
+                                  className="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
+                                >
+                                  <div className="flex items-center">
+                                    <Printer className="h-4 w-4 mr-2" />
+                                    Print
                                   </div>
                                 </button>
                                 <button

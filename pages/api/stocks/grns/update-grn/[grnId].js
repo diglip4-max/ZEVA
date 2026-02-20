@@ -102,6 +102,7 @@ export default async function handler(req, res) {
       supplierGrnDate,
       notes,
       status,
+      items,
     } = req.body;
 
     // Validation for required fields
@@ -236,6 +237,90 @@ export default async function handler(req, res) {
     if (supplierGrnDate) updateData.supplierGrnDate = new Date(supplierGrnDate);
     if (notes !== undefined) updateData.notes = notes.trim();
     if (status) updateData.status = status;
+    if (items && Array.isArray(items)) {
+      const normalized = [];
+      for (let i = 0; i < items.length; i++) {
+        const it = items[i] || {};
+        if (!it.itemId) {
+          return res.status(400).json({
+            success: false,
+            message: `Item ${i + 1}: itemId is required`,
+          });
+        }
+        if (typeof it.name !== "string" || !it.name.trim()) {
+          return res.status(400).json({
+            success: false,
+            message: `Item ${i + 1}: name is required`,
+          });
+        }
+        const qty = Number(it.quantity || 0);
+        const unit = Number(it.unitPrice || 0);
+        if (qty <= 0) {
+          return res.status(400).json({
+            success: false,
+            message: `Item ${i + 1}: quantity must be greater than 0`,
+          });
+        }
+        if (unit < 0) {
+          return res.status(400).json({
+            success: false,
+            message: `Item ${i + 1}: unitPrice must be a non-negative number`,
+          });
+        }
+        const total = Number(
+          (it.totalPrice !== undefined ? it.totalPrice : qty * unit).toFixed
+            ? (qty * unit).toFixed(2)
+            : qty * unit,
+        );
+        const discountType =
+          it.discountType === "Percentage" ? "Percentage" : "Fixed";
+        const discount = Number(it.discount || 0);
+        const discountAmount =
+          it.discountAmount !== undefined
+            ? Number(it.discountAmount || 0)
+            : discountType === "Percentage"
+              ? Number(((qty * unit * discount) / 100).toFixed(2))
+              : Number(discount);
+        const netPrice =
+          it.netPrice !== undefined
+            ? Number(it.netPrice || 0)
+            : Number((total - discountAmount).toFixed(2));
+        const vatType =
+          it.vatType === "Inclusive" ? "Inclusive" : "Exclusive";
+        const vatPercentage = Number(it.vatPercentage || 0);
+        const vatAmount =
+          it.vatAmount !== undefined
+            ? Number(it.vatAmount || 0)
+            : vatType === "Exclusive"
+              ? Number(((netPrice * vatPercentage) / 100).toFixed(2))
+              : Number(0);
+        const netPlusVat =
+          it.netPlusVat !== undefined
+            ? Number(it.netPlusVat || 0)
+            : Number((netPrice + vatAmount).toFixed(2));
+        normalized.push({
+          itemId: it.itemId,
+          code: it.code || "",
+          name: it.name.trim(),
+          description: it.description || "",
+          expiryDate: it.expiryDate ? new Date(it.expiryDate) : undefined,
+          quantity: qty,
+          uom: it.uom || "",
+          unitPrice: unit,
+          totalPrice: total,
+          discount: discount,
+          discountType,
+          discountAmount,
+          netPrice,
+          vatAmount,
+          vatType,
+          vatPercentage,
+          netPlusVat,
+          freeQuantity: Number(it.freeQuantity || 0),
+        });
+      }
+      updateData.items = normalized;
+    }
 
     // Update the GRN
     const updatedGRN = await GRN.findOneAndUpdate(

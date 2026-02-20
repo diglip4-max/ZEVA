@@ -1,11 +1,10 @@
 "use client";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import axios from "axios";
 import {
   X,
   Plus,
   Trash2,
-  CirclePlus,
   Pencil,
   Check,
   X as XIcon,
@@ -27,7 +26,7 @@ import {
 import useStockItems from "@/hooks/useStockItems";
 import useUoms from "@/hooks/useUoms";
 import { getTokenByPath } from "@/lib/helper";
-import AddStockItemModal from "@/components/shared/AddStockItemModal";
+import useAllocatedItems from "@/hooks/useAllocatedItems";
 
 interface AppointmentLite {
   _id: string;
@@ -173,10 +172,8 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
   const [selectedComplaint, setSelectedComplaint] =
     useState<PreviousComplaint | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const { stockItems, fetchStockItems } = useStockItems();
   const token = getTokenByPath() || "";
   const { uoms, loading: uomsLoading } = useUoms({ token });
-  const [isOpenAddStockItemModal, setIsOpenAddStockItemModal] = useState(false);
   const [items, setItems] = useState<StockRow[]>([]);
   const [currentItem, setCurrentItem] = useState<StockRow>({
     itemId: "",
@@ -193,6 +190,36 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
   const [isOpenViewComplaintModal, setIsOpenViewComplaintModal] =
     useState<boolean>(false);
   const [deleting, setDeleting] = useState<boolean>(false);
+  const [isAllocatedDropdownOpen, setIsAllocatedDropdownOpen] =
+    useState<boolean>(false);
+  const [allocatedSearch, setAllocatedSearch] = useState<string>("");
+  const allocatedDropdownRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      const target = e.target as Node | null;
+      if (
+        isAllocatedDropdownOpen &&
+        allocatedDropdownRef.current &&
+        target &&
+        !allocatedDropdownRef.current.contains(target)
+      ) {
+        setIsAllocatedDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [isAllocatedDropdownOpen]);
+
+  // fetch allocated stock items
+  const { allocatedItems, loading: fetchAllocatedItemsLoading } =
+    useAllocatedItems({
+      // @ts-ignore
+      userId: details?.doctorId || "",
+      search: allocatedSearch,
+    });
+
+  console.log({ allocatedItems, fetchAllocatedItemsLoading });
 
   useEffect(() => {
     if (!isOpen || !appointment) {
@@ -381,21 +408,21 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
   };
 
   const handleCurrentItemChange = (field: keyof StockRow, value: any) => {
-    if (field === "itemId") {
-      const item = stockItems.find((i) => i._id === value);
-      const selectedUOM = uoms.find((u) => u?.name === item?.level0?.uom);
-      if (item) {
-        setCurrentItem((prev) => ({
-          ...prev,
-          itemId: value,
-          code: item.code,
-          name: item.name,
-          uom: selectedUOM ? selectedUOM.name : "",
-          description: item.description || "",
-        }));
-        return;
-      }
-    }
+    // if (field === "itemId") {
+    //   const item = stockItems.find((i) => i._id === value);
+    //   const selectedUOM = uoms.find((u) => u?.name === item?.level0?.uom);
+    //   if (item) {
+    //     setCurrentItem((prev) => ({
+    //       ...prev,
+    //       itemId: value,
+    //       code: item.code,
+    //       name: item.name,
+    //       uom: selectedUOM ? selectedUOM.name : "",
+    //       description: item.description || "",
+    //     }));
+    //     return;
+    //   }
+    // }
     setCurrentItem((prev) => ({
       ...prev,
       [field]: field === "quantity" ? parseFloat(value) || 0 : value,
@@ -436,20 +463,20 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
 
   const handleEditingItemChange = (field: keyof StockRow, value: any) => {
     if (!editingItem) return;
-    if (field === "itemId") {
-      const item = stockItems.find((i) => i._id === value);
-      const selectedUOM = uoms.find((u) => u?.name === item?.level0?.uom);
-      if (item) {
-        setEditingItem({
-          ...editingItem,
-          itemId: value,
-          code: item.code,
-          name: item.name,
-          uom: selectedUOM ? selectedUOM.name : "",
-        });
-        return;
-      }
-    }
+    // if (field === "itemId") {
+    //   const item = stockItems.find((i) => i._id === value);
+    //   const selectedUOM = uoms.find((u) => u?.name === item?.level0?.uom);
+    //   if (item) {
+    //     setEditingItem({
+    //       ...editingItem,
+    //       itemId: value,
+    //       code: item.code,
+    //       name: item.name,
+    //       uom: selectedUOM ? selectedUOM.name : "",
+    //     });
+    //     return;
+    //   }
+    // }
     setEditingItem({
       ...editingItem,
       [field]: field === "quantity" ? parseFloat(value) || 0 : value,
@@ -782,12 +809,6 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                         <h3 className="text-sm font-semibold text-blue-900 uppercase tracking-wide">
                           Stock Items
                         </h3>
-                        <button
-                          onClick={() => setIsOpenAddStockItemModal(true)}
-                          className="flex items-center justify-center gap-1 text-blue-600 hover:text-blue-800 transition-colors"
-                        >
-                          <CirclePlus size={16} />
-                        </button>
                       </div>
                       <p className="text-xs text-blue-800 mt-1">
                         Add items related to this appointment
@@ -796,24 +817,125 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                   </div>
                   <div className="border border-blue-200 rounded-lg p-3 bg-white">
                     <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
-                      <div className="sm:col-span-3 space-y-1">
+                      <div
+                        className="sm:col-span-3 space-y-1"
+                        ref={allocatedDropdownRef}
+                      >
                         <label className="block text-xs font-bold text-gray-900">
                           Item <span className="text-red-500">*</span>
                         </label>
-                        <select
-                          value={currentItem.itemId || ""}
-                          onChange={(e) =>
-                            handleCurrentItemChange("itemId", e.target.value)
-                          }
-                          className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 h-10"
-                        >
-                          <option value="">Select Item</option>
-                          {stockItems.map((si: any) => (
-                            <option key={si._id} value={si._id}>
-                              {si.name}
-                            </option>
-                          ))}
-                        </select>
+                        <div className="relative">
+                          <div
+                            className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed flex items-center justify-between cursor-pointer bg-white h-10"
+                            onClick={() =>
+                              setIsAllocatedDropdownOpen(
+                                !isAllocatedDropdownOpen,
+                              )
+                            }
+                          >
+                            <span
+                              className={
+                                currentItem.itemId
+                                  ? "text-gray-900"
+                                  : "text-gray-400"
+                              }
+                            >
+                              {allocatedItems.find(
+                                (si: any) =>
+                                  si.item?.itemId === currentItem.itemId,
+                              )?.item?.name || "Select an item"}
+                            </span>
+                            <ChevronDown
+                              className={`w-4 h-4 text-gray-500 transition-transform ${
+                                isAllocatedDropdownOpen ? "rotate-180" : ""
+                              }`}
+                            />
+                          </div>
+
+                          {isAllocatedDropdownOpen && (
+                            <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                              <div className="p-2 border-b border-gray-200">
+                                <div className="relative">
+                                  <input
+                                    type="text"
+                                    placeholder="Search items..."
+                                    value={allocatedSearch}
+                                    onChange={(e) =>
+                                      setAllocatedSearch(e.target.value)
+                                    }
+                                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800"
+                                    autoFocus
+                                  />
+                                </div>
+                              </div>
+
+                              {fetchAllocatedItemsLoading && (
+                                <div className="p-4 text-sm text-center text-gray-500">
+                                  Loading items...
+                                </div>
+                              )}
+
+                              {!fetchAllocatedItemsLoading && (
+                                <>
+                                  {allocatedItems.length === 0 ? (
+                                    <div className="p-4 text-center text-gray-500 text-sm">
+                                      {allocatedSearch
+                                        ? "No items found"
+                                        : "No items available"}
+                                    </div>
+                                  ) : (
+                                    <ul className="py-1">
+                                      {allocatedItems
+                                        .filter((si: any) => {
+                                          const n = (
+                                            si.item?.name || ""
+                                          ).toLowerCase();
+                                          const c = (
+                                            si.item?.code || ""
+                                          ).toLowerCase();
+                                          const q =
+                                            allocatedSearch.toLowerCase();
+                                          return n.includes(q) || c.includes(q);
+                                        })
+                                        .map((si: any) => (
+                                          <li
+                                            key={si._id}
+                                            className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 cursor-pointer"
+                                            onClick={() => {
+                                              const it = si.item || {};
+                                              console.log({ it, si });
+                                              setCurrentItem((prev) => ({
+                                                ...prev,
+                                                itemId: it.itemId || "",
+                                                name: it.name || "",
+                                                description:
+                                                  it.description || "",
+                                                uom: it.uom || prev.uom || "",
+                                              }));
+                                              setIsAllocatedDropdownOpen(false);
+                                              setAllocatedSearch("");
+                                            }}
+                                          >
+                                            <div className="font-medium">
+                                              {si.item?.name || "-"}
+                                            </div>
+                                            {(si.item?.code ||
+                                              si.location?.name) && (
+                                              <div className="text-xs text-gray-500">
+                                                {si.item?.code
+                                                  ? `Code: ${si.item.code}`
+                                                  : ""}
+                                              </div>
+                                            )}
+                                          </li>
+                                        ))}
+                                    </ul>
+                                  )}
+                                </>
+                              )}
+                            </div>
+                          )}
+                        </div>
                       </div>
                       <div className="sm:col-span-3 space-y-1">
                         <label className="block text-xs font-bold text-gray-900">
@@ -847,6 +969,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                           className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 h-10"
                         />
                       </div>
+
                       <div className="sm:col-span-3 space-y-1">
                         <label className="block text-xs font-bold text-gray-900">
                           UOM <span className="text-red-500">*</span>
@@ -861,14 +984,14 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                           <option value="">Select UOM</option>
                           {uomsLoading ? (
                             <option value="">Loading UOMs...</option>
-                          ) : uoms.length > 0 ? (
+                          ) : uoms.length > 0 && currentItem ? (
                             uoms.map((u: any) => (
                               <option key={u._id} value={u.name}>
                                 {u.name}
                               </option>
                             ))
                           ) : (
-                            <option value="">No UOMs available</option>
+                            <></>
                           )}
                         </select>
                       </div>
@@ -957,9 +1080,12 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                         className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded"
                                       >
                                         <option value="">Select Item</option>
-                                        {stockItems.map((si: any) => (
-                                          <option key={si._id} value={si._id}>
-                                            {si.name}
+                                        {allocatedItems.map((si: any) => (
+                                          <option
+                                            key={si._id}
+                                            value={si.item?.itemId || ""}
+                                          >
+                                            {si.item?.name || "-"}
                                           </option>
                                         ))}
                                       </select>
@@ -1310,16 +1436,6 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
               getAuthHeaders={getAuthHeaders}
             />
           )}
-          <AddStockItemModal
-            token={token || ""}
-            clinicId={""}
-            isOpen={isOpenAddStockItemModal}
-            onClose={() => setIsOpenAddStockItemModal(false)}
-            onSuccess={() => {
-              setIsOpenAddStockItemModal(false);
-              fetchStockItems();
-            }}
-          />
         </div>
       </div>
       // Add the modal at the bottom of your component (before the closing div)

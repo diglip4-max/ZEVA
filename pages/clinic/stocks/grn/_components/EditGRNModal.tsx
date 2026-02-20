@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import axios from "axios";
-import { PurchaseRecord } from "@/types/stocks";
+import { PurchaseRecord, PurchaseRecordItem } from "@/types/stocks";
 import useClinicBranches from "@/hooks/useClinicBranches";
 import { getTokenByPath } from "@/lib/helper";
-import { PlusCircle, X, ChevronDown, Search } from "lucide-react";
+import { PlusCircle, X } from "lucide-react";
+import useUoms from "@/hooks/useUoms";
 
 interface EditGRNModalProps {
   isOpen: boolean;
@@ -24,11 +25,7 @@ const EditGRNModal: React.FC<EditGRNModalProps> = ({
   const token = getTokenByPath() || "";
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isPoDropdownOpen, setIsPoDropdownOpen] = useState(false);
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseRecord[]>([]);
-  const [loadingPOs, setLoadingPOs] = useState(false);
-  const [poSearch, setPoSearch] = useState("");
-  const poDropdownRef = useRef<HTMLDivElement>(null);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -40,6 +37,10 @@ const EditGRNModal: React.FC<EditGRNModalProps> = ({
     notes: "",
     status: "New",
   });
+  const [items, setItems] = useState<PurchaseRecordItem[]>([]);
+  const { uoms } = useUoms({ token, branchId: formData.branch });
+
+  console.log({ grnData, formData });
 
   // Initialize form when grnData changes
   useEffect(() => {
@@ -57,6 +58,58 @@ const EditGRNModal: React.FC<EditGRNModalProps> = ({
         notes: grnData.notes || "",
         status: (grnData as any).status || "New",
       });
+      const inItems = (grnData as any)?.items || [];
+      setItems(
+        (inItems || []).map((it: any) => ({
+          _id: it._id,
+          itemId: it.itemId,
+          code: it.code,
+          name: it.name,
+          description: it.description || "",
+          expiryDate: it.expiryDate
+            ? new Date(it.expiryDate).toISOString().split("T")[0]
+            : "",
+          quantity: it.quantity || 0,
+          uom: it.uom || "",
+          unitPrice: it.unitPrice || 0,
+          totalPrice: it.totalPrice || (it.quantity || 0) * (it.unitPrice || 0),
+          discount: it.discount || 0,
+          discountType: it.discountType || "Fixed",
+          discountAmount:
+            it.discountAmount ||
+            (it.discountType === "Percentage"
+              ? ((it.quantity || 0) *
+                  (it.unitPrice || 0) *
+                  (it.discount || 0)) /
+                100
+              : it.discount || 0),
+          netPrice:
+            it.netPrice ||
+            (it.quantity || 0) * (it.unitPrice || 0) -
+              (it.discountAmount ||
+                (it.discountType === "Percentage"
+                  ? ((it.quantity || 0) *
+                      (it.unitPrice || 0) *
+                      (it.discount || 0)) /
+                    100
+                  : it.discount || 0)),
+          vatAmount: it.vatAmount || 0,
+          vatType: it.vatType || "Exclusive",
+          vatPercentage: it.vatPercentage || 0,
+          netPlusVat:
+            it.netPlusVat ||
+            (it.netPrice ||
+              (it.quantity || 0) * (it.unitPrice || 0) -
+                (it.discountAmount ||
+                  (it.discountType === "Percentage"
+                    ? ((it.quantity || 0) *
+                        (it.unitPrice || 0) *
+                        (it.discount || 0)) /
+                      100
+                    : it.discount || 0))) + (it.vatAmount || 0),
+          freeQuantity: it.freeQuantity || 0,
+        })),
+      );
     }
   }, [grnData, isOpen]);
 
@@ -71,12 +124,11 @@ const EditGRNModal: React.FC<EditGRNModalProps> = ({
 
   const fetchPurchaseOrders = async () => {
     try {
-      setLoadingPOs(true);
       const response = await axios.get("/api/stocks/purchase-records", {
         params: {
           branch: formData.branch,
           type: "Purchase_Order",
-          status: "Approved",
+          limit: 1000,
         },
         headers: {
           Authorization: `Bearer ${token}`,
@@ -87,26 +139,8 @@ const EditGRNModal: React.FC<EditGRNModalProps> = ({
       console.error("Error fetching purchase orders:", error);
       setPurchaseOrders([]);
     } finally {
-      setLoadingPOs(false);
     }
   };
-
-  // Handle click outside dropdown
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        poDropdownRef.current &&
-        !poDropdownRef.current.contains(event.target as Node)
-      ) {
-        setIsPoDropdownOpen(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, []);
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
@@ -118,6 +152,57 @@ const EditGRNModal: React.FC<EditGRNModalProps> = ({
     }));
   };
 
+  const recalcItem = (item: PurchaseRecordItem): PurchaseRecordItem => {
+    const qty = Number(item.quantity) || 0;
+    const unit = Number(item.unitPrice) || 0;
+    const total = parseFloat((qty * unit).toFixed(2));
+    const discVal =
+      (item.discountType || "Fixed") === "Percentage"
+        ? parseFloat(
+            ((qty * unit * (Number(item.discount) || 0)) / 100).toFixed(2),
+          )
+        : Number(item.discount) || 0;
+    const net = parseFloat((total - discVal).toFixed(2));
+    const vatPct = Number(item.vatPercentage) || 0;
+    const vatAmt =
+      (item.vatType || "Exclusive") === "Exclusive"
+        ? parseFloat(((net * vatPct) / 100).toFixed(2))
+        : Number(item.vatAmount) || 0;
+    const netVat = parseFloat((net + (vatAmt || 0)).toFixed(2));
+    return {
+      ...item,
+      totalPrice: total,
+      discountAmount: discVal,
+      netPrice: net,
+      vatAmount: vatAmt,
+      netPlusVat: netVat,
+    };
+  };
+
+  const handleItemChange = (
+    index: number,
+    field: keyof PurchaseRecordItem,
+    value: any,
+  ) => {
+    setItems((prev) => {
+      const next = [...prev];
+      const parsed =
+        field === "quantity" ||
+        field === "unitPrice" ||
+        field === "discount" ||
+        field === "vatPercentage" ||
+        field === "freeQuantity"
+          ? parseFloat(value) || 0
+          : value;
+      next[index] = recalcItem({ ...next[index], [field]: parsed });
+      return next;
+    });
+  };
+
+  // const removeItem = (index: number) => {
+  //   setItems((prev) => prev.filter((_, i) => i !== index));
+  // };
+
   const handleClose = () => {
     setFormData({
       branch: "",
@@ -128,9 +213,8 @@ const EditGRNModal: React.FC<EditGRNModalProps> = ({
       notes: "",
       status: "New",
     });
-    setPoSearch("");
-    setIsPoDropdownOpen(false);
     setError(null);
+    setItems([]);
     onClose();
   };
 
@@ -159,6 +243,26 @@ const EditGRNModal: React.FC<EditGRNModalProps> = ({
         supplierGrnDate: formData.supplierGRNDate,
         notes: formData.notes,
         status: formData.status,
+        items: items.map((it) => ({
+          itemId: it.itemId,
+          code: it.code,
+          name: it.name,
+          description: it.description,
+          expiryDate: it.expiryDate ? new Date(it.expiryDate) : undefined,
+          quantity: it.quantity,
+          uom: it.uom,
+          unitPrice: it.unitPrice,
+          totalPrice: it.totalPrice,
+          discount: it.discount,
+          discountType: it.discountType,
+          discountAmount: it.discountAmount,
+          netPrice: it.netPrice,
+          vatAmount: it.vatAmount,
+          vatType: it.vatType,
+          vatPercentage: it.vatPercentage,
+          netPlusVat: it.netPlusVat,
+          freeQuantity: it.freeQuantity,
+        })),
       };
 
       const response = await axios.put(
@@ -190,13 +294,10 @@ const EditGRNModal: React.FC<EditGRNModalProps> = ({
   const selectedPO = (purchaseOrders || [])?.find(
     (po) => po._id === formData.purchaseOrder,
   );
-  const filteredPOs = (purchaseOrders || [])?.filter((po) =>
-    po.orderNo?.toLowerCase().includes(poSearch.toLowerCase()),
-  );
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-3 sm:p-4">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-7xl overflow-hidden flex flex-col max-h-[90vh]">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-8xl overflow-hidden flex flex-col max-h-[90vh]">
         {/* Header */}
         <div className="bg-gray-800 px-4 py-3 flex justify-between items-center">
           <div className="flex items-center gap-2">
@@ -230,7 +331,7 @@ const EditGRNModal: React.FC<EditGRNModalProps> = ({
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* Branch */}
-              <div className="space-y-2">
+              {/* <div className="space-y-2">
                 <label className="block text-sm font-bold text-gray-900">
                   Branch <span className="text-red-500">*</span>
                 </label>
@@ -250,10 +351,20 @@ const EditGRNModal: React.FC<EditGRNModalProps> = ({
                     </option>
                   ))}
                 </select>
+              </div> */}
+              <div className="space-y-2">
+                <label className="block text-sm font-bold text-gray-900">
+                  Branch
+                </label>
+                <div className="w-full text-sm text-gray-600">
+                  {clinicBranches?.find(
+                    (branch) => branch._id === formData.branch,
+                  )?.name || "Select branch"}
+                </div>
               </div>
 
               {/* Purchase Order */}
-              <div className="space-y-2 relative" ref={poDropdownRef}>
+              {/* <div className="space-y-2 relative" ref={poDropdownRef}>
                 <label className="block text-sm font-bold text-gray-900">
                   Purchase Order <span className="text-red-500">*</span>
                 </label>
@@ -322,6 +433,15 @@ const EditGRNModal: React.FC<EditGRNModalProps> = ({
                     )}
                   </div>
                 )}
+              </div> */}
+
+              <div className="space-y-2">
+                <label className="block text-sm font-bold text-gray-900">
+                  Purchase Order
+                </label>
+                <div className="w-full text-sm text-gray-600">
+                  {selectedPO?.orderNo || "-"}
+                </div>
               </div>
 
               {/* GRN Date */}
@@ -387,6 +507,197 @@ const EditGRNModal: React.FC<EditGRNModalProps> = ({
                   className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 transition-all disabled:bg-gray-100 disabled:cursor-not-allowed"
                   disabled={loading}
                 />
+              </div>
+            </div>
+
+            <div className="border border-gray-200 text-gray-500 rounded-lg overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-800">
+                    <tr>
+                      <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">
+                        Item
+                      </th>
+                      <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">
+                        Exp. Date
+                      </th>
+                      <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">
+                        U.Price
+                      </th>
+                      <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">
+                        D.Type
+                      </th>
+                      <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">
+                        Disc
+                      </th>
+                      <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">
+                        VAT%
+                      </th>
+                      <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">
+                        R.Qty
+                      </th>
+                      <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">
+                        UOM
+                      </th>
+                      <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">
+                        Free Qty
+                      </th>
+                      <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">
+                        NET
+                      </th>
+                      <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">
+                        VAT
+                      </th>
+                      <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">
+                        Net+VAT
+                      </th>
+                      {/* <th className="px-3 py-2 text-right text-xs font-bold text-white uppercase tracking-wider">
+                        Edit
+                      </th> */}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {items.map((item, idx) => (
+                      <tr key={idx} className="bg-white">
+                        <td className="px-3 py-2">
+                          <div className="font-medium text-sm text-gray-900">
+                            {item.code}
+                          </div>
+                          <div className="text-xs text-gray-600 uppercase">
+                            {item.name}
+                          </div>
+                        </td>
+                        <td className="px-3 py-2">
+                          <input
+                            type="date"
+                            value={item.expiryDate || ""}
+                            onChange={(e) =>
+                              handleItemChange(
+                                idx,
+                                "expiryDate",
+                                e.target.value,
+                              )
+                            }
+                            className="w-full px-2 py-1 text-sm border border-gray-300 rounded"
+                          />
+                        </td>
+                        <td className="px-3 py-2">
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={item.unitPrice}
+                            onChange={(e) =>
+                              handleItemChange(idx, "unitPrice", e.target.value)
+                            }
+                            className="w-full px-2 py-1 text-sm border border-gray-300 rounded text-right"
+                          />
+                        </td>
+                        <td className="px-3 py-2">
+                          <select
+                            value={item.discountType || "Fixed"}
+                            onChange={(e) =>
+                              handleItemChange(
+                                idx,
+                                "discountType",
+                                e.target.value,
+                              )
+                            }
+                            className="w-full px-2 py-1 text-sm border border-gray-300 rounded"
+                          >
+                            <option value="Fixed">Fixed</option>
+                            <option value="Percentage">Percentage</option>
+                          </select>
+                        </td>
+                        <td className="px-3 py-2">
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={item.discount || 0}
+                            onChange={(e) =>
+                              handleItemChange(idx, "discount", e.target.value)
+                            }
+                            className="w-full px-2 py-1 text-sm border border-gray-300 rounded text-right"
+                          />
+                        </td>
+                        <td className="px-3 py-2">
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={item.vatPercentage || 0}
+                            onChange={(e) =>
+                              handleItemChange(
+                                idx,
+                                "vatPercentage",
+                                e.target.value,
+                              )
+                            }
+                            className="w-full px-2 py-1 text-sm border border-gray-300 rounded text-right"
+                          />
+                        </td>
+                        <td className="px-3 py-2">
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={item.quantity}
+                            onChange={(e) =>
+                              handleItemChange(idx, "quantity", e.target.value)
+                            }
+                            className="w-full px-2 py-1 text-sm border border-gray-300 rounded text-right"
+                          />
+                        </td>
+                        <td className="px-3 py-2">
+                          <select
+                            value={item.uom || ""}
+                            onChange={(e) =>
+                              handleItemChange(idx, "uom", e.target.value)
+                            }
+                            className="w-full px-2 py-1 text-sm border border-gray-300 rounded"
+                          >
+                            <option value="">Select UOM</option>
+                            {uoms?.map((u: any) => (
+                              <option key={u._id} value={u.name}>
+                                {u.name}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
+                        <td className="px-3 py-2">
+                          <input
+                            type="number"
+                            step="0.01"
+                            value={item.freeQuantity || 0}
+                            onChange={(e) =>
+                              handleItemChange(
+                                idx,
+                                "freeQuantity",
+                                e.target.value,
+                              )
+                            }
+                            className="w-full px-2 py-1 text-sm border border-gray-300 rounded text-right"
+                          />
+                        </td>
+                        <td className="px-3 py-2 text-right">
+                          {item.netPrice?.toFixed(2)}
+                        </td>
+                        <td className="px-3 py-2 text-right">
+                          {item.vatAmount?.toFixed(2)}
+                        </td>
+                        <td className="px-3 py-2 text-right font-bold">
+                          {item.netPlusVat?.toFixed(2)}
+                        </td>
+                        {/* <td className="px-3 py-2 text-right">
+                          <button
+                            type="button"
+                            onClick={() => removeItem(idx)}
+                            className="px-2 py-1 text-xs font-medium text-white bg-red-600 rounded hover:bg-red-700"
+                          >
+                            Remove
+                          </button>
+                        </td> */}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </div>
           </form>
