@@ -85,6 +85,7 @@ export default async function handler(req, res) {
       supplierGrnDate,
       notes = "",
       status = "New",
+      items,
     } = req.body;
 
     if (!purchasedOrder) {
@@ -112,6 +113,14 @@ export default async function handler(req, res) {
       return res.status(400).json({
         success: false,
         message: "Supplier GRN date is required",
+      });
+    }
+
+    // Validate items array
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "At least one item is required",
       });
     }
 
@@ -160,6 +169,103 @@ export default async function handler(req, res) {
       });
     }
 
+    // Validate and normalize items
+    const normalizedItems = [];
+    for (let i = 0; i < items.length; i++) {
+      const it = items[i] || {};
+
+      // Required fields validation
+      if (!it.itemId) {
+        return res.status(400).json({
+          success: false,
+          message: `Item ${i + 1}: itemId is required`,
+        });
+      }
+
+      if (!it.name || !it.name.trim()) {
+        return res.status(400).json({
+          success: false,
+          message: `Item ${i + 1}: name is required`,
+        });
+      }
+
+      // Quantity validation
+      const qty = Number(it.quantity || 0);
+      if (qty <= 0) {
+        return res.status(400).json({
+          success: false,
+          message: `Item ${i + 1}: quantity must be greater than 0`,
+        });
+      }
+
+      // Unit price validation
+      const unit = Number(it.unitPrice || 0);
+      if (unit < 0) {
+        return res.status(400).json({
+          success: false,
+          message: `Item ${i + 1}: unitPrice must be a non-negative number`,
+        });
+      }
+
+      // Calculate values if not provided
+      const total =
+        it.totalPrice !== undefined
+          ? Number(it.totalPrice)
+          : parseFloat((qty * unit).toFixed(2));
+
+      const discountType =
+        it.discountType === "Percentage" ? "Percentage" : "Fixed";
+      const discount = Number(it.discount || 0);
+
+      const discountAmount =
+        it.discountAmount !== undefined
+          ? Number(it.discountAmount)
+          : discountType === "Percentage"
+            ? parseFloat(((qty * unit * discount) / 100).toFixed(2))
+            : discount;
+
+      const netPrice =
+        it.netPrice !== undefined
+          ? Number(it.netPrice)
+          : parseFloat((total - discountAmount).toFixed(2));
+
+      const vatType = it.vatType === "Inclusive" ? "Inclusive" : "Exclusive";
+      const vatPercentage = Number(it.vatPercentage || 0);
+
+      const vatAmount =
+        it.vatAmount !== undefined
+          ? Number(it.vatAmount)
+          : vatType === "Exclusive"
+            ? parseFloat(((netPrice * vatPercentage) / 100).toFixed(2))
+            : 0;
+
+      const netPlusVat =
+        it.netPlusVat !== undefined
+          ? Number(it.netPlusVat)
+          : parseFloat((netPrice + vatAmount).toFixed(2));
+
+      normalizedItems.push({
+        itemId: it.itemId,
+        code: it.code || "",
+        name: it.name.trim(),
+        description: it.description || "",
+        expiryDate: it.expiryDate ? new Date(it.expiryDate) : undefined,
+        quantity: qty,
+        uom: it.uom || "",
+        unitPrice: unit,
+        totalPrice: total,
+        discount: discount,
+        discountType,
+        discountAmount,
+        netPrice,
+        vatAmount,
+        vatType,
+        vatPercentage,
+        netPlusVat,
+        freeQuantity: Number(it.freeQuantity || 0),
+      });
+    }
+
     // Create GRN document
     const grnData = {
       clinicId,
@@ -171,16 +277,25 @@ export default async function handler(req, res) {
       notes: notes.trim(),
       status,
       createdBy: me._id,
+      items: normalizedItems,
     };
 
     const newGRN = new GRN(grnData);
     const savedGRN = await newGRN.save();
+    purchaseOrder.status = "Delivered";
+    await purchaseOrder.save();
 
     // Populate references for the response
     const populatedGRN = await GRN.findById(savedGRN._id)
       .populate("branch", "name")
       .populate("purchasedOrder", "orderNo date supplier")
-      .populate("purchasedOrder.supplier", "name")
+      .populate({
+        path: "purchasedOrder",
+        populate: {
+          path: "supplier",
+          select: "name",
+        },
+      })
       .populate("createdBy", "name email")
       .lean();
 

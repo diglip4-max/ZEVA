@@ -53,6 +53,87 @@ const GRNSchema = new mongoose.Schema(
       ],
       default: "New",
     },
+    items: [
+      // requested items
+      {
+        itemId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "StockItem",
+          required: true,
+          index: true,
+        },
+        code: {
+          type: String,
+          trim: true,
+        },
+        name: {
+          type: String,
+          required: true,
+        },
+        description: {
+          type: String,
+        },
+        expiryDate: {
+          type: Date,
+          default: null,
+        },
+        quantity: {
+          type: Number,
+          required: true,
+          default: 1,
+        },
+        uom: {
+          type: String,
+        },
+        unitPrice: {
+          type: Number,
+          required: true,
+        },
+        totalPrice: {
+          type: Number,
+          required: true,
+        },
+        discount: {
+          type: Number,
+          default: 0,
+        },
+        discountType: {
+          type: String,
+          enum: ["Fixed", "Percentage"],
+          default: "Fixed",
+        },
+        discountAmount: {
+          type: Number,
+          default: 0,
+        },
+        netPrice: {
+          type: Number,
+          required: true,
+          default: 0,
+        },
+        vatAmount: {
+          type: Number,
+          default: 0,
+        },
+        vatType: {
+          type: String,
+          enum: ["Exclusive", "Inclusive"],
+          default: "Exclusive",
+        },
+        vatPercentage: {
+          type: Number,
+          default: 0,
+        },
+        netPlusVat: {
+          type: Number,
+          default: 0,
+        },
+        freeQuantity: {
+          type: Number,
+          default: 0,
+        },
+      },
+    ],
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",

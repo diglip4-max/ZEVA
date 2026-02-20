@@ -23,7 +23,9 @@ export default async function handler(req, res) {
   if (clinicUser.role === "clinic") {
     const clinic = await Clinic.findOne({ owner: clinicUser._id }).lean();
     if (!clinic) {
-      return res.status(404).json({ success: false, message: "Clinic not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Clinic not found" });
     }
     clinicId = clinic._id;
   } else if (["agent", "doctor", "doctorStaff"].includes(clinicUser.role)) {
@@ -31,7 +33,10 @@ export default async function handler(req, res) {
     if (!clinicId) {
       return res
         .status(403)
-        .json({ success: false, message: "Access denied. User not linked to a clinic." });
+        .json({
+          success: false,
+          message: "Access denied. User not linked to a clinic.",
+        });
     }
   } else {
     return res.status(403).json({ success: false, message: "Access denied." });
@@ -40,17 +45,27 @@ export default async function handler(req, res) {
   if (req.method === "GET") {
     const { appointmentId } = req.query;
     if (!appointmentId) {
-      return res.status(400).json({ success: false, message: "appointmentId is required" });
+      return res
+        .status(400)
+        .json({ success: false, message: "appointmentId is required" });
     }
 
     try {
-      const appointment = await Appointment.findOne({ _id: appointmentId, clinicId })
-        .populate("patientId", "firstName lastName emrNumber gender mobileNumber email")
+      const appointment = await Appointment.findOne({
+        _id: appointmentId,
+        clinicId,
+      })
+        .populate(
+          "patientId",
+          "firstName lastName emrNumber gender mobileNumber email",
+        )
         .populate("doctorId", "name email")
         .lean();
 
       if (!appointment) {
-        return res.status(404).json({ success: false, message: "Appointment not found" });
+        return res
+          .status(404)
+          .json({ success: false, message: "Appointment not found" });
       }
 
       const report = await AppointmentReport.findOne({ appointmentId })
@@ -64,12 +79,16 @@ export default async function handler(req, res) {
 
       let patientReports = [];
       if (patientDoc?._id) {
-        const reports = await AppointmentReport.find({ patientId: patientDoc._id })
+        const reports = await AppointmentReport.find({
+          patientId: patientDoc._id,
+        })
           .sort({ updatedAt: -1 })
           .lean();
 
         const appointmentIds = reports.map((r) => r.appointmentId);
-        const relatedAppointments = await Appointment.find({ _id: { $in: appointmentIds } })
+        const relatedAppointments = await Appointment.find({
+          _id: { $in: appointmentIds },
+        })
           .populate("doctorId", "name email")
           .lean();
 
@@ -119,6 +138,7 @@ export default async function handler(req, res) {
           gender: patientDoc?.gender || "",
           email: patientDoc?.email || "",
           mobileNumber: patientDoc?.mobileNumber || "",
+          doctorId: appointment.doctorId?._id || "",
           doctorName: appointment.doctorId?.name || "",
           doctorEmail: appointment.doctorId?.email || "",
           roomId: appointment.roomId,
@@ -152,7 +172,9 @@ export default async function handler(req, res) {
       });
     } catch (error) {
       console.error("Error fetching appointment report:", error);
-      return res.status(500).json({ success: false, message: "Failed to fetch report" });
+      return res
+        .status(500)
+        .json({ success: false, message: "Failed to fetch report" });
     }
   }
 
@@ -162,7 +184,7 @@ export default async function handler(req, res) {
       const collection = AppointmentReport.collection;
       const indexes = await collection.indexes();
       const uniqueAppointmentIndex = indexes.find(
-        (idx) => idx.key?.appointmentId === 1 && idx.unique === true
+        (idx) => idx.key?.appointmentId === 1 && idx.unique === true,
       );
       if (uniqueAppointmentIndex) {
         await collection.dropIndex("appointmentId_1");
@@ -192,7 +214,9 @@ export default async function handler(req, res) {
     } = req.body;
 
     if (!appointmentId) {
-      return res.status(400).json({ success: false, message: "appointmentId is required" });
+      return res
+        .status(400)
+        .json({ success: false, message: "appointmentId is required" });
     }
 
     if (
@@ -208,14 +232,23 @@ export default async function handler(req, res) {
     }
 
     try {
-      const appointment = await Appointment.findOne({ _id: appointmentId, clinicId }).lean();
+      const appointment = await Appointment.findOne({
+        _id: appointmentId,
+        clinicId,
+      }).lean();
       if (!appointment) {
-        return res.status(404).json({ success: false, message: "Appointment not found" });
+        return res
+          .status(404)
+          .json({ success: false, message: "Appointment not found" });
       }
 
-      const patient = await PatientRegistration.findById(appointment.patientId).select("_id").lean();
+      const patient = await PatientRegistration.findById(appointment.patientId)
+        .select("_id")
+        .lean();
       if (!patient) {
-        return res.status(404).json({ success: false, message: "Patient record not found" });
+        return res
+          .status(404)
+          .json({ success: false, message: "Patient record not found" });
       }
 
       const payload = {
@@ -232,8 +265,12 @@ export default async function handler(req, res) {
         waistCm: waistCm ? Number(waistCm) : undefined,
         respiratoryRate: respiratoryRate ? Number(respiratoryRate) : undefined,
         spo2Percent: spo2Percent ? Number(spo2Percent) : undefined,
-        hipCircumference: hipCircumference ? Number(hipCircumference) : undefined,
-        headCircumference: headCircumference ? Number(headCircumference) : undefined,
+        hipCircumference: hipCircumference
+          ? Number(hipCircumference)
+          : undefined,
+        headCircumference: headCircumference
+          ? Number(headCircumference)
+          : undefined,
         sugar: sugar || "",
         urinalysis: urinalysis || "",
         otherDetails: otherDetails || "",
@@ -242,7 +279,9 @@ export default async function handler(req, res) {
       if (payload.heightCm && payload.weightKg) {
         const heightMeters = payload.heightCm / 100;
         if (heightMeters > 0) {
-          payload.bmi = Number((payload.weightKg / (heightMeters * heightMeters)).toFixed(1));
+          payload.bmi = Number(
+            (payload.weightKg / (heightMeters * heightMeters)).toFixed(1),
+          );
         }
       }
 
@@ -258,10 +297,12 @@ export default async function handler(req, res) {
         report = await AppointmentReport.findOneAndUpdate(
           { _id: reportId, clinicId },
           payload,
-          { new: true }
+          { new: true },
         );
         if (!report) {
-          return res.status(404).json({ success: false, message: "Report not found" });
+          return res
+            .status(404)
+            .json({ success: false, message: "Report not found" });
         }
       } else {
         // Always create a new report for the patient (allows multiple reports per patient/appointment)
@@ -275,34 +316,46 @@ export default async function handler(req, res) {
       });
     } catch (error) {
       console.error("Error saving appointment report:", error);
-      return res.status(500).json({ success: false, message: "Failed to save report" });
+      return res
+        .status(500)
+        .json({ success: false, message: "Failed to save report" });
     }
   }
 
   if (req.method === "DELETE") {
     const { reportId } = req.query;
     if (!reportId) {
-      return res.status(400).json({ success: false, message: "reportId is required" });
+      return res
+        .status(400)
+        .json({ success: false, message: "reportId is required" });
     }
 
     try {
       const report = await AppointmentReport.findById(reportId).lean();
       if (!report) {
-        return res.status(404).json({ success: false, message: "Report not found" });
+        return res
+          .status(404)
+          .json({ success: false, message: "Report not found" });
       }
       if (report.clinicId.toString() !== clinicId.toString()) {
-        return res.status(403).json({ success: false, message: "Access denied." });
+        return res
+          .status(403)
+          .json({ success: false, message: "Access denied." });
       }
       await AppointmentReport.deleteOne({ _id: reportId });
-      return res.status(200).json({ success: true, message: "Report deleted successfully" });
+      return res
+        .status(200)
+        .json({ success: true, message: "Report deleted successfully" });
     } catch (error) {
       console.error("Error deleting appointment report:", error);
-      return res.status(500).json({ success: false, message: "Failed to delete report" });
+      return res
+        .status(500)
+        .json({ success: false, message: "Failed to delete report" });
     }
   }
 
   res.setHeader("Allow", ["GET", "POST", "DELETE"]);
-  return res.status(405).json({ success: false, message: "Method Not Allowed" });
+  return res
+    .status(405)
+    .json({ success: false, message: "Method Not Allowed" });
 }
-
-
