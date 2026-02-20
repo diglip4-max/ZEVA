@@ -1,5 +1,6 @@
 import dbConnect from "../../../../lib/database";
 import Clinic from "../../../../models/Clinic";
+import GRN from "../../../../models/stocks/GRN";
 import PurchaseRecord from "../../../../models/stocks/PurchaseRecord";
 import Supplier from "../../../../models/stocks/Supplier";
 import { getUserFromReq, requireRole } from "../../lead-ms/auth";
@@ -189,9 +190,19 @@ export default async function handler(req, res) {
           message: `Item ${i + 1}: Total price must be a non-negative number`,
         });
       }
+
+      if (
+        (type === "Purchase_Invoice" || type === "GRN_Regular") &&
+        !item.expiryDate
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: `Item ${i + 1}: Expiry date is required for GRN Regular or Purchase Invoice`,
+        });
+      }
     }
 
-    const newPurchaseRecord = new PurchaseRecord({
+    let newPurchaseRecord = new PurchaseRecord({
       clinicId,
       orderNo,
       branch,
@@ -202,7 +213,7 @@ export default async function handler(req, res) {
       validityDays,
       paymentTermsDays,
       supplier,
-      type: type || "Purchase_Request", // Default type
+      type: type === "Purchase_Request" ? "Purchase_Request" : "Purchase_Order", // Default type
       supplierInvoiceNo,
       notes,
       status: status || "New", // Default status
@@ -227,6 +238,45 @@ export default async function handler(req, res) {
         { _id: req.body.purchaseRequestId },
         { status: updatedStatus },
       );
+    }
+
+    // Note- if type is Purchase_Invoice or GRN_Regular then also create GRN and Invoice record also
+    if (type === "GRN_Regular" || type === "Purchase_Invoice") {
+      // create GRN and Invoice record also
+      if (type === "GRN_Regular") {
+        // create GRN record also
+        let newGRN = new GRN({
+          clinicId,
+          branch,
+          grnDate: new Date(date),
+          purchasedOrder: newPurchaseRecord._id,
+          supplierInvoiceNo,
+          supplierGrnDate: new Date(date),
+          notes: "Direct Purchase (GRN)",
+          status: status || "New", // Default status
+          items: items,
+          createdBy: me._id,
+        });
+        newPurchaseRecord.status = "Delivered";
+        await Promise.all([newGRN.save(), newPurchaseRecord.save()]);
+      }
+
+      // create Invoice record also
+      if (type === "Purchase_Invoice") {
+        // let newInvoice = new Invoice({
+        //   clinicId,
+        //   branch,
+        //   invoiceDate: new Date(date),
+        //   purchasedOrder: newPurchaseRecord._id,
+        //   supplierInvoiceNo,
+        //   supplierInvoiceDate: new Date(date),
+        //   notes,
+        //   status: status || "New", // Default status
+        //   items: items,
+        //   createdBy: me._id,
+        // });
+        // await newInvoice.save();
+      }
     }
 
     const recordWithPopulate = await PurchaseRecord.findById(

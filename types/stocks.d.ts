@@ -49,6 +49,7 @@ export type PurchaseRecordItem = {
   code?: string;
   name: string;
   description?: string;
+  expiryDate?: string;
   quantity: number;
   uom?: string;
   unitPrice: number;
