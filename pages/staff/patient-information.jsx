@@ -319,7 +319,7 @@ const PackageUsageModal = ({ isOpen, onClose, patient, packageUsageData, loading
   );
 };
 
-const PatientDetailsModal = ({ isOpen, onClose, patient, memberships = [], packages = [], onViewPackageUsage }) => {
+const PatientDetailsModal = ({ isOpen, onClose, patient, memberships = [], packages = [], onViewPackageUsage, transferNameMap = {}, membershipUsageMap = {} }) => {
 
   if (!isOpen || !patient) return null;
   const membershipName = (() => {
@@ -344,10 +344,14 @@ const PatientDetailsModal = ({ isOpen, onClose, patient, memberships = [], packa
     }
   })();
   const isPriority = (() => {
-    if (patient.membership !== 'Yes' || !patient.membershipId) return false;
-    const m = memberships.find((x) => x._id === patient.membershipId);
-    const hasPriority = !!m?.benefits?.priorityBooking;
-    return hasPriority && !isExpired;
+    const hasPriorityPlan =
+      (patient.membership === 'Yes' && memberships.find(m => String(m._id) === String(patient.membershipId))?.benefits?.priorityBooking) ||
+      (Array.isArray(patient.memberships) && patient.memberships.length > 0 && patient.memberships.some(m => {
+        const membership = memberships.find(mem => String(mem._id) === String(m.membershipId));
+        return membership?.benefits?.priorityBooking;
+      }));
+    const revoked = !!patient.transferredOutMembershipPriority;
+    return hasPriorityPlan && !isExpired && !revoked;
   })();
   const monthsToExpire = (() => {
     if (patient.membership !== 'Yes' || !patient.membershipEndDate) return null;
@@ -463,11 +467,25 @@ const PatientDetailsModal = ({ isOpen, onClose, patient, memberships = [], packa
                 <span className={`font-bold text-sm ${patient.membership === 'Yes' ? 'text-green-600' : 'text-red-600'}`}>
                   {patient.membership || 'No'}</span>
               </div>
-              {(Array.isArray(patient.memberships) ? patient.memberships : []).length > 0 && (
+              {(() => {
+                const existing = Array.isArray(patient.memberships) ? patient.memberships : [];
+                const transferredIns = (patient.membershipTransfers || [])
+                  .filter(t => t.type === 'in')
+                  .map(t => ({ membershipId: t.membershipId, startDate: t.startDate, endDate: t.endDate, _fromTransfer: true }));
+                const displayMemberships = [...existing];
+                transferredIns.forEach(t => {
+                  const dup = displayMemberships.some(m =>
+                    String(m.membershipId) === String(t.membershipId) &&
+                    (!!m.startDate ? String(m.startDate) === String(t.startDate) : true) &&
+                    (!!m.endDate ? String(m.endDate) === String(t.endDate) : true)
+                  );
+                  if (!dup) displayMemberships.push(t);
+                });
+                return displayMemberships.length > 0 && (
                 <div className="space-y-2.5">
                   <div className="text-xs font-semibold text-gray-800 mb-2">Active Plans</div>
                   <div className="space-y-2.5">
-                    {patient.memberships.map((m, idx) => {
+                    {displayMemberships.map((m, idx) => {
                       const plan = memberships.find((x) => x._id === m.membershipId);
                       const end = m.endDate ? new Date(m.endDate) : null;
                       const start = m.startDate ? new Date(m.startDate) : null;
@@ -496,6 +514,11 @@ const PatientDetailsModal = ({ isOpen, onClose, patient, memberships = [], packa
                                     Upcoming
                                   </span>
                                 )}
+                                {(patient.membershipTransfers || []).filter(t => String(t.membershipId) === String(m.membershipId)).map((t, ti) => (
+                                  <span key={ti} className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${t.type === 'out' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'} shadow-sm`}>
+                                    {t.type === 'out' ? 'Transferred to' : 'Transferred from'} {transferNameMap[String(t.toPatientId)] || transferNameMap[String(t.fromPatientId)] || ''}
+                                  </span>
+                                ))}
                               </div>
                             </div>
                           </div>
@@ -527,7 +550,25 @@ const PatientDetailsModal = ({ isOpen, onClose, patient, memberships = [], packa
                               )}
                             </div>
                             
-                            {/* Benefits Section */}
+                            {(() => {
+                              const key = `${m.membershipId}|${m.startDate}|${m.endDate}`;
+                              const usage = membershipUsageMap[key];
+                              if (!usage || usage.isExpired || (usage.totalFreeConsultations || 0) === 0) return null;
+                              const total = usage.totalFreeConsultations || 0;
+                              const used = usage.usedFreeConsultations || 0;
+                              const pct = total > 0 ? Math.min(100, Math.round((used / total) * 100)) : 0;
+                              return (
+                                <div className="mb-2">
+                                  <div className="flex items-center justify-between text-[10px] text-gray-700 mb-0.5">
+                                    <span>Free consultations used</span>
+                                    <span className="font-semibold text-gray-900">{used}/{total}</span>
+                                  </div>
+                                  <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                                    <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${pct}%` }} />
+                                  </div>
+                                </div>
+                              );
+                            })()}
                             {plan?.benefits && (
                               <div className="pt-2 border-t border-gray-200">
                                 <h5 className="text-[10px] font-bold text-gray-800 mb-1.5">Benefits:</h5>
@@ -555,8 +596,28 @@ const PatientDetailsModal = ({ isOpen, onClose, patient, memberships = [], packa
                       );
                     })}
                   </div>
+                  {(patient.membershipTransfers || []).length > 0 && (
+                    <div className="mt-2.5 border-t border-gray-200 pt-2">
+                      <div className="text-xs font-semibold text-gray-800 mb-1.5">Transfer History</div>
+                      <div className="space-y-1.5">
+                        {patient.membershipTransfers.map((t, i) => {
+                          const mname = t.membershipName || (memberships.find(x => String(x._id) === String(t.membershipId))?.name) || t.membershipId;
+                          return (
+                          <div key={i} className="flex items-center justify-between text-[10px]">
+                            <div className={`${t.type === 'out' ? 'text-red-700' : 'text-green-700'} font-medium`}>
+                              {mname} • {t.type === 'out' ? 'Transferred to' : 'Transferred from'} {transferNameMap[String(t.toPatientId)] || transferNameMap[String(t.fromPatientId)] || ''}
+                            </div>
+                            <div className="text-gray-600">
+                              {t.transferredFreeConsultations || 0} consultations • {new Date(t.transferDate).toLocaleDateString()}
+                            </div>
+                          </div>
+                        )})}
+                      </div>
+                    </div>
+                  )}
                 </div>
-              )}
+                );
+              })()}
             </div>
 
             {/* Package Card */}
@@ -591,6 +652,11 @@ const PatientDetailsModal = ({ isOpen, onClose, patient, memberships = [], packa
                                     {assignedDate.toLocaleDateString()}
                                   </div>
                                 )}
+                                {(patient.packageTransfers || []).filter(t => String(t.packageId) === String(p.packageId)).map((t, ti) => (
+                                  <span key={ti} className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${t.type === 'out' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'} shadow-sm`}>
+                                    {t.type === 'out' ? 'Transferred to' : 'Transferred from'} {transferNameMap[String(t.toPatientId)] || transferNameMap[String(t.fromPatientId)] || ''}
+                                  </span>
+                                ))}
                                 <button
                                   onClick={() => onViewPackageUsage && onViewPackageUsage(patient, pkg)}
                                   className="inline-flex items-center gap-0.5 px-2 py-0.5 bg-gradient-to-r from-teal-50 to-cyan-50 hover:from-teal-100 hover:to-cyan-100 text-teal-700 text-[10px] font-semibold rounded-full transition-all duration-200 shadow-sm"
@@ -721,8 +787,10 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
   const [page, setPage] = useState(1);
   const [toasts, setToasts] = useState([]);
   const [detailsModal, setDetailsModal] = useState({ isOpen: false, patient: null });
+  const [transferNameMap, setTransferNameMap] = useState({});
   const [deleteSuccessModal, setDeleteSuccessModal] = useState({ isOpen: false, patientName: "" });
   const [packageUsageModal, setPackageUsageModal] = useState({ isOpen: false, patient: null, data: null, loading: false });
+  const [membershipUsageMap, setMembershipUsageMap] = useState({});
   const pageSize = 12;
 
   const addToast = (message, type = "info") => setToasts(prev => [...prev, { id: Date.now(), message, type }]);
@@ -786,7 +854,7 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
           try { return new Date(patient.membershipEndDate) < new Date(); } catch { return false; }
         })();
         
-        const isPriority = hasPriorityPlan && !isExpired;
+        const isPriority = hasPriorityPlan && !isExpired && !patient.transferredOutMembershipPriority;
         
         switch (filterPriority) {
           case "priority":
@@ -833,6 +901,95 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    // Resolve names for transfer tags when viewing patient details
+    if (!detailsModal.isOpen || !detailsModal.patient) return;
+    const headers = getAuthHeaders();
+    if (!headers) return;
+    const ids = new Set();
+    (detailsModal.patient.membershipTransfers || []).forEach(t => {
+      if (t.toPatientId) ids.add(String(t.toPatientId));
+      if (t.fromPatientId) ids.add(String(t.fromPatientId));
+    });
+    (detailsModal.patient.packageTransfers || []).forEach(t => {
+      if (t.toPatientId) ids.add(String(t.toPatientId));
+      if (t.fromPatientId) ids.add(String(t.fromPatientId));
+    });
+    const uniqueIds = Array.from(ids).filter(Boolean);
+    if (uniqueIds.length === 0) return;
+    let mounted = true;
+    (async () => {
+      const map = {};
+      try {
+        await Promise.all(
+          uniqueIds.map(async (pid) => {
+            try {
+              const res = await axios.get(`/api/staff/get-patient-data/${pid}`, { headers });
+              const data = res.data;
+              if (data && data._id) {
+                const name = `${(data.firstName || "").trim()} ${(data.lastName || "").trim()}`.trim() || data.emrNumber || pid;
+                map[pid] = name;
+              }
+            } catch {}
+          })
+        );
+      } finally {
+        if (mounted) setTransferNameMap(map);
+      }
+    })();
+    return () => { mounted = false; };
+  }, [detailsModal.isOpen, detailsModal.patient]);
+
+  useEffect(() => {
+    if (!detailsModal.isOpen || !detailsModal.patient) return;
+    const headers = getAuthHeaders();
+    if (!headers) return;
+    const p = detailsModal.patient;
+    const entries = [];
+    const existing = Array.isArray(p.memberships) ? p.memberships : [];
+    const transferredIns = (p.membershipTransfers || [])
+      .filter(t => t.type === 'in')
+      .map(t => ({ membershipId: t.membershipId, startDate: t.startDate, endDate: t.endDate }));
+    const displayMemberships = [...existing];
+    transferredIns.forEach(t => {
+      const dup = displayMemberships.some(m =>
+        String(m.membershipId) === String(t.membershipId) &&
+        (!!m.startDate ? String(m.startDate) === String(t.startDate) : true) &&
+        (!!m.endDate ? String(m.endDate) === String(t.endDate) : true)
+      );
+      if (!dup) displayMemberships.push(t);
+    });
+    displayMemberships.forEach(m => {
+      if (m.membershipId && m.startDate && m.endDate) {
+        entries.push({ membershipId: m.membershipId, startDate: m.startDate, endDate: m.endDate });
+      }
+    });
+    if (entries.length === 0) {
+      setMembershipUsageMap({});
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      const resMap = {};
+      await Promise.all(entries.map(async (e) => {
+        const qs = new URLSearchParams();
+        qs.set("membershipId", e.membershipId);
+        qs.set("startDate", e.startDate);
+        qs.set("endDate", e.endDate);
+        try {
+          const res = await axios.get(`/api/clinic/membership-usage/${p._id}?${qs.toString()}`, { headers });
+          const key = `${e.membershipId}|${e.startDate}|${e.endDate}`;
+          resMap[key] = res.data && res.data.success ? res.data : null;
+        } catch {
+          const key = `${e.membershipId}|${e.startDate}|${e.endDate}`;
+          resMap[key] = null;
+        }
+      }));
+      if (!cancelled) setMembershipUsageMap(resMap);
+    })();
+    return () => { cancelled = true; };
+  }, [detailsModal.isOpen, detailsModal.patient]);
 
   useEffect(() => { fetchPatients(); }, [routeContext]);
   
@@ -1037,6 +1194,8 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
         memberships={memberships}
         packages={packages}
         onViewPackageUsage={fetchPackageUsage}
+        transferNameMap={transferNameMap}
+        membershipUsageMap={membershipUsageMap}
       />
       
       {/* Package Usage Modal */}
@@ -1234,7 +1393,7 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
                                   if (patient.membership !== 'Yes' || !patient.membershipEndDate) return false;
                                   try { return new Date(patient.membershipEndDate) < new Date(); } catch { return false; }
                                 })();
-                                return hasPriorityPlan && !isExpired;
+                                return hasPriorityPlan && !isExpired && !patient.transferredOutMembershipPriority;
                               })()
                                 ? 'bg-amber-50 border-l-4 border-amber-500'
                                 : ''
@@ -1253,7 +1412,7 @@ function PatientFilterUI({ hideHeader = false, onEditPatient, permissions = { ca
                                     if (patient.membership !== 'Yes' || !patient.membershipEndDate) return false;
                                     try { return new Date(patient.membershipEndDate) < new Date(); } catch { return false; }
                                   })();
-                                  return hasPriorityPlan && !isExpired;
+                                  return hasPriorityPlan && !isExpired && !patient.transferredOutMembershipPriority;
                                 })() && (
                                   <span className="ml-2 inline-flex px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 text-[10px] font-medium">
                                     Priority

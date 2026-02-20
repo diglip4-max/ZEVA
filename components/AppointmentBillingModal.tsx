@@ -88,7 +88,6 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [treatments, setTreatments] = useState<Treatment[]>([]);
   const [packages, setPackages] = useState<Package[]>([]);
-  const [membershipPlans, setMembershipPlans] = useState<Array<{ _id: string; name: string; durationMonths?: number }>>([]);
   const [patientDetails, setPatientDetails] = useState<any>(null);
   const [selectedService, setSelectedService] = useState<"Treatment" | "Package">("Treatment");
   const [selectedTreatments, setSelectedTreatments] = useState<SelectedTreatment[]>([]);
@@ -206,11 +205,6 @@ const AppointmentBillingModal: React.FC<AppointmentBillingModalProps> = ({
         const packagesRes = await axios.get("/api/clinic/packages", { headers });
         if (packagesRes.data.success) {
           setPackages(packagesRes.data.packages || []);
-        }
-        // Fetch membership plans
-        const membershipsRes = await axios.get("/api/clinic/memberships", { headers });
-        if (membershipsRes.data.success) {
-          setMembershipPlans(membershipsRes.data.memberships || []);
         }
       } catch (error) {
         console.error("Error fetching data:", error);

@@ -139,7 +139,6 @@ export default function AppointmentBookingModal({
 
   const [fromTime, setFromTime] = useState<string>(slotTime || "09:00");
   const [toTime, setToTime] = useState<string>(slotTime ? calculateEndTime(slotTime) : calculateEndTime("09:00"));
-  const [referral, setReferral] = useState<string>("No");
   const [emergency, setEmergency] = useState<string>("no");
   const [notes, setNotes] = useState<string>("");
   const [loading, setLoading] = useState(false);
@@ -162,7 +161,6 @@ export default function AppointmentBookingModal({
       } else {
         setFromTime(slotTime || "09:00");
       setToTime(calculateEndTime(slotTime || "09:00"));
-      setReferral("No");
     }
     setStartDate(defaultDate || new Date().toISOString().split("T")[0]);
       setSelectedDoctorId(doctorId || "");
@@ -519,7 +517,6 @@ export default function AppointmentBookingModal({
     setStartDate(defaultDate || new Date().toISOString().split("T")[0]);
     setFromTime(slotTime || "09:00");
     setToTime(calculateEndTime(slotTime || "09:00"));
-    setReferral("No");
     setEmergency("no");
     setNotes("");
     setError("");

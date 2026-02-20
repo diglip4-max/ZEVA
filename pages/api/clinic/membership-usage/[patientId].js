@@ -22,7 +22,7 @@ export default async function handler(req, res) {
       return res.status(403).json({ success: false, message: "Access denied" });
     }
 
-    const { patientId } = req.query;
+    const { patientId, membershipId: queryMembershipId, startDate: queryStart, endDate: queryEnd } = req.query;
 
     if (!patientId) {
       return res.status(400).json({ success: false, message: "Patient ID is required" });
@@ -69,8 +69,28 @@ export default async function handler(req, res) {
       // This can be tightened based on specific requirements
     }
 
-    // Check if patient has an active membership
-    if (!patient.membership || patient.membership !== 'Yes' || !patient.membershipId) {
+    // Determine active membership considering transfers
+    let activeMembershipId = null;
+    let transferredAllowance = null;
+    // Prefer explicit selection from query
+    if (queryMembershipId) {
+      activeMembershipId = queryMembershipId;
+      const lastInForSelected = Array.isArray(patient.membershipTransfers)
+        ? [...patient.membershipTransfers].reverse().find(t => t.type === 'in' && String(t.membershipId) === String(queryMembershipId))
+        : null;
+      if (lastInForSelected) {
+        transferredAllowance = lastInForSelected.transferredFreeConsultations || null;
+      }
+    } else if (patient.membership === 'Yes' && patient.membershipId) {
+      activeMembershipId = patient.membershipId;
+    } else if (Array.isArray(patient.membershipTransfers)) {
+      const lastIn = [...patient.membershipTransfers].reverse().find(t => t.type === 'in');
+      if (lastIn) {
+        activeMembershipId = lastIn.membershipId;
+        transferredAllowance = lastIn.transferredFreeConsultations || 0;
+      }
+    }
+    if (!activeMembershipId) {
       return res.status(200).json({
         success: true,
         hasMembership: false,
@@ -80,7 +100,7 @@ export default async function handler(req, res) {
 
     // Fetch membership plan details
     const membershipPlan = await MembershipPlan.findOne({
-      _id: patient.membershipId,
+      _id: activeMembershipId,
       clinicId: clinicId,
     }).lean();
 
@@ -93,7 +113,12 @@ export default async function handler(req, res) {
     }
 
     // Check if membership is expired
-    const isExpired = patient.membershipEndDate && new Date(patient.membershipEndDate) < new Date();
+    let isExpired = false;
+    if (queryEnd) {
+      isExpired = new Date(queryEnd) < new Date();
+    } else {
+      isExpired = patient.membershipEndDate && new Date(patient.membershipEndDate) < new Date();
+    }
     
     if (isExpired) {
       return res.status(200).json({
@@ -105,7 +130,10 @@ export default async function handler(req, res) {
       });
     }
 
-    const totalFreeConsultations = membershipPlan.benefits?.freeConsultations || 0;
+    let totalFreeConsultations = membershipPlan.benefits?.freeConsultations || 0;
+    if (typeof transferredAllowance === 'number') {
+      totalFreeConsultations = transferredAllowance;
+    }
 
     // If no free consultations in membership
     if (totalFreeConsultations === 0) {
@@ -129,14 +157,21 @@ export default async function handler(req, res) {
     // 2. OR it's a Package treatment session
     // 3. The billing amount is 0 or marked as free consultation
 
-    const billings = await Billing.find({
+    const dateFilter = {};
+    if (queryStart) dateFilter.$gte = new Date(queryStart);
+    if (queryEnd) dateFilter.$lte = new Date(queryEnd);
+    const baseFilter = {
       patientId: patientId,
       clinicId: clinicId,
       $or: [
         { service: "Treatment" },
         { service: "Package" }
       ],
-      isFreeConsultation: true, // We'll add this field to track free consultations
+    };
+    const billings = await Billing.find({
+      ...baseFilter,
+      isFreeConsultation: true,
+      ...(Object.keys(dateFilter).length ? { createdAt: dateFilter } : {}),
     }).select("service treatment package sessions selectedPackageTreatments createdAt invoiceNumber").lean();
 
     // If no billings with isFreeConsultation flag, count all treatment billings as used consultations
@@ -162,12 +197,8 @@ export default async function handler(req, res) {
     // This is a fallback for backward compatibility
     if (usedFreeConsultations === 0) {
       const allBillings = await Billing.find({
-        patientId: patientId,
-        clinicId: clinicId,
-        $or: [
-          { service: "Treatment" },
-          { service: "Package" }
-        ],
+        ...baseFilter,
+        ...(Object.keys(dateFilter).length ? { createdAt: dateFilter } : {}),
       }).sort({ createdAt: 1 }).lean();
 
       // Count consultations up to the free consultation limit

@@ -143,6 +143,28 @@ export default async function handler(req, res) {
       packageUsage[pkgName].treatments = Object.values(packageUsage[pkgName].treatments);
     });
 
+    // Apply transferred allowances if present
+    const PatientRegistration = (await import("../../../../models/PatientRegistration")).default;
+    const patient = await PatientRegistration.findById(patientId).lean();
+    const transfersIn = Array.isArray(patient?.packageTransfers)
+      ? patient.packageTransfers.filter(t => t.type === 'in')
+      : [];
+    const transfersMap = {};
+    transfersIn.forEach(t => {
+      const key = t.packageName || String(t.packageId || "");
+      transfersMap[key] = t.transferredSessions || 0;
+    });
+
+    Object.keys(packageUsage).forEach((pkgName) => {
+      const allowed = transfersMap[pkgName];
+      if (typeof allowed === 'number') {
+        const used = packageUsage[pkgName].totalSessions || 0;
+        const remaining = Math.max(0, allowed - used);
+        packageUsage[pkgName].totalAllowedSessions = allowed;
+        packageUsage[pkgName].remainingSessions = remaining;
+      }
+    });
+
     return res.status(200).json({
       success: true,
       packageUsage: Object.values(packageUsage),
