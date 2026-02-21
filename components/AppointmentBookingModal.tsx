@@ -1117,8 +1117,7 @@ export default function AppointmentBookingModal({
                   <label className="block text-[10px] font-medium text-gray-700 dark:text-gray-800 mb-0.5">
                     Referred By
                   </label>
-                  <input
-                    type="text"
+                  <select
                     value={addPatientForm.referredBy}
                     onChange={(e) =>
                       setAddPatientForm({
@@ -1127,7 +1126,17 @@ export default function AppointmentBookingModal({
                       })
                     }
                     className="w-full border border-gray-300 dark:border-gray-300 rounded-lg px-2 py-1.5 text-[10px] bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm"
-                  />
+                  >
+                    <option value="">Select referral</option>
+                    {referrals.map((ref) => (
+                      <option
+                        key={ref._id}
+                        value={`${ref.firstName} ${ref.lastName}`.trim()}
+                      >
+                        {[ref.firstName, ref.lastName].filter(Boolean).join(" ")}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <label className="block text-[10px] font-medium text-gray-700 dark:text-gray-800 mb-0.5">
@@ -1164,8 +1173,8 @@ export default function AppointmentBookingModal({
             </div>
           )}
 
-          {/* Follow Type, Referral, Emergency - 3 fields in one row */}
-          <div className="grid grid-cols-3 gap-4 pb-16 relative z-10">
+          {/* Follow Type and Emergency - 2 fields in one row */}
+          <div className="grid grid-cols-2 gap-4 pb-16 relative z-10">
             {/* Follow Type */}
             <div>
               <label className="block text-xs font-medium text-gray-700 dark:text-gray-800 mb-1.5">
@@ -1195,29 +1204,6 @@ export default function AppointmentBookingModal({
                   {fieldErrors.followType}
                 </p>
               )}
-            </div>
-
-            {/* Referral */}
-            <div>
-              <label className="block text-xs font-medium text-gray-700 dark:text-gray-800 mb-1.5">
-                Referral
-              </label>
-              <select
-                value={referral}
-                onChange={(e) => setReferral(e.target.value)}
-                className="w-full border border-gray-300 dark:border-gray-300 rounded-lg px-3 py-2.5 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm"
-                style={{ zIndex: 1000, position: "relative" }}
-              >
-                <option value="No">No</option>
-                {referrals.map((ref) => (
-                  <option
-                    key={ref._id}
-                    value={`${ref.firstName} ${ref.lastName}`.trim()}
-                  >
-                    {[ref.firstName, ref.lastName].filter(Boolean).join(" ")}
-                  </option>
-                ))}
-              </select>
             </div>
 
             {/* Emergency */}
