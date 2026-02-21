@@ -15,7 +15,7 @@ import {
   ArrowTopRightOnSquareIcon,
   EnvelopeIcon,
   EyeIcon,
-  PaperClipIcon
+  
 } from "@heroicons/react/24/outline";
 import { CheckCircleIcon as CheckCircleSolid } from "@heroicons/react/24/solid";
 import { ClipboardListIcon } from "lucide-react";
