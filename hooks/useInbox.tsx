@@ -24,6 +24,7 @@ import useAgents from "./useAgents";
 import { User } from "@/types/users";
 import { Template } from "@/types/templates";
 import { useAuth } from "@/context/AuthContext";
+import useRooms from "./useRooms";
 
 export type VariableType = {
   type: "text";
@@ -72,12 +73,16 @@ let socket: Socket | null = null;
 
 const useInbox = () => {
   const { user } = useAuth();
-  console.log({ user });
   const { providers } = useProvider();
   const { templates } = useTemplate();
   const { agents, loading: agentFetchLoading } = useAgents({
     role: "agent",
   })?.state;
+  const { agents: doctors, loading: doctorFetchLoading } = useAgents({
+    role: "doctorStaff",
+  })?.state;
+  const { rooms, loading: roomFetchLoading } = useRooms();
+
   const [userId, setUserId] = useState<string | null>(null);
   const [fetchConvLoading, setFetchConvLoading] = useState<boolean>(true);
   const [fetchMsgsLoading, setFetchMsgsLoading] = useState<boolean>(true);
@@ -157,6 +162,10 @@ const useInbox = () => {
 
   // filter modal state
   const [isFilterModalOpen, setIsFilterModalOpen] = useState<boolean>(false);
+
+  // book appointment modal
+  const [isOpenBookAppointmentModal, setIsOpenBookAppointmentModal] =
+    useState<boolean>(false);
 
   const statusDropdownRef = React.useRef<HTMLDivElement | null>(null);
   const statusBtnRef = React.useRef<HTMLButtonElement | null>(null);
@@ -1119,7 +1128,6 @@ const useInbox = () => {
     if (!token && !userId) return;
 
     const decoded = jwtDecode(token || "{}") as DecodedToken;
-    console.log({ token, userId, socket, decoded });
     const currentUserId = userId || decoded?.userId;
     setUserId(currentUserId);
     try {
@@ -1223,8 +1231,6 @@ const useInbox = () => {
     } catch (error) {
       console.log("Error: ", error);
     }
-
-    console.log({ socket });
 
     // Cleanup function
     return () => {
@@ -1383,6 +1389,11 @@ const useInbox = () => {
     agentFetchLoading,
     isScheduleModalOpen,
     isFilterModalOpen,
+    isOpenBookAppointmentModal,
+    rooms,
+    doctors,
+    roomFetchLoading,
+    doctorFetchLoading,
   };
 
   return {
@@ -1415,6 +1426,8 @@ const useInbox = () => {
     setSelectedAgent,
     setIsScheduleModalOpen,
     setIsFilterModalOpen,
+    setIsOpenBookAppointmentModal,
+
     fetchConversations,
     fetchMessages,
     handleSendMessage,

@@ -391,11 +391,15 @@ const ConvertPurchaseRequestModal: React.FC<IProps> = ({
     }
     if (field === "itemId") {
       const item = stockItems.find((i) => i._id === value);
+      const selectedUOM = uoms.find((u) => u?.name === item?.level0?.uom);
       if (item) {
         setCurrentItem((prev) => ({
           ...prev,
           code: item.code,
           name: item.name,
+          description: item.description,
+          uom: selectedUOM ? selectedUOM.name : "",
+          unitPrice: item.level0?.costPrice || 0,
         }));
       }
     }
@@ -437,9 +441,18 @@ const ConvertPurchaseRequestModal: React.FC<IProps> = ({
     value: any,
   ) => {
     if (editedItem) {
+      let discountAmount = 0;
+      if (field === "discount" && editedItem?.discountType === "Fixed") {
+        discountAmount = value || 0;
+      }
+      if (field === "discount" && editedItem?.discountType === "Percentage") {
+        discountAmount =
+          (editedItem.quantity * editedItem.unitPrice * (value || 0)) / 100;
+      }
       setEditedItem({
         ...editedItem,
         [field]: value,
+        ...(field === "discount" && { discountAmount }),
       });
     }
   };

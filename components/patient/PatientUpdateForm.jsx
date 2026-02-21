@@ -150,6 +150,19 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
   const [memberships, setMemberships] = useState([]);
   const [packages, setPackages] = useState([]);
   const [errors, setErrors] = useState({});
+  const [showTransfer, setShowTransfer] = useState(false);
+  const [transferType, setTransferType] = useState("");
+  const [selectedMembershipId, setSelectedMembershipId] = useState("");
+  const [membershipUsage, setMembershipUsage] = useState(null);
+  const [selectedPackageId, setSelectedPackageId] = useState("");
+  const [packageUsage, setPackageUsage] = useState(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [membershipUsageMap, setMembershipUsageMap] = useState({});
+  const [selectedTargetPatient, setSelectedTargetPatient] = useState(null);
+  const [transferSubmitting, setTransferSubmitting] = useState(false);
+  const [transferNameMap, setTransferNameMap] = useState({});
   const formatDate = useCallback((dateObj) => {
     const y = dateObj.getFullYear();
     const m = String(dateObj.getMonth() + 1).padStart(2, "0");
@@ -345,13 +358,142 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
     calculateNeedToPay();
   }, [calculateNeedToPay]);
 
+  useEffect(() => {
+    if (!resolvedId || !authToken) return;
+    const entries = [];
+    if (formData.membership === "Yes" && formData.membershipId && formData.membershipStartDate && formData.membershipEndDate) {
+      entries.push({
+        membershipId: formData.membershipId,
+        startDate: formData.membershipStartDate,
+        endDate: formData.membershipEndDate,
+      });
+    }
+    if (Array.isArray(formData.memberships)) {
+      formData.memberships.forEach((m) => {
+        if (m.membershipId && m.startDate && m.endDate) {
+          entries.push({
+            membershipId: m.membershipId,
+            startDate: m.startDate,
+            endDate: m.endDate,
+          });
+        }
+      });
+    }
+    if (entries.length === 0) {
+      setMembershipUsageMap({});
+      return;
+    }
+    let cancelled = false;
+    const loadAll = async () => {
+      const results = {};
+      await Promise.all(entries.map(async (e) => {
+        const key = `${e.membershipId}|${e.startDate}|${e.endDate}`;
+        try {
+          const qs = new URLSearchParams();
+          qs.set("membershipId", e.membershipId);
+          qs.set("startDate", e.startDate);
+          qs.set("endDate", e.endDate);
+          const res = await fetch(`/api/clinic/membership-usage/${resolvedId}?${qs.toString()}`, {
+            headers: { Authorization: `Bearer ${authToken}` },
+          });
+          const data = await res.json();
+          results[key] = data && data.success ? data : null;
+        } catch {
+          results[key] = null;
+        }
+      }));
+      if (!cancelled) setMembershipUsageMap(results);
+    };
+    loadAll();
+    return () => { cancelled = true; };
+  }, [resolvedId, authToken, formData.membership, formData.membershipId, formData.membershipStartDate, formData.membershipEndDate, JSON.stringify(formData.memberships || [])]);
+
+  useEffect(() => {
+    if (!resolvedId || !authToken) return;
+    if (!showTransfer) return;
+    if (transferType === "membership") {
+      const loadUsage = async () => {
+        try {
+          let startDate = "";
+          let endDate = "";
+          if (selectedMembershipId) {
+            const entry = (formData.memberships || []).find(m => m.membershipId === selectedMembershipId);
+            if (entry) {
+              startDate = entry.startDate || "";
+              endDate = entry.endDate || "";
+            } else if (formData.membership === "Yes" && formData.membershipId === selectedMembershipId) {
+              startDate = formData.membershipStartDate || "";
+              endDate = formData.membershipEndDate || "";
+            }
+          }
+          const qs = new URLSearchParams();
+          if (selectedMembershipId) qs.set("membershipId", selectedMembershipId);
+          if (startDate) qs.set("startDate", startDate);
+          if (endDate) qs.set("endDate", endDate);
+          const res = await fetch(`/api/clinic/membership-usage/${resolvedId}?${qs.toString()}`, {
+            headers: { Authorization: `Bearer ${authToken}` },
+          });
+          const data = await res.json();
+          if (data.success) {
+            setMembershipUsage(data);
+          }
+        } catch {}
+      };
+      loadUsage();
+    }
+    if (transferType === "package" && selectedPackageId) {
+      const loadPkgUsage = async () => {
+        try {
+          const pkg = packages.find(p => p._id === selectedPackageId);
+          if (!pkg) return;
+          const res = await fetch(`/api/clinic/package-usage/${resolvedId}?packageName=${encodeURIComponent(pkg.name)}`, {
+            headers: { Authorization: `Bearer ${authToken}` },
+          });
+          const data = await res.json();
+          if (data.success) {
+            const item = (data.packageUsage || []).find(u => u.packageName === pkg.name) || null;
+            setPackageUsage(item || null);
+          }
+        } catch {}
+      };
+      loadPkgUsage();
+    }
+  }, [showTransfer, transferType, resolvedId, authToken, selectedPackageId, packages, selectedMembershipId, formData.memberships, formData.membership, formData.membershipId, formData.membershipStartDate, formData.membershipEndDate]);
+
+  useEffect(() => {
+    const doSearch = async () => {
+      if (!authToken) return;
+      const term = searchQuery.trim();
+      if (term.length < 1) {
+        setSearchResults([]);
+        return;
+      }
+      setSearchLoading(true);
+      try {
+        const res = await fetch(`/api/clinic/search-patients?search=${encodeURIComponent(term)}`, {
+          headers: { Authorization: `Bearer ${authToken}` },
+        });
+        const data = await res.json();
+        if (data.success) {
+          const filtered = (data.patients || []).filter(p => p._id !== resolvedId);
+          setSearchResults(filtered);
+        }
+      } catch {
+        setSearchResults([]);
+      } finally {
+        setSearchLoading(false);
+      }
+    };
+    const t = setTimeout(doSearch, 400);
+    return () => clearTimeout(t);
+  }, [searchQuery, authToken, resolvedId]);
+
 
   const handleFullUpdate = useCallback(async () => {
     if (!invoiceInfo) return;
     const fieldErrors = {};
-    // API validation: firstName and gender are required
+    // API validation: firstName is required
     if (!formData.firstName?.trim()) fieldErrors.firstName = "First Name is required";
-    if (!formData.gender) fieldErrors.gender = "Gender is required";
     // Database model validation: mobileNumber is also required
     if (!formData.mobileNumber?.trim()) fieldErrors.mobileNumber = "Mobile Number is required";
     if (formData.membership === "Yes") {
@@ -460,6 +602,119 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
       showToast("Network error. Try again later.", "error");
     }
   }, [authToken, formData, invoiceInfo, onUpdated]);
+
+  const handleSubmitTransfer = useCallback(async () => {
+    if (!authToken || !resolvedId) return;
+    if (!selectedTargetPatient) return;
+    setTransferSubmitting(true);
+    try {
+      if (transferType === "membership") {
+        if (!selectedMembershipId || !membershipUsage || !membershipUsage.remainingFreeConsultations || membershipUsage.remainingFreeConsultations <= 0) {
+          showToast("No remaining membership benefits to transfer", "error");
+          setTransferSubmitting(false);
+          return;
+        }
+        const res = await fetch(`/api/clinic/transfer-benefits`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${authToken}`,
+          },
+          body: JSON.stringify({
+            type: "membership",
+            sourcePatientId: resolvedId,
+            targetPatientId: selectedTargetPatient._id,
+            membershipId: selectedMembershipId,
+          }),
+        });
+        const data = await res.json();
+        if (res.ok) {
+          showToast(data.message || "Membership transferred", "success");
+          setShowTransfer(false);
+          setTransferType("");
+          setMembershipUsage(null);
+          setSelectedTargetPatient(null);
+          setSelectedMembershipId("");
+          if (onUpdated) onUpdated();
+        } else {
+          showToast(data.message || "Transfer failed", "error");
+        }
+      } else if (transferType === "package") {
+        if (!selectedPackageId) {
+          showToast("Select a package to transfer", "error");
+          setTransferSubmitting(false);
+          return;
+        }
+        const res = await fetch(`/api/clinic/transfer-benefits`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${authToken}`,
+          },
+          body: JSON.stringify({
+            type: "package",
+            sourcePatientId: resolvedId,
+            targetPatientId: selectedTargetPatient._id,
+            packageId: selectedPackageId,
+          }),
+        });
+        const data = await res.json();
+        if (res.ok) {
+          showToast(data.message || "Package transferred", "success");
+          setShowTransfer(false);
+          setTransferType("");
+          setPackageUsage(null);
+          setSelectedTargetPatient(null);
+          setSelectedPackageId("");
+          if (onUpdated) onUpdated();
+        } else {
+          showToast(data.message || "Transfer failed", "error");
+        }
+      }
+    } catch (e) {
+      showToast("Transfer failed", "error");
+    } finally {
+      setTransferSubmitting(false);
+    }
+  }, [authToken, resolvedId, selectedTargetPatient, transferType, selectedMembershipId, membershipUsage, packageUsage, selectedPackageId, onUpdated]);
+
+  useEffect(() => {
+    const ids = new Set();
+    (invoiceInfo?.membershipTransfers || []).forEach(t => {
+      if (t.toPatientId) ids.add(String(t.toPatientId));
+      if (t.fromPatientId) ids.add(String(t.fromPatientId));
+    });
+    (invoiceInfo?.packageTransfers || []).forEach(t => {
+      if (t.toPatientId) ids.add(String(t.toPatientId));
+      if (t.fromPatientId) ids.add(String(t.fromPatientId));
+    });
+    const uniqueIds = Array.from(ids).filter(Boolean);
+    if (!authToken || uniqueIds.length === 0) return;
+    let mounted = true;
+    const loadNames = async () => {
+      const map = {};
+      try {
+        await Promise.all(
+          uniqueIds.map(async (pid) => {
+            try {
+              const r = await fetch(`/api/staff/get-patient-data/${pid}`, {
+                headers: { Authorization: `Bearer ${authToken}` },
+              });
+              const data = await r.json();
+              if (r.ok && data?._id) {
+                const name = `${(data.firstName || "").trim()} ${(data.lastName || "").trim()}`.trim() || data.emrNumber || pid;
+                map[pid] = name;
+              }
+            } catch {}
+          })
+        );
+      } finally {
+        if (mounted) setTransferNameMap(map);
+      }
+    };
+    loadNames();
+    return () => { mounted = false; };
+  }, [invoiceInfo?.membershipTransfers, invoiceInfo?.packageTransfers, authToken]);
 
 
   const hasPriorityBooking = useMemo(() => {
@@ -778,6 +1033,26 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
                               </div>
                               
                               <div className="mt-2">
+                                {(() => {
+                                  if (!(formData.membership === "Yes" && formData.membershipId && formData.membershipStartDate && formData.membershipEndDate)) return null;
+                                  const k = `${formData.membershipId}|${formData.membershipStartDate}|${formData.membershipEndDate}`;
+                                  const usage = membershipUsageMap[k];
+                                  if (!usage || usage.isExpired || (usage.totalFreeConsultations || 0) === 0) return null;
+                                  const total = usage.totalFreeConsultations || 0;
+                                  const used = usage.usedFreeConsultations || 0;
+                                  const pct = total > 0 ? Math.min(100, Math.round((used / total) * 100)) : 0;
+                                  return (
+                                    <div className="mb-2">
+                                      <div className="flex items-center justify-between text-[9px] text-gray-700 mb-0.5">
+                                        <span>Free consultations used</span>
+                                        <span>{used}/{total}</span>
+                                      </div>
+                                      <div className="w-full h-2 rounded bg-gray-200 overflow-hidden">
+                                        <div className="h-full bg-indigo-500" style={{ width: `${pct}%` }} />
+                                      </div>
+                                    </div>
+                                  );
+                                })()}
                                 {(Array.isArray(formData.memberships) ? formData.memberships : []).length > 0 && (
                                   <div className="border border-gray-200 rounded p-2">
                                     <div className="text-[10px] font-semibold text-gray-900 mb-1">Added Memberships</div>
@@ -812,6 +1087,34 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
                                             <div className="text-gray-500 text-[9px] mt-0.5">
                                               Benefits: {plan?.benefits?.freeConsultations || 0} consultations, {plan?.benefits?.discountPercentage || 0}% discount
                                             </div>
+                                            {(() => {
+                                              const k = `${m.membershipId}|${m.startDate}|${m.endDate}`;
+                                              const usage = membershipUsageMap[k];
+                                              if (!usage || usage.isExpired || (usage.totalFreeConsultations || 0) === 0) return null;
+                                              const total = usage.totalFreeConsultations || 0;
+                                              const used = usage.usedFreeConsultations || 0;
+                                              const pct = total > 0 ? Math.min(100, Math.round((used / total) * 100)) : 0;
+                                              return (
+                                                <div className="mt-1">
+                                                  <div className="flex items-center justify-between text-[9px] text-gray-700 mb-0.5">
+                                                    <span>Free consultations used</span>
+                                                    <span>{used}/{total}</span>
+                                                  </div>
+                                                  <div className="w-full h-2 rounded bg-gray-200 overflow-hidden">
+                                                    <div className="h-full bg-indigo-500" style={{ width: `${pct}%` }} />
+                                                  </div>
+                                                </div>
+                                              );
+                                            })()}
+                                          {(invoiceInfo?.membershipTransfers || []).length > 0 && (
+                                            <div className="mt-0.5">
+                                              {(invoiceInfo.membershipTransfers || []).filter(t => String(t.membershipId) === String(m.membershipId)).map((t, ti) => (
+                                                <span key={ti} className={`inline-flex px-1.5 py-0.5 rounded text-[9px] font-medium ${t.type === 'out' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                                                  {t.type === 'out' ? 'Transferred to' : 'Transferred from'} {(transferNameMap[String(t.toPatientId)] || transferNameMap[String(t.fromPatientId)] || '').trim()}
+                                                </span>
+                                              ))}
+                                            </div>
+                                          )}
                                           </div>
                                         );
                                       })}
@@ -899,6 +1202,15 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
                                           <div className="text-gray-500 text-[9px] mt-0.5">
                                             Treatments: {pkg?.treatments?.length || 0} included
                                           </div>
+                                          {(invoiceInfo?.packageTransfers || []).length > 0 && (
+                                            <div className="mt-0.5">
+                                              {(invoiceInfo.packageTransfers || []).filter(t => String(t.packageId) === String(p.packageId)).map((t, ti) => (
+                                                <span key={ti} className={`inline-flex px-1.5 py-0.5 rounded text-[9px] font-medium ${t.type === 'out' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                                                  {t.type === 'out' ? 'Transferred to' : 'Transferred from'} {(transferNameMap[String(t.toPatientId)] || transferNameMap[String(t.fromPatientId)] || '').trim()}
+                                                </span>
+                                              ))}
+                                            </div>
+                                          )}
                                         </div>
                                       );
                                     })}
@@ -998,6 +1310,229 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
                       />
                     )}
                   </div>
+                </div>
+                <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-xl p-4 border border-emerald-200 shadow-md">
+                  <div className="flex items-center justify-between mb-3">
+                    <h2 className="text-[14px] font-bold text-emerald-700">Transfer</h2>
+                    <label className="inline-flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={showTransfer}
+                        onChange={(e) => {
+                          setShowTransfer(e.target.checked);
+                          if (!e.target.checked) {
+                            setTransferType("");
+                            setMembershipUsage(null);
+                            setPackageUsage(null);
+                            setSelectedTargetPatient(null);
+                            setSelectedPackageId("");
+                            setSelectedMembershipId("");
+                          }
+                        }}
+                      />
+                      <span className="text-[11px] text-gray-700">Enable</span>
+                    </label>
+                  </div>
+                  {showTransfer && (
+                    <div className="space-y-3">
+                      <div className="flex gap-3">
+                        <label className="inline-flex items-center gap-2">
+                          <input
+                            type="radio"
+                            name="transferType"
+                            value="membership"
+                            checked={transferType === "membership"}
+                            onChange={(e) => {
+                              setTransferType(e.target.value);
+                              setSelectedPackageId("");
+                              setPackageUsage(null);
+                              const arr = Array.isArray(formData.memberships) ? formData.memberships : [];
+                              if (arr.length > 0) {
+                                setSelectedMembershipId(arr[0].membershipId);
+                              } else if (formData.membership === "Yes" && formData.membershipId) {
+                                setSelectedMembershipId(formData.membershipId);
+                              } else {
+                                setSelectedMembershipId("");
+                              }
+                            }}
+                          />
+                          <span className="text-[11px]">Transfer Membership</span>
+                        </label>
+                        <label className="inline-flex items-center gap-2">
+                          <input
+                            type="radio"
+                            name="transferType"
+                            value="package"
+                            checked={transferType === "package"}
+                            onChange={(e) => {
+                              setTransferType(e.target.value);
+                              setMembershipUsage(null);
+                            }}
+                          />
+                          <span className="text-[11px]">Transfer Package</span>
+                        </label>
+                      </div>
+                      {transferType === "membership" && (
+                        <div className="rounded-lg border border-emerald-200 bg-white p-3">
+                          <div className="mb-2">
+                            <label className="block text-[10px] mb-0.5 font-medium text-gray-700">Select Membership</label>
+                            <select
+                              value={selectedMembershipId}
+                              onChange={(e) => setSelectedMembershipId(e.target.value)}
+                              className="text-gray-900 w-full px-3 py-2 text-[10px] border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 border-gray-300 hover:border-indigo-400"
+                            >
+                              <option value="">Select membership</option>
+                              {(formData.memberships || []).map((m, idx) => {
+                                const plan = memberships.find((x) => x._id === m.membershipId);
+                                return (
+                                  <option key={`${m.membershipId}-${idx}`} value={m.membershipId}>
+                                    {plan?.name || m.membershipId} ({m.startDate?.slice(0,10)} → {m.endDate?.slice(0,10)})
+                                  </option>
+                                );
+                              })}
+                              {formData.membership === "Yes" && formData.membershipId && !(formData.memberships || []).some(m => m.membershipId === formData.membershipId) && (
+                                <option value={formData.membershipId}>
+                                  {(() => {
+                                    const plan = memberships.find((x) => x._id === formData.membershipId);
+                                    return plan?.name || formData.membershipId;
+                                  })()} ({formData.membershipStartDate?.slice(0,10)} → {formData.membershipEndDate?.slice(0,10)})
+                                </option>
+                              )}
+                            </select>
+                          </div>
+                          {membershipUsage ? (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                              <div className="text-[11px]">
+                                <div className="font-semibold text-gray-700">Total Free Consultations</div>
+                                <div className="text-gray-900">{membershipUsage.totalFreeConsultations || 0}</div>
+                              </div>
+                              <div className="text-[11px]">
+                                <div className="font-semibold text-gray-700">Used Free Consultations</div>
+                                <div className="text-gray-900">{membershipUsage.usedFreeConsultations || 0}</div>
+                              </div>
+                              <div className="text-[11px]">
+                                <div className="font-semibold text-gray-700">Remaining</div>
+                                <div className="text-gray-900">{membershipUsage.remainingFreeConsultations || 0}</div>
+                              </div>
+                              <div className="text-[11px]">
+                                <div className="font-semibold text-gray-700">Discount %</div>
+                                <div className="text-gray-900">{membershipUsage.discountPercentage || 0}</div>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="text-[11px] text-gray-600">Loading membership usage...</div>
+                          )}
+                        </div>
+                      )}
+                      {transferType === "package" && (
+                        <div className="rounded-lg border border-emerald-200 bg-white p-3 space-y-2">
+                          <div>
+                            <label className="block text-[10px] mb-0.5 font-medium text-gray-700">Select Package</label>
+                            <select
+                              value={selectedPackageId}
+                              onChange={(e) => setSelectedPackageId(e.target.value)}
+                              className="text-gray-900 w-full px-3 py-2 text-[10px] border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 border-gray-300 hover:border-indigo-400"
+                            >
+                              <option value="">Select package</option>
+                              {(formData.packages || []).map((p) => {
+                                const pkg = packages.find(x => x._id === p.packageId);
+                                return pkg ? (
+                                  <option key={pkg._id} value={pkg._id}>
+                                    {pkg.name} (₹{pkg.totalPrice}, {pkg.totalSessions} sessions)
+                                  </option>
+                                ) : null;
+                              })}
+                            </select>
+                          </div>
+                          {selectedPackageId && (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                              <div className="text-[11px]">
+                                <div className="font-semibold text-gray-700">Total Sessions</div>
+                                <div className="text-gray-900">
+                                  {(() => {
+                                    const pkg = packages.find(p => p._id === selectedPackageId);
+                                    return pkg ? pkg.totalSessions : 0;
+                                  })()}
+                                </div>
+                              </div>
+                              <div className="text-[11px]">
+                                <div className="font-semibold text-gray-700">Used Sessions</div>
+                                <div className="text-gray-900">{packageUsage?.totalSessions || 0}</div>
+                              </div>
+                              <div className="text-[11px]">
+                                <div className="font-semibold text-gray-700">Remaining</div>
+                                <div className="text-gray-900">
+                                  {typeof packageUsage?.remainingSessions === "number"
+                                    ? packageUsage.remainingSessions
+                                    : Math.max(0, (() => {
+                                        const pkg = packages.find(p => p._id === selectedPackageId);
+                                        const totalSess = pkg ? pkg.totalSessions : 0;
+                                        return totalSess - (packageUsage?.totalSessions || 0);
+                                      })())}
+                                </div>
+                              </div>
+                              <div className="text-[11px]">
+                                <div className="font-semibold text-gray-700">Package</div>
+                                <div className="text-gray-900">
+                                  {(() => {
+                                    const pkg = packages.find(p => p._id === selectedPackageId);
+                                    return pkg ? pkg.name : "-";
+                                  })()}
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      <div className="rounded-lg border border-emerald-200 bg-white p-3 space-y-2">
+                        <div>
+                          <label className="block text-[10px] mb-0.5 font-medium text-gray-700">Search Target Patient</label>
+                          <input
+                            type="text"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            placeholder="Type name, mobile, or EMR"
+                            className="w-full px-3 py-2 text-[10px] border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all duration-200 border-gray-300 hover:border-indigo-400"
+                          />
+                        </div>
+                        <div className="max-h-48 overflow-auto border border-gray-200 rounded">
+                          {searchLoading ? (
+                            <div className="p-2 text-[10px] text-gray-600">Searching...</div>
+                          ) : (searchResults || []).length === 0 ? (
+                            <div className="p-2 text-[10px] text-gray-600">No results</div>
+                          ) : (
+                            <ul className="divide-y divide-gray-200">
+                              {searchResults.map((p) => (
+                                <li key={p._id} className="p-2 hover:bg-gray-50 cursor-pointer text-[11px]" onClick={() => setSelectedTargetPatient(p)}>
+                                  <div className="font-medium text-gray-900">{p.fullName || `${p.firstName} ${p.lastName}`}</div>
+                                  <div className="text-gray-600">{p.emrNumber} • {p.mobileNumber}</div>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+                        {selectedTargetPatient && (
+                          <div className="text-[11px] text-gray-800">
+                            Selected: {selectedTargetPatient.fullName || `${selectedTargetPatient.firstName} ${selectedTargetPatient.lastName}`} ({selectedTargetPatient.emrNumber})
+                          </div>
+                        )}
+                        <div className="flex justify-end">
+                          <button
+                            onClick={handleSubmitTransfer}
+                            disabled={
+                              transferSubmitting ||
+                              !selectedTargetPatient ||
+                              (transferType === "membership" && (!selectedMembershipId)) ||
+                              (transferType === "package" && (!selectedPackageId))
+                            }
+                            className="px-4 py-2 text-[11px] bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-lg hover:from-emerald-700 hover:to-teal-700 transition-all duration-300 font-bold shadow-lg"
+                          >
+                            {transferSubmitting ? "Transferring..." : "Confirm Transfer"}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Actions */}

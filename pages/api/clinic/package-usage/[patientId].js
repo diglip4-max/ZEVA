@@ -45,9 +45,45 @@ export default async function handler(req, res) {
       }
     }
 
+    // Fetch patient details to check for transfers
+    const PatientRegistration = (await import("../../../../models/PatientRegistration")).default;
+    const patient = await PatientRegistration.findById(patientId).lean();
+    
+    // Get transferred packages info
+    const transfersIn = Array.isArray(patient?.packageTransfers)
+      ? patient.packageTransfers.filter(t => t.type === 'in')
+      : [];
+    
+    // Get packages transferred OUT by this patient
+    const transfersOut = Array.isArray(patient?.packageTransfers)
+      ? patient.packageTransfers.filter(t => t.type === 'out')
+      : [];
+    const transferredOutPackageIds = transfersOut.map(t => String(t.packageId));
+    const transferredOutPackageNames = transfersOut.map(t => t.packageName).filter(Boolean);
+    
+    // Build a map of packageId -> source patient info for transfers
+    const transferSourceMap = {};
+    transfersIn.forEach(t => {
+      const key = t.packageName || String(t.packageId || "");
+      transferSourceMap[key] = {
+        fromPatientId: t.fromPatientId,
+        transferredSessions: t.transferredSessions || 0,
+        packageId: t.packageId,
+        packageName: t.packageName
+      };
+    });
+
+    // Collect all patient IDs to query (current patient + source patients from transfers)
+    const patientIdsToQuery = [patientId];
+    transfersIn.forEach(t => {
+      if (t.fromPatientId && !patientIdsToQuery.includes(String(t.fromPatientId))) {
+        patientIdsToQuery.push(String(t.fromPatientId));
+      }
+    });
+
     // Build query
     const query = {
-      patientId: patientId,
+      patientId: { $in: patientIdsToQuery },
       clinicId: clinicId,
       service: "Package",
     };
@@ -57,10 +93,10 @@ export default async function handler(req, res) {
       query.package = packageName;
     }
 
-    // Fetch all package billing records for this patient
+    // Fetch all package billing records for this patient and source patients
     const billings = await Billing.find(query)
       .sort({ createdAt: -1 }) // Most recent first
-      .select("package selectedPackageTreatments sessions createdAt invoiceNumber amount paid pending")
+      .select("package selectedPackageTreatments sessions createdAt invoiceNumber amount paid pending patientId")
       .lean();
 
     // Fetch package definitions to get max sessions for each treatment
@@ -84,16 +120,29 @@ export default async function handler(req, res) {
       const pkgName = billing.package;
       if (!pkgName) return;
 
+      // Skip packages that were transferred OUT by this patient
+      if (transferredOutPackageNames.includes(pkgName)) {
+        return;
+      }
+
+      // Check if this billing is from a transfer source patient
+      const isFromSourcePatient = String(billing.patientId) !== String(patientId);
+      const transferInfo = transferSourceMap[pkgName];
+      const isTransferredPackage = transferInfo && String(transferInfo.fromPatientId) === String(billing.patientId);
+
       if (!packageUsage[pkgName]) {
         packageUsage[pkgName] = {
           packageName: pkgName,
           treatments: {},
           totalSessions: 0,
           billingHistory: [],
+          isTransferred: !!transferInfo,
+          transferredFrom: transferInfo ? transferInfo.fromPatientId : null,
+          transferredSessions: transferInfo ? transferInfo.transferredSessions : 0,
         };
       }
 
-      // Add to billing history
+      // Add to billing history with source patient info
       packageUsage[pkgName].billingHistory.push({
         invoiceNumber: billing.invoiceNumber,
         sessions: billing.sessions || 0,
@@ -102,6 +151,8 @@ export default async function handler(req, res) {
         paid: billing.paid || 0,
         pending: billing.pending || 0,
         treatments: billing.selectedPackageTreatments || [],
+        isFromSourcePatient: isFromSourcePatient,
+        sourcePatientId: isFromSourcePatient ? billing.patientId : null,
       });
 
       // Aggregate treatment sessions
@@ -126,11 +177,13 @@ export default async function handler(req, res) {
 
           packageUsage[pkgName].treatments[slug].totalUsedSessions += treatment.sessions || 0;
           
-          // Add usage detail for this billing
+          // Add usage detail for this billing with source patient info
           packageUsage[pkgName].treatments[slug].usageDetails.push({
             invoiceNumber: billing.invoiceNumber,
             sessions: treatment.sessions || 0,
             date: billing.createdAt,
+            isFromSourcePatient: isFromSourcePatient,
+            sourcePatientId: isFromSourcePatient ? billing.patientId : null,
           });
         });
       }
@@ -141,6 +194,17 @@ export default async function handler(req, res) {
     // Convert treatments object to array
     Object.keys(packageUsage).forEach((pkgName) => {
       packageUsage[pkgName].treatments = Object.values(packageUsage[pkgName].treatments);
+    });
+
+    // Apply transferred allowances if present
+    Object.keys(packageUsage).forEach((pkgName) => {
+      const transferInfo = transferSourceMap[pkgName];
+      if (transferInfo && typeof transferInfo.transferredSessions === 'number') {
+        const used = packageUsage[pkgName].totalSessions || 0;
+        const remaining = Math.max(0, transferInfo.transferredSessions - used);
+        packageUsage[pkgName].totalAllowedSessions = transferInfo.transferredSessions;
+        packageUsage[pkgName].remainingSessions = remaining;
+      }
     });
 
     return res.status(200).json({

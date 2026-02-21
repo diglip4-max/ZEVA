@@ -118,6 +118,33 @@ const patientRegistrationSchema = new mongoose.Schema(
         assignedDate: { type: Date, default: Date.now },
       }
     ],
+    membershipTransfers: [
+      {
+        type: { type: String, enum: ["in", "out"], required: true },
+        membershipId: { type: mongoose.Schema.Types.ObjectId, ref: "MembershipPlan", required: true },
+        membershipName: { type: String, trim: true },
+        fromPatientId: { type: mongoose.Schema.Types.ObjectId, ref: "PatientRegistration" },
+        toPatientId: { type: mongoose.Schema.Types.ObjectId, ref: "PatientRegistration" },
+        startDate: { type: Date },
+        endDate: { type: Date },
+        transferredFreeConsultations: { type: Number, default: 0, min: 0 },
+        discountPercentageTransferred: { type: Number, default: 0, min: 0, max: 100 },
+        transferDate: { type: Date, default: Date.now },
+      }
+    ],
+    packageTransfers: [
+      {
+        type: { type: String, enum: ["in", "out"], required: true },
+        packageId: { type: mongoose.Schema.Types.ObjectId, ref: "Package", required: true },
+        packageName: { type: String, trim: true },
+        fromPatientId: { type: mongoose.Schema.Types.ObjectId, ref: "PatientRegistration" },
+        toPatientId: { type: mongoose.Schema.Types.ObjectId, ref: "PatientRegistration" },
+        transferredSessions: { type: Number, default: 0, min: 0 },
+        transferDate: { type: Date, default: Date.now },
+      }
+    ],
+    hasTransferredOut: { type: Boolean, default: false },
+    transferredOutMembershipPriority: { type: Boolean, default: false },
   },
   { timestamps: true }
 );

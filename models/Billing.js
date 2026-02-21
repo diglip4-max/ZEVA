@@ -1,5 +1,14 @@
 import mongoose from "mongoose";
 
+const multiplePaymentSchema = new mongoose.Schema({
+  paymentMethod: {
+    type: String,
+    enum: ["Cash", "Card", "BT", "Tabby", "Tamara"],
+    required: true,
+  },
+  amount: { type: Number, required: true, min: 0 },
+}, { _id: false });
+
 const paymentHistorySchema = new mongoose.Schema({
   amount: { type: Number, required: true, min: 0 },
   paid: { type: Number, required: true, min: 0 },
@@ -9,6 +18,7 @@ const paymentHistorySchema = new mongoose.Schema({
     enum: ["Cash", "Card", "BT", "Tabby", "Tamara"],
     required: true,
   },
+  multiplePayments: [multiplePaymentSchema],
   status: { type: String, enum: ["Active", "Cancelled", "Completed", "Rejected", "Released"] },
   updatedAt: { type: Date, default: Date.now },
 }, { _id: false });
@@ -96,6 +106,12 @@ const billingSchema = new mongoose.Schema(
       default: 0,
       min: 0,
     },
+    // Amount of previous pending cleared in this invoice
+    pendingUsed: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
     pending: {
       type: Number,
       required: true,
@@ -111,6 +127,8 @@ const billingSchema = new mongoose.Schema(
       enum: ["Cash", "Card", "BT", "Tabby", "Tamara"],
       required: true,
     },
+    // Multiple payment methods for split payments
+    multiplePayments: [multiplePaymentSchema],
     paymentHistory: [paymentHistorySchema],
     // Additional fields
     notes: {
@@ -146,9 +164,16 @@ billingSchema.pre("save", function (next) {
   this.amount = Number(this.amount ?? 0);
   this.paid = Number(this.paid ?? 0);
   this.advanceUsed = Number(this.advanceUsed ?? 0);
+  this.pendingUsed = Number(this.pendingUsed ?? 0);
   this.advance = Number(this.advance ?? 0);
 
   if (this.advanceUsed < 0) this.advanceUsed = 0;
+  if (this.pendingUsed < 0) this.pendingUsed = 0;
+
+  // If multiplePayments are present, sum them as total paid
+  if (this.multiplePayments && this.multiplePayments.length > 0) {
+    this.paid = this.multiplePayments.reduce((sum, mp) => sum + Number(mp.amount || 0), 0);
+  }
 
   // Effective due after applying previous advance to this invoice
   const effectiveDue = Math.max(0, this.amount - this.advanceUsed);
