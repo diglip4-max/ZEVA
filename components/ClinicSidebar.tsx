@@ -134,228 +134,228 @@ interface ClinicSidebarProps {
 // Professional icon mapping for clinic sidebar - using Lucide React icons
 const iconMap: { [key: string]: React.ReactNode } = {
   // Dashboard & Overview
-  '📊': <BarChart3 className="w-4 h-4" />,
-  '🏠': <LayoutDashboard className="w-4 h-4" />,
-  '📈': <TrendingUp className="w-4 h-4" />,
-  '📉': <Activity className="w-4 h-4" />,
-  '⚡': <Zap className="w-4 h-4" />,
-  '🎯': <Target className="w-4 h-4" />,
-  'home': <Home className="w-4 h-4" />,
-  'dashboard': <LayoutDashboard className="w-4 h-4" />,
-  'analytics': <BarChart3 className="w-4 h-4" />,
-  'reports': <FileText className="w-4 h-4" />,
-  'overview': <Activity className="w-4 h-4" />,
-  
+  '📊': <BarChart3 className="w-4 h-4 text-[#6B7280]" />,
+  '🏠': <LayoutDashboard className="w-4 h-4 text-[#6B7280]" />,
+  '📈': <TrendingUp className="w-4 h-4 text-[#6B7280]" />,
+  '📉': <Activity className="w-4 h-4 text-[#6B7280]" />,
+  '⚡': <Zap className="w-4 h-4 text-[#6B7280]" />,
+  '🎯': <Target className="w-4 h-4 text-[#6B7280]" />,
+  'home': <Home className="w-4 h-4 text-[#6B7280]" />,
+  'dashboard': <LayoutDashboard className="w-4 h-4 text-[#6B7280]" />,
+  'analytics': <BarChart3 className="w-4 h-4 text-[#6B7280]" />,
+  'reports': <FileText className="w-4 h-4 text-[#6B7280]" />,
+  'overview': <Activity className="w-4 h-4 text-[#6B7280]" />,
+
   // Users & People
-  '👥': <Users className="w-4 h-4" />,
-  '👤': <UserCircle className="w-4 h-4" />,
-  '👨‍⚕️': <Stethoscope className="w-4 h-4" />,
-  '👨‍💼': <UserCog className="w-4 h-4" />,
-  '👨‍🔬': <Stethoscope className="w-4 h-4" />,
-  'users': <Users className="w-4 h-4" />,
-  'patients': <UserCircle className="w-4 h-4" />,
-  'doctors': <Stethoscope className="w-4 h-4" />,
-  'staff': <UserCog className="w-4 h-4" />,
-  'agents': <UserPlus className="w-4 h-4" />,
-  'team': <Users className="w-4 h-4" />,
-  'profile': <UserCircle className="w-4 h-4" />,
-  'user-circle': <UserCircle className="w-4 h-4" />,
-  
+  '👥': <Users className="w-4 h-4 text-[#6B7280]" />,
+  '👤': <UserCircle className="w-4 h-4 text-[#6B7280]" />,
+  '👨‍⚕️': <Stethoscope className="w-4 h-4 text-[#6B7280]" />,
+  '👨‍💼': <UserCog className="w-4 h-4 text-[#6B7280]" />,
+  '👨‍🔬': <Stethoscope className="w-4 h-4 text-[#6B7280]" />,
+  'users': <Users className="w-4 h-4 text-[#6B7280]" />,
+  'patients': <UserCircle className="w-4 h-4 text-[#6B7280]" />,
+  'doctors': <Stethoscope className="w-4 h-4 text-[#6B7280]" />,
+  'staff': <UserCog className="w-4 h-4 text-[#6B7280]" />,
+  'agents': <UserPlus className="w-4 h-4 text-[#6B7280]" />,
+  'team': <Users className="w-4 h-4 text-[#6B7280]" />,
+  'profile': <UserCircle className="w-4 h-4 text-[#6B7280]" />,
+  'user-circle': <UserCircle className="w-4 h-4 text-[#6B7280]" />,
+
   // Communication & Messages
-  '💬': <MessageSquare className="w-4 h-4" />,
-  '📧': <Mail className="w-4 h-4" />,
-  '📨': <Inbox className="w-4 h-4" />,
-  '💭': <MessageCircle className="w-4 h-4" />,
-  '📱': <Phone className="w-4 h-4" />,
-  '📤': <Send className="w-4 h-4" />,
-  'messages': <MessageSquare className="w-4 h-4" />,
-  'chat': <MessageCircle className="w-4 h-4" />,
-  'email': <Mail className="w-4 h-4" />,
-  'inbox': <Inbox className="w-4 h-4" />,
-  'notifications': <Bell className="w-4 h-4" />,
-  'calls': <Phone className="w-4 h-4" />,
-  
+  '💬': <MessageSquare className="w-4 h-4 text-[#6B7280]" />,
+  '📧': <Mail className="w-4 h-4 text-[#6B7280]" />,
+  '📨': <Inbox className="w-4 h-4 text-[#6B7280]" />,
+  '💭': <MessageCircle className="w-4 h-4 text-[#6B7280]" />,
+  '📱': <Phone className="w-4 h-4 text-[#6B7280]" />,
+  '📤': <Send className="w-4 h-4 text-[#6B7280]" />,
+  'messages': <MessageSquare className="w-4 h-4 text-[#6B7280]" />,
+  'chat': <MessageCircle className="w-4 h-4 text-[#6B7280]" />,
+  'email': <Mail className="w-4 h-4 text-[#6B7280]" />,
+  'inbox': <Inbox className="w-4 h-4 text-[#6B7280]" />,
+  'notifications': <Bell className="w-4 h-4 text-[#6B7280]" />,
+  'calls': <Phone className="w-4 h-4 text-[#6B7280]" />,
+
   // Calendar & Appointments
-  '📅': <Calendar className="w-4 h-4" />,
-  '📆': <CalendarDays className="w-4 h-4" />,
-  '📅✅': <CalendarCheck className="w-4 h-4" />,
-  '⏰': <Clock className="w-4 h-4" />,
-  '🗓️': <CalendarCheck className="w-4 h-4" />,
-  'appointments': <Calendar className="w-4 h-4" />,
-  'schedule': <CalendarDays className="w-4 h-4" />,
-  'calendar': <Calendar className="w-4 h-4" />,
-  'time': <Clock className="w-4 h-4" />,
-  'booking': <CalendarCheck className="w-4 h-4" />,
-  'slots': <Clock className="w-4 h-4" />,
-  
+  '📅': <Calendar className="w-4 h-4 text-[#6B7280]" />,
+  '📆': <CalendarDays className="w-4 h-4 text-[#6B7280]" />,
+  '📅✅': <CalendarCheck className="w-4 h-4 text-[#6B7280]" />,
+  '⏰': <Clock className="w-4 h-4 text-[#6B7280]" />,
+  '🗓️': <CalendarCheck className="w-4 h-4 text-[#6B7280]" />,
+  'appointments': <Calendar className="w-4 h-4 text-[#6B7280]" />,
+  'schedule': <CalendarDays className="w-4 h-4 text-[#6B7280]" />,
+  'calendar': <Calendar className="w-4 h-4 text-[#6B7280]" />,
+  'time': <Clock className="w-4 h-4 text-[#6B7280]" />,
+  'booking': <CalendarCheck className="w-4 h-4 text-[#6B7280]" />,
+  'slots': <Clock className="w-4 h-4 text-[#6B7280]" />,
+
   // Additional icon keys for professional icons
-  'bar-chart': <BarChart3 className="w-4 h-4" />,
-  'dollar-sign': <DollarSign className="w-4 h-4" />,
-  
+  'bar-chart': <BarChart3 className="w-4 h-4 text-[#6B7280]" />,
+  'dollar-sign': <DollarSign className="w-4 h-4 text-[#6B7280]" />,
+
   // Documents & Files
-  '📝': <FileText className="w-4 h-4" />,
-  '📄': <File className="w-4 h-4" />,
-  '📑': <FileEdit className="w-4 h-4" />,
-  '📋': <ClipboardList className="w-4 h-4" />,
-  '📚': <BookOpen className="w-4 h-4" />,
-  '📰': <Newspaper className="w-4 h-4" />,
-  '✍️': <PenTool className="w-4 h-4" />,
-  'documents': <FileText className="w-4 h-4" />,
-  'files': <File className="w-4 h-4" />,
-  'records': <ClipboardCheck className="w-4 h-4" />,
-  'prescriptions': <FileText className="w-4 h-4" />,
-  'notes': <FileEdit className="w-4 h-4" />,
-  'forms': <ClipboardList className="w-4 h-4" />,
-  'templates': <FileText className="w-4 h-4" />,
-  
+  '📝': <FileText className="w-4 h-4 text-[#6B7280]" />,
+  '📄': <File className="w-4 h-4 text-[#6B7280]" />,
+  '📑': <FileEdit className="w-4 h-4 text-[#6B7280]" />,
+  '📋': <ClipboardList className="w-4 h-4 text-[#6B7280]" />,
+  '📚': <BookOpen className="w-4 h-4 text-[#6B7280]" />,
+  '📰': <Newspaper className="w-4 h-4 text-[#6B7280]" />,
+  '✍️': <PenTool className="w-4 h-4 text-[#6B7280]" />,
+  'documents': <FileText className="w-4 h-4 text-[#6B7280]" />,
+  'files': <File className="w-4 h-4 text-[#6B7280]" />,
+  'records': <ClipboardCheck className="w-4 h-4 text-[#6B7280]" />,
+  'prescriptions': <FileText className="w-4 h-4 text-[#6B7280]" />,
+  'notes': <FileEdit className="w-4 h-4 text-[#6B7280]" />,
+  'forms': <ClipboardList className="w-4 h-4 text-[#6B7280]" />,
+  'templates': <FileText className="w-4 h-4 text-[#6B7280]" />,
+
   // Business & Work
-  '💼': <Briefcase className="w-4 h-4" />,
-  '💼‍': <BriefcaseBusiness className="w-4 h-4" />,
-  '🏢': <Building2 className="w-4 h-4" />,
-  '🏥': <Building2 className="w-4 h-4" />,
-  '🩺': <Stethoscope className="w-4 h-4" />,
-  'clinic': <Building2 className="w-4 h-4" />,
-  'facility': <Building2 className="w-4 h-4" />,
-  'business': <Briefcase className="w-4 h-4" />,
-  'organization': <Building2 className="w-4 h-4" />,
-  
+  '💼': <Briefcase className="w-4 h-4 text-[#6B7280]" />,
+  '💼‍': <BriefcaseBusiness className="w-4 h-4 text-[#6B7280]" />,
+  '🏢': <Building2 className="w-4 h-4 text-[#6B7280]" />,
+  '🏥': <Building2 className="w-4 h-4 text-[#6B7280]" />,
+  '🩺': <Stethoscope className="w-4 h-4 text-[#6B7280]" />,
+  'clinic': <Building2 className="w-4 h-4 text-[#6B7280]" />,
+  'facility': <Building2 className="w-4 h-4 text-[#6B7280]" />,
+  'business': <Briefcase className="w-4 h-4 text-[#6B7280]" />,
+  'organization': <Building2 className="w-4 h-4 text-[#6B7280]" />,
+
   // Medical & Health
-  'medical': <Stethoscope className="w-4 h-4" />,
-  'health': <Heart className="w-4 h-4" />,
-  'treatments': <Stethoscope className="w-4 h-4" />,
-  'services': <Activity className="w-4 h-4" />,
-  'diagnostics': <Activity className="w-4 h-4" />,
-  'tests': <FileText className="w-4 h-4" />,
-  '❤️': <Heart className="w-4 h-4" />,
-  '💊': <Package className="w-4 h-4" />,
-  
+  'medical': <Stethoscope className="w-4 h-4 text-[#6B7280]" />,
+  'health': <Heart className="w-4 h-4 text-[#6B7280]" />,
+  'treatments': <Stethoscope className="w-4 h-4 text-[#6B7280]" />,
+  'services': <Activity className="w-4 h-4 text-[#6B7280]" />,
+  'diagnostics': <Activity className="w-4 h-4 text-[#6B7280]" />,
+  'tests': <FileText className="w-4 h-4 text-[#6B7280]" />,
+  '❤️': <Heart className="w-4 h-4 text-[#6B7280]" />,
+  '💊': <Package className="w-4 h-4 text-[#6B7280]" />,
+
   // Reviews & Ratings
-  '⭐': <Star className="w-4 h-4" />,
-  '👁️': <Eye className="w-4 h-4" />,
-  '🏆': <Award className="w-4 h-4" />,
-  'reviews': <Star className="w-4 h-4" />,
-  'ratings': <Star className="w-4 h-4" />,
-  'feedback': <MessageSquare className="w-4 h-4" />,
-  'testimonials': <Award className="w-4 h-4" />,
-  
+  '⭐': <Star className="w-4 h-4 text-[#6B7280]" />,
+  '👁️': <Eye className="w-4 h-4 text-[#6B7280]" />,
+  '🏆': <Award className="w-4 h-4 text-[#6B7280]" />,
+  'reviews': <Star className="w-4 h-4 text-[#6B7280]" />,
+  'ratings': <Star className="w-4 h-4 text-[#6B7280]" />,
+  'feedback': <MessageSquare className="w-4 h-4 text-[#6B7280]" />,
+  'testimonials': <Award className="w-4 h-4 text-[#6B7280]" />,
+
   // Offers & Promotions
-  '🎁': <Gift className="w-4 h-4" />,
-  '🎉': <Package className="w-4 h-4" />,
-  '🛍️': <ShoppingBag className="w-4 h-4" />,
-  'offers': <Tag className="w-4 h-4" />,
-  'promotions': <Gift className="w-4 h-4" />,
-  'discounts': <Percent className="w-4 h-4" />,
-  'deals': <ShoppingCart className="w-4 h-4" />,
-  'packages': <Package className="w-4 h-4" />,
-  
+  '🎁': <Gift className="w-4 h-4 text-[#6B7280]" />,
+  '🎉': <Package className="w-4 h-4 text-[#6B7280]" />,
+  '🛍️': <ShoppingBag className="w-4 h-4 text-[#6B7280]" />,
+  'offers': <Tag className="w-4 h-4 text-[#6B7280]" />,
+  'promotions': <Gift className="w-4 h-4 text-[#6B7280]" />,
+  'discounts': <Percent className="w-4 h-4 text-[#6B7280]" />,
+  'deals': <ShoppingCart className="w-4 h-4 text-[#6B7280]" />,
+  'packages': <Package className="w-4 h-4 text-[#6B7280]" />,
+
   // Payments & Finance
-  '💳': <CreditCard className="w-4 h-4" />,
-  '💰': <DollarSign className="w-4 h-4" />,
-  'payments': <CreditCard className="w-4 h-4" />,
-  'billing': <Receipt className="w-4 h-4" />,
-  'invoices': <FileText className="w-4 h-4" />,
-  'transactions': <DollarSign className="w-4 h-4" />,
-  'revenue': <TrendingUp className="w-4 h-4" />,
-  'expenses': <TrendingUp className="w-4 h-4" />,
-  'wallet': <Wallet className="w-4 h-4" />,
-  'finance': <DollarSign className="w-4 h-4" />,
-  'accounts': <DollarSign className="w-4 h-4" />,
-  
+  '💳': <CreditCard className="w-4 h-4 text-[#6B7280]" />,
+  '💰': <DollarSign className="w-4 h-4 text-[#6B7280]" />,
+  'payments': <CreditCard className="w-4 h-4 text-[#6B7280]" />,
+  'billing': <Receipt className="w-4 h-4 text-[#6B7280]" />,
+  'invoices': <FileText className="w-4 h-4 text-[#6B7280]" />,
+  'transactions': <DollarSign className="w-4 h-4 text-[#6B7280]" />,
+  'revenue': <TrendingUp className="w-4 h-4 text-[#6B7280]" />,
+  'expenses': <TrendingUp className="w-4 h-4 text-[#6B7280]" />,
+  'wallet': <Wallet className="w-4 h-4 text-[#6B7280]" />,
+  'finance': <DollarSign className="w-4 h-4 text-[#6B7280]" />,
+  'accounts': <DollarSign className="w-4 h-4 text-[#6B7280]" />,
+
   // Settings & Security
-  // '⚙️': <Settings className="w-4 h-4" />,
-  '🔒': <Lock className="w-4 h-4" />,
-  '🛡️': <Shield className="w-4 h-4" />,
-  // 'settings': <Settings className="w-4 h-4" />,
-  'security': <Shield className="w-4 h-4" />,
-  'permissions': <Lock className="w-4 h-4" />,
-  'access': <UserCheck className="w-4 h-4" />,
-  // 'configuration': <Settings className="w-4 h-4" />,
-  // 'preferences': <Settings className="w-4 h-4" />,
-  
+  // '⚙️': <Settings className="w-4 h-4 text-[#6B7280]" />,
+  '🔒': <Lock className="w-4 h-4 text-[#6B7280]" />,
+  '🛡️': <Shield className="w-4 h-4 text-[#6B7280]" />,
+  // 'settings': <Settings className="w-4 h-4 text-[#6B7280]" />,
+  'security': <Shield className="w-4 h-4 text-[#6B7280]" />,
+  'permissions': <Lock className="w-4 h-4 text-[#6B7280]" />,
+  'access': <UserCheck className="w-4 h-4 text-[#6B7280]" />,
+  // 'configuration': <Settings className="w-4 h-4 text-[#6B7280]" />,
+  // 'preferences': <Settings className="w-4 h-4 text-[#6B7280]" />,
+
   // Notifications & Alerts
-  '🔔': <Bell className="w-4 h-4" />,
-  '⚠️': <AlertTriangle className="w-4 h-4" />,
-  'ℹ️': <Info className="w-4 h-4" />,
-  '❓': <HelpCircle className="w-4 h-4" />,
-  '✅': <CheckCircle className="w-4 h-4" />,
-  '❌': <XCircle className="w-4 h-4" />,
-  'alerts': <AlertCircle className="w-4 h-4" />,
-  'warnings': <AlertTriangle className="w-4 h-4" />,
-  'help': <HelpCircle className="w-4 h-4" />,
-  'support': <HelpCircle className="w-4 h-4" />,
-  
+  '🔔': <Bell className="w-4 h-4 text-[#6B7280]" />,
+  '⚠️': <AlertTriangle className="w-4 h-4 text-[#6B7280]" />,
+  'ℹ️': <Info className="w-4 h-4 text-[#6B7280]" />,
+  '❓': <HelpCircle className="w-4 h-4 text-[#6B7280]" />,
+  '✅': <CheckCircle className="w-4 h-4 text-[#6B7280]" />,
+  '❌': <XCircle className="w-4 h-4 text-[#6B7280]" />,
+  'alerts': <AlertCircle className="w-4 h-4 text-[#6B7280]" />,
+  'warnings': <AlertTriangle className="w-4 h-4 text-[#6B7280]" />,
+  'help': <HelpCircle className="w-4 h-4 text-[#6B7280]" />,
+  'support': <HelpCircle className="w-4 h-4 text-[#6B7280]" />,
+
   // Media & Content
-  '🖼️': <Image className="w-4 h-4" />,
-  '🎬': <Video className="w-4 h-4" />,
-  '🎵': <Music className="w-4 h-4" />,
-  'media': <Image className="w-4 h-4" />,
-  'gallery': <Image className="w-4 h-4" />,
-  'videos': <Video className="w-4 h-4" />,
-  'content': <FileText className="w-4 h-4" />,
-  
+  '🖼️': <Image className="w-4 h-4 text-[#6B7280]" />,
+  '🎬': <Video className="w-4 h-4 text-[#6B7280]" />,
+  '🎵': <Music className="w-4 h-4 text-[#6B7280]" />,
+  'media': <Image className="w-4 h-4 text-[#6B7280]" />,
+  'gallery': <Image className="w-4 h-4 text-[#6B7280]" />,
+  'videos': <Video className="w-4 h-4 text-[#6B7280]" />,
+  'content': <FileText className="w-4 h-4 text-[#6B7280]" />,
+
   // Actions & Tools
-  '➕': <Plus className="w-4 h-4" />,
-  '➖': <Minus className="w-4 h-4" />,
-  '✏️': <Edit className="w-4 h-4" />,
-  '🗑️': <Trash2 className="w-4 h-4" />,
-  '💾': <Save className="w-4 h-4" />,
-  '🔍': <Search className="w-4 h-4" />,
-  '🔎': <Filter className="w-4 h-4" />,
-  '🔄': <RefreshCw className="w-4 h-4" />,
-  '⬇️': <Download className="w-4 h-4" />,
-  '⬆️': <Upload className="w-4 h-4" />,
-  '🔗': <LinkIcon className="w-4 h-4" />,
-  '🔀': <Share2 className="w-4 h-4" />,
-  '⋯': <MoreHorizontal className="w-4 h-4" />,
-  'add': <Plus className="w-4 h-4" />,
-  'create': <Plus className="w-4 h-4" />,
-  'new': <Plus className="w-4 h-4" />,
-  'edit': <Edit className="w-4 h-4" />,
-  'delete': <Trash2 className="w-4 h-4" />,
-  'remove': <Trash2 className="w-4 h-4" />,
-  'save': <Save className="w-4 h-4" />,
-  'search': <Search className="w-4 h-4" />,
-  'filter': <Filter className="w-4 h-4" />,
-  'refresh': <RefreshCw className="w-4 h-4" />,
-  'download': <Download className="w-4 h-4" />,
-  'upload': <Upload className="w-4 h-4" />,
-  'export': <Download className="w-4 h-4" />,
-  'import': <Upload className="w-4 h-4" />,
-  'share': <Share2 className="w-4 h-4" />,
-  'link': <LinkIcon className="w-4 h-4" />,
-  'more': <MoreHorizontal className="w-4 h-4" />,
-  
+  '➕': <Plus className="w-4 h-4 text-[#6B7280]" />,
+  '➖': <Minus className="w-4 h-4 text-[#6B7280]" />,
+  '✏️': <Edit className="w-4 h-4 text-[#6B7280]" />,
+  '🗑️': <Trash2 className="w-4 h-4 text-[#6B7280]" />,
+  '💾': <Save className="w-4 h-4 text-[#6B7280]" />,
+  '🔍': <Search className="w-4 h-4 text-[#6B7280]" />,
+  '🔎': <Filter className="w-4 h-4 text-[#6B7280]" />,
+  '🔄': <RefreshCw className="w-4 h-4 text-[#6B7280]" />,
+  '⬇️': <Download className="w-4 h-4 text-[#6B7280]" />,
+  '⬆️': <Upload className="w-4 h-4 text-[#6B7280]" />,
+  '🔗': <LinkIcon className="w-4 h-4 text-[#6B7280]" />,
+  '🔀': <Share2 className="w-4 h-4 text-[#6B7280]" />,
+  '⋯': <MoreHorizontal className="w-4 h-4 text-[#6B7280]" />,
+  'add': <Plus className="w-4 h-4 text-[#6B7280]" />,
+  'create': <Plus className="w-4 h-4 text-[#6B7280]" />,
+  'new': <Plus className="w-4 h-4 text-[#6B7280]" />,
+  'edit': <Edit className="w-4 h-4 text-[#6B7280]" />,
+  'delete': <Trash2 className="w-4 h-4 text-[#6B7280]" />,
+  'remove': <Trash2 className="w-4 h-4 text-[#6B7280]" />,
+  'save': <Save className="w-4 h-4 text-[#6B7280]" />,
+  'search': <Search className="w-4 h-4 text-[#6B7280]" />,
+  'filter': <Filter className="w-4 h-4 text-[#6B7280]" />,
+  'refresh': <RefreshCw className="w-4 h-4 text-[#6B7280]" />,
+  'download': <Download className="w-4 h-4 text-[#6B7280]" />,
+  'upload': <Upload className="w-4 h-4 text-[#6B7280]" />,
+  'export': <Download className="w-4 h-4 text-[#6B7280]" />,
+  'import': <Upload className="w-4 h-4 text-[#6B7280]" />,
+  'share': <Share2 className="w-4 h-4 text-[#6B7280]" />,
+  'link': <LinkIcon className="w-4 h-4 text-[#6B7280]" />,
+  'more': <MoreHorizontal className="w-4 h-4 text-[#6B7280]" />,
+
   // Folders & Organization
-  '📁': <Folder className="w-4 h-4" />,
-  '🗄️': <Database className="w-4 h-4" />,
-  '🖥️': <Server className="w-4 h-4" />,
-  '☁️': <Cloud className="w-4 h-4" />,
-  'folders': <Folder className="w-4 h-4" />,
-  'archive': <Archive className="w-4 h-4" />,
-  'storage': <HardDrive className="w-4 h-4" />,
-  'database': <Database className="w-4 h-4" />,
-  'server': <Server className="w-4 h-4" />,
-  'cloud': <Cloud className="w-4 h-4" />,
-  
+  '📁': <Folder className="w-4 h-4 text-[#6B7280]" />,
+  '🗄️': <Database className="w-4 h-4 text-[#6B7280]" />,
+  '🖥️': <Server className="w-4 h-4 text-[#6B7280]" />,
+  '☁️': <Cloud className="w-4 h-4 text-[#6B7280]" />,
+  'folders': <Folder className="w-4 h-4 text-[#6B7280]" />,
+  'archive': <Archive className="w-4 h-4 text-[#6B7280]" />,
+  'storage': <HardDrive className="w-4 h-4 text-[#6B7280]" />,
+  'database': <Database className="w-4 h-4 text-[#6B7280]" />,
+  'server': <Server className="w-4 h-4 text-[#6B7280]" />,
+  'cloud': <Cloud className="w-4 h-4 text-[#6B7280]" />,
+
   // Network & Connectivity
-  '🌐': <Globe className="w-4 h-4" />,
-  '📶': <Wifi className="w-4 h-4" />,
-  'network': <Wifi className="w-4 h-4" />,
-  'connectivity': <Wifi className="w-4 h-4" />,
-  'internet': <Globe2 className="w-4 h-4" />,
-  
+  '🌐': <Globe className="w-4 h-4 text-[#6B7280]" />,
+  '📶': <Wifi className="w-4 h-4 text-[#6B7280]" />,
+  'network': <Wifi className="w-4 h-4 text-[#6B7280]" />,
+  'connectivity': <Wifi className="w-4 h-4 text-[#6B7280]" />,
+  'internet': <Globe2 className="w-4 h-4 text-[#6B7280]" />,
+
   // Leads & Sales
-  'leads': <Target className="w-4 h-4" />,
-  'sales': <TrendingUp className="w-4 h-4" />,
-  'conversions': <Target className="w-4 h-4" />,
-  'opportunities': <Zap className="w-4 h-4" />,
-  
+  'leads': <Target className="w-4 h-4 text-[#6B7280]" />,
+  'sales': <TrendingUp className="w-4 h-4 text-[#6B7280]" />,
+  'conversions': <Target className="w-4 h-4 text-[#6B7280]" />,
+  'opportunities': <Zap className="w-4 h-4 text-[#6B7280]" />,
+
   // Analytics & Reports
-  'statistics': <BarChart3 className="w-4 h-4" />,
-  'charts': <BarChart3 className="w-4 h-4" />,
-  'insights': <TrendingUp className="w-4 h-4" />,
-  'metrics': <Activity className="w-4 h-4" />,
-  
+  'statistics': <BarChart3 className="w-4 h-4 text-[#6B7280]" />,
+  'charts': <BarChart3 className="w-4 h-4 text-[#6B7280]" />,
+  'insights': <TrendingUp className="w-4 h-4 text-[#6B7280]" />,
+  'metrics': <Activity className="w-4 h-4 text-[#6B7280]" />,
+
   // Default fallback for any unmapped icons
 };
 
@@ -623,7 +623,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
         <button
           onClick={handleToggleDesktop}
           className={clsx(
-            "fixed top-4 left-4 z-[60] bg-white text-teal-700 p-2.5 rounded-lg shadow-md transition-all duration-200 border border-gray-200 hover:bg-teal-50 hover:border-gray-300 hidden lg:block",
+            "fixed top-4 left-4 z-[60] bg-white text-[#374151] p-2.5 rounded-lg shadow-md transition-all duration-200 border border-gray-200 hover:bg-teal-50 hover:border-gray-300 hidden lg:block",
             {
               "lg:block": isDesktopHidden,
               "lg:hidden": !isDesktopHidden,
@@ -639,7 +639,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
       {isDesktopHidden && (
         <button
           onClick={handleToggleDesktop}
-          className="fixed top-3 left-3 z-[100] bg-white text-teal-700 p-1.5 rounded-lg shadow-md transition-all duration-200 border border-gray-200 hover:bg-teal-50 hover:border-gray-300 hover:shadow-lg hidden lg:flex items-center justify-center"
+          className="fixed top-3 left-3 z-[100] bg-white text-[#374151] p-1.5 rounded-lg shadow-md transition-all duration-200 border border-gray-200 hover:bg-teal-50 hover:border-gray-300 hover:shadow-lg hidden lg:flex items-center justify-center"
           aria-label="Toggle desktop sidebar"
         >
           <Menu className="w-4 h-4" />
@@ -649,7 +649,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
       {/* Mobile Sidebar */}
       <aside
         className={clsx(
-          "fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-gray-200 transform transition-transform duration-300 ease-in-out lg:hidden",
+          "fixed inset-y-0 left-0 z-50 w-64 bg-[#F3F4F6] border-r border-gray-200 transform transition-transform duration-300 ease-in-out lg:hidden",
           {
             "translate-x-0": isMobileOpen,
             "-translate-x-full": !isMobileOpen,
@@ -662,15 +662,15 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
           {/* Mobile Header Section */}
           <div className="p-4 border-b border-gray-200 flex-shrink-0 relative">
             <div className="group cursor-pointer">
-              <div className="flex items-center gap-3 p-3 rounded-lg bg-gray-50 group-hover:bg-teal-50 transition-all duration-200 border border-gray-200">
+              <div className="flex items-center gap-3 p-3 rounded-lg bg-[#F3F4F6] group-hover:bg-gray-100 transition-all duration-200 border border-gray-200">
                 <div className="w-10 h-10 bg-teal-600 rounded-lg flex items-center justify-center">
-                  <span className="text-white font-bold text-lg">Z</span>
+                  <span className="text-white font-medium inter-font text-lg">Z</span>
                 </div>
                 <div>
-                  <span className="font-bold text-base text-teal-900 block">
+                  <span className="font-medium text-base text-[#374151] block inter-font">
                     ZEVA
                   </span>
-                  <span className="text-xs text-gray-950 font-medium">Clinic Panel</span>
+                  <span className="text-xs text-[#374151] font-medium inter-font">Clinic Panel</span>
                 </div>
               </div>
             </div>
@@ -685,7 +685,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                     setInternalIsMobileOpen(false);
                   }
                 }}
-                className="absolute right-4 top-4 bg-teal-100 text-teal-700 p-1.5 rounded-md hover:bg-teal-200 transition-all duration-200"
+                className="absolute right-4 top-4 bg-teal-100 text-[#374151] p-1.5 rounded-md hover:bg-teal-200 transition-all duration-200"
                 aria-label="Close sidebar"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -697,12 +697,12 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
 
           {/* Mobile Navigation */}
           <nav className="flex-1 overflow-y-auto custom-scrollbar px-3 py-4 min-h-0">
-            <div className="text-teal-700 text-xs font-semibold uppercase tracking-wider mb-3 px-2">
+            <div className="text-[#374151] text-xs font-medium uppercase tracking-wider inter-font mb-3 px-2">
               Navigation
             </div>
             <div className="space-y-1">
               {isLoading ? (
-                <div className="text-xs text-teal-500 px-2">Loading menu…</div>
+                <div className="text-xs text-[#374151] px-2 inter-font">Loading menu…</div>
               ) : (
                 items.map((item) => {
                 const isDropdownOpen = openDropdown === item.label;
@@ -738,8 +738,8 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                         className={clsx(
                           "w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-all duration-200 text-left group cursor-move",
                           {
-                            "bg-[#2D9AA5] text-white": isActive,
-                            "text-teal-700 hover:bg-teal-50": !isActive,
+                            "bg-[#ECFDF5] text-[#059669]": isActive,
+                            "text-[#374151] hover:bg-gray-100": !isActive,
                           }
                         )}
                       >
@@ -748,21 +748,21 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                           <div className={clsx(
                             "p-1.5 rounded-md transition-all duration-200 flex-shrink-0",
                             {
-                              "bg-white/20 text-white": isActive,
-                              "text-gray-800 group-hover:text-gray-800 group-hover:bg-gray-100": !isActive,
+                              "bg-[#ECFDF5] text-[#059669]": isActive,
+                              "text-[#6B7280] group-hover:text-[#374151]": !isActive,
                             }
                           )}>
-                            {iconMap[item.icon] || <span className="text-base">{item.icon}</span>}
+                            {iconMap[item.icon] || <span className="text-base text-[#6B7280]">{item.icon}</span>}
                           </div>
-                          <span className="ui-sans-serif text-sm font-medium text-gray-950">{item.label}</span>
+                          <span className="inter-font text-sm font-medium text-[#374151]">{item.label}</span>
                         </div>
                         <ChevronDown
                           className={clsx(
                             "w-4 h-4 transition-transform duration-200",
                             {
                               "rotate-180": isDropdownOpen,
-                              "text-white": isActive,
-                              "text-teal-500": !isActive,
+                              "text-[#059669]": isActive,
+                              "text-[#374151]": !isActive,
                             }
                           )}
                         />
@@ -780,10 +780,10 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                                   onDrop={onDropChild(itemIndex, childIdx)}
                                   onDragEnd={onDragEnd}
                                   className={clsx(
-                                    "px-3 py-2 rounded-lg transition-all duration-200 text-sm cursor-move flex items-center gap-2",
+                                    "px-3 py-2 rounded-lg transition-all duration-200 text-sm cursor-move flex items-center gap-2 inter-font",
                                     {
-                                      "bg-[#2D9AA5] text-white": isChildActive,
-                                      "text-teal-700 hover:bg-teal-50": !isChildActive,
+                                      "bg-gray-200 text-gray-900": isChildActive,
+                                      "text-gray-700 hover:bg-gray-100": !isChildActive,
                                     }
                                   )}
                                 >
@@ -794,7 +794,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                             ) : (
                               <div
                                 key={childIdx}
-                                className="px-3 py-2 text-sm text-teal-500"
+                                className="px-3 py-2 text-sm text-[#374151]"
                               >
                                 {child.label}
                               </div>
@@ -815,10 +815,10 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                     onDragEnd={onDragEnd}
                     onClick={safeClick(handleItemClick)}
                     className={clsx(
-                      "w-full flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 group cursor-move",
+                      "w-full flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 group cursor-move inter-font",
                       {
-                        "bg-[#2D9AA5] text-white": isActive,
-                        "text-teal-700 hover:bg-teal-100": !isActive,
+                        "bg-gray-200 text-gray-900": isActive,
+                        "text-gray-700 hover:bg-gray-100": !isActive,
                       }
                     )}
                   >
@@ -826,19 +826,18 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                     <div className={clsx(
                       "p-1.5 rounded-md transition-all duration-200 flex-shrink-0",
                       {
-                        "text-white": isActive,
-                        "text-gray-950 group-hover:text-gray-950": !isActive,
+                        "text-gray-900": isActive,
+                        "text-[#6B7280] group-hover:text-gray-700": !isActive,
                       }
                     )}>
-                      {iconMap[item.icon] || <span className="text-base">{item.icon}</span>}
+                      {iconMap[item.icon] || <span className="text-base text-[#6B7280]">{item.icon}</span>}
                     </div>
 
                     <div className="flex-1 min-w-0 ml-3">
                       <div className={clsx(
-                        "ui-sans-serif font-medium text-sm text-gray-800 transition-colors duration-200",
+                        "inter-font font-medium text-sm text-[#374151] transition-colors duration-200",
                         {
-                          "text-white": isActive,
-                          "text-teal-900": !isActive,
+                          "text-[#059669]": isActive,
                         }
                       )}>
                         {item.label}
@@ -864,7 +863,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
       {/* Desktop Sidebar */}
       <aside
         className={clsx(
-          "transition-all duration-300 ease-in-out bg-gray-50 border-r border-gray-200 flex-col min-h-screen w-64 hidden lg:flex",
+          "transition-all duration-300 ease-in-out bg-[#F3F4F6] border-r border-gray-200 flex-col min-h-screen w-64 hidden lg:flex",
           {
             "lg:flex": !isDesktopHidden,
             "lg:hidden": isDesktopHidden,
@@ -877,15 +876,15 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
           {/* Desktop Header Section */}
           <div className="p-4 border-b border-gray-200 flex-shrink-0 relative">
             <div className="group cursor-pointer">
-              <div className="flex items-center gap-3 p-3 rounded-lg bg-white group-hover:bg-teal-50 transition-all duration-200 border border-gray-200">
+              <div className="flex items-center gap-3 p-3 rounded-lg bg-[#F3F4F6] group-hover:bg-gray-100 transition-all duration-200 border border-gray-200">
                 <div className="w-10 h-10 bg-teal-600 rounded-lg flex items-center justify-center">
-                  <span className="text-white font-bold text-lg">Z</span>
+                  <span className="text-white font-medium inter-font text-lg">Z</span>
                 </div>
                 <div>
-                  <span className="font-bold text-base text-teal-900 block">
+                  <span className="font-medium text-base text-[#374151] block inter-font">
                     ZEVA
                   </span>
-                  <span className="text-xs text-gray-950 font-medium">Clinic Panel</span>
+                  <span className="text-xs text-[#374151] font-medium inter-font">Clinic Panel</span>
                 </div>
               </div>
             </div>
@@ -893,7 +892,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
             {/* Desktop Close Button */}
             <button
               onClick={handleToggleDesktop}
-              className="absolute right-4 top-4 bg-teal-50 text-teal-700 p-1.5 rounded-md hover:bg-teal-200 transition-all duration-200"
+              className="absolute right-4 top-4 bg-teal-50 text-[#374151] p-1.5 rounded-md hover:bg-teal-200 transition-all duration-200"
               aria-label="Close sidebar"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -904,12 +903,12 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
 
           {/* Desktop Navigation */}
           <nav className="flex-1 overflow-y-auto custom-scrollbar px-3 py-4 min-h-0">
-            <div className="text-teal-700 text-xs font-semibold uppercase tracking-wider mb-3 px-2">
+            <div className="text-[#374151] text-xs font-medium uppercase tracking-wider inter-font mb-3 px-2">
               Navigation
             </div>
             <div className="space-y-1">
               {isLoading ? (
-                <div className="text-xs text-teal-500 px-2">Loading menu…</div>
+                <div className="text-xs text-[#374151] px-2 inter-font">Loading menu…</div>
               ) : (
                 items.map((item, parentIdx) => {
                 const isDropdownOpen = openDropdown === item.label;
@@ -934,8 +933,8 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                         className={clsx(
                           "group relative block rounded-lg transition-all duration-200 cursor-pointer p-2.5 touch-manipulation",
                           {
-                            "bg-teal-600 text-white": isDropdownOpen,
-                            "hover:bg-teal-50 text-gray-950": !isDropdownOpen,
+                            "bg-[#ECFDF5] text-[#059669]": isDropdownOpen,
+                            "hover:bg-gray-100 text-[#374151]": !isDropdownOpen,
                           }
                         )}
                         onClick={safeClick(() => {
@@ -948,18 +947,18 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                           <div className={clsx(
                             "p-1.5 rounded-md transition-all duration-200 flex-shrink-0",
                             {
-                              "text-white": isDropdownOpen,
-                              "text-gray-950 group-hover:text-gray-950": !isDropdownOpen,
+                              "text-[#059669]": isDropdownOpen,
+                              "text-[#6B7280] group-hover:text-[#374151]": !isDropdownOpen,
                             }
                           )}>
-                            {iconMap[item.icon] || <span className="text-base">{item.icon}</span>}
+                            {iconMap[item.icon] || <span className="text-base text-[#6B7280]">{item.icon}</span>}
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className={clsx(
-                              "ui-sans-serif font-medium text-sm transition-colors duration-200",
+                              "inter-font font-medium text-sm transition-colors duration-200",
                               {
-                                "text-white": isDropdownOpen,
-                                "text-gray-950": !isDropdownOpen,
+                                "text-[#059669]": isDropdownOpen,
+                                "text-[#374151]": !isDropdownOpen
                               }
                             )}>
                               {item.label}
@@ -969,7 +968,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                             className={clsx(
                               "w-4 h-4 transition-transform duration-200 flex-shrink-0",
                               isDropdownOpen && "rotate-90",
-                              isDropdownOpen ? "text-white" : "text-teal-700"
+                              isDropdownOpen ? "text-[#059669]" : "text-[#374151]"
                             )}
                             fill="currentColor"
                             viewBox="0 0 20 20"
@@ -1001,10 +1000,10 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                                   onDrop={onDropChild(parentIdx, childIdx)}
                                   onDragEnd={onDragEnd}
                                   className={clsx(
-                                    "group relative block rounded-lg transition-all duration-200 cursor-pointer p-2 touch-manipulation",
+                                    "group relative block rounded-lg transition-all duration-200 cursor-pointer p-2 touch-manipulation inter-font",
                                     {
-                                      "bg-teal-600 text-white": childActive,
-                                      "hover:bg-teal-50 text-gray-950": !childActive,
+                                      "bg-[#ECFDF5] text-[#059669]": childActive,
+                                      "hover:bg-gray-100 text-[#374151]": !childActive,
                                     }
                                   )}
                                   onClick={safeClick(() => {
@@ -1016,18 +1015,18 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                                     <div className={clsx(
                                       "p-1 rounded-md transition-all duration-200 flex-shrink-0",
                                       {
-                                        "text-white": childActive,
-                                        "text-gray-950 group-hover:text-gray-950": !childActive,
+                                        "text-[#059669]": childActive,
+                                        "text-[#6B7280] group-hover:text-[#374151]": !childActive,
                                       }
                                     )}>
                                       {iconMap[child.icon] || <span className="text-sm">{child.icon}</span>}
                                     </div>
                                     <div className="flex-1 min-w-0">
                                       <div className={clsx(
-                                        "ui-sans-serif font-medium text-sm transition-colors duration-200",
+                                        "inter-font font-medium text-sm transition-colors duration-200",
                                         {
-                                          "text-white": childActive,
-                                          "text-gray-950": !childActive,
+                                          "text-[#059669]": childActive,
+                                          "text-[#374151]": !childActive,
                                         }
                                       )}>
                                         {child.label}
@@ -1055,8 +1054,8 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                     className={clsx(
                       "group relative block rounded-lg transition-all duration-200 cursor-move p-2.5 touch-manipulation",
                       {
-                        "bg-teal-600 text-white": isActive,
-                        "hover:bg-teal-50 text-gray-950": !isActive,
+                        "bg-[#ECFDF5] text-[#059669]": isActive,
+                        "hover:bg-gray-100 text-[#374151]": !isActive,
                       }
                     )}
                     onClick={safeClick(() => {
@@ -1065,7 +1064,7 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                     })}
                   >
                     {isActive && (
-                      <div className="absolute left-0 top-1/2 transform -translate-y-1/2 w-1 h-5 bg-white rounded-r-full"></div>
+                      <div className="absolute left-0 top-1/2 transform -translate-y-1/2 w-1 h-5 bg-[#059669] rounded-r-full"></div>
                     )}
 
                     <div className="flex items-center space-x-3">
@@ -1073,13 +1072,13 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
                       <div className={clsx(
                         "p-1.5 rounded-md transition-all duration-200 flex-shrink-0",
                         {
-                          "text-white": isActive,
-                          "text-gray-950 group-hover:text-gray-950": !isActive,
+                          "text-[#059669]": isActive,
+                          "text-[#6B7280] group-hover:text-[#374151]": !isActive
                         }
                       )}>
-                        {iconMap[item.icon] || <span className="text-base">{item.icon}</span>}
+                        {iconMap[item.icon] || <span className="text-base text-[#6B7280]">{item.icon}</span>}
                         {item.badge && (
-                          <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center font-bold text-[10px]">
+                          <span className="absolute -top-1 -right-1 bg-red-500 text-[#059669] text-xs rounded-full w-4 h-4 flex items-center justify-center font-medium inter-font text-[10px]">
                             {item.badge}
                           </span>
                         )}
@@ -1087,10 +1086,10 @@ const ClinicSidebar: FC<ClinicSidebarProps> = ({
 
                       <div className="flex-1 min-w-0">
                         <div className={clsx(
-                          "ui-sans-serif font-medium text-sm transition-colors duration-200",
+                          "inter-font font-medium text-sm transition-colors duration-200",
                           {
-                            "text-white": isActive,
-                            "text-gray-950": !isActive,
+                            "text-[#059669]": isActive,
+                            "text-[#374151]": !isActive,
                           }
                         )}>
                           {item.label}
