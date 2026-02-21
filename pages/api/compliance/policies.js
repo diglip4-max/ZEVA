@@ -485,7 +485,13 @@ export default async function handler(req, res) {
     // Auto-assign acknowledgments to users of selected roles
     try {
       if (Array.isArray(selected) && selected.length) {
-        const users = await User.find({ clinicId, role: { $in: selected } }).select("_id name role");
+        const staffIds = Array.isArray(req.body.staffIds) ? req.body.staffIds.filter(Boolean) : [];
+        let users;
+        if (staffIds.length) {
+          users = await User.find({ clinicId, _id: { $in: staffIds } }).select("_id name role");
+        } else {
+          users = await User.find({ clinicId, role: { $in: selected } }).select("_id name role");
+        }
         const assigned = item.effectiveDate || new Date();
         const bulkOps = users.map(u => ({
           updateOne: {
@@ -542,7 +548,13 @@ export default async function handler(req, res) {
     try {
       const selected = Array.isArray(updated.appliesToRoles) ? updated.appliesToRoles : [];
       if (selected.length) {
-        const users = await User.find({ clinicId, role: { $in: selected } }).select("_id name role");
+        const staffIds = Array.isArray(req.body.staffIds) ? req.body.staffIds.filter(Boolean) : [];
+        let users;
+        if (staffIds.length) {
+          users = await User.find({ clinicId, _id: { $in: staffIds } }).select("_id name role");
+        } else {
+          users = await User.find({ clinicId, role: { $in: selected } }).select("_id name role");
+        }
         const assigned = updated.effectiveDate || new Date();
         const bulkOps = users.map(u => ({
           updateOne: {

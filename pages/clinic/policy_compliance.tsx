@@ -154,6 +154,7 @@ function PolicyCompliance() {
   const [editingItem, setEditingItem] = useState<any | null>(null);
   const [categoryDraft, setCategoryDraft] = useState("");
   const [policyTypeDraft, setPolicyTypeDraft] = useState("");
+  const [departments, setDepartments] = useState<Array<{ _id: string; name: string }>>([]);
 
 
   const openViewer = (url?: string, title?: string) => {
@@ -254,6 +255,22 @@ function PolicyCompliance() {
       };
     }
   }, [viewerOpen, viewerUrl]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch("/api/clinic/departments", { headers: getAuthHeaders() });
+        const json = await res.json();
+        if (json.success && Array.isArray(json.departments)) {
+          setDepartments(json.departments);
+        } else {
+          setDepartments([{ _id: "clinic", name: "Clinic" }]);
+        }
+      } catch {
+        setDepartments([{ _id: "clinic", name: "Clinic" }]);
+      }
+    })();
+  }, []);
 
   const onSopTitleClick = async (id: string, title: string) => {
     try {
@@ -435,7 +452,11 @@ function PolicyCompliance() {
     if (type === "sops") {
       const url = editingType ? `/api/compliance/sops?id=${encodeURIComponent(editingItem?._id)}` : "/api/compliance/sops";
       const method = editingType ? "PUT" : "POST";
-      const res = await fetch(url, { method, headers: headersWithJson(), body: JSON.stringify(formData) });
+      const agentIds = Array.isArray(formData.targetAgentIds) ? (formData.targetAgentIds || []).filter((v: string) => !v.startsWith("__ALL_")) : [];
+      const doctorIds = Array.isArray(formData.targetDoctorIds) ? (formData.targetDoctorIds || []).filter((v: string) => !v.startsWith("__ALL_")) : [];
+      const staffIds = [...agentIds, ...doctorIds];
+      const payload = staffIds.length ? { ...formData, staffIds } : { ...formData };
+      const res = await fetch(url, { method, headers: headersWithJson(), body: JSON.stringify(payload) });
       let json: any = null;
       try { json = await res.json(); } catch { json = { success: false }; }
       if (res.ok && json?.success) {
@@ -449,7 +470,11 @@ function PolicyCompliance() {
     if (type === "policies") {
       const url = editingType ? `/api/compliance/policies?id=${encodeURIComponent(editingItem?._id)}` : "/api/compliance/policies";
       const method = editingType ? "PUT" : "POST";
-      const res = await fetch(url, { method, headers: headersWithJson(), body: JSON.stringify(formData) });
+      const agentIds = Array.isArray(formData.targetAgentIds) ? (formData.targetAgentIds || []).filter((v: string) => !v.startsWith("__ALL_")) : [];
+      const doctorIds = Array.isArray(formData.targetDoctorIds) ? (formData.targetDoctorIds || []).filter((v: string) => !v.startsWith("__ALL_")) : [];
+      const staffIds = [...agentIds, ...doctorIds];
+      const payload = staffIds.length ? { ...formData, staffIds } : { ...formData };
+      const res = await fetch(url, { method, headers: headersWithJson(), body: JSON.stringify(payload) });
       let json: any = null;
       try { json = await res.json(); } catch { json = { success: false }; }
       if (res.ok && json?.success) {
@@ -562,6 +587,8 @@ function PolicyCompliance() {
     const [uploading, setUploading] = useState(false);
     const [uploadError, setUploadError] = useState<string | null>(null);
     const [policyRoleOptions, setPolicyRoleOptions] = useState<string[]>(["Agent", "DoctorStaff"]);
+    const [agentUsers, setAgentUsers] = useState<Array<{ _id: string, name: string }>>([]);
+    const [doctorUsers, setDoctorUsers] = useState<Array<{ _id: string, name: string }>>([]);
 
     useEffect(() => {
       if ((editingType || activeTab) === "policies") {
@@ -590,9 +617,35 @@ function PolicyCompliance() {
         });
       } else {
         const t = editingType || activeTab;
-        setForm(t === "policies" ? { department: "Clinic" } : {});
+        setForm(t === "policies" ? { department: "" } : {});
       }
     }, [editingItem, editingType, activeTab]);
+
+
+    useEffect(() => {
+      const ct = editingType || activeTab;
+      const rolesField = ct === "sops" ? (form.applicableRoles || []) : (form.appliesToRoles || []);
+      const hasAgent = rolesField.includes("Agent") || rolesField.includes("agent") || rolesField.includes("All Staff");
+      const hasDoctor = rolesField.includes("DoctorStaff") || rolesField.includes("doctorStaff") || rolesField.includes("All Staff");
+      (async () => {
+        try {
+          if (hasAgent) {
+            const r = await fetch(`/api/colleagues/list?role=agent`, { headers: getAuthHeaders() });
+            const j = await r.json();
+            if (j.success) setAgentUsers(j.agents || []);
+          } else {
+            setAgentUsers([]);
+          }
+          if (hasDoctor) {
+            const r2 = await fetch(`/api/colleagues/list?role=doctorStaff`, { headers: getAuthHeaders() });
+            const j2 = await r2.json();
+            if (j2.success) setDoctorUsers(j2.agents || []);
+          } else {
+            setDoctorUsers([]);
+          }
+        } catch { }
+      })();
+    }, [form.applicableRoles, form.appliesToRoles, activeTab, editingType]);
 
     const triggerFilePicker = () => fileInputRef.current?.click();
 
@@ -671,7 +724,7 @@ function PolicyCompliance() {
                     <div className="text-sm font-medium text-gray-900">Department *</div>
                     <select className="w-full rounded-lg border px-3 py-2 text-sm" value={form.department || ""} onChange={e => setForm({ ...form, department: e.target.value })}>
                       <option value="">Select department</option>
-                      {["Clinic"].map(d => (<option key={d} value={d}>{d}</option>))}
+                      {departments.map(d => (<option key={d._id} value={d.name}>{d.name}</option>))}
                     </select>
                   </div>
                   <div className="space-y-1">
@@ -688,7 +741,7 @@ function PolicyCompliance() {
                       {riskOptions.map(r => (<option key={r} value={r}>{r}</option>))}
                     </select>
                   </div>
-                  <div className="space-y-1 sm:col-span-2">
+                  {/* <div className="space-y-1 sm:col-span-2">
                     <div className="text-sm font-medium text-gray-900">Applicable Roles *</div>
                     <div className="flex flex-wrap gap-1">
                       {roleOptions.map(r => {
@@ -704,6 +757,263 @@ function PolicyCompliance() {
                         );
                       })}
                     </div>
+                    {(form.applicableRoles || []).some((v:string)=>/All Staff|Agent/i.test(v)) && agentUsers.length > 0 && (
+                      <div className="mt-2">
+                        <div className="text-xs text-gray-600 mb-1">Select Agents</div>
+                        <select multiple className="w-full rounded-lg border px-3 py-2 text-sm" value={form.targetAgentIds || []} onChange={e => {
+                          const opts = Array.from(e.target.selectedOptions).map(o => o.value);
+                          setForm({ ...form, targetAgentIds: opts });
+                        }}>
+                          <option value="__ALL_AGENTS__">All Agents</option>
+                          {agentUsers.map(u => (<option key={u._id} value={u._id}>{u.name}</option>))}
+                        </select>
+                      </div>
+                    )}
+                    {(form.applicableRoles || []).some((v:string)=>/All Staff|DoctorStaff/i.test(v)) && doctorUsers.length > 0 && (
+                      <div className="mt-2">
+                        <div className="text-xs text-gray-600 mb-1">Select DoctorStaff</div>
+                        <select multiple className="w-full rounded-lg border px-3 py-2 text-sm" value={form.targetDoctorIds || []} onChange={e => {
+                          const opts = Array.from(e.target.selectedOptions).map(o => o.value);
+                          setForm({ ...form, targetDoctorIds: opts });
+                        }}>
+                          <option value="__ALL_DOCTORS__">All DoctorStaff</option>
+                          {doctorUsers.map(u => (<option key={u._id} value={u._id}>{u.name}</option>))}
+                        </select>
+                      </div>
+                    )}
+                  </div> */}
+
+                  {/* Replace the existing "Applicable Roles *" section in your CreateModal with this improved version */}
+                  <div className="space-y-1 sm:col-span-2">
+                    <div className="text-sm font-medium text-gray-900">Applicable Roles *</div>
+
+                    {/* Main role selection - Clean pill buttons */}
+                    <div className="flex flex-wrap gap-2">
+                      {roleOptions.map(r => {
+                        const selected = (form.applicableRoles || []).includes(r);
+                        return (
+                          <button
+                            key={r}
+                            type="button"
+                            onClick={() => {
+                              const curr = new Set(form.applicableRoles || []);
+
+                              // If selecting "All Staff", clear other selections
+                              if (r === "All Staff" && !selected) {
+                                // Select All Staff, deselect others
+                                setForm({
+                                  ...form,
+                                  applicableRoles: ["All Staff"],
+                                  targetAgentIds: [],
+                                  targetDoctorIds: []
+                                });
+                              } else if (r === "All Staff" && selected) {
+                                // Deselect All Staff
+                                setForm({
+                                  ...form,
+                                  applicableRoles: [],
+                                  targetAgentIds: [],
+                                  targetDoctorIds: []
+                                });
+                              } else {
+                                // Handle Agent or DoctorStaff selection
+                                if (selected) {
+                                  curr.delete(r);
+                                } else {
+                                  // If selecting a specific role, remove "All Staff" if present
+                                  curr.delete("All Staff");
+                                  curr.add(r);
+                                }
+                                setForm({
+                                  ...form,
+                                  applicableRoles: Array.from(curr)
+                                });
+                              }
+                            }}
+                            className={`rounded-full border px-4 py-2 text-sm font-medium transition-all ${selected
+                              ? "bg-gray-900 text-white border-gray-900 shadow-sm"
+                              : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                              }`}
+                          >
+                            {r === "All Staff" ? "👥 All Staff" : r === "Agent" ? "👤 Agents" : "👨‍⚕️ Doctor Staff"}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Conditional rendering for Agent selection */}
+                    {(form.applicableRoles || []).includes("Agent") && agentUsers.length > 0 && (
+                      <div className="mt-4 rounded-lg border border-gray-200 bg-gray-50 p-4">
+                        <div className="mb-3 flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-100">
+                              <span className="text-xs font-semibold text-blue-700">👤</span>
+                            </div>
+                            <span className="text-sm font-semibold text-gray-900">Select Agents</span>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <label className="flex items-center gap-2 text-sm">
+                              <input
+                                type="checkbox"
+                                className="h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900"
+                                checked={form.targetAgentIds?.includes("__ALL_AGENTS__")}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setForm({
+                                      ...form,
+                                      targetAgentIds: ["__ALL_AGENTS__", ...agentUsers.map(u => u._id)]
+                                    });
+                                  } else {
+                                    setForm({
+                                      ...form,
+                                      targetAgentIds: form.targetAgentIds?.filter((id: string) => id !== "__ALL_AGENTS__")
+                                    });
+                                  }
+                                }}
+                              />
+                              <span className="font-medium">Select All</span>
+                            </label>
+                            <span className="text-xs text-gray-500">{agentUsers.length} available</span>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                          {agentUsers.map(u => (
+                            <label
+                              key={u._id}
+                              className={`flex cursor-pointer items-center gap-2 rounded-lg border p-2 transition-all ${form.targetAgentIds?.includes(u._id)
+                                ? "border-gray-900 bg-gray-100"
+                                : "border-gray-200 bg-white hover:bg-gray-50"
+                                }`}
+                            >
+                              <input
+                                type="checkbox"
+                                className="h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900"
+                                checked={form.targetAgentIds?.includes(u._id) || form.targetAgentIds?.includes("__ALL_AGENTS__")}
+                                onChange={(e) => {
+                                  const current = new Set(form.targetAgentIds || []);
+                                  if (e.target.checked) {
+                                    current.add(u._id);
+                                    // Remove "ALL" if manually selecting individuals
+                                    current.delete("__ALL_AGENTS__");
+                                  } else {
+                                    current.delete(u._id);
+                                  }
+                                  setForm({ ...form, targetAgentIds: Array.from(current) });
+                                }}
+                              />
+                              <div className="flex flex-col">
+                                <span className="text-sm font-medium text-gray-900">{u.name}</span>
+                                <span className="text-xs text-gray-500">Agent</span>
+                              </div>
+                            </label>
+                          ))}
+                        </div>
+
+                        {form.targetAgentIds?.length > 0 && !form.targetAgentIds?.includes("__ALL_AGENTS__") && (
+                          <div className="mt-3 text-xs text-gray-600">
+                            Selected {form.targetAgentIds.length} agent{form.targetAgentIds.length !== 1 ? 's' : ''}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Conditional rendering for Doctor Staff selection */}
+                    {(form.applicableRoles || []).includes("DoctorStaff") && doctorUsers.length > 0 && (
+                      <div className="mt-4 rounded-lg border border-gray-200 bg-gray-50 p-4">
+                        <div className="mb-3 flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-green-100">
+                              <span className="text-xs font-semibold text-green-700">👨‍⚕️</span>
+                            </div>
+                            <span className="text-sm font-semibold text-gray-900">Select Doctor Staff</span>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <label className="flex items-center gap-2 text-sm">
+                              <input
+                                type="checkbox"
+                                className="h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900"
+                                checked={form.targetDoctorIds?.includes("__ALL_DOCTORS__")}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setForm({
+                                      ...form,
+                                      targetDoctorIds: ["__ALL_DOCTORS__", ...doctorUsers.map(u => u._id)]
+                                    });
+                                  } else {
+                                    setForm({
+                                      ...form,
+                                      targetDoctorIds: form.targetDoctorIds?.filter((id: string) => id !== "__ALL_DOCTORS__")
+                                    });
+                                  }
+                                }}
+                              />
+                              <span className="font-medium">Select All</span>
+                            </label>
+                            <span className="text-xs text-gray-500">{doctorUsers.length} available</span>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                          {doctorUsers.map(u => (
+                            <label
+                              key={u._id}
+                              className={`flex cursor-pointer items-center gap-2 rounded-lg border p-2 transition-all ${form.targetDoctorIds?.includes(u._id)
+                                ? "border-gray-900 bg-gray-100"
+                                : "border-gray-200 bg-white hover:bg-gray-50"
+                                }`}
+                            >
+                              <input
+                                type="checkbox"
+                                className="h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900"
+                                checked={form.targetDoctorIds?.includes(u._id) || form.targetDoctorIds?.includes("__ALL_DOCTORS__")}
+                                onChange={(e) => {
+                                  const current = new Set(form.targetDoctorIds || []);
+                                  if (e.target.checked) {
+                                    current.add(u._id);
+                                    // Remove "ALL" if manually selecting individuals
+                                    current.delete("__ALL_DOCTORS__");
+                                  } else {
+                                    current.delete(u._id);
+                                  }
+                                  setForm({ ...form, targetDoctorIds: Array.from(current) });
+                                }}
+                              />
+                              <div className="flex flex-col">
+                                <span className="text-sm font-medium text-gray-900">{u.name}</span>
+                                <span className="text-xs text-gray-500">Doctor Staff</span>
+                              </div>
+                            </label>
+                          ))}
+                        </div>
+
+                        {form.targetDoctorIds?.length > 0 && !form.targetDoctorIds?.includes("__ALL_DOCTORS__") && (
+                          <div className="mt-3 text-xs text-gray-600">
+                            Selected {form.targetDoctorIds.length} doctor{form.targetDoctorIds.length !== 1 ? 's' : ''}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Summary section showing selection status */}
+                    {(form.applicableRoles || []).length > 0 && (
+                      <div className="mt-3 flex items-center gap-2 rounded-lg bg-blue-50 p-3 text-sm">
+                        <div className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-200">
+                          <span className="text-xs font-bold text-blue-700">✓</span>
+                        </div>
+                        <div className="flex-1">
+                          <span className="font-medium text-blue-900">Selection summary:</span>
+                          <span className="ml-2 text-blue-800">
+                            {form.applicableRoles?.includes("All Staff")
+                              ? "All staff members will be assigned"
+                              : [
+                                form.applicableRoles?.includes("Agent") && `${form.targetAgentIds?.length || 0} agents`,
+                                form.applicableRoles?.includes("DoctorStaff") && `${form.targetDoctorIds?.length || 0} doctor staff`
+                              ].filter(Boolean).join(" • ")}
+                          </span>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -870,8 +1180,9 @@ function PolicyCompliance() {
                 </div>
                 <div className="space-y-1">
                   <div className="text-sm font-medium text-gray-900">Department (Optional)</div>
-                  <select className="w-full rounded-lg border px-3 py-2 text-sm" value={form.department || "Clinic"} onChange={e => setForm({ ...form, department: e.target.value })}>
-                    <option value="Clinic">Clinic</option>
+                  <select className="w-full rounded-lg border px-3 py-2 text-sm" value={form.department || ""} onChange={e => setForm({ ...form, department: e.target.value })}>
+                    <option value="">Select department</option>
+                    {departments.map(d => (<option key={d._id} value={d.name}>{d.name}</option>))}
                   </select>
                 </div>
                 <div className="space-y-1">
@@ -881,7 +1192,7 @@ function PolicyCompliance() {
                     {(policyTypes.length ? policyTypes : ["Regulatory", "Privacy", "Organizational", "Safety", "HR"]).map(t => (<option key={t} value={t}>{t}</option>))}
                   </select>
                 </div>
-                <div className="space-y-1 sm:col-span-2">
+                {/* <div className="space-y-1 sm:col-span-2">
                   <div className="text-sm font-medium text-gray-900">Applies To Roles *</div>
                   <div className="flex flex-wrap gap-2">
                     {policyRoleOptions.map(r => {
@@ -897,7 +1208,263 @@ function PolicyCompliance() {
                       );
                     })}
                   </div>
+                  {(form.appliesToRoles || []).some((v: string) => /All Staff|Agent/i.test(v)) && agentUsers.length > 0 && (
+                    <div className="mt-2">
+                      <div className="text-xs text-gray-600 mb-1">Select Agents</div>
+                      <select multiple className="w-full rounded-lg border px-3 py-2 text-sm" value={form.targetAgentIds || []} onChange={e => {
+                        const opts = Array.from(e.target.selectedOptions).map(o => o.value);
+                        setForm({ ...form, targetAgentIds: opts });
+                      }}>
+                        <option value="__ALL_AGENTS__">All Agents</option>
+                        {agentUsers.map(u => (<option key={u._id} value={u._id}>{u.name}</option>))}
+                      </select>
+                    </div>
+                  )}
+                  {(form.appliesToRoles || []).some((v: string) => /All Staff|DoctorStaff/i.test(v)) && doctorUsers.length > 0 && (
+                    <div className="mt-2">
+                      <div className="text-xs text-gray-600 mb-1">Select DoctorStaff</div>
+                      <select multiple className="w-full rounded-lg border px-3 py-2 text-sm" value={form.targetDoctorIds || []} onChange={e => {
+                        const opts = Array.from(e.target.selectedOptions).map(o => o.value);
+                        setForm({ ...form, targetDoctorIds: opts });
+                      }}>
+                        <option value="__ALL_DOCTORS__">All DoctorStaff</option>
+                        {doctorUsers.map(u => (<option key={u._id} value={u._id}>{u.name}</option>))}
+                      </select>
+                    </div>
+                  )}
+                </div> */}
+                <div className="space-y-1 sm:col-span-2">
+                  <div className="text-sm font-medium text-gray-900">Applies To Roles *</div>
+
+                  {/* Main role selection - Clean pill buttons */}
+                  <div className="flex flex-wrap gap-2">
+                    {policyRoleOptions.map(r => {
+                      const selected = (form.appliesToRoles || []).includes(r);
+                      return (
+                        <button
+                          key={r}
+                          type="button"
+                          onClick={() => {
+                            const curr = new Set(form.appliesToRoles || []);
+
+                            // If selecting "All Staff", clear other selections
+                            if (r === "All Staff" && !selected) {
+                              // Select All Staff, deselect others
+                              setForm({
+                                ...form,
+                                appliesToRoles: ["All Staff"],
+                                targetAgentIds: [],
+                                targetDoctorIds: []
+                              });
+                            } else if (r === "All Staff" && selected) {
+                              // Deselect All Staff
+                              setForm({
+                                ...form,
+                                appliesToRoles: [],
+                                targetAgentIds: [],
+                                targetDoctorIds: []
+                              });
+                            } else {
+                              // Handle Agent or DoctorStaff selection
+                              if (selected) {
+                                curr.delete(r);
+                              } else {
+                                // If selecting a specific role, remove "All Staff" if present
+                                curr.delete("All Staff");
+                                curr.add(r);
+                              }
+                              setForm({
+                                ...form,
+                                appliesToRoles: Array.from(curr)
+                              });
+                            }
+                          }}
+                          className={`rounded-full border px-4 py-2 text-sm font-medium transition-all ${selected
+                              ? "bg-gray-900 text-white border-gray-900 shadow-sm"
+                              : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                            }`}
+                        >
+                          {r === "All Staff" ? "👥 All Staff" : r === "Agent" ? "👤 Agents" : "👨‍⚕️ Doctor Staff"}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Conditional rendering for Agent selection */}
+                  {(form.appliesToRoles || []).includes("Agent") && agentUsers.length > 0 && (
+                    <div className="mt-4 rounded-lg border border-gray-200 bg-gray-50 p-4">
+                      <div className="mb-3 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-100">
+                            <span className="text-xs font-semibold text-blue-700">👤</span>
+                          </div>
+                          <span className="text-sm font-semibold text-gray-900">Select Agents</span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <label className="flex items-center gap-2 text-sm">
+                            <input
+                              type="checkbox"
+                              className="h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900"
+                              checked={form.targetAgentIds?.includes("__ALL_AGENTS__")}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setForm({
+                                    ...form,
+                                    targetAgentIds: ["__ALL_AGENTS__", ...agentUsers.map(u => u._id)]
+                                  });
+                                } else {
+                                  setForm({
+                                    ...form,
+                                    targetAgentIds: form.targetAgentIds?.filter((id: string) => id !== "__ALL_AGENTS__")
+                                  });
+                                }
+                              }}
+                            />
+                            <span className="font-medium">Select All</span>
+                          </label>
+                          <span className="text-xs text-gray-500">{agentUsers.length} available</span>
+                        </div>
+                      </div>
+
+                      <div className="grid max-h-48 grid-cols-2 gap-2 overflow-y-auto pr-1 sm:grid-cols-3">
+                        {agentUsers.map(u => (
+                          <label
+                            key={u._id}
+                            className={`flex cursor-pointer items-center gap-2 rounded-lg border p-2 transition-all ${form.targetAgentIds?.includes(u._id)
+                                ? "border-gray-900 bg-gray-100"
+                                : "border-gray-200 bg-white hover:bg-gray-50"
+                              }`}
+                          >
+                            <input
+                              type="checkbox"
+                              className="h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900"
+                              checked={form.targetAgentIds?.includes(u._id) || form.targetAgentIds?.includes("__ALL_AGENTS__")}
+                              onChange={(e) => {
+                                const current = new Set(form.targetAgentIds || []);
+                                if (e.target.checked) {
+                                  current.add(u._id);
+                                  // Remove "ALL" if manually selecting individuals
+                                  current.delete("__ALL_AGENTS__");
+                                } else {
+                                  current.delete(u._id);
+                                }
+                                setForm({ ...form, targetAgentIds: Array.from(current) });
+                              }}
+                            />
+                            <div className="flex flex-col truncate">
+                              <span className="truncate text-sm font-medium text-gray-900">{u.name}</span>
+                              <span className="text-xs text-gray-500">Agent</span>
+                            </div>
+                          </label>
+                        ))}
+                      </div>
+
+                      {form.targetAgentIds?.length > 0 && !form.targetAgentIds?.includes("__ALL_AGENTS__") && (
+                        <div className="mt-3 text-xs text-gray-600">
+                          Selected {form.targetAgentIds.length} agent{form.targetAgentIds.length !== 1 ? 's' : ''}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Conditional rendering for Doctor Staff selection */}
+                  {(form.appliesToRoles || []).includes("DoctorStaff") && doctorUsers.length > 0 && (
+                    <div className="mt-4 rounded-lg border border-gray-200 bg-gray-50 p-4">
+                      <div className="mb-3 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="flex h-6 w-6 items-center justify-center rounded-full bg-green-100">
+                            <span className="text-xs font-semibold text-green-700">👨‍⚕️</span>
+                          </div>
+                          <span className="text-sm font-semibold text-gray-900">Select Doctor Staff</span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <label className="flex items-center gap-2 text-sm">
+                            <input
+                              type="checkbox"
+                              className="h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900"
+                              checked={form.targetDoctorIds?.includes("__ALL_DOCTORS__")}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setForm({
+                                    ...form,
+                                    targetDoctorIds: ["__ALL_DOCTORS__", ...doctorUsers.map(u => u._id)]
+                                  });
+                                } else {
+                                  setForm({
+                                    ...form,
+                                    targetDoctorIds: form.targetDoctorIds?.filter((id: string) => id !== "__ALL_DOCTORS__")
+                                  });
+                                }
+                              }}
+                            />
+                            <span className="font-medium">Select All</span>
+                          </label>
+                          <span className="text-xs text-gray-500">{doctorUsers.length} available</span>
+                        </div>
+                      </div>
+
+                      <div className="grid max-h-48 grid-cols-2 gap-2 overflow-y-auto pr-1 sm:grid-cols-3">
+                        {doctorUsers.map(u => (
+                          <label
+                            key={u._id}
+                            className={`flex cursor-pointer items-center gap-2 rounded-lg border p-2 transition-all ${form.targetDoctorIds?.includes(u._id)
+                                ? "border-gray-900 bg-gray-100"
+                                : "border-gray-200 bg-white hover:bg-gray-50"
+                              }`}
+                          >
+                            <input
+                              type="checkbox"
+                              className="h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900"
+                              checked={form.targetDoctorIds?.includes(u._id) || form.targetDoctorIds?.includes("__ALL_DOCTORS__")}
+                              onChange={(e) => {
+                                const current = new Set(form.targetDoctorIds || []);
+                                if (e.target.checked) {
+                                  current.add(u._id);
+                                  // Remove "ALL" if manually selecting individuals
+                                  current.delete("__ALL_DOCTORS__");
+                                } else {
+                                  current.delete(u._id);
+                                }
+                                setForm({ ...form, targetDoctorIds: Array.from(current) });
+                              }}
+                            />
+                            <div className="flex flex-col truncate">
+                              <span className="truncate text-sm font-medium text-gray-900">{u.name}</span>
+                              <span className="text-xs text-gray-500">Doctor Staff</span>
+                            </div>
+                          </label>
+                        ))}
+                      </div>
+
+                      {form.targetDoctorIds?.length > 0 && !form.targetDoctorIds?.includes("__ALL_DOCTORS__") && (
+                        <div className="mt-3 text-xs text-gray-600">
+                          Selected {form.targetDoctorIds.length} doctor{form.targetDoctorIds.length !== 1 ? 's' : ''}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Summary section showing selection status */}
+                  {(form.appliesToRoles || []).length > 0 && (
+                    <div className="mt-3 flex items-center gap-2 rounded-lg bg-blue-50 p-3 text-sm">
+                      <div className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-200">
+                        <span className="text-xs font-bold text-blue-700">✓</span>
+                      </div>
+                      <div className="flex-1">
+                        <span className="font-medium text-blue-900">Selection summary:</span>
+                        <span className="ml-2 text-blue-800">
+                          {form.appliesToRoles?.includes("All Staff")
+                            ? "All staff members will be assigned"
+                            : [
+                              form.appliesToRoles?.includes("Agent") && `${form.targetAgentIds?.length || 0} agents selected`,
+                              form.appliesToRoles?.includes("DoctorStaff") && `${form.targetDoctorIds?.length || 0} doctor staff selected`
+                            ].filter(Boolean).join(" • ")}
+                        </span>
+                      </div>
+                    </div>
+                  )}
                 </div>
+
                 <div className="space-y-1 sm:col-span-2">
                   <div className="text-sm font-medium text-gray-900">Policy Description *</div>
                   <textarea rows={5} className="w-full rounded-lg border px-3 py-2 text-sm" placeholder="Enter detailed policy description..." value={form.description || ""} onChange={e => setForm({ ...form, description: e.target.value })} />
@@ -952,17 +1519,17 @@ function PolicyCompliance() {
                 </div>
                 <div className="space-y-2 sm:col-span-2">
                   <div className="text-sm font-medium text-gray-900">Mandatory Acknowledgment</div>
-                    <div className="flex items-center justify-between rounded-lg border px-3 py-2">
+                  <div className="flex items-center justify-between rounded-lg border px-3 py-2">
                     <div className="text-sm text-gray-700">Require staff to acknowledge this policy</div>
-                      <button
-                        type="button"
-                        onClick={() => setForm({ ...form, mandatoryAck: !form.mandatoryAck })}
-                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-300 ${form.mandatoryAck ? "bg-gray-900" : "bg-gray-300"}`}
-                      >
-                        <span
-                          className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform duration-300 ${form.mandatoryAck ? "translate-x-5" : "translate-x-1"}`}
-                        />
-                      </button>
+                    <button
+                      type="button"
+                      onClick={() => setForm({ ...form, mandatoryAck: !form.mandatoryAck })}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-300 ${form.mandatoryAck ? "bg-gray-900" : "bg-gray-300"}`}
+                    >
+                      <span
+                        className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform duration-300 ${form.mandatoryAck ? "translate-x-5" : "translate-x-1"}`}
+                      />
+                    </button>
                   </div>
                 </div>
               </div>
@@ -987,7 +1554,7 @@ function PolicyCompliance() {
                   <div className="text-sm font-medium text-gray-900">Department *</div>
                   <select className="w-full rounded-lg border px-3 py-2 text-sm" value={form.department || ""} onChange={e => setForm({ ...form, department: e.target.value })}>
                     <option value="">Select department</option>
-                    {["Clinic"].map(d => (<option key={d} value={d}>{d}</option>))}
+                    {departments.map(d => (<option key={d._id} value={d.name}>{d.name}</option>))}
                   </select>
                 </div>
                 <div className="space-y-1">
@@ -1389,7 +1956,7 @@ function PolicyCompliance() {
                 <>
                   <select value={departmentFilter} onChange={e => setDepartmentFilter(e.target.value)} className="rounded-lg border bg-white px-3 py-2 text-sm">
                     <option value="">All Departments</option>
-                    <option value="Maintenance">Clinic</option>
+                    {departments.map(d => (<option key={d._id} value={d.name}>{d.name}</option>))}
                   </select>
                   <select value={riskFilter} onChange={e => setRiskFilter(e.target.value)} className="rounded-lg border bg-white px-3 py-2 text-sm">
                     <option value="">All Risk Levels</option>
@@ -1419,7 +1986,7 @@ function PolicyCompliance() {
                 <>
                   <select value={departmentFilter} onChange={e => setDepartmentFilter(e.target.value)} className="rounded-lg border bg-white px-3 py-2 text-sm">
                     <option value="">All Departments</option>
-                    <option value="Clinic">Clinic</option>
+                    {departments.map(d => (<option key={d._id} value={d.name}>{d.name}</option>))}
                   </select>
                   <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="rounded-lg border bg-white px-3 py-2 text-sm">
                     <option value="">All Status</option>
@@ -1940,13 +2507,6 @@ function PolicyCompliance() {
 PolicyCompliance.getLayout = function PageLayout(page: React.ReactNode) {
   return <ClinicLayout>{page}</ClinicLayout>;
 };
-//no scrollbar
-{/* <scripts>
-  document.body.style.overflow = "hidden";
-  return () => {
-    document.body.style.overflow = "auto";
-  };
-</scripts> */}
 
 const ProtectedPolicyCompliance: NextPageWithLayout = withClinicAuth(PolicyCompliance);
 ProtectedPolicyCompliance.getLayout = PolicyCompliance.getLayout;

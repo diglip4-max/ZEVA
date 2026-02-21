@@ -18,6 +18,7 @@ import {
   PaperClipIcon
 } from "@heroicons/react/24/outline";
 import { CheckCircleIcon as CheckCircleSolid } from "@heroicons/react/24/solid";
+import { ClipboardListIcon } from "lucide-react";
 
 interface AppNotification {
   _id: string;
@@ -49,6 +50,13 @@ export default function NotificationBell() {
   const [docDetails, setDocDetails] = useState<any | null>(null);
   const [isClient, setIsClient] = useState(false);
   const [activeTab, setActiveTab] = useState<'all' | 'unread'>('all');
+  const [viewerOpen, setViewerOpen] = useState(false);
+  const [viewerUrl, setViewerUrl] = useState<string | null>(null);
+  const [viewerTitle, setViewerTitle] = useState<string>("Document Preview");
+  const [viewerError, setViewerError] = useState<string | null>(null);
+  const pdfContainerRef = (typeof window !== "undefined") ? (document.createElement('div') as HTMLDivElement) : null as any;
+
+  console.log("Acknowledgment Details:", ackDetails);
 
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
@@ -181,6 +189,101 @@ export default function NotificationBell() {
     }
   };
 
+  // const getAuthHeaders = () => {
+  //   return token ? { Authorization: `Bearer ${token}` } : {};
+  // };
+
+const getAuthHeaders = (): HeadersInit => {
+  const token = localStorage.getItem('token');
+  return token ? { Authorization: `Bearer ${token}` } : {};
+};
+
+  const openViewer = (url?: string, title?: string) => {
+    if (!url) return;
+    setViewerUrl(url);
+    setViewerTitle(title || "Document Preview");
+    setViewerError(null);
+    setViewerOpen(true);
+  };
+
+  const loadPdfIntoModal = async (pdfUrl: string) => {
+    try {
+      setViewerError(null);
+      const w = window as any;
+      if (!w.pdfjsLib) {
+        await new Promise<void>((resolve, reject) => {
+          const s = document.createElement("script");
+          s.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
+          s.onload = () => resolve();
+          s.onerror = () => reject(new Error("Failed to load PDF viewer"));
+          document.body.appendChild(s);
+        });
+        await new Promise<void>((resolve, reject) => {
+          const sw = document.createElement("script");
+          sw.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+          sw.onload = () => resolve();
+          sw.onerror = () => reject(new Error("Failed to load PDF worker"));
+          document.body.appendChild(sw);
+        });
+      }
+      const pdfjsLib = (window as any).pdfjsLib;
+      pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+
+      const fullUrl = pdfUrl.startsWith('http')
+        ? pdfUrl
+        : `${window.location.origin}${pdfUrl}`;
+
+      const resp = await fetch(fullUrl, {
+        headers: getAuthHeaders(),
+        credentials: 'include'
+      });
+      if (!resp.ok) throw new Error(`Failed to fetch PDF: ${resp.status} ${resp.statusText}`);
+      const blob = await resp.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const task = pdfjsLib.getDocument({ url: objectUrl });
+      const pdf = await task.promise;
+
+      const container = document.getElementById("notif-pdf-container") as HTMLDivElement;
+      if (!container) return;
+      container.innerHTML = "";
+
+      for (let p = 1; p <= pdf.numPages; p++) {
+        const page = await pdf.getPage(p);
+        const viewport = page.getViewport({ scale: 1.1 });
+        const canvas = document.createElement("canvas");
+        canvas.style.display = "block";
+        canvas.style.margin = "0 auto 16px auto";
+        canvas.style.maxWidth = "100%";
+        canvas.style.height = "auto";
+        const ctx = canvas.getContext("2d")!;
+        canvas.height = viewport.height;
+        canvas.width = viewport.width;
+        container.appendChild(canvas);
+        await page.render({ canvasContext: ctx, viewport }).promise;
+      }
+      URL.revokeObjectURL(objectUrl);
+    } catch (error: any) {
+      setViewerError(error?.message || "Failed to load document");
+      const container = document.getElementById("notif-pdf-container") as HTMLDivElement;
+      if (container) {
+        container.innerHTML = `<div class="p-8 text-center">
+          <div class="text-red-600 mb-2">Failed to load document</div>
+          <div class="text-sm text-gray-500">${error?.message || "Unknown error"}</div>
+        </div>`;
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (viewerOpen && viewerUrl) {
+      const prevent = (e: Event) => e.preventDefault();
+      document.addEventListener("contextmenu", prevent);
+      loadPdfIntoModal(viewerUrl);
+      return () => {
+        document.removeEventListener("contextmenu", prevent);
+      };
+    }
+  }, [viewerOpen, viewerUrl]);
   const markAckStatus = async (status: "Viewed" | "Acknowledged") => {
     if (!ackDetails) return;
     try {
@@ -477,16 +580,52 @@ export default function NotificationBell() {
                                   <p className="text-sm font-medium text-gray-900">{docDetails.riskLevel || "-"}</p>
                                 </div>
                               </div>
+                              <div className="flex items-center gap-2 col-span-2">
+                                <DocumentTextIcon className="h-4 w-4 text-gray-400" />
+                                <div className="min-w-0">
+                                  <p className="text-xs text-gray-500">SOP Content</p>
+                                  <p className="text-sm text-gray-900 break-words">
+                                    {docDetails.content || "-"}
+                                  </p>
+                                </div>
+                              </div>
+                              {Array.isArray(docDetails.checklist) && docDetails.checklist.length > 0 && (
+                                <div className="flex items-start gap-2 col-span-2">
+                                  <ClipboardListIcon className="h-4 w-4 text-gray-400 mt-0.5" />
+                                  <div className="min-w-0">
+                                    <p className="text-xs text-gray-500">Step-by-Step Checklist</p>
+                                    <div className="mt-1 space-y-1">
+                                      {docDetails.checklist.slice(0, 6).map((step: any, idx: number) => (
+                                        <div key={idx} className="text-sm text-gray-900">
+                                          {typeof step === "string" ? step : step?.text || step?.title || ""}
+                                        </div>
+                                      ))}
+                                      {docDetails.checklist.length > 6 && (
+                                        <div className="text-xs text-gray-500">+ {docDetails.checklist.length - 6} more</div>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
                             </>
                           )}
                           {ackDetails.documentType === "Policy" && (
-                            <div className="flex items-center gap-2">
-                              <TagIcon className="h-4 w-4 text-gray-400" />
-                              <div>
-                                <p className="text-xs text-gray-500">Policy Type</p>
-                                <p className="text-sm font-medium text-gray-900">{docDetails.policyType || "-"}</p>
+                            <>
+                              <div className="flex items-center gap-2">
+                                <TagIcon className="h-4 w-4 text-gray-400" />
+                                <div>
+                                  <p className="text-xs text-gray-500">Policy Type</p>
+                                  <p className="text-sm font-medium text-gray-900">{docDetails.policyType || "-"}</p>
+                                </div>
                               </div>
-                            </div>
+                              <div className="flex items-center gap-2 col-span-2">
+                                <DocumentTextIcon className="h-4 w-4 text-gray-400" />
+                                <div>
+                                  <p className="text-xs text-gray-500">Policy Description</p>
+                                  <p className="text-sm text-gray-900">{docDetails.description || "-"}</p>
+                                </div>
+                              </div>
+                            </>
                           )}
                           {ackDetails.documentType === "Playbook" && (
                             <>
@@ -511,7 +650,7 @@ export default function NotificationBell() {
                         <div className="flex flex-wrap gap-2 pt-2">
                           {docDetails.documentUrl && (
                             <button 
-                              onClick={() => window.open(docDetails.documentUrl, "_blank")}
+                              onClick={() => openViewer(docDetails.documentUrl, ackDetails.documentName)}
                               className="px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-lg flex items-center gap-1"
                             >
                               <ArrowTopRightOnSquareIcon className="h-4 w-4" />
@@ -521,13 +660,13 @@ export default function NotificationBell() {
                           {/* {Array.isArray(docDetails.attachments) && docDetails.attachments.length > 0 && docDetails.attachments.map((a: string, idx: number) => (
                             <button
                               key={`${a}-${idx}`}
-                              onClick={() => window.open(a, "_blank")}
+                              onClick={() => openViewer(a, ackDetails.documentName)}
                               className="px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-1"
                             >
                               <PaperClipIcon className="h-4 w-4" />
                               {(a && typeof a === "string" && a.split("/").pop()) || `Attachment ${idx + 1}`}
                             </button>
-                          ))} */}
+                          ))}  */}
                         </div>
                       </div>
                     )}
@@ -564,6 +703,28 @@ export default function NotificationBell() {
               </div>
             )}
           </div>
+          {viewerOpen && viewerUrl && createPortal(
+            <div className="fixed inset-0 z-[1100] flex items-center justify-center bg-black/60 p-4">
+              <div className="w-full max-w-4xl bg-white rounded-xl shadow-xl overflow-hidden">
+                <div className="flex items-center justify-between px-4 py-3 border-b">
+                  <div className="text-sm font-semibold text-gray-900">{viewerTitle}</div>
+                  <button
+                    onClick={() => { setViewerOpen(false); setViewerError(null); }}
+                    className="rounded-md px-3 py-1 text-sm border hover:bg-gray-50"
+                  >
+                    Close
+                  </button>
+                </div>
+                {viewerError && (
+                  <div className="p-4 bg-red-50 border-b border-red-200">
+                    <div className="text-red-700 text-sm">{viewerError}</div>
+                  </div>
+                )}
+                <div id="notif-pdf-container" className="h-[70vh] overflow-y-auto p-4"></div>
+              </div>
+            </div>,
+            document.body
+          )}
         </div>,
         document.body
       )}
