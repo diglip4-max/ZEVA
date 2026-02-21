@@ -1,6 +1,6 @@
 //components/WorkSessionModal.jsx
 'use client';
-import React, { useEffect, useRef, useState } from 'react';
+import  { useEffect, useRef, useState } from 'react';
 import axios from 'axios';
 import * as d3 from 'd3';
 import {
@@ -596,24 +596,24 @@ const WorkSessionModal = ({
     return count > 0 ? Math.round(weeklyStats.totalDeskTime / count) : 0;
   };
 
-  const getMonthlyAverageTime = () => {
-    return monthlyStats.totalDays > 0 ? Math.round(monthlyStats.totalDeskTime / monthlyStats.totalDays) : 0;
-  };
+  // const getMonthlyAverageTime = () => {
+  //   return monthlyStats.totalDays > 0 ? Math.round(monthlyStats.totalDeskTime / monthlyStats.totalDays) : 0;
+  // };
 
-const formatArrivalTime = (arrivalTime) => {
-  if (!arrivalTime) return "--";
+// const formatArrivalTime = (arrivalTime) => {
+//   if (!arrivalTime) return "--";
 
-  // if already formatted like "09:30 AM"
-  if (typeof arrivalTime === "string" && arrivalTime.includes(":") && (arrivalTime.includes("AM") || arrivalTime.includes("PM"))) {
-    return arrivalTime;
-  }
-  const d = new Date(arrivalTime);
-  if (!isNaN(d.getTime())) {
-    return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-  }
+//   // if already formatted like "09:30 AM"
+//   if (typeof arrivalTime === "string" && arrivalTime.includes(":") && (arrivalTime.includes("AM") || arrivalTime.includes("PM"))) {
+//     return arrivalTime;
+//   }
+//   const d = new Date(arrivalTime);
+//   if (!isNaN(d.getTime())) {
+//     return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+//   }
 
-  return "--";
-};
+//   return "--";
+// };
 
 
   const calculateHourlyProductivity = () => {
