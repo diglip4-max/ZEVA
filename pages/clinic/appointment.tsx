@@ -1,5 +1,6 @@
 "use client";
 import React, { useEffect, useRef, useState, useCallback } from "react";
+import { ModalPortal } from "../../lib/modalPortal";
 import { useRouter } from "next/router";
 import axios from "axios";
 import withClinicAuth from "../../components/withClinicAuth";
@@ -3309,14 +3310,15 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
 
       {/* Custom Time Slot Modal */}
       {customTimeSlotModalOpen && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[110] p-4"
-          onClick={() => setCustomTimeSlotModalOpen(false)}
-        >
+        <ModalPortal>
           <div
-            className="bg-white dark:bg-gray-50 rounded-xl shadow-2xl max-w-md w-full p-4 sm:p-6"
-            onClick={(e) => e.stopPropagation()}
+            className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[9999] p-4"
+            onClick={() => setCustomTimeSlotModalOpen(false)}
           >
+            <div
+              className="bg-white dark:bg-gray-50 rounded-xl shadow-2xl max-w-md w-full p-4 sm:p-6"
+              onClick={(e) => e.stopPropagation()}
+            >
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-900">Custom Time Slots</h2>
               <button
@@ -3459,6 +3461,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
             </div>
           </div>
         </div>
+      </ModalPortal>
       )}
 
       {/* Booking Modal */}

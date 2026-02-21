@@ -180,7 +180,7 @@ const DEFAULT_WIDGETS: DashboardWidget[] = [
   { id: '2', type: 'primary-stats', title: 'Key Statistics', visible: true, order: 1 },
   { id: '3', type: 'secondary-stats', title: 'Additional Statistics', visible: true, order: 2 },
   { id: '9', type: 'commission-dashboard', title: 'Commission Analytics', visible: true, order: 3 },
-  { id: '4', type: 'quick-actions', title: 'Quick Actions', visible: true, order: 4 },
+  { id: '4', type: 'quick-actions', title: 'Quick Actions', visible: true, order: 9 },
   { id: '5', type: 'status-charts', title: 'Status Breakdown Charts', visible: true, order: 5 },
   { id: '6', type: 'analytics-overview', title: 'Analytics Overview', visible: true, order: 6 },
   { id: '7', type: 'subscription-status', title: 'Subscription Status', visible: true, order: 7 },

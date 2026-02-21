@@ -5,6 +5,7 @@ import * as XLSX from "xlsx";
 import Papa from "papaparse";
 import { X, Upload, CheckCircle, AlertCircle, Loader2, Download, Info, ArrowRight, ArrowLeft } from "lucide-react";
 import { toast } from "react-hot-toast";
+import { ModalPortal } from "../lib/modalPortal";
 
 interface Props {
   isOpen: boolean;
@@ -575,8 +576,9 @@ export default function ImportAppointmentsModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
+    <ModalPortal>
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+        <div className="bg-white rounded-xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
           <div>
@@ -956,6 +958,7 @@ export default function ImportAppointmentsModal({
         </div>
       </div>
     </div>
+  </ModalPortal>
   );
 }
 

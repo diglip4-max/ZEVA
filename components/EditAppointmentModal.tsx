@@ -3,6 +3,7 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { X, Loader2, Calendar, Clock, AlertCircle } from "lucide-react";
 import { APPOINTMENT_STATUS_OPTIONS } from "../data/appointmentStatusOptions";
+import { ModalPortal } from "../lib/modalPortal";
 
 interface EditAppointmentModalProps {
   isOpen: boolean;
@@ -198,8 +199,9 @@ export default function EditAppointmentModal({
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center p-2" onClick={onClose}>
-      <div className="bg-white rounded-lg shadow-2xl max-w-5xl w-full max-h-[95vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
+    <ModalPortal>
+      <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[9999] flex items-center justify-center p-2" onClick={onClose}>
+        <div className="bg-white rounded-lg shadow-2xl max-w-5xl w-full max-h-[95vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div className="flex items-center justify-between p-3 border-b border-gray-200">
           <div>
@@ -491,6 +493,7 @@ export default function EditAppointmentModal({
         </form>
       </div>
     </div>
+  </ModalPortal>
   );
 }
 
