@@ -162,15 +162,15 @@ const JobDetail: React.FC = () => {
   }, [isAuthenticated]);
 
   useEffect(() => {
-    if (id && user?._id) {
+    if (job?._id && user?._id) {
       axios
         .get<{ applied: boolean }>(
-          `/api/job-postings/checkApplication?jobId=${id}&applicantId=${user._id}`
+          `/api/job-postings/checkApplication?jobId=${job._id}&applicantId=${user._id}`
         )
         .then((res) => setHasApplied(res.data.applied))
         .catch(console.error);
     }
-  }, [id, user]);
+  }, [job?._id, user]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

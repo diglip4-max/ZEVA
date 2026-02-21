@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/router";
+import { useAuth } from "../../context/AuthContext";
 import {
   Bell, Home, LogOut, Briefcase, MessageCircle, User, Calendar, MapPin,
   DollarSign, Clock, Building, Award, Users, FileText, TrendingUp,
@@ -36,22 +37,10 @@ const apiCall = async (endpoint, token) => {
   return response.json();
 };
 
-// Custom Hooks
-const useAuth = () => {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    // Extract user info from applied jobs data instead
-    setUser(null);
-    setLoading(false);
-  }, []);
-
-  return { user, loading };
-};
+// Custom Hooks - Removed local useAuth since we're importing from AuthContext
 
 const useDashboardData = () => {
-  const [data, setData] = useState({ jobs: [], comments: [], chats: [], user: null });
+  const [data, setData] = useState({ jobs: [], comments: [], chats: [] });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -67,22 +56,11 @@ const useDashboardData = () => {
         ]);
 
         const jobs = jobsData.status === 'fulfilled' ? (jobsData.value || []) : [];
-        
-        // Extract user info from applied jobs
-        let userInfo = null;
-        if (jobs.length > 0 && jobs[0].applicantInfo) {
-          userInfo = {
-            name: jobs[0].applicantInfo.name,
-            email: jobs[0].applicantInfo.email,
-            phone: jobs[0].applicantInfo.phone
-          };
-        }
 
         setData({
           jobs: jobs,
           comments: commentsData.status === 'fulfilled' ? (commentsData.value?.commentsWithReplies || commentsData.value || []) : [],
-          chats: chatsData.status === 'fulfilled' ? (chatsData.value?.data?.filter(c => c.prescriptionRequest) || chatsData.value || []) : [],
-          user: userInfo
+          chats: chatsData.status === 'fulfilled' ? (chatsData.value?.data?.filter(c => c.prescriptionRequest) || chatsData.value || []) : []
         });
       } catch (err) {
         console.error("Failed to fetch dashboard data", err);
@@ -608,7 +586,8 @@ const ChatsTab = ({ chats }) => {
 const Dashboard = () => {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState("overview");
-  const { jobs, comments, chats, user, loading: dataLoading } = useDashboardData();
+  const { user: authUser } = useAuth(); // Get user from AuthContext
+  const { jobs, comments, chats, loading: dataLoading } = useDashboardData();
   const { notifications, show, setShow, markAsRead, clearNotifications, readNotifications } = useNotifications();
 
   const handleLogout = () => {
@@ -634,7 +613,7 @@ const Dashboard = () => {
   return (
     <div className="min-h-screen bg-slate-50">
       <TopNav
-        user={user}
+        user={authUser}
         notifications={notifications}
         showNotif={show}
         setShowNotif={setShow}

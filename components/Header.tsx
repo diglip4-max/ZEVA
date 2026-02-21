@@ -1,14 +1,18 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/router";
 import { useAuth } from "../context/AuthContext";
 import AuthModal from "../components/AuthModal";
-import { Menu, X } from 'lucide-react';
+import { Menu, X, ChevronDown, User, LogOut } from 'lucide-react';
 
 const Header = () => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user, logout } = useAuth();
+  const router = useRouter();
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [showUserDropdown, setShowUserDropdown] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
 
   const openAuthModal = (mode: "login" | "register") => {
@@ -19,6 +23,33 @@ const Header = () => {
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);
   };
+
+  const handleLogout = () => {
+    logout();
+    setShowUserDropdown(false);
+  };
+
+  const handleProfileClick = () => {
+    router.push("/user/profile");
+    setShowUserDropdown(false);
+  };
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowUserDropdown(false);
+      }
+    };
+
+    if (showUserDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showUserDropdown]);
 
   return (
     <>
@@ -72,21 +103,55 @@ const Header = () => {
             {/* RIGHT SIDE - AUTH BUTTONS AND HAMBURGER MENU */}
             <div className="flex items-center gap-2">
               
-              {/* AUTH BUTTONS - Visible on all screens */}
-              <div className="flex items-center space-x-2">
-                <button
-                  onClick={() => openAuthModal("register")}
-                  className="text-blue-600 text-xs sm:text-sm font-medium underline py-1 px-2"
-                >
-                  Login
-                </button>
-                <button
-                  onClick={() => openAuthModal("login")}
-                  className="bg-yellow-300 hover:bg-yellow-500 text-gray-900 px-2 py-0.5 sm:px-3 sm:py-1 rounded-full text-xs sm:text-sm font-medium shadow-sm"
-                >
-                  Sign Up
-                </button>
-              </div>
+              {/* AUTH BUTTONS OR USER DROPDOWN */}
+              {isAuthenticated && user ? (
+                <div className="relative" ref={dropdownRef}>
+                  <button
+                    onClick={() => setShowUserDropdown(!showUserDropdown)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 bg-gradient-to-r from-teal-50 to-blue-50 hover:from-teal-100 hover:to-blue-100 rounded-full border border-teal-200 transition-all"
+                  >
+                    <span className="text-xs sm:text-sm font-semibold text-gray-800 max-w-[100px] sm:max-w-[150px] truncate">
+                      {user.name}
+                    </span>
+                    <ChevronDown className={`w-3 h-3 sm:w-4 sm:h-4 text-gray-600 transition-transform ${showUserDropdown ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  {/* Dropdown Menu */}
+                  {showUserDropdown && (
+                    <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-xl z-50 overflow-hidden">
+                      <button
+                        onClick={handleProfileClick}
+                        className="w-full flex items-center gap-3 px-4 py-3 text-left text-sm text-gray-700 hover:bg-blue-50 transition-colors"
+                      >
+                        <User className="w-4 h-4 text-blue-600" />
+                        <span className="font-medium">Profile</span>
+                      </button>
+                      <button
+                        onClick={handleLogout}
+                        className="w-full flex items-center gap-3 px-4 py-3 text-left text-sm text-gray-700 hover:bg-red-50 transition-colors border-t border-gray-100"
+                      >
+                        <LogOut className="w-4 h-4 text-red-600" />
+                        <span className="font-medium text-red-600">Logout</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => openAuthModal("register")}
+                    className="text-blue-600 text-xs sm:text-sm font-medium underline py-1 px-2"
+                  >
+                    Login
+                  </button>
+                  <button
+                    onClick={() => openAuthModal("login")}
+                    className="bg-yellow-300 hover:bg-yellow-500 text-gray-900 px-2 py-0.5 sm:px-3 sm:py-1 rounded-full text-xs sm:text-sm font-medium shadow-sm"
+                  >
+                    Sign Up
+                  </button>
+                </div>
+              )}
 
               {/* HAMBURGER MENU BUTTON - Visible on mobile, tablet, and laptop (under 1280px) */}
               <button
