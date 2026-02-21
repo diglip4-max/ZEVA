@@ -2215,24 +2215,47 @@ const [showColorCustomization, setShowColorCustomization] = useState(false);
 // State for color picker visibility
 const [openPicker, setOpenPicker] = useState<string | null>(null);
 
-const getStatusColor = (status: string): { bg: string; text: string; border: string } => {
-  const s = status.toLowerCase();
-  
-  // Check if custom color exists for this status
-  const customColor = customStatusColors[s];
-  if (customColor) {
-    return customColor;
-  }
+const normalizeStatus = (status: any): string => {
+  if (typeof status !== "string") return "default";
+  const s = status.trim().toLowerCase();
+  const map: Record<string, string> = {
+    booking: "booked",
+    booked: "booked",
+    enquiry: "enquiry",
+    inquiry: "enquiry",
+    discharge: "discharge",
+    discharged: "discharge",
+    arrive: "arrived",
+    arrival: "arrived",
+    arrived: "arrived",
+    consultation: "consultation",
+    consulted: "consultation",
+    cancelled: "cancelled",
+    canceled: "cancelled",
+    approved: "approved",
+    rescheduled: "rescheduled",
+    waiting: "waiting",
+    rejected: "rejected",
+    completed: "completed",
+    invoice: "invoice",
+    invoiced: "invoice",
+  };
+  return map[s] || s;
+};
 
-  // Return default color if no custom color is set
-  return DEFAULT_STATUS_COLORS[s] || DEFAULT_STATUS_COLORS.default;
+const getStatusColor = (status: string): { bg: string; text: string; border: string } => {
+  const key = normalizeStatus(status);
+  const customColor = customStatusColors[key];
+  if (customColor) return customColor;
+  return DEFAULT_STATUS_COLORS[key] || DEFAULT_STATUS_COLORS.default;
 };
 
 // Handler for changing status colors
 const handleColorChange = (status: string, newColor: string) => {
+  const key = normalizeStatus(status);
   const updatedColors = {
     ...customStatusColors,
-    [status]: {
+    [key]: {
       bg: newColor,
       text: "#111827", // Keep dark text for readability
       border: newColor // Use same color for border

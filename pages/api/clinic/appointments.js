@@ -524,6 +524,23 @@ export default async function handler(req, res) {
       console.log("📖 Populated appointment bookedFrom from DB:", populatedAppointment.bookedFrom);
       console.log("📖 Populated appointment bookedFrom type:", typeof populatedAppointment.bookedFrom);
 
+      // Fetch doctor treatments for the created appointment's doctor
+      let doctorTreatments = [];
+      try {
+        const did = populatedAppointment.doctorId?._id?.toString();
+        if (did) {
+          const treatments = await formatDoctorTreatments(did);
+          doctorTreatments = (treatments || []).map(t => ({
+            mainTreatment: t.treatmentName,
+            mainTreatmentSlug: t.treatmentId,
+            subTreatments: t.subcategories || []
+          }));
+        }
+      } catch (err) {
+        console.error("Error fetching doctor treatments for created appointment:", err);
+        doctorTreatments = [];
+      }
+
       return res.status(201).json({
         success: true,
         message: "Appointment created successfully",
@@ -548,7 +565,7 @@ export default async function handler(req, res) {
           bookedFrom: (populatedAppointment.bookedFrom === "room" || populatedAppointment.bookedFrom === "doctor") 
             ? populatedAppointment.bookedFrom 
             : validBookedFrom, // Use value from database, fallback to validated value
-          doctorTreatments: doctorTreatmentsMap[populatedAppointment.doctorId?._id?.toString()] || [],
+          doctorTreatments,
           patientInvoiceNumber: populatedAppointment.patientId?.invoiceNumber || null,
           patientEmrNumber: populatedAppointment.patientId?.emrNumber || null,
           patientGender: populatedAppointment.patientId?.gender || null,
