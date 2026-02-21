@@ -15,7 +15,7 @@ import {
   ArrowTopRightOnSquareIcon,
   EnvelopeIcon,
   EyeIcon,
-  PaperClipIcon
+
 } from "@heroicons/react/24/outline";
 import { CheckCircleIcon as CheckCircleSolid } from "@heroicons/react/24/solid";
 import { ClipboardListIcon } from "lucide-react";
@@ -54,7 +54,7 @@ export default function NotificationBell() {
   const [viewerUrl, setViewerUrl] = useState<string | null>(null);
   const [viewerTitle, setViewerTitle] = useState<string>("Document Preview");
   const [viewerError, setViewerError] = useState<string | null>(null);
-  const pdfContainerRef = (typeof window !== "undefined") ? (document.createElement('div') as HTMLDivElement) : null as any;
+  // const pdfContainerRef = (typeof window !== "undefined") ? (document.createElement('div') as HTMLDivElement) : null as any;
 
   console.log("Acknowledgment Details:", ackDetails);
 

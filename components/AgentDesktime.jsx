@@ -1,6 +1,6 @@
 // components/AgentDesktime.jsx
 'use client';
-import React, { useEffect, useRef, useState } from 'react';
+import  { useEffect, useRef, useState } from 'react';
 import axios from 'axios';
 import * as d3 from 'd3';
 import {
@@ -35,12 +35,12 @@ const formatTime = (sec = 0) => {
   return `${s}s`;
 };
 
-const formatTimeDetailed = (sec = 0) => {
-  const h = Math.floor(sec / 3600);
-  const m = Math.floor((sec % 3600) / 60);
-  const s = sec % 60;
-  return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-};
+// const formatTimeDetailed = (sec = 0) => {
+//   const h = Math.floor(sec / 3600);
+//   const m = Math.floor((sec % 3600) / 60);
+//   const s = sec % 60;
+//   return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+// };
 
 const productivityColor = (p) => {
   if (p >= 80) return 'bg-green-500';

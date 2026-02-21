@@ -1,6 +1,6 @@
 // pages/api/screenshots/bulk.js
-import dbConnect from '../../../lib/database';
-import Screenshot from '../../../models/Screenshot';
+import dbConnect from '../../../../lib/database';
+import Screenshot from '../../../../models/Screenshot';
 import jwt from 'jsonwebtoken';
 
 export default async function handler(req, res) {

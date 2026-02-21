@@ -1,22 +1,17 @@
 // components/DoctorDesktime.jsx
 'use client';
-import React, { useEffect, useRef, useState } from 'react';
+import  { useEffect, useRef, useState } from 'react';
 import axios from 'axios';
 import * as d3 from 'd3';
 import {
-  Clock,
-  LogIn,
-  LogOut,
+
   Calendar,
   TrendingUp,
-  Zap,
-  Briefcase,
+  
   PieChart,
   ChevronLeft,
   ChevronRight,
-  Activity,
-  MousePointer,
-  Monitor
+ 
 } from 'lucide-react';
 import { Toaster, toast } from 'react-hot-toast';
 
@@ -378,7 +373,7 @@ const ProductivityBarChart = ({ hourlyData, selectedDate = new Date() }) => {
 const DoctorDesktime = ({
   userId = null,      // pass when viewing another user's data
   name = null,        // name of the person being viewed
-  isDoctor = true     // always true for this component
+  // isDoctor = true     // always true for this component
 }) => {
   const isSelf = !userId;
 
@@ -778,9 +773,9 @@ const DoctorDesktime = ({
     return count > 0 ? Math.round(weeklyStats.totalDeskTime / count) : 0;
   };
 
-  const getMonthlyAverageTime = () => {
-    return monthlyStats.totalDays > 0 ? Math.round(monthlyStats.totalDeskTime / monthlyStats.totalDays) : 0;
-  };
+  // const getMonthlyAverageTime = () => {
+  //   return monthlyStats.totalDays > 0 ? Math.round(monthlyStats.totalDeskTime / monthlyStats.totalDays) : 0;
+  // };
 
   const calculateHourlyProductivity = () => {
     return hourlyData.hourlyStats.map(h => ({
