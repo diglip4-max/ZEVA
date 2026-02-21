@@ -185,10 +185,14 @@ const routeMap: { [key: string]: () => Promise<any> } = {
   "create-offer": () => import("../agent/lead-create-offer"),
 
   // Inbox
-  "clinic-inbox": () => import("../clinic/inbox"),
-  "clinic-all-templates": () => import("../clinic/all-templates"),
-  "clinic-providers": () => import("../clinic/providers"),
-
+  'clinic-inbox': () => import('../clinic/inbox'),
+'clinic-all-templates': () => import('../clinic/all-templates'),
+'clinic-providers': () => import('../clinic/providers'),
+  'clinic-referal': () => import('../clinic/referal'),
+  
+  'clinic-commission': () => import('../clinic/commission'),
+ 
+ 
   // stocks routes
   "clinic-stocks-uom": () => import("../clinic/stocks/uom"),
   "clinic-stocks-locations": () => import("../clinic/stocks/locations"),

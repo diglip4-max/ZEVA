@@ -3,6 +3,7 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { X, Loader2, Calendar, Clock, AlertCircle } from "lucide-react";
 import { APPOINTMENT_STATUS_OPTIONS } from "../data/appointmentStatusOptions";
+import { ModalPortal } from "../lib/modalPortal";
 
 interface EditAppointmentModalProps {
   isOpen: boolean;
@@ -198,8 +199,9 @@ export default function EditAppointmentModal({
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center p-2" onClick={onClose}>
-      <div className="bg-white rounded-lg shadow-2xl max-w-5xl w-full max-h-[95vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
+    <ModalPortal>
+      <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[9999] flex items-center justify-center p-2" onClick={onClose}>
+        <div className="bg-white rounded-lg shadow-2xl max-w-5xl w-full max-h-[95vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div className="flex items-center justify-between p-3 border-b border-gray-200">
           <div>
@@ -208,16 +210,17 @@ export default function EditAppointmentModal({
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
+            className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-200 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-gray-300 dark:focus:ring-gray-600"
+            aria-label="Close modal"
           >
-            <X className="w-4 h-4" />
+            <X className="w-4 h-4 text-gray-500 dark:text-gray-600 hover:text-gray-700 dark:hover:text-gray-800" />
           </button>
         </div>
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-4 space-y-3">
           {error && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-2 flex items-center gap-2 text-red-700">
+            <div className="bg-red-50 dark:bg-red-100 border border-red-200 dark:border-red-300 rounded-lg p-2 flex items-center gap-2 text-red-700 dark:text-red-800">
               <AlertCircle className="w-4 h-4" />
               <p className="text-xs">{error}</p>
             </div>
@@ -244,8 +247,8 @@ export default function EditAppointmentModal({
                     setFieldErrors({ ...fieldErrors, roomId: "" });
                   }
                 }}
-                className={`w-full border rounded px-2 py-1.5 text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500 ${
-                  fieldErrors.roomId ? "border-red-500" : "border-gray-300"
+                className={`w-full border rounded px-2 py-1.5 text-xs bg-white dark:bg-white text-gray-900 dark:text-gray-900 border-gray-300 dark:border-gray-300 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 ${
+                  fieldErrors.roomId ? "border-red-500 dark:border-red-500" : "border-gray-300 dark:border-gray-300"
                 }`}
                 required
               >
@@ -257,7 +260,7 @@ export default function EditAppointmentModal({
                 ))}
               </select>
               {fieldErrors.roomId && (
-                <p className="mt-0.5 text-xs text-red-600">{fieldErrors.roomId}</p>
+                <p className="mt-0.5 text-xs text-red-600 dark:text-red-600">{fieldErrors.roomId}</p>
               )}
             </div>
 
@@ -273,8 +276,8 @@ export default function EditAppointmentModal({
                     setFieldErrors({ ...fieldErrors, doctorId: "" });
                   }
                 }}
-                className={`w-full border rounded px-2 py-1.5 text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500 ${
-                  fieldErrors.doctorId ? "border-red-500" : "border-gray-300"
+                className={`w-full border rounded px-2 py-1.5 text-xs bg-white dark:bg-white text-gray-900 dark:text-gray-900 border-gray-300 dark:border-gray-300 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 ${
+                  fieldErrors.doctorId ? "border-red-500 dark:border-red-500" : "border-gray-300 dark:border-gray-300"
                 }`}
                 required
               >
@@ -286,7 +289,7 @@ export default function EditAppointmentModal({
                 ))}
               </select>
               {fieldErrors.doctorId && (
-                <p className="mt-0.5 text-xs text-red-600">{fieldErrors.doctorId}</p>
+                <p className="mt-0.5 text-xs text-red-600 dark:text-red-600">{fieldErrors.doctorId}</p>
               )}
             </div>
 
@@ -302,8 +305,8 @@ export default function EditAppointmentModal({
                     setFieldErrors({ ...fieldErrors, status: "" });
                   }
                 }}
-                className={`w-full border rounded px-2 py-1.5 text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500 ${
-                  fieldErrors.status ? "border-red-500" : "border-gray-300"
+                className={`w-full border rounded px-2 py-1.5 text-xs bg-white dark:bg-white text-gray-900 dark:text-gray-900 border-gray-300 dark:border-gray-300 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 ${
+                  fieldErrors.status ? "border-red-500 dark:border-red-500" : "border-gray-300 dark:border-gray-300"
                 }`}
                 required
               >
@@ -314,7 +317,7 @@ export default function EditAppointmentModal({
                 ))}
               </select>
               {fieldErrors.status && (
-                <p className="mt-0.5 text-xs text-red-600">{fieldErrors.status}</p>
+                <p className="mt-0.5 text-xs text-red-600 dark:text-red-600">{fieldErrors.status}</p>
               )}
             </div>
 
@@ -330,8 +333,8 @@ export default function EditAppointmentModal({
                     setFieldErrors({ ...fieldErrors, followType: "" });
                   }
                 }}
-                className={`w-full border rounded px-2 py-1.5 text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500 ${
-                  fieldErrors.followType ? "border-red-500" : "border-gray-300"
+                className={`w-full border rounded px-2 py-1.5 text-xs bg-white dark:bg-white text-gray-900 dark:text-gray-900 border-gray-300 dark:border-gray-300 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 ${
+                  fieldErrors.followType ? "border-red-500 dark:border-red-500" : "border-gray-300 dark:border-gray-300"
                 }`}
                 required
               >
@@ -340,7 +343,7 @@ export default function EditAppointmentModal({
                 <option value="repeat">Repeat</option>
               </select>
               {fieldErrors.followType && (
-                <p className="mt-0.5 text-xs text-red-600">{fieldErrors.followType}</p>
+                <p className="mt-0.5 text-xs text-red-600 dark:text-red-600">{fieldErrors.followType}</p>
               )}
             </div>
           </div>
@@ -361,13 +364,13 @@ export default function EditAppointmentModal({
                     setFieldErrors({ ...fieldErrors, startDate: "" });
                   }
                 }}
-                className={`w-full border rounded px-2 py-1.5 text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500 ${
-                  fieldErrors.startDate ? "border-red-500" : "border-gray-300"
+                className={`w-full border rounded px-2 py-1.5 text-xs bg-white dark:bg-white text-gray-900 dark:text-gray-900 border-gray-300 dark:border-gray-300 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 ${
+                  fieldErrors.startDate ? "border-red-500 dark:border-red-500" : "border-gray-300 dark:border-gray-300"
                 }`}
                 required
               />
               {fieldErrors.startDate && (
-                <p className="mt-0.5 text-xs text-red-600">{fieldErrors.startDate}</p>
+                <p className="mt-0.5 text-xs text-red-600 dark:text-red-600">{fieldErrors.startDate}</p>
               )}
             </div>
 
@@ -385,13 +388,13 @@ export default function EditAppointmentModal({
                     setFieldErrors({ ...fieldErrors, fromTime: "" });
                   }
                 }}
-                className={`w-full border rounded px-2 py-1.5 text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500 ${
-                  fieldErrors.fromTime ? "border-red-500" : "border-gray-300"
+                className={`w-full border rounded px-2 py-1.5 text-xs bg-white dark:bg-white text-gray-900 dark:text-gray-900 border-gray-300 dark:border-gray-300 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 ${
+                  fieldErrors.fromTime ? "border-red-500 dark:border-red-500" : "border-gray-300 dark:border-gray-300"
                 }`}
                 required
               />
               {fieldErrors.fromTime && (
-                <p className="mt-0.5 text-xs text-red-600">{fieldErrors.fromTime}</p>
+                <p className="mt-0.5 text-xs text-red-600 dark:text-red-600">{fieldErrors.fromTime}</p>
               )}
             </div>
 
@@ -409,13 +412,13 @@ export default function EditAppointmentModal({
                     setFieldErrors({ ...fieldErrors, toTime: "" });
                   }
                 }}
-                className={`w-full border rounded px-2 py-1.5 text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500 ${
-                  fieldErrors.toTime ? "border-red-500" : "border-gray-300"
+                className={`w-full border rounded px-2 py-1.5 text-xs bg-white dark:bg-white text-gray-900 dark:text-gray-900 border-gray-300 dark:border-gray-300 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 ${
+                  fieldErrors.toTime ? "border-red-500 dark:border-red-500" : "border-gray-300 dark:border-gray-300"
                 }`}
                 required
               />
               {fieldErrors.toTime && (
-                <p className="mt-0.5 text-xs text-red-600">{fieldErrors.toTime}</p>
+                <p className="mt-0.5 text-xs text-red-600 dark:text-red-600">{fieldErrors.toTime}</p>
               )}
             </div>
           </div>
@@ -427,7 +430,7 @@ export default function EditAppointmentModal({
               <select
                 value={referral}
                 onChange={(e) => setReferral(e.target.value)}
-                className="w-full border border-gray-300 rounded px-2 py-1.5 text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full border border-gray-300 dark:border-gray-300 rounded px-2 py-1.5 text-xs bg-white dark:bg-white text-gray-900 dark:text-gray-900 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
               >
                 <option value="No">No</option>
                 {referrals.map((ref) => (
@@ -443,7 +446,7 @@ export default function EditAppointmentModal({
               <select
                 value={emergency}
                 onChange={(e) => setEmergency(e.target.value)}
-                className="w-full border border-gray-300 rounded px-2 py-1.5 text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full border border-gray-300 dark:border-gray-300 rounded px-2 py-1.5 text-xs bg-white dark:bg-white text-gray-900 dark:text-gray-900 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
               >
                 <option value="no">No</option>
                 <option value="yes">Yes</option>
@@ -456,7 +459,7 @@ export default function EditAppointmentModal({
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 rows={2}
-                className="w-full border border-gray-300 rounded px-2 py-1.5 text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full border border-gray-300 dark:border-gray-300 rounded px-2 py-1.5 text-xs bg-white dark:bg-white text-gray-900 dark:text-gray-900 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                 placeholder="Add notes..."
               />
             </div>
@@ -490,6 +493,7 @@ export default function EditAppointmentModal({
         </form>
       </div>
     </div>
+  </ModalPortal>
   );
 }
 

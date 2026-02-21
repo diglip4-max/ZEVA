@@ -11,6 +11,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { APPOINTMENT_STATUS_OPTIONS } from "../data/appointmentStatusOptions";
+import { ModalPortal } from "../lib/modalPortal";
 
 interface AppointmentBookingModalProps {
   isOpen: boolean;
@@ -581,17 +582,18 @@ export default function AppointmentBookingModal({
   );
 
   return (
-    <div
-      className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/50 backdrop-blur-md transition-all duration-300 animate-in fade-in"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) {
-          onClose();
-        }
-      }}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="modal-title"
-    >
+    <ModalPortal>
+      <div
+        className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm transition-all duration-300 animate-in fade-in"
+        onClick={(e) => {
+          if (e.target === e.currentTarget) {
+            onClose();
+          }
+        }}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="modal-title"
+      >
       <div
         className="bg-white dark:bg-gray-50 rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col transform transition-all duration-300 scale-100 opacity-100 animate-in slide-in-from-bottom-4 zoom-in-95"
         onClick={(e) => e.stopPropagation()}
@@ -1342,5 +1344,6 @@ export default function AppointmentBookingModal({
         </div>
       </div>
     </div>
+  </ModalPortal>
   );
 }
