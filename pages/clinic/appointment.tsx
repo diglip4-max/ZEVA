@@ -1,5 +1,6 @@
 "use client";
 import React, { useEffect, useRef, useState, useCallback } from "react";
+import { ChromePicker } from 'react-color';
 import { ModalPortal } from "../../lib/modalPortal";
 import { useRouter } from "next/router";
 import axios from "axios";
@@ -97,6 +98,14 @@ interface Appointment {
   emergency: string;
   notes: string;
   bookedFrom?: "doctor" | "room"; // Track which column the appointment was booked from
+  doctorTreatments?: Array<{
+    mainTreatment: string;
+    mainTreatmentSlug: string;
+    subTreatments: Array<{
+      name: string;
+      slug: string;
+    }>;
+  }>;
 }
 
 // Parse clinic timings string and generate time slots
@@ -2159,50 +2168,95 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
   };
 
   // Get status color for appointments - Distinct professional colors with good contrast
-  const getStatusColor = (status: string): { bg: string; text: string; border: string } => {
-    const s = status.toLowerCase();
+  // Define default status colors - exact match to original implementation
+const DEFAULT_STATUS_COLORS: Record<string, { bg: string; text: string; border: string }> = {
+  booked: { bg: "#bfdbfe", text: "#111827", border: "#3b82f6" },         // sky-300 equivalent - Only Blue
+  arrived: { bg: "#a7f3d0", text: "#111827", border: "#10b981" },       // emerald-300 equivalent - Only Green
+  cancelled: { bg: "#fbcfe8", text: "#111827", border: "#ec4899" },     // rose-400 equivalent - Red
+  rescheduled: { bg: "#fed1aa", text: "#111827", border: "#f97316" },   // orange-400 equivalent - Orange
+  waiting: { bg: "#fde68a", text: "#111827", border: "#f59e0b" },       // amber-300 equivalent - Yellow
+  approved: { bg: "#d9f99d", text: "#111827", border: "#84cc16" },      // lime-300 equivalent - Deep Green
+  enquiry: { bg: "#ddd6fe", text: "#111827", border: "#7c3aed" },       // violet-300 equivalent - Purple
+  consultation: { bg: "#f0abfc", text: "#111827", border: "#d946ef" },   // fuchsia-300 equivalent - Fuchsia
+  completed: { bg: "#a5f3fc", text: "#111827", border: "#06b6d4" },     // cyan-300 equivalent - Cyan
+  invoice: { bg: "#c7d2fe", text: "#111827", border: "#6366f1" },       // indigo-400 equivalent - Indigo
+  discharge: { bg: "#f9a8d4", text: "#111827", border: "#ec4899" },     // pink-300 equivalent - Pink
+  rejected: { bg: "#cbd5e1", text: "#111827", border: "#64748b" },      // slate-300 equivalent - Slate
+  default: { bg: "#d1d5db", text: "#111827", border: "#6b7280" },       // gray-300 equivalent
+};
 
-    switch (s) {
-      case "booked":        // Only Blue
-        return { bg: "bg-sky-300", text: "text-gray-900", border: "border-sky-500" };
+// Get custom status colors from localStorage
+const getCustomStatusColors = (): Record<string, { bg: string; text: string; border: string }> => {
+  if (typeof window !== 'undefined') {
+    const stored = localStorage.getItem('appointmentStatusColors');
+    return stored ? JSON.parse(stored) : {};
+  }
+  return {};
+};
 
-      case "arrived":       // Only Green
-        return { bg: "bg-emerald-300", text: "text-gray-900", border: "border-emerald-500" };
+// Save custom status colors to localStorage
+const saveCustomStatusColors = (colors: Record<string, { bg: string; text: string; border: string }>) => {
+  if (typeof window !== 'undefined') {
+    localStorage.setItem('appointmentStatusColors', JSON.stringify(colors));
+  }
+};
 
-      case "cancelled":     // Red
-        return { bg: "bg-rose-400", text: "text-gray-900", border: "border-rose-500" };
+// Hook to manage custom status colors state
+const [customStatusColors, setCustomStatusColors] = useState<Record<string, { bg: string; text: string; border: string }>>(() => {
+  const stored = getCustomStatusColors();
+  // Ensure all default statuses have entries (even if using defaults)
+  // This makes sure we have a record of which ones are customized
+  return stored;
+});
 
-      case "rescheduled":   // Orange
-        return { bg: "bg-orange-400", text: "text-gray-900", border: "border-orange-500" };
+// State for showing/hiding the color customization panel
+const [showColorCustomization, setShowColorCustomization] = useState(false);
 
-      case "waiting":       // Yellow
-        return { bg: "bg-amber-300", text: "text-gray-900", border: "border-amber-500" };
+// State for color picker visibility
+const [openPicker, setOpenPicker] = useState<string | null>(null);
 
-      case "approved":      // Deep Green (different from arrived)
-        return { bg: "bg-lime-300", text: "text-gray-900", border: "border-lime-500" };
+const getStatusColor = (status: string): { bg: string; text: string; border: string } => {
+  const s = status.toLowerCase();
+  
+  // Check if custom color exists for this status
+  const customColor = customStatusColors[s];
+  if (customColor) {
+    return customColor;
+  }
 
-      case "enquiry":       // Purple
-        return { bg: "bg-violet-300", text: "text-gray-900", border: "border-violet-500" };
+  // Return default color if no custom color is set
+  return DEFAULT_STATUS_COLORS[s] || DEFAULT_STATUS_COLORS.default;
+};
 
-      case "consultation":  // Fuchsia (distinct from cyan)
-        return { bg: "bg-fuchsia-300", text: "text-gray-900", border: "border-fuchsia-500" };
-
-      case "completed":     // Cyan
-        return { bg: "bg-cyan-300", text: "text-gray-900", border: "border-cyan-500" };
-
-      case "invoice":       // Indigo
-        return { bg: "bg-indigo-400", text: "text-gray-900", border: "border-indigo-500" };
-
-      case "discharge":     // Pink
-        return { bg: "bg-pink-300", text: "text-gray-900", border: "border-pink-500" };
-
-      case "rejected":      // Slate (neutral dark)
-        return { bg: "bg-slate-300", text: "text-gray-900", border: "border-slate-500" };
-
-      default:
-        return { bg: "bg-gray-300", text: "text-gray-900", border: "border-gray-500" };
+// Handler for changing status colors
+const handleColorChange = (status: string, newColor: string) => {
+  const updatedColors = {
+    ...customStatusColors,
+    [status]: {
+      bg: newColor,
+      text: "#111827", // Keep dark text for readability
+      border: newColor // Use same color for border
     }
   };
+  
+  setCustomStatusColors(updatedColors);
+  saveCustomStatusColors(updatedColors);
+};
+
+// Close color picker when clicking outside
+useEffect(() => {
+  const handleClickOutside = (event: MouseEvent) => {
+    const target = event.target as HTMLElement;
+    if (openPicker && !target.closest('.color-picker-wrapper')) {
+      setOpenPicker(null);
+    }
+  };
+
+  document.addEventListener('mousedown', handleClickOutside);
+  return () => {
+    document.removeEventListener('mousedown', handleClickOutside);
+  };
+}, [openPicker]);
 
   if (loading || !permissionsLoaded) return <Loader />;
 
@@ -2237,7 +2291,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
   return (
     <div className="appointment-schedule-page" style={{ fontFamily: "'Inter', sans-serif" }}>
       <div className="min-h-screen bg-gray-50 p-1 sm:p-1 md:p-2 space-y-1 sm:space-y-2">
-      <Toaster position="top-right" />
+
       <div className="bg-white dark:bg-gray-50 rounded-lg border border-gray-200 dark:border-gray-200 shadow-sm p-1 sm:p-2">
         {doctorStaff.length === 0 && rooms.length === 0 ? (
           <div className="flex flex-col items-center justify-center min-h-[60vh] py-12">
@@ -2278,6 +2332,79 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                       Import
                     </button>
                   )}
+                  
+                  {/* Customize Status Colors Button */}
+                  <div className="relative">
+                    <button
+                      onClick={() => setShowColorCustomization(!showColorCustomization)}
+                      className="inline-flex items-center gap-1 px-2 py-1 rounded border border-purple-600 dark:border-purple-500 bg-purple-600 dark:bg-purple-500 text-[10px] font-medium text-white hover:bg-purple-700 dark:hover:bg-purple-600 transition-colors"
+                      type="button"
+                      title="Customize appointment status colors"
+                    >
+                      <div className="w-3 h-3 rounded-sm bg-gradient-to-r from-blue-400 to-green-400"></div>
+                      Colors
+                    </button>
+                    
+                    {showColorCustomization && (
+                      <div className="color-customization-panel absolute z-50 mt-1 w-80 max-w-[90vw] bg-white dark:bg-gray-50 rounded-lg shadow-xl border border-gray-200 dark:border-gray-300 sm:right-0 max-h-[70vh] overflow-y-auto">
+                        <div className="p-3 border-b border-gray-200 dark:border-gray-300">
+                          <div className="flex items-center justify-between">
+                            <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-900">Appointment Status Colors</h3>
+                            <button
+                              onClick={() => setShowColorCustomization(false)}
+                              className="text-gray-500 hover:text-gray-700"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                        
+                        <div className="p-3 max-h-60 overflow-y-auto">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            {Object.keys(DEFAULT_STATUS_COLORS).filter(status => status !== 'default').map((status) => {
+                              const currentColor = customStatusColors[status] || DEFAULT_STATUS_COLORS[status];
+                              return (
+                                <div key={status} className="flex items-center gap-2 p-2 bg-white dark:bg-gray-50 rounded border border-gray-200 relative">
+                                  <div 
+                                    className="w-6 h-6 rounded border border-gray-300 cursor-pointer flex items-center justify-center text-[8px] font-bold" 
+                                    style={{ backgroundColor: currentColor.bg, color: currentColor.text }}
+                                    onClick={() => setOpenPicker(openPicker === status ? null : status)}
+                                    title={`${status}: ${currentColor.bg}`}
+                                  >
+                                    {status.charAt(0).toUpperCase()}
+                                  </div>
+                                  <span className="text-xs font-medium text-gray-700 capitalize flex-1">{status}</span>
+                                  
+                                  {openPicker === status && (
+                                    <div className="color-picker-wrapper absolute z-50 left-0 sm:left-auto sm:right-0" style={{ top: '30px' }}>
+                                      <div 
+                                        className="fixed inset-0 z-40 bg-black bg-opacity-30" 
+                                        onClick={() => setOpenPicker(null)}
+                                      ></div>
+                                      <div className="relative z-50 bg-white p-3 rounded-md shadow-xl border border-gray-300 w-64 max-w-[90vw]">
+                                        <ChromePicker
+                                          color={currentColor.bg}
+                                          onChange={(color: any) => handleColorChange(status, color.hex)}
+                                        />
+                                        <div className="flex justify-end mt-2">
+                                          <button
+                                            className="px-3 py-1 text-xs bg-gray-200 rounded hover:bg-gray-300"
+                                            onClick={() => setOpenPicker(null)}
+                                          >
+                                            Close
+                                          </button>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                   <div className="flex items-center gap-1">
                     <button
                       onClick={() => {
@@ -2928,8 +3055,11 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                                             return (
                                               <div
                                                 key={item.apt._id}
-                                                className={`flex flex-col justify-center flex-1 min-w-0 px-2 py-1 ${statusColor.bg} ${statusColor.text} ${statusColor.border} border transition-all hover:shadow-sm ${permissions.canUpdate ? "cursor-pointer" : "cursor-default"} ${draggedAppointmentId === item.apt._id ? "opacity-50" : ""}`}
+                                                className={`flex flex-col justify-center flex-1 min-w-0 px-2 py-1 border transition-all hover:shadow-sm ${permissions.canUpdate ? "cursor-pointer" : "cursor-default"} ${draggedAppointmentId === item.apt._id ? "opacity-50" : ""}`}
                                                 style={{
+                                                  backgroundColor: statusColor.bg,
+                                                  color: statusColor.text,
+                                                  borderColor: statusColor.border,
                                                   height: `${item.height - 2}px`,
                                                   width: cardWidthPercent,
                                                   flexBasis: cardWidthPercent,
@@ -3000,6 +3130,11 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                                                       {item.apt.roomName && (
                                                         <span className="text-[12px] font-[400] text-black opacity-[0.8] block">
                                                           {item.apt.roomName}
+                                                        </span>
+                                                      )}
+                                                      {item.apt.doctorTreatments && item.apt.doctorTreatments.length > 0 && (
+                                                        <span className="text-[12px] font-[500] text-black block truncate">
+                                                          {item.apt.doctorTreatments[0].mainTreatment}
                                                         </span>
                                                       )}
                                                     </div>
@@ -3197,8 +3332,11 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                                             return (
                                               <div
                                                 key={item.apt._id}
-                                                className={`flex flex-col justify-center flex-1 min-w-0 px-2 py-1 ${statusColor.bg} ${statusColor.text} ${statusColor.border} border transition-all hover:shadow-sm ${permissions.canUpdate ? "cursor-pointer" : "cursor-default"} ${draggedAppointmentId === item.apt._id ? "opacity-50" : ""}`}
+                                                className={`flex flex-col justify-center flex-1 min-w-0 px-2 py-1 border transition-all hover:shadow-sm ${permissions.canUpdate ? "cursor-pointer" : "cursor-default"} ${draggedAppointmentId === item.apt._id ? "opacity-50" : ""}`}
                                                 style={{
+                                                  backgroundColor: statusColor.bg,
+                                                  color: statusColor.text,
+                                                  borderColor: statusColor.border,
                                                   height: `${item.height - 2}px`,
                                                   borderWidth: '1px',
                                                   width: cardWidthPercent,
@@ -3271,6 +3409,11 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                                                       {item.apt.roomName && (
                                                         <span className="text-[12px] font-[400] text-black opacity-[0.8] block">
                                                           {item.apt.roomName}
+                                                        </span>
+                                                      )}
+                                                      {item.apt.doctorTreatments && item.apt.doctorTreatments.length > 0 && (
+                                                        <span className="text-[12px] font-[500] text-black block truncate">
+                                                          {item.apt.doctorTreatments[0].mainTreatment}
                                                         </span>
                                                       )}
                                                     </div>
@@ -3616,7 +3759,13 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
         >
           <div className="bg-white dark:bg-gray-50 rounded-md shadow-xl border border-gray-200 dark:border-gray-300 overflow-hidden">
             {/* Header */}
-            <div className={`px-2 py-1 ${getStatusColor(hoveredAppointment.appointment.status).bg} ${getStatusColor(hoveredAppointment.appointment.status).text}`}>
+            <div 
+              className="px-2 py-1"
+              style={{
+                backgroundColor: getStatusColor(hoveredAppointment.appointment.status).bg,
+                color: getStatusColor(hoveredAppointment.appointment.status).text,
+              }}
+            >
               <div className="flex items-center justify-between gap-1">
                 <p className="text-[10px] font-bold truncate text-gray-900 dark:text-gray-900">{hoveredAppointment.appointment.patientName}</p>
                 <span className="text-[9px] font-semibold opacity-90 dark:opacity-80 ml-1">{hoveredAppointment.appointment.status.toUpperCase()}</span>
@@ -3683,6 +3832,32 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                   <span className="text-[9px] text-gray-700 dark:text-gray-800 font-medium w-12 flex-shrink-0">Room:</span>
                   <span className="text-[10px] text-gray-700 dark:text-gray-800 truncate">{hoveredAppointment.appointment.roomName}</span>
                 </div>
+                {hoveredAppointment.appointment.doctorTreatments && hoveredAppointment.appointment.doctorTreatments.length > 0 && (
+                  <div className="flex items-start gap-1 pt-0.5">
+                    <span className="text-[9px] text-gray-700 dark:text-gray-800 font-medium w-12 flex-shrink-0">Treatments:</span>
+                    <div className="flex-1">
+                      {hoveredAppointment.appointment.doctorTreatments.map((treatment, index) => (
+                        <div key={index} className="mb-1">
+                          <span className="text-[10px] text-gray-700 dark:text-gray-800 font-medium block">
+                            {treatment.mainTreatment}
+                          </span>
+                          {treatment.subTreatments && treatment.subTreatments.length > 0 && (
+                            <div className="ml-2 mt-0.5">
+                              {treatment.subTreatments.map((sub, subIndex) => (
+                                <span 
+                                  key={subIndex}
+                                  className="inline-block text-[9px] bg-gray-100 dark:bg-gray-200 text-gray-700 dark:text-gray-800 px-1.5 py-0.5 rounded mr-1 mb-1"
+                                >
+                                  {sub.name}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Follow Type */}

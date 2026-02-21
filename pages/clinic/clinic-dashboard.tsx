@@ -3783,80 +3783,32 @@ const ClinicDashboard: NextPageWithLayout = () => {
                       
                       case 'quick-actions':
                         return (
-            <div>
-              <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4 mb-6">
-                <h3 className="text-sm font-semibold text-gray-900 mb-3">Quick Actions</h3>
-                <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-3">
-                  {quickActions.map((action, idx) => {
-                    return (
-                      <a
-                        key={idx}
-                        href={action.path}
-                        className="flex flex-col items-center justify-center p-3 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 hover:border-gray-300 transition-all group"
-                      >
-                        <div className={`p-2 ${action.color} rounded-lg mb-2 group-hover:scale-110 transition-transform`}>
-                          {action.iconNode && React.isValidElement(action.iconNode) ? (
-                            React.cloneElement(action.iconNode, { className: "w-4 h-4 text-white" })
-                          ) : action.icon ? (
-                            (() => {
-                              const Icon = action.icon;
-                              return <Icon className="w-4 h-4 text-white" />;
-                            })()
-                          ) : (
-                            <Activity className="w-4 h-4 text-white" />
-                          )}
-                        </div>
-                        <p className="text-xs font-medium text-gray-700 text-center line-clamp-2 h-8 flex items-center">{action.label}</p>
-                      </a>
-                    );
-                  })}
-                </div>
-              </div>
-              
-              {/* Appointment Status Bar Chart */}
-              <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
-                <h3 className="text-sm font-semibold text-teal-800 mb-4">Appointment Status Overview</h3>
-                <div className="h-64">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
-                      data={appointmentStatusData}
-                      margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
+            <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-4">
+              <h3 className="text-sm font-semibold text-gray-900 mb-3">Quick Actions</h3>
+              <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-3">
+                {quickActions.map((action, idx) => {
+                  return (
+                    <a
+                      key={idx}
+                      href={action.path}
+                      className="flex flex-col items-center justify-center p-3 bg-gray-50 rounded-lg border border-gray-200 hover:bg-gray-100 hover:border-gray-300 transition-all group"
                     >
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis 
-                        dataKey="name" 
-                        angle={-45}
-                        textAnchor="end"
-                        height={60}
-                        interval={0}
-                        tick={{ fontSize: 10 }}
-                      />
-                      <YAxis tick={{ fontSize: 10 }} />
-                      <Tooltip 
-                        formatter={(value) => [value, 'Count']}
-                        labelStyle={{ fontWeight: 'bold' }}
-                      />
-                      <Bar 
-                        dataKey="value" 
-                        fill="#0d9488"
-                        radius={[4, 4, 0, 0]}
-                        minPointSize={2}
-                      >
-                        <LabelList 
-                          dataKey="value" 
-                          position="top" 
-                          style={{ fontSize: 10, fill: '#374151' }}
-                          formatter={(value) => {
-                            if (typeof value === 'number' && value > 0) {
-                              return value;
-                            }
-                            return '0';
-                          }}
-                        />
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
+                      <div className={`p-2 ${action.color} rounded-lg mb-2 group-hover:scale-110 transition-transform`}>
+                        {action.iconNode && React.isValidElement(action.iconNode) ? (
+                          React.cloneElement(action.iconNode, { className: "w-4 h-4 text-white" })
+                        ) : action.icon ? (
+                          (() => {
+                            const Icon = action.icon;
+                            return <Icon className="w-4 h-4 text-white" />;
+                          })()
+                        ) : (
+                          <Activity className="w-4 h-4 text-white" />
+                        )}
+                      </div>
+                      <p className="text-xs font-medium text-gray-700 text-center line-clamp-2 h-8 flex items-center">{action.label}</p>
+                    </a>
+                  );
+                })}
               </div>
             </div>
                         );
