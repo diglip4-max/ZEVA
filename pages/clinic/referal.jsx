@@ -29,6 +29,7 @@ function ClinicReferralPage() {
     phone: "",
     email: "",
     referralPercent: 0,
+    addExpense: false,
   });
   const [errors, setErrors] = useState({});
   const [toast, setToast] = useState(null);
@@ -45,6 +46,7 @@ function ClinicReferralPage() {
       phone: "",
       email: "",
       referralPercent: 0,
+      addExpense: false,
     });
     setErrors({});
     setEditing(null);
@@ -82,7 +84,12 @@ function ClinicReferralPage() {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: name === "referralPercent" ? value : value }));
+    if (name === "addExpense") {
+      const checked = e.target.checked;
+      setForm((prev) => ({ ...prev, addExpense: checked }));
+    } else {
+      setForm((prev) => ({ ...prev, [name]: name === "referralPercent" ? value : value }));
+    }
     if (errors[name]) setErrors((prev) => ({ ...prev, [name]: "" }));
   };
 
@@ -108,6 +115,7 @@ function ClinicReferralPage() {
             phone: form.phone,
             email: form.email,
             referralPercent: Number(form.referralPercent),
+            addExpense: form.addExpense,
           },
           { headers }
         );
@@ -127,6 +135,7 @@ function ClinicReferralPage() {
             phone: form.phone,
             email: form.email,
             referralPercent: Number(form.referralPercent),
+            addExpense: form.addExpense,
           },
           { headers }
         );
@@ -153,6 +162,7 @@ function ClinicReferralPage() {
       phone: item.phone || "",
       email: item.email || "",
       referralPercent: item.referralPercent ?? 0,
+      addExpense: !!item.addExpense,
     });
     setErrors({});
   };
@@ -263,6 +273,19 @@ function ClinicReferralPage() {
                   {errors.referralPercent && <p className="text-red-500 text-[9px] mt-0.5">{errors.referralPercent}</p>}
                 </div>
                 <div className="flex justify-end gap-2">
+                  <div className="mr-auto flex items-center gap-2">
+                    <input
+                      id="addExpense"
+                      type="checkbox"
+                      name="addExpense"
+                      checked={!!form.addExpense}
+                      onChange={handleChange}
+                      className="h-3 w-3 border-gray-300 rounded"
+                    />
+                    <label htmlFor="addExpense" className="text-[10px] text-gray-700">
+                      Add an expense
+                    </label>
+                  </div>
                   {editing && (
                     <button className="px-3 py-1 border border-gray-300 rounded-md text-[10px]" onClick={resetForm}>
                       Cancel

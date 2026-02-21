@@ -48,7 +48,7 @@ export default async function handler(req, res) {
       if (!hasPermission && me.role !== "admin") {
         return res.status(403).json({ success: false, message: permError || "No permission to create referrals" });
       }
-      const { firstName, lastName, phone, email, referralPercent } = req.body;
+      const { firstName, lastName, phone, email, referralPercent, addExpense } = req.body;
       if (!firstName || !String(firstName).trim()) {
         return res.status(400).json({ success: false, message: "First name is required" });
       }
@@ -66,6 +66,7 @@ export default async function handler(req, res) {
         phone: String(phone).trim(),
         email: email || "",
         referralPercent: percentNum,
+        addExpense: Boolean(addExpense),
       });
       return res.status(201).json({ success: true, referral: ref });
     } catch (error) {
@@ -82,7 +83,7 @@ export default async function handler(req, res) {
       if (!hasPermission && me.role !== "admin") {
         return res.status(403).json({ success: false, message: permError || "No permission to update referrals" });
       }
-      const { id, firstName, lastName, phone, email, referralPercent } = req.body;
+      const { id, firstName, lastName, phone, email, referralPercent, addExpense } = req.body;
       if (!id) return res.status(400).json({ success: false, message: "id is required" });
       const ref = await Referral.findOne({ _id: id, clinicId });
       if (!ref) return res.status(404).json({ success: false, message: "Referral not found" });
@@ -97,6 +98,9 @@ export default async function handler(req, res) {
           return res.status(400).json({ success: false, message: "Referral % must be between 0 and 100" });
         }
         ref.referralPercent = percentNum;
+      }
+      if (addExpense !== undefined) {
+        ref.addExpense = Boolean(addExpense);
       }
       await ref.save();
       return res.status(200).json({ success: true, referral: ref });
