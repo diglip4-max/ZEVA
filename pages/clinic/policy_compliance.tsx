@@ -1,0 +1,1954 @@
+//pages/clinic/policy_compliance.tsx
+import React, { useEffect, useMemo, useState, useRef } from "react";
+import Head from "next/head";
+import { ShieldCheck, FileText, BookOpenCheck, ClipboardList, Plus, Search, UploadCloud, MoreVertical, Sparkles, AlertTriangle, TrendingUp, CircleCheckBig, Eye, Clock, X, Users, Building, Layers, Tag, Hash, CalendarDays, User } from "lucide-react";
+import ClinicLayout from "../../components/ClinicLayout";
+import withClinicAuth from "../../components/withClinicAuth";
+import type { NextPageWithLayout } from "../_app";
+
+type Sop = {
+  _id: string;
+  name: string;
+  department: string;
+  applicableRoles: string[];
+  category: string;
+  riskLevel: string;
+  version: string;
+  lastUpdated: string;
+  status: string;
+  content?: string;
+  checklist?: string[];
+  attachments?: string[];
+  effectiveDate?: string;
+  reviewDate?: string;
+  mandatoryAck?: boolean;
+  acknowledgmentDeadline?: string;
+  ackPercent?: number;
+  ackOverall?: number;
+};
+
+type Policy = {
+  _id: string;
+  name: string;
+  policyType: string;
+  department?: string;
+  appliesTo: string;
+  appliesToRoles?: string[];
+  description?: string;
+  approvalRequired: boolean;
+  version: string;
+  effectiveDate: string;
+  status: string;
+  ackPercent?: number;
+  ackPercentAgent?: number;
+  ackPercentDoctor?: number;
+};
+type Playbook = {
+  _id: string;
+  scenarioName: string;
+  triggerCondition: string;
+  department: string;
+  riskLevel: string;
+  resolutionTimeMinutes: number;
+  escalationLevel: string;
+  status: string;
+  steps?: string[];
+  expectedResolutionTime?: string;
+  escalationPath?: string[];
+  owner?: string;
+  ownerName?: string;
+};
+
+type AckItem = {
+  _id: string;
+  staffName: string;
+  role: string;
+  documentName: string;
+  type: "SOP" | "Policy" | "Playbook";
+  version: string;
+  status: "Acknowledged" | "Pending" | "Viewed" | "Overdue";
+  assignedDate: string;
+  dueDate: string;
+  acknowledgedOn?: string | null;
+  documentType?: string;
+  documentId?: string;
+  staffId?: string;
+};
+
+type TabKey = "sops" | "policies" | "playbooks" | "ack";
+
+const THEMES = {
+  purple: {
+    card: "bg-purple-50 border-purple-200",
+    title: "text-purple-700",
+    value: "text-purple-900",
+    subtitle: "text-purple-600",
+  },
+  red: {
+    card: "bg-red-50 border-red-200",
+    title: "text-red-700",
+    value: "text-red-900",
+    subtitle: "text-red-600",
+  },
+  green: {
+    card: "bg-green-50 border-green-200",
+    title: "text-green-700",
+    value: "text-green-900",
+    subtitle: "text-green-600",
+  }
+};
+
+function StatCard({ title, value, subtitle, icon, theme }: { title: string; value: string | number; subtitle?: string; icon: React.ReactNode; theme: keyof typeof THEMES }) {
+  const t = THEMES[theme];
+
+  return (
+    <div className={`flex items-center justify-between rounded-2xl border px-6 py-5 ${t.card}`}>
+      <div>
+        <div className={`text-sm font-medium ${t.title}`}>
+          {title}
+        </div>
+        <div className={`mt-1 text-3xl font-bold ${t.value}`}>
+          {value}
+        </div>
+        <div className={`mt-1 text-xs ${t.subtitle}`}>
+          {subtitle}
+        </div>
+      </div>
+      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/60">
+        {icon}
+      </div>
+    </div>
+  );
+}
+
+
+
+function PolicyCompliance() {
+  const [activeTab, setActiveTab] = useState<TabKey>("sops");
+  const [search, setSearch] = useState("");
+  const [departmentFilter, setDepartmentFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [riskFilter, setRiskFilter] = useState("");
+  const [policyTypeFilter, setPolicyTypeFilter] = useState("");
+  const [rolesFilter, setRolesFilter] = useState("");
+  const [policyTypes, setPolicyTypes] = useState<string[]>([]);
+  const [showTypeModal, setShowTypeModal] = useState(false);
+  const [sopCategories, setSopCategories] = useState<string[]>([]);
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [sops, setSops] = useState<Sop[]>([]);
+  const [policies, setPolicies] = useState<Policy[]>([]);
+  const [playbooks, setPlaybooks] = useState<Playbook[]>([]);
+  const [overview, setOverview] = useState<{ sopCount: number; policyCount: number; playbookCount: number } | null>(null);
+  const [showCreate, setShowCreate] = useState(false);
+  const [ackItems, setAckItems] = useState<AckItem[]>([]);
+  const [ackStatusFilter, setAckStatusFilter] = useState("");
+  const [ackTypeFilter, setAckTypeFilter] = useState("");
+  const [rowMenuId, setRowMenuId] = useState<string | null>(null);
+  const [viewerOpen, setViewerOpen] = useState(false);
+  const [viewerUrl, setViewerUrl] = useState<string | null>(null);
+  const [viewerTitle, setViewerTitle] = useState<string>("Document Preview");
+  const pdfContainerRef = useRef<HTMLDivElement | null>(null);
+  const [viewerError, setViewerError] = useState<string | null>(null);
+  const [ackModalOpen, setAckModalOpen] = useState(false);
+  const [editingType, setEditingType] = useState<TabKey | null>(null);
+  const [editingItem, setEditingItem] = useState<any | null>(null);
+  const [categoryDraft, setCategoryDraft] = useState("");
+  const [policyTypeDraft, setPolicyTypeDraft] = useState("");
+
+
+  const openViewer = (url?: string, title?: string) => {
+    if (!url) return;
+    setViewerUrl(url);
+    setViewerTitle(title || "Document Preview");
+    setViewerOpen(true);
+    setViewerError(null);
+  };
+
+  const loadPdfIntoModal = async (pdfUrl: string) => {
+    try {
+      setViewerError(null);
+      const w = window as any;
+
+      if (!w.pdfjsLib) {
+        await new Promise<void>((resolve, reject) => {
+          const s = document.createElement("script");
+          s.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
+          s.onload = () => resolve();
+          s.onerror = () => reject(new Error("Failed to load PDF viewer"));
+          document.body.appendChild(s);
+        });
+
+        await new Promise<void>((resolve, reject) => {
+          const sw = document.createElement("script");
+          sw.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+          sw.onload = () => resolve();
+          sw.onerror = () => reject(new Error("Failed to load PDF worker"));
+          document.body.appendChild(sw);
+        });
+      }
+
+      const pdfjsLib = (window as any).pdfjsLib;
+      pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+
+      const fullUrl = pdfUrl.startsWith('http')
+        ? pdfUrl
+        : `${window.location.origin}${pdfUrl}`;
+
+      const resp = await fetch(fullUrl, {
+        headers: getAuthHeaders(),
+        credentials: 'include'
+      });
+
+      if (!resp.ok) throw new Error(`Failed to fetch PDF: ${resp.status} ${resp.statusText}`);
+
+      const blob = await resp.blob();
+      const objectUrl = URL.createObjectURL(blob);
+
+      const task = pdfjsLib.getDocument({ url: objectUrl });
+      const pdf = await task.promise;
+
+      const container = pdfContainerRef.current!;
+      container.innerHTML = "";
+
+      for (let p = 1; p <= pdf.numPages; p++) {
+        const page = await pdf.getPage(p);
+        const viewport = page.getViewport({ scale: 1.15 });
+
+        const canvas = document.createElement("canvas");
+        canvas.style.display = "block";
+        canvas.style.margin = "0 auto 16px auto";
+        canvas.style.maxWidth = "100%";
+        canvas.style.height = "auto";
+
+        const ctx = canvas.getContext("2d")!;
+        canvas.height = viewport.height;
+        canvas.width = viewport.width;
+
+        container.appendChild(canvas);
+        await page.render({ canvasContext: ctx, viewport }).promise;
+      }
+
+      URL.revokeObjectURL(objectUrl);
+    } catch (error: any) {
+      console.error("Error loading PDF:", error);
+      setViewerError(error?.message || "Failed to load document");
+      if (pdfContainerRef.current) {
+        pdfContainerRef.current.innerHTML = `<div class="p-8 text-center">
+          <div class="text-red-600 mb-2">Failed to load document</div>
+          <div class="text-sm text-gray-500">${error?.message || "Unknown error"}</div>
+        </div>`;
+      }
+    }
+  };
+
+
+
+
+  useEffect(() => {
+    if (viewerOpen && viewerUrl) {
+      const prevent = (e: Event) => e.preventDefault();
+      document.addEventListener("contextmenu", prevent);
+      loadPdfIntoModal(viewerUrl);
+      return () => {
+        document.removeEventListener("contextmenu", prevent);
+      };
+    }
+  }, [viewerOpen, viewerUrl]);
+
+  const onSopTitleClick = async (id: string, title: string) => {
+    try {
+      const res = await fetch(`/api/compliance/sops?id=${encodeURIComponent(id)}`, { headers: getAuthHeaders() });
+      const json = await res.json();
+      if (!json.success || !json.item) return;
+      const url = json.item.documentUrl || (json.item.attachments?.[0]);
+      openViewer(url, title);
+    } catch {
+      // noop
+    }
+  };
+
+  const getAuthToken = () => {
+    if (typeof window === "undefined") return null;
+    return (
+      localStorage.getItem("clinicToken") ||
+      sessionStorage.getItem("clinicToken") ||
+      localStorage.getItem("agentToken") ||
+      sessionStorage.getItem("agentToken") ||
+      localStorage.getItem("userToken") ||
+      sessionStorage.getItem("userToken")
+    );
+  };
+
+  const getAuthHeaders = (): HeadersInit => {
+    const t = getAuthToken();
+    return t ? { Authorization: `Bearer ${t}` } : {};
+  };
+
+  const headersWithJson = (): HeadersInit => {
+    const base: Record<string, string> = { "Content-Type": "application/json" };
+    const auth = getAuthHeaders() as Record<string, string>;
+    return { ...base, ...auth };
+  };
+
+  useEffect(() => {
+    const loadOverview = async () => {
+      const res = await fetch("/api/clinic/policy_compliance", { headers: getAuthHeaders() });
+      const json = await res.json();
+      if (json.success && json.overview) setOverview(json.overview);
+    };
+    loadOverview();
+  }, []);
+
+  useEffect(() => {
+    const loadTypes = async () => {
+      try {
+        const res = await fetch("/api/compliance/policy_types", { headers: getAuthHeaders() });
+        const json = await res.json();
+        if (json.success) {
+          const names = (json.items || []).map((t: any) => t.name).filter(Boolean);
+          setPolicyTypes(names);
+        }
+      } catch { }
+    };
+    loadTypes();
+  }, []);
+
+  useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        const res = await fetch("/api/compliance/sop_categories", { headers: getAuthHeaders() });
+        const json = await res.json();
+        if (json.success) {
+          const names = (json.items || []).map((t: any) => t.name).filter(Boolean);
+          setSopCategories(names);
+        }
+      } catch { }
+    };
+    loadCategories();
+  }, []);
+  useEffect(() => {
+    const load = async () => {
+      const res = await fetch(`/api/clinic/policy_compliance?type=${activeTab}`, { headers: getAuthHeaders() });
+      const json = await res.json();
+      if (!json.success) return;
+      if (activeTab === "sops") setSops(json.items || []);
+      if (activeTab === "policies") setPolicies(json.items || []);
+      if (activeTab === "playbooks") setPlaybooks(json.items || []);
+    };
+    if (activeTab !== "ack") load();
+  }, [activeTab]);
+
+  useEffect(() => {
+    const loadAck = async () => {
+      const params = new URLSearchParams();
+      if (search) params.set("q", search);
+      if (ackStatusFilter) params.set("status", ackStatusFilter);
+      if (ackTypeFilter) params.set("type", ackTypeFilter);
+      params.set("all", "1");
+      const res = await fetch(`/api/compliance/acknowledgments?${params.toString()}`, { headers: getAuthHeaders() });
+      const json = await res.json();
+      if (!json.success) return;
+      setAckItems(json.items || []);
+    };
+    if (activeTab === "ack") loadAck();
+  }, [activeTab, search, ackStatusFilter, ackTypeFilter]);
+
+  const filteredSops = useMemo(() => {
+    return sops.filter(i => (!search || i.name.toLowerCase().includes(search.toLowerCase())) && (!departmentFilter || i.department === departmentFilter) && (!statusFilter || i.status === statusFilter) && (!riskFilter || i.riskLevel === riskFilter));
+  }, [sops, search, departmentFilter, statusFilter, riskFilter]);
+
+  const filteredPolicies = useMemo(() => {
+    return policies.filter(i =>
+      (!search || i.name.toLowerCase().includes(search.toLowerCase())) &&
+      (!policyTypeFilter || i.policyType === policyTypeFilter) &&
+      (!rolesFilter || (i.appliesToRoles || []).includes(rolesFilter))
+    );
+  }, [policies, search, policyTypeFilter, rolesFilter]);
+
+  const filteredPlaybooks = useMemo(() => {
+    return playbooks.filter(i => (!search || i.scenarioName.toLowerCase().includes(search.toLowerCase())) && (!departmentFilter || i.department === departmentFilter) && (!riskFilter || i.riskLevel === riskFilter) && (!statusFilter || i.status === statusFilter));
+  }, [playbooks, search, departmentFilter, riskFilter, statusFilter]);
+
+  const filteredAckItems = useMemo(() => {
+    return ackItems.filter(i =>
+      (!search || i.staffName.toLowerCase().includes(search.toLowerCase()) || i.documentName.toLowerCase().includes(search.toLowerCase())) &&
+      (!ackStatusFilter || i.status === ackStatusFilter) &&
+      (!ackTypeFilter || i.type === ackTypeFilter)
+    );
+  }, [ackItems, search, ackStatusFilter, ackTypeFilter]);
+
+  const ackPending = filteredAckItems.filter(i => i.status === "Pending").length;
+  const ackCompleted = filteredAckItems.filter(i => i.status === "Acknowledged").length;
+  const ackOverdue = filteredAckItems.filter(i => i.status === "Overdue").length;
+  const ackComplianceRate = filteredAckItems.length ? Math.round((ackCompleted / filteredAckItems.length) * 100) : 0;
+
+  const handleRowView = async (type: TabKey, id: string, title: string) => {
+    try {
+      const endpoint =
+        type === "sops"
+          ? "/api/compliance/sops"
+          : type === "policies"
+            ? "/api/compliance/policies"
+            : "/api/compliance/playbooks";
+      const res = await fetch(`${endpoint}?id=${encodeURIComponent(id)}`, { headers: getAuthHeaders() });
+      const json = await res.json();
+      if (!json.success || !json.item) return;
+      const url = json.item.documentUrl || (json.item.attachments?.[0]);
+      if (url) openViewer(url, title);
+      setRowMenuId(null);
+    } catch { }
+  };
+
+  const handleRowEdit = (type: TabKey, item: any) => {
+    setEditingType(type);
+    setEditingItem(item);
+    setShowCreate(true);
+    setRowMenuId(null);
+  };
+
+  const handleRowDelete = async (type: TabKey, id: string) => {
+    try {
+      const endpoint =
+        type === "sops"
+          ? "/api/compliance/sops"
+          : type === "policies"
+            ? "/api/compliance/policies"
+            : "/api/compliance/playbooks";
+      const res = await fetch(`${endpoint}?id=${encodeURIComponent(id)}`, { method: "DELETE", headers: getAuthHeaders() });
+      const json = await res.json();
+      if (!json.success) return;
+      if (type === "sops") setSops(prev => prev.filter(x => x._id !== id));
+      if (type === "policies") setPolicies(prev => prev.filter(x => x._id !== id));
+      if (type === "playbooks") setPlaybooks(prev => prev.filter(x => x._id !== id));
+      setRowMenuId(null);
+    } catch { }
+  };
+
+  const avgResolution = useMemo(() => {
+    if (!playbooks.length) return 0;
+    const total = playbooks.reduce((acc, cur) => acc + (Number(cur.resolutionTimeMinutes || 0) || 0), 0);
+    return Math.round(total / playbooks.length);
+  }, [playbooks]);
+
+  const handleCreate = async (formData: Record<string, any>) => {
+    const type = editingType || activeTab;
+    if (type === "sops") {
+      const url = editingType ? `/api/compliance/sops?id=${encodeURIComponent(editingItem?._id)}` : "/api/compliance/sops";
+      const method = editingType ? "PUT" : "POST";
+      const res = await fetch(url, { method, headers: headersWithJson(), body: JSON.stringify(formData) });
+      let json: any = null;
+      try { json = await res.json(); } catch { json = { success: false }; }
+      if (res.ok && json?.success) {
+        setSops(prev => editingType ? prev.map(x => x._id === json.item._id ? json.item : x) : [json.item, ...prev]);
+        setShowCreate(false);
+        setEditingType(null);
+        setEditingItem(null);
+      }
+      return;
+    }
+    if (type === "policies") {
+      const url = editingType ? `/api/compliance/policies?id=${encodeURIComponent(editingItem?._id)}` : "/api/compliance/policies";
+      const method = editingType ? "PUT" : "POST";
+      const res = await fetch(url, { method, headers: headersWithJson(), body: JSON.stringify(formData) });
+      let json: any = null;
+      try { json = await res.json(); } catch { json = { success: false }; }
+      if (res.ok && json?.success) {
+        setPolicies(prev => editingType ? prev.map(x => x._id === json.item._id ? json.item : x) : [json.item, ...prev]);
+        setShowCreate(false);
+        setEditingType(null);
+        setEditingItem(null);
+      }
+      return;
+    }
+    // if (type === "playbooks") {
+    //   const url = editingType ? `/api/compliance/playbooks?id=${encodeURIComponent(editingItem?._id)}` : "/api/compliance/playbooks";
+    //   const method = editingType ? "PUT" : "POST";
+    //   const expected = String(formData.expectedResolutionTime || "").toLowerCase();
+    //   let minutes = Number(formData.resolutionTimeMinutes || 0);
+    //   if (!minutes) {
+    //     if (expected.includes("hour")) {
+    //       const h = Number((expected.match(/\d+/) || [1])[0]);
+    //       minutes = h * 60;
+    //     } else {
+    //       const m = Number((expected.match(/\d+/) || [0])[0]);
+    //       minutes = m;
+    //     }
+    //   }
+    //   const payload = {
+    //     scenarioName: formData.scenarioName || "",
+    //     triggerCondition: formData.triggerCondition || "",
+    //     department: formData.department || "Clinic",
+    //     riskLevel: formData.riskLevel || "",
+    //     ownerName: "Clinic Admin",
+    //     owner: formData.owner || "Clinic Admin",
+    //     resolutionTimeMinutes: minutes || 0,
+    //     expectedResolutionTime: formData.expectedResolutionTime || "",
+    //     escalationLevel: formData.escalationLevel || "",
+    //     status: formData.status || "Active",
+    //     steps: formData.steps || [],
+    //     escalationPath: formData.escalationPath || [],
+    //     trainingMaterials: formData.trainingMaterials || [],
+    //     attachments: formData.attachments || [],
+    //     documentUrl: formData.documentUrl || undefined
+    //   };
+    //   const res = await fetch(url, { method, headers: headersWithJson(), body: JSON.stringify(payload) });
+    //   let json: any = null;
+    //   try { json = await res.json(); } catch { json = { success: false }; }
+    //   if (res.ok && json?.success) {
+    //     setPlaybooks(prev => editingType ? prev.map(x => x._id === json.item._id ? json.item : x) : [json.item, ...prev]);
+    //     setShowCreate(false);
+    //     setEditingType(null);
+    //     setEditingItem(null);
+    //   }
+    //   return;
+    // }
+    if (type === "playbooks") {
+      const url = editingType ? `/api/compliance/playbooks?id=${encodeURIComponent(editingItem?._id)}` : "/api/compliance/playbooks";
+      const method = editingType ? "PUT" : "POST";
+
+      // Get the clinic owner name from localStorage or context
+      const clinicOwnerName = localStorage.getItem("clinicOwnerName") ||
+        sessionStorage.getItem("clinicOwnerName") ||
+        "Clinic Admin";
+
+      const expected = String(formData.expectedResolutionTime || "").toLowerCase();
+      let minutes = Number(formData.resolutionTimeMinutes || 0);
+      if (!minutes) {
+        if (expected.includes("hour")) {
+          const h = Number((expected.match(/\d+/) || [1])[0]);
+          minutes = h * 60;
+        } else {
+          const m = Number((expected.match(/\d+/) || [0])[0]);
+          minutes = m;
+        }
+      }
+
+      const payload = {
+        scenarioName: formData.scenarioName || "",
+        triggerCondition: formData.triggerCondition || "",
+        department: formData.department || "Clinic",
+        riskLevel: formData.riskLevel || "",
+        owner: formData.owner || "", // This will be the owner ID from the backend
+        ownerName: clinicOwnerName, // Add owner name for display
+        resolutionTimeMinutes: minutes || 0,
+        expectedResolutionTime: formData.expectedResolutionTime || "",
+        escalationLevel: formData.escalationLevel || "",
+        status: formData.status || "Active",
+        steps: formData.steps || [],
+        escalationPath: formData.escalationPath || [],
+        trainingMaterials: formData.trainingMaterials || [],
+        attachments: formData.attachments || [],
+        documentUrl: formData.documentUrl || undefined
+      };
+
+      const res = await fetch(url, { method, headers: headersWithJson(), body: JSON.stringify(payload) });
+      let json: any = null;
+      try { json = await res.json(); } catch { json = { success: false }; }
+      if (res.ok && json?.success) {
+        setPlaybooks(prev => editingType ? prev.map(x => x._id === json.item._id ? json.item : x) : [json.item, ...prev]);
+        setShowCreate(false);
+        setEditingType(null);
+        setEditingItem(null);
+      }
+      return;
+    }
+  };
+
+  const CreateModal = () => {
+    const [form, setForm] = useState<Record<string, any>>({});
+    const [step, setStep] = useState(1);
+    const [formMenuOpen, setFormMenuOpen] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement | null>(null);
+    const [uploading, setUploading] = useState(false);
+    const [uploadError, setUploadError] = useState<string | null>(null);
+    const [policyRoleOptions, setPolicyRoleOptions] = useState<string[]>(["Agent", "DoctorStaff"]);
+
+    useEffect(() => {
+      if ((editingType || activeTab) === "policies") {
+        (async () => {
+          try {
+            const res = await fetch("/api/compliance/roles", { headers: getAuthHeaders() });
+            const json = await res.json();
+            if (json.success && Array.isArray(json.roles)) {
+              const labels = json.labels || {};
+              const opts = ["All Staff", labels.agent || "Agent", labels.doctorStaff || "DoctorStaff"];
+              setPolicyRoleOptions(opts);
+            }
+          } catch {
+            setPolicyRoleOptions(["All Staff", "Agent", "DoctorStaff"]);
+          }
+        })();
+      }
+    }, [activeTab, editingType]);
+
+    useEffect(() => {
+      if (editingItem) {
+        setForm({
+          ...editingItem,
+          effectiveDate: editingItem.effectiveDate ? String(editingItem.effectiveDate).slice(0, 10) : (editingItem.effectiveDate || ""),
+          reviewDate: editingItem.reviewDate ? String(editingItem.reviewDate).slice(0, 10) : (editingItem.reviewDate || "")
+        });
+      } else {
+        const t = editingType || activeTab;
+        setForm(t === "policies" ? { department: "Clinic" } : {});
+      }
+    }, [editingItem, editingType, activeTab]);
+
+    const triggerFilePicker = () => fileInputRef.current?.click();
+
+    const uploadAttachment = async (file: File) => {
+      setUploadError(null);
+      setUploading(true);
+      try {
+        const fd = new FormData();
+        fd.append("file", file);
+        const upType = (editingType || activeTab) === "playbooks" ? "playbooks" : "sops";
+        const res = await fetch(`/api/compliance/upload?type=${encodeURIComponent(upType)}`, { method: "POST", headers: getAuthHeaders(), body: fd as any });
+        const json = await res.json();
+        if (!json.success || !json.url) {
+          throw new Error(json.message || "Upload failed");
+        }
+        const list = [...(form.attachments || [])];
+        list.push(json.url);
+        const next: Record<string, any> = { ...form, attachments: list };
+        if (file.type === "application/pdf") {
+          next.documentUrl = json.url;
+        }
+        setForm(next);
+      } catch (err: any) {
+        setUploadError(err?.message || "Upload error");
+      } finally {
+        setUploading(false);
+      }
+    };
+
+    const roleOptions = ["All Staff", "Agent", "DoctorStaff"];
+    const riskOptions = ["Low", "Medium", "High", "Critical"];
+    const escalationLevels = ["Level 1", "Level 2", "Level 3"];
+    const ct = editingType || activeTab;
+
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+        <div className="w-full max-w-2xl rounded-2xl bg-white p-6">
+          <div className="flex items-center justify-between">
+            <div className="text-lg font-bold text-gray-900">
+              {ct === "playbooks"
+                ? (editingType ? "Edit Process Playbook" : "Add New Process Playbook")
+                : (editingType ? "Edit " : "Add ") + (ct === "sops" ? (editingType ? "SOP" : "New SOP") : (editingType ? "Policy" : "New Policy"))}
+            </div>
+            <div className="relative">
+              <button onClick={() => setFormMenuOpen(!formMenuOpen)} className="inline-flex items-center rounded-md p-1 hover:bg-gray-100">
+                {/* <MoreVertical className="h-5 w-5 text-gray-500" /> */}
+              </button>
+              {formMenuOpen}
+            </div>
+          </div>
+          {ct === "sops" && (
+            <>
+              <div className="mt-4 flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <div className={`h-7 w-7 rounded-full text-xs flex items-center justify-center ${step >= 1 ? "bg-gray-900 text-white" : "bg-gray-200 text-gray-700"}`}>{1}</div>
+                  <div className={`text-sm ${step >= 1 ? "text-gray-900 font-semibold" : "text-gray-600"}`}>Basic Info</div>
+                </div>
+                <div className="h-px w-10 bg-gray-200"></div>
+                <div className="flex items-center gap-2">
+                  <div className={`h-7 w-7 rounded-full text-xs flex items-center justify-center ${step >= 2 ? "bg-gray-900 text-white" : "bg-gray-200 text-gray-700"}`}>{2}</div>
+                  <div className={`text-sm ${step >= 2 ? "text-gray-900 font-semibold" : "text-gray-600"}`}>Content</div>
+                </div>
+                <div className="h-px w-10 bg-gray-200"></div>
+                <div className="flex items-center gap-2">
+                  <div className={`h-7 w-7 rounded-full text-xs flex items-center justify-center ${step >= 3 ? "bg-gray-900 text-white" : "bg-gray-200 text-gray-700"}`}>{3}</div>
+                  <div className={`text-sm ${step >= 3 ? "text-gray-900 font-semibold" : "text-gray-600"}`}>Controls</div>
+                </div>
+              </div>
+              {step === 1 && (
+                <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div className="space-y-1">
+                    <div className="text-sm font-medium text-gray-900">SOP Title *</div>
+                    <input className="w-full rounded-lg border px-3 py-2 text-sm" placeholder="Enter SOP title" value={form.name || ""} onChange={e => setForm({ ...form, name: e.target.value })} />
+                  </div>
+                  <div className="space-y-1">
+                    <div className="text-sm font-medium text-gray-900">Department *</div>
+                    <select className="w-full rounded-lg border px-3 py-2 text-sm" value={form.department || ""} onChange={e => setForm({ ...form, department: e.target.value })}>
+                      <option value="">Select department</option>
+                      {["Clinic"].map(d => (<option key={d} value={d}>{d}</option>))}
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="text-sm font-medium text-gray-900">Category *</div>
+                    <select className="w-full rounded-lg border px-3 py-2 text-sm" value={form.category || ""} onChange={e => setForm({ ...form, category: e.target.value })}>
+                      <option value="">Select category</option>
+                      {(sopCategories.length ? sopCategories : ["General", "Operations", "Safety"]).map(t => (<option key={t} value={t}>{t}</option>))}
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="text-sm font-medium text-gray-900">Risk Level *</div>
+                    <select className="w-full rounded-lg border px-3 py-2 text-sm" value={form.riskLevel || ""} onChange={e => setForm({ ...form, riskLevel: e.target.value })}>
+                      <option value="">Select risk level</option>
+                      {riskOptions.map(r => (<option key={r} value={r}>{r}</option>))}
+                    </select>
+                  </div>
+                  <div className="space-y-1 sm:col-span-2">
+                    <div className="text-sm font-medium text-gray-900">Applicable Roles *</div>
+                    <div className="flex flex-wrap gap-1">
+                      {roleOptions.map(r => {
+                        const selected = (form.applicableRoles || []).includes(r);
+                        return (
+                          <button key={r} type="button" onClick={() => {
+                            const curr = new Set(form.applicableRoles || []);
+                            if (selected) { curr.delete(r); } else { curr.add(r); }
+                            setForm({ ...form, applicableRoles: Array.from(curr) });
+                          }} className={`rounded-full border px-3 py-1 text-xs ${selected ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-800"}`}>
+                            {r}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )}
+              {step === 2 && (
+                <div className="mt-4 space-y-3">
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between">
+                      <div className="text-sm font-medium text-gray-900">SOP Content</div>
+                      <button type="button" className="rounded-lg border px-3 py-1 text-xs">AI Generate SOP</button>
+                    </div>
+                    <textarea rows={6} className="w-full rounded-lg border px-3 py-2 text-sm" placeholder="Enter detailed SOP content, procedures, and guidelines..." value={form.content || ""} onChange={e => setForm({ ...form, content: e.target.value })} />
+                  </div>
+                  <div className="space-y-1">
+                    <div className="text-sm font-medium text-gray-900">Step-by-Step Checklist (Optional)</div>
+                    <div className="flex gap-2">
+                      <input className="flex-1 rounded-lg border px-3 py-2 text-sm" value={form._tmpChecklist || ""} onChange={e => setForm({ ...form, _tmpChecklist: e.target.value })} placeholder="Add checklist item" />
+                      <button className="rounded-lg bg-gray-900 px-3 py-2 text-sm text-white" onClick={() => {
+                        const list = [...(form.checklist || [])];
+                        if (form._tmpChecklist) list.push(form._tmpChecklist);
+                        setForm({ ...form, checklist: list, _tmpChecklist: "" });
+                      }}>Add</button>
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {(form.checklist || []).map((c: string, idx: number) => (
+                        <span key={`${c}-${idx}`} className="rounded-md bg-gray-100 px-2 py-1 text-xs">{c}</span>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="text-sm font-medium text-gray-900">Attachments</div>
+                    <input ref={fileInputRef} type="file" className="hidden" accept=".pdf,.doc,.docx,.ppt,.pptx,.mp4,.mov,.avi" onChange={e => {
+                      const f = e.target.files?.[0];
+                      if (f) uploadAttachment(f);
+                    }} />
+                    <button type="button" onClick={triggerFilePicker} className="w-full rounded-lg border border-dashed p-6 text-center text-sm text-gray-700 hover:bg-gray-50">
+                      <div className="mx-auto mb-2 flex h-6 w-6 items-center justify-center rounded-full bg-gray-100">
+                        <UploadCloud className="h-4 w-4 text-gray-500" />
+                      </div>
+                      <div>{uploading ? "Uploading..." : "Click to upload from your system"}</div>
+                      <div className="mt-1 text-xs text-gray-500">PDF, DOC, PPT, Video supported</div>
+                    </button>
+                    {uploadError && <div className="text-xs text-red-600">{uploadError}</div>}
+                    {(form.attachments || []).length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {(form.attachments || []).map((url: string, idx: number) => (
+                          <a key={`${url}-${idx}`} href={url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-md bg-gray-100 px-2 py-1 text-xs text-blue-700">
+                            <FileText className="h-3 w-3" /> Attachment {idx + 1}
+                          </a>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+              {step === 3 && (
+                <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div className="space-y-1">
+                    <div className="text-sm text-gray-700">Effective Date</div>
+                    <input type="date" className="w-full rounded-lg border px-3 py-2 text-sm" value={form.effectiveDate || ""} onChange={e => setForm({ ...form, effectiveDate: e.target.value })} />
+                  </div>
+                  <div className="space-y-1">
+                    <div className="text-sm text-gray-700">Review Date</div>
+                    <input type="date" className="w-full rounded-lg border px-3 py-2 text-sm" value={form.reviewDate || ""} onChange={e => setForm({ ...form, reviewDate: e.target.value })} />
+                  </div>
+
+                  <div className="space-y-1">
+                    <div className="text-sm text-gray-700">Version</div>
+                    <input className="w-full rounded-lg border px-3 py-2 text-sm" value={form.version || ""} onChange={e => setForm({ ...form, version: e.target.value })} />
+                  </div>
+                  <div className="space-y-2 sm:col-span-2">
+                    <div className="text-sm font-medium text-gray-900">Mandatory Acknowledgment</div>
+                    <div className="flex items-center justify-between rounded-lg border px-3 py-2">
+                      <div className="text-sm text-gray-700">Require staff to acknowledge this SOP</div>
+                      {/* <button
+                        type="button"
+                        onClick={() => {
+                          const next = !form.mandatoryAck;
+                          const today = new Date();
+                          const yyyy = today.getFullYear();
+                          const mm = String(today.getMonth() + 1).padStart(2, "0");
+                          const dd = String(today.getDate()).padStart(2, "0");
+                          const isoDate = `${yyyy}-${mm}-${dd}`;
+                          setForm({
+                            ...form,
+                            mandatoryAck: next,
+                            acknowledgmentDeadline: next ? (form.acknowledgmentDeadline || isoDate) : ""
+                          });
+                        }}
+                        className={`relative h-6 w-11 rounded-full ${form.mandatoryAck ? "bg-gray-900" : "bg-gray-300"}`}
+                      >
+                        <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-transform ${form.mandatoryAck ? "translate-x-5" : "translate-x-1"}`} />
+                      </button> */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const next = !form.mandatoryAck;
+                          const today = new Date();
+                          const tomorrow = new Date(today);
+                          tomorrow.setDate(today.getDate() + 1);
+                          const yyyy = tomorrow.getFullYear();
+                          const mm = String(tomorrow.getMonth() + 1).padStart(2, "0");
+                          const dd = String(tomorrow.getDate()).padStart(2, "0");
+                          const tomorrowIso = `${yyyy}-${mm}-${dd}`;
+
+                          setForm({
+                            ...form,
+                            mandatoryAck: next,
+                            acknowledgmentDeadline: next
+                              ? (form.acknowledgmentDeadline || form.reviewDate || tomorrowIso)
+                              : "",
+                          });
+                        }}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-300 px-3 py-2
+    ${form.mandatoryAck ? "bg-gray-900" : "bg-gray-300"}
+  `}
+                      >
+                        <span
+                          className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform duration-300
+      ${form.mandatoryAck ? "translate-x-5" : "translate-x-1"}
+    `}
+                        />
+                      </button>
+
+                    </div>
+                  </div>
+                  {form.mandatoryAck && (
+                    <div className="space-y-1 sm:col-span-2">
+                      <div className="text-sm text-gray-700">Acknowledgment Deadline</div>
+                      <input
+                        type="date"
+                        className="w-full rounded-lg border px-3 py-2 text-sm"
+                        value={form.acknowledgmentDeadline || ""}
+                        onChange={e => setForm({ ...form, acknowledgmentDeadline: e.target.value })}
+                      />
+                    </div>
+                  )}
+                  <div className="sm:col-span-2 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm">
+                    <div className="font-semibold text-gray-900">Preview Summary</div>
+                    <div className="mt-2 grid grid-cols-2 gap-2 text-gray-700">
+                      <div>Title: {form.name || "Not set"}</div>
+                      <div>Department: {form.department || "Not set"}</div>
+                      <div>Risk Level: {form.riskLevel || "Not set"}</div>
+                      <div>Roles: {(form.applicableRoles || []).length} selected</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+              <div className="mt-6 flex justify-between">
+                <button className="rounded-lg border px-4 py-2 text-sm" onClick={() => setShowCreate(false)}>Cancel</button>
+                <div className="flex gap-2">
+                  {step > 1 && <button className="rounded-lg border px-4 py-2 text-sm" onClick={() => setStep(step - 1)}>Back</button>}
+                  {step < 3 && <button className="rounded-lg bg-gray-900 px-4 py-2 text-sm text-white" onClick={() => setStep(step + 1)}>Next</button>}
+                  {step === 3 && <button className="rounded-lg bg-gray-900 px-4 py-2 text-sm text-white" onClick={() => handleCreate(form)}>{editingType ? "Update SOP" : "Create SOP"}</button>}
+                </div>
+              </div>
+            </>
+          )}
+          {ct === "policies" && (
+            <>
+              <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="space-y-1">
+                  <div className="text-sm font-medium text-gray-900">Policy Name *</div>
+                  <input className="w-full rounded-lg border px-3 py-2 text-sm" placeholder="Enter policy name" value={form.name || ""} onChange={e => setForm({ ...form, name: e.target.value })} />
+                </div>
+                <div className="space-y-1">
+                  <div className="text-sm font-medium text-gray-900">Department (Optional)</div>
+                  <select className="w-full rounded-lg border px-3 py-2 text-sm" value={form.department || "Clinic"} onChange={e => setForm({ ...form, department: e.target.value })}>
+                    <option value="Clinic">Clinic</option>
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <div className="text-sm font-medium text-gray-900">Policy Type *</div>
+                  <select className="w-full rounded-lg border px-3 py-2 text-sm" value={form.policyType || ""} onChange={e => setForm({ ...form, policyType: e.target.value })}>
+                    <option value="">Select type</option>
+                    {(policyTypes.length ? policyTypes : ["Regulatory", "Privacy", "Organizational", "Safety", "HR"]).map(t => (<option key={t} value={t}>{t}</option>))}
+                  </select>
+                </div>
+                <div className="space-y-1 sm:col-span-2">
+                  <div className="text-sm font-medium text-gray-900">Applies To Roles *</div>
+                  <div className="flex flex-wrap gap-2">
+                    {policyRoleOptions.map(r => {
+                      const selected = (form.appliesToRoles || []).includes(r);
+                      return (
+                        <button key={r} type="button" onClick={() => {
+                          const curr = new Set(form.appliesToRoles || []);
+                          if (selected) { curr.delete(r); } else { curr.add(r); }
+                          setForm({ ...form, appliesToRoles: Array.from(curr) });
+                        }} className={`rounded-full border px-3 py-1 text-xs ${selected ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-800"}`}>
+                          {r}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div className="space-y-1 sm:col-span-2">
+                  <div className="text-sm font-medium text-gray-900">Policy Description *</div>
+                  <textarea rows={5} className="w-full rounded-lg border px-3 py-2 text-sm" placeholder="Enter detailed policy description..." value={form.description || ""} onChange={e => setForm({ ...form, description: e.target.value })} />
+                </div>
+                {/* <div className="space-y-2 sm:col-span-2">
+                  <div className="text-sm font-medium text-gray-900">Approval Required</div>
+                  <div className="flex items-center justify-between rounded-lg border px-3 py-2">
+                    <div className="text-sm text-gray-700">Require management approval before enforcement</div>
+                    <button type="button" onClick={() => setForm({ ...form, approvalRequired: !form.approvalRequired })} className={`relative h-6 w-11 rounded-full ${form.approvalRequired ? "bg-gray-900" : "bg-gray-300"}`}>
+                      <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-transform ${form.approvalRequired ? "translate-x-5" : "translate-x-1"}`} />
+                    </button>
+                  </div>
+                </div> */}
+                <div className="space-y-2 sm:col-span-2">
+                  <div className="text-sm font-medium text-gray-900">
+                    Approval Required
+                  </div>
+
+                  <div className="flex items-center justify-between gap-4 rounded-lg border border-gray-200 bg-white px-3 py-2">
+                    <div className="text-sm text-gray-700 leading-snug">
+                      Require management approval before enforcement
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setForm({
+                          ...form,
+                          approvalRequired: !form.approvalRequired,
+                        })
+                      }
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-2
+        ${form.approvalRequired ? "bg-gray-900" : "bg-gray-300"}
+      `}
+                    >
+                      <span
+                        className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform duration-300
+          ${form.approvalRequired ? "translate-x-5" : "translate-x-1"}
+        `}
+                      />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <div className="text-sm font-medium text-gray-900">Effective Date</div>
+                  <input type="date" className="w-full rounded-lg border px-3 py-2 text-sm" value={form.effectiveDate || ""} onChange={e => setForm({ ...form, effectiveDate: e.target.value })} />
+                </div>
+                <div className="space-y-1">
+                  <div className="text-sm font-medium text-gray-900">Version</div>
+                  <input className="w-full rounded-lg border px-3 py-2 text-sm" value={form.version || "1.0"} onChange={e => setForm({ ...form, version: e.target.value })} />
+                </div>
+                <div className="space-y-2 sm:col-span-2">
+                  <div className="text-sm font-medium text-gray-900">Mandatory Acknowledgment</div>
+                    <div className="flex items-center justify-between rounded-lg border px-3 py-2">
+                    <div className="text-sm text-gray-700">Require staff to acknowledge this policy</div>
+                      <button
+                        type="button"
+                        onClick={() => setForm({ ...form, mandatoryAck: !form.mandatoryAck })}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-300 ${form.mandatoryAck ? "bg-gray-900" : "bg-gray-300"}`}
+                      >
+                        <span
+                          className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform duration-300 ${form.mandatoryAck ? "translate-x-5" : "translate-x-1"}`}
+                        />
+                      </button>
+                  </div>
+                </div>
+              </div>
+              <div className="mt-6 flex justify-end">
+                <button className="rounded-lg border px-4 py-2 text-sm mr-2" onClick={() => setShowCreate(false)}>Cancel</button>
+                <button className="rounded-lg bg-gray-900 px-4 py-2 text-sm text-white" onClick={() => handleCreate(form)}>{editingType ? "Update Policy" : "Create Policy"}</button>
+              </div>
+            </>
+          )}
+          {ct === "playbooks" && (
+            <>
+              <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="space-y-1">
+                  <div className="text-sm font-medium text-gray-900">Scenario Name *</div>
+                  <input className="w-full rounded-lg border px-3 py-2 text-sm" placeholder="e.g., Patient Emergency Response" value={form.scenarioName || ""} onChange={e => setForm({ ...form, scenarioName: e.target.value })} />
+                </div>
+                <div className="space-y-1">
+                  <div className="text-sm font-medium text-gray-900">When to Use (Trigger Condition) *</div>
+                  <input className="w-full rounded-lg border px-3 py-2 text-sm" placeholder="Describe when this playbook should be activated..." value={form.triggerCondition || ""} onChange={e => setForm({ ...form, triggerCondition: e.target.value })} />
+                </div>
+                <div className="space-y-1">
+                  <div className="text-sm font-medium text-gray-900">Department *</div>
+                  <select className="w-full rounded-lg border px-3 py-2 text-sm" value={form.department || ""} onChange={e => setForm({ ...form, department: e.target.value })}>
+                    <option value="">Select department</option>
+                    {["Clinic"].map(d => (<option key={d} value={d}>{d}</option>))}
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <div className="text-sm font-medium text-gray-900">Risk Level *</div>
+                  <select className="w-full rounded-lg border px-3 py-2 text-sm" value={form.riskLevel || ""} onChange={e => setForm({ ...form, riskLevel: e.target.value })}>
+                    <option value="">Select risk level</option>
+                    {riskOptions.map(r => (<option key={r} value={r}>{r}</option>))}
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <div className="text-sm font-medium text-gray-900">Responsible Owner</div>
+                  <div className="w-full rounded-lg border bg-gray-50 px-3 py-2 text-sm text-gray-700">
+                    {(() => {
+                      // Get clinic owner name from storage
+                      const ownerName = typeof window !== 'undefined' ?
+                        (localStorage.getItem("clinicOwnerName") ||
+                          sessionStorage.getItem("clinicOwnerName") ||
+                          "Clinic Admin") : "Clinic Admin";
+                      return ownerName;
+                    })()}
+                  </div>
+                  <input type="hidden" name="owner" value="" />
+                </div>
+                <div className="space-y-1">
+                  <div className="text-sm font-medium text-gray-900">Expected Resolution Time</div>
+                  <input className="w-full rounded-lg border px-3 py-2 text-sm" placeholder="e.g., 30 minutes" value={form.expectedResolutionTime || ""} onChange={e => setForm({ ...form, expectedResolutionTime: e.target.value })} />
+                </div>
+                <div className="space-y-1">
+                  <div className="text-sm font-medium text-gray-900">Escalation Level</div>
+                  <select className="w-full rounded-lg border px-3 py-2 text-sm" value={form.escalationLevel || ""} onChange={e => setForm({ ...form, escalationLevel: e.target.value })}>
+                    <option value="">Select level</option>
+                    {escalationLevels.map(l => (<option key={l} value={l}>{l}</option>))}
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <div className="text-sm font-medium text-gray-900">Status</div>
+                  <select className="w-full rounded-lg border px-3 py-2 text-sm" value={form.status || "Active"} onChange={e => setForm({ ...form, status: e.target.value })}>
+                    <option value="Active">Active</option>
+                    <option value="Under Review">Under Review</option>
+                    <option value="Draft">Draft</option>
+                  </select>
+                </div>
+                <div className="space-y-1 sm:col-span-2">
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm font-medium text-gray-900">Step-by-Step Handling Process *</div>
+                    <button type="button" className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-1 text-xs">
+                      <Sparkles className="h-3.5 w-3.5 text-purple-600" /> AI Suggest Steps
+                    </button>
+                  </div>
+                  <div className="relative flex gap-2">
+                    <input className="flex-1 rounded-lg border px-3 py-2 text-sm" value={form._tmpStep || ""} onChange={e => setForm({ ...form, _tmpStep: e.target.value })} placeholder="Add a step..." />
+                    <button className="rounded-lg bg-gray-900 px-3 py-2 text-sm text-white" aria-label="Add step" onClick={() => {
+                      const list = [...(form.steps || [])];
+                      if (form._tmpStep) list.push(form._tmpStep);
+                      setForm({ ...form, steps: list, _tmpStep: "" });
+                    }}>+</button>
+                  </div>
+                  <div className="mt-2 space-y-2">
+                    {(form.steps || []).map((s: string, idx: number) => (
+                      <div key={`${s}-${idx}`} className="flex items-center justify-between rounded-lg border px-3 py-2">
+                        <div className="flex items-center gap-2">
+                          <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-gray-900 text-white text-xs">{idx + 1}</span>
+                          <span className="text-sm">{s}</span>
+                        </div>
+                        <button
+                          className="rounded-md border px-2 py-1 text-xs"
+                          onClick={() => {
+                            const list = [...(form.steps || [])];
+                            list.splice(idx, 1);
+                            setForm({ ...form, steps: list });
+                          }}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div className="space-y-1 sm:col-span-2">
+                  <div className="text-sm font-medium text-gray-900">Escalation Path Builder</div>
+                  <div className="mb-2 rounded-lg border border-purple-200 bg-purple-50 p-3">
+                    <div className="flex items-center gap-2 text-xs text-gray-700">
+                      <span className="rounded-md bg-white px-2 py-1">Staff Member</span>
+                      <span>→</span>
+                      <span className="rounded-md bg-white px-2 py-1">Supervisor</span>
+                      <span>→</span>
+                      <span className="rounded-md bg-white px-2 py-1">Department Head</span>
+                      <span>→</span>
+                      <span className="rounded-md bg-white px-2 py-1">C-Level</span>
+                    </div>
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {(form.escalationPath || []).map((s: string, idx: number) => (<span key={`${s}-${idx}`} className="rounded-md bg-gray-100 px-2 py-1 text-xs">{s}</span>))}
+                  </div>
+                </div>
+                <div className="space-y-1 sm:col-span-2">
+                  <div className="text-sm font-medium text-gray-900">Attach Training Material (Optional)</div>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    className="hidden"
+                    accept=".pdf,.doc,.docx,.ppt,.pptx,.mp4,.mov,.avi"
+                    onChange={e => {
+                      const f = e.target.files?.[0];
+                      if (f) uploadAttachment(f);
+                    }}
+                  />
+                  <div
+                    className="rounded-lg border border-dashed p-6 text-center text-sm text-gray-600 cursor-pointer hover:bg-gray-50"
+                    onClick={triggerFilePicker}
+                    onDragOver={(e) => { e.preventDefault(); }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      const f = e.dataTransfer?.files?.[0];
+                      if (f) uploadAttachment(f);
+                    }}
+                  >
+                    <div className="mx-auto mb-2 flex h-6 w-6 items-center justify-center rounded-full bg-gray-100">
+                      <UploadCloud className="h-4 w-4 text-gray-500" />
+                    </div>
+                    <div>Drop files or click to upload training materials</div>
+                  </div>
+                  {(form.attachments || []).length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {(form.attachments || []).map((url: string, idx: number) => (
+                        <a
+                          key={`${url}-${idx}`}
+                          href={url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1 rounded-md bg-gray-100 px-2 py-1 text-xs text-blue-700"
+                        >
+                          <FileText className="h-3 w-3" /> Attachment {idx + 1}
+                        </a>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="mt-6 flex justify-end">
+                <button className="rounded-lg border px-4 py-2 text-sm mr-2" onClick={() => setShowCreate(false)}>Cancel</button>
+                <button className="rounded-lg bg-gray-900 px-4 py-2 text-sm text-white" onClick={() => handleCreate(form)}>{editingType ? "Update Playbook" : "Create Playbook"}</button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const AckModal = ({ onClose }: { onClose: () => void }) => {
+    const [form, setForm] = useState<Record<string, any>>({
+      role: "agent",
+      assignedDate: new Date().toISOString().slice(0, 10),
+      dueDate: "",
+      acknowledgedOn: ""
+    });
+    const [staffList, setStaffList] = useState<Array<{ _id: string; name: string }>>([]);
+    const [docType, setDocType] = useState<"SOP" | "Policy" | "Playbook">("SOP");
+    const [docOptions, setDocOptions] = useState<Array<{ _id: string; name: string; version?: string }>>([]);
+    const [query, setQuery] = useState("");
+    const [showSuggestions, setShowSuggestions] = useState(false);
+
+    useEffect(() => {
+      (async () => {
+        const res = await fetch(`/api/lead-ms/get-agents?role=${form.role}`, { headers: getAuthHeaders() });
+        const json = await res.json();
+        if (json.success) {
+          const arr = (json.agents || []).map((u: any) => ({ _id: u._id, name: u.name }));
+          setStaffList(arr);
+        }
+      })();
+    }, [form.role]);
+
+    useEffect(() => {
+      (async () => {
+        const endpoint = docType === "SOP" ? "/api/compliance/sops" : docType === "Policy" ? "/api/compliance/policies" : "/api/compliance/playbooks";
+        const res = await fetch(endpoint, { headers: getAuthHeaders() });
+        const json = await res.json();
+        if (json.success) {
+          const arr = (json.items || []).map((i: any) => ({ _id: i._id, name: i.name || i.scenarioName, version: i.version }));
+          setDocOptions(arr);
+        }
+      })();
+    }, [docType]);
+
+    const filteredStaff = staffList.filter(s => !query || s.name?.toLowerCase().includes(query.toLowerCase()));
+
+    const submitAck = async () => {
+      if (!form.staffId || !form.documentId) return;
+      const payload = {
+        staffId: form.staffId,
+        staffName: form.staffName,
+        role: form.role,
+        documentType: docType,
+        documentId: form.documentId,
+        documentName: form.documentName,
+        version: form.version || "",
+      };
+      const res = await fetch("/api/compliance/acknowledgments", { method: "POST", headers: headersWithJson(), body: JSON.stringify(payload) });
+      const json = await res.json();
+      if (json.success && json.item) {
+        setAckItems(prev => [json.item, ...prev]);
+        onClose();
+      }
+    };
+
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+        <div className="w-full max-w-2xl rounded-2xl bg-white p-6">
+          <div className="flex items-center justify-between">
+            <div className="text-lg font-bold text-gray-900">Add Staff Acknowledgment</div>
+            <button onClick={onClose} className="rounded-md px-3 py-1 text-sm border hover:bg-gray-50">Close</button>
+          </div>
+          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="space-y-1 sm:col-span-2">
+              <div className="text-sm font-medium text-gray-900">Role</div>
+              <div className="flex gap-2">
+                {["agent", "doctorStaff"].map(r => (
+                  <button key={r} className={`rounded-full border px-3 py-1 text-xs ${form.role === r ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-800"}`} onClick={() => setForm({ ...form, role: r })}>
+                    {r === "agent" ? "Agent" : "DoctorStaff"}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="space-y-1 sm:col-span-2 relative">
+              <div className="text-sm font-medium text-gray-900">Staff Name</div>
+              <input
+                className="w-full rounded-lg border px-3 py-2 text-sm"
+                placeholder="Type to search staff..."
+                value={query}
+                onChange={e => setQuery(e.target.value)}
+                onFocus={() => setShowSuggestions(true)}
+                onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+              />
+              {showSuggestions && query && filteredStaff.length > 0 && (
+                <div className="absolute left-0 right-0 mt-1 max-h-40 overflow-y-auto rounded-lg border bg-white shadow z-50">
+                  {filteredStaff.slice(0, 8).map(s => (
+                    <button
+                      key={s._id}
+                      className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 ${form.staffId === s._id ? "bg-gray-100" : ""}`}
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => {
+                        setForm({ ...form, staffId: s._id, staffName: s.name });
+                        setQuery("");
+                        setShowSuggestions(false);
+                      }}
+                    >
+                      {s.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="space-y-1">
+              <div className="text-sm font-medium text-gray-900">Type</div>
+              <select className="w-full rounded-lg border px-3 py-2 text-sm" value={docType} onChange={e => setDocType(e.target.value as any)}>
+                <option value="SOP">SOP Library</option>
+                <option value="Policy">Policy Center</option>
+                <option value="Playbook">Process Playbooks</option>
+              </select>
+            </div>
+            <div className="space-y-1">
+              <div className="text-sm font-medium text-gray-900">Document Name</div>
+              <select className="w-full rounded-lg border px-3 py-2 text-sm" value={form.documentId || ""} onChange={e => {
+                const id = e.target.value;
+                const doc = docOptions.find(d => d._id === id);
+                setForm({ ...form, documentId: id, documentName: doc?.name, version: doc?.version || "" });
+              }}>
+                <option value="">Select document</option>
+                {docOptions.map(d => (<option key={d._id} value={d._id}>{d.name}</option>))}
+              </select>
+            </div>
+            <div className="space-y-1">
+              <div className="text-sm font-medium text-gray-900">Version</div>
+              <input className="w-full rounded-lg border px-3 py-2 text-sm" value={form.version || ""} onChange={e => setForm({ ...form, version: e.target.value })} />
+            </div>
+          </div>
+          <div className="mt-6 flex justify-end">
+            <button className="rounded-lg border px-4 py-2 text-sm mr-2" onClick={onClose}>Cancel</button>
+            <button className="rounded-lg bg-gray-900 px-4 py-2 text-sm text-white" onClick={submitAck}>Add</button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <>
+      <Head>
+        <title>Process & Compliance | ZEVA</title>
+      </Head>
+      <div className="min-h-screen bg-gray-50">
+        <div className="mx-auto max-w-7xl px-4 py-8">
+          <div className="rounded-2xl border bg-white p-6">
+            <div className="mt-1 text-2xl font-bold text-gray-900">Process & Compliance</div>
+            <div className="mt-1 text-sm text-gray-600">Manage SOPs, policies, playbooks, and track compliance across your organization</div>
+            <div className="mt-5 flex gap-3">
+              <button onClick={() => setActiveTab("sops")} className={`rounded-lg px-4 py-2 text-sm ${activeTab === "sops" ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-800"}`}>SOP Library</button>
+              <button onClick={() => setActiveTab("policies")} className={`rounded-lg px-4 py-2 text-sm ${activeTab === "policies" ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-800"}`}>Policy Center</button>
+              <button onClick={() => setActiveTab("playbooks")} className={`rounded-lg px-4 py-2 text-sm ${activeTab === "playbooks" ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-800"}`}>Process Playbooks</button>
+              <button onClick={() => setActiveTab("ack")} className={`rounded-lg px-4 py-2 text-sm ${activeTab === "ack" ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-800"}`}>Acknowledgment Tracker</button>
+            </div>
+
+            {activeTab === "playbooks" && (
+              <div className="mt-6 grid gap-4 sm:grid-cols-3">
+                <StatCard
+                  title="Total Playbooks"
+                  value={overview?.playbookCount || 0}
+                  subtitle="Active scenarios"
+                  icon={<BookOpenCheck className="h-5 w-5 text-purple-500" />}
+                  theme="purple"
+                />
+                <StatCard
+                  title="Critical Risk"
+                  value={playbooks.filter(p => p.riskLevel === "Critical").length}
+                  subtitle="High priority playbooks"
+                  icon={<AlertTriangle className="h-5 w-5 text-red-500" />}
+                  theme="red"
+                />
+                <StatCard
+                  title="Avg Resolution"
+                  value={`${avgResolution} min`}
+                  subtitle="Average handling time"
+                  icon={<TrendingUp className="h-5 w-5 text-green-500" />}
+                  theme="green"
+                />
+              </div>
+            )}
+
+            {activeTab === "ack" && (
+              <div className="mt-6 grid gap-4 sm:grid-cols-4">
+                <div className="rounded-xl border bg-blue-50 p-5">
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm font-semibold text-blue-900">Pending</div>
+                    <ClipboardList className="h-5 w-5 text-blue-400" />
+                  </div>
+                  <div className="mt-3 text-2xl font-bold text-blue-900">{ackPending}</div>
+                  <div className="text-xs text-blue-700">Awaiting acknowledgment</div>
+                </div>
+                <div className="rounded-xl border bg-green-50 p-5">
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm font-semibold text-green-900">Completed</div>
+                    <ShieldCheck className="h-5 w-5 text-green-400" />
+                  </div>
+                  <div className="mt-3 text-2xl font-bold text-green-900">{ackCompleted}</div>
+                  <div className="text-xs text-green-700">Successfully acknowledged</div>
+                </div>
+                <div className="rounded-xl border bg-red-50 p-5">
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm font-semibold text-red-900">Overdue</div>
+                    <ShieldCheck className="h-5 w-5 text-red-400" />
+                  </div>
+                  <div className="mt-3 text-2xl font-bold text-red-900">{ackOverdue}</div>
+                  <div className="text-xs text-red-700">Past due date</div>
+                </div>
+                <div className="rounded-xl border bg-purple-50 p-5">
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm font-semibold text-purple-900">Compliance Rate</div>
+                    <FileText className="h-5 w-5 text-purple-400" />
+                  </div>
+                  <div className="mt-3 text-2xl font-bold text-purple-900">{ackComplianceRate}%</div>
+                  <div className="text-xs text-purple-700">Overall completion</div>
+                </div>
+              </div>
+            )}
+
+            <div className="mt-6 flex flex-wrap items-center gap-3">
+              <div className="flex flex-1 items-center rounded-lg border bg-white px-3 py-2">
+                <Search className="h-4 w-4 text-gray-400" />
+                <input
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  placeholder={activeTab === "sops" ? "Search SOPs..." : activeTab === "policies" ? "Search policies..." : activeTab === "ack" ? "Search staff or documents..." : "Search scenarios..."}
+                  className="ml-2 w-full text-sm outline-none"
+                />
+              </div>
+              {activeTab === "policies" ? (
+                <>
+                  <select value={policyTypeFilter} onChange={e => setPolicyTypeFilter(e.target.value)} className="rounded-lg border bg-white px-3 py-2 text-sm">
+                    <option value="">All Types</option>
+                    {(policyTypes.length ? policyTypes : ["Regulatory", "Privacy", "Organizational", "Safety", "HR"]).map(t => (
+                      <option key={t} value={t}>{t}</option>
+                    ))}
+                  </select>
+                  <select value={rolesFilter} onChange={e => setRolesFilter(e.target.value)} className="rounded-lg border bg-white px-3 py-2 text-sm">
+                    <option value="">All Roles</option>
+                    <option value="All Staff">All Staff</option>
+                    <option value="Clinical Staff">Clinical Staff</option>
+                    <option value="Admin">Admin</option>
+                    <option value="IT Staff">IT Staff</option>
+                    <option value="Management">Management</option>
+                  </select>
+                  <button onClick={() => setShowTypeModal(true)} className="inline-flex items-center rounded-lg bg-gray-900 px-3 py-2 text-sm text-white">
+                    <Plus className="h-4 w-4 mr-1" /> Create Type
+                  </button>
+                </>
+              ) : activeTab === "playbooks" ? (
+                <>
+                  <select value={departmentFilter} onChange={e => setDepartmentFilter(e.target.value)} className="rounded-lg border bg-white px-3 py-2 text-sm">
+                    <option value="">All Departments</option>
+                    <option value="Maintenance">Clinic</option>
+                  </select>
+                  <select value={riskFilter} onChange={e => setRiskFilter(e.target.value)} className="rounded-lg border bg-white px-3 py-2 text-sm">
+                    <option value="">All Risk Levels</option>
+                    <option value="Low">Low</option>
+                    <option value="Medium">Medium</option>
+                    <option value="High">High</option>
+                    <option value="Critical">Critical</option>
+                  </select>
+                </>
+              ) : activeTab === "ack" ? (
+                <>
+                  <select value={ackStatusFilter} onChange={e => setAckStatusFilter(e.target.value)} className="rounded-lg border bg-white px-3 py-2 text-sm">
+                    <option value="">All Status</option>
+                    <option value="Acknowledged">Acknowledged</option>
+                    <option value="Pending">Pending</option>
+                    <option value="Viewed">Viewed</option>
+                    <option value="Overdue">Overdue</option>
+                  </select>
+                  <select value={ackTypeFilter} onChange={e => setAckTypeFilter(e.target.value)} className="rounded-lg border bg-white px-3 py-2 text-sm">
+                    <option value="">All Types</option>
+                    <option value="SOP">SOP</option>
+                    <option value="Policy">Policy</option>
+                    <option value="Playbook">Playbook</option>
+                  </select>
+                </>
+              ) : (
+                <>
+                  <select value={departmentFilter} onChange={e => setDepartmentFilter(e.target.value)} className="rounded-lg border bg-white px-3 py-2 text-sm">
+                    <option value="">All Departments</option>
+                    <option value="Clinic">Clinic</option>
+                  </select>
+                  <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="rounded-lg border bg-white px-3 py-2 text-sm">
+                    <option value="">All Status</option>
+                    <option value="Active">Active</option>
+                    <option value="Under Review">Under Review</option>
+                    <option value="Draft">Draft</option>
+                  </select>
+                  <select value={riskFilter} onChange={e => setRiskFilter(e.target.value)} className="rounded-lg border bg-white px-3 py-2 text-sm">
+                    <option value="">All Risk Levels</option>
+                    <option value="Low">Low</option>
+                    <option value="Medium">Medium</option>
+                    <option value="High">High</option>
+                    <option value="Critical">Critical</option>
+                  </select>
+                  <button onClick={() => setShowCategoryModal(true)} className="inline-flex items-center rounded-lg bg-gray-900 px-3 py-2 text-sm text-white">
+                    <Plus className="h-4 w-4 mr-1" /> Create Categories
+                  </button>
+                </>
+              )}
+              {activeTab !== "ack" ? (
+                <button onClick={() => {
+                  setEditingType(null);
+                  setEditingItem(null);
+                  setShowCreate(true);
+                }} className="inline-flex items-center gap-2 rounded-lg bg-gray-900 px-3 py-2 text-sm text-white">
+                  <Plus className="h-4 w-4" /> {activeTab === "sops" ? "Add SOP" : activeTab === "policies" ? "Add Policy" : "Add Playbook"}
+                </button>
+              ) : (
+                // <button onClick={() => setAckModalOpen(true)} className="inline-flex items-center gap-2 rounded-lg bg-gray-900 px-3 py-2 text-sm text-white">
+                //   <Plus className="h-4 w-4" /> Add Staff
+                // </button>
+                null
+              )}
+            </div>
+
+            {activeTab === "sops" && (
+              <div className="mt-4 overflow-x-hidden">
+                <div className="mb-2 text-sm text-gray-600">{filteredSops.length} SOPs found</div>
+                <table className="w-full border-collapse">
+                  <thead>
+                    <tr className="text-left text-sm text-gray-600">
+                      <th className="w-6 px-3 py-3"></th>
+                      <th className="px-2 sm:px-3 py-3"><div className="flex items-center gap-1 whitespace-nowrap"><FileText className="h-4 w-4 text-gray-500" /><span>SOP Name</span></div></th>
+                      <th className="px-2 sm:px-3 py-3"><div className="flex items-center gap-1 whitespace-nowrap"><Building className="h-4 w-4 text-gray-500" /><span>Department</span></div></th>
+                      <th className="px-2 sm:px-3 py-3"><div className="flex items-center gap-1 whitespace-nowrap"><Users className="h-4 w-4 text-gray-500" /><span>Applicable Roles</span></div></th>
+                      <th className="px-2 sm:px-3 py-3"><div className="flex items-center gap-1 whitespace-nowrap"><Layers className="h-4 w-4 text-gray-500" /><span>Category</span></div></th>
+                      <th className="px-2 sm:px-3 py-3"><div className="flex items-center gap-1 whitespace-nowrap"><AlertTriangle className="h-4 w-4 text-gray-500" /><span>Risk Level</span></div></th>
+                      <th className="px-2 sm:px-3 py-3"><div className="flex items-center gap-1 whitespace-nowrap"><Tag className="h-4 w-4 text-gray-500" /><span>Version</span></div></th>
+                      <th className="px-2 sm:px-3 py-3"><div className="flex items-center gap-1 whitespace-nowrap"><CalendarDays className="h-4 w-4 text-gray-500" /><span>Last Updated</span></div></th>
+                      <th className="px-2 sm:px-3 py-3"><div className="flex items-center gap-1 whitespace-nowrap"><ShieldCheck className="h-4 w-4 text-gray-500" /><span>Status</span></div></th>
+                      <th className="px-2 sm:px-3 py-3"><div className="flex items-center gap-1 whitespace-nowrap"><ClipboardList className="h-4 w-4 text-gray-500" /><span>Acknowledgment</span></div></th>
+                      <th className="px-3 py-3 w-10"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredSops.map(i => (
+                      <tr key={i._id} className="border-t text-sm">
+                        <td className="px-3 py-3">
+                          {/* <input type="checkbox" className="h-4 w-4 rounded border" /> */}
+                        </td>
+                        <td className="px-3 py-3 font-semibold text-gray-900">
+                          <div className="flex items-center gap-2">
+                            <div className="flex items-center justify-center rounded-full bg-gray-100 text-xs text-gray-700"></div>
+                            <button className="text-left hover:underline" onClick={() => onSopTitleClick(i._id, i.name)}>{i.name}</button>
+                          </div>
+                        </td>
+                        <td className="px-3 py-3 text-gray-700">{i.department}</td>
+                        <td className="px-3 py-3">
+                          <div className="flex flex-wrap gap-1">
+                            {(i.applicableRoles || []).map((r, idx) => {
+                              const ab = r.slice(0, 2).toUpperCase();
+                              return <span key={`${r}-${idx}`} className="inline-flex items-center justify-center rounded-full bg-orange-100 px-2 py-1 text-[10px] font-semibold text-orange-700">{ab}</span>;
+                            })}
+                          </div>
+                        </td>
+                        <td className="px-3 py-3 text-gray-700">{i.category}</td>
+                        <td className="px-3 py-3">
+                          <span className="rounded-md bg-yellow-100 px-2 py-1 text-xs">{i.riskLevel}</span>
+                        </td>
+                        <td className="px-3 py-3 text-gray-700">{i.version}</td>
+                        <td className="px-3 py-3 text-gray-700">{new Date(i.lastUpdated).toLocaleDateString('en-GB')}</td>
+                        <td className="px-3 py-3">
+                          <span className={`rounded-md px-2 py-1 text-xs ${i.status === "Active" ? "bg-green-100" : i.status === "Under Review" ? "bg-blue-100" : "bg-gray-100"}`}>{i.status}</span>
+                        </td>
+                        <td className="px-3 py-3">
+                          <div className="flex items-center gap-2">
+                            <div className="text-xs text-gray-900 font-semibold">{Math.round(i.ackOverall || 0)}%</div>
+                            <div className="w-24 rounded bg-gray-200">
+                              <div className="h-2 rounded bg-gray-900" style={{ width: `${Math.min(Math.max(i.ackOverall || 0, 0), 100)}%` }} />
+                            </div>
+                            {Math.round(i.ackOverall || 0) === 100 && <CircleCheckBig className="h-4 w-4 text-green-600" />}
+                          </div>
+                        </td>
+                        <td className="px-3 py-3 text-right relative">
+                          <button onClick={() => setRowMenuId(rowMenuId === i._id ? null : i._id)} className="inline-flex items-center rounded-md p-1 hover:bg-gray-100">
+                            <MoreVertical className="h-4 w-4 text-gray-500" />
+                          </button>
+                          {rowMenuId === i._id && (
+                            <div className="absolute right-2 top-9 z-10 w-36 rounded-lg border bg-white shadow">
+                              <button className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50" onClick={() => handleRowView("sops", i._id, i.name)}>View</button>
+                              <button className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50" onClick={() => handleRowEdit("sops", i)}>Edit</button>
+                              <button className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-gray-50" onClick={() => handleRowDelete("sops", i._id)}>Delete</button>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {activeTab === "policies" && (
+              <div className="mt-4 overflow-x-hidden">
+                <div className="mb-2 text-sm text-gray-600">{filteredPolicies.length} policies found</div>
+                <table className="w-full border-collapse">
+                  <thead>
+                    <tr className="text-left text-sm text-gray-600">
+                      <th className="w-6 px-3 py-3"></th>
+                      <th className="px-2 sm:px-3 py-3"><div className="flex items-center gap-1 whitespace-nowrap"><FileText className="h-4 w-4 text-gray-500" /><span>Policy Name</span></div></th>
+                      <th className="px-2 sm:px-3 py-3"><div className="flex items-center gap-1 whitespace-nowrap"><Tag className="h-4 w-4 text-gray-500" /><span>Policy Type</span></div></th>
+                      <th className="px-2 sm:px-3 py-3"><div className="flex items-center gap-1 whitespace-nowrap"><Users className="h-4 w-4 text-gray-500" /><span>Applies To</span></div></th>
+                      <th className="px-2 sm:px-3 py-3"><div className="flex items-center gap-1 whitespace-nowrap"><ShieldCheck className="h-4 w-4 text-gray-500" /><span>Approval Required</span></div></th>
+                      <th className="px-2 sm:px-3 py-3"><div className="flex items-center gap-1 whitespace-nowrap"><Hash className="h-4 w-4 text-gray-500" /><span>Version</span></div></th>
+                      <th className="px-2 sm:px-3 py-3"><div className="flex items-center gap-1 whitespace-nowrap"><CalendarDays className="h-4 w-4 text-gray-500" /><span>Effective Date</span></div></th>
+                      <th className="px-2 sm:px-3 py-3"><div className="flex items-center gap-1 whitespace-nowrap"><ShieldCheck className="h-4 w-4 text-gray-500" /><span>Status</span></div></th>
+                      <th className="px-2 sm:px-3 py-3"><div className="flex items-center gap-1 whitespace-nowrap"><ClipboardList className="h-4 w-4 text-gray-500" /><span>Acknowledgment</span></div></th>
+                      <th className="px-3 py-3 w-10"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredPolicies.map(i => (
+                      <tr key={i._id} className="border-t text-sm">
+                        <td className="px-3 py-3">
+                          {/* <input type="checkbox" className="h-4 w-4 rounded border" /> */}
+                        </td>
+                        <td className="px-3 py-3 font-semibold text-gray-900">
+                          <div className="flex items-center gap-2">
+                            {i.name}
+                          </div>
+                        </td>
+                        <td className="px-3 py-3">
+                          <span className="rounded-md bg-gray-100 px-2 py-1 text-xs">{i.policyType}</span>
+                        </td>
+                        <td className="px-3 py-3 text-gray-700">{i.appliesTo}</td>
+                        <td className="px-3 py-3">
+                          <span className={`rounded-md px-2 py-1 text-xs ${i.approvalRequired ? "bg-orange-100 text-orange-700" : "bg-gray-100 text-gray-700"}`}>
+                            {i.approvalRequired ? "Required" : "Not Required"}
+                          </span>
+                        </td>
+                        <td className="px-3 py-3 text-gray-700">{i.version}</td>
+                        <td className="px-3 py-3 text-gray-700">{new Date(i.effectiveDate).toLocaleDateString()}</td>
+                        <td className="px-3 py-3">
+                          <span className={`rounded-md px-2 py-1 text-xs ${i.status === "Active" ? "bg-green-100" : i.status === "Under Review" ? "bg-blue-100" : "bg-gray-100"}`}>{i.status}</span>
+                        </td>
+                        <td className="px-3 py-3">
+                          <div className="flex items-center gap-2">
+                            <div className="text-xs text-gray-900 font-semibold">{Math.round((i as any).ackOverall || 0)}%</div>
+                            <div className="w-24 rounded bg-gray-200">
+                              <div className="h-2 rounded bg-gray-900" style={{ width: `${Math.min(Math.max((i as any).ackOverall || 0, 0), 100)}%` }} />
+                            </div>
+                            {Math.round((i as any).ackOverall || 0) === 100 && <CircleCheckBig className="h-4 w-4 text-green-600" />}
+                          </div>
+                        </td>
+                        <td className="px-3 py-3 text-right relative">
+                          <button onClick={() => setRowMenuId(rowMenuId === i._id ? null : i._id)} className="inline-flex items-center rounded-md p-1 hover:bg-gray-100">
+                            <MoreVertical className="h-4 w-4 text-gray-500" />
+                          </button>
+                          {rowMenuId === i._id && (
+                            <div className="absolute right-2 top-9 z-10 w-36 rounded-lg border bg-white shadow">
+                              <button className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50" onClick={() => handleRowView("policies", i._id, i.name)}>View</button>
+                              <button className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50" onClick={() => handleRowEdit("policies", i)}>Edit</button>
+                              <button className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-gray-50" onClick={() => handleRowDelete("policies", i._id)}>Delete</button>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {activeTab === "playbooks" && (
+              <div className="mt-4 overflow-x-hidden">
+                <table className="w-full border-collapse">
+                  <thead>
+                    <tr className="text-left text-sm text-gray-600">
+                      <th className="w-6 px-3 py-3"></th>
+                      <th className="px-2 sm:px-3 py-3"><div className="flex items-center gap-1 whitespace-nowrap"><FileText className="h-4 w-4 text-gray-500" /><span>Scenario Name</span></div></th>
+                      <th className="px-2 sm:px-3 py-3"><div className="flex items-center gap-1 whitespace-nowrap"><AlertTriangle className="h-4 w-4 text-gray-500" /><span>Trigger Condition</span></div></th>
+                      <th className="px-2 sm:px-3 py-3"><div className="flex items-center gap-1 whitespace-nowrap"><Building className="h-4 w-4 text-gray-500" /><span>Department</span></div></th>
+                      <th className="px-2 sm:px-3 py-3"><div className="flex items-center gap-1 whitespace-nowrap"><AlertTriangle className="h-4 w-4 text-gray-500" /><span>Risk Level</span></div></th>
+                      <th className="px-2 sm:px-3 py-3"><div className="flex items-center gap-1 whitespace-nowrap"><User className="h-4 w-4 text-gray-500" /><span>Owner</span></div></th>
+                      <th className="px-2 sm:px-3 py-3"><div className="flex items-center gap-1 whitespace-nowrap"><Clock className="h-4 w-4 text-gray-500" /><span>Resolution Time</span></div></th>
+                      <th className="px-2 sm:px-3 py-3"><div className="flex items-center gap-1 whitespace-nowrap"><TrendingUp className="h-4 w-4 text-gray-500" /><span>Escalation Level</span></div></th>
+                      <th className="px-2 sm:px-3 py-3"><div className="flex items-center gap-1 whitespace-nowrap"><ShieldCheck className="h-4 w-4 text-gray-500" /><span>Status</span></div></th>
+                      <th className="px-3 py-3 w-10"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredPlaybooks.map(i => (
+                      <tr key={i._id} className="border-t text-sm">
+                        <td className="px-3 py-3">
+                          {/* <input type="checkbox" className="h-4 w-4 rounded border" /> */}
+                        </td>
+                        <td className="px-3 py-3 font-semibold text-gray-900">{i.scenarioName}</td>
+                        <td className="px-3 py-3 text-gray-700">
+                          <div className="flex items-center gap-2">
+                            {/* <ClipboardList className="h-4 w-4 text-purple-500" /> */}
+                            <span>{i.triggerCondition}</span>
+                          </div>
+                        </td>
+                        <td className="px-3 py-3 text-gray-700">{i.department}</td>
+                        <td className="px-3 py-3">
+                          <span className={`rounded-md px-2 py-1 text-xs ${i.riskLevel === "Critical" ? "bg-red-100 text-red-700" :
+                            i.riskLevel === "High" ? "bg-orange-100 text-orange-700" :
+                              i.riskLevel === "Medium" ? "bg-yellow-100 text-yellow-700" :
+                                "bg-green-100 text-green-700"
+                            }`}>{i.riskLevel}</span>
+                        </td>
+                        <td className="px-3 py-3 text-gray-700">
+                          <div className="flex items-center gap-2">
+                            {/* <div className="flex h-6 w-6 items-center justify-center rounded-full bg-gray-100 text-xs text-gray-700">
+                              {i.ownerName ? i.ownerName.charAt(0).toUpperCase() : "C"}
+                            </div> */}
+                            <span>{i.ownerName || "Clinic Admin"}</span>
+                          </div>
+                        </td>
+                        <td className="px-3 py-3 text-gray-700">{i.resolutionTimeMinutes ? `${i.resolutionTimeMinutes} mins` : "-"}</td>
+                        <td className="px-3 py-3">
+                          <span className="rounded-md bg-purple-100 px-2 py-1 text-xs text-purple-700">{i.escalationLevel || "-"}</span>
+                        </td>
+                        <td className="px-3 py-3">
+                          <span className={`rounded-md px-2 py-1 text-xs ${i.status === "Active" ? "bg-green-100" : i.status === "Under Review" ? "bg-blue-100" : "bg-gray-100"}`}>{i.status}</span>
+                        </td>
+                        <td className="px-3 py-3 text-right relative">
+                          <button onClick={() => setRowMenuId(rowMenuId === i._id ? null : i._id)} className="inline-flex items-center rounded-md p-1 hover:bg-gray-100">
+                            <MoreVertical className="h-4 w-4 text-gray-500" />
+                          </button>
+                          {rowMenuId === i._id && (
+                            <div className="absolute right-2 top-9 z-10 w-36 rounded-lg border bg-white shadow">
+                              <button className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50" onClick={() => handleRowView("playbooks", i._id, i.scenarioName)}>View</button>
+                              <button className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50" onClick={() => handleRowEdit("playbooks", i)}>Edit</button>
+                              <button className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-gray-50" onClick={() => handleRowDelete("playbooks", i._id)}>Delete</button>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {activeTab === "ack" && (
+              <div className="mt-4 overflow-x-hidden">
+                <div className="mb-2 text-sm text-gray-600">{filteredAckItems.length} records found</div>
+                <table className="w-full border-collapse">
+                  <thead>
+                    <tr className="text-left text-sm text-gray-600">
+                      <th className="w-6 px-3 py-3"></th>
+                      <th className="px-2 sm:px-3 py-3"><div className="flex items-center gap-1 whitespace-nowrap"><User className="h-4 w-4 text-gray-500" /><span>Staff Name</span></div></th>
+                      <th className="px-2 sm:px-3 py-3"><div className="flex items-center gap-1 whitespace-nowrap"><Users className="h-4 w-4 text-gray-500" /><span>Role</span></div></th>
+                      <th className="px-2 sm:px-3 py-3"><div className="flex items-center gap-1 whitespace-nowrap"><FileText className="h-4 w-4 text-gray-500" /><span>Document Name</span></div></th>
+                      <th className="px-2 sm:px-3 py-3"><div className="flex items-center gap-1 whitespace-nowrap"><Tag className="h-4 w-4 text-gray-500" /><span>Type</span></div></th>
+                      <th className="px-2 sm:px-3 py-3"><div className="flex items-center gap-1 whitespace-nowrap"><Hash className="h-4 w-4 text-gray-500" /><span>Version</span></div></th>
+                      <th className="px-2 sm:px-3 py-3"><div className="flex items-center gap-1 whitespace-nowrap"><ShieldCheck className="h-4 w-4 text-gray-500" /><span>Status</span></div></th>
+                      <th className="px-2 sm:px-3 py-3"><div className="flex items-center gap-1 whitespace-nowrap"><CalendarDays className="h-4 w-4 text-gray-500" /><span>Assigned Date</span></div></th>
+                      <th className="px-2 sm:px-3 py-3"><div className="flex items-center gap-1 whitespace-nowrap"><CalendarDays className="h-4 w-4 text-gray-500" /><span>Due Date</span></div></th>
+                      <th className="px-2 sm:px-3 py-3"><div className="flex items-center gap-1 whitespace-nowrap"><CalendarDays className="h-4 w-4 text-gray-500" /><span>Acknowledged On</span></div></th>
+                      <th className="px-3 py-3 w-10"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredAckItems.map(i => (
+                      <tr key={i._id} className="border-t text-sm">
+                        <td className="px-3 py-3">
+                          {/* <input type="checkbox" className="h-4 w-4 rounded border" /> */}
+                        </td>
+                        <td className="px-3 py-3 font-semibold text-gray-900">
+                          <div className="flex items-center gap-2">
+                            {i.staffName}
+                          </div>
+                        </td>
+                        <td className="px-3 py-3 text-gray-700">{i.role}</td>
+                        <td className="px-3 py-3 text-gray-700">{i.documentName}</td>
+                        <td className="px-3 py-3">
+                          <span className="rounded-md bg-gray-100 px-2 py-1 text-xs">{(i as any).documentType || i.type}</span>
+                        </td>
+                        <td className="px-3 py-3 text-gray-700">{i.version}</td>
+                        <td className="px-3 py-3">
+                          <span
+                            className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs ${i.status === "Acknowledged"
+                              ? "bg-green-100 text-green-700"
+                              : i.status === "Pending"
+                                ? "bg-blue-100 text-blue-700"
+                                : i.status === "Viewed"
+                                  ? "bg-yellow-100 text-yellow-700"
+                                  : "bg-red-100 text-red-700"
+                              }`}
+                          >
+                            {i.status === "Acknowledged" && (
+                              <CircleCheckBig className="h-3.5 w-3.5" />
+                            )}
+                            {i.status === "Pending" && (
+                              <Clock className="h-3.5 w-3.5" />
+                            )}
+                            {i.status === "Viewed" && (
+                              <Eye className="h-3.5 w-3.5" />
+                            )}
+                            {i.status === "Overdue" && (
+                              <AlertTriangle className="h-3.5 w-3.5" />
+                            )}
+                            <span>{i.status}</span>
+                          </span>
+                        </td>
+                        <td className="px-3 py-3 text-gray-700">{i.assignedDate ? new Date(i.assignedDate).toLocaleDateString('en-GB') : "-"}</td>
+                        <td className="px-3 py-3 text-gray-700">{i.dueDate ? new Date(i.dueDate).toLocaleDateString('en-GB') : "-"}</td>
+                        <td className={`px-3 py-3 ${i.acknowledgedOn ? "text-green-700" : "text-gray-500"}`}>
+                          <div className="flex items-center gap-2">
+                            <span>{i.acknowledgedOn ? new Date(i.acknowledgedOn).toLocaleDateString('en-GB') : "-"}</span>
+                          </div>
+                        </td>
+                        <td className="px-3 py-3 text-right relative">
+                          <button onClick={() => setRowMenuId(rowMenuId === i._id ? null : i._id)} className="inline-flex items-center rounded-md p-1 hover:bg-gray-100">
+                            <MoreVertical className="h-4 w-4 text-gray-500" />
+                          </button>
+                          {rowMenuId === i._id && (
+                            <div className="absolute right-2 top-9 z-10 w-40 rounded-lg border bg-white shadow">
+                              <button className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50" onClick={() => {
+                                const t = (i as any).documentType === "SOP" ? "sops" : (i as any).documentType === "Policy" ? "policies" : "playbooks";
+                                handleRowView(t as TabKey, (i as any).documentId || i._id, i.documentName);
+                              }}>View</button>
+                              <button className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50" onClick={() => {
+                                const t = (i as any).documentType === "SOP" ? "sops" : (i as any).documentType === "Policy" ? "policies" : "playbooks";
+                                handleRowEdit(t as TabKey, i);
+                              }}>Edit</button>
+                              <button className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50" onClick={() => {
+                                fetch(`/api/compliance/acknowledgments`, {
+                                  method: "POST",
+                                  headers: headersWithJson(),
+                                  body: JSON.stringify({
+                                    staffId: (i as any).staffId || i._id,
+                                    staffName: i.staffName,
+                                    role: i.role,
+                                    documentType: (i as any).documentType || i.type,
+                                    documentId: (i as any).documentId || i._id,
+                                    documentName: i.documentName,
+                                    version: i.version,
+                                    notifyOnly: true
+                                  })
+                                }).then(() => setRowMenuId(null));
+                              }}>Track</button>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+
+
+
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+      {showCreate && <CreateModal />}
+      {ackModalOpen && <AckModal onClose={() => setAckModalOpen(false)} />}
+      {viewerOpen && viewerUrl && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-5xl bg-white rounded-xl shadow-xl overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 border-b">
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-md bg-gradient-to-r from-teal-600 to-blue-600 flex items-center justify-center text-white font-bold text-xs shadow-md">Z</div>
+                  <span className="text-xs font-bold text-gray-800">Zeva</span>
+                </div>
+                <div className="text-sm font-semibold text-gray-900">{viewerTitle}</div>
+              </div>
+              <button
+                onClick={() => {
+                  setViewerOpen(false);
+                  setViewerError(null);
+                }}
+                className="rounded-md px-3 py-1 text-sm border hover:bg-gray-50"
+              >
+                Close
+              </button>
+            </div>
+            {viewerError && (
+              <div className="p-4 bg-red-50 border-b border-red-200">
+                <div className="text-red-700 text-sm">{viewerError}</div>
+              </div>
+            )}
+            <div className="h-[70vh] overflow-y-auto">
+              <div ref={pdfContainerRef} className="p-4" />
+            </div>
+          </div>
+        </div>
+      )}
+      {showTypeModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6">
+            <div className="flex items-center justify-between">
+              <div className="text-lg font-bold text-gray-900">Create Policy Type</div>
+              <button onClick={() => {
+                setShowTypeModal(false);
+                setPolicyTypeDraft("");
+              }} className="rounded-md p-1 hover:bg-gray-100">
+                <X className="h-4 w-4 text-gray-500" />
+              </button>
+            </div>
+            <div className="mt-4 space-y-2">
+              <div className="text-sm font-medium text-gray-900">Type Name *</div>
+              <input
+                className="w-full rounded-lg border px-3 py-2 text-sm"
+                placeholder="e.g., Privacy"
+                value={policyTypeDraft}
+                onChange={e => setPolicyTypeDraft(e.target.value)}
+              />
+            </div>
+            <div className="mt-6 flex justify-end gap-2">
+              <button className="rounded-lg border px-4 py-2 text-sm" onClick={() => {
+                setShowTypeModal(false);
+                setPolicyTypeDraft("");
+              }}>Cancel</button>
+              <button
+                className="rounded-lg bg-gray-900 px-4 py-2 text-sm text-white"
+                onClick={async () => {
+                  const name = policyTypeDraft.trim();
+                  if (!name) return;
+                  try {
+                    const res = await fetch("/api/compliance/policy_types", {
+                      method: "POST",
+                      headers: headersWithJson(),
+                      body: JSON.stringify({ name })
+                    });
+                    const json = await res.json();
+                    if (json.success && json.item) {
+                      setPolicyTypes(prev => {
+                        const next = Array.from(new Set([...(prev || []), json.item.name]));
+                        return next;
+                      });
+                      setPolicyTypeDraft("");
+                      setShowTypeModal(false);
+                    }
+                  } catch { }
+                }}
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {showCategoryModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6">
+            <div className="flex items-center justify-between">
+              <div className="text-lg font-bold text-gray-900">Create SOP Category</div>
+              <button onClick={() => {
+                setShowCategoryModal(false);
+                setCategoryDraft(""); // Clear draft when closing
+              }} className="rounded-md p-1 hover:bg-gray-100">
+                <X className="h-4 w-4 text-gray-500" />
+              </button>
+            </div>
+            <div className="mt-4 space-y-2">
+              <div className="text-sm font-medium text-gray-900">Category Name *</div>
+              <input
+                className="w-full rounded-lg border px-3 py-2 text-sm"
+                placeholder="e.g., Operations"
+                value={categoryDraft}
+                onChange={e => setCategoryDraft(e.target.value)}
+              />
+            </div>
+            <div className="mt-6 flex justify-end gap-2">
+              <button className="rounded-lg border px-4 py-2 text-sm" onClick={() => {
+                setShowCategoryModal(false);
+                setCategoryDraft("");
+              }}>Cancel</button>
+              <button
+                className="rounded-lg bg-gray-900 px-4 py-2 text-sm text-white"
+                onClick={async () => {
+                  const name = categoryDraft.trim();
+                  if (!name) return;
+                  try {
+                    const res = await fetch("/api/compliance/sop_categories", {
+                      method: "POST",
+                      headers: headersWithJson(),
+                      body: JSON.stringify({ name })
+                    });
+                    const json = await res.json();
+                    if (json.success && json.item) {
+                      setSopCategories(prev => {
+                        const next = Array.from(new Set([...(prev || []), json.item.name]));
+                        return next;
+                      });
+                      setCategoryDraft("");
+                      setShowCategoryModal(false);
+                    }
+                  } catch { }
+                }}
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+PolicyCompliance.getLayout = function PageLayout(page: React.ReactNode) {
+  return <ClinicLayout>{page}</ClinicLayout>;
+};
+//no scrollbar
+{/* <scripts>
+  document.body.style.overflow = "hidden";
+  return () => {
+    document.body.style.overflow = "auto";
+  };
+</scripts> */}
+
+const ProtectedPolicyCompliance: NextPageWithLayout = withClinicAuth(PolicyCompliance);
+ProtectedPolicyCompliance.getLayout = PolicyCompliance.getLayout;
+
+export default ProtectedPolicyCompliance;

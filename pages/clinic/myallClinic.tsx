@@ -8,7 +8,7 @@ import type { NextPageWithLayout } from "../_app";
 import Loader from "@/components/Loader";
 import { getUserRole } from "@/lib/helper";
 import { getAuthHeaders } from "@/lib/helper";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Cell } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from "recharts";
 
 // Types
 interface Clinic {
@@ -88,7 +88,6 @@ function ClinicManagementDashboard() {
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState<number>(0);
   const [updating, setUpdating] = useState(false);
   const [availableTreatments, setAvailableTreatments] = useState<Treatment[]>([]);
-  const [showCustomTreatmentInput, setShowCustomTreatmentInput] = useState(false);
   const [selectedAvailableTreatmentId, setSelectedAvailableTreatmentId] = useState<string>("");
   const [geocodingStatus, setGeocodingStatus] = useState<string>("");
   const addressDebounceTimer = useRef<NodeJS.Timeout | null>(null);

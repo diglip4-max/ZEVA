@@ -6,6 +6,12 @@ const notificationSchema = new mongoose.Schema(
     message: { type: String, required: true },
     isRead: { type: Boolean, default: false },
 
+    // Optional: Link to acknowledgment tracker item
+    relatedAcknowledgment: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Acknowledgment",
+    },
+
     // Optional: Link this notification to a job application if relevant
     relatedJobApplication: {
       type: mongoose.Schema.Types.ObjectId,
@@ -33,7 +39,7 @@ const notificationSchema = new mongoose.Schema(
 
     type: {
       type: String,
-      enum: ["blog-reply", "job-status", "chat-message", "prescription"],
+      enum: ["blog-reply", "job-status", "chat-message", "prescription", "acknowledgment"],
     },
   },
   { timestamps: true }
