@@ -8,21 +8,23 @@ interface ModalPortalProps {
   selector?: string;
 }
 
-export const ModalPortal: React.FC<ModalPortalProps> = ({ 
-  children, 
-  selector = '#modal-root' 
+export const ModalPortal: React.FC<ModalPortalProps> = ({
+  children,
+  selector = '#modal-root',
 }) => {
   const containerRef = useRef<Element | null>(null);
 
   useEffect(() => {
     // Find the modal root container
-    const container = document.querySelector('#modal-root');
+    const container = document.querySelector(selector);
     if (container) {
       containerRef.current = container;
     } else {
       // Fallback: create container if it doesn't exist
       const newContainer = document.createElement('div');
-      newContainer.id = 'modal-root';
+      // Derive id from selector if it is an ID selector
+      const idFromSelector = selector.startsWith('#') ? selector.slice(1) : 'modal-root';
+      newContainer.id = idFromSelector;
       newContainer.className = 'modal-root-container';
       document.body.appendChild(newContainer);
       containerRef.current = newContainer;
