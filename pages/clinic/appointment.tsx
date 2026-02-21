@@ -2214,6 +2214,25 @@ const [showColorCustomization, setShowColorCustomization] = useState(false);
 
 // State for color picker visibility
 const [openPicker, setOpenPicker] = useState<string | null>(null);
+const [pickerPosition, setPickerPosition] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
+
+const openColorPicker = (e: React.MouseEvent, status: string) => {
+  const target = e.currentTarget as HTMLElement;
+  const rect = target.getBoundingClientRect();
+  const estimatedWidth = 300;
+  const estimatedHeight = 360;
+  const spacing = 8;
+  let left = rect.left;
+  let top = rect.bottom + spacing;
+  if (left + estimatedWidth > window.innerWidth - 10) {
+    left = Math.max(10, rect.right - estimatedWidth);
+  }
+  if (top + estimatedHeight > window.innerHeight - 10) {
+    top = Math.max(10, window.innerHeight - estimatedHeight - 10);
+  }
+  setPickerPosition({ top, left });
+  setOpenPicker(status);
+};
 
 const normalizeStatus = (status: any): string => {
   if (typeof status !== "string") return "default";
@@ -2391,7 +2410,7 @@ useEffect(() => {
                                   <div 
                                     className="w-6 h-6 rounded border border-gray-300 cursor-pointer flex items-center justify-center text-[8px] font-bold" 
                                     style={{ backgroundColor: currentColor.bg, color: currentColor.text }}
-                                    onClick={() => setOpenPicker(openPicker === status ? null : status)}
+                                    onClick={(e) => openColorPicker(e, status)}
                                     title={`${status}: ${currentColor.bg}`}
                                   >
                                     {status.charAt(0).toUpperCase()}
@@ -2399,24 +2418,36 @@ useEffect(() => {
                                   <span className="text-xs font-medium text-gray-700 capitalize flex-1">{status}</span>
                                   
                                   {openPicker === status && (
-                                    <div className="color-picker-wrapper absolute z-50 left-0 sm:left-auto sm:right-0" style={{ top: '30px' }}>
-                                      <div 
-                                        className="fixed inset-0 z-40 bg-black bg-opacity-30" 
-                                        onClick={() => setOpenPicker(null)}
-                                      ></div>
-                                      <div className="relative z-50 bg-white p-3 rounded-md shadow-xl border border-gray-300 w-64 max-w-[90vw]">
-                                        <ChromePicker
-                                          color={currentColor.bg}
-                                          onChange={(color: any) => handleColorChange(status, color.hex)}
-                                        />
-                                        <div className="flex justify-end mt-2">
+                                    <div className="color-picker-wrapper">
+                                      <div className="fixed inset-0 z-[1000] bg-black/30" onClick={() => setOpenPicker(null)}></div>
+                                      <div
+                                        className="fixed z-[1001] bg-white p-3 rounded-md shadow-xl border border-gray-300 w-[300px] sm:w-[320px] max-w-[92vw]"
+                                        style={{ top: pickerPosition.top, left: pickerPosition.left }}
+                                      >
+                                        <div className="flex items-center justify-between mb-2">
+                                          <span className="text-xs font-semibold capitalize">{status}</span>
                                           <button
-                                            className="px-3 py-1 text-xs bg-gray-200 rounded hover:bg-gray-300"
+                                            className="px-2 py-1 text-xs bg-gray-200 rounded hover:bg-gray-300"
                                             onClick={() => setOpenPicker(null)}
                                           >
                                             Close
                                           </button>
                                         </div>
+                                        <div className="grid grid-cols-8 gap-1 mb-2">
+                                          {Object.values(DEFAULT_STATUS_COLORS).filter(s => s !== DEFAULT_STATUS_COLORS.default).slice(0, 8).map((c, i) => (
+                                            <button
+                                              key={i}
+                                              className="h-5 rounded border"
+                                              style={{ backgroundColor: c.bg, borderColor: c.border }}
+                                              onClick={() => handleColorChange(status, c.bg)}
+                                              aria-label="preset color"
+                                            />
+                                          ))}
+                                        </div>
+                                        <ChromePicker
+                                          color={currentColor.bg}
+                                          onChange={(color: any) => handleColorChange(status, color.hex)}
+                                        />
                                       </div>
                                     </div>
                                   )}
