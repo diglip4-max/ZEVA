@@ -347,7 +347,7 @@ const getAuthHeaders = (): HeadersInit => {
           <div className="absolute inset-0 bg-gray-900/50 backdrop-blur-sm transition-opacity" onClick={handleTogglePanel} />
           
           {/* Main Panel */}
-          <div className="absolute right-4 top-20 bottom-4 w-[480px] rounded-2xl bg-white border border-gray-200 shadow-2xl flex flex-col overflow-hidden animate-slide-in-right">
+          <div className="absolute inset-2 w-auto rounded-xl bg-white border border-gray-200 shadow-2xl flex flex-col overflow-hidden min-h-0 animate-slide-in-right sm:inset-auto sm:right-4 sm:top-20 sm:bottom-4 sm:w-[480px] sm:rounded-2xl">
             {/* Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-indigo-50">
               <div className="flex items-center space-x-3">
@@ -400,7 +400,7 @@ const getAuthHeaders = (): HeadersInit => {
             </div>
 
             {/* Notifications List */}
-            <div className="flex-1 overflow-y-auto bg-gray-50/50">
+            <div className={`flex-1 overflow-y-auto bg-gray-50/50 ${selected ? 'max-h-[30vh] sm:max-h-[28vh] md:max-h-[28vh]' : ''}`}>
               {filteredNotifications.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full p-8">
                   <div className="h-20 w-20 rounded-full bg-gray-100 flex items-center justify-center mb-4">
@@ -461,7 +461,7 @@ const getAuthHeaders = (): HeadersInit => {
 
             {/* Acknowledgment Details Modal */}
             {selected && ackDetails && (
-              <div className="border-t border-gray-200 bg-white rounded-t-2xl shadow-lg">
+              <div className="border-t border-gray-200 bg-white rounded-t-2xl shadow-lg flex-shrink-0">
                 <div className="p-6">
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-2">
@@ -479,8 +479,9 @@ const getAuthHeaders = (): HeadersInit => {
                     </button>
                   </div>
                   
-                  <div className="bg-gray-50 rounded-xl p-4 space-y-3">
-                    <div className="grid grid-cols-2 gap-3">
+                  <div className="max-h-[65vh] sm:max-h-[70vh] overflow-y-auto pr-2">
+                    <div className="bg-gray-50 rounded-xl p-4 space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div className="flex items-center gap-2">
                         <UserCircleIcon className="h-4 w-4 text-gray-400" />
                         <div>
@@ -506,7 +507,7 @@ const getAuthHeaders = (): HeadersInit => {
                         </div>
                       </div>
                       
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div className="flex items-center gap-2">
                           <TagIcon className="h-4 w-4 text-gray-400" />
                           <div>
@@ -527,7 +528,7 @@ const getAuthHeaders = (): HeadersInit => {
                         {getStatusBadge(ackDetails.status)}
                       </div>
 
-                      <div className="grid grid-cols-2 gap-3 pt-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
                         <div className="flex items-center gap-2">
                           <CalendarIcon className="h-4 w-4 text-gray-400" />
                           <div>
@@ -563,7 +564,7 @@ const getAuthHeaders = (): HeadersInit => {
                     
                     {docDetails && (
                       <div className="space-y-3">
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           {ackDetails.documentType === "SOP" && (
                             <>
                               <div className="flex items-center gap-2">
@@ -670,17 +671,10 @@ const getAuthHeaders = (): HeadersInit => {
                         </div>
                       </div>
                     )}
-                  </div>
-
-                  <div className="mt-4 flex justify-end gap-2">
-                    {ackDetails.status !== "Acknowledged" && (
-                      <>
-                        {/* <button 
-                          onClick={() => markAckStatus("Viewed")} 
-                          className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 hover:border-gray-400 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2"
-                        >
-                          Mark as Viewed
-                        </button> */}
+                    </div>
+                    
+                    <div className="mt-4 flex justify-end gap-2">
+                      {ackDetails.status !== "Acknowledged" && (
                         <button 
                           onClick={() => markAckStatus("Acknowledged")} 
                           className="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-indigo-600 rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 shadow-sm flex items-center gap-1"
@@ -688,18 +682,18 @@ const getAuthHeaders = (): HeadersInit => {
                           <CheckCircleSolid className="h-4 w-4" />
                           Acknowledge
                         </button>
-                      </>
-                    )}
-                    {ackDetails.status === "Acknowledged" && (
-                      <button 
-                        className="px-4 py-2 text-sm font-medium text-green-700 bg-green-50 border border-green-200 rounded-lg flex items-center gap-1"
-                      >
-                        <CheckCircleSolid className="h-4 w-4" />
-                        Acknowledged
-                      </button>
-                    )}
+                      )}
+                      {ackDetails.status === "Acknowledged" && (
+                        <button 
+                          className="px-4 py-2 text-sm font-medium text-green-700 bg-green-50 border border-green-200 rounded-lg flex items-center gap-1"
+                        >
+                          <CheckCircleSolid className="h-4 w-4" />
+                          Acknowledged
+                        </button>
+                      )}
+                    </div>
+                    </div>
                   </div>
-                </div>
               </div>
             )}
           </div>
