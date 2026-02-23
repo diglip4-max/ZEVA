@@ -186,11 +186,17 @@ const AllocatedStockItemsPage: NextPageWithLayout = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statusFilter, searchTerm, limit]);
 
-  const statuses: Array<"all" | AllocStatus> = useMemo(() => {
-    const set = new Set<AllocStatus>();
-    items.forEach((i) => set.add(i.status));
-    return ["all", ...Array.from(set)];
-  }, [items]);
+  const statuses = [
+    "All",
+    "Allocated",
+    "Issued",
+    "Used",
+    "Partially_Used",
+    "Returned",
+    "Expired",
+    "Cancelled",
+    "Deleted",
+  ];
 
   const analytics = useMemo(() => {
     const total = totalResults;

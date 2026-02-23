@@ -3,6 +3,9 @@ import mongoose from "mongoose";
 import Clinic from "../../../../models/Clinic";
 import { getUserFromReq, requireRole } from "../../lead-ms/auth";
 import AllocatedStockItem from "../../../../models/stocks/AllocatedStockItem";
+import User from "../../../../models/Users";
+import StockLocation from "../../../../models/stocks/StockLocation";
+import StockItem from "../../../../models/stocks/StockItem";
 
 export default async function handler(req, res) {
   await dbConnect();
@@ -142,10 +145,10 @@ export default async function handler(req, res) {
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(Number(limit))
-        .populate({ path: "user", select: "name email role" })
-        .populate({ path: "location" })
-        .populate({ path: "item.itemId" })
-        .populate({ path: "allocatedBy", select: "name email role" })
+        .populate({ path: "user", select: "name email role", User })
+        .populate({ path: "location", StockLocation })
+        .populate({ path: "item.itemId", StockItem })
+        .populate({ path: "allocatedBy", select: "name email role", User })
         .lean(),
       AllocatedStockItem.countDocuments(query),
     ]);
