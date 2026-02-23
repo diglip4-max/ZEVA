@@ -16,7 +16,9 @@ export default async function handler(req, res) {
       return res
         .status(401)
         .json({ success: false, message: "Not authenticated" });
-    if (!requireRole(me, ["clinic", "agent", "admin", "doctor"])) {
+    if (
+      !requireRole(me, ["clinic", "agent", "admin", "doctor", "doctorStaff"])
+    ) {
       return res.status(403).json({ success: false, message: "Access denied" });
     }
     let clinicId;
@@ -27,7 +29,11 @@ export default async function handler(req, res) {
           .status(400)
           .json({ success: false, message: "Clinic not found for this user" });
       clinicId = clinic._id;
-    } else if (me.role === "agent" || me.role === "doctor") {
+    } else if (
+      me.role === "agent" ||
+      me.role === "doctor" ||
+      me.role === "doctorStaff"
+    ) {
       if (!me.clinicId)
         return res
           .status(400)
@@ -36,12 +42,10 @@ export default async function handler(req, res) {
     } else if (me.role === "admin") {
       clinicId = req.query.clinicId;
       if (!clinicId)
-        return res
-          .status(400)
-          .json({
-            success: false,
-            message: "clinicId is required for admin in query parameters",
-          });
+        return res.status(400).json({
+          success: false,
+          message: "clinicId is required for admin in query parameters",
+        });
     }
     const { id } = req.query;
     const invoice = await PurchaseInvoice.findOne({ _id: id, clinicId })
@@ -50,7 +54,7 @@ export default async function handler(req, res) {
       .populate({
         path: "grn",
         select:
-          "grnNo status supplierInvoiceNo grnDate purchasedOrder createdAt",
+          "grnNo status supplierInvoiceNo grnDate purchasedOrder notes createdAt",
         populate: {
           path: "purchasedOrder",
           select: "orderNo date supplier items notes",
@@ -60,7 +64,7 @@ export default async function handler(req, res) {
       .populate({
         path: "grns",
         select:
-          "grnNo status supplierInvoiceNo grnDate purchasedOrder createdAt",
+          "grnNo status supplierInvoiceNo grnDate purchasedOrder notes createdAt",
         populate: {
           path: "purchasedOrder",
           select: "orderNo date supplier items notes",
@@ -76,12 +80,10 @@ export default async function handler(req, res) {
     }
     res.status(200).json({ success: true, data: invoice });
   } catch (error) {
-    res
-      .status(500)
-      .json({
-        success: false,
-        message: "Failed to fetch purchase invoice",
-        error: error.message,
-      });
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch purchase invoice",
+      error: error.message,
+    });
   }
 }

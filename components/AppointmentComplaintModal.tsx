@@ -124,6 +124,7 @@ interface PreviousComplaint {
     description?: string;
     quantity: number;
     uom?: string;
+    totalAmount?: number;
   }>;
 }
 
@@ -173,7 +174,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
     useState<PreviousComplaint | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const token = getTokenByPath() || "";
-  const { uoms, loading: uomsLoading } = useUoms({ token });
+  const { uoms } = useUoms({ token });
   const [items, setItems] = useState<StockRow[]>([]);
   const [currentItem, setCurrentItem] = useState<StockRow>({
     itemId: "",
@@ -212,14 +213,15 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
   }, [isAllocatedDropdownOpen]);
 
   // fetch allocated stock items
-  const { allocatedItems, loading: fetchAllocatedItemsLoading } =
-    useAllocatedItems({
-      // @ts-ignore
-      userId: details?.doctorId || "",
-      search: allocatedSearch,
-    });
-
-  console.log({ allocatedItems, fetchAllocatedItemsLoading });
+  const {
+    allocatedItems,
+    loading: fetchAllocatedItemsLoading,
+    fetchAllocatedItems,
+  } = useAllocatedItems({
+    // @ts-ignore
+    userId: details?.doctorId || "",
+    search: allocatedSearch,
+  });
 
   useEffect(() => {
     if (!isOpen || !appointment) {
@@ -400,6 +402,10 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
       // Clear the input
       setComplaints("");
       setError("");
+
+      // set items to empty array
+      setItems([]);
+      fetchAllocatedItems();
     } catch (err: any) {
       setError(err.response?.data?.message || "Failed to save complaints");
     } finally {
@@ -409,7 +415,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
 
   const handleCurrentItemChange = (field: keyof StockRow, value: any) => {
     // if (field === "itemId") {
-    //   const item = stockItems.find((i) => i._id === value);
+    //   const item = .find((i) => i._id === value);
     //   const selectedUOM = uoms.find((u) => u?.name === item?.level0?.uom);
     //   if (item) {
     //     setCurrentItem((prev) => ({
@@ -527,6 +533,18 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
   if (!isOpen || !appointment) {
     return null;
   }
+
+  const selectedAllocatedItem: any =
+    allocatedItems.find((si: any) => si._id === currentItem.itemId) || null;
+  const availableForSelectedUom: number =
+    selectedAllocatedItem?.quantitiesByUom?.find(
+      (q: any) => q?.uom === currentItem.uom,
+    )?.quantity ?? 0;
+  const exceedsAvailable =
+    !!currentItem.uom &&
+    typeof currentItem.quantity === "number" &&
+    currentItem.quantity > availableForSelectedUom &&
+    availableForSelectedUom > 0;
 
   return (
     <>
@@ -841,8 +859,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                               }
                             >
                               {allocatedItems.find(
-                                (si: any) =>
-                                  si.item?.itemId === currentItem.itemId,
+                                (si: any) => si._id === currentItem.itemId,
                               )?.item?.name || "Select an item"}
                             </span>
                             <ChevronDown
@@ -906,7 +923,8 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                               console.log({ it, si });
                                               setCurrentItem((prev) => ({
                                                 ...prev,
-                                                itemId: it.itemId || "",
+                                                code: it.code || "",
+                                                itemId: si._id || "",
                                                 name: it.name || "",
                                                 description:
                                                   it.description || "",
@@ -968,6 +986,17 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                           placeholder="Qty"
                           className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 h-10"
                         />
+                        {currentItem.uom && (
+                          <p className="text-xs text-gray-500">
+                            Available: {availableForSelectedUom}{" "}
+                            {currentItem.uom}
+                          </p>
+                        )}
+                        {exceedsAvailable && (
+                          <p className="text-xs text-red-600">
+                            Quantity exceeds available for selected UOM
+                          </p>
+                        )}
                       </div>
 
                       <div className="sm:col-span-3 space-y-1">
@@ -982,12 +1011,20 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                           className="w-full px-3 py-2.5 text-sm text-gray-600 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-800/20 focus:border-gray-800 h-10"
                         >
                           <option value="">Select UOM</option>
-                          {uomsLoading ? (
+                          {!allocatedItems?.find(
+                            (i) => i?._id === currentItem?.itemId,
+                          ) ? (
                             <option value="">Loading UOMs...</option>
-                          ) : uoms.length > 0 && currentItem ? (
-                            uoms.map((u: any) => (
-                              <option key={u._id} value={u.name}>
-                                {u.name}
+                          ) : allocatedItems?.find(
+                              (i) => i?._id === currentItem?.itemId,
+                            ) && currentItem ? (
+                            (
+                              allocatedItems?.find(
+                                (i) => i?._id === currentItem?.itemId,
+                              )?.quantitiesByUom || []
+                            )?.map((i, index: number) => (
+                              <option key={index.toString()} value={i.uom}>
+                                {i.uom}
                               </option>
                             ))
                           ) : (
@@ -1001,8 +1038,10 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                           onClick={() => {
                             setItems([]);
                           }}
-                          disabled={items.length === 0}
-                          className="inline-flex items-center px-3 py-2.5 border border-gray-300 text-xs font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50"
+                          disabled={
+                            items.length === 0 || !availableForSelectedUom
+                          }
+                          className="inline-flex items-center px-3 py-2.5 border border-gray-300 text-xs font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 disabled:bg-gray-400 disabled:cursor-not-allowed"
                         >
                           <Trash2 className="w-4 h-4 mr-1" />
                           Reset
@@ -1013,7 +1052,8 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                           disabled={
                             !currentItem.name.trim() ||
                             !currentItem.quantity ||
-                            !currentItem.uom
+                            !currentItem.uom ||
+                            exceedsAvailable
                           }
                           className="inline-flex items-center px-3 py-2.5 border border-transparent text-xs font-medium rounded-lg text-white bg-gray-800 hover:bg-gray-900"
                         >
@@ -1043,6 +1083,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                             <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">
                               UOM
                             </th>
+
                             <th className="px-3 py-2 text-left text-xs font-bold text-white uppercase tracking-wider">
                               Action
                             </th>
@@ -1300,7 +1341,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                             <Eye className="w-4 h-4" />
                                             View
                                           </button>
-                                          <button
+                                          {/* <button
                                             type="button"
                                             onClick={() => {
                                               setEditingComplaint(complaint);
@@ -1310,7 +1351,7 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                           >
                                             <Pencil className="w-4 h-4" />
                                             Edit
-                                          </button>
+                                          </button> */}
                                           <button
                                             type="button"
                                             onClick={() => {
@@ -1351,6 +1392,9 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                               <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                                                 UOM
                                               </th>
+                                              <th className="px-3 py-2 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                                                Total Amount
+                                              </th>
                                             </tr>
                                           </thead>
                                           <tbody className="divide-y divide-gray-200 bg-white">
@@ -1372,6 +1416,9 @@ const AppointmentComplaintModal: React.FC<AppointmentComplaintModalProps> = ({
                                                 </td>
                                                 <td className="px-3 py-2 text-gray-900">
                                                   {it.uom || "-"}
+                                                </td>
+                                                <td className="px-3 py-2 text-gray-900">
+                                                  {it?.totalAmount || "0"}
                                                 </td>
                                               </tr>
                                             ))}

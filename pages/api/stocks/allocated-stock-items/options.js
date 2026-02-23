@@ -83,10 +83,6 @@ export default async function handler(req, res) {
       query.user = user;
     }
 
-    if (["doctor", "doctorStaff", "agent"].includes(me.role)) {
-      query.user = me._id;
-    }
-
     if (status) {
       query.status = status;
     }
@@ -138,6 +134,8 @@ export default async function handler(req, res) {
       if (expiryBefore) query.expiryDate.$lte = new Date(expiryBefore);
       if (expiryAfter) query.expiryDate.$gte = new Date(expiryAfter);
     }
+
+    query.quantitiesByUom = { $not: { $elemMatch: { quantity: { $lte: 0 } } } };
 
     const skip = (Number(page) - 1) * Number(limit);
 

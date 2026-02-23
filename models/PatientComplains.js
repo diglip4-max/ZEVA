@@ -41,7 +41,7 @@ const PatientComplainsSchema = new mongoose.Schema(
       {
         itemId: {
           type: mongoose.Schema.Types.ObjectId,
-          ref: "StockItem",
+          ref: "AllocatedStockItem",
           required: true,
           index: true,
         },
@@ -63,6 +63,11 @@ const PatientComplainsSchema = new mongoose.Schema(
         },
         uom: {
           type: String,
+        },
+        totalAmount: {
+          type: Number,
+          required: true,
+          default: 0,
         },
       },
     ],
