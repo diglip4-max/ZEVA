@@ -1,5 +1,7 @@
 "use client";
 import React, { useEffect, useRef, useState, useCallback } from "react";
+import { ChromePicker } from 'react-color';
+import { ModalPortal } from "../../lib/modalPortal";
 import { useRouter } from "next/router";
 import axios from "axios";
 import withClinicAuth from "../../components/withClinicAuth";
@@ -10,7 +12,7 @@ import Loader from "../../components/Loader";
 import AppointmentBookingModal from "../../components/AppointmentBookingModal";
 import ImportAppointmentsModal from "../../components/ImportAppointmentsModal";
 import EditAppointmentModal from "../../components/EditAppointmentModal";
-import { Toaster, toast } from "react-hot-toast";
+import { toast } from "react-hot-toast";
 import { useAgentPermissions } from '../../hooks/useAgentPermissions';
 
 interface DoctorStaff {
@@ -96,6 +98,14 @@ interface Appointment {
   emergency: string;
   notes: string;
   bookedFrom?: "doctor" | "room"; // Track which column the appointment was booked from
+  doctorTreatments?: Array<{
+    mainTreatment: string;
+    mainTreatmentSlug: string;
+    subTreatments: Array<{
+      name: string;
+      slug: string;
+    }>;
+  }>;
 }
 
 // Parse clinic timings string and generate time slots
@@ -2157,38 +2167,155 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
     }
   };
 
-  // Get status color for appointments
-  const getStatusColor = (status: string): { bg: string; text: string; border: string } => {
-    const statusLower = status.toLowerCase();
-    switch (statusLower) {
-      case "booked":
-        return { bg: "bg-blue-500", text: "text-white", border: "border-blue-600" };
-      case "enquiry":
-        return { bg: "bg-amber-500", text: "text-white", border: "border-amber-600" };
-      case "discharge":
-        return { bg: "bg-teal-500", text: "text-white", border: "border-teal-600" };
-      case "arrived":
-        return { bg: "bg-purple-500", text: "text-white", border: "border-purple-600" };
-      case "consultation":
-        return { bg: "bg-indigo-500", text: "text-white", border: "border-indigo-600" };
-      case "cancelled":
-        return { bg: "bg-red-700", text: "text-white", border: "border-red-800" };
-      case "approved":
-        return { bg: "bg-green-600", text: "text-white", border: "border-green-700" };
-      case "rescheduled":
-        return { bg: "bg-orange-500", text: "text-white", border: "border-orange-600" };
-      case "waiting":
-        return { bg: "bg-yellow-500", text: "text-white", border: "border-yellow-600" };
-      case "rejected":
-        return { bg: "bg-rose-400", text: "text-white", border: "border-rose-500" };
-      case "completed":
-        return { bg: "bg-gray-500", text: "text-white", border: "border-teal-600" };
-      case "invoice":
-        return { bg: "bg-fuchsia-500", text: "text-white", border: "border-fuchsia-600" };
-      default:
-        return { bg: "bg-gray-500", text: "text-white", border: "border-gray-600" };
+  // Get status color for appointments - Distinct professional colors with good contrast
+  // Define default status colors - exact match to original implementation
+const DEFAULT_STATUS_COLORS: Record<string, { bg: string; text: string; border: string }> = {
+  booked: { bg: "#bfdbfe", text: "#111827", border: "#3b82f6" },         // sky-300 equivalent - Only Blue
+  arrived: { bg: "#a7f3d0", text: "#111827", border: "#10b981" },       // emerald-300 equivalent - Only Green
+  cancelled: { bg: "#fbcfe8", text: "#111827", border: "#ec4899" },     // rose-400 equivalent - Red
+  rescheduled: { bg: "#fed1aa", text: "#111827", border: "#f97316" },   // orange-400 equivalent - Orange
+  waiting: { bg: "#fde68a", text: "#111827", border: "#f59e0b" },       // amber-300 equivalent - Yellow
+  approved: { bg: "#d9f99d", text: "#111827", border: "#84cc16" },      // lime-300 equivalent - Deep Green
+  enquiry: { bg: "#ddd6fe", text: "#111827", border: "#7c3aed" },       // violet-300 equivalent - Purple
+  consultation: { bg: "#f0abfc", text: "#111827", border: "#d946ef" },   // fuchsia-300 equivalent - Fuchsia
+  completed: { bg: "#a5f3fc", text: "#111827", border: "#06b6d4" },     // cyan-300 equivalent - Cyan
+  invoice: { bg: "#c7d2fe", text: "#111827", border: "#6366f1" },       // indigo-400 equivalent - Indigo
+  discharge: { bg: "#f9a8d4", text: "#111827", border: "#ec4899" },     // pink-300 equivalent - Pink
+  rejected: { bg: "#cbd5e1", text: "#111827", border: "#64748b" },      // slate-300 equivalent - Slate
+  default: { bg: "#d1d5db", text: "#111827", border: "#6b7280" },       // gray-300 equivalent
+};
+
+const getColorStorageKey = (): string => {
+  if (typeof window === "undefined") return "appointmentStatusColors:guest";
+  const keys = ["clinicToken", "doctorToken", "agentToken", "staffToken", "userToken", "adminToken"];
+  for (const key of keys) {
+    const token = window.localStorage.getItem(key) || window.sessionStorage.getItem(key);
+    if (token) {
+      try {
+        const payload = token.split(".")[1];
+        if (payload) {
+          const decoded = JSON.parse(atob(payload.replace(/-/g, "+").replace(/_/g, "/")));
+          const id = decoded?.userId || decoded?.id;
+          if (id) return `appointmentStatusColors:${id}`;
+        }
+      } catch {}
+    }
+  }
+  return "appointmentStatusColors:guest";
+};
+
+const getCustomStatusColors = (): Record<string, { bg: string; text: string; border: string }> => {
+  if (typeof window !== 'undefined') {
+    const stored = localStorage.getItem(getColorStorageKey());
+    return stored ? JSON.parse(stored) : {};
+  }
+  return {};
+};
+
+const saveCustomStatusColors = (colors: Record<string, { bg: string; text: string; border: string }>) => {
+  if (typeof window !== 'undefined') {
+    localStorage.setItem(getColorStorageKey(), JSON.stringify(colors));
+  }
+};
+
+// Hook to manage custom status colors state
+const [customStatusColors, setCustomStatusColors] = useState<Record<string, { bg: string; text: string; border: string }>>(() => {
+  const stored = getCustomStatusColors();
+  // Ensure all default statuses have entries (even if using defaults)
+  // This makes sure we have a record of which ones are customized
+  return stored;
+});
+
+// State for showing/hiding the color customization panel
+const [showColorCustomization, setShowColorCustomization] = useState(false);
+
+// State for color picker visibility
+const [openPicker, setOpenPicker] = useState<string | null>(null);
+const [pickerPosition, setPickerPosition] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
+
+const openColorPicker = (e: React.MouseEvent, status: string) => {
+  const target = e.currentTarget as HTMLElement;
+  const rect = target.getBoundingClientRect();
+  const estimatedWidth = 300;
+  const estimatedHeight = 360;
+  const spacing = 8;
+  let left = rect.left;
+  let top = rect.bottom + spacing;
+  if (left + estimatedWidth > window.innerWidth - 10) {
+    left = Math.max(10, rect.right - estimatedWidth);
+  }
+  if (top + estimatedHeight > window.innerHeight - 10) {
+    top = Math.max(10, window.innerHeight - estimatedHeight - 10);
+  }
+  setPickerPosition({ top, left });
+  setOpenPicker(status);
+};
+
+const normalizeStatus = (status: any): string => {
+  if (typeof status !== "string") return "default";
+  const s = status.trim().toLowerCase();
+  const map: Record<string, string> = {
+    booking: "booked",
+    booked: "booked",
+    enquiry: "enquiry",
+    inquiry: "enquiry",
+    discharge: "discharge",
+    discharged: "discharge",
+    arrive: "arrived",
+    arrival: "arrived",
+    arrived: "arrived",
+    consultation: "consultation",
+    consulted: "consultation",
+    cancelled: "cancelled",
+    canceled: "cancelled",
+    approved: "approved",
+    rescheduled: "rescheduled",
+    waiting: "waiting",
+    rejected: "rejected",
+    completed: "completed",
+    invoice: "invoice",
+    invoiced: "invoice",
+  };
+  return map[s] || s;
+};
+
+const getStatusColor = (status: string): { bg: string; text: string; border: string } => {
+  const key = normalizeStatus(status);
+  const customColor = customStatusColors[key];
+  if (customColor) return customColor;
+  return DEFAULT_STATUS_COLORS[key] || DEFAULT_STATUS_COLORS.default;
+};
+
+// Handler for changing status colors
+const handleColorChange = (status: string, newColor: string) => {
+  const key = normalizeStatus(status);
+  const updatedColors = {
+    ...customStatusColors,
+    [key]: {
+      bg: newColor,
+      text: "#111827", // Keep dark text for readability
+      border: newColor // Use same color for border
     }
   };
+  
+  setCustomStatusColors(updatedColors);
+  saveCustomStatusColors(updatedColors);
+};
+
+// Close color picker when clicking outside
+useEffect(() => {
+  const handleClickOutside = (event: MouseEvent) => {
+    const target = event.target as HTMLElement;
+    if (openPicker && !target.closest('.color-picker-wrapper')) {
+      setOpenPicker(null);
+    }
+  };
+
+  document.addEventListener('mousedown', handleClickOutside);
+  return () => {
+    document.removeEventListener('mousedown', handleClickOutside);
+  };
+}, [openPicker]);
 
   if (loading || !permissionsLoaded) return <Loader />;
 
@@ -2221,8 +2348,9 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-1 sm:p-1 md:p-2 space-y-1 sm:space-y-2">
-      <Toaster position="top-right" />
+    <div className="appointment-schedule-page" style={{ fontFamily: "'Inter', sans-serif" }}>
+      <div className="min-h-screen bg-gray-50 p-1 sm:p-1 md:p-2 space-y-1 sm:space-y-2">
+
       <div className="bg-white dark:bg-gray-50 rounded-lg border border-gray-200 dark:border-gray-200 shadow-sm p-1 sm:p-2">
         {doctorStaff.length === 0 && rooms.length === 0 ? (
           <div className="flex flex-col items-center justify-center min-h-[60vh] py-12">
@@ -2263,6 +2391,91 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                       Import
                     </button>
                   )}
+                  
+                  {/* Customize Status Colors Button */}
+                  <div className="relative">
+                    <button
+                      onClick={() => setShowColorCustomization(!showColorCustomization)}
+                      className="inline-flex items-center gap-1 px-2 py-1 rounded border border-purple-600 dark:border-purple-500 bg-purple-600 dark:bg-purple-500 text-[10px] font-medium text-white hover:bg-purple-700 dark:hover:bg-purple-600 transition-colors"
+                      type="button"
+                      title="Customize appointment status colors"
+                    >
+                      <div className="w-3 h-3 rounded-sm bg-gradient-to-r from-blue-400 to-green-400"></div>
+                      Colors
+                    </button>
+                    
+                    {showColorCustomization && (
+                      <div className="color-customization-panel absolute z-50 mt-1 w-80 max-w-[90vw] bg-white dark:bg-gray-50 rounded-lg shadow-xl border border-gray-200 dark:border-gray-300 sm:right-0 max-h-[70vh] overflow-y-auto">
+                        <div className="p-3 border-b border-gray-200 dark:border-gray-300">
+                          <div className="flex items-center justify-between">
+                            <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-900">Appointment Status Colors</h3>
+                            <button
+                              onClick={() => setShowColorCustomization(false)}
+                              className="text-gray-500 hover:text-gray-700"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                        
+                        <div className="p-3 max-h-60 overflow-y-auto">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            {Object.keys(DEFAULT_STATUS_COLORS).filter(status => status !== 'default').map((status) => {
+                              const currentColor = customStatusColors[status] || DEFAULT_STATUS_COLORS[status];
+                              return (
+                                <div key={status} className="flex items-center gap-2 p-2 bg-white dark:bg-gray-50 rounded border border-gray-200 relative">
+                                  <div 
+                                    className="w-6 h-6 rounded border border-gray-300 cursor-pointer flex items-center justify-center text-[8px] font-bold" 
+                                    style={{ backgroundColor: currentColor.bg, color: currentColor.text }}
+                                    onClick={(e) => openColorPicker(e, status)}
+                                    title={`${status}: ${currentColor.bg}`}
+                                  >
+                                    {status.charAt(0).toUpperCase()}
+                                  </div>
+                                  <span className="text-xs font-medium text-gray-700 capitalize flex-1">{status}</span>
+                                  
+                                  {openPicker === status && (
+                                    <div className="color-picker-wrapper">
+                                      <div className="fixed inset-0 z-[1000] bg-black/30" onClick={() => setOpenPicker(null)}></div>
+                                      <div
+                                        className="fixed z-[1001] bg-white p-3 rounded-md shadow-xl border border-gray-300 w-[300px] sm:w-[320px] max-w-[92vw]"
+                                        style={{ top: pickerPosition.top, left: pickerPosition.left }}
+                                      >
+                                        <div className="flex items-center justify-between mb-2">
+                                          <span className="text-xs font-semibold capitalize">{status}</span>
+                                          <button
+                                            className="px-2 py-1 text-xs bg-gray-200 rounded hover:bg-gray-300"
+                                            onClick={() => setOpenPicker(null)}
+                                          >
+                                            Close
+                                          </button>
+                                        </div>
+                                        <div className="grid grid-cols-8 gap-1 mb-2">
+                                          {Object.values(DEFAULT_STATUS_COLORS).filter(s => s !== DEFAULT_STATUS_COLORS.default).slice(0, 8).map((c, i) => (
+                                            <button
+                                              key={i}
+                                              className="h-5 rounded border"
+                                              style={{ backgroundColor: c.bg, borderColor: c.border }}
+                                              onClick={() => handleColorChange(status, c.bg)}
+                                              aria-label="preset color"
+                                            />
+                                          ))}
+                                        </div>
+                                        <ChromePicker
+                                          color={currentColor.bg}
+                                          onChange={(color: any) => handleColorChange(status, color.hex)}
+                                        />
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                   <div className="flex items-center gap-1">
                     <button
                       onClick={() => {
@@ -2592,7 +2805,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                     return (
                       <div
                         key={columnKey}
-                        className={`flex-1 min-w-[110px] sm:min-w-[120px] ${isLast ? '' : 'border-r'} border-gray-200 dark:border-gray-300 p-1.5 relative bg-white dark:bg-gray-50 transition-all ${
+                        className={`flex-1 min-w-[160px] sm:min-w-[180px] ${isLast ? '' : 'border-r'} border-gray-200 dark:border-gray-300 p-1.5 relative bg-white dark:bg-gray-50 transition-all ${
                           isDragged ? "opacity-50" : ""
                         } ${draggedColumnId ? "cursor-move" : ""}`}
                         draggable={permissions.canUpdate}
@@ -2654,7 +2867,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                     return (
                       <div
                         key={columnKey}
-                        className={`flex-1 min-w-[110px] sm:min-w-[120px] ${isLast ? '' : 'border-r'} border-gray-200 dark:border-gray-300 p-1.5 bg-emerald-50 dark:bg-emerald-100 transition-all room-column ${
+                        className={`flex-1 min-w-[160px] sm:min-w-[180px] ${isLast ? '' : 'border-r'} border-gray-200 dark:border-gray-300 p-1.5 bg-emerald-50 dark:bg-emerald-100 transition-all room-column ${
                           isDragged ? "opacity-50" : ""
                         } ${draggedColumnId ? "cursor-move" : ""}`}
                         draggable={permissions.canUpdate}
@@ -2742,7 +2955,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                       return (
                         <div
                             key={`${slot.time}-doctor-${doctor._id}`}
-                          className={`flex-1 min-w-[110px] sm:min-w-[120px] flex-shrink-0 ${isLastColumn ? '' : 'border-r'} border-gray-200 dark:border-gray-300 border-b border-gray-100 dark:border-gray-300 relative transition-colors ${isDragOver ? "bg-blue-100 dark:bg-blue-200 border-blue-300 dark:border-blue-400" : ""} ${
+                          className={`flex-1 min-w-[160px] sm:min-w-[180px] flex-shrink-0 ${isLastColumn ? '' : 'border-r'} border-gray-200 dark:border-gray-300 border-b border-gray-100 dark:border-gray-300 relative transition-colors ${isDragOver ? "bg-blue-100 dark:bg-blue-200 border-blue-300 dark:border-blue-400" : ""} ${
                             (timeDragSelection.isDragging && timeDragSelection.doctorId === doctor._id && isSlotInSelection(rowStartMinutes, rowStartMinutes + ROW_INTERVAL_MINUTES, doctor._id))
                               ? "bg-blue-200 dark:bg-blue-200"
                               : "bg-blue-50 dark:bg-blue-100"
@@ -2904,7 +3117,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                                             zIndex: 10,
                                           }}
                                         >
-                                          {slotAppointments.map((item, sameIndex) => {
+                                          {slotAppointments.map((item) => {
                                             const statusColor = getStatusColor(item.apt.status);
                                             // Calculate card width based on number of patients
                                             const patientCount = slotAppointments.length;
@@ -2913,8 +3126,11 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                                             return (
                                               <div
                                                 key={item.apt._id}
-                                                className={`flex items-center flex-1 min-w-0 px-0.5 py-0.5 ${sameIndex === 0 ? 'rounded-l-sm' : ''} ${sameIndex === slotAppointments.length - 1 ? 'rounded-r-sm' : ''} ${statusColor.bg} ${statusColor.text} ${statusColor.border} border-y ${sameIndex === 0 ? 'border-l' : ''} ${sameIndex === slotAppointments.length - 1 ? 'border-r' : 'border-r border-r-gray-400/30'} transition-all hover:shadow-sm ${permissions.canUpdate ? "cursor-pointer" : "cursor-default"} ${draggedAppointmentId === item.apt._id ? "opacity-50" : ""}`}
+                                                className={`flex flex-col justify-center flex-1 min-w-0 px-2 py-1 border transition-all hover:shadow-sm ${permissions.canUpdate ? "cursor-pointer" : "cursor-default"} ${draggedAppointmentId === item.apt._id ? "opacity-50" : ""}`}
                                                 style={{
+                                                  backgroundColor: statusColor.bg,
+                                                  color: statusColor.text,
+                                                  borderColor: statusColor.border,
                                                   height: `${item.height - 2}px`,
                                                   width: cardWidthPercent,
                                                   flexBasis: cardWidthPercent,
@@ -2964,15 +3180,36 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                                                   }
                                                 }}
                                                 title={`${item.apt.patientName} - ${formatTime(item.apt.fromTime)} - ${formatTime(item.apt.toTime)}`}
-                                              >
-                                                <div className={`w-0.5 h-0.5 rounded-full ${statusColor.bg} ${statusColor.border} border flex-shrink-0 mr-1`} style={{ borderWidth: '1px' }} />
-                                                <div className="flex flex-col min-w-0 flex-1 overflow-hidden">
-                                                  <p className="font-semibold text-[8px] sm:text-[9px] leading-tight truncate w-full" style={{ lineHeight: '1.1' }}>
-                                                    {slotAppointments.length > 1 ? item.apt.patientName.split(' ').slice(0, 2).join(' ') : item.apt.patientName}
-                                                  </p>
-                                                  <p className="text-[7px] leading-tight truncate w-full opacity-75" style={{ lineHeight: '1.1', marginTop: '1px' }}>
-                                                    {formatTime(item.apt.fromTime)} - {formatTime(item.apt.toTime)}
-                                                  </p>
+                                                >
+                                                <div className="flex flex-col justify-center h-full">
+                                                  {/* Show minimal view for single appointments or same-doctor multiple appointments */}
+                                                  {item.height < 60 ? (
+                                                    <div className="flex items-center h-full px-2">
+                                                      <span className="text-[13px] font-[600] leading-[1.2] tracking-tight text-black truncate">
+                                                        {item.apt.patientName}
+                                                      </span>
+                                                    </div>
+                                                  ) : (
+                                                    /* Show full details for multiple or large appointments */
+                                                    <div className="px-2 py-1.5 leading-[1.2] space-y-[2px]">
+                                                      <span className="text-[11px] font-[400] opacity-[0.75] mb-[2px] block">
+                                                        {formatTime(item.apt.fromTime)} - {formatTime(item.apt.toTime)}
+                                                      </span>
+                                                      <span className="text-[13px] font-[600] text-black mb-[2px] block">
+                                                        {slotAppointments.length > 1 ? item.apt.patientName.split(' ').slice(0, 2).join(' ') : item.apt.patientName}
+                                                      </span>
+                                                      {item.apt.roomName && (
+                                                        <span className="text-[12px] font-[400] text-black opacity-[0.8] block">
+                                                          {item.apt.roomName}
+                                                        </span>
+                                                      )}
+                                                      {item.apt.doctorTreatments && item.apt.doctorTreatments.length > 0 && (
+                                                        <span className="text-[12px] font-[500] text-black block truncate">
+                                                          {item.apt.doctorTreatments[0].mainTreatment}
+                                                        </span>
+                                                      )}
+                                                    </div>
+                                                  )}
                                                 </div>
                                               </div>
                                             );
@@ -2995,7 +3232,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                       return (
                         <div
                             key={`${slot.time}-room-${room._id}`}
-                          className={`flex-1 min-w-[110px] sm:min-w-[120px] flex-shrink-0 ${isLastColumn ? '' : 'border-r'} border-gray-200 dark:border-gray-300 border-b border-gray-100 dark:border-gray-300 relative ${
+                          className={`flex-1 min-w-[160px] sm:min-w-[180px] flex-shrink-0 ${isLastColumn ? '' : 'border-r'} border-gray-200 dark:border-gray-300 border-b border-gray-100 dark:border-gray-300 relative ${
                             (roomDragSelection.isDragging && roomDragSelection.roomId === room._id && isRoomSlotInSelection(rowStartMinutes, rowStartMinutes + ROW_INTERVAL_MINUTES, room._id))
                               ? "bg-emerald-200 dark:bg-emerald-200"
                               : "bg-emerald-50 dark:bg-emerald-100"
@@ -3156,7 +3393,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                                             gap: '2px',
                                           }}
                                         >
-                                          {slotAppointments.map((item, sameIndex) => {
+                                          {slotAppointments.map((item, index) => {
                                             const statusColor = getStatusColor(item.apt.status);
                                             // Calculate card width based on number of patients - more patients = smaller cards
                                             const patientCount = slotAppointments.length;
@@ -3166,8 +3403,11 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                                             return (
                                               <div
                                                 key={item.apt._id}
-                                                className={`flex items-center flex-1 min-w-0 px-0.5 py-0.5 rounded-sm ${statusColor.bg} ${statusColor.text} ${statusColor.border} border transition-all hover:shadow-sm ${permissions.canUpdate ? "cursor-pointer" : "cursor-default"} ${draggedAppointmentId === item.apt._id ? "opacity-50" : ""}`}
+                                                className={`flex flex-col justify-center flex-1 min-w-0 px-2 py-1 border transition-all hover:shadow-sm ${permissions.canUpdate ? "cursor-pointer" : "cursor-default"} ${draggedAppointmentId === item.apt._id ? "opacity-50" : ""}`}
                                                 style={{
+                                                  backgroundColor: statusColor.bg,
+                                                  color: statusColor.text,
+                                                  borderColor: statusColor.border,
                                                   height: `${item.height - 2}px`,
                                                   borderWidth: '1px',
                                                   width: cardWidthPercent,
@@ -3220,16 +3460,37 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                                                 }}
                                                 title={`${item.apt.patientName} - ${formatTime(item.apt.fromTime)} - ${formatTime(item.apt.toTime)}`}
                                               >
-                                                <div className={`w-0.5 h-0.5 rounded-full ${statusColor.bg} ${statusColor.border} border flex-shrink-0 mr-0.5`} style={{ borderWidth: '1px' }} />
-                                                <div className="flex flex-col min-w-0 flex-1 overflow-hidden">
-                                                  <p className="font-semibold text-[8px] sm:text-[9px] leading-tight truncate w-full text-gray-900 dark:text-gray-900" style={{ lineHeight: '1.1' }}>
-                                                    {slotAppointments.length > 1 ? item.apt.patientName.split(' ').slice(0, 2).join(' ') : item.apt.patientName}
-                                                  </p>
-                                                  <p className="text-[7px] leading-tight truncate w-full opacity-75 text-gray-700 dark:text-gray-700" style={{ lineHeight: '1.1', marginTop: '1px' }}>
-                                                    {formatTime(item.apt.fromTime)} - {formatTime(item.apt.toTime)}
-                                                  </p>
+                                                <div className="flex flex-col justify-center h-full">
+                                                  {/* Show minimal view for single appointments or same-doctor multiple appointments */}
+                                                  {item.height < 60 ? (
+                                                    <div className="flex items-center h-full px-2">
+                                                      <span className="text-[13px] font-[600] leading-[1.2] tracking-tight text-black truncate">
+                                                        {item.apt.patientName}
+                                                      </span>
+                                                    </div>
+                                                  ) : (
+                                                    /* Show full details for multiple or large appointments */
+                                                    <div className="px-2 py-1.5 leading-[1.2] space-y-[2px]">
+                                                      <span className="text-[11px] font-[400] opacity-[0.75] mb-[2px] block">
+                                                        {formatTime(item.apt.fromTime)} - {formatTime(item.apt.toTime)}
+                                                      </span>
+                                                      <span className="text-[13px] font-[600] text-black mb-[2px] block">
+                                                        {slotAppointments.length > 1 ? item.apt.patientName.split(' ').slice(0, 2).join(' ') : item.apt.patientName}
+                                                      </span>
+                                                      {item.apt.roomName && (
+                                                        <span className="text-[12px] font-[400] text-black opacity-[0.8] block">
+                                                          {item.apt.roomName}
+                                                        </span>
+                                                      )}
+                                                      {item.apt.doctorTreatments && item.apt.doctorTreatments.length > 0 && (
+                                                        <span className="text-[12px] font-[500] text-black block truncate">
+                                                          {item.apt.doctorTreatments[0].mainTreatment}
+                                                        </span>
+                                                      )}
+                                                    </div>
+                                                  )}
                                                 </div>
-                                                {sameIndex < slotAppointments.length - 1 && (
+                                                {index < slotAppointments.length - 1 && (
                                                   <div className="w-px h-2 bg-gray-300 dark:bg-gray-400 mx-0.5 flex-shrink-0" />
                                                 )}
                                               </div>
@@ -3263,14 +3524,15 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
 
       {/* Custom Time Slot Modal */}
       {customTimeSlotModalOpen && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[110] p-4"
-          onClick={() => setCustomTimeSlotModalOpen(false)}
-        >
+        <ModalPortal>
           <div
-            className="bg-white dark:bg-gray-50 rounded-xl shadow-2xl max-w-md w-full p-4 sm:p-6"
-            onClick={(e) => e.stopPropagation()}
+            className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[9999] p-4"
+            onClick={() => setCustomTimeSlotModalOpen(false)}
           >
+            <div
+              className="bg-white dark:bg-gray-50 rounded-xl shadow-2xl max-w-md w-full p-4 sm:p-6"
+              onClick={(e) => e.stopPropagation()}
+            >
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-900">Custom Time Slots</h2>
               <button
@@ -3413,6 +3675,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
             </div>
           </div>
         </div>
+      </ModalPortal>
       )}
 
       {/* Booking Modal */}
@@ -3567,7 +3830,13 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
         >
           <div className="bg-white dark:bg-gray-50 rounded-md shadow-xl border border-gray-200 dark:border-gray-300 overflow-hidden">
             {/* Header */}
-            <div className={`px-2 py-1 ${getStatusColor(hoveredAppointment.appointment.status).bg} ${getStatusColor(hoveredAppointment.appointment.status).text}`}>
+            <div 
+              className="px-2 py-1"
+              style={{
+                backgroundColor: getStatusColor(hoveredAppointment.appointment.status).bg,
+                color: getStatusColor(hoveredAppointment.appointment.status).text,
+              }}
+            >
               <div className="flex items-center justify-between gap-1">
                 <p className="text-[10px] font-bold truncate text-gray-900 dark:text-gray-900">{hoveredAppointment.appointment.patientName}</p>
                 <span className="text-[9px] font-semibold opacity-90 dark:opacity-80 ml-1">{hoveredAppointment.appointment.status.toUpperCase()}</span>
@@ -3634,6 +3903,32 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
                   <span className="text-[9px] text-gray-700 dark:text-gray-800 font-medium w-12 flex-shrink-0">Room:</span>
                   <span className="text-[10px] text-gray-700 dark:text-gray-800 truncate">{hoveredAppointment.appointment.roomName}</span>
                 </div>
+                {hoveredAppointment.appointment.doctorTreatments && hoveredAppointment.appointment.doctorTreatments.length > 0 && (
+                  <div className="flex items-start gap-1 pt-0.5">
+                    <span className="text-[9px] text-gray-700 dark:text-gray-800 font-medium w-12 flex-shrink-0">Treatments:</span>
+                    <div className="flex-1">
+                      {hoveredAppointment.appointment.doctorTreatments.map((treatment, index) => (
+                        <div key={index} className="mb-1">
+                          <span className="text-[10px] text-gray-700 dark:text-gray-800 font-medium block">
+                            {treatment.mainTreatment}
+                          </span>
+                          {treatment.subTreatments && treatment.subTreatments.length > 0 && (
+                            <div className="ml-2 mt-0.5">
+                              {treatment.subTreatments.map((sub, subIndex) => (
+                                <span 
+                                  key={subIndex}
+                                  className="inline-block text-[9px] bg-gray-100 dark:bg-gray-200 text-gray-700 dark:text-gray-800 px-1.5 py-0.5 rounded mr-1 mb-1"
+                                >
+                                  {sub.name}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Follow Type */}
@@ -3677,6 +3972,7 @@ function AppointmentPage({ contextOverride = null }: { contextOverride?: "clinic
           </div>
         </div>
       )}
+    </div>
     </div>
   );
 }

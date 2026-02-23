@@ -72,6 +72,8 @@ export default async function handler(req, res) {
     // Determine active membership considering transfers
     let activeMembershipId = null;
     let transferredAllowance = null;
+    let sourcePatientId = null; // Track the source patient for transferred memberships
+    
     // Prefer explicit selection from query
     if (queryMembershipId) {
       activeMembershipId = queryMembershipId;
@@ -80,6 +82,7 @@ export default async function handler(req, res) {
         : null;
       if (lastInForSelected) {
         transferredAllowance = lastInForSelected.transferredFreeConsultations || null;
+        sourcePatientId = lastInForSelected.fromPatientId;
       }
     } else if (patient.membership === 'Yes' && patient.membershipId) {
       activeMembershipId = patient.membershipId;
@@ -88,6 +91,7 @@ export default async function handler(req, res) {
       if (lastIn) {
         activeMembershipId = lastIn.membershipId;
         transferredAllowance = lastIn.transferredFreeConsultations || 0;
+        sourcePatientId = lastIn.fromPatientId;
       }
     }
     if (!activeMembershipId) {
@@ -95,6 +99,21 @@ export default async function handler(req, res) {
         success: true,
         hasMembership: false,
         message: "Patient does not have an active membership",
+      });
+    }
+
+    // Check if this membership was transferred OUT by the current patient
+    // If so, don't show membership benefits
+    const transferredOut = Array.isArray(patient.membershipTransfers) 
+      ? patient.membershipTransfers.some(t => t.type === 'out' && String(t.membershipId) === String(activeMembershipId))
+      : false;
+    
+    if (transferredOut) {
+      return res.status(200).json({
+        success: true,
+        hasMembership: false,
+        message: "Membership was transferred to another patient",
+        transferredOut: true,
       });
     }
 
@@ -156,12 +175,20 @@ export default async function handler(req, res) {
     // 1. It's a Treatment service (not package)
     // 2. OR it's a Package treatment session
     // 3. The billing amount is 0 or marked as free consultation
+    // IMPORTANT: For transferred memberships, also query the source patient's billing records
 
     const dateFilter = {};
     if (queryStart) dateFilter.$gte = new Date(queryStart);
     if (queryEnd) dateFilter.$lte = new Date(queryEnd);
+    
+    // Collect all patient IDs to query (current patient + source patient from transfer)
+    const patientIdsToQuery = [patientId];
+    if (sourcePatientId && !patientIdsToQuery.includes(String(sourcePatientId))) {
+      patientIdsToQuery.push(String(sourcePatientId));
+    }
+    
     const baseFilter = {
-      patientId: patientId,
+      patientId: { $in: patientIdsToQuery },
       clinicId: clinicId,
       $or: [
         { service: "Treatment" },
@@ -172,7 +199,7 @@ export default async function handler(req, res) {
       ...baseFilter,
       isFreeConsultation: true,
       ...(Object.keys(dateFilter).length ? { createdAt: dateFilter } : {}),
-    }).select("service treatment package sessions selectedPackageTreatments createdAt invoiceNumber").lean();
+    }).select("service treatment package sessions selectedPackageTreatments createdAt invoiceNumber patientId").lean();
 
     // If no billings with isFreeConsultation flag, count all treatment billings as used consultations
     let usedFreeConsultations = 0;
@@ -183,12 +210,17 @@ export default async function handler(req, res) {
         const sessions = billing.sessions || 1;
         usedFreeConsultations += sessions;
         
+        // Check if this billing is from the source patient
+        const isFromSourcePatient = sourcePatientId && String(billing.patientId) === String(sourcePatientId);
+        
         freeConsultationDetails.push({
           invoiceNumber: billing.invoiceNumber,
           service: billing.service,
           treatment: billing.treatment || billing.package,
           sessions: sessions,
           date: billing.createdAt,
+          isFromSourcePatient: isFromSourcePatient,
+          sourcePatientId: isFromSourcePatient ? billing.patientId : null,
         });
       });
     }
@@ -211,12 +243,17 @@ export default async function handler(req, res) {
         
         usedFreeConsultations += sessionsToCount;
         
+        // Check if this billing is from the source patient
+        const isFromSourcePatient = sourcePatientId && String(billing.patientId) === String(sourcePatientId);
+        
         freeConsultationDetails.push({
           invoiceNumber: billing.invoiceNumber,
           service: billing.service,
           treatment: billing.treatment || billing.package,
           sessions: sessionsToCount,
           date: billing.createdAt,
+          isFromSourcePatient: isFromSourcePatient,
+          sourcePatientId: isFromSourcePatient ? billing.patientId : null,
         });
       }
     }
@@ -235,6 +272,9 @@ export default async function handler(req, res) {
       discountPercentage: membershipPlan.benefits?.discountPercentage || 0,
       membershipEndDate: patient.membershipEndDate,
       freeConsultationDetails,
+      isTransferred: !!sourcePatientId,
+      transferredFrom: sourcePatientId,
+      transferredFreeConsultations: typeof transferredAllowance === 'number' ? transferredAllowance : null,
       message: remainingFreeConsultations > 0 
         ? `${remainingFreeConsultations} free consultation(s) remaining`
         : "All free consultations have been used",

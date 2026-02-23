@@ -492,9 +492,8 @@ const PatientUpdateForm = ({ patientId, embedded = false, onClose, onUpdated }) 
   const handleFullUpdate = useCallback(async () => {
     if (!invoiceInfo) return;
     const fieldErrors = {};
-    // API validation: firstName and gender are required
+    // API validation: firstName is required
     if (!formData.firstName?.trim()) fieldErrors.firstName = "First Name is required";
-    if (!formData.gender) fieldErrors.gender = "Gender is required";
     // Database model validation: mobileNumber is also required
     if (!formData.mobileNumber?.trim()) fieldErrors.mobileNumber = "Mobile Number is required";
     if (formData.membership === "Yes") {

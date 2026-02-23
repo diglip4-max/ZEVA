@@ -7,6 +7,7 @@ import bcrypt from 'bcryptjs';
 import { getUserFromReq, requireRole } from './auth';
 import { checkClinicPermission } from './permissions-helper';
 import { checkAgentPermission } from '../agent/permissions-helper';
+import {WorkSession} from '../../../models/WorkSession';
 
 export default async function handler(req, res) {
   await dbConnect();

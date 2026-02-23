@@ -28,7 +28,7 @@ const AgentDashboard = () => {
         if (!token) {
           return null;
         }
-        
+
         // JWT tokens have 3 parts: header.payload.signature
         const parts = token.split(".");
         if (parts.length !== 3) {
@@ -37,7 +37,7 @@ const AgentDashboard = () => {
 
         // Decode the payload (second part)
         const payload = JSON.parse(atob(parts[1]));
-        
+
         return {
           name: payload.name || "",
           email: payload.email || "",
@@ -49,7 +49,7 @@ const AgentDashboard = () => {
     };
 
     const token = getToken();
-    
+
     if (token) {
       const decoded = decodeToken(token);
       if (decoded) {
@@ -88,9 +88,9 @@ const AgentDashboard = () => {
           const filteredItems = (res.data.navigationItems || [])
             .filter(item => {
               // Exclude dashboard item and items without paths
-              const isDashboard = item.path === "/agent/dashboard" || 
-                                 item.path === "/agent/agent-dashboard" ||
-                                 item.moduleKey?.toLowerCase().includes("dashboard");
+              const isDashboard = item.path === "/agent/dashboard" ||
+                item.path === "/agent/agent-dashboard" ||
+                item.moduleKey?.toLowerCase().includes("dashboard");
               return !isDashboard && item.path;
             })
             .map(item => ({
@@ -125,7 +125,7 @@ const AgentDashboard = () => {
     };
 
     router.events.on('routeChangeComplete', handleRouteChange);
-    
+
     return () => {
       router.events.off('routeChangeComplete', handleRouteChange);
     };
@@ -138,12 +138,12 @@ const AgentDashboard = () => {
       const day = now.toLocaleDateString('en-US', { weekday: 'short' });
       const month = now.toLocaleDateString('en-US', { month: 'short' });
       const dayNum = now.getDate();
-      const time = now.toLocaleTimeString('en-US', { 
-        hour: '2-digit', 
+      const time = now.toLocaleTimeString('en-US', {
+        hour: '2-digit',
         minute: '2-digit',
-        hour12: true 
+        hour12: true
       });
-      
+
       setDateTime(`${day}, ${month} ${dayNum} • ${time}`);
     };
 
@@ -163,6 +163,26 @@ const AgentDashboard = () => {
     // Otherwise, treat as text/emoji
     return <span className="text-xl">{iconString}</span>;
   };
+// support agentToken and userToken routes
+const handleDeskTimeClick = () => {
+    const agentToken =
+      typeof window !== "undefined"
+        ? localStorage.getItem("agentToken") || sessionStorage.getItem("agentToken")
+        : null;
+    const userToken =
+      typeof window !== "undefined"
+        ? localStorage.getItem("userToken") || sessionStorage.getItem("userToken")
+        : null;
+
+    if (agentToken) {
+      router.push("/staff/desktime");
+    } else if (userToken) {
+      router.push("/staff/desktime/doctor");
+    } else {
+      console.error("No valid token found.");
+    }
+  };
+
 
   return (
     <div className="min-h-screen text-white relative overflow-hidden">
@@ -190,6 +210,14 @@ const AgentDashboard = () => {
                   className="text-sm md:text-base font-medium text-gray-600 dark:text-gray-300"
                 />
               </div>
+            </div>
+            <div className="text-sm md:text-base font-medium">
+              <button
+                onClick={handleDeskTimeClick}
+                className="px-2 py-1 rounded-lg bg-cyan-700 hover:bg-cyan-800 text-white font-bold shadow-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-cyan-400 dark:bg-cyan-800 dark:hover:bg-cyan-700"
+              >
+                View DeskTime
+              </button>
             </div>
 
             {/* Right side - Date and Time */}

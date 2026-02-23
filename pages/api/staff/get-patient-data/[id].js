@@ -151,7 +151,7 @@ export default async function handler(req, res) {
           packages: packagesArray,
         } = req.body;
 
-        if (!firstName || !gender) {
+        if (!firstName) {
           return res.status(400).json({ message: "Missing required patient fields" });
         }
 
@@ -160,7 +160,7 @@ export default async function handler(req, res) {
         if (emrNumber !== undefined) invoice.emrNumber = emrNumber;
         invoice.firstName = firstName;
         invoice.lastName = lastName || "";
-        invoice.gender = gender;
+        if (gender !== undefined) invoice.gender = gender;
         if (email !== undefined) invoice.email = email;
         if (mobileNumber !== undefined) invoice.mobileNumber = mobileNumber;
         invoice.referredBy = referredBy || "";

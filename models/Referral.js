@@ -33,6 +33,10 @@ const ReferralSchema = new mongoose.Schema(
       max: 100,
       default: 0,
     },
+    addExpense: {
+      type: Boolean,
+      default: false,
+    },
   },
   { timestamps: true }
 );
@@ -41,4 +45,3 @@ ReferralSchema.index({ clinicId: 1, phone: 1 });
 
 delete mongoose.models.Referral;
 export default mongoose.models.Referral || mongoose.model("Referral", ReferralSchema);
-

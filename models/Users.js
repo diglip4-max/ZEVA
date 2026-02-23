@@ -26,6 +26,21 @@ const UserSchema = new mongoose.Schema({
   declined: { type: Boolean, default: false },
   eodNotes: [EODNoteSchema],
   passwordChangedAt: { type: Date, default: null }, // Track when password was last changed
+  
+  // Add these fields for online/offline tracking
+  currentStatus: {
+    type: String,
+    enum: ['ONLINE', 'OFFLINE'],
+    default: 'OFFLINE'
+  },
+  lastActivity: {
+    type: Date,
+    default: null
+  },
+  workSessions: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'WorkSession'
+  }]
 }, { timestamps: true });
 
 UserSchema.index({ email: 1, role: 1 }, { unique: true });

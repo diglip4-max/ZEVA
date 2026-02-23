@@ -2,8 +2,10 @@ import dbConnect from "../../../lib/database";
 import Appointment from "../../../models/Appointment";
 import Clinic from "../../../models/Clinic";
 import PatientRegistration from "../../../models/PatientRegistration";
+import User from "../../../models/Users";
 import { getUserFromReq } from "../lead-ms/auth";
 import { getClinicIdFromUser } from "../lead-ms/permissions-helper";
+import { formatDoctorTreatments } from "../../../server/staff/doctorTreatmentService";
 
 export default async function handler(req, res) {
   await dbConnect();
@@ -149,6 +151,24 @@ export default async function handler(req, res) {
         .sort({ startDate: 1, fromTime: 1 })
         .lean();
 
+      // Fetch doctor treatments for each unique doctor
+      const doctorIds = [...new Set(appointments.map(apt => apt.doctorId?._id?.toString()).filter(Boolean))];
+      const doctorTreatmentsMap = {};
+      
+      for (const doctorId of doctorIds) {
+        try {
+          const treatments = await formatDoctorTreatments(doctorId);
+          doctorTreatmentsMap[doctorId] = treatments.map(t => ({
+            mainTreatment: t.treatmentName,
+            mainTreatmentSlug: t.treatmentId,
+            subTreatments: t.subcategories || []
+          }));
+        } catch (error) {
+          console.error(`Error fetching treatments for doctor ${doctorId}:`, error);
+          doctorTreatmentsMap[doctorId] = [];
+        }
+      }
+
       // Debug: Log bookedFrom values and dates from database
       console.log("=== FETCHING APPOINTMENTS ===");
       console.log(`Found ${appointments.length} appointments matching query`);
@@ -245,6 +265,7 @@ export default async function handler(req, res) {
           bookedFrom: (apt.bookedFrom === "room" || apt.bookedFrom === "doctor") 
             ? apt.bookedFrom 
             : (apt.bookedFrom ? apt.bookedFrom : "doctor"), // Include booking source, default to "doctor" for old appointments without this field
+          doctorTreatments: doctorTreatmentsMap[apt.doctorId?._id?.toString()] || [],
           createdAt: apt.createdAt,
         })),
       });
@@ -503,6 +524,23 @@ export default async function handler(req, res) {
       console.log("📖 Populated appointment bookedFrom from DB:", populatedAppointment.bookedFrom);
       console.log("📖 Populated appointment bookedFrom type:", typeof populatedAppointment.bookedFrom);
 
+      // Fetch doctor treatments for the created appointment's doctor
+      let doctorTreatments = [];
+      try {
+        const did = populatedAppointment.doctorId?._id?.toString();
+        if (did) {
+          const treatments = await formatDoctorTreatments(did);
+          doctorTreatments = (treatments || []).map(t => ({
+            mainTreatment: t.treatmentName,
+            mainTreatmentSlug: t.treatmentId,
+            subTreatments: t.subcategories || []
+          }));
+        }
+      } catch (err) {
+        console.error("Error fetching doctor treatments for created appointment:", err);
+        doctorTreatments = [];
+      }
+
       return res.status(201).json({
         success: true,
         message: "Appointment created successfully",
@@ -527,6 +565,7 @@ export default async function handler(req, res) {
           bookedFrom: (populatedAppointment.bookedFrom === "room" || populatedAppointment.bookedFrom === "doctor") 
             ? populatedAppointment.bookedFrom 
             : validBookedFrom, // Use value from database, fallback to validated value
+          doctorTreatments,
           patientInvoiceNumber: populatedAppointment.patientId?.invoiceNumber || null,
           patientEmrNumber: populatedAppointment.patientId?.emrNumber || null,
           patientGender: populatedAppointment.patientId?.gender || null,

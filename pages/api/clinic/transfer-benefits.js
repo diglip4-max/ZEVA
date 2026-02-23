@@ -97,7 +97,7 @@ export default async function handler(req, res) {
       const session = await mongoose.startSession();
       session.startTransaction();
       try {
-        // Remove only the selected membership entry
+        // Remove the membership from source patient (they transferred it out)
         if (hasSelectedAsSingle) {
           source.membership = "No";
           source.membershipId = undefined;
@@ -189,6 +189,7 @@ export default async function handler(req, res) {
       const session = await mongoose.startSession();
       session.startTransaction();
       try {
+        // Remove the package from source patient (they transferred it out)
         source.packages = (Array.isArray(source.packages) ? source.packages.filter(p => String(p.packageId) !== String(packageId)) : []);
         source.hasTransferredOut = true;
         source.packageTransfers = source.packageTransfers || [];

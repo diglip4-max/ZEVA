@@ -2,6 +2,8 @@
 @tailwind components;
 @tailwind utilities;
 
+@import './fonts.css';
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
@@ -14,10 +16,19 @@
   }
 }
 
+html, body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  background: var(--background);
+  color: var(--foreground);
+  font-family: 'Inter', Arial, Helvetica, sans-serif;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: 'Inter', Arial, Helvetica, sans-serif;
 }
 
 /* Fix for select.form-input red border on initial render */

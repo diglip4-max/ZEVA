@@ -11,6 +11,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { APPOINTMENT_STATUS_OPTIONS } from "../data/appointmentStatusOptions";
+import { ModalPortal } from "../lib/modalPortal";
 
 interface AppointmentBookingModalProps {
   isOpen: boolean;
@@ -581,17 +582,18 @@ export default function AppointmentBookingModal({
   );
 
   return (
-    <div
-      className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/50 backdrop-blur-md transition-all duration-300 animate-in fade-in"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) {
-          onClose();
-        }
-      }}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="modal-title"
-    >
+    <ModalPortal>
+      <div
+        className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm transition-all duration-300 animate-in fade-in"
+        onClick={(e) => {
+          if (e.target === e.currentTarget) {
+            onClose();
+          }
+        }}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="modal-title"
+      >
       <div
         className="bg-white dark:bg-gray-50 rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col transform transition-all duration-300 scale-100 opacity-100 animate-in slide-in-from-bottom-4 zoom-in-95"
         onClick={(e) => e.stopPropagation()}
@@ -1117,8 +1119,7 @@ export default function AppointmentBookingModal({
                   <label className="block text-[10px] font-medium text-gray-700 dark:text-gray-800 mb-0.5">
                     Referred By
                   </label>
-                  <input
-                    type="text"
+                  <select
                     value={addPatientForm.referredBy}
                     onChange={(e) =>
                       setAddPatientForm({
@@ -1127,7 +1128,17 @@ export default function AppointmentBookingModal({
                       })
                     }
                     className="w-full border border-gray-300 dark:border-gray-300 rounded-lg px-2 py-1.5 text-[10px] bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm"
-                  />
+                  >
+                    <option value="">Select referral</option>
+                    {referrals.map((ref) => (
+                      <option
+                        key={ref._id}
+                        value={`${ref.firstName} ${ref.lastName}`.trim()}
+                      >
+                        {[ref.firstName, ref.lastName].filter(Boolean).join(" ")}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <label className="block text-[10px] font-medium text-gray-700 dark:text-gray-800 mb-0.5">
@@ -1164,8 +1175,8 @@ export default function AppointmentBookingModal({
             </div>
           )}
 
-          {/* Follow Type, Referral, Emergency - 3 fields in one row */}
-          <div className="grid grid-cols-3 gap-4 pb-16 relative z-10">
+          {/* Follow Type and Emergency - 2 fields in one row */}
+          <div className="grid grid-cols-2 gap-4 pb-16 relative z-10">
             {/* Follow Type */}
             <div>
               <label className="block text-xs font-medium text-gray-700 dark:text-gray-800 mb-1.5">
@@ -1195,29 +1206,6 @@ export default function AppointmentBookingModal({
                   {fieldErrors.followType}
                 </p>
               )}
-            </div>
-
-            {/* Referral */}
-            <div>
-              <label className="block text-xs font-medium text-gray-700 dark:text-gray-800 mb-1.5">
-                Referral
-              </label>
-              <select
-                value={referral}
-                onChange={(e) => setReferral(e.target.value)}
-                className="w-full border border-gray-300 dark:border-gray-300 rounded-lg px-3 py-2.5 text-xs bg-white dark:bg-gray-100 text-gray-900 dark:text-gray-900 focus:ring-2 focus:ring-gray-500 dark:focus:ring-gray-600 focus:border-gray-500 dark:focus:border-gray-600 transition-all hover:border-gray-400 dark:hover:border-gray-500 hover:shadow-sm"
-                style={{ zIndex: 1000, position: "relative" }}
-              >
-                <option value="No">No</option>
-                {referrals.map((ref) => (
-                  <option
-                    key={ref._id}
-                    value={`${ref.firstName} ${ref.lastName}`.trim()}
-                  >
-                    {[ref.firstName, ref.lastName].filter(Boolean).join(" ")}
-                  </option>
-                ))}
-              </select>
             </div>
 
             {/* Emergency */}
@@ -1356,5 +1344,6 @@ export default function AppointmentBookingModal({
         </div>
       </div>
     </div>
+  </ModalPortal>
   );
 }
