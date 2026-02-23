@@ -1,6 +1,7 @@
 import dbConnect from "../../../../lib/database";
 import Clinic from "../../../../models/Clinic";
 import GRN from "../../../../models/stocks/GRN";
+import PurchaseInvoice from "../../../../models/stocks/PurchaseInvoice";
 import PurchaseRecord from "../../../../models/stocks/PurchaseRecord";
 import Supplier from "../../../../models/stocks/Supplier";
 import { getUserFromReq, requireRole } from "../../lead-ms/auth";
@@ -20,7 +21,7 @@ export default async function handler(req, res) {
       .json({ success: false, message: "Not authenticated" });
   }
 
-  if (!requireRole(me, ["clinic", "agent", "admin", "doctor"])) {
+  if (!requireRole(me, ["clinic", "agent", "admin", "doctor", "doctorStaff"])) {
     return res.status(403).json({ success: false, message: "Access denied" });
   }
 
@@ -35,7 +36,7 @@ export default async function handler(req, res) {
       });
     }
     clinicId = clinic._id;
-  } else if (me.role === "agent") {
+  } else if (me.role === "agent" || me.role === "doctorStaff") {
     if (!me.clinicId) {
       return res
         .status(400)
@@ -263,6 +264,37 @@ export default async function handler(req, res) {
 
       // create Invoice record also
       if (type === "Purchase_Invoice") {
+        // create GRN record also
+        let newGRN = new GRN({
+          clinicId,
+          branch,
+          grnDate: new Date(date),
+          purchasedOrder: newPurchaseRecord._id,
+          supplierInvoiceNo,
+          supplierGrnDate: new Date(date),
+          notes: "Direct Purchase Invoice (GRN)",
+          status: "Invoiced", // Default status
+          items: items,
+          createdBy: me._id,
+        });
+        let newPurchaseInvoice = new PurchaseInvoice({
+          clinicId,
+          branch,
+          supplier,
+          grn: newGRN._id,
+          supplierInvoiceNo,
+          date: new Date(date),
+          notes: "Direct Purchase Invoice (GRN)",
+          status: "Unpaid", // Default status
+          grns: [newGRN._id],
+          createdBy: me._id,
+        });
+        newPurchaseRecord.status = "Invoiced";
+        await Promise.all([
+          newGRN.save(),
+          newPurchaseInvoice.save(),
+          newPurchaseRecord.save(),
+        ]);
         // let newInvoice = new Invoice({
         //   clinicId,
         //   branch,

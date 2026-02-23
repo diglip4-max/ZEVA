@@ -19,7 +19,9 @@ export default async function handler(req, res) {
         .status(401)
         .json({ success: false, message: "Not authenticated" });
 
-    if (!requireRole(me, ["clinic", "agent", "admin", "doctor"])) {
+    if (
+      !requireRole(me, ["clinic", "agent", "admin", "doctor", "doctorStaff"])
+    ) {
       return res.status(403).json({ success: false, message: "Access denied" });
     }
 
@@ -32,7 +34,11 @@ export default async function handler(req, res) {
           .status(400)
           .json({ success: false, message: "Clinic not found for this user" });
       clinicId = clinic._id;
-    } else if (me.role === "agent" || me.role === "doctor") {
+    } else if (
+      me.role === "agent" ||
+      me.role === "doctor" ||
+      me.role === "doctorStaff"
+    ) {
       if (!me.clinicId)
         return res
           .status(400)
@@ -71,12 +77,10 @@ export default async function handler(req, res) {
       }
       for (const item of items) {
         if (!item.name || !item.quantity) {
-          return res
-            .status(400)
-            .json({
-              success: false,
-              message: "Each item must have name and quantity",
-            });
+          return res.status(400).json({
+            success: false,
+            message: "Each item must have name and quantity",
+          });
         }
       }
       transfer.items = items;
@@ -90,21 +94,17 @@ export default async function handler(req, res) {
       .populate("createdBy", "name email")
       .lean();
 
-    res
-      .status(200)
-      .json({
-        success: true,
-        message: "Direct stock transfer updated",
-        data: updated,
-      });
+    res.status(200).json({
+      success: true,
+      message: "Direct stock transfer updated",
+      data: updated,
+    });
   } catch (error) {
     console.error("Error updating direct stock transfer:", error);
-    res
-      .status(500)
-      .json({
-        success: false,
-        message: "Failed to update direct stock transfer",
-        error: error.message,
-      });
+    res.status(500).json({
+      success: false,
+      message: "Failed to update direct stock transfer",
+      error: error.message,
+    });
   }
 }

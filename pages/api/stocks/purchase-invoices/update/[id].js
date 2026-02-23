@@ -6,43 +6,76 @@ import { getUserFromReq, requireRole } from "../../../lead-ms/auth";
 export default async function handler(req, res) {
   await dbConnect();
   if (req.method !== "PUT") {
-    return res.status(405).json({ success: false, message: "Method not allowed" });
+    return res
+      .status(405)
+      .json({ success: false, message: "Method not allowed" });
   }
   try {
     const me = await getUserFromReq(req);
-    if (!me) return res.status(401).json({ success: false, message: "Not authenticated" });
-    if (!requireRole(me, ["clinic", "agent", "admin", "doctor"])) {
+    if (!me)
+      return res
+        .status(401)
+        .json({ success: false, message: "Not authenticated" });
+    if (
+      !requireRole(me, ["clinic", "agent", "admin", "doctor", "doctorStaff"])
+    ) {
       return res.status(403).json({ success: false, message: "Access denied" });
     }
 
     let clinicId;
     if (me.role === "clinic") {
       const clinic = await Clinic.findOne({ owner: me._id });
-      if (!clinic) return res.status(400).json({ success: false, message: "Clinic not found for this user" });
+      if (!clinic)
+        return res
+          .status(400)
+          .json({ success: false, message: "Clinic not found for this user" });
       clinicId = clinic._id;
-    } else if (me.role === "agent" || me.role === "doctor") {
-      if (!me.clinicId) return res.status(400).json({ success: false, message: "User not tied to a clinic" });
+    } else if (
+      me.role === "agent" ||
+      me.role === "doctor" ||
+      me.role === "doctorStaff"
+    ) {
+      if (!me.clinicId)
+        return res
+          .status(400)
+          .json({ success: false, message: "User not tied to a clinic" });
       clinicId = me.clinicId;
     } else if (me.role === "admin") {
       clinicId = req.body.clinicId;
-      if (!clinicId) return res.status(400).json({ success: false, message: "clinicId is required for admin" });
+      if (!clinicId)
+        return res
+          .status(400)
+          .json({ success: false, message: "clinicId is required for admin" });
     }
 
     const { id } = req.query;
-    const { branch, supplier, grn, grns, supplierInvoiceNo, date, notes, status } = req.body;
+    const {
+      branch,
+      supplier,
+      grn,
+      grns,
+      supplierInvoiceNo,
+      date,
+      notes,
+      status,
+    } = req.body;
     const invoice = await PurchaseInvoice.findOne({ _id: id, clinicId });
     if (!invoice) {
-      return res.status(404).json({ success: false, message: "Purchase invoice not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Purchase invoice not found" });
     }
 
     if (branch !== undefined) invoice.branch = branch;
     if (supplier !== undefined) invoice.supplier = supplier;
     if (grn !== undefined) invoice.grn = grn;
     if (grns !== undefined) invoice.grns = Array.isArray(grns) ? grns : [];
-    if (supplierInvoiceNo !== undefined) invoice.supplierInvoiceNo = supplierInvoiceNo;
+    if (supplierInvoiceNo !== undefined)
+      invoice.supplierInvoiceNo = supplierInvoiceNo;
     if (date !== undefined) invoice.date = new Date(date);
     if (notes !== undefined) invoice.notes = notes;
-    if (status !== undefined && invoice.status !== "Deleted") invoice.status = status;
+    if (status !== undefined && invoice.status !== "Deleted")
+      invoice.status = status;
 
     await invoice.save();
     const saved = await PurchaseInvoice.findById(invoice._id)
@@ -59,6 +92,12 @@ export default async function handler(req, res) {
       data: saved,
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: "Failed to update purchase invoice", error: error.message });
+    res
+      .status(500)
+      .json({
+        success: false,
+        message: "Failed to update purchase invoice",
+        error: error.message,
+      });
   }
 }

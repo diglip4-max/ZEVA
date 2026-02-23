@@ -22,7 +22,9 @@ export default async function handler(req, res) {
         .status(401)
         .json({ success: false, message: "Not authenticated" });
 
-    if (!requireRole(me, ["clinic", "agent", "admin"])) {
+    if (
+      !requireRole(me, ["clinic", "agent", "admin", "doctor", "doctorStaff"])
+    ) {
       return res.status(403).json({ success: false, message: "Access denied" });
     }
 
@@ -56,20 +58,16 @@ export default async function handler(req, res) {
         .status(404)
         .json({ success: false, message: "Purchase return not found" });
 
-    return res
-      .status(200)
-      .json({
-        success: true,
-        message: "Purchase return updated",
-        data: updated,
-      });
+    return res.status(200).json({
+      success: true,
+      message: "Purchase return updated",
+      data: updated,
+    });
   } catch (err) {
     console.error("Error updating purchase return:", err);
-    return res
-      .status(500)
-      .json({
-        success: false,
-        message: err.message || "Internal Server Error",
-      });
+    return res.status(500).json({
+      success: false,
+      message: err.message || "Internal Server Error",
+    });
   }
 }

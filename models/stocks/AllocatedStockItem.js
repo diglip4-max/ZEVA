@@ -116,6 +116,20 @@ const AllocatedStockItemSchema = new mongoose.Schema(
       type: Date,
       index: true,
     },
+    quantitiesByUom: [
+      {
+        uom: {
+          type: String,
+          required: true,
+        },
+        quantity: {
+          type: Number,
+          required: true,
+          default: 0,
+        },
+        _id: false,
+      },
+    ],
     allocatedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",

@@ -24,7 +24,9 @@ export default async function handler(req, res) {
       return res
         .status(401)
         .json({ success: false, message: "Not authenticated" });
-    if (!requireRole(me, ["clinic", "agent", "admin", "doctor"])) {
+    if (
+      !requireRole(me, ["clinic", "agent", "admin", "doctor", "doctorStaff"])
+    ) {
       return res.status(403).json({ success: false, message: "Access denied" });
     }
 
@@ -37,7 +39,11 @@ export default async function handler(req, res) {
           .json({ success: false, message: "Clinic not found for this user" });
       }
       clinicId = clinic._id.toString();
-    } else if (me.role === "agent" || me.role === "doctor") {
+    } else if (
+      me.role === "agent" ||
+      me.role === "doctor" ||
+      me.role === "doctorStaff"
+    ) {
       if (!me.clinicId) {
         return res
           .status(400)
@@ -231,6 +237,9 @@ export default async function handler(req, res) {
         prItem.netPlusVat !== undefined
           ? Number(prItem.netPlusVat || 0)
           : Number((netPrice + vatAmount).toFixed(2));
+
+      // Add quantitiesByUom to itemSubdoc
+
       const itemSubdoc = {
         itemId,
         code: prItem.code || "",
@@ -251,6 +260,48 @@ export default async function handler(req, res) {
         freeQuantity: Number(prItem.freeQuantity || 0),
       };
 
+      // Add quantitiesByUom to itemSubdoc
+      let quantitiesByUom = [];
+      if (prItem?.uom) {
+        quantitiesByUom.push({
+          uom: prItem.uom || "",
+          quantity: quantity,
+        });
+      }
+
+      // add on level1
+      const stockItemData = await StockItem.findById(itemId);
+      if (
+        stockItemData &&
+        stockItemData?.packagingStructure?.level1?.uom &&
+        stockItemData?.packagingStructure?.level1?.multiplier &&
+        stockItemData?.packagingStructure?.level1?.costPrice
+      ) {
+        quantitiesByUom.push({
+          uom: stockItemData?.packagingStructure?.level1?.uom || "",
+          quantity: Number(
+            (stockItemData?.packagingStructure?.level1?.multiplier || 0) *
+              quantity,
+          ),
+        });
+      }
+
+      // add on level2
+      if (
+        stockItemData &&
+        stockItemData?.packagingStructure?.level2?.uom &&
+        stockItemData?.packagingStructure?.level2?.multiplier &&
+        stockItemData?.packagingStructure?.level2?.costPrice
+      ) {
+        quantitiesByUom.push({
+          uom: stockItemData?.packagingStructure?.level2?.uom || "",
+          quantity: Number(
+            (stockItemData?.packagingStructure?.level2?.multiplier || 0) *
+              quantitiesByUom[quantitiesByUom?.length - 1]?.quantity,
+          ),
+        });
+      }
+
       const newAllocatedItem = new AllocatedStockItem({
         clinicId,
         item: itemSubdoc,
@@ -260,6 +311,7 @@ export default async function handler(req, res) {
         allocatedBy: me._id, // Use the current user as allocatedBy
         location,
         expiryDate,
+        quantitiesByUom,
       });
 
       await newAllocatedItem.save();

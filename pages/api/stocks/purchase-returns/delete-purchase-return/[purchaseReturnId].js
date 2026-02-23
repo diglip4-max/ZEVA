@@ -21,7 +21,9 @@ export default async function handler(req, res) {
         .status(401)
         .json({ success: false, message: "Not authenticated" });
 
-    if (!requireRole(me, ["clinic", "agent", "admin"])) {
+    if (
+      !requireRole(me, ["clinic", "agent", "admin", "doctor", "doctorStaff"])
+    ) {
       return res.status(403).json({ success: false, message: "Access denied" });
     }
 
@@ -40,11 +42,9 @@ export default async function handler(req, res) {
       .json({ success: true, message: "Purchase return deleted" });
   } catch (err) {
     console.error("Error deleting purchase return:", err);
-    return res
-      .status(500)
-      .json({
-        success: false,
-        message: err.message || "Internal Server Error",
-      });
+    return res.status(500).json({
+      success: false,
+      message: err.message || "Internal Server Error",
+    });
   }
 }

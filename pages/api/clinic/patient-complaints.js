@@ -4,6 +4,8 @@ import Appointment from "../../../models/Appointment";
 import AppointmentReport from "../../../models/AppointmentReport";
 import Clinic from "../../../models/Clinic";
 import { getUserFromReq } from "../lead-ms/auth";
+import AllocatedStockItem from "../../../models/stocks/AllocatedStockItem";
+import { calculateTotalAmount, reduceQuantity } from "../../../lib/stockUtils";
 
 export default async function handler(req, res) {
   await dbConnect();
@@ -40,7 +42,7 @@ export default async function handler(req, res) {
   }
 
   if (req.method === "POST") {
-    const { appointmentId, appointmentReportId, complaints, items } = req.body;
+    let { appointmentId, appointmentReportId, complaints, items } = req.body;
 
     if (
       !appointmentId ||
@@ -87,6 +89,48 @@ export default async function handler(req, res) {
           success: false,
           message: "Appointment does not have an assigned doctor",
         });
+      }
+
+      // reduce quantity from allocated items
+      if (items && items.length > 0) {
+        for (let item of items) {
+          const { itemId, code } = item;
+          const allocatedItem = await AllocatedStockItem.findById(itemId);
+          if (!allocatedItem) {
+            return res.status(404).json({
+              success: false,
+              message: `Allocated stock item not found for itemId: ${itemId}`,
+            });
+          }
+          console.log({ allocatedItem });
+
+          // reduce quantity from allocated item
+          const stockItemId = allocatedItem?.item?.itemId;
+          const updatedQtyByUom = await reduceQuantity(
+            allocatedItem.quantitiesByUom,
+            item.uom,
+            item.quantity,
+            stockItemId,
+          );
+          console.log({ updatedQtyByUom });
+
+          // add totalAmount to item
+          item.totalAmount = await calculateTotalAmount(
+            stockItemId,
+            item.uom,
+            item.quantity,
+          );
+          // update allocated item quantitiesByUom
+          allocatedItem.quantitiesByUom = updatedQtyByUom;
+          allocatedItem.status = "Partially_Used";
+          const checkFullyUsed = updatedQtyByUom.every(
+            (qty) => qty.quantity === 0,
+          );
+          if (checkFullyUsed) {
+            allocatedItem.status = "Used";
+          }
+          await allocatedItem.save();
+        }
       }
 
       // Create the complaint record

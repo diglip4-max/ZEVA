@@ -23,7 +23,9 @@ export default async function handler(req, res) {
       });
     }
 
-    if (!requireRole(me, ["clinic", "agent", "admin", "doctor"])) {
+    if (
+      !requireRole(me, ["clinic", "agent", "admin", "doctor", "doctorStaff"])
+    ) {
       return res.status(403).json({
         success: false,
         message: "Access denied",
@@ -41,7 +43,7 @@ export default async function handler(req, res) {
         });
       }
       clinicId = clinic._id;
-    } else if (me.role === "agent") {
+    } else if (me.role === "agent" || me.role === "doctorStaff") {
       if (!me.clinicId) {
         return res.status(400).json({
           success: false,
@@ -199,7 +201,7 @@ export default async function handler(req, res) {
         return res.status(400).json({
           success: false,
           message: `Invalid status. Valid statuses are: ${validStatuses.join(
-            ", "
+            ", ",
           )}`,
         });
       }
@@ -285,8 +287,7 @@ export default async function handler(req, res) {
           it.netPrice !== undefined
             ? Number(it.netPrice || 0)
             : Number((total - discountAmount).toFixed(2));
-        const vatType =
-          it.vatType === "Inclusive" ? "Inclusive" : "Exclusive";
+        const vatType = it.vatType === "Inclusive" ? "Inclusive" : "Exclusive";
         const vatPercentage = Number(it.vatPercentage || 0);
         const vatAmount =
           it.vatAmount !== undefined
@@ -326,7 +327,7 @@ export default async function handler(req, res) {
     const updatedGRN = await GRN.findOneAndUpdate(
       { _id: grnId, clinicId },
       { ...updateData },
-      { new: true, runValidators: true }
+      { new: true, runValidators: true },
     )
       .populate("branch", "name")
       .populate("purchasedOrder", "orderNo date supplier")
