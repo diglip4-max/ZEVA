@@ -132,6 +132,7 @@ function PolicyCompliance() {
   const [policyTypeFilter, setPolicyTypeFilter] = useState("");
   const [rolesFilter, setRolesFilter] = useState("");
   const [policyTypes, setPolicyTypes] = useState<string[]>([]);
+  const [availableRoles, setAvailableRoles] = useState<Array<{ key: string; label: string }>>([]);
   const [showTypeModal, setShowTypeModal] = useState(false);
   const [sopCategories, setSopCategories] = useState<string[]>([]);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
@@ -168,9 +169,9 @@ function PolicyCompliance() {
   const loadPdfIntoModal = async (pdfUrl: string) => {
     try {
       setViewerError(null);
-      const w = window as any;
-
-      if (!w.pdfjsLib) {
+      const ensurePdfJs = async () => {
+        const w = window as any;
+        if (w.pdfjsLib) return;
         await new Promise<void>((resolve, reject) => {
           const s = document.createElement("script");
           s.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
@@ -178,7 +179,6 @@ function PolicyCompliance() {
           s.onerror = () => reject(new Error("Failed to load PDF viewer"));
           document.body.appendChild(s);
         });
-
         await new Promise<void>((resolve, reject) => {
           const sw = document.createElement("script");
           sw.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
@@ -186,58 +186,73 @@ function PolicyCompliance() {
           sw.onerror = () => reject(new Error("Failed to load PDF worker"));
           document.body.appendChild(sw);
         });
+      };
+      await ensurePdfJs();
+      // Inject styles to reduce print/save options
+      if (!document.getElementById("pdf-secure-styles")) {
+        const style = document.createElement("style");
+        style.id = "pdf-secure-styles";
+        style.textContent =
+          ".pdf-secure{user-select:none;-webkit-user-select:none;-ms-user-select:none}.pdf-secure canvas{pointer-events:auto}.pdf-secure .overlay{position:absolute;inset:0;background:transparent;pointer-events:none}.pdf-secure .container{position:relative}.pdf-secure *{webkit-touch-callout:none}@media print{.pdf-secure{display:none !important}}";
+        document.head.appendChild(style);
       }
-
-      const pdfjsLib = (window as any).pdfjsLib;
-      pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
-
-      const fullUrl = pdfUrl.startsWith('http')
-        ? pdfUrl
-        : `${window.location.origin}${pdfUrl}`;
-
-      const resp = await fetch(fullUrl, {
-        headers: getAuthHeaders(),
-        credentials: 'include'
-      });
-
-      if (!resp.ok) throw new Error(`Failed to fetch PDF: ${resp.status} ${resp.statusText}`);
-
+      const fullUrl = pdfUrl.startsWith("http") ? pdfUrl : `${window.location.origin}${pdfUrl}`;
+      const headers = { ...(getAuthHeaders() as Record<string, string>), Accept: "application/pdf" };
+      const resp = await fetch(fullUrl, { headers, credentials: "include", cache: "no-store" });
+      if (!resp.ok) {
+        let message: any = `Failed to fetch document: ${resp.status}`;
+        try {
+          const raw = await resp.text();
+          try {
+            const parsed = JSON.parse(raw);
+            message = parsed?.message ?? parsed?.error ?? raw ?? message;
+          } catch {
+            message = raw || message;
+          }
+        } catch {}
+        const msgString = typeof message === "string" ? message : JSON.stringify(message);
+        setViewerError(msgString);
+        const c = pdfContainerRef.current!;
+        c.innerHTML = `<div class="p-8 text-center"><div class="text-red-600 mb-2">Failed to load document</div><div class="text-sm text-gray-500">${msgString}</div></div>`;
+        return;
+      }
       const blob = await resp.blob();
       const objectUrl = URL.createObjectURL(blob);
-
+      const pdfjsLib = (window as any).pdfjsLib;
+      pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
       const task = pdfjsLib.getDocument({ url: objectUrl });
       const pdf = await task.promise;
 
       const container = pdfContainerRef.current!;
       container.innerHTML = "";
-
-      for (let p = 1; p <= pdf.numPages; p++) {
-        const page = await pdf.getPage(p);
-        const viewport = page.getViewport({ scale: 1.15 });
-
+      const wrapper = document.createElement("div");
+      wrapper.className = "pdf-secure container";
+      container.appendChild(wrapper);
+      for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+        const page = await pdf.getPage(pageNum);
+        const viewport = page.getViewport({ scale: 1.1 });
         const canvas = document.createElement("canvas");
         canvas.style.display = "block";
         canvas.style.margin = "0 auto 16px auto";
         canvas.style.maxWidth = "100%";
         canvas.style.height = "auto";
-
         const ctx = canvas.getContext("2d")!;
         canvas.height = viewport.height;
         canvas.width = viewport.width;
-
-        container.appendChild(canvas);
+        wrapper.appendChild(canvas);
         await page.render({ canvasContext: ctx, viewport }).promise;
       }
-
+      const overlay = document.createElement("div");
+      overlay.className = "overlay";
+      overlay.style.pointerEvents = "none";
+      overlay.oncontextmenu = (e) => e.preventDefault();
+      wrapper.appendChild(overlay);
       URL.revokeObjectURL(objectUrl);
     } catch (error: any) {
       console.error("Error loading PDF:", error);
       setViewerError(error?.message || "Failed to load document");
       if (pdfContainerRef.current) {
-        pdfContainerRef.current.innerHTML = `<div class="p-8 text-center">
-          <div class="text-red-600 mb-2">Failed to load document</div>
-          <div class="text-sm text-gray-500">${error?.message || "Unknown error"}</div>
-        </div>`;
+        pdfContainerRef.current.innerHTML = `<div class="p-8 text-center"><div class="text-red-600 mb-2">Failed to load document</div><div class="text-sm text-gray-500">${error?.message || "Unknown error"}</div></div>`;
       }
     }
   };
@@ -247,11 +262,20 @@ function PolicyCompliance() {
 
   useEffect(() => {
     if (viewerOpen && viewerUrl) {
-      const prevent = (e: Event) => e.preventDefault();
-      document.addEventListener("contextmenu", prevent);
+      const preventContext = (e: Event) => e.preventDefault();
+      const preventKeys = (e: KeyboardEvent) => {
+        const k = e.key?.toLowerCase();
+        if ((e.ctrlKey || e.metaKey) && (k === "p" || k === "s")) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      };
+      document.addEventListener("contextmenu", preventContext);
+      document.addEventListener("keydown", preventKeys, true);
       loadPdfIntoModal(viewerUrl);
       return () => {
-        document.removeEventListener("contextmenu", prevent);
+        document.removeEventListener("contextmenu", preventContext);
+        document.removeEventListener("keydown", preventKeys, true);
       };
     }
   }, [viewerOpen, viewerUrl]);
@@ -272,13 +296,27 @@ function PolicyCompliance() {
     })();
   }, []);
 
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch("/api/compliance/roles", { headers: getAuthHeaders() });
+        const json = await res.json();
+        if (json.success) {
+          const roles: string[] = json.roles || [];
+          const labels = json.labels || {};
+          setAvailableRoles(roles.map(r => ({ key: r, label: labels[r] || r })));
+        } else {
+          setAvailableRoles([{ key: "agent", label: "Agent" }, { key: "doctorStaff", label: "DoctorStaff" }]);
+        }
+      } catch {
+        setAvailableRoles([{ key: "agent", label: "Agent" }, { key: "doctorStaff", label: "DoctorStaff" }]);
+      }
+    })();
+  }, []);
+
   const onSopTitleClick = async (id: string, title: string) => {
     try {
-      const res = await fetch(`/api/compliance/sops?id=${encodeURIComponent(id)}`, { headers: getAuthHeaders() });
-      const json = await res.json();
-      if (!json.success || !json.item) return;
-      const url = json.item.documentUrl || (json.item.attachments?.[0]);
-      openViewer(url, title);
+      openViewer(`/api/compliance/file?type=sops&id=${encodeURIComponent(id)}`, title);
     } catch {
       // noop
     }
@@ -365,7 +403,12 @@ function PolicyCompliance() {
       const res = await fetch(`/api/compliance/acknowledgments?${params.toString()}`, { headers: getAuthHeaders() });
       const json = await res.json();
       if (!json.success) return;
-      setAckItems(json.items || []);
+      const items = Array.isArray(json.items) ? json.items : [];
+      const normalized = items.map((i: any) => ({
+        ...i,
+        type: i.type || i.documentType || "",
+      }));
+      setAckItems(normalized);
     };
     if (activeTab === "ack") loadAck();
   }, [activeTab, search, ackStatusFilter, ackTypeFilter]);
@@ -401,17 +444,17 @@ function PolicyCompliance() {
 
   const handleRowView = async (type: TabKey, id: string, title: string) => {
     try {
-      const endpoint =
-        type === "sops"
-          ? "/api/compliance/sops"
-          : type === "policies"
-            ? "/api/compliance/policies"
-            : "/api/compliance/playbooks";
-      const res = await fetch(`${endpoint}?id=${encodeURIComponent(id)}`, { headers: getAuthHeaders() });
-      const json = await res.json();
-      if (!json.success || !json.item) return;
-      const url = json.item.documentUrl || (json.item.attachments?.[0]);
-      if (url) openViewer(url, title);
+      if (type === "policies") {
+        const res = await fetch(`/api/compliance/policies?id=${encodeURIComponent(id)}`, { headers: getAuthHeaders() });
+        const json = await res.json();
+        if (!json.success || !json.item) return;
+        const url = json.item.documentUrl || (json.item.attachments?.[0]);
+        if (url) openViewer(url, title);
+        setRowMenuId(null);
+        return;
+      }
+      const dlType = type === "playbooks" ? "playbooks" : "sops";
+      openViewer(`/api/compliance/file?type=${dlType}&id=${encodeURIComponent(id)}`, title);
       setRowMenuId(null);
     } catch { }
   };
@@ -630,14 +673,14 @@ function PolicyCompliance() {
       (async () => {
         try {
           if (hasAgent) {
-            const r = await fetch(`/api/colleagues/list?role=agent`, { headers: getAuthHeaders() });
+            const r = await fetch(`/api/lead-ms/get-agents?role=agent`, { headers: getAuthHeaders() });
             const j = await r.json();
             if (j.success) setAgentUsers(j.agents || []);
           } else {
             setAgentUsers([]);
           }
           if (hasDoctor) {
-            const r2 = await fetch(`/api/colleagues/list?role=doctorStaff`, { headers: getAuthHeaders() });
+            const r2 = await fetch(`/api/lead-ms/get-agents?role=doctorStaff`, { headers: getAuthHeaders() });
             const j2 = await r2.json();
             if (j2.success) setDoctorUsers(j2.agents || []);
           } else {
@@ -682,7 +725,7 @@ function PolicyCompliance() {
 
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-        <div className="w-full max-w-2xl rounded-2xl bg-white p-6">
+        <div className="w-full max-w-[95%] sm:max-w-2xl rounded-2xl bg-white p-4 sm:p-6 max-h-[85vh] overflow-y-auto">
           <div className="flex items-center justify-between">
             <div className="text-lg font-bold text-gray-900">
               {ct === "playbooks"
@@ -1764,7 +1807,7 @@ function PolicyCompliance() {
 
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-        <div className="w-full max-w-2xl rounded-2xl bg-white p-6">
+        <div className="w-full max-w-[95%] sm:max-w-2xl rounded-2xl bg-white p-4 sm:p-6 max-h-[85vh] overflow-y-auto">
           <div className="flex items-center justify-between">
             <div className="text-lg font-bold text-gray-900">Add Staff Acknowledgment</div>
             <button onClick={onClose} className="rounded-md px-3 py-1 text-sm border hover:bg-gray-50">Close</button>
@@ -1856,7 +1899,14 @@ function PolicyCompliance() {
               <button onClick={() => setActiveTab("sops")} className={`rounded-lg px-3 py-1.5 text-xs ${activeTab === "sops" ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-800"}`}>SOP Library</button>
               <button onClick={() => setActiveTab("policies")} className={`rounded-lg px-3 py-1.5 text-xs ${activeTab === "policies" ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-800"}`}>Policy Center</button>
               <button onClick={() => setActiveTab("playbooks")} className={`rounded-lg px-3 py-1.5 text-xs ${activeTab === "playbooks" ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-800"}`}>Process Playbooks</button>
-              <button onClick={() => setActiveTab("ack")} className={`rounded-lg px-3 py-1.5 text-xs ${activeTab === "ack" ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-800"}`}>Acknowledgment Tracker</button>
+              <button onClick={() => setActiveTab("ack")} className={`rounded-lg px-3 py-1.5 text-xs ${activeTab === "ack" ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-800"}`}>
+                <span>Acknowledgment Tracker</span>
+                {ackPending > 0 && (
+                  <span className={`ml-2 inline-flex items-center justify-center rounded-full ${activeTab === "ack" ? "bg-white text-gray-900" : "bg-red-600 text-white"} text-[10px] h-4 min-w-4 px-1`}>
+                    {ackPending}
+                  </span>
+                )}
+              </button>
             </div>
 
             {activeTab === "playbooks" && (
@@ -1942,11 +1992,9 @@ function PolicyCompliance() {
                   </select>
                   <select value={rolesFilter} onChange={e => setRolesFilter(e.target.value)} className="rounded-lg border bg-white px-2 py-1.5 text-xs">
                     <option value="">All Roles</option>
-                    <option value="All Staff">All Staff</option>
-                    <option value="Clinical Staff">Clinical Staff</option>
-                    <option value="Admin">Admin</option>
-                    <option value="IT Staff">IT Staff</option>
-                    <option value="Management">Management</option>
+                    {availableRoles.map(r => (
+                      <option key={r.key} value={r.key}>{r.label}</option>
+                    ))}
                   </select>
                   <button onClick={() => setShowTypeModal(true)} className="inline-flex items-center rounded-lg bg-gray-900 px-3 py-1.5 text-xs text-white">
                     <Plus className="h-4 w-4 mr-1" /> Create Type
@@ -2360,7 +2408,7 @@ function PolicyCompliance() {
       {ackModalOpen && <AckModal onClose={() => setAckModalOpen(false)} />}
       {viewerOpen && viewerUrl && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-5xl bg-white rounded-xl shadow-xl overflow-hidden">
+          <div className="w-full max-w-5xl bg-white rounded-xl shadow-xl overflow-hidden max-h-[90vh] flex flex-col">
             <div className="flex items-center justify-between px-4 py-3 border-b">
               <div className="flex items-center gap-3">
                 <div className="flex items-center gap-2">
@@ -2381,10 +2429,10 @@ function PolicyCompliance() {
             </div>
             {viewerError && (
               <div className="p-4 bg-red-50 border-b border-red-200">
-                <div className="text-red-700 text-sm">{viewerError}</div>
+                <div className="text-red-700 text-sm">{String(viewerError)}</div>
               </div>
             )}
-            <div className="h-[70vh] overflow-y-auto">
+            <div className="flex-1 min-h-0 overflow-y-auto p-0">
               <div ref={pdfContainerRef} className="p-4" />
             </div>
           </div>

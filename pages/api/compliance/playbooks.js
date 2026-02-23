@@ -114,7 +114,7 @@ export default async function handler(req, res) {
       resolutionTimeMinutes,
       escalationLevel,
       status,
-      documentUrl,
+      documentUrl: String(documentUrl || "").trim(),
       steps,
       expectedResolutionTime,
       escalationPath,
@@ -128,6 +128,7 @@ export default async function handler(req, res) {
     const { id } = req.query;
     if (!id) return res.status(400).json({ success: false, message: "Missing id" });
     const update = { ...req.body };
+    if (typeof update.documentUrl === "string") update.documentUrl = update.documentUrl.trim();
     const item = await Playbook.findOneAndUpdate({ _id: id, clinicId }, update, { new: true }).lean();
     if (!item) return res.status(404).json({ success: false, message: "Not found" });
     return res.status(200).json({ success: true, item });
