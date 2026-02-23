@@ -49,8 +49,8 @@ const PurchaseInvoicesPage: NextPageWithLayout = () => {
     branch: "",
     supplier: "",
     invoiceNo: "",
-    fromDate: "",
-    toDate: "",
+    fromDate: new Date().toISOString().split("T")[0],
+    toDate: new Date().toISOString().split("T")[0],
     status: "",
   });
 

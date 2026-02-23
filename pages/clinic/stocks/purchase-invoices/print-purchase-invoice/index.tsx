@@ -129,7 +129,7 @@ const PrintPurchaseInvoicePage = () => {
                 si: String(i + 1).padStart(2, "0"),
                 grnCode:
                   typeof g === "object" ? g?.grnNo || g?._id || "" : String(g),
-                description: getString(g?.description || "") || "",
+                description: getString(g?.description || g?.notes || "") || "",
                 total: String(grnTotal.toFixed(2)),
                 discount: String(grnDiscount.toFixed(2)),
                 net: String(grnNet.toFixed(2)),

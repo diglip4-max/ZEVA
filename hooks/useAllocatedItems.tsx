@@ -3,6 +3,7 @@ import axios from "axios";
 import { getAuthHeaders } from "@/lib/helper";
 
 export interface AllocatedItem {
+  _id: string;
   clinicId: string;
   item: {
     itemId: string;
@@ -35,6 +36,7 @@ export interface AllocatedItem {
     | "Expired"
     | "Cancelled"
     | "Deleted";
+  quantitiesByUom: { uom: string; quantity: number }[];
   expiryDate?: Date;
   allocatedBy: string;
   createdAt?: Date;
@@ -67,7 +69,7 @@ const useAllocatedItems = ({
       setLoading(true);
       const headers = getAuthHeaders();
       if (!headers || !headers.Authorization) return;
-      const res = await axios.get("/api/stocks/allocated-stock-items", {
+      const res = await axios.get("/api/stocks/allocated-stock-items/options", {
         headers,
         params: {
           user: userId,

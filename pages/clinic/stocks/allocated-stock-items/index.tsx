@@ -42,6 +42,7 @@ type AllocatedItem = {
   status: AllocStatus;
   batchNumber?: string;
   allocatedBy?: { name: string; role?: string };
+  quantitiesByUom?: { uom: string; quantity: number }[];
   createdAt: string;
   updatedAt: string;
 };
@@ -447,7 +448,10 @@ const AllocatedStockItemsPage: NextPageWithLayout = () => {
                     <div className="flex items-center text-sm">
                       <BeakerIcon className="w-4 h-4 text-gray-400 mr-2" />
                       <span className="text-gray-600">
-                        Qty: {item?.quantity}
+                        Qty:{" "}
+                        {item?.quantitiesByUom
+                          ?.map((uom) => `${uom.quantity} ${uom.uom}`)
+                          .join(", ")}
                       </span>
                     </div>
                     <div className="flex items-center text-sm">

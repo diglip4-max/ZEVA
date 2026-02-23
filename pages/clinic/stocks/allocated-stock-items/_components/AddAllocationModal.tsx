@@ -74,13 +74,11 @@ const AddAllocationModal: React.FC<AddAllocationModalProps> = ({
   >({});
 
   const headers = useMemo(() => getAuthHeaders() || {}, []);
-  const { state: agentsState } = useAgents({ role: "agent" });
   const { state: staffState } = useAgents({ role: "doctorStaff" });
   const userOptions = useMemo(() => {
-    const a = agentsState.agents || [];
     const s = staffState.agents || [];
-    return [...a, ...s];
-  }, [agentsState.agents, staffState.agents]);
+    return [...s];
+  }, [staffState.agents]);
 
   const filteredRecords = useMemo(() => {
     const term = recordSearch.trim().toLowerCase();
