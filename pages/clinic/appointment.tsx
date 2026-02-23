@@ -2185,19 +2185,36 @@ const DEFAULT_STATUS_COLORS: Record<string, { bg: string; text: string; border: 
   default: { bg: "#d1d5db", text: "#111827", border: "#6b7280" },       // gray-300 equivalent
 };
 
-// Get custom status colors from localStorage
+const getColorStorageKey = (): string => {
+  if (typeof window === "undefined") return "appointmentStatusColors:guest";
+  const keys = ["clinicToken", "doctorToken", "agentToken", "staffToken", "userToken", "adminToken"];
+  for (const key of keys) {
+    const token = window.localStorage.getItem(key) || window.sessionStorage.getItem(key);
+    if (token) {
+      try {
+        const payload = token.split(".")[1];
+        if (payload) {
+          const decoded = JSON.parse(atob(payload.replace(/-/g, "+").replace(/_/g, "/")));
+          const id = decoded?.userId || decoded?.id;
+          if (id) return `appointmentStatusColors:${id}`;
+        }
+      } catch {}
+    }
+  }
+  return "appointmentStatusColors:guest";
+};
+
 const getCustomStatusColors = (): Record<string, { bg: string; text: string; border: string }> => {
   if (typeof window !== 'undefined') {
-    const stored = localStorage.getItem('appointmentStatusColors');
+    const stored = localStorage.getItem(getColorStorageKey());
     return stored ? JSON.parse(stored) : {};
   }
   return {};
 };
 
-// Save custom status colors to localStorage
 const saveCustomStatusColors = (colors: Record<string, { bg: string; text: string; border: string }>) => {
   if (typeof window !== 'undefined') {
-    localStorage.setItem('appointmentStatusColors', JSON.stringify(colors));
+    localStorage.setItem(getColorStorageKey(), JSON.stringify(colors));
   }
 };
 

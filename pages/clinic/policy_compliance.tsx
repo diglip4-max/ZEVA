@@ -102,19 +102,19 @@ function StatCard({ title, value, subtitle, icon, theme }: { title: string; valu
   const t = THEMES[theme];
 
   return (
-    <div className={`flex items-center justify-between rounded-2xl border px-6 py-5 ${t.card}`}>
+    <div className={`flex items-center justify-between rounded-2xl border px-4 py-4 ${t.card}`}>
       <div>
-        <div className={`text-sm font-medium ${t.title}`}>
+        <div className={`text-xs font-medium ${t.title}`}>
           {title}
         </div>
-        <div className={`mt-1 text-3xl font-bold ${t.value}`}>
+        <div className={`mt-1 text-xl font-bold ${t.value}`}>
           {value}
         </div>
-        <div className={`mt-1 text-xs ${t.subtitle}`}>
+        <div className={`mt-1 text-[11px] ${t.subtitle}`}>
           {subtitle}
         </div>
       </div>
-      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/60">
+      <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/60">
         {icon}
       </div>
     </div>
@@ -1848,15 +1848,15 @@ function PolicyCompliance() {
         <title>Process & Compliance | ZEVA</title>
       </Head>
       <div className="min-h-screen bg-gray-50">
-        <div className="mx-auto max-w-7xl px-4 py-8">
-          <div className="rounded-2xl border bg-white p-6">
-            <div className="mt-1 text-2xl font-bold text-gray-900">Process & Compliance</div>
-            <div className="mt-1 text-sm text-gray-600">Manage SOPs, policies, playbooks, and track compliance across your organization</div>
-            <div className="mt-5 flex gap-3">
-              <button onClick={() => setActiveTab("sops")} className={`rounded-lg px-4 py-2 text-sm ${activeTab === "sops" ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-800"}`}>SOP Library</button>
-              <button onClick={() => setActiveTab("policies")} className={`rounded-lg px-4 py-2 text-sm ${activeTab === "policies" ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-800"}`}>Policy Center</button>
-              <button onClick={() => setActiveTab("playbooks")} className={`rounded-lg px-4 py-2 text-sm ${activeTab === "playbooks" ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-800"}`}>Process Playbooks</button>
-              <button onClick={() => setActiveTab("ack")} className={`rounded-lg px-4 py-2 text-sm ${activeTab === "ack" ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-800"}`}>Acknowledgment Tracker</button>
+        <div className="mx-auto max-w-7xl px-3 py-4">
+          <div className="rounded-2xl border bg-white p-4">
+            <div className="mt-1 text-lg font-bold text-gray-900">Process & Compliance</div>
+            <div className="mt-1 text-xs text-gray-600">Manage SOPs, policies, playbooks, and track compliance across your organization</div>
+            <div className="mt-4 flex flex-wrap gap-2 sm:gap-3">
+              <button onClick={() => setActiveTab("sops")} className={`rounded-lg px-3 py-1.5 text-xs ${activeTab === "sops" ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-800"}`}>SOP Library</button>
+              <button onClick={() => setActiveTab("policies")} className={`rounded-lg px-3 py-1.5 text-xs ${activeTab === "policies" ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-800"}`}>Policy Center</button>
+              <button onClick={() => setActiveTab("playbooks")} className={`rounded-lg px-3 py-1.5 text-xs ${activeTab === "playbooks" ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-800"}`}>Process Playbooks</button>
+              <button onClick={() => setActiveTab("ack")} className={`rounded-lg px-3 py-1.5 text-xs ${activeTab === "ack" ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-800"}`}>Acknowledgment Tracker</button>
             </div>
 
             {activeTab === "playbooks" && (
@@ -1886,61 +1886,61 @@ function PolicyCompliance() {
             )}
 
             {activeTab === "ack" && (
-              <div className="mt-6 grid gap-4 sm:grid-cols-4">
-                <div className="rounded-xl border bg-blue-50 p-5">
+              <div className="mt-6 grid gap-3 sm:grid-cols-4">
+                <div className="rounded-xl border bg-blue-50 p-4">
                   <div className="flex items-center justify-between">
-                    <div className="text-sm font-semibold text-blue-900">Pending</div>
-                    <ClipboardList className="h-5 w-5 text-blue-400" />
+                    <div className="text-xs font-semibold text-blue-900">Pending</div>
+                    <ClipboardList className="h-4 w-4 text-blue-400" />
                   </div>
-                  <div className="mt-3 text-2xl font-bold text-blue-900">{ackPending}</div>
-                  <div className="text-xs text-blue-700">Awaiting acknowledgment</div>
+                  <div className="mt-2 text-xl font-bold text-blue-900">{ackPending}</div>
+                  <div className="text-[11px] text-blue-700">Awaiting acknowledgment</div>
                 </div>
-                <div className="rounded-xl border bg-green-50 p-5">
+                <div className="rounded-xl border bg-green-50 p-4">
                   <div className="flex items-center justify-between">
-                    <div className="text-sm font-semibold text-green-900">Completed</div>
-                    <ShieldCheck className="h-5 w-5 text-green-400" />
+                    <div className="text-xs font-semibold text-green-900">Completed</div>
+                    <ShieldCheck className="h-4 w-4 text-green-400" />
                   </div>
-                  <div className="mt-3 text-2xl font-bold text-green-900">{ackCompleted}</div>
-                  <div className="text-xs text-green-700">Successfully acknowledged</div>
+                  <div className="mt-2 text-xl font-bold text-green-900">{ackCompleted}</div>
+                  <div className="text-[11px] text-green-700">Successfully acknowledged</div>
                 </div>
-                <div className="rounded-xl border bg-red-50 p-5">
+                <div className="rounded-xl border bg-red-50 p-4">
                   <div className="flex items-center justify-between">
-                    <div className="text-sm font-semibold text-red-900">Overdue</div>
-                    <ShieldCheck className="h-5 w-5 text-red-400" />
+                    <div className="text-xs font-semibold text-red-900">Overdue</div>
+                    <ShieldCheck className="h-4 w-4 text-red-400" />
                   </div>
-                  <div className="mt-3 text-2xl font-bold text-red-900">{ackOverdue}</div>
-                  <div className="text-xs text-red-700">Past due date</div>
+                  <div className="mt-2 text-xl font-bold text-red-900">{ackOverdue}</div>
+                  <div className="text-[11px] text-red-700">Past due date</div>
                 </div>
-                <div className="rounded-xl border bg-purple-50 p-5">
+                <div className="rounded-xl border bg-purple-50 p-4">
                   <div className="flex items-center justify-between">
-                    <div className="text-sm font-semibold text-purple-900">Compliance Rate</div>
-                    <FileText className="h-5 w-5 text-purple-400" />
+                    <div className="text-xs font-semibold text-purple-900">Compliance Rate</div>
+                    <FileText className="h-4 w-4 text-purple-400" />
                   </div>
-                  <div className="mt-3 text-2xl font-bold text-purple-900">{ackComplianceRate}%</div>
-                  <div className="text-xs text-purple-700">Overall completion</div>
+                  <div className="mt-2 text-xl font-bold text-purple-900">{ackComplianceRate}%</div>
+                  <div className="text-[11px] text-purple-700">Overall completion</div>
                 </div>
               </div>
             )}
 
-            <div className="mt-6 flex flex-wrap items-center gap-3">
-              <div className="flex flex-1 items-center rounded-lg border bg-white px-3 py-2">
-                <Search className="h-4 w-4 text-gray-400" />
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+              <div className="flex flex-1 items-center rounded-lg border bg-white px-2 py-1.5">
+                <Search className="h-3.5 w-3.5 text-gray-400" />
                 <input
                   value={search}
                   onChange={e => setSearch(e.target.value)}
                   placeholder={activeTab === "sops" ? "Search SOPs..." : activeTab === "policies" ? "Search policies..." : activeTab === "ack" ? "Search staff or documents..." : "Search scenarios..."}
-                  className="ml-2 w-full text-sm outline-none"
+                  className="ml-2 w-full text-xs outline-none"
                 />
               </div>
               {activeTab === "policies" ? (
                 <>
-                  <select value={policyTypeFilter} onChange={e => setPolicyTypeFilter(e.target.value)} className="rounded-lg border bg-white px-3 py-2 text-sm">
+                  <select value={policyTypeFilter} onChange={e => setPolicyTypeFilter(e.target.value)} className="rounded-lg border bg-white px-2 py-1.5 text-xs">
                     <option value="">All Types</option>
                     {(policyTypes.length ? policyTypes : ["Regulatory", "Privacy", "Organizational", "Safety", "HR"]).map(t => (
                       <option key={t} value={t}>{t}</option>
                     ))}
                   </select>
-                  <select value={rolesFilter} onChange={e => setRolesFilter(e.target.value)} className="rounded-lg border bg-white px-3 py-2 text-sm">
+                  <select value={rolesFilter} onChange={e => setRolesFilter(e.target.value)} className="rounded-lg border bg-white px-2 py-1.5 text-xs">
                     <option value="">All Roles</option>
                     <option value="All Staff">All Staff</option>
                     <option value="Clinical Staff">Clinical Staff</option>
@@ -1948,17 +1948,17 @@ function PolicyCompliance() {
                     <option value="IT Staff">IT Staff</option>
                     <option value="Management">Management</option>
                   </select>
-                  <button onClick={() => setShowTypeModal(true)} className="inline-flex items-center rounded-lg bg-gray-900 px-3 py-2 text-sm text-white">
+                  <button onClick={() => setShowTypeModal(true)} className="inline-flex items-center rounded-lg bg-gray-900 px-3 py-1.5 text-xs text-white">
                     <Plus className="h-4 w-4 mr-1" /> Create Type
                   </button>
                 </>
               ) : activeTab === "playbooks" ? (
                 <>
-                  <select value={departmentFilter} onChange={e => setDepartmentFilter(e.target.value)} className="rounded-lg border bg-white px-3 py-2 text-sm">
+                  <select value={departmentFilter} onChange={e => setDepartmentFilter(e.target.value)} className="rounded-lg border bg-white px-2 py-1.5 text-xs">
                     <option value="">All Departments</option>
                     {departments.map(d => (<option key={d._id} value={d.name}>{d.name}</option>))}
                   </select>
-                  <select value={riskFilter} onChange={e => setRiskFilter(e.target.value)} className="rounded-lg border bg-white px-3 py-2 text-sm">
+                  <select value={riskFilter} onChange={e => setRiskFilter(e.target.value)} className="rounded-lg border bg-white px-2 py-1.5 text-xs">
                     <option value="">All Risk Levels</option>
                     <option value="Low">Low</option>
                     <option value="Medium">Medium</option>
@@ -1968,14 +1968,14 @@ function PolicyCompliance() {
                 </>
               ) : activeTab === "ack" ? (
                 <>
-                  <select value={ackStatusFilter} onChange={e => setAckStatusFilter(e.target.value)} className="rounded-lg border bg-white px-3 py-2 text-sm">
+                  <select value={ackStatusFilter} onChange={e => setAckStatusFilter(e.target.value)} className="rounded-lg border bg-white px-2 py-1.5 text-xs">
                     <option value="">All Status</option>
                     <option value="Acknowledged">Acknowledged</option>
                     <option value="Pending">Pending</option>
                     <option value="Viewed">Viewed</option>
                     <option value="Overdue">Overdue</option>
                   </select>
-                  <select value={ackTypeFilter} onChange={e => setAckTypeFilter(e.target.value)} className="rounded-lg border bg-white px-3 py-2 text-sm">
+                  <select value={ackTypeFilter} onChange={e => setAckTypeFilter(e.target.value)} className="rounded-lg border bg-white px-2 py-1.5 text-xs">
                     <option value="">All Types</option>
                     <option value="SOP">SOP</option>
                     <option value="Policy">Policy</option>
@@ -1984,24 +1984,24 @@ function PolicyCompliance() {
                 </>
               ) : (
                 <>
-                  <select value={departmentFilter} onChange={e => setDepartmentFilter(e.target.value)} className="rounded-lg border bg-white px-3 py-2 text-sm">
+                  <select value={departmentFilter} onChange={e => setDepartmentFilter(e.target.value)} className="rounded-lg border bg-white px-2 py-1.5 text-xs">
                     <option value="">All Departments</option>
                     {departments.map(d => (<option key={d._id} value={d.name}>{d.name}</option>))}
                   </select>
-                  <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="rounded-lg border bg-white px-3 py-2 text-sm">
+                  <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="rounded-lg border bg-white px-2 py-1.5 text-xs">
                     <option value="">All Status</option>
                     <option value="Active">Active</option>
                     <option value="Under Review">Under Review</option>
                     <option value="Draft">Draft</option>
                   </select>
-                  <select value={riskFilter} onChange={e => setRiskFilter(e.target.value)} className="rounded-lg border bg-white px-3 py-2 text-sm">
+                  <select value={riskFilter} onChange={e => setRiskFilter(e.target.value)} className="rounded-lg border bg-white px-2 py-1.5 text-xs">
                     <option value="">All Risk Levels</option>
                     <option value="Low">Low</option>
                     <option value="Medium">Medium</option>
                     <option value="High">High</option>
                     <option value="Critical">Critical</option>
                   </select>
-                  <button onClick={() => setShowCategoryModal(true)} className="inline-flex items-center rounded-lg bg-gray-900 px-3 py-2 text-sm text-white">
+                  <button onClick={() => setShowCategoryModal(true)} className="inline-flex items-center rounded-lg bg-gray-900 px-3 py-1.5 text-xs text-white">
                     <Plus className="h-4 w-4 mr-1" /> Create Categories
                   </button>
                 </>
@@ -2011,7 +2011,7 @@ function PolicyCompliance() {
                   setEditingType(null);
                   setEditingItem(null);
                   setShowCreate(true);
-                }} className="inline-flex items-center gap-2 rounded-lg bg-gray-900 px-3 py-2 text-sm text-white">
+                }} className="inline-flex items-center gap-2 rounded-lg bg-gray-900 px-3 py-1.5 text-xs text-white">
                   <Plus className="h-4 w-4" /> {activeTab === "sops" ? "Add SOP" : activeTab === "policies" ? "Add Policy" : "Add Playbook"}
                 </button>
               ) : (
@@ -2023,38 +2023,38 @@ function PolicyCompliance() {
             </div>
 
             {activeTab === "sops" && (
-              <div className="mt-4 overflow-x-hidden">
-                <div className="mb-2 text-sm text-gray-600">{filteredSops.length} SOPs found</div>
-                <table className="w-full border-collapse">
+              <div className="mt-4 overflow-x-auto">
+                <div className="mb-2 text-xs text-gray-600">{filteredSops.length} SOPs found</div>
+                <table className="min-w-max w-full border-collapse">
                   <thead>
-                    <tr className="text-left text-sm text-gray-600">
-                      <th className="w-6 px-3 py-3"></th>
+                    <tr className="text-left text-xs text-gray-600">
+                      <th className="w-6 px-2 py-2"></th>
                       <th className="px-2 sm:px-3 py-3"><div className="flex items-center gap-1 whitespace-nowrap"><FileText className="h-4 w-4 text-gray-500" /><span>SOP Name</span></div></th>
-                      <th className="px-2 sm:px-3 py-3"><div className="flex items-center gap-1 whitespace-nowrap"><Building className="h-4 w-4 text-gray-500" /><span>Department</span></div></th>
-                      <th className="px-2 sm:px-3 py-3"><div className="flex items-center gap-1 whitespace-nowrap"><Users className="h-4 w-4 text-gray-500" /><span>Applicable Roles</span></div></th>
-                      <th className="px-2 sm:px-3 py-3"><div className="flex items-center gap-1 whitespace-nowrap"><Layers className="h-4 w-4 text-gray-500" /><span>Category</span></div></th>
-                      <th className="px-2 sm:px-3 py-3"><div className="flex items-center gap-1 whitespace-nowrap"><AlertTriangle className="h-4 w-4 text-gray-500" /><span>Risk Level</span></div></th>
-                      <th className="px-2 sm:px-3 py-3"><div className="flex items-center gap-1 whitespace-nowrap"><Tag className="h-4 w-4 text-gray-500" /><span>Version</span></div></th>
-                      <th className="px-2 sm:px-3 py-3"><div className="flex items-center gap-1 whitespace-nowrap"><CalendarDays className="h-4 w-4 text-gray-500" /><span>Last Updated</span></div></th>
+                      <th className="px-2 sm:px-3 py-3 hidden sm:table-cell"><div className="flex items-center gap-1 whitespace-nowrap"><Building className="h-4 w-4 text-gray-500" /><span>Department</span></div></th>
+                      <th className="px-2 sm:px-3 py-3 hidden md:table-cell"><div className="flex items-center gap-1 whitespace-nowrap"><Users className="h-4 w-4 text-gray-500" /><span>Applicable Roles</span></div></th>
+                      <th className="px-2 sm:px-3 py-3 hidden md:table-cell"><div className="flex items-center gap-1 whitespace-nowrap"><Layers className="h-4 w-4 text-gray-500" /><span>Category</span></div></th>
+                      <th className="px-2 sm:px-3 py-3 hidden md:table-cell"><div className="flex items-center gap-1 whitespace-nowrap"><AlertTriangle className="h-4 w-4 text-gray-500" /><span>Risk Level</span></div></th>
+                      <th className="px-2 sm:px-3 py-3 hidden lg:table-cell"><div className="flex items-center gap-1 whitespace-nowrap"><Tag className="h-4 w-4 text-gray-500" /><span>Version</span></div></th>
+                      <th className="px-2 sm:px-3 py-3 hidden lg:table-cell"><div className="flex items-center gap-1 whitespace-nowrap"><CalendarDays className="h-4 w-4 text-gray-500" /><span>Last Updated</span></div></th>
                       <th className="px-2 sm:px-3 py-3"><div className="flex items-center gap-1 whitespace-nowrap"><ShieldCheck className="h-4 w-4 text-gray-500" /><span>Status</span></div></th>
                       <th className="px-2 sm:px-3 py-3"><div className="flex items-center gap-1 whitespace-nowrap"><ClipboardList className="h-4 w-4 text-gray-500" /><span>Acknowledgment</span></div></th>
-                      <th className="px-3 py-3 w-10"></th>
+                      <th className="px-2 py-2 w-10"></th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredSops.map(i => (
-                      <tr key={i._id} className="border-t text-sm">
-                        <td className="px-3 py-3">
+                      <tr key={i._id} className="border-t text-xs">
+                        <td className="px-2 py-2">
                           {/* <input type="checkbox" className="h-4 w-4 rounded border" /> */}
                         </td>
-                        <td className="px-3 py-3 font-semibold text-gray-900">
+                        <td className="px-2 py-2 font-semibold text-gray-900">
                           <div className="flex items-center gap-2">
                             <div className="flex items-center justify-center rounded-full bg-gray-100 text-xs text-gray-700"></div>
                             <button className="text-left hover:underline" onClick={() => onSopTitleClick(i._id, i.name)}>{i.name}</button>
                           </div>
                         </td>
-                        <td className="px-3 py-3 text-gray-700">{i.department}</td>
-                        <td className="px-3 py-3">
+                        <td className="px-2 py-2 text-gray-700 hidden sm:table-cell">{i.department}</td>
+                        <td className="px-2 py-2 hidden md:table-cell">
                           <div className="flex flex-wrap gap-1">
                             {(i.applicableRoles || []).map((r, idx) => {
                               const ab = r.slice(0, 2).toUpperCase();
@@ -2062,33 +2062,33 @@ function PolicyCompliance() {
                             })}
                           </div>
                         </td>
-                        <td className="px-3 py-3 text-gray-700">{i.category}</td>
-                        <td className="px-3 py-3">
+                        <td className="px-2 py-2 text-gray-700 hidden md:table-cell">{i.category}</td>
+                        <td className="px-2 py-2 hidden md:table-cell">
                           <span className="rounded-md bg-yellow-100 px-2 py-1 text-xs">{i.riskLevel}</span>
                         </td>
-                        <td className="px-3 py-3 text-gray-700">{i.version}</td>
-                        <td className="px-3 py-3 text-gray-700">{new Date(i.lastUpdated).toLocaleDateString('en-GB')}</td>
-                        <td className="px-3 py-3">
+                        <td className="px-2 py-2 text-gray-700 hidden lg:table-cell">{i.version}</td>
+                        <td className="px-2 py-2 text-gray-700 hidden lg:table-cell">{new Date(i.lastUpdated).toLocaleDateString('en-GB')}</td>
+                        <td className="px-2 py-2">
                           <span className={`rounded-md px-2 py-1 text-xs ${i.status === "Active" ? "bg-green-100" : i.status === "Under Review" ? "bg-blue-100" : "bg-gray-100"}`}>{i.status}</span>
                         </td>
-                        <td className="px-3 py-3">
+                        <td className="px-2 py-2">
                           <div className="flex items-center gap-2">
                             <div className="text-xs text-gray-900 font-semibold">{Math.round(i.ackOverall || 0)}%</div>
-                            <div className="w-24 rounded bg-gray-200">
+                            <div className="w-20 rounded bg-gray-200">
                               <div className="h-2 rounded bg-gray-900" style={{ width: `${Math.min(Math.max(i.ackOverall || 0, 0), 100)}%` }} />
                             </div>
                             {Math.round(i.ackOverall || 0) === 100 && <CircleCheckBig className="h-4 w-4 text-green-600" />}
                           </div>
                         </td>
-                        <td className="px-3 py-3 text-right relative">
+                        <td className="px-2 py-2 text-right relative">
                           <button onClick={() => setRowMenuId(rowMenuId === i._id ? null : i._id)} className="inline-flex items-center rounded-md p-1 hover:bg-gray-100">
                             <MoreVertical className="h-4 w-4 text-gray-500" />
                           </button>
                           {rowMenuId === i._id && (
-                            <div className="absolute right-2 top-9 z-10 w-36 rounded-lg border bg-white shadow">
-                              <button className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50" onClick={() => handleRowView("sops", i._id, i.name)}>View</button>
-                              <button className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50" onClick={() => handleRowEdit("sops", i)}>Edit</button>
-                              <button className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-gray-50" onClick={() => handleRowDelete("sops", i._id)}>Delete</button>
+                            <div className="absolute right-2 top-9 z-10 w-32 rounded-lg border bg-white shadow">
+                              <button className="w-full px-2.5 py-1.5 text-left text-xs hover:bg-gray-50" onClick={() => handleRowView("sops", i._id, i.name)}>View</button>
+                              <button className="w-full px-2.5 py-1.5 text-left text-xs hover:bg-gray-50" onClick={() => handleRowEdit("sops", i)}>Edit</button>
+                              <button className="w-full px-2.5 py-1.5 text-left text-xs text-red-600 hover:bg-gray-50" onClick={() => handleRowDelete("sops", i._id)}>Delete</button>
                             </div>
                           )}
                         </td>
@@ -2100,66 +2100,66 @@ function PolicyCompliance() {
             )}
 
             {activeTab === "policies" && (
-              <div className="mt-4 overflow-x-hidden">
-                <div className="mb-2 text-sm text-gray-600">{filteredPolicies.length} policies found</div>
-                <table className="w-full border-collapse">
+              <div className="mt-4 overflow-x-auto">
+                <div className="mb-2 text-xs text-gray-600">{filteredPolicies.length} policies found</div>
+                <table className="min-w-max w-full border-collapse">
                   <thead>
-                    <tr className="text-left text-sm text-gray-600">
-                      <th className="w-6 px-3 py-3"></th>
+                    <tr className="text-left text-xs text-gray-600">
+                      <th className="w-6 px-2 py-2"></th>
                       <th className="px-2 sm:px-3 py-3"><div className="flex items-center gap-1 whitespace-nowrap"><FileText className="h-4 w-4 text-gray-500" /><span>Policy Name</span></div></th>
-                      <th className="px-2 sm:px-3 py-3"><div className="flex items-center gap-1 whitespace-nowrap"><Tag className="h-4 w-4 text-gray-500" /><span>Policy Type</span></div></th>
-                      <th className="px-2 sm:px-3 py-3"><div className="flex items-center gap-1 whitespace-nowrap"><Users className="h-4 w-4 text-gray-500" /><span>Applies To</span></div></th>
-                      <th className="px-2 sm:px-3 py-3"><div className="flex items-center gap-1 whitespace-nowrap"><ShieldCheck className="h-4 w-4 text-gray-500" /><span>Approval Required</span></div></th>
-                      <th className="px-2 sm:px-3 py-3"><div className="flex items-center gap-1 whitespace-nowrap"><Hash className="h-4 w-4 text-gray-500" /><span>Version</span></div></th>
-                      <th className="px-2 sm:px-3 py-3"><div className="flex items-center gap-1 whitespace-nowrap"><CalendarDays className="h-4 w-4 text-gray-500" /><span>Effective Date</span></div></th>
+                      <th className="px-2 sm:px-3 py-3 hidden sm:table-cell"><div className="flex items-center gap-1 whitespace-nowrap"><Tag className="h-4 w-4 text-gray-500" /><span>Policy Type</span></div></th>
+                      <th className="px-2 sm:px-3 py-3 hidden md:table-cell"><div className="flex items-center gap-1 whitespace-nowrap"><Users className="h-4 w-4 text-gray-500" /><span>Applies To</span></div></th>
+                      <th className="px-2 sm:px-3 py-3 hidden md:table-cell"><div className="flex items-center gap-1 whitespace-nowrap"><ShieldCheck className="h-4 w-4 text-gray-500" /><span>Approval Required</span></div></th>
+                      <th className="px-2 sm:px-3 py-3 hidden lg:table-cell"><div className="flex items-center gap-1 whitespace-nowrap"><Hash className="h-4 w-4 text-gray-500" /><span>Version</span></div></th>
+                      <th className="px-2 sm:px-3 py-3 hidden md:table-cell"><div className="flex items-center gap-1 whitespace-nowrap"><CalendarDays className="h-4 w-4 text-gray-500" /><span>Effective Date</span></div></th>
                       <th className="px-2 sm:px-3 py-3"><div className="flex items-center gap-1 whitespace-nowrap"><ShieldCheck className="h-4 w-4 text-gray-500" /><span>Status</span></div></th>
                       <th className="px-2 sm:px-3 py-3"><div className="flex items-center gap-1 whitespace-nowrap"><ClipboardList className="h-4 w-4 text-gray-500" /><span>Acknowledgment</span></div></th>
-                      <th className="px-3 py-3 w-10"></th>
+                      <th className="px-2 py-2 w-10"></th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredPolicies.map(i => (
-                      <tr key={i._id} className="border-t text-sm">
-                        <td className="px-3 py-3">
+                      <tr key={i._id} className="border-t text-xs">
+                        <td className="px-2 py-2">
                           {/* <input type="checkbox" className="h-4 w-4 rounded border" /> */}
                         </td>
-                        <td className="px-3 py-3 font-semibold text-gray-900">
+                        <td className="px-2 py-2 font-semibold text-gray-900">
                           <div className="flex items-center gap-2">
                             {i.name}
                           </div>
                         </td>
-                        <td className="px-3 py-3">
+                        <td className="px-2 py-2 hidden sm:table-cell">
                           <span className="rounded-md bg-gray-100 px-2 py-1 text-xs">{i.policyType}</span>
                         </td>
-                        <td className="px-3 py-3 text-gray-700">{i.appliesTo}</td>
-                        <td className="px-3 py-3">
+                        <td className="px-2 py-2 text-gray-700 hidden md:table-cell">{i.appliesTo}</td>
+                        <td className="px-2 py-2 hidden md:table-cell">
                           <span className={`rounded-md px-2 py-1 text-xs ${i.approvalRequired ? "bg-orange-100 text-orange-700" : "bg-gray-100 text-gray-700"}`}>
                             {i.approvalRequired ? "Required" : "Not Required"}
                           </span>
                         </td>
-                        <td className="px-3 py-3 text-gray-700">{i.version}</td>
-                        <td className="px-3 py-3 text-gray-700">{new Date(i.effectiveDate).toLocaleDateString()}</td>
-                        <td className="px-3 py-3">
+                        <td className="px-2 py-2 text-gray-700 hidden lg:table-cell">{i.version}</td>
+                        <td className="px-2 py-2 text-gray-700 hidden md:table-cell">{new Date(i.effectiveDate).toLocaleDateString()}</td>
+                        <td className="px-2 py-2">
                           <span className={`rounded-md px-2 py-1 text-xs ${i.status === "Active" ? "bg-green-100" : i.status === "Under Review" ? "bg-blue-100" : "bg-gray-100"}`}>{i.status}</span>
                         </td>
-                        <td className="px-3 py-3">
+                        <td className="px-2 py-2">
                           <div className="flex items-center gap-2">
                             <div className="text-xs text-gray-900 font-semibold">{Math.round((i as any).ackOverall || 0)}%</div>
-                            <div className="w-24 rounded bg-gray-200">
+                            <div className="w-20 rounded bg-gray-200">
                               <div className="h-2 rounded bg-gray-900" style={{ width: `${Math.min(Math.max((i as any).ackOverall || 0, 0), 100)}%` }} />
                             </div>
                             {Math.round((i as any).ackOverall || 0) === 100 && <CircleCheckBig className="h-4 w-4 text-green-600" />}
                           </div>
                         </td>
-                        <td className="px-3 py-3 text-right relative">
+                        <td className="px-2 py-2 text-right relative">
                           <button onClick={() => setRowMenuId(rowMenuId === i._id ? null : i._id)} className="inline-flex items-center rounded-md p-1 hover:bg-gray-100">
                             <MoreVertical className="h-4 w-4 text-gray-500" />
                           </button>
                           {rowMenuId === i._id && (
-                            <div className="absolute right-2 top-9 z-10 w-36 rounded-lg border bg-white shadow">
-                              <button className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50" onClick={() => handleRowView("policies", i._id, i.name)}>View</button>
-                              <button className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50" onClick={() => handleRowEdit("policies", i)}>Edit</button>
-                              <button className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-gray-50" onClick={() => handleRowDelete("policies", i._id)}>Delete</button>
+                            <div className="absolute right-2 top-9 z-10 w-32 rounded-lg border bg-white shadow">
+                              <button className="w-full px-2.5 py-1.5 text-left text-xs hover:bg-gray-50" onClick={() => handleRowView("policies", i._id, i.name)}>View</button>
+                              <button className="w-full px-2.5 py-1.5 text-left text-xs hover:bg-gray-50" onClick={() => handleRowEdit("policies", i)}>Edit</button>
+                              <button className="w-full px-2.5 py-1.5 text-left text-xs text-red-600 hover:bg-gray-50" onClick={() => handleRowDelete("policies", i._id)}>Delete</button>
                             </div>
                           )}
                         </td>
@@ -2171,44 +2171,44 @@ function PolicyCompliance() {
             )}
 
             {activeTab === "playbooks" && (
-              <div className="mt-4 overflow-x-hidden">
-                <table className="w-full border-collapse">
+              <div className="mt-4 overflow-x-auto">
+                <table className="min-w-max w-full border-collapse">
                   <thead>
-                    <tr className="text-left text-sm text-gray-600">
-                      <th className="w-6 px-3 py-3"></th>
+                    <tr className="text-left text-xs text-gray-600">
+                      <th className="w-6 px-2 py-2"></th>
                       <th className="px-2 sm:px-3 py-3"><div className="flex items-center gap-1 whitespace-nowrap"><FileText className="h-4 w-4 text-gray-500" /><span>Scenario Name</span></div></th>
-                      <th className="px-2 sm:px-3 py-3"><div className="flex items-center gap-1 whitespace-nowrap"><AlertTriangle className="h-4 w-4 text-gray-500" /><span>Trigger Condition</span></div></th>
+                      <th className="px-2 sm:px-3 py-3 hidden md:table-cell"><div className="flex items-center gap-1 whitespace-nowrap"><AlertTriangle className="h-4 w-4 text-gray-500" /><span>Trigger Condition</span></div></th>
                       <th className="px-2 sm:px-3 py-3"><div className="flex items-center gap-1 whitespace-nowrap"><Building className="h-4 w-4 text-gray-500" /><span>Department</span></div></th>
                       <th className="px-2 sm:px-3 py-3"><div className="flex items-center gap-1 whitespace-nowrap"><AlertTriangle className="h-4 w-4 text-gray-500" /><span>Risk Level</span></div></th>
-                      <th className="px-2 sm:px-3 py-3"><div className="flex items-center gap-1 whitespace-nowrap"><User className="h-4 w-4 text-gray-500" /><span>Owner</span></div></th>
-                      <th className="px-2 sm:px-3 py-3"><div className="flex items-center gap-1 whitespace-nowrap"><Clock className="h-4 w-4 text-gray-500" /><span>Resolution Time</span></div></th>
-                      <th className="px-2 sm:px-3 py-3"><div className="flex items-center gap-1 whitespace-nowrap"><TrendingUp className="h-4 w-4 text-gray-500" /><span>Escalation Level</span></div></th>
+                      <th className="px-2 sm:px-3 py-3 hidden md:table-cell"><div className="flex items-center gap-1 whitespace-nowrap"><User className="h-4 w-4 text-gray-500" /><span>Owner</span></div></th>
+                      <th className="px-2 sm:px-3 py-3 hidden md:table-cell"><div className="flex items-center gap-1 whitespace-nowrap"><Clock className="h-4 w-4 text-gray-500" /><span>Resolution Time</span></div></th>
+                      <th className="px-2 sm:px-3 py-3 hidden lg:table-cell"><div className="flex items-center gap-1 whitespace-nowrap"><TrendingUp className="h-4 w-4 text-gray-500" /><span>Escalation Level</span></div></th>
                       <th className="px-2 sm:px-3 py-3"><div className="flex items-center gap-1 whitespace-nowrap"><ShieldCheck className="h-4 w-4 text-gray-500" /><span>Status</span></div></th>
-                      <th className="px-3 py-3 w-10"></th>
+                      <th className="px-2 py-2 w-10"></th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredPlaybooks.map(i => (
-                      <tr key={i._id} className="border-t text-sm">
-                        <td className="px-3 py-3">
+                      <tr key={i._id} className="border-t text-xs">
+                        <td className="px-2 py-2">
                           {/* <input type="checkbox" className="h-4 w-4 rounded border" /> */}
                         </td>
-                        <td className="px-3 py-3 font-semibold text-gray-900">{i.scenarioName}</td>
-                        <td className="px-3 py-3 text-gray-700">
+                        <td className="px-2 py-2 font-semibold text-gray-900">{i.scenarioName}</td>
+                        <td className="px-2 py-2 text-gray-700 hidden md:table-cell">
                           <div className="flex items-center gap-2">
                             {/* <ClipboardList className="h-4 w-4 text-purple-500" /> */}
                             <span>{i.triggerCondition}</span>
                           </div>
                         </td>
-                        <td className="px-3 py-3 text-gray-700">{i.department}</td>
-                        <td className="px-3 py-3">
+                        <td className="px-2 py-2 text-gray-700">{i.department}</td>
+                        <td className="px-2 py-2">
                           <span className={`rounded-md px-2 py-1 text-xs ${i.riskLevel === "Critical" ? "bg-red-100 text-red-700" :
                             i.riskLevel === "High" ? "bg-orange-100 text-orange-700" :
                               i.riskLevel === "Medium" ? "bg-yellow-100 text-yellow-700" :
                                 "bg-green-100 text-green-700"
                             }`}>{i.riskLevel}</span>
                         </td>
-                        <td className="px-3 py-3 text-gray-700">
+                        <td className="px-2 py-2 text-gray-700 hidden md:table-cell">
                           <div className="flex items-center gap-2">
                             {/* <div className="flex h-6 w-6 items-center justify-center rounded-full bg-gray-100 text-xs text-gray-700">
                               {i.ownerName ? i.ownerName.charAt(0).toUpperCase() : "C"}
@@ -2216,22 +2216,22 @@ function PolicyCompliance() {
                             <span>{i.ownerName || "Clinic Admin"}</span>
                           </div>
                         </td>
-                        <td className="px-3 py-3 text-gray-700">{i.resolutionTimeMinutes ? `${i.resolutionTimeMinutes} mins` : "-"}</td>
-                        <td className="px-3 py-3">
+                        <td className="px-2 py-2 text-gray-700 hidden md:table-cell">{i.resolutionTimeMinutes ? `${i.resolutionTimeMinutes} mins` : "-"}</td>
+                        <td className="px-2 py-2 hidden lg:table-cell">
                           <span className="rounded-md bg-purple-100 px-2 py-1 text-xs text-purple-700">{i.escalationLevel || "-"}</span>
                         </td>
-                        <td className="px-3 py-3">
+                        <td className="px-2 py-2">
                           <span className={`rounded-md px-2 py-1 text-xs ${i.status === "Active" ? "bg-green-100" : i.status === "Under Review" ? "bg-blue-100" : "bg-gray-100"}`}>{i.status}</span>
                         </td>
-                        <td className="px-3 py-3 text-right relative">
+                        <td className="px-2 py-2 text-right relative">
                           <button onClick={() => setRowMenuId(rowMenuId === i._id ? null : i._id)} className="inline-flex items-center rounded-md p-1 hover:bg-gray-100">
                             <MoreVertical className="h-4 w-4 text-gray-500" />
                           </button>
                           {rowMenuId === i._id && (
-                            <div className="absolute right-2 top-9 z-10 w-36 rounded-lg border bg-white shadow">
-                              <button className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50" onClick={() => handleRowView("playbooks", i._id, i.scenarioName)}>View</button>
-                              <button className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50" onClick={() => handleRowEdit("playbooks", i)}>Edit</button>
-                              <button className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-gray-50" onClick={() => handleRowDelete("playbooks", i._id)}>Delete</button>
+                            <div className="absolute right-2 top-9 z-10 w-32 rounded-lg border bg-white shadow">
+                              <button className="w-full px-2.5 py-1.5 text-left text-xs hover:bg-gray-50" onClick={() => handleRowView("playbooks", i._id, i.scenarioName)}>View</button>
+                              <button className="w-full px-2.5 py-1.5 text-left text-xs hover:bg-gray-50" onClick={() => handleRowEdit("playbooks", i)}>Edit</button>
+                              <button className="w-full px-2.5 py-1.5 text-left text-xs text-red-600 hover:bg-gray-50" onClick={() => handleRowDelete("playbooks", i._id)}>Delete</button>
                             </div>
                           )}
                         </td>
@@ -2243,42 +2243,42 @@ function PolicyCompliance() {
             )}
 
             {activeTab === "ack" && (
-              <div className="mt-4 overflow-x-hidden">
-                <div className="mb-2 text-sm text-gray-600">{filteredAckItems.length} records found</div>
-                <table className="w-full border-collapse">
+              <div className="mt-4 overflow-x-auto">
+                <div className="mb-2 text-xs text-gray-600">{filteredAckItems.length} records found</div>
+                <table className="min-w-max w-full border-collapse">
                   <thead>
-                    <tr className="text-left text-sm text-gray-600">
-                      <th className="w-6 px-3 py-3"></th>
+                    <tr className="text-left text-xs text-gray-600">
+                      <th className="w-6 px-2 py-2"></th>
                       <th className="px-2 sm:px-3 py-3"><div className="flex items-center gap-1 whitespace-nowrap"><User className="h-4 w-4 text-gray-500" /><span>Staff Name</span></div></th>
                       <th className="px-2 sm:px-3 py-3"><div className="flex items-center gap-1 whitespace-nowrap"><Users className="h-4 w-4 text-gray-500" /><span>Role</span></div></th>
                       <th className="px-2 sm:px-3 py-3"><div className="flex items-center gap-1 whitespace-nowrap"><FileText className="h-4 w-4 text-gray-500" /><span>Document Name</span></div></th>
-                      <th className="px-2 sm:px-3 py-3"><div className="flex items-center gap-1 whitespace-nowrap"><Tag className="h-4 w-4 text-gray-500" /><span>Type</span></div></th>
-                      <th className="px-2 sm:px-3 py-3"><div className="flex items-center gap-1 whitespace-nowrap"><Hash className="h-4 w-4 text-gray-500" /><span>Version</span></div></th>
+                      <th className="px-2 sm:px-3 py-3 hidden md:table-cell"><div className="flex items-center gap-1 whitespace-nowrap"><Tag className="h-4 w-4 text-gray-500" /><span>Type</span></div></th>
+                      <th className="px-2 sm:px-3 py-3 hidden lg:table-cell"><div className="flex items-center gap-1 whitespace-nowrap"><Hash className="h-4 w-4 text-gray-500" /><span>Version</span></div></th>
                       <th className="px-2 sm:px-3 py-3"><div className="flex items-center gap-1 whitespace-nowrap"><ShieldCheck className="h-4 w-4 text-gray-500" /><span>Status</span></div></th>
-                      <th className="px-2 sm:px-3 py-3"><div className="flex items-center gap-1 whitespace-nowrap"><CalendarDays className="h-4 w-4 text-gray-500" /><span>Assigned Date</span></div></th>
-                      <th className="px-2 sm:px-3 py-3"><div className="flex items-center gap-1 whitespace-nowrap"><CalendarDays className="h-4 w-4 text-gray-500" /><span>Due Date</span></div></th>
-                      <th className="px-2 sm:px-3 py-3"><div className="flex items-center gap-1 whitespace-nowrap"><CalendarDays className="h-4 w-4 text-gray-500" /><span>Acknowledged On</span></div></th>
-                      <th className="px-3 py-3 w-10"></th>
+                      <th className="px-2 sm:px-3 py-3 hidden md:table-cell"><div className="flex items-center gap-1 whitespace-nowrap"><CalendarDays className="h-4 w-4 text-gray-500" /><span>Assigned Date</span></div></th>
+                      <th className="px-2 sm:px-3 py-3 hidden md:table-cell"><div className="flex items-center gap-1 whitespace-nowrap"><CalendarDays className="h-4 w-4 text-gray-500" /><span>Due Date</span></div></th>
+                      <th className="px-2 sm:px-3 py-3 hidden md:table-cell"><div className="flex items-center gap-1 whitespace-nowrap"><CalendarDays className="h-4 w-4 text-gray-500" /><span>Acknowledged On</span></div></th>
+                      <th className="px-2 py-2 w-10"></th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredAckItems.map(i => (
-                      <tr key={i._id} className="border-t text-sm">
-                        <td className="px-3 py-3">
+                      <tr key={i._id} className="border-t text-xs">
+                        <td className="px-2 py-2">
                           {/* <input type="checkbox" className="h-4 w-4 rounded border" /> */}
                         </td>
-                        <td className="px-3 py-3 font-semibold text-gray-900">
+                        <td className="px-2 py-2 font-semibold text-gray-900">
                           <div className="flex items-center gap-2">
                             {i.staffName}
                           </div>
                         </td>
-                        <td className="px-3 py-3 text-gray-700">{i.role}</td>
-                        <td className="px-3 py-3 text-gray-700">{i.documentName}</td>
-                        <td className="px-3 py-3">
+                        <td className="px-2 py-2 text-gray-700">{i.role}</td>
+                        <td className="px-2 py-2 text-gray-700">{i.documentName}</td>
+                        <td className="px-2 py-2 hidden md:table-cell">
                           <span className="rounded-md bg-gray-100 px-2 py-1 text-xs">{(i as any).documentType || i.type}</span>
                         </td>
-                        <td className="px-3 py-3 text-gray-700">{i.version}</td>
-                        <td className="px-3 py-3">
+                        <td className="px-2 py-2 text-gray-700 hidden lg:table-cell">{i.version}</td>
+                        <td className="px-2 py-2">
                           <span
                             className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs ${i.status === "Acknowledged"
                               ? "bg-green-100 text-green-700"
@@ -2304,28 +2304,28 @@ function PolicyCompliance() {
                             <span>{i.status}</span>
                           </span>
                         </td>
-                        <td className="px-3 py-3 text-gray-700">{i.assignedDate ? new Date(i.assignedDate).toLocaleDateString('en-GB') : "-"}</td>
-                        <td className="px-3 py-3 text-gray-700">{i.dueDate ? new Date(i.dueDate).toLocaleDateString('en-GB') : "-"}</td>
-                        <td className={`px-3 py-3 ${i.acknowledgedOn ? "text-green-700" : "text-gray-500"}`}>
+                        <td className="px-2 py-2 text-gray-700 hidden md:table-cell">{i.assignedDate ? new Date(i.assignedDate).toLocaleDateString('en-GB') : "-"}</td>
+                        <td className="px-2 py-2 text-gray-700 hidden md:table-cell">{i.dueDate ? new Date(i.dueDate).toLocaleDateString('en-GB') : "-"}</td>
+                        <td className={`px-2 py-2 hidden md:table-cell ${i.acknowledgedOn ? "text-green-700" : "text-gray-500"}`}>
                           <div className="flex items-center gap-2">
                             <span>{i.acknowledgedOn ? new Date(i.acknowledgedOn).toLocaleDateString('en-GB') : "-"}</span>
                           </div>
                         </td>
-                        <td className="px-3 py-3 text-right relative">
+                        <td className="px-2 py-2 text-right relative">
                           <button onClick={() => setRowMenuId(rowMenuId === i._id ? null : i._id)} className="inline-flex items-center rounded-md p-1 hover:bg-gray-100">
                             <MoreVertical className="h-4 w-4 text-gray-500" />
                           </button>
                           {rowMenuId === i._id && (
-                            <div className="absolute right-2 top-9 z-10 w-40 rounded-lg border bg-white shadow">
-                              <button className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50" onClick={() => {
+                            <div className="absolute right-2 top-9 z-10 w-36 rounded-lg border bg-white shadow">
+                              <button className="w-full px-2.5 py-1.5 text-left text-xs hover:bg-gray-50" onClick={() => {
                                 const t = (i as any).documentType === "SOP" ? "sops" : (i as any).documentType === "Policy" ? "policies" : "playbooks";
                                 handleRowView(t as TabKey, (i as any).documentId || i._id, i.documentName);
                               }}>View</button>
-                              <button className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50" onClick={() => {
+                              <button className="w-full px-2.5 py-1.5 text-left text-xs hover:bg-gray-50" onClick={() => {
                                 const t = (i as any).documentType === "SOP" ? "sops" : (i as any).documentType === "Policy" ? "policies" : "playbooks";
                                 handleRowEdit(t as TabKey, i);
                               }}>Edit</button>
-                              <button className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50" onClick={() => {
+                              <button className="w-full px-2.5 py-1.5 text-left text-xs hover:bg-gray-50" onClick={() => {
                                 fetch(`/api/compliance/acknowledgments`, {
                                   method: "POST",
                                   headers: headersWithJson(),

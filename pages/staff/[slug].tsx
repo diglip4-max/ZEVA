@@ -188,9 +188,10 @@ const routeMap: { [key: string]: () => Promise<any> } = {
   'clinic-inbox': () => import('../clinic/inbox'),
 'clinic-all-templates': () => import('../clinic/all-templates'),
 'clinic-providers': () => import('../clinic/providers'),
-  'clinic-referal': () => import('../clinic/referal'),
-  
-  'clinic-commission': () => import('../clinic/commission'),
+'clinic-referal': () => import('../clinic/referal'),
+'clinic-commission': () => import('../clinic/commission'),
+'clinic-policy_compliance': () => import('../clinic/policy_compliance'),
+
  
  
   // stocks routes

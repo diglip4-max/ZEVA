@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
+import NotificationBell from './NotificationBell';
 
 interface ClinicHeaderProps {
   handleToggleMobile: () => void;
@@ -214,6 +215,9 @@ const ClinicHeader: React.FC<ClinicHeaderProps> = ({
                 </div>
               </div>
             )}
+          </div>
+          <div className="hidden sm:block">
+            <NotificationBell />
           </div>
           <div className="hidden md:block text-right">
             <div className="text-xs sm:text-sm font-medium text-gray-900 truncate max-w-[120px] sm:max-w-none">
