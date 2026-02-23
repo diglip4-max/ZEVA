@@ -132,7 +132,7 @@ class MultiCloudinaryService {
       publicId,
       tags = [],
       transformation,
-      resourceType = 'image',
+      resourceType = 'auto',
     } = options;
     
     try {
@@ -140,11 +140,15 @@ class MultiCloudinaryService {
       
       const uploadOptions: any = {
         folder,
-        upload_preset: account.uploadPreset,
         resource_type: resourceType,
         timeout: 30000,
         context: `account=${accountType}|cloud=${account.config.cloud_name}|timestamp=${Date.now()}`,
       };
+      
+      // Only include upload_preset if explicitly configured
+      if (account.uploadPreset) {
+        uploadOptions.upload_preset = account.uploadPreset;
+      }
       
       if (publicId) {
         uploadOptions.public_id = publicId;
