@@ -157,7 +157,7 @@ export default async function handler(req, res) {
       riskLevel,
       version,
       status,
-      documentUrl,
+      documentUrl: String(documentUrl || "").trim(),
       lastUpdated: new Date(),
       content,
       checklist,
@@ -221,6 +221,7 @@ export default async function handler(req, res) {
     const { id } = req.query;
     if (!id) return res.status(400).json({ success: false, message: "Missing id" });
     const update = { ...req.body, lastUpdated: new Date() };
+    if (typeof update.documentUrl === "string") update.documentUrl = update.documentUrl.trim();
     const updated = await SOP.findOneAndUpdate({ _id: id, clinicId }, update, { new: true });
     if (!updated) return res.status(404).json({ success: false, message: "Not found" });
     
