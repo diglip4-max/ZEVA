@@ -66,21 +66,9 @@ function cleanBuild() {
     
     // Try to remove the entire .next directory
     try {
-      // Use a more aggressive approach for Windows
-      const { execSync } = require('child_process');
-      
-      // Try using PowerShell to remove the directory (more reliable on Windows)
-      try {
-        execSync(`powershell -Command "if (Test-Path '${nextDir}') { Remove-Item -Path '${nextDir}' -Recurse -Force -ErrorAction SilentlyContinue }"`, {
-          stdio: 'ignore',
-          timeout: 30000
-        });
-        console.log('✓ Cleaned .next directory using PowerShell\n');
-      } catch (psError) {
-        // Fallback to Node.js fs methods
-        console.log('⚠ PowerShell cleanup failed, using Node.js methods...');
-        safeRemove(nextDir);
-      }
+      // Prefer Node.js fs methods to avoid spawn issues on Windows
+      safeRemove(nextDir);
+      console.log('✓ Cleaned .next directory using Node.js\n');
     } catch (error) {
       console.warn(`⚠ Could not fully clean .next directory: ${error.message}`);
       console.log('⚠ You may need to manually delete the .next folder and try again.\n');
