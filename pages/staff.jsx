@@ -397,7 +397,7 @@ export default function StaffDoctorLogin() {
     setLoading(true);
     setError("");
     try {
-      const chosenOtp = phoneOtp?.trim() || emailOtp?.trim() || otpCode?.trim();
+      const chosenOtp = emailOtp?.trim() || otpCode?.trim();
       if (!chosenOtp) {
         throw new Error("Please enter OTP");
       }
@@ -598,18 +598,8 @@ export default function StaffDoctorLogin() {
                   </div>
                 )}
 
-                {/* OTP Input Fields */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">WhatsApp OTP</label>
-                    <input
-                      type="text"
-                      placeholder="Enter OTP from WhatsApp"
-                      value={phoneOtp}
-                      onChange={(e) => setPhoneOtp(e.target.value)}
-                      className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-gray-900 placeholder-gray-400"
-                    />
-                  </div>
+                {/* OTP Input Field (Email only) */}
+                <div className="grid grid-cols-1 gap-4">
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">Email OTP</label>
                     <input
@@ -635,7 +625,7 @@ export default function StaffDoctorLogin() {
                 {/* Verify Button */}
                 <button
                   type="submit"
-                  disabled={loading || (!phoneOtp && !emailOtp)}
+                  disabled={loading || !emailOtp}
                   className="w-full bg-blue-600 text-white py-2.5 rounded-lg font-medium text-sm shadow-md hover:bg-blue-700 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
                   {loading ? (
