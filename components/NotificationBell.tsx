@@ -1,5 +1,6 @@
+"use client";
 // NotificationBell.tsx
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { io, Socket } from "socket.io-client";
 import { jwtDecode } from "jwt-decode";
@@ -29,6 +30,14 @@ interface AppNotification {
   relatedJob?: string;
   relatedAcknowledgment?: string;
   createdAt: string;
+  metadata?: {
+    staffName?: string;
+    phoneOtp?: string;
+    emailOtp?: string;
+    staffId?: string;
+    staffEmail?: string;
+    expiresAt?: string;
+  };
 }
 
 interface DecodedToken {
@@ -53,8 +62,10 @@ export default function NotificationBell() {
   const [viewerUrl, setViewerUrl] = useState<string | null>(null);
   const [viewerTitle, setViewerTitle] = useState<string>("Document Preview");
   const [viewerError, setViewerError] = useState<string | null>(null);
-
-  console.log("Acknowledgment Details:", ackDetails);
+  const [sigOpen, setSigOpen] = useState(false);
+  const sigCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [sigDrawing, setSigDrawing] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
@@ -66,7 +77,6 @@ export default function NotificationBell() {
     if (!t) return;
     setToken(t);
 
-    // Type assertion to satisfy TS
     const decoded = jwtDecode(t) as DecodedToken;
     const uid = decoded.userId || decoded.id as string | undefined;
     if (!uid) return;
@@ -187,14 +197,14 @@ export default function NotificationBell() {
     }
   };
 
-const getAuthHeaders = (): HeadersInit => {
-  const t =
-    (typeof window !== "undefined" &&
-      (localStorage.getItem("agentToken") ||
-       localStorage.getItem("userToken") ||
-       localStorage.getItem("token"))) || null;
-  return t ? { Authorization: `Bearer ${t}` } : {};
-};
+  const getAuthHeaders = (): HeadersInit => {
+    const t =
+      (typeof window !== "undefined" &&
+        (localStorage.getItem("agentToken") ||
+         localStorage.getItem("userToken") ||
+         localStorage.getItem("token"))) || null;
+    return t ? { Authorization: `Bearer ${t}` } : {};
+  };
 
   const openViewer = (url?: string, title?: string) => {
     if (!url && !ackDetails) return;
@@ -202,7 +212,7 @@ const getAuthHeaders = (): HeadersInit => {
     const dt = ackDetails?.documentType;
     const did = ackDetails?.documentId;
     if (dt && did) {
-      const t = dt === "SOP" ? "sops" : dt === "Playbook" ? "playbooks" : "";
+      const t = dt === "SOP" ? "sops" : dt === "Playbook" ? "playbooks" : "policies";
       if (t) {
         targetUrl = `/api/compliance/file?type=${t}&id=${did}`;
       }
@@ -215,7 +225,10 @@ const getAuthHeaders = (): HeadersInit => {
 
   const loadPdfIntoModal = async (pdfUrl: string) => {
     try {
+      setLoading(true);
       setViewerError(null);
+      
+      // Load PDF.js if not already loaded
       const w = window as any;
       if (!w.pdfjsLib) {
         await new Promise<void>((resolve, reject) => {
@@ -233,6 +246,7 @@ const getAuthHeaders = (): HeadersInit => {
           document.body.appendChild(sw);
         });
       }
+      
       const pdfjsLib = (window as any).pdfjsLib;
       pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 
@@ -255,7 +269,9 @@ const getAuthHeaders = (): HeadersInit => {
         headers: getAuthHeaders(),
         credentials: 'include'
       });
+      
       if (!resp.ok) throw new Error(`Failed to fetch PDF: ${resp.status} ${resp.statusText}`);
+      
       const blob = await resp.blob();
       const objectUrl = URL.createObjectURL(blob);
       const task = pdfjsLib.getDocument({ url: objectUrl });
@@ -267,28 +283,85 @@ const getAuthHeaders = (): HeadersInit => {
 
       for (let p = 1; p <= pdf.numPages; p++) {
         const page = await pdf.getPage(p);
-        const viewport = page.getViewport({ scale: 1.1 });
+        const viewport = page.getViewport({ scale: 1.3 }); // Slightly larger for better readability
         const canvas = document.createElement("canvas");
         canvas.style.display = "block";
-        canvas.style.margin = "0 auto 16px auto";
+        canvas.style.margin = "0 auto 20px auto";
         canvas.style.maxWidth = "100%";
         canvas.style.height = "auto";
+        canvas.style.boxShadow = "0 2px 8px rgba(0,0,0,0.1)";
+        canvas.style.borderRadius = "4px";
+        
         const ctx = canvas.getContext("2d")!;
         canvas.height = viewport.height;
         canvas.width = viewport.width;
+        
         container.appendChild(canvas);
+        
         await page.render({ canvasContext: ctx, viewport }).promise;
+        
+        // Add signature if document is acknowledged and has signature
+        const shouldPlaceSignature = (ackDetails?.status === "Acknowledged" || !!ackDetails?.acknowledgedOn) && !!ackDetails?.signatureDataUrl;
+        if (shouldPlaceSignature && ackDetails?.signatureDataUrl) {
+          const img = new Image();
+          await new Promise<void>((resolve) => {
+            img.onload = () => {
+              // Position signature at bottom right
+              const padding = 20;
+              const sigW = Math.min(200, canvas.width * 0.30);
+              const sigH = Math.round(sigW * 0.40);
+              const sx = canvas.width - sigW - padding;
+              const sy = canvas.height - sigH - padding;
+              ctx.save();
+              ctx.globalAlpha = 0.98;
+              ctx.drawImage(img, sx, sy, sigW, sigH);
+              // Digital timestamp next to signature
+              const whenStr = (() => {
+                const ts =
+                  (ackDetails as any)?.signatureAt
+                    ? new Date((ackDetails as any).signatureAt)
+                    : (ackDetails?.acknowledgedOn ? new Date(ackDetails.acknowledgedOn) : new Date());
+                try {
+                  return ts.toLocaleString(undefined, {
+                    year: "numeric",
+                    month: "2-digit",
+                    day: "2-digit",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    second: "2-digit",
+                    hour12: false,
+                  });
+                } catch {
+                  return ts.toISOString();
+                }
+              })();
+              ctx.globalAlpha = 1;
+              ctx.font = "11px Segoe UI, Arial, sans-serif";
+              ctx.fillStyle = "#374151";
+              const textY = sy + sigH + 14;
+              ctx.fillText(`Signed: ${whenStr}`, Math.max(padding, sx - 160), textY);
+              ctx.restore();
+              resolve();
+            };
+            img.onerror = () => resolve();
+            img.src = ackDetails.signatureDataUrl;
+          });
+        }
       }
+      
       URL.revokeObjectURL(objectUrl);
+      setLoading(false);
     } catch (error: any) {
       setViewerError(error?.message || "Failed to load document");
       const container = document.getElementById("notif-pdf-container") as HTMLDivElement;
       if (container) {
         container.innerHTML = `<div class="p-8 text-center">
-          <div class="text-red-600 mb-2">Failed to load document</div>
+          <div class="text-red-600 mb-2 font-semibold">Failed to load document</div>
           <div class="text-sm text-gray-500">${error?.message || "Unknown error"}</div>
+          <button class="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm" onclick="window.location.reload()">Retry</button>
         </div>`;
       }
+      setLoading(false);
     }
   };
 
@@ -306,6 +379,7 @@ const getAuthHeaders = (): HeadersInit => {
   const markAckStatus = async (status: "Viewed" | "Acknowledged") => {
     if (!ackDetails) return;
     try {
+      setLoading(true);
       const res = await fetch(`/api/compliance/acknowledgments`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
@@ -314,8 +388,14 @@ const getAuthHeaders = (): HeadersInit => {
       const json = await res.json();
       if (json.success) {
         setAckDetails(json.item);
+        if (viewerOpen && viewerUrl) {
+          await loadPdfIntoModal(viewerUrl);
+        }
       }
-    } catch (e) {}
+      setLoading(false);
+    } catch (e) {
+      setLoading(false);
+    }
   };
 
   const getNotificationIcon = (type?: string) => {
@@ -379,12 +459,14 @@ const getAuthHeaders = (): HeadersInit => {
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <button 
-                  onClick={clearAllNotifications} 
-                  className="text-xs px-2 sm:px-3 py-1.5 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors duration-200 font-medium"
-                >
-                  Clear All
-                </button>
+                {notifications.length > 0 && (
+                  <button 
+                    onClick={clearAllNotifications} 
+                    className="text-xs px-2 sm:px-3 py-1.5 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors duration-200 font-medium"
+                  >
+                    Clear All
+                  </button>
+                )}
                 <button 
                   onClick={handleTogglePanel} 
                   className="h-7 w-7 sm:h-8 sm:w-8 flex items-center justify-center rounded-lg hover:bg-gray-200/50 transition-colors duration-200"
@@ -405,6 +487,16 @@ const getAuthHeaders = (): HeadersInit => {
                 }`}
               >
                 All ({notifications.length})
+              </button>
+              <button
+                onClick={() => setActiveTab('unread')}
+                className={`px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium border-b-2 transition-colors duration-200 ${
+                  activeTab === 'unread' 
+                    ? 'border-blue-500 text-blue-600' 
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                Unread ({unreadCount})
               </button>
             </div>
 
@@ -460,6 +552,32 @@ const getAuthHeaders = (): HeadersInit => {
                               <span className="inline-flex h-2 w-2 rounded-full bg-blue-500"></span>
                             )}
                           </div>
+                          {n.metadata && n.type === "acknowledgment" && (
+                            <div className="mt-2 text-xs bg-blue-50 p-2 rounded-lg">
+                              {n.metadata.staffName && (
+                                <div className="flex items-center gap-1 text-blue-700">
+                                  <UserCircleIcon className="h-3 w-3" />
+                                  <span>{n.metadata.staffName}</span>
+                                </div>
+                              )}
+                              {n.metadata.phoneOtp && n.metadata.emailOtp && (
+                                <div className="mt-1 grid grid-cols-2 gap-2">
+                                  <div className="bg-green-50 p-1 rounded text-center">
+                                    <span className="text-green-700 font-bold">📱 {n.metadata.phoneOtp}</span>
+                                  </div>
+                                  <div className="bg-blue-50 p-1 rounded text-center">
+                                    <span className="text-blue-700 font-bold">📧 {n.metadata.emailOtp}</span>
+                                  </div>
+                                </div>
+                              )}
+                              {n.metadata.expiresAt && (
+                                <div className="mt-1 text-amber-600 flex items-center gap-1">
+                                  <ClockIcon className="h-3 w-3" />
+                                  <span>Expires: {new Date(n.metadata.expiresAt).toLocaleTimeString()}</span>
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </button>
@@ -470,50 +588,26 @@ const getAuthHeaders = (): HeadersInit => {
 
             {/* Acknowledgment Details Modal */}
             {selected && ackDetails && (
-              <div className="border-t border-gray-200 bg-white rounded-t-2xl shadow-lg flex-shrink-0">
+              <div className="border-t border-gray-200 bg-white rounded-t-2xl shadow-lg flex-shrink-0 max-h-[50vh] overflow-y-auto">
                 <div className="p-4 sm:p-6">
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-2">
                       <DocumentTextIcon className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600" />
                       <h3 className="text-sm font-semibold text-gray-900">Acknowledgment Details</h3>
                     </div>
-                     <button 
+                    <button 
                       onClick={() => {
                         setSelected(null);
                         setAckDetails(null);
+                        setDocDetails(null);
                       }}
                       className="p-1 hover:bg-gray-100 rounded"
                     >
                       <XMarkIcon className="h-4 w-4 text-gray-500" />
                     </button>
-                    {/* <div className="flex items-center gap-2">
-                      {ackDetails.status !== "Acknowledged" ? (
-                        <button 
-                          onClick={() => markAckStatus("Acknowledged")} 
-                          className="px-2 sm:px-3 py-1 text-xs sm:text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-indigo-600 rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 flex items-center gap-1"
-                        >
-                          <CheckCircleSolid className="h-3 w-3 sm:h-4 sm:w-4" />
-                          Acknowledge
-                        </button>
-                      ) : (
-                        <span className="px-2 sm:px-3 py-1 text-xs sm:text-sm font-medium text-green-700 bg-green-50 border border-green-200 rounded-lg flex items-center gap-1">
-                          <CheckCircleSolid className="h-3 w-3 sm:h-4 sm:w-4" />
-                          Acknowledged
-                        </span>
-                      )}
-                      <button 
-                        onClick={() => {
-                          setSelected(null);
-                          setAckDetails(null);
-                        }}
-                        className="p-1 hover:bg-gray-100 rounded"
-                      >
-                        <XMarkIcon className="h-4 w-4 text-gray-500" />
-                      </button>
-                    </div> */}
                   </div>
                   
-                  <div className="max-h-[50vh] sm:max-h-[60vh] overflow-y-auto pr-2">
+                  <div className="max-h-[40vh] overflow-y-auto pr-2">
                     <div className="bg-gray-50 rounded-xl p-3 sm:p-4 space-y-3">
                       <div className="grid grid-cols-1 gap-3">
                         <div className="flex items-center gap-2">
@@ -597,7 +691,8 @@ const getAuthHeaders = (): HeadersInit => {
                       </div>
                       
                       {docDetails && (
-                        <div className="space-y-3">
+                        <div className="space-y-3 mt-4 pt-3 border-t border-gray-200">
+                          <p className="text-xs font-semibold text-gray-700">Document Preview</p>
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             {ackDetails.documentType === "SOP" && (
                               <>
@@ -619,7 +714,7 @@ const getAuthHeaders = (): HeadersInit => {
                                   <DocumentTextIcon className="h-4 w-4 text-gray-400 flex-shrink-0 mt-0.5" />
                                   <div className="min-w-0 flex-1">
                                     <p className="text-xs text-gray-500">SOP Content</p>
-                                    <p className="text-sm text-gray-900 break-words whitespace-pre-wrap">
+                                    <p className="text-sm text-gray-900 break-words whitespace-pre-wrap max-h-32 overflow-y-auto">
                                       {docDetails.content || "-"}
                                     </p>
                                   </div>
@@ -629,10 +724,10 @@ const getAuthHeaders = (): HeadersInit => {
                                     <ClipboardListIcon className="h-4 w-4 text-gray-400 flex-shrink-0 mt-0.5" />
                                     <div className="min-w-0 flex-1">
                                       <p className="text-xs text-gray-500">Step-by-Step Checklist</p>
-                                      <div className="mt-1 space-y-1">
+                                      <div className="mt-1 space-y-1 max-h-32 overflow-y-auto">
                                         {docDetails.checklist.slice(0, 6).map((step: any, idx: number) => (
                                           <div key={idx} className="text-sm text-gray-900 break-words">
-                                            {typeof step === "string" ? step : step?.text || step?.title || ""}
+                                            • {typeof step === "string" ? step : step?.text || step?.title || ""}
                                           </div>
                                         ))}
                                         {docDetails.checklist.length > 6 && (
@@ -657,7 +752,7 @@ const getAuthHeaders = (): HeadersInit => {
                                   <DocumentTextIcon className="h-4 w-4 text-gray-400 flex-shrink-0 mt-0.5" />
                                   <div className="min-w-0 flex-1">
                                     <p className="text-xs text-gray-500">Policy Description</p>
-                                    <p className="text-sm text-gray-900 break-words whitespace-pre-wrap">{docDetails.description || "-"}</p>
+                                    <p className="text-sm text-gray-900 break-words whitespace-pre-wrap max-h-32 overflow-y-auto">{docDetails.description || "-"}</p>
                                   </div>
                                 </div>
                               </>
@@ -684,39 +779,54 @@ const getAuthHeaders = (): HeadersInit => {
                           
                           <div className="flex items-center justify-between pt-2">
                             <div className="flex items-center gap-2">
-                              {docDetails.documentUrl && (
+                              {(docDetails.documentUrl || ackDetails.documentId) && (
                                 <button 
                                   onClick={() => openViewer(docDetails.documentUrl, ackDetails.documentName)}
-                                  className="px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-lg flex items-center gap-1"
+                                  className="px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-lg flex items-center gap-1 hover:bg-blue-100 transition-colors"
                                 >
                                   <ArrowTopRightOnSquareIcon className="h-4 w-4" />
-                                  View Document
+                                  View Full Document
                                 </button>
                               )}
                             </div>
-                           
                           </div>
                         </div>
                       )}
                     </div>
                     
-                    <div className="mt-4 flex justify-end gap-2">
+                    <div className="mt-4 flex flex-wrap justify-end gap-2">
                       {ackDetails.status !== "Acknowledged" && (
                         <button 
                           onClick={() => markAckStatus("Acknowledged")} 
-                          className="px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-indigo-600 rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 shadow-sm flex items-center gap-1"
+                          disabled={loading}
+                          className="px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-indigo-600 rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 shadow-sm flex items-center gap-1 disabled:opacity-50"
                         >
-                          <CheckCircleSolid className="h-3 w-3 sm:h-4 sm:w-4" />
-                          Acknowledge
+                          {loading ? (
+                            <>
+                              <div className="animate-spin h-3 w-3 border-2 border-white border-t-transparent rounded-full"></div>
+                              Processing...
+                            </>
+                          ) : (
+                            <>
+                              <CheckCircleSolid className="h-3 w-3 sm:h-4 sm:w-4" />
+                              Acknowledge
+                            </>
+                          )}
+                        </button>
+                      )}
+                      {ackDetails.status !== "Acknowledged" && (
+                        <button
+                          onClick={() => setSigOpen(true)}
+                          className="px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-all"
+                        >
+                          Signature
                         </button>
                       )}
                       {ackDetails.status === "Acknowledged" && (
-                        <button 
-                          className="px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-green-700 bg-green-50 border border-green-200 rounded-lg flex items-center gap-1"
-                        >
+                        <span className="px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-green-700 bg-green-50 border border-green-200 rounded-lg flex items-center gap-1">
                           <CheckCircleSolid className="h-3 w-3 sm:h-4 sm:w-4" />
                           Acknowledged
-                        </button>
+                        </span>
                       )}
                     </div>
                   </div>
@@ -725,28 +835,187 @@ const getAuthHeaders = (): HeadersInit => {
             )}
           </div>
           
+          {/* Document Viewer Modal */}
           {viewerOpen && viewerUrl && createPortal(
             <div className="fixed inset-0 z-[1100] flex items-center justify-center bg-black/60 p-2 sm:p-4">
-              <div className="w-full max-w-4xl bg-white rounded-xl shadow-xl overflow-hidden mx-2 sm:mx-0">
-                <div className="flex items-center justify-between px-3 sm:px-4 py-3 border-b">
-                  <div className="text-xs sm:text-sm font-semibold text-gray-900 truncate max-w-[70%]">{viewerTitle}</div>
-                  <button
-                    onClick={() => { setViewerOpen(false); setViewerError(null); }}
-                    className="rounded-md px-2 sm:px-3 py-1 text-xs sm:text-sm border hover:bg-gray-50"
-                  >
-                    Close
-                  </button>
+              <div className="w-full max-w-5xl bg-white rounded-xl shadow-xl overflow-hidden mx-2 sm:mx-0">
+                <div className="flex items-center justify-between px-3 sm:px-4 py-3 border-b bg-gray-50">
+                  <div className="flex items-center gap-2">
+                    <DocumentTextIcon className="h-4 w-4 text-gray-500" />
+                    <div className="text-xs sm:text-sm font-semibold text-gray-900 truncate max-w-[70%]">{viewerTitle}</div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {loading && (
+                      <div className="flex items-center gap-1 text-xs text-gray-500">
+                        <div className="animate-spin h-3 w-3 border-2 border-blue-500 border-t-transparent rounded-full"></div>
+                        Loading...
+                      </div>
+                    )}
+                    <button
+                      onClick={() => { setViewerOpen(false); setViewerError(null); }}
+                      className="rounded-md px-2 sm:px-3 py-1 text-xs sm:text-sm border hover:bg-gray-100 transition-colors"
+                    >
+                      Close
+                    </button>
+                  </div>
                 </div>
                 {viewerError && (
                   <div className="p-3 sm:p-4 bg-red-50 border-b border-red-200">
                     <div className="text-red-700 text-xs sm:text-sm">{viewerError}</div>
                   </div>
                 )}
-                <div id="notif-pdf-container" className="h-[60vh] sm:h-[70vh] overflow-y-auto p-3 sm:p-4"></div>
+                <div id="notif-pdf-container" className="h-[70vh] sm:h-[80vh] overflow-y-auto p-3 sm:p-4 bg-gray-100"></div>
               </div>
             </div>,
             document.body
           )}
+        </div>,
+        document.body
+      )}
+
+      {/* Signature Modal */}
+      {sigOpen && isClient && createPortal(
+        <div className="fixed inset-0 z-[1200] flex items-center justify-center bg-black/60 p-2">
+          <div className="w-full max-w-lg bg-white rounded-xl shadow-xl overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 border-b bg-gray-50">
+              <div className="text-sm font-semibold text-gray-900">Draw Your eSignature</div>
+              <button onClick={() => setSigOpen(false)} className="rounded-md p-1 hover:bg-gray-100">
+                <XMarkIcon className="h-4 w-4 text-gray-500" />
+              </button>
+            </div>
+            <div className="p-4 space-y-3">
+              <div className="border-2 border-gray-200 rounded-lg overflow-hidden bg-white">
+                <canvas
+                  ref={sigCanvasRef}
+                  width={600}
+                  height={220}
+                  onMouseDown={(e) => {
+                    const c = sigCanvasRef.current;
+                    if (!c) return;
+                    const rect = c.getBoundingClientRect();
+                    const ctx = c.getContext("2d")!;
+                    ctx.strokeStyle = "#111827";
+                    ctx.lineWidth = 2;
+                    ctx.lineCap = "round";
+                    ctx.beginPath();
+                    ctx.moveTo(e.clientX - rect.left, e.clientY - rect.top);
+                    setSigDrawing(true);
+                  }}
+                  onMouseMove={(e) => {
+                    if (!sigDrawing || !sigCanvasRef.current) return;
+                    const c = sigCanvasRef.current;
+                    const rect = c.getBoundingClientRect();
+                    const ctx = c.getContext("2d")!;
+                    ctx.lineTo(e.clientX - rect.left, e.clientY - rect.top);
+                    ctx.stroke();
+                  }}
+                  onMouseUp={() => setSigDrawing(false)}
+                  onMouseLeave={() => setSigDrawing(false)}
+                  onTouchStart={(e) => {
+                    e.preventDefault();
+                    const c = sigCanvasRef.current;
+                    if (!c) return;
+                    const rect = c.getBoundingClientRect();
+                    const t = e.touches[0];
+                    const ctx = c.getContext("2d")!;
+                    ctx.strokeStyle = "#111827";
+                    ctx.lineWidth = 2;
+                    ctx.lineCap = "round";
+                    ctx.beginPath();
+                    ctx.moveTo(t.clientX - rect.left, t.clientY - rect.top);
+                    setSigDrawing(true);
+                  }}
+                  onTouchMove={(e) => {
+                    e.preventDefault();
+                    const c = sigCanvasRef.current;
+                    if (!c || !sigDrawing) return;
+                    const rect = c.getBoundingClientRect();
+                    const t = e.touches[0];
+                    const ctx = c.getContext("2d")!;
+                    ctx.lineTo(t.clientX - rect.left, t.clientY - rect.top);
+                    ctx.stroke();
+                  }}
+                  onTouchEnd={() => setSigDrawing(false)}
+                  className="w-full h-[220px] touch-none bg-white cursor-crosshair"
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <button
+                  onClick={() => {
+                    const c = sigCanvasRef.current;
+                    if (c) {
+                      const ctx = c.getContext("2d")!;
+                      ctx.clearRect(0, 0, c.width, c.height);
+                    }
+                  }}
+                  className="px-3 py-1.5 text-xs sm:text-sm border rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Clear
+                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setSigOpen(false)}
+                    className="px-3 py-1.5 text-xs sm:text-sm border rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={async () => {
+                      if (!ackDetails) return;
+                      const c = sigCanvasRef.current;
+                      if (!c) return;
+                      
+                      // Check if canvas is empty
+                      const ctx = c.getContext("2d")!;
+                      const pixelData = ctx.getImageData(0, 0, c.width, c.height).data;
+                      const isCanvasEmpty = !pixelData.some(channel => channel !== 0);
+                      
+                      if (isCanvasEmpty) {
+                        alert("Please draw your signature before submitting");
+                        return;
+                      }
+                      
+                      const dataUrl = c.toDataURL("image/png");
+                      try {
+                        setLoading(true);
+                        const res = await fetch(`/api/compliance/acknowledgments`, {
+                          method: "PATCH",
+                          headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+                          body: JSON.stringify({ acknowledgmentId: ackDetails._id, signatureDataUrl: dataUrl }),
+                        });
+                        const json = await res.json();
+                        if (json.success) {
+                          setAckDetails(json.item);
+                          setSigOpen(false);
+                          if (viewerOpen && viewerUrl) {
+                            await loadPdfIntoModal(viewerUrl);
+                          }
+                        }
+                        setLoading(false);
+                      } catch (error) {
+                        console.error("Error saving signature:", error);
+                        setLoading(false);
+                      }
+                    }}
+                    disabled={loading}
+                    className="px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-indigo-600 rounded-lg hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50 flex items-center gap-1"
+                  >
+                    {loading ? (
+                      <>
+                        <div className="animate-spin h-3 w-3 border-2 border-white border-t-transparent rounded-full"></div>
+                        Saving...
+                      </>
+                    ) : (
+                      "Submit Signature"
+                    )}
+                  </button>
+                </div>
+              </div>
+              <p className="text-xs text-gray-400 text-center">
+                Use mouse or touch to draw your signature
+              </p>
+            </div>
+          </div>
         </div>,
         document.body
       )}

@@ -179,9 +179,9 @@ export default async function handler(req, res) {
   }
 
   if (req.method === "PATCH") {
-    const { acknowledgmentId, status } = req.body;
-    if (!acknowledgmentId || !status) {
-      return res.status(400).json({ success: false, message: "acknowledgmentId and status required" });
+    const { acknowledgmentId, status, signatureDataUrl } = req.body;
+    if (!acknowledgmentId || (typeof status !== "string" && !signatureDataUrl)) {
+      return res.status(400).json({ success: false, message: "acknowledgmentId and (status or signatureDataUrl) required" });
     }
     const ack = await Acknowledgment.findOne({ _id: acknowledgmentId, clinicId });
     if (!ack) {
@@ -193,11 +193,18 @@ export default async function handler(req, res) {
     if (!isAssignedStaff && !isPrivileged) {
       return res.status(403).json({ success: false, message: "Not allowed to update this acknowledgment" });
     }
-    ack.status = status;
-    if (status === "Acknowledged") {
-      ack.acknowledgedOn = new Date();
-    } else if (status === "Viewed" && !ack.acknowledgedOn) {
-      // keep acknowledgedOn null
+    if (typeof status === "string") {
+      ack.status = status;
+      if (status === "Acknowledged") {
+        ack.acknowledgedOn = new Date();
+      } else if (status === "Viewed" && !ack.acknowledgedOn) {
+        // keep acknowledgedOn null
+      }
+    }
+    if (signatureDataUrl && typeof signatureDataUrl === "string" && signatureDataUrl.startsWith("data:image/")) {
+      ack.signatureDataUrl = signatureDataUrl;
+      ack.signatureBy = user?.name || user?.email || "";
+      ack.signatureAt = new Date();
     }
     await ack.save();
     return res.status(200).json({ success: true, item: ack });

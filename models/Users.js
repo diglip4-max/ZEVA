@@ -43,6 +43,18 @@ const UserSchema = new mongoose.Schema({
   }]
 }, { timestamps: true });
 
+UserSchema.add({
+  otpEnabled: { type: Boolean, default: false },
+  otpCode: { type: String, default: null },
+  otpExpires: { type: Date, default: null }
+});
+UserSchema.add({
+  otpCodePhone: { type: String, default: null },
+  otpCodeEmail: { type: String, default: null },
+  otpExpiresPhone: { type: Date, default: null },
+  otpExpiresEmail: { type: Date, default: null }
+});
+
 UserSchema.index({ email: 1, role: 1 }, { unique: true });
 
 UserSchema.pre('save', async function (next) {

@@ -156,10 +156,12 @@ function PolicyCompliance() {
   const [categoryDraft, setCategoryDraft] = useState("");
   const [policyTypeDraft, setPolicyTypeDraft] = useState("");
   const [departments, setDepartments] = useState<Array<{ _id: string; name: string }>>([]);
+  const [currentAck, setCurrentAck] = useState<AckItem | null>(null);
 
 
-  const openViewer = (url?: string, title?: string) => {
+  const openViewer = (url?: string, title?: string, ack?: AckItem | null) => {
     if (!url) return;
+    setCurrentAck(ack || null);
     setViewerUrl(url);
     setViewerTitle(title || "Document Preview");
     setViewerOpen(true);
@@ -241,6 +243,44 @@ function PolicyCompliance() {
         canvas.width = viewport.width;
         wrapper.appendChild(canvas);
         await page.render({ canvasContext: ctx, viewport }).promise;
+        const shouldPlaceSignature = (currentAck?.status === "Acknowledged" || !!currentAck?.acknowledgedOn) && !!(currentAck as any)?.signatureDataUrl;
+        if (shouldPlaceSignature && (currentAck as any)?.signatureDataUrl) {
+          const img = new Image();
+          img.onload = () => {
+            const padding = 16;
+            const sigW = Math.min(200, canvas.width * 0.35);
+            const sigH = Math.round(sigW * 0.35);
+            const sx = canvas.width - sigW - padding - 8;
+            const sy = canvas.height - sigH - padding - 8;
+            ctx.save();
+            ctx.globalAlpha = 0.95;
+            ctx.drawImage(img, sx, sy, sigW, sigH);
+            // Digital timestamp near signature
+            const ts = (currentAck as any)?.signatureAt
+              ? new Date((currentAck as any).signatureAt)
+              : (currentAck?.acknowledgedOn ? new Date(currentAck.acknowledgedOn) : new Date());
+            let whenStr: string;
+            try {
+              whenStr = ts.toLocaleString(undefined, {
+                year: "numeric",
+                month: "2-digit",
+                day: "2-digit",
+                hour: "2-digit",
+                minute: "2-digit",
+                second: "2-digit",
+                hour12: false
+              });
+            } catch {
+              whenStr = ts.toISOString();
+            }
+            ctx.globalAlpha = 1;
+            ctx.font = "11px Segoe UI, Arial, sans-serif";
+            ctx.fillStyle = "#374151";
+            ctx.fillText(`Signed: ${whenStr}`, Math.max(padding, sx - 160), sy + sigH + 14);
+            ctx.restore();
+          };
+          img.src = (currentAck as any).signatureDataUrl;
+        }
       }
       const overlay = document.createElement("div");
       overlay.className = "overlay";
@@ -442,19 +482,19 @@ function PolicyCompliance() {
   const ackOverdue = filteredAckItems.filter(i => i.status === "Overdue").length;
   const ackComplianceRate = filteredAckItems.length ? Math.round((ackCompleted / filteredAckItems.length) * 100) : 0;
 
-  const handleRowView = async (type: TabKey, id: string, title: string) => {
+  const handleRowView = async (type: TabKey, id: string, title: string, ack?: AckItem | null) => {
     try {
       if (type === "policies") {
         const res = await fetch(`/api/compliance/policies?id=${encodeURIComponent(id)}`, { headers: getAuthHeaders() });
         const json = await res.json();
         if (!json.success || !json.item) return;
         const url = json.item.documentUrl || (json.item.attachments?.[0]);
-        if (url) openViewer(url, title);
+        if (url) openViewer(url, title, ack || null);
         setRowMenuId(null);
         return;
       }
       const dlType = type === "playbooks" ? "playbooks" : "sops";
-      openViewer(`/api/compliance/file?type=${dlType}&id=${encodeURIComponent(id)}`, title);
+      openViewer(`/api/compliance/file?type=${dlType}&id=${encodeURIComponent(id)}`, title, ack || null);
       setRowMenuId(null);
     } catch { }
   };
@@ -2367,7 +2407,7 @@ function PolicyCompliance() {
                             <div className="absolute right-2 top-9 z-10 w-36 rounded-lg border bg-white shadow">
                               <button className="w-full px-2.5 py-1.5 text-left text-xs hover:bg-gray-50" onClick={() => {
                                 const t = (i as any).documentType === "SOP" ? "sops" : (i as any).documentType === "Policy" ? "policies" : "playbooks";
-                                handleRowView(t as TabKey, (i as any).documentId || i._id, i.documentName);
+                                handleRowView(t as TabKey, (i as any).documentId || i._id, i.documentName, i as any);
                               }}>View</button>
                               <button className="w-full px-2.5 py-1.5 text-left text-xs hover:bg-gray-50" onClick={() => {
                                 const t = (i as any).documentType === "SOP" ? "sops" : (i as any).documentType === "Policy" ? "policies" : "playbooks";
