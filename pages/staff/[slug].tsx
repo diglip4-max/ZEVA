@@ -191,6 +191,8 @@ const routeMap: { [key: string]: () => Promise<any> } = {
 'clinic-referal': () => import('../clinic/referal'),
 'clinic-commission': () => import('../clinic/commission'),
 'clinic-policy_compliance': () => import('../clinic/policy_compliance'),
+'clinic-services_setup': () => import('../clinic/services_setup'),
+
 
  
  
