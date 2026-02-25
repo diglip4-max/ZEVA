@@ -450,6 +450,18 @@ export default async function handler(req, res) {
             commissionData.isFirstBilling = commissionResult.isFirstBilling || false;
           }
 
+          // Add target_plus_expense specific fields if applicable
+          if (commissionResult.commissionType === "target_plus_expense") {
+            commissionData.targetAmount = commissionResult.targetAmount || 0;
+            commissionData.cumulativeAchieved = commissionResult.cumulativeAchieved || 0;
+            commissionData.isAboveTarget = commissionResult.isAboveTarget || false;
+            commissionData.amountAboveTarget = commissionResult.amountAboveTarget || 0;
+            commissionData.totalExpenses = commissionResult.totalExpenses || 0;
+            commissionData.netCommissionableAmount = commissionResult.netCommissionableAmount || 0;
+            commissionData.expenseBreakdown = commissionResult.expenseBreakdown || [];
+            commissionData.complaintsCount = commissionResult.complaintsCount || 0;
+          }
+
           await Commission.create(commissionData);
         } else {
           console.log(`Commission not created for staff ${appointment.doctorId}: ${commissionResult.reason}`);
